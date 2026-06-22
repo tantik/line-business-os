@@ -53,9 +53,10 @@ Prerequisites: Node 20+, pnpm 9+, and the [Supabase CLI](https://supabase.com/do
 cp .env.example .env          # fill in secrets (never commit .env)
 pnpm install
 
-# Start local Postgres + apply migrations + seed structure
-supabase start
-supabase db reset             # runs migrations then supabase/seed/seed.sql
+# Start local Postgres + apply migrations + seed structure (LOCAL only)
+pnpm db:start                 # supabase start
+pnpm db:reset                 # runs migrations then supabase/seed/seed.sql
+pnpm db:test                  # run pgTAP DB/RLS tests in supabase/tests
 
 # Seed PII-bearing demo data (encrypted)
 pnpm db:seed
@@ -63,6 +64,13 @@ pnpm db:seed
 # Run everything
 pnpm dev
 ```
+
+> **Database is local-first.** During Phase 1 there is no linked Supabase Cloud
+> project. `db:reset` is destructive (rebuilds the local DB) and `db:migrate`
+> (`supabase db push`) targets a **linked remote** — do not run it in Phase 1.
+> The schema scaffold (including the `workforce`/`booking`/`ai` module schemas)
+> already exists but is **scaffold-only**: the tables are real, the product
+> features are not built yet. See [`docs/phase-1-core-db.md`](./docs/phase-1-core-db.md).
 
 Generate a 32-byte encryption key for `PII_ENCRYPTION_KEY`:
 

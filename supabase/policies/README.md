@@ -14,3 +14,12 @@ Shared helper functions used by all policies (`core.is_member_of`,
 
 This folder is intentionally documentation-only; do not add standalone policy
 SQL here that the migration runner would miss.
+
+## Verifying policies
+
+pgTAP tests in `supabase/tests/` assert the security invariants these policies
+depend on: RLS is enabled on every business table, the audit log is append-only,
+the platform-staff self-escalation guard is installed, and there are **no broad
+grants** to `anon` / `authenticated` (the no-grants posture from ADR 0005, which
+keeps direct browser DB access closed even though RLS is in place). Run them
+with `pnpm db:reset` followed by `pnpm db:test`. See `docs/phase-1-core-db.md`.
