@@ -1,0 +1,38 @@
+---
+description: LINE Business OS platform architecture and module boundaries
+alwaysApply: true
+---
+
+# LINE Business OS Is One Platform
+
+LINE Business OS is a **single multi-tenant SaaS platform** for Japanese SMBs.
+All products (Workforce, Booking, Logistics, CRM, Inventory, AI) are **modules**
+that run inside one shared Core — never standalone apps.
+
+## Do not create isolated projects
+
+- ❌ Do NOT scaffold a separate repo/app for Workforce, Booking, demo, or
+  client-template.
+- ❌ Do NOT duplicate Core (auth, tenant context, RBAC, audit, db client) per
+  module.
+- ✅ Add new product code as a package/module that depends on `@line-os/core`,
+  `@line-os/db`, etc.
+
+## Demo and client-template are tenants, not codebases
+
+Demo and client-template differ only by `tenant.kind`, `settings`, and seed
+data. Never fork the codebase to create them.
+
+## Layout
+
+```
+apps/web (Next.js) · apps/api (NestJS) · apps/worker (jobs/reminders)
+packages/core|db|line|ai|ui|config|workforce|booking
+supabase/migrations|seed · docs/
+```
+
+## Before implementing a module feature
+
+Check `docs/architecture`, the `tenant_id` requirement, RLS impact, RBAC
+(`packages/core/src/permissions.ts`), audit requirement, and cross-module
+impact — then run lint/build/tests.

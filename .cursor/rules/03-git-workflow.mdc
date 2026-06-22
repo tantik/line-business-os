@@ -1,0 +1,34 @@
+---
+description: Git workflow — branch model and required pre-report verification
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Branch model
+
+- `main` = stable. `dev` = integration. `feature/*` = task branches.
+- ❌ **Never push directly to `main`.** Never force-push `main`.
+- ✅ Create feature branches from `dev`:
+
+```bash
+git checkout dev && git pull
+git checkout -b feature/<scope>
+```
+
+- Open PRs into `dev`. `main` only advances via reviewed merges.
+
+## Verify before any final report or PR
+
+Run these from the repo root and confirm they pass before reporting done:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm lint
+```
+
+Every task report notes: scope, changed files, build/lint result, security
+impact, migration impact, and a rollback note.

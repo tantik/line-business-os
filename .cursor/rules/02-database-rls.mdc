@@ -1,0 +1,45 @@
+---
+description: Database rules — tenant_id, location_id, and mandatory RLS
+globs: supabase/migrations/**/*.sql
+alwaysApply: true
+---
+
+# Multi-Tenant Database Rules
+
+## Every business table has tenant_id
+
+`tenant_id uuid not null` is mandatory on every business table. No exceptions.
+
+```sql
+-- ❌ BAD: no tenant_id
+create table shifts (id uuid primary key, starts_at timestamptz);
+
+-- ✅ GOOD
+create table shifts (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references tenants(id),
+  location_id uuid references locations(id), -- physical site data
+  starts_at timestamptz not null
+);
+```
+
+## location_id for physical sites
+
+If data belongs to a physical branch/store/salon/warehouse, also include
+`location_id uuid`.
+
+## RLS is mandatory
+
+Tenant isolation lives in the database, not the frontend. Add an RLS policy for
+**every** new table in the same migration that creates it.
+
+```sql
+alter table shifts enable row level security;
+
+create policy shifts_tenant_isolation on shifts
+  using (tenant_id = current_tenant_id());
+```
+
+- Enable RLS in the same migration as `create table`.
+- Scope every policy by `tenant_id` (and `location_id`/RBAC where relevant).
+- A table without RLS is a bug, not a TODO.

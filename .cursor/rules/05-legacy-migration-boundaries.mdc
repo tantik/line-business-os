@@ -1,0 +1,25 @@
+---
+description: Boundaries for legacy reference repos (cafe-shift, line-app)
+alwaysApply: true
+---
+
+# Legacy Migration Boundaries
+
+Legacy repos are **source references only**, mapped to specific modules:
+
+- `tantik/cafe-shift` → reference for the **Workforce** module only.
+- `tantik/line-app` → reference for the **Booking** module only.
+
+## Rules
+
+- ❌ Do NOT copy legacy projects wholesale into this platform.
+- ❌ Do NOT modify the legacy repositories destructively (create backup tags
+  first if you must touch them at all).
+- ❌ Do NOT use cafe-shift for Booking, or line-app for Workforce.
+- ✅ Extract domain logic, then re-implement it inside the platform:
+  preserve UI/UX → extract domain logic → replace mock data with Core API →
+  add `tenant_id`/`location_id` → add RLS/RBAC → add audit logs → add
+  demo + client-template seed → test module isolation.
+
+Migration of either legacy repo is a deliberate, scoped task — never an
+implicit side effect of other work.
