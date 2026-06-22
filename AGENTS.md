@@ -20,6 +20,9 @@ Read these in order before changing anything:
 4. `.cursor/rules/*` — machine-enforced guardrails.
 5. `docs/architecture/*` — architecture detail.
 6. `docs/security/*` — security requirements.
+7. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
+   already contains, the scaffold-only module schemas, local-first flow, and
+   cloud safety guardrails.
 
 ## Non-negotiable rules
 
@@ -52,6 +55,16 @@ Read these in order before changing anything:
 6. Check cross-module impact.
 7. Run lint/build/tests.
 8. Summarize risks before commit.
+
+## Database phase (Phase 1)
+
+The Supabase scaffold already exists under `supabase/migrations` and applies
+cleanly to a **local** database. Migrations `0009_workforce.sql`,
+`0010_booking.sql`, and `0011_ai.sql` are **real schema migrations but
+scaffold-only** — the tables/RLS exist; the product features do not. Do not
+delete or renumber existing migrations. During Phase 1 the DB is **local-first**:
+do not link Supabase Cloud and do not run `supabase db push` (`db:migrate`).
+Full detail and command risk table: `docs/phase-1-core-db.md`.
 
 ## Git rules
 

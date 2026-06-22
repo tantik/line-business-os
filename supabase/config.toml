@@ -12,7 +12,18 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 16
+# Supabase CLI accepts only 15 or 17 here (16 is not a published image and is
+# rejected by `Validate()`). Pinned to 15 (supabase/postgres:15.8.1.085), the
+# long-stable local image; all migrations use version-agnostic SQL.
+major_version = 15
+
+# Local-only seed. `supabase db reset` applies these after migrations. This is
+# demo/structural data for LOCAL development only — never apply it to a linked
+# cloud/production database. PII-bearing demo rows are created separately by the
+# encrypted TS seeder (`pnpm db:seed`). See docs/phase-1-core-db.md §3.
+[db.seed]
+enabled = true
+sql_paths = ["./seed/seed.sql"]
 
 [studio]
 enabled = true

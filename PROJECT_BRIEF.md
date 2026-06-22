@@ -135,6 +135,13 @@ Proposals are inert data until approved.
 - seed
 - RLS / security checks
 
+The Supabase schema scaffold already exists (`supabase/migrations`, including
+the `workforce`/`booking`/`ai` module schemas) and applies cleanly to a local
+database. Those module migrations are **scaffold-only**: the tables and RLS are
+real, but no product feature is built on them yet. The DB is **local-first** in
+this phase — no linked cloud, no `supabase db push`. See
+`docs/phase-1-core-db.md`.
+
 No cafe-shift (Workforce) or line-app (Booking) migration yet. Those are
 deliberate, scoped tasks for later phases.
 
