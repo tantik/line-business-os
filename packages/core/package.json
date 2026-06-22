@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@line-os/config": "workspace:*",
-    "@line-os/db": "workspace:*"
+    "@line-os/db": "workspace:*",
+    "@supabase/supabase-js": "^2.45.4"
   },
   "devDependencies": {
     "typescript": "^5.6.2"

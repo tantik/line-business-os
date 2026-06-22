@@ -8,6 +8,14 @@ Every table with `tenant_id` has RLS enabled and policies that gate access via
 `core.is_member_of` / `core.has_permission`. Tenant isolation must not depend on
 frontend filtering.
 
+**Platform-staff privilege is not self-mutable.** `core.users.is_platform_staff`
+grants cross-tenant access through `core.is_platform_staff()`, so tenant users
+must never be able to promote themselves. The `users_self_update` policy lets a
+user edit their own row, but a `BEFORE UPDATE` trigger
+(`supabase/migrations/0012_protect_platform_staff.sql`) blocks the `anon` /
+`authenticated` roles from changing that column; promotion is a server-only
+(`service_role`) action. See ADR 0005.
+
 ## 2. Tenant id derivation
 
 The backend derives `tenant_id` from the authenticated user's membership

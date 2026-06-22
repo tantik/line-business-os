@@ -27,18 +27,20 @@ export async function sendBookingReminders(): Promise<number> {
 
   if (error) throw error;
 
-  let sent = 0;
+  // Reminder messages prepared this run. In the full implementation each entry
+  // is pushed via LINE; for now we build them so the count reflects real work.
+  const prepared: string[] = [];
   for (const booking of bookings ?? []) {
     // Decrypt only what we need, only here (server-side).
-    const _name = booking.customer_name_encrypted
+    const customerName = booking.customer_name_encrypted
       ? decryptPII(byteaToBuffer(booking.customer_name_encrypted as string), env.PII_ENCRYPTION_KEY)
       : 'Customer';
 
     // TODO: resolve tenant LINE channel (core.line_channels) + recipient line id
-    //       (core.line_accounts), then push via LineMessagingClient, and insert
-    //       a booking_events row of type 'reminded' to ensure idempotency.
-    sent += 1;
+    //       (core.line_accounts), then push this message via LineMessagingClient,
+    //       and insert a booking_events row of type 'reminded' for idempotency.
+    prepared.push(`${customerName}様、ご予約のリマインドです。`);
   }
 
-  return sent;
+  return prepared.length;
 }

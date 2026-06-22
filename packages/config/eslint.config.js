@@ -14,19 +14,33 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     rules: {
+      // TypeScript already reports undefined identifiers; the core rule produces
+      // false positives for global/ambient types, so defer to the compiler.
+      'no-undef': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
-      // Guardrail: discourage reading service_role anywhere outside server packages.
+      // SECURITY GUARDRAIL: the Supabase service_role key bypasses RLS and must
+      // never be read via process.env in application code (especially the web
+      // client). Server code must go through the validated `serverEnv()` accessor
+      // in @line-os/config. This is an ERROR so `pnpm lint` fails on violation.
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
+          // Dot access: process.env.SUPABASE_SERVICE_ROLE_KEY
           selector:
-            "MemberExpression[object.name='process'][property.name='env'] Literal[value='SUPABASE_SERVICE_ROLE_KEY']",
+            "MemberExpression[object.object.name='process'][object.property.name='env'][property.name='SUPABASE_SERVICE_ROLE_KEY']",
           message:
-            'service_role must only be read in server-side packages (api/worker/db). Never bundle into the web client.',
+            'Do not read SUPABASE_SERVICE_ROLE_KEY from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.',
+        },
+        {
+          // Bracket access: process.env['SUPABASE_SERVICE_ROLE_KEY']
+          selector:
+            "MemberExpression[object.object.name='process'][object.property.name='env'][property.value='SUPABASE_SERVICE_ROLE_KEY']",
+          message:
+            'Do not read SUPABASE_SERVICE_ROLE_KEY from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.',
         },
       ],
     },
