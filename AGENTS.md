@@ -10,6 +10,17 @@ A single **multi-tenant SaaS platform** for Japanese SMBs. Multiple products
 **Do not build isolated one-off projects.** Every product runs inside this
 platform.
 
+## Read order for AI agents
+
+Read these in order before changing anything:
+
+1. `PROJECT_BRIEF.md` — high-level project strategy and context.
+2. `README.md` — repository overview and getting started.
+3. `AGENTS.md` — operating rules (this file).
+4. `.cursor/rules/*` — machine-enforced guardrails.
+5. `docs/architecture/*` — architecture detail.
+6. `docs/security/*` — security requirements.
+
 ## Non-negotiable rules
 
 1. **Every business table includes `tenant_id uuid not null`.** If the data
