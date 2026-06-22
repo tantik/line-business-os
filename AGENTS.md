@@ -63,6 +63,13 @@ Both are **tenants**, not separate codebases. Differences come from
 `tenant.kind`, `settings`, and seed data only. Demo has fake realistic data and
 no real PII; client template is a clean, production-auth, strict-RLS starter.
 
+## Cursor project rules
+
+Machine-enforced guardrails for AI agents live in `.cursor/rules` (architecture,
+security, database/RLS, git workflow, AI-agent workflow, legacy-migration
+boundaries). They restate and operationalize the rules in this file; keep both
+in sync when either changes.
+
 ## Layout
 
 - `apps/web` Next.js · `apps/api` NestJS · `apps/worker` jobs/reminders

@@ -80,3 +80,7 @@ clean `client_template` tenant to clone for real clients.
 
 Read [`AGENTS.md`](./AGENTS.md). `main` is stable, `dev` is integration, work on
 `feature/*`. Never push directly to `main`.
+
+Cursor project rules live in [`.cursor/rules`](./.cursor/rules) — they encode
+the platform architecture, security, RLS, git, AI-agent, and legacy-migration
+guardrails for AI agents and contributors.

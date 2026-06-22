@@ -1,0 +1,44 @@
+---
+description: Security rules — service_role isolation, PII encryption, LINE webhooks, audit
+alwaysApply: true
+---
+
+# Security Non-Negotiables
+
+## service_role is server-only
+
+- ❌ Never import `createServiceClient` from `@line-os/db` in `apps/web`.
+- ❌ Never read `SUPABASE_SERVICE_ROLE_KEY` in frontend code.
+- ✅ Frontend uses the anon key + RLS only. `service_role` lives in
+  `apps/api` / `apps/worker`.
+
+## Derive tenant_id from the authenticated user
+
+- ❌ Never trust `tenant_id` from the request body / query / headers.
+- ✅ Resolve it from the user's membership
+  (`packages/core/src/tenant-context.ts`).
+
+## Protect PII
+
+Encrypt email, phone, address, customer name, employee name, and LINE user id.
+Searchable PII must use `*_encrypted` + `*_hash` (blind index) via
+`@line-os/db/crypto`.
+
+```ts
+// ❌ BAD: plaintext, not searchable safely
+await db.from('customers').insert({ email });
+
+// ✅ GOOD: encrypted value + blind index hash
+const { encrypted, hash } = encryptSearchable(email);
+await db.from('customers').insert({ email_encrypted: encrypted, email_hash: hash });
+```
+
+## Verify LINE webhook signatures
+
+Verify the signature against the **raw** request body before processing
+(`@line-os/line/webhook`). Reject on mismatch.
+
+## Audit critical mutations
+
+Every create/update/delete of business data must call `writeAudit` (actor,
+tenant, module, entity, action, before/after when safe, timestamp).
