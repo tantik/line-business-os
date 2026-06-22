@@ -45,6 +45,10 @@ drop policy if exists users_self_select on core.users;
 create policy users_self_select on core.users
   for select using (id = core.current_user_id() or core.is_platform_staff());
 
+-- A user may update their own row, BUT the privileged `is_platform_staff` column
+-- is NOT self-mutable: migration 0012 installs a trigger that blocks client
+-- roles from changing it, closing a cross-tenant privilege-escalation path. RLS
+-- WITH CHECK cannot compare the previous value, so the trigger is the guard.
 drop policy if exists users_self_update on core.users;
 create policy users_self_update on core.users
   for update using (id = core.current_user_id())
