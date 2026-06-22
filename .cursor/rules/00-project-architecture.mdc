@@ -9,6 +9,16 @@ LINE Business OS is a **single multi-tenant SaaS platform** for Japanese SMBs.
 All products (Workforce, Booking, Logistics, CRM, Inventory, AI) are **modules**
 that run inside one shared Core — never standalone apps.
 
+## Scale target and current infrastructure
+
+- 🎯 The platform is designed to eventually serve **300+ client tenants** on
+  shared multi-tenant infrastructure.
+- 💸 At the **current stage, keep infrastructure minimal and free where
+  possible** — do not provision paid/dedicated infra ahead of real demand.
+- 🧱 Use **one repo, one Vercel project, and one Supabase/PostgreSQL database**
+  at this stage. Scale via multi-tenancy (`tenant_id` + RLS), not by spinning up
+  per-client repos, projects, or databases.
+
 ## Do not create isolated projects
 
 - ❌ Do NOT scaffold a separate repo/app for Workforce, Booking, demo, or

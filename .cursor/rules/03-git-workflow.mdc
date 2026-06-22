@@ -24,10 +24,7 @@ Run these from the repo root and confirm they pass before reporting done:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm lint
+pnpm exec turbo run typecheck test build lint --force --ui=stream
 ```
 
 Every task report notes: scope, changed files, build/lint result, security
