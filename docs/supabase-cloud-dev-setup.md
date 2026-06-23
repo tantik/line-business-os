@@ -5,7 +5,7 @@ This guide explains how a **human** creates and prepares a separate Supabase
 documentation only. Read `docs/phase-1-core-db.md` first for the local-first
 flow and the existing migration scaffold.
 
-> ⚠️ This phase does **not** push anything to Cloud. Every Cloud-writing command
+> ⚠ This phase does **not** push anything to Cloud. Every Cloud-writing command
 > is gated behind explicit human approval (see
 > [Approval gate before Cloud write](#approval-gate-before-cloud-write)).
 
