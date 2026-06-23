@@ -71,6 +71,9 @@ pnpm dev
 > The schema scaffold (including the `workforce`/`booking`/`ai` module schemas)
 > already exists but is **scaffold-only**: the tables are real, the product
 > features are not built yet. See [`docs/phase-1-core-db.md`](./docs/phase-1-core-db.md).
+> Preparing a separate Supabase **Cloud dev** project (Phase 1B, approval-gated,
+> placeholders only) is documented in
+> [`docs/supabase-cloud-dev-setup.md`](./docs/supabase-cloud-dev-setup.md).
 
 Generate a 32-byte encryption key for `PII_ENCRYPTION_KEY`:
 

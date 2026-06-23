@@ -23,6 +23,9 @@ Read these in order before changing anything:
 7. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
    already contains, the scaffold-only module schemas, local-first flow, and
    cloud safety guardrails.
+8. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
+   prepares a separate Supabase Cloud dev project (placeholders only; Cloud
+   writes are approval-gated).
 
 ## Non-negotiable rules
 
