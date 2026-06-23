@@ -1,7 +1,14 @@
 # ADR 0005: Data access model (browser anon vs backend service-role)
 
-- Status: Accepted
+- Status: Accepted (extended by ADR 0006)
 - Date: 2026-06-22
+
+> **Update (Phase 1D):** the "No broad grants" posture (§5) below has been
+> *narrowly* opened by **ADR 0006**: `authenticated` now has `USAGE` on schema
+> `core` and `SELECT` on **only** `core.tenants` and `core.tenant_memberships`,
+> with RLS still enforcing isolation. `anon` still gets nothing and no other
+> table/schema is opened. The per-table bar in *Consequences* still governs any
+> further surface. See `docs/adr/0006-authenticated-tenant-read-access.md`.
 
 ## Context
 

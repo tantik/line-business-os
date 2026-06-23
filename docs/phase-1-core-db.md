@@ -29,6 +29,11 @@ Supabase CLI. As of Phase 1A the scaffold is complete and covers:
 | `0010_booking.sql` | **booking** schema: services, staff, hours, slots, bookings, events | **scaffold-only** |
 | `0011_ai.sql` | **ai** schema: proposals + prompt logs | **scaffold-only** |
 | `0012_protect_platform_staff.sql` | trigger blocking self-escalation to platform staff | security |
+| `0013_authenticated_tenant_access.sql` | first narrow `authenticated` SELECT surface (`core.tenants`, `core.tenant_memberships`) + `shares_tenant_with` helper + Option T1 membership policies | security |
+
+> Migration `0013` (Phase 1D) opens the **first** narrow direct-DB read surface
+> for the `authenticated` role. See `docs/phase-1d-db-access-hardening.md` and
+> ADR 0006. It is validated **locally only**; Cloud apply needs explicit approval.
 
 ### "Scaffold-only" means
 
@@ -173,10 +178,16 @@ The tests cover (at minimum):
 - `audit.audit_logs` is append-only (update/delete are rejected);
 - the platform-staff self-escalation guard exists (function + trigger from
   `0012`);
-- there are **no broad table grants** to `anon` / `authenticated` (the
-  "no-grants" posture from ADR 0005);
+- client grants stay minimal (ADR 0005 + ADR 0006): `anon` has **no** business
+  grants and no `core` schema usage; `authenticated` has exactly `USAGE` on
+  schema `core` plus `SELECT` on **only** `core.tenants` and
+  `core.tenant_memberships` (Phase 1D), and nothing else on the business schemas;
 - product schemas are exposed in `config.toml` (`api.schemas`) but remain closed
-  to client roles by the no-grants posture.
+  to client roles (no product-schema grants);
+- Phase 1D authenticated access behaves correctly under RLS: own-only membership
+  reads, manager-gated managed reads, cross-tenant denial, preserved co-member
+  visibility via `core.shares_tenant_with`, anon/no-JWT denial, writes blocked
+  (`supabase/tests/0003_authenticated_access.sql`).
 
 If pgTAP is unavailable in your local stack, `supabase test db` will error
 rather than silently pass. Do not fake a pass — see the test file header for the

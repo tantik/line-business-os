@@ -220,10 +220,10 @@ client (no service-role key).
   memberships from `core.tenant_memberships` joined to `core.tenants`
   (`tenant_id, user_id, location_id, status` + `id, slug, name, kind`), scoped to
   the user. Maps Postgres `42501` / "permission denied" to `unauthorized` and
-  other errors to `unexpected_error`. (ADR 0005 note: the scaffold adds no
-  `authenticated` table GRANTs yet, so a live read currently surfaces
-  `unauthorized`; lighting it up is a separate, review-gated GRANT + RLS-test
-  change.)
+  other errors to `unexpected_error`. (ADR 0005 → ADR 0006 note: Phase 1D
+  migration `0013` opened the narrow `authenticated` SELECT on `core.tenants` +
+  `core.tenant_memberships` under RLS, so this read now succeeds for a real
+  session; regular users see only their own membership rows (Option T1).)
 - `select.ts` — `selectActiveTenant(memberships, requestedTenantId?)`: pure,
   side-effect-free selection. A requested tenant the user is **not** a member of
   returns `unauthorized` (never a silent cross-tenant fallback).

@@ -15,11 +15,12 @@ import type {
  * Framework-agnostic (no Next.js imports) and unit-testable with a stubbed
  * client. Returns a typed result for each outcome instead of throwing.
  *
- * NOTE (ADR 0005): the scaffold intentionally adds no `anon`/`authenticated`
- * table GRANTs yet, so a real authenticated read currently returns a
- * permission error (mapped to `unauthorized`). Enabling direct browser reads is
- * a separate, review-gated change (narrow GRANT + RLS tests). This helper is
- * the foundation that such a change will light up — it is not a product feature.
+ * NOTE (ADR 0005 → ADR 0006): Phase 1D (migration 0013) opened the first narrow
+ * `authenticated` read surface — `SELECT` on `core.tenants` and
+ * `core.tenant_memberships` under RLS — so this membership read can now succeed
+ * for a real authenticated session. Regular users see only their own membership
+ * rows (Option T1). A missing/over-restricted grant still maps to `unauthorized`
+ * (fail-closed). This helper is foundation plumbing, not a product feature.
  */
 interface TenantRow {
   id: string;
