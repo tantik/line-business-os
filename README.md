@@ -79,6 +79,9 @@ pnpm dev
 > yet**. Future Cloud schema changes are **new forward migrations only**, applied
 > under the approval gate. Details (no secrets, no project ref) in
 > [`docs/supabase-cloud-dev-setup.md`](./docs/supabase-cloud-dev-setup.md).
+> The next phase, **Phase 1C — App-layer foundation for authenticated
+> multi-tenant access**, is in **planning (docs-only)**: see
+> [`docs/phase-1c-app-foundation.md`](./docs/phase-1c-app-foundation.md).
 
 Generate a 32-byte encryption key for `PII_ENCRYPTION_KEY`:
 

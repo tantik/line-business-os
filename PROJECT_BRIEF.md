@@ -131,9 +131,14 @@ Proposals are inert data until approved.
   the tables and RLS are real, but no product feature is built on them yet.
 - **`main` protected** — stable baseline (commit `8ad90af`); never pushed to
   directly.
-- **`dev` clean and green** — integration branch (commit `861623b`) passing
-  verification.
-- **Current branch** — `feature/supabase-cloud-dev-prep`, created from `dev`.
+- **`dev` clean and green** — integration branch after Phase 1A and Phase 1B
+  completion.
+- **Phase 1C planning branch** — `feature/phase-1c-app-foundation-plan` was
+  created from `dev` for this docs-only planning PR.
+- **Phase 1C planning underway** — the **app-layer foundation for authenticated
+  multi-tenant access** is being scoped in a **docs-only** planning PR. No code,
+  migrations, Supabase commands, or secrets are introduced. See
+  `docs/phase-1c-app-foundation.md`.
 - **Cursor project rules added** — `.cursor/rules/*` guardrails merged.
 - **Local quality gate passed** — `pnpm install --frozen-lockfile` PASS;
   `turbo run typecheck test build lint` 27/27 PASS.
@@ -222,7 +227,34 @@ Phase 1B is **complete** — all criteria below are satisfied:
 - **Local checks still pass** (`pnpm install --frozen-lockfile`; typecheck /
   test / build / lint).
 
-## 17. Expected long-term result
+## 17. Current next phase — Phase 1C planning (app-layer foundation)
+
+**Phase 1A (Core DB / Supabase local) is complete.** **Phase 1B (Supabase Cloud
+dev project preparation + scaffold apply) is complete.** The current next phase
+is **Phase 1C — App-layer foundation for authenticated multi-tenant access**,
+and it is in **planning (docs-only)** right now.
+
+- **Goal** — prepare the **application layer** so future Workforce, Booking, and
+  AI modules can safely use **Supabase Auth, tenant context, protected routes,
+  and RLS**. Phase 1C does **not** implement product features.
+- **Planned (later) implementation** — Supabase browser/server client
+  utilities, an env variable contract + validation, an auth/session baseline, a
+  protected-route pattern, a tenant context + membership access pattern, an
+  optional dashboard/route skeleton (only if approved), safe
+  error/loading/unauthorized patterns, and a test strategy.
+- **Non-goals** — no Workforce/Booking/AI/LINE product logic, no customer-facing
+  product logic, no `cafe-shift`/`line-app` migration, and no new DB migrations
+  unless separately reviewed and approved.
+- **Cloud stays dev-only.** The Supabase Cloud project remains a **dev
+  environment only**; **no production project exists yet**. Any Cloud schema
+  change is a **new forward migration** applied under the Phase 1B approval gate.
+- **Destructive-command restrictions still apply.** No `supabase link`,
+  `db push`, `db pull`, `db reset`, or `migration repair` without the documented
+  approval gate; never push to `main`; never edit `0000`–`0012`.
+
+Full detail: `docs/phase-1c-app-foundation.md`.
+
+## 18. Expected long-term result
 
 A platform where **new modules and new clients can be launched quickly without
 rewriting Core**. Adding a client is creating a tenant; adding a product is
