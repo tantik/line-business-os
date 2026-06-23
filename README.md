@@ -65,14 +65,19 @@ pnpm db:seed
 pnpm dev
 ```
 
-> **Database is local-first.** During Phase 1 there is no linked Supabase Cloud
-> project. `db:reset` is destructive (rebuilds the local DB) and `db:migrate`
-> (`supabase db push`) targets a **linked remote** — do not run it in Phase 1.
-> The schema scaffold (including the `workforce`/`booking`/`ai` module schemas)
-> already exists but is **scaffold-only**: the tables are real, the product
-> features are not built yet. See [`docs/phase-1-core-db.md`](./docs/phase-1-core-db.md).
-> Preparing a separate Supabase **Cloud dev** project (Phase 1B, approval-gated,
-> placeholders only) is documented in
+> **Database is local-first.** Day-to-day development runs against the local
+> Supabase stack. `db:reset` is destructive (rebuilds the local DB) and
+> `db:migrate` (`supabase db push`) targets a **linked remote** — only run it
+> against Cloud under the approval gate. The schema scaffold (including the
+> `workforce`/`booking`/`ai` module schemas) already exists but is
+> **scaffold-only**: the tables are real, the product features are not built yet.
+> See [`docs/phase-1-core-db.md`](./docs/phase-1-core-db.md).
+> A separate Supabase **Cloud dev** project has been prepared (Phase 1B,
+> complete): the scaffold migrations `0000`–`0012` were applied to the
+> human-created Cloud **dev** project under explicit human approval (verified
+> Local = Remote). It is a **dev environment only — no production project exists
+> yet**. Future Cloud schema changes are **new forward migrations only**, applied
+> under the approval gate. Details (no secrets, no project ref) in
 > [`docs/supabase-cloud-dev-setup.md`](./docs/supabase-cloud-dev-setup.md).
 
 Generate a 32-byte encryption key for `PII_ENCRYPTION_KEY`:

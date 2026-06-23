@@ -138,16 +138,28 @@ Proposals are inert data until approved.
 - **Local quality gate passed** — `pnpm install --frozen-lockfile` PASS;
   `turbo run typecheck test build lint` 27/27 PASS.
 - **Supabase CLI** — version `2.107.0` installed locally.
-- **Supabase Cloud not linked yet** — no `supabase db push`, no
-  `supabase db pull`, no destructive Cloud reset has been run.
+- **Phase 1B Cloud dev apply complete** — the human-created Supabase **Cloud
+  dev** project was prepared, linked, and the scaffold migrations `0000`–`0012`
+  were applied to it under the full approval gate. Post-push
+  `supabase migration list` verified **Local = Remote** for `0000`–`0012`. The
+  Cloud project is a **dev environment only**; **no production project exists
+  yet**. No product features were added, and `cafe-shift`/`line-app` were not
+  moved. `supabase db pull` and destructive resets remain unrun. See
+  `docs/supabase-cloud-dev-setup.md` →
+  "Phase 1B Cloud dev apply — completed status".
 
-## 12. Current phase — Phase 1B: Supabase Cloud dev project preparation
+## 12. Phase 1B complete — Supabase Cloud dev project preparation
 
-Phase 1A delivered the **local-first** database. Phase 1B prepares a separate
-**Supabase Cloud dev project** so the team can later run the same migrations
-against a hosted environment — **without** touching Cloud until a human
-explicitly approves it. This phase is preparation and documentation only; it
-does not apply migrations to Cloud.
+Phase 1A delivered the **local-first** database. Phase 1B prepared a separate
+**Supabase Cloud dev project** so the team can run the same migrations against a
+hosted environment — kept separate from any future production project, and only
+after explicit human approval. This phase is **complete**: under the approval
+gate, the scaffold migrations `0000`–`0012` were applied to the human-created
+Cloud **dev** project, and post-push `supabase migration list` verified
+**Local = Remote** for `0000`–`0012`. The Cloud project remains a **dev
+environment only**; **no production project exists yet**. No product features
+were added, and `cafe-shift`/`line-app` were not moved. Any future Cloud schema
+change must be a **new forward migration** applied under the same gate.
 
 The Supabase schema scaffold already exists (`supabase/migrations`, including
 the `workforce`/`booking`/`ai` module schemas) and applies cleanly to a local
@@ -197,12 +209,16 @@ deliberate, scoped tasks for later phases.
 
 ## 16. Definition of Done for Phase 1B
 
+Phase 1B is **complete** — all criteria below are satisfied:
+
 - **`PROJECT_BRIEF.md` updated** to reflect the current state and Phase 1B.
 - **Supabase Cloud dev project setup checklist documented.**
 - **Required secrets/env names documented with placeholders only.**
 - **Supabase Cloud safety rules documented.**
 - **No real secrets committed.**
-- **No Cloud push performed without explicit approval.**
+- **Cloud push performed only after explicit human approval** — scaffold
+  migrations `0000`–`0012` applied to the human-created Cloud **dev** project;
+  post-push `supabase migration list` verified **Local = Remote**.
 - **Local checks still pass** (`pnpm install --frozen-lockfile`; typecheck /
   test / build / lint).
 
