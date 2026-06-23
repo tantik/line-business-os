@@ -26,6 +26,9 @@ Read these in order before changing anything:
 8. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
    prepares a separate Supabase Cloud dev project (placeholders only; Cloud
    writes are approval-gated).
+9. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
+   app-layer foundation for authenticated multi-tenant access (Supabase Auth,
+   tenant context, protected routes, RLS). Planning only — no product features.
 
 ## Non-negotiable rules
 
