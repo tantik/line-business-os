@@ -121,31 +121,92 @@ Proposals are inert data until approved.
 ## 11. Current completed state
 
 - **Phase 0 scaffold complete** — monorepo layout, apps, packages, docs.
-- **Scaffold hardening complete** — build/lint/test and RLS guardrails.
-- **`main` protected** — stable baseline; never pushed to directly.
-- **`dev` clean and green** — integration branch passing verification.
+- **Phase 1A complete and merged into `dev`** — Core Database / Supabase
+  **local** setup is done: migrations, seed, and RLS/security checks land and
+  apply cleanly to a local database.
+- **Supabase scaffold hardening complete** — PR #3 "Add Supabase scaffold
+  hardening and DB tests" was merged into `dev`.
+- **Supabase migrations `0000`–`0012` exist** and apply cleanly locally.
+- **Workforce / Booking / AI migrations remain scaffold-only module DDL** —
+  the tables and RLS are real, but no product feature is built on them yet.
+- **`main` protected** — stable baseline (commit `8ad90af`); never pushed to
+  directly.
+- **`dev` clean and green** — integration branch (commit `861623b`) passing
+  verification.
+- **Current branch** — `feature/supabase-cloud-dev-prep`, created from `dev`.
 - **Cursor project rules added** — `.cursor/rules/*` guardrails merged.
-- **Verification pipeline stabilized** — typecheck/test/build/lint run green.
+- **Local quality gate passed** — `pnpm install --frozen-lockfile` PASS;
+  `turbo run typecheck test build lint` 27/27 PASS.
+- **Supabase CLI** — version `2.107.0` installed locally.
+- **Supabase Cloud not linked yet** — no `supabase db push`, no
+  `supabase db pull`, no destructive Cloud reset has been run.
 
-## 12. Next phase
+## 12. Current phase — Phase 1B: Supabase Cloud dev project preparation
 
-**Phase 1 — Core Database / Supabase Local Setup:**
-
-- migrations
-- seed
-- RLS / security checks
+Phase 1A delivered the **local-first** database. Phase 1B prepares a separate
+**Supabase Cloud dev project** so the team can later run the same migrations
+against a hosted environment — **without** touching Cloud until a human
+explicitly approves it. This phase is preparation and documentation only; it
+does not apply migrations to Cloud.
 
 The Supabase schema scaffold already exists (`supabase/migrations`, including
 the `workforce`/`booking`/`ai` module schemas) and applies cleanly to a local
-database. Those module migrations are **scaffold-only**: the tables and RLS are
-real, but no product feature is built on them yet. The DB is **local-first** in
-this phase — no linked cloud, no `supabase db push`. See
-`docs/phase-1-core-db.md`.
+database. See `docs/phase-1-core-db.md`.
 
 No cafe-shift (Workforce) or line-app (Booking) migration yet. Those are
 deliberate, scoped tasks for later phases.
 
-## 13. Expected long-term result
+## 13. Phase 1B Goal
+
+- **Create/prepare a separate Supabase Cloud dev project** dedicated to
+  development (kept distinct from any future production project).
+- **Prepare required local docs/checklists/env examples** — a Cloud setup
+  checklist and env name documentation using placeholders only.
+- **Safely link only after review** — `supabase link` is performed only after
+  the Cloud project and link details have been reviewed.
+- **Use migration list and dry-run before any Cloud write** — inspect the
+  migration list and run `supabase db push --dry-run` before any real write.
+- **Do not apply migrations to Cloud until explicit human approval** — no real
+  `supabase db push` to Cloud without an explicit human go-ahead.
+
+## 14. Supabase Cloud Safety Rules
+
+- **Cloud push requires explicit approval** — a real `supabase db push` to
+  Cloud is only run after an explicit human approval.
+- **Cloud reset is forbidden** — never run a destructive Cloud reset
+  (`supabase db reset` against Cloud).
+- **`db pull` is forbidden unless approved** — do not run `supabase db pull`
+  without explicit approval.
+- **`db push --dry-run` is allowed only after Cloud project/link review** — the
+  dry run is permitted once the Cloud project and link have been reviewed, and
+  it performs no writes.
+- **No secrets in git** — never commit real project refs, URLs, keys,
+  passwords, service-role keys, or other secrets.
+- **Use placeholders only in docs/examples** — all documented env values are
+  placeholders, never real credentials.
+
+## 15. Migration Policy
+
+- **Existing migrations are append-only.**
+- **Do not delete, renumber, squash, rewrite, reorder, or replace existing
+  migrations** (`0000`–`0012`).
+- **Workforce / Booking / AI migrations stay scaffold-only module DDL** — keep
+  them as-is (Decision: Option A).
+- **Any future schema change must be a new forward migration** added on top of
+  the existing series.
+
+## 16. Definition of Done for Phase 1B
+
+- **`PROJECT_BRIEF.md` updated** to reflect the current state and Phase 1B.
+- **Supabase Cloud dev project setup checklist documented.**
+- **Required secrets/env names documented with placeholders only.**
+- **Supabase Cloud safety rules documented.**
+- **No real secrets committed.**
+- **No Cloud push performed without explicit approval.**
+- **Local checks still pass** (`pnpm install --frozen-lockfile`; typecheck /
+  test / build / lint).
+
+## 17. Expected long-term result
 
 A platform where **new modules and new clients can be launched quickly without
 rewriting Core**. Adding a client is creating a tenant; adding a product is
