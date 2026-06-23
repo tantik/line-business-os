@@ -1,13 +1,19 @@
 # Supabase Cloud Dev Project — Setup & Preparation (Phase 1B)
 
 This guide explains how a **human** creates and prepares a separate Supabase
-**Cloud dev** project for LINE Business OS, safely. It is preparation and
-documentation only. Read `docs/phase-1-core-db.md` first for the local-first
-flow and the existing migration scaffold.
+**Cloud dev** project for LINE Business OS, safely, and records the completed
+Phase 1B Cloud dev apply. Read `docs/phase-1-core-db.md` first for the
+local-first flow and the existing migration scaffold.
 
-> ⚠ This phase does **not** push anything to Cloud. Every Cloud-writing command
-> is gated behind explicit human approval (see
-> [Approval gate before Cloud write](#approval-gate-before-cloud-write)).
+> ✅ **Status: Phase 1B Cloud dev apply complete.** The human-created Supabase
+> **Cloud dev** project has been prepared, linked, and the scaffold migrations
+> `0000`–`0012` have been applied to it under the full approval gate. See
+> [Phase 1B Cloud dev apply — completed status](#phase-1b-cloud-dev-apply--completed-status).
+>
+> ⚠ Every future Cloud-writing command remains gated behind explicit human
+> approval (see [Approval gate before Cloud write](#approval-gate-before-cloud-write)).
+> Future schema changes are **new forward migrations only**; destructive
+> commands stay forbidden.
 
 ## Purpose
 
@@ -26,17 +32,72 @@ the safety gates around them.
 - Document a non-destructive link plan, migration visibility plan, dry-run plan,
   the approval gate, and rollback/stop conditions.
 
-## What this phase does not do
+## What this document does not do
 
-- ❌ Does **not** create a real Supabase project via API or CLI (a human creates
+This document is preparation, process, and record-keeping only. It does not
+itself perform any Cloud action, and the completed apply it records introduced
+no product code:
+
+- ❌ Does **not** create a real Supabase project via API or CLI (a human created
   it in the dashboard).
 - ❌ Does **not** run `supabase link`, `supabase db push`, `supabase db pull`,
   `supabase db reset`, or any other Supabase command as part of this doc.
-- ❌ Does **not** apply any migration to Cloud.
 - ❌ Does **not** store real project refs, URLs, keys, passwords, or access
   tokens anywhere in the repo.
 - ❌ Does **not** modify existing migrations or add product features.
 - ❌ Does **not** migrate or move `tantik/cafe-shift` or `tantik/line-app`.
+
+> The one-time Cloud dev apply of the scaffold migrations was performed by a
+> human under the approval gate and is recorded below in
+> [Phase 1B Cloud dev apply — completed status](#phase-1b-cloud-dev-apply--completed-status).
+> It applied only the existing `0000`–`0012` scaffold — no new migrations and no
+> product features.
+
+## Phase 1B Cloud dev apply — completed status
+
+Phase 1B Cloud dev project preparation is **complete**. The following was done
+by a human, under the full [approval gate](#approval-gate-before-cloud-write),
+against the **human-created Supabase Cloud dev project**:
+
+- ✅ Cloud dev project created manually by the human in the Supabase dashboard
+  (dev environment only).
+- ✅ Supabase CLI authenticated and the local repo linked to the Cloud dev
+  project (interactive; no secrets committed).
+- ✅ `supabase migration list` reviewed: local `0000`–`0012` present; remote
+  history empty before the push.
+- ✅ `supabase db push --dry-run` reviewed: showed exactly the `0000`–`0012`
+  scaffold and nothing else.
+- ✅ Local DB gate passed against the local database (Files = 2, Tests = 39,
+  PASS).
+- ✅ Explicit human approval recorded for the real Cloud dev push.
+- ✅ Real `supabase db push` applied the scaffold migrations `0000`–`0012` to the
+  Cloud dev project.
+- ✅ Post-push `supabase migration list` verified **Local = Remote** for
+  `0000`–`0012`.
+- ✅ Local Supabase stack stopped after the push.
+
+Important boundaries that remain true after this apply:
+
+- The Cloud project is a **dev environment only**. **No production project
+  exists yet.**
+- **No product features were added** by this apply — only the existing scaffold
+  schema (`0000`–`0012`) was applied.
+- **`cafe-shift` and `line-app` were not moved or migrated.**
+- **Future schema changes must be new forward migrations only** (append-only;
+  see `PROJECT_BRIEF.md` §15). Never edit, renumber, or replace `0000`–`0012`.
+- **Destructive / history-rewriting commands remain forbidden**, including:
+  - `supabase db reset --linked`
+  - `supabase db reset --db-url ...`
+  - `supabase db pull`
+  - `supabase migration repair`
+- **Any future real `supabase db push`** requires, in order: a new migration,
+  review of `supabase migration list`, a reviewed `supabase db push --dry-run`,
+  and a fresh explicit human approval. Agents never self-approve this gate.
+
+> No real project ref, database password, direct connection string,
+> anon/publishable key, service-role/secret key, or access token is recorded in
+> this document or anywhere in the repo. Real values live only in untracked
+> `.env.local` / a secrets manager.
 
 ## Required human-created Supabase project
 
@@ -255,21 +316,22 @@ Rollback notes:
 
 ## Phase 1B checklist
 
-- [ ] Read `docs/phase-1-core-db.md` and this document fully.
-- [ ] Human created the Cloud dev project in the dashboard named
-      `line-business-os-dev`.
-- [ ] Region chosen to match the production target (e.g. Tokyo / nearest APAC).
-- [ ] Required values collected into untracked `.env.local` / password manager
+- [x] Read `docs/phase-1-core-db.md` and this document fully.
+- [x] Human created the Cloud dev project in the dashboard (dev environment
+      only; production project does not exist yet).
+- [x] Region chosen to match the production target (e.g. Tokyo / nearest APAC).
+- [x] Required values collected into untracked `.env.local` / password manager
       (placeholders only in the repo).
-- [ ] Confirmed `.env.local` is untracked and no real secret is staged.
-- [ ] Confirmed `.env.example` contains placeholders only.
-- [ ] Local `supabase db reset` + `supabase test db` pass (local only).
-- [ ] Link plan reviewed and approved by the repo owner.
-- [ ] (After approval) `supabase link --project-ref <supabase-project-ref>` run
-      and reviewed.
-- [ ] (After approval) `supabase migration list` reviewed — `0000`–`0012`
-      intact.
-- [ ] (After approval) `supabase db push --dry-run` reviewed — only expected
+- [x] Confirmed `.env.local` is untracked and no real secret is staged.
+- [x] Confirmed `.env.example` contains placeholders only.
+- [x] Local DB gate passed (local only).
+- [x] Link plan reviewed and approved by the repo owner.
+- [x] (After approval) `supabase link` run and reviewed.
+- [x] (After approval) `supabase migration list` reviewed — `0000`–`0012`
+      intact; remote empty before push.
+- [x] (After approval) `supabase db push --dry-run` reviewed — only expected
       scaffold.
-- [ ] Explicit human go-ahead recorded before any real `supabase db push`.
-- [ ] No real secrets committed; no forbidden command run.
+- [x] Explicit human go-ahead recorded before the real `supabase db push`.
+- [x] Real `supabase db push` applied `0000`–`0012` to the Cloud dev project;
+      post-push `supabase migration list` verified Local = Remote.
+- [x] No real secrets committed; no forbidden command run.
