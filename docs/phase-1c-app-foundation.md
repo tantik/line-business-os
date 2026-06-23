@@ -1,13 +1,16 @@
 # Phase 1C — App-layer foundation for authenticated multi-tenant access
 
-This is the **planning** document for Phase 1C. It defines the next phase
-**before** any implementation. Read `docs/phase-1-core-db.md` (Phase 1A) and
+This document covers Phase 1C: first the **plan**, then the **implementation**
+that delivers it. Read `docs/phase-1-core-db.md` (Phase 1A) and
 `docs/supabase-cloud-dev-setup.md` (Phase 1B) first for the database story.
 
-> ✅ **Status: Phase 1C — planning only (docs-only).** This document scopes the
-> app-layer foundation. It introduces **no code, no migrations, no Supabase
-> commands, and no secrets**. Implementation happens later, in a separate
-> reviewed PR.
+> ✅ **Status: Phase 1C — implemented (app-layer foundation).** The shared
+> client utilities, env contract + validation, auth/session baseline,
+> protected-route pattern, tenant-context + membership access pattern, safe UI
+> states, and tests are now in the codebase (`apps/web` + `packages/config`).
+> No migrations, no Supabase Cloud writes, no secrets, and no product features
+> were added. See [Implementation (delivered)](#implementation-delivered) for
+> the as-built detail. The sections below describe the original plan.
 
 ## Phase goal
 
@@ -113,14 +116,169 @@ For this **docs-only** PR, Phase 1C planning is done when:
 
 ## Future implementation checklist
 
-Unchecked items for the **later implementation PR** (not this docs-only PR):
+Delivered by the Phase 1C implementation (see
+[Implementation (delivered)](#implementation-delivered)):
 
-- [ ] Create Supabase client utilities (browser + server).
-- [ ] Validate the env contract (names + zod validation; placeholders only).
-- [ ] Add an auth/session helper.
-- [ ] Add a protected route pattern.
-- [ ] Add a tenant context helper (resolve tenant from membership).
-- [ ] Add tests for the app-layer foundation.
-- [ ] Run the normal app quality gate (`pnpm install --frozen-lockfile`;
+- [x] Create Supabase client utilities (browser + server + middleware).
+- [x] Validate the env contract (names + zod validation; placeholders only).
+- [x] Add an auth/session helper.
+- [x] Add a protected route pattern.
+- [x] Add a tenant context helper (resolve tenant from membership).
+- [x] Add tests for the app-layer foundation.
+- [x] Run the normal app quality gate (`pnpm install --frozen-lockfile`;
       `turbo run typecheck test build lint`).
-- [ ] No product features.
+- [x] No product features.
+
+## Implementation (delivered)
+
+This section records what the Phase 1C implementation actually added. It is the
+shared, tenant-aware access plumbing every future module reuses. It adds **no
+product feature**, **no migration**, **no Supabase Cloud write**, and **no
+secret**.
+
+### Environment variable contract
+
+The browser-safe contract every deployment must provide for the web app:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+- Only `NEXT_PUBLIC_*` values ever reach the browser bundle (anon/publishable
+  key + URL + RLS). The service-role key is **never** read in `apps/web`.
+- Names and placeholders are documented in `.env.example` (no real values).
+- Validation lives in `packages/config/src/env.ts` (zod):
+  - `publicSchema` / `parsePublicEnv()` — browser-safe `NEXT_PUBLIC_*` only.
+  - `serverSchema` / `parseServerEnv()` — server-only env (may include secrets);
+    never imported from browser code.
+  - Non-throwing parse results report **missing variable names only** — they
+    never echo a secret VALUE, so results are safe to log or surface in a
+    dev/test error or a "missing configuration" UI state.
+  - `serverEnv()` / `publicEnv()` are fail-fast throwing accessors for boot.
+
+### Supabase client utilities (`apps/web/src/lib/supabase/`)
+
+Built on `@supabase/ssr`, anon key + RLS only — never the service-role key:
+
+- `env.ts` — `readPublicSupabaseEnv()` (non-throwing) and
+  `requirePublicSupabaseEnv()` (throwing, name-only error). Reads the
+  `NEXT_PUBLIC_*` values directly so Next.js can inline them client-side.
+- `client.ts` — `createClient()` browser client (`createBrowserClient`).
+- `server.ts` — `createClient()` request-scoped server client
+  (`createServerClient` + Next.js `cookies()`), marked `server-only`. Tolerates
+  the read-only cookie store in Server Components (session refresh is the
+  middleware's job).
+- `middleware.ts` — `updateSession()` refreshes the session cookie each request.
+  If public env is missing it passes the request through unchanged (protected
+  routes still fail closed because no user is resolved).
+
+The previous ad-hoc `apps/web/src/lib/supabase-browser.ts` was removed in favor
+of this centralized set.
+
+### Auth/session baseline (`apps/web/src/lib/auth/`)
+
+- `user.ts` — `getUserFromClient(supabase)`: framework-agnostic, validates the
+  user via `auth.getUser()` (verifies the token with the Auth server, not just
+  the cookie). Returns `null` for the no-user case; unit-testable with a stub.
+- `session.ts` — `getCurrentUser()` / `getCurrentSession()` server helpers; the
+  single place pages/route handlers read the current user/session.
+- `require-user.ts` — `requireUser(redirectTo?)` redirects unauthenticated
+  requests to `SIGN_IN_PATH` (`/sign-in`) instead of leaking an error.
+
+### Protected route pattern (`apps/web/src/app/(protected)/`)
+
+A Next.js route group using the repo's App Router conventions:
+
+- `layout.tsx` — enforces auth once for the whole group via `requireUser()`, and
+  sets `export const dynamic = 'force-dynamic'` so authenticated,
+  session-dependent routes are server-rendered per request and never statically
+  prerendered at build time (build has no session and no public env).
+- `dashboard/page.tsx` — minimal authenticated scaffold that runs the full
+  foundation flow and renders the matching safe state per outcome. Hosts **no**
+  product logic. Also `force-dynamic`.
+- `loading.tsx` / `error.tsx` — safe loading and error boundaries; the error
+  boundary logs the real error for developers but shows users a generic message.
+- `apps/web/src/app/sign-in/page.tsx` — placeholder landing for redirects (the
+  actual Supabase Auth sign-in flow is a later phase).
+- `apps/web/src/middleware.ts` — wires `updateSession()` into Next.js middleware.
+
+### Tenant context lookup + membership access (`apps/web/src/lib/tenant/`)
+
+Flow: `authenticated user → membership lookup → active tenant context → access
+result`. Tenant context is always derived from the user's membership, never from
+request body/query/headers; reads go through the RLS-scoped authenticated
+client (no service-role key).
+
+- `types.ts` — `TenantMembership`, `ActiveTenantContext`, and the
+  `TenantAccessResult<T>` discriminated union with statuses `success`,
+  `not_authenticated`, `no_membership`, `unauthorized`, `config_error`,
+  `unexpected_error`. `TenantKind` / `MembershipStatus` mirror the
+  `core.tenant_kind` / `core.membership_status` enums (migration `0001`/`0002`)
+  without importing the server-oriented `@line-os/db`.
+- `membership.ts` — `listTenantMemberships(supabase, userId)` reads active
+  memberships from `core.tenant_memberships` joined to `core.tenants`
+  (`tenant_id, user_id, location_id, status` + `id, slug, name, kind`), scoped to
+  the user. Maps Postgres `42501` / "permission denied" to `unauthorized` and
+  other errors to `unexpected_error`. (ADR 0005 note: the scaffold adds no
+  `authenticated` table GRANTs yet, so a live read currently surfaces
+  `unauthorized`; lighting it up is a separate, review-gated GRANT + RLS-test
+  change.)
+- `select.ts` — `selectActiveTenant(memberships, requestedTenantId?)`: pure,
+  side-effect-free selection. A requested tenant the user is **not** a member of
+  returns `unauthorized` (never a silent cross-tenant fallback).
+- `context.ts` — `getActiveTenantContext()` composes env check → server client →
+  user → memberships → active tenant into a single typed result;
+  `requireTenantContext()` redirects only the unauthenticated case and returns
+  every other outcome for safe rendering.
+
+### Safe UI/state patterns (`apps/web/src/components/states.tsx`)
+
+Minimal reusable, presentational states (no product logic, no internal error
+leakage): `LoadingState`, `ErrorState`, `UnauthorizedState`, `NoTenantState`,
+`MissingConfigState`.
+
+### Tests added
+
+Run with `node --import tsx --test` via each package's `test` script:
+
+- `packages/config/src/env.test.ts` — public/server env validation, missing-name
+  reporting, and the no-secret-leak guarantee.
+- `apps/web/src/lib/supabase/env.test.ts` — `readPublicSupabaseEnv` /
+  `requirePublicSupabaseEnv` behavior incl. name-only error.
+- `apps/web/src/lib/auth/user.test.ts` — `getUserFromClient` success/no-user/
+  error via a stubbed client.
+- `apps/web/src/lib/tenant/membership.test.ts` — row mapping, embedded-array
+  normalization, `no_membership`, `unauthorized`, `unexpected_error` via a
+  thenable stub client.
+- `apps/web/src/lib/tenant/select.test.ts` — default/requested/unauthorized/
+  empty selection.
+
+All tests use stubs/mocks only — **no real Supabase Cloud, no secrets, no Cloud
+writes**.
+
+### Commands run
+
+```bash
+pnpm install --frozen-lockfile
+pnpm exec turbo run typecheck test build lint --force --ui=stream
+```
+
+Result: **29/29 tasks successful** (typecheck, test, build, lint across all
+packages); web tests 15/15 pass; config tests 6/6 pass.
+
+### Non-goals (explicit, unchanged)
+
+This implementation deliberately does **not** include any of the following:
+
+- ❌ No product features.
+- ❌ No Workforce implementation.
+- ❌ No Booking implementation.
+- ❌ No AI implementation (no propose → approve → apply workflow).
+- ❌ No LINE integration / webhook behavior.
+- ❌ No Cloud DB writes (`supabase db push`/`pull`/`reset`/`migration repair`
+  were **not** run).
+- ❌ No migration changes (`0000`–`0012` untouched; none added).
+- ❌ No service-role usage in the app layer (`apps/web` uses anon key + RLS only).
+- ❌ No `.env.local` edits and no secrets committed.
+- ❌ No `cafe-shift` / `line-app` move or copy.
