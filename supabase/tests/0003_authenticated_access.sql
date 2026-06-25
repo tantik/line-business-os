@@ -29,12 +29,21 @@ select no_plan();
 
 -- --- Helpers: run a query AS the authenticated role for a given JWT sub -----
 -- The role hop is contained inside the function and reverts on return.
+--
+-- Each helper resets ALL THREE identity GUCs before setting the one it exercises
+-- so the resolution order in core.current_user_id() (JSON claims -> legacy
+-- flattened claim -> app.current_user_id) is tested in isolation and a value
+-- left over from a previous case can never cause a false positive.
+
+-- Legacy flattened-GUC path: identity comes from request.jwt.claim.sub.
 create function pg_temp.as_auth_count(p_sub text, p_sql text)
 returns int
 language plpgsql
 as $$
 declare n int;
 begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
   perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
   set local role authenticated;
   execute p_sql into n;
@@ -48,10 +57,92 @@ language plpgsql
 as $$
 declare b boolean;
 begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
   perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
   set local role authenticated;
   execute p_sql into b;
   return b;
+end;
+$$;
+
+create function pg_temp.as_auth_text(p_sub text, p_sql text)
+returns text
+language plpgsql
+as $$
+declare s text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  set local role authenticated;
+  execute p_sql into s;
+  return s;
+end;
+$$;
+
+-- Cloud-style JSON-claims path: identity comes from the request.jwt.claims JSON
+-- GUC's `sub` field (this is what Supabase Cloud PostgREST actually sets).
+create function pg_temp.as_auth_count_claims(p_sub text, p_sql text)
+returns int
+language plpgsql
+as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', coalesce(p_sub, ''))::text, true);
+  set local role authenticated;
+  execute p_sql into n;
+  return n;
+end;
+$$;
+
+create function pg_temp.as_auth_text_claims(p_sub text, p_sql text)
+returns text
+language plpgsql
+as $$
+declare s text;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', coalesce(p_sub, ''))::text, true);
+  set local role authenticated;
+  execute p_sql into s;
+  return s;
+end;
+$$;
+
+-- Backend/service fallback path: identity comes from app.current_user_id.
+create function pg_temp.as_auth_count_app(p_uid text, p_sql text)
+returns int
+language plpgsql
+as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', coalesce(p_uid, ''), true);
+  set local role authenticated;
+  execute p_sql into n;
+  return n;
+end;
+$$;
+
+create function pg_temp.as_auth_text_app(p_uid text, p_sql text)
+returns text
+language plpgsql
+as $$
+declare s text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', coalesce(p_uid, ''), true);
+  set local role authenticated;
+  execute p_sql into s;
+  return s;
 end;
 $$;
 
@@ -77,7 +168,7 @@ insert into core.tenant_memberships (tenant_id, user_id, status) values
 
 -- Admin holds the system tenant_admin role (id ...004) in tenant A. Tenant
 -- Admin is seeded (0008) with every permission except core.billing.manage, so
--- it includes core.member.invite — exactly the manage gate Option T1 uses.
+-- it includes core.member.invite - exactly the manage gate Option T1 uses.
 insert into core.role_assignments (tenant_id, user_id, role_id) values
   ('a1111111-1111-1111-1111-111111111111',
    '0a0a0a0a-0000-0000-0000-000000000009',
@@ -136,6 +227,71 @@ select is(
           where id = 'a1111111-1111-1111-1111-111111111111' $q$),
   1,
   'authenticated user can read the tenant row for their own tenant'
+);
+
+-- --- Identity resolution: core.current_user_id() resolution order ----------
+-- Regression guard for Phase 1E Stage 2 (migration 0016). core.current_user_id()
+-- must resolve identity from, in priority order: the Cloud-style JSON GUC
+-- request.jwt.claims->>'sub', then the legacy flattened request.jwt.claim.sub,
+-- then the backend app.current_user_id. Each helper clears the other two GUCs so
+-- exactly one path is exercised at a time and no leftover value can mask a bug.
+
+-- (1) JSON claims path - this is the path that was failing on Supabase Cloud.
+select is(
+  pg_temp.as_auth_text_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select core.current_user_id()::text'),
+  '0a0a0a0a-0000-0000-0000-000000000001',
+  'JSON claims: core.current_user_id() resolves sub from request.jwt.claims'
+);
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from core.tenant_memberships'),
+  1,
+  'JSON claims: authenticated user reads exactly their own membership row'
+);
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from core.tenants
+          where id = 'a1111111-1111-1111-1111-111111111111' $q$),
+  1,
+  'JSON claims: authenticated user reads the tenant row for their own tenant'
+);
+-- isolation must still hold when identity comes from the JSON claims GUC
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from core.tenant_memberships
+          where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
+  0,
+  'JSON claims: cross-tenant isolation still denies another tenant''s rows'
+);
+-- fail-closed: an empty sub in JSON claims resolves to NULL identity, no rows
+select is(
+  pg_temp.as_auth_count_claims('',
+    'select count(*)::int from core.tenant_memberships'),
+  0,
+  'JSON claims: empty sub resolves to NULL identity and sees no rows'
+);
+
+-- (2) Legacy flattened claim path - must keep working unchanged.
+select is(
+  pg_temp.as_auth_text('0a0a0a0a-0000-0000-0000-000000000001',
+    'select core.current_user_id()::text'),
+  '0a0a0a0a-0000-0000-0000-000000000001',
+  'legacy claim.sub: core.current_user_id() resolves sub from request.jwt.claim.sub'
+);
+
+-- (3) Backend app.current_user_id fallback - must keep working unchanged.
+select is(
+  pg_temp.as_auth_text_app('0a0a0a0a-0000-0000-0000-000000000001',
+    'select core.current_user_id()::text'),
+  '0a0a0a0a-0000-0000-0000-000000000001',
+  'app fallback: core.current_user_id() resolves the backend-set app.current_user_id'
+);
+select is(
+  pg_temp.as_auth_count_app('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from core.tenant_memberships'),
+  1,
+  'app fallback: authenticated user reads exactly their own membership row'
 );
 
 -- --- Cross-tenant isolation -------------------------------------------------
