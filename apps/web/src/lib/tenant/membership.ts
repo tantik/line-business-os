@@ -9,35 +9,29 @@ import type {
 /**
  * Read the current user's ACTIVE tenant memberships through the RLS-scoped
  * authenticated client. Never uses the service-role key; tenant isolation is
- * enforced by the database (RLS), and we additionally constrain to the given
- * `userId` so co-members within shared tenants are not returned.
+ * enforced by the database (RLS).
  *
  * Framework-agnostic (no Next.js imports) and unit-testable with a stubbed
  * client. Returns a typed result for each outcome instead of throwing.
  *
- * NOTE (ADR 0005 → ADR 0006): Phase 1D (migration 0013) opened the first narrow
- * `authenticated` read surface — `SELECT` on `core.tenants` and
- * `core.tenant_memberships` under RLS — so this membership read can now succeed
- * for a real authenticated session. Regular users see only their own membership
- * rows (Option T1). A missing/over-restricted grant still maps to `unauthorized`
- * (fail-closed). This helper is foundation plumbing, not a product feature.
+ * NOTE (ADR 0006 → ADR 0008): Phase 1E-3 moves this read off raw `core` and onto
+ * the app-facing `api` facade. The app now selects from the security-invoker view
+ * `api.my_tenant_memberships`, which is ALREADY self-scoped server-side to
+ * `core.current_user_id()` and `status = 'active'` (the view's own WHERE clause)
+ * AND still enforced by the underlying core RLS (`memberships_select_self`,
+ * `tenants_select`). Raw `core` is no longer exposed to the Data API. A
+ * missing/over-restricted grant still maps to `unauthorized` (fail-closed). This
+ * helper is foundation plumbing, not a product feature.
  */
-interface TenantRow {
-  id: string;
-  slug: string;
-  name: string;
-  kind: TenantKind;
-}
 
-interface MembershipRow {
+/** Flat row shape returned by `api.my_tenant_memberships`. */
+interface ApiMembershipRow {
+  tenant_id: string;
+  tenant_slug: string;
+  tenant_name: string;
+  tenant_kind: TenantKind;
   location_id: string | null;
   status: MembershipStatus;
-  tenant: TenantRow | TenantRow[] | null;
-}
-
-function firstTenant(tenant: MembershipRow['tenant']): TenantRow | null {
-  if (!tenant) return null;
-  return Array.isArray(tenant) ? (tenant[0] ?? null) : tenant;
 }
 
 function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
@@ -50,32 +44,29 @@ function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
 
 export async function listTenantMemberships(
   supabase: SupabaseClient,
+  // `userId` is retained for interface stability even though it is no longer sent
+  // to PostgREST: `api.my_tenant_memberships` is already self-scoped to the
+  // current authenticated user (and active memberships) in the view + core RLS.
   userId: string,
 ): Promise<TenantAccessResult<TenantMembership[]>> {
+  void userId;
   try {
     const { data, error } = await supabase
-      .schema('core')
-      .from('tenant_memberships')
-      .select('location_id, status, tenant:tenants!inner(id, slug, name, kind)')
-      .eq('user_id', userId)
-      .eq('status', 'active');
+      .schema('api')
+      .from('my_tenant_memberships')
+      .select('tenant_id, tenant_slug, tenant_name, tenant_kind, location_id, status');
 
     if (error) return mapPostgrestError(error);
 
-    const rows = (data ?? []) as MembershipRow[];
-    const memberships: TenantMembership[] = [];
-    for (const row of rows) {
-      const tenant = firstTenant(row.tenant);
-      if (!tenant) continue;
-      memberships.push({
-        tenantId: tenant.id,
-        tenantSlug: tenant.slug,
-        tenantName: tenant.name,
-        tenantKind: tenant.kind,
-        locationId: row.location_id,
-        status: row.status,
-      });
-    }
+    const rows = (data ?? []) as ApiMembershipRow[];
+    const memberships: TenantMembership[] = rows.map((row) => ({
+      tenantId: row.tenant_id,
+      tenantSlug: row.tenant_slug,
+      tenantName: row.tenant_name,
+      tenantKind: row.tenant_kind,
+      locationId: row.location_id,
+      status: row.status,
+    }));
 
     if (memberships.length === 0) return { status: 'no_membership' };
     return { status: 'success', data: memberships };

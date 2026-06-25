@@ -7,6 +7,10 @@ import { listTenantMemberships } from './membership.js';
  * Build a stub Supabase client whose query builder is thenable and resolves to
  * the given `{ data, error }`. Every chained method returns the same builder,
  * mirroring the PostgrestFilterBuilder shape used by `listTenantMemberships`.
+ *
+ * Phase 1E-3: the helper now reads the flat `api.my_tenant_memberships` view via
+ * `.schema('api').from('my_tenant_memberships').select(...)` (no `.eq` filters;
+ * the view is self-scoped server-side), so the stub only needs schema/from/select.
  */
 function stubClient(result: { data: unknown; error: unknown }): SupabaseClient {
   const builder: Record<string, unknown> = {};
@@ -17,26 +21,34 @@ function stubClient(result: { data: unknown; error: unknown }): SupabaseClient {
   return builder as unknown as SupabaseClient;
 }
 
-const tenant = { id: 't1', slug: 'cafe', name: 'Demo Cafe', kind: 'demo' };
+/** A flat row as returned by the `api.my_tenant_memberships` view. */
+const row = {
+  tenant_id: 't1',
+  tenant_slug: 'cafe',
+  tenant_name: 'Demo Cafe',
+  tenant_kind: 'demo',
+  location_id: null,
+  status: 'active',
+};
 
-test('listTenantMemberships maps rows to typed memberships on success', async () => {
-  const client = stubClient({
-    data: [{ location_id: null, status: 'active', tenant }],
-    error: null,
-  });
+test('listTenantMemberships maps flat api rows to typed memberships on success', async () => {
+  const client = stubClient({ data: [row], error: null });
   const result = await listTenantMemberships(client, 'user-1');
   assert.equal(result.status, 'success');
   if (result.status === 'success') {
     assert.equal(result.data.length, 1);
     assert.equal(result.data[0]!.tenantId, 't1');
     assert.equal(result.data[0]!.tenantSlug, 'cafe');
+    assert.equal(result.data[0]!.tenantName, 'Demo Cafe');
     assert.equal(result.data[0]!.tenantKind, 'demo');
+    assert.equal(result.data[0]!.locationId, null);
+    assert.equal(result.data[0]!.status, 'active');
   }
 });
 
-test('listTenantMemberships normalizes an embedded tenant array', async () => {
+test('listTenantMemberships maps the location scope from a flat api row', async () => {
   const client = stubClient({
-    data: [{ location_id: 'loc-1', status: 'active', tenant: [tenant] }],
+    data: [{ ...row, location_id: 'loc-1' }],
     error: null,
   });
   const result = await listTenantMemberships(client, 'user-1');

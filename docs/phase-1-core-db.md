@@ -31,6 +31,7 @@ Supabase CLI. As of Phase 1A the scaffold is complete and covers:
 | `0012_protect_platform_staff.sql` | trigger blocking self-escalation to platform staff | security |
 | `0013_authenticated_tenant_access.sql` | first narrow `authenticated` SELECT surface (`core.tenants`, `core.tenant_memberships`) + `shares_tenant_with` helper + Option T1 membership policies | security |
 | `0014_core_helper_execute_hardening.sql` | remove implicit PUBLIC EXECUTE on all `core` helpers; explicit minimal EXECUTE grants (authenticated for the five RLS/app helpers; none for the two trigger helpers) | security |
+| `0015_api_facade.sql` | app-facing `api` facade schema + security-invoker view `api.my_tenant_memberships` (Phase 1E-3); local Data API exposes only `public` + `api`; `core` stays internal | security |
 
 > Migration `0013` (Phase 1D) opens the **first** narrow direct-DB read surface
 > for the `authenticated` role. See `docs/phase-1d-db-access-hardening.md` and
@@ -39,9 +40,17 @@ Supabase CLI. As of Phase 1A the scaffold is complete and covers:
 > Migration `0014` (Phase 1E-1) makes the EXECUTE posture of every `core` helper
 > explicit (no implicit `PUBLIC` grant) **before** any Data API exposure of
 > `core`. It changes privileges only — no bodies, RLS, or table grants. `core`
-> is **not** exposed by this work; Phase 1E Stage 2 stays blocked until `0014`
-> is merged/applied and Cloud dev `core` exposure is explicitly approved. See
+> is **not** exposed by this work; Phase 1E Stage 2 stays blocked until `0015`
+> is merged/applied and Cloud dev `api` exposure is explicitly approved. See
 > `docs/phase-1e-data-api-exposure.md` and ADR 0007.
+
+> Migration `0015` (Phase 1E-3) adds the production-safe **`api` facade** — a new
+> `api` schema with the security-invoker view `api.my_tenant_memberships` — and
+> narrows the **local** Data API (`config.toml`) to expose only `public` + `api`.
+> The app reads tenant context through `api`, not raw `core`. **`core` is never
+> exposed to the Data API** (locally or in Cloud). Validated locally only; Cloud
+> apply and Cloud `api` exposure remain approval-gated. See
+> `docs/phase-1e-data-api-exposure.md` and ADR 0008.
 
 ### "Scaffold-only" means
 
@@ -190,8 +199,9 @@ The tests cover (at minimum):
   grants and no `core` schema usage; `authenticated` has exactly `USAGE` on
   schema `core` plus `SELECT` on **only** `core.tenants` and
   `core.tenant_memberships` (Phase 1D), and nothing else on the business schemas;
-- product schemas are exposed in `config.toml` (`api.schemas`) but remain closed
-  to client roles (no product-schema grants);
+- the local Data API (`config.toml` `api.schemas`) exposes only `public` + `api`
+  (Phase 1E-3); `core` and the product schemas (`audit`/`workforce`/`booking`/`ai`)
+  are **not** PostgREST-exposed, and product schemas have no client grants either;
 - Phase 1D authenticated access behaves correctly under RLS: own-only membership
   reads, manager-gated managed reads, cross-tenant denial, preserved co-member
   visibility via `core.shares_tenant_with`, anon/no-JWT denial, writes blocked
