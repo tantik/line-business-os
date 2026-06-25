@@ -30,10 +30,18 @@ Supabase CLI. As of Phase 1A the scaffold is complete and covers:
 | `0011_ai.sql` | **ai** schema: proposals + prompt logs | **scaffold-only** |
 | `0012_protect_platform_staff.sql` | trigger blocking self-escalation to platform staff | security |
 | `0013_authenticated_tenant_access.sql` | first narrow `authenticated` SELECT surface (`core.tenants`, `core.tenant_memberships`) + `shares_tenant_with` helper + Option T1 membership policies | security |
+| `0014_core_helper_execute_hardening.sql` | remove implicit PUBLIC EXECUTE on all `core` helpers; explicit minimal EXECUTE grants (authenticated for the five RLS/app helpers; none for the two trigger helpers) | security |
 
 > Migration `0013` (Phase 1D) opens the **first** narrow direct-DB read surface
 > for the `authenticated` role. See `docs/phase-1d-db-access-hardening.md` and
 > ADR 0006. It is validated **locally only**; Cloud apply needs explicit approval.
+
+> Migration `0014` (Phase 1E-1) makes the EXECUTE posture of every `core` helper
+> explicit (no implicit `PUBLIC` grant) **before** any Data API exposure of
+> `core`. It changes privileges only — no bodies, RLS, or table grants. `core`
+> is **not** exposed by this work; Phase 1E Stage 2 stays blocked until `0014`
+> is merged/applied and Cloud dev `core` exposure is explicitly approved. See
+> `docs/phase-1e-data-api-exposure.md` and ADR 0007.
 
 ### "Scaffold-only" means
 
