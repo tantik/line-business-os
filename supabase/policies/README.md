@@ -13,10 +13,18 @@ in order via the Supabase CLI:
   and `core.tenant_memberships`), the `core.shares_tenant_with` helper, and the
   split membership policies `memberships_select_self` /
   `memberships_select_managed` (replacing `memberships_select`).
+- Phase 1E-1 core helper EXECUTE hardening: `0014_core_helper_execute_hardening.sql`
+  — privileges only (no policy changes). Removes the implicit `PUBLIC` EXECUTE
+  from every `core` helper and grants EXECUTE explicitly: `authenticated` for the
+  five RLS/app helpers (`current_user_id`, `is_platform_staff`, `is_member_of`,
+  `has_permission`, `shares_tenant_with`), and nothing for the two trigger
+  helpers (`set_updated_at`, `enforce_platform_staff_immutable`). `anon` gets
+  nothing. See `docs/phase-1e-data-api-exposure.md` and ADR 0007.
 
 Shared helper functions used by all policies (`core.is_member_of`,
 `core.has_permission`, `core.is_platform_staff`, and `core.shares_tenant_with`)
-live in `0006_helpers.sql` and `0013_authenticated_tenant_access.sql`.
+live in `0006_helpers.sql` and `0013_authenticated_tenant_access.sql`; their
+EXECUTE privileges are hardened in `0014_core_helper_execute_hardening.sql`.
 
 This folder is intentionally documentation-only; do not add standalone policy
 SQL here that the migration runner would miss.
