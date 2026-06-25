@@ -10,6 +10,12 @@ any exposure happens.
 > EXECUTE posture of all `core` helper functions explicit. **`core` is NOT
 > exposed** in the Cloud Data API by this work, and no Cloud/Dashboard setting is
 > changed. Validated against the **local** Supabase stack only.
+>
+> ✅ **Status: Phase 1E-3 — implemented locally.** Migration `0015` adds the
+> production-safe **`api` facade** (security-invoker view `api.my_tenant_memberships`)
+> and the local Data API now exposes only `public` + `api`. **`core` is still NOT
+> exposed** (neither locally nor in Cloud), and no Cloud/Dashboard setting is
+> changed. Validated against the **local** Supabase stack only. See ADR 0008.
 
 ## Stages
 
@@ -20,9 +26,17 @@ any exposure happens.
 - **Phase 1E-1 — core helper EXECUTE hardening (this change).** Remove the
   implicit `PUBLIC` EXECUTE from every `core` helper and grant EXECUTE explicitly
   and minimally. See ADR 0007 and migration `0014`.
-- **Phase 1E Stage 2 — BLOCKED.** Do not create Stage 2 fixtures and do not
-  expose `core` until `0014` is merged/applied **and** Cloud dev `core` exposure
-  is explicitly approved.
+- **Phase 1E-3 — `api` facade (implemented locally).** Migration `0015` adds the
+  `api` schema + the security-invoker view `api.my_tenant_memberships`, the app
+  reads tenant context through `api` (not `core`), and local
+  `supabase/config.toml` exposes only `public` + `api`. This supersedes the
+  earlier plan to expose `core`: **`core` is never exposed to the Data API.** See
+  ADR 0008.
+- **Phase 1E Stage 2 — BLOCKED.** The Stage 2 fixtures (Auth users / tenants /
+  `core.users` / `core.tenant_memberships` in Cloud dev) remain blocked until
+  `0015` is merged, applied to Cloud dev under the approval gate, **and** the
+  Cloud Data API is changed to expose `api` (NOT `core`). `core` exposure is no
+  longer a path at all.
 
 ## What migration 0014 does
 
@@ -69,28 +83,48 @@ pnpm exec supabase test db
   anon/no-JWT denial, writes blocked).
 - `supabase/tests/0002_security_rls.sql` — unchanged grant invariants still hold.
 
-## Long-term production-safe path (not this PR)
+## Production-safe path (implemented in Phase 1E-3)
 
 The production-safe design is **not** to expose raw `core`. Instead, expose only
-a dedicated `api`/facade schema to the Data API:
+a dedicated `api`/facade schema to the Data API. Phase 1E-3 (migration `0015`)
+implements the first piece of this:
 
-- `api` contains security-invoker views over the intended read surfaces (RLS
-  still enforced) and a curated set of RPCs.
-- Internal `core` (tables + SECURITY DEFINER helpers) stays unexposed.
-- The app reads `api.*` only.
+- `api` contains security-invoker views over the intended read surfaces (RLS in
+  `core` still enforced as the caller). The first object is
+  `api.my_tenant_memberships`. Future curated views / invoker RPCs are added
+  through new reviewed migrations, keeping the no-PII / no-`SECURITY DEFINER` /
+  RLS-preserving invariants (ADR 0008).
+- Internal `core` (tables + `SECURITY DEFINER` helpers) stays unexposed.
+- The app reads `api.*` only (`apps/web/src/lib/tenant/membership.ts`).
 
-That facade is later, separately scoped work. Phase 1E-1 is the minimal,
-low-risk hardening that must land first regardless of which exposure path is
-chosen.
+### Local Data API exposure (config.toml)
+
+`supabase/config.toml` `[api].schemas` is now `["public", "api"]`. `core`,
+`audit`, `workforce`, `booking`, and `ai` are **not** exposed to the local
+PostgREST Data API. The DB schemas still exist (pgTAP runs directly against the
+database); only the PostgREST surface is narrowed.
+
+### Cloud dev Data API (NOT changed yet)
+
+The Cloud dev project (`line-business-os-dev`, PostgreSQL 17) Data API still
+exposes its existing schemas; **no Cloud/Dashboard setting was changed by this
+work.** Eventually, after `0015` is merged and applied to Cloud dev under the
+approval gate, the Cloud Data API exposed-schemas list should be set to
+`public, api` (add `api`, keep `public`). **`core` (and `audit` / `workforce` /
+`booking` / `ai`) must never be added to the Cloud Data API.**
 
 ## Safety / scope guardrails
 
-- ❌ No Cloud Data API / Dashboard setting changed; `core` is **not** exposed.
+- ❌ No Cloud Data API / Dashboard setting changed; `core` is **not** exposed
+  (locally or in Cloud). Phase 1E-3 narrows only the **local** `config.toml`
+  Data API to `public` + `api`.
 - ❌ No Auth users created; no tenants / `core.users` / `core.tenant_memberships`
   inserted.
-- ❌ No function bodies, RLS policies, or table grants changed.
-- ❌ No grant to `anon`; no broad schema/table permissions.
-- ❌ No edits to migrations `0000`–`0013`; forward-only migration `0014`.
+- ❌ No `core` function bodies, RLS policies, or `core` table grants changed by
+  `0015` (the facade is additive: a new schema + invoker view + its own grants).
+- ❌ No grant to `anon`; no `SECURITY DEFINER` object in `api`; no PII exposed.
+- ❌ No edits to migrations `0000`–`0014`; forward-only migration `0015`.
 - ❌ No `supabase db push` / `db pull` / `db reset --linked` / `migration repair`.
-- ✅ Local-only validation; Cloud apply and `core` exposure require explicit
-  approval (ADR 0005 / 0006 / 0007, `docs/phase-1-core-db.md` §3).
+- ✅ Local-only validation; Cloud apply and any Cloud Data API `api` exposure
+  require explicit approval (ADR 0005 / 0006 / 0007 / 0008,
+  `docs/phase-1-core-db.md` §3).

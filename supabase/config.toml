@@ -5,7 +5,13 @@ project_id = "line-business-os"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "core", "audit", "workforce", "booking", "ai"]
+# Data API exposes ONLY `public` + the app-facing `api` facade (Phase 1E-3).
+# `core` and the product schemas (audit/workforce/booking/ai) are intentionally
+# NOT exposed to PostgREST — the app reads tenant context through `api` views
+# (e.g. api.my_tenant_memberships), keeping internal `core` private. This mirrors
+# the intended Cloud dev Data API posture. See docs/phase-1e-data-api-exposure.md
+# and docs/adr/0008-api-facade-schema.md.
+schemas = ["public", "api"]
 extra_search_path = ["public"]
 max_rows = 1000
 
