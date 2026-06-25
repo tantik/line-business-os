@@ -28,12 +28,20 @@ set local search_path to extensions, public, core, audit, workforce, booking, ai
 select no_plan();
 
 -- --- Helpers: run a query AS the authenticated role for a given JWT sub -----
+-- Each helper resets all three identity GUCs before setting the one it exercises
+-- so core.current_user_id()'s resolution order (JSON claims -> legacy flattened
+-- claim -> app.current_user_id) is tested in isolation and a leftover value can
+-- never produce a false positive.
+
+-- Legacy flattened-GUC path: identity comes from request.jwt.claim.sub.
 create function pg_temp.as_auth_count(p_sub text, p_sql text)
 returns int
 language plpgsql
 as $$
 declare n int;
 begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
   perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
   set local role authenticated;
   execute p_sql into n;
@@ -47,7 +55,43 @@ language plpgsql
 as $$
 declare s text;
 begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
   perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  set local role authenticated;
+  execute p_sql into s;
+  return s;
+end;
+$$;
+
+-- Cloud-style JSON-claims path: identity comes from request.jwt.claims->>'sub'.
+-- This is what Supabase Cloud PostgREST actually sets for authenticated requests.
+create function pg_temp.as_auth_count_claims(p_sub text, p_sql text)
+returns int
+language plpgsql
+as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', coalesce(p_sub, ''))::text, true);
+  set local role authenticated;
+  execute p_sql into n;
+  return n;
+end;
+$$;
+
+create function pg_temp.as_auth_text_claims(p_sub text, p_sql text)
+returns text
+language plpgsql
+as $$
+declare s text;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', coalesce(p_sub, ''))::text, true);
   set local role authenticated;
   execute p_sql into s;
   return s;
@@ -188,6 +232,47 @@ select is(
           where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
   0,
   'Alice cannot see Tenant B through the facade'
+);
+
+-- --- Behavioral: positive path through the Cloud-style JSON claims GUC ------
+-- Regression guard for Phase 1E Stage 2 (migration 0016). On Supabase Cloud the
+-- JWT subject arrives via the JSON GUC request.jwt.claims, NOT the legacy
+-- request.jwt.claim.sub. Before the fix core.current_user_id() resolved to NULL
+-- and api.my_tenant_memberships returned 0 rows for a logged-in user. These
+-- cases simulate that GUC shape and prove the facade now resolves identity.
+select is(
+  pg_temp.as_auth_text_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select core.current_user_id()::text'),
+  '0a0a0a0a-0000-0000-0000-000000000001',
+  'JSON claims: core.current_user_id() resolves sub from request.jwt.claims'
+);
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_memberships'),
+  1,
+  'JSON claims: Alice sees exactly one row (her own active membership) via the facade'
+);
+select is(
+  pg_temp.as_auth_text_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select tenant_slug from api.my_tenant_memberships
+          where tenant_id = 'a1111111-1111-1111-1111-111111111111' $q$),
+  'pgtap-1e3-tenant-a',
+  'JSON claims: Alice reads the correct tenant_slug through the facade'
+);
+-- isolation must still hold when identity comes from the JSON claims GUC
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from api.my_tenant_memberships
+          where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
+  0,
+  'JSON claims: Alice still cannot see Tenant B through the facade'
+);
+-- fail-closed: empty sub in JSON claims -> NULL identity -> zero rows
+select is(
+  pg_temp.as_auth_count_claims('',
+    'select count(*)::int from api.my_tenant_memberships'),
+  0,
+  'JSON claims: empty sub resolves to NULL identity and sees zero facade rows'
 );
 
 -- --- Behavioral: Bob reads only his own active membership ------------------
