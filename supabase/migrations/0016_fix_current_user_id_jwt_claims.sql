@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 0016  Fix core.current_user_id(): resolve identity from JSON jwt claims
 -- ----------------------------------------------------------------------------
--- Phase 1E Stage 2 bug fix (local fix only — not applied to Cloud here).
+-- Phase 1E Stage 2 bug fix (local fix only - not applied to Cloud here).
 --
 -- PROBLEM
 -- Migration 0006 defined core.current_user_id() to read identity ONLY from the
@@ -25,14 +25,14 @@
 --
 -- SIGNATURE / SECURITY POSTURE (unchanged from 0006/0014)
 --   * returns uuid, language sql, stable
---   * SECURITY INVOKER (NO security definer) — runs as the calling role
+--   * SECURITY INVOKER (NO security definer) - runs as the calling role
 --   * EXECUTE grants are NOT touched: `create or replace function` preserves the
 --     existing ACL set by 0014 (PUBLIC revoked, EXECUTE only to authenticated).
 --
 -- WHY NO `set search_path`
 --   This helper is SECURITY INVOKER, so it carries no elevated privilege that a
---   search_path hijack could abuse. Every identifier it uses — coalesce, nullif,
---   current_setting, the ->> operator, and the ::jsonb / ::uuid casts — resolves
+--   search_path hijack could abuse. Every identifier it uses - coalesce, nullif,
+--   current_setting, the ->> operator, and the ::jsonb / ::uuid casts - resolves
 --   from pg_catalog, which PostgreSQL always searches first regardless of the
 --   caller's search_path. Adding `set search_path` would be unrelated hardening
 --   and a behavior change versus 0006, so it is intentionally omitted.

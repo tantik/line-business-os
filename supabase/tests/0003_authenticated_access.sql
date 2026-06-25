@@ -168,7 +168,7 @@ insert into core.tenant_memberships (tenant_id, user_id, status) values
 
 -- Admin holds the system tenant_admin role (id ...004) in tenant A. Tenant
 -- Admin is seeded (0008) with every permission except core.billing.manage, so
--- it includes core.member.invite — exactly the manage gate Option T1 uses.
+-- it includes core.member.invite - exactly the manage gate Option T1 uses.
 insert into core.role_assignments (tenant_id, user_id, role_id) values
   ('a1111111-1111-1111-1111-111111111111',
    '0a0a0a0a-0000-0000-0000-000000000009',
@@ -236,7 +236,7 @@ select is(
 -- then the backend app.current_user_id. Each helper clears the other two GUCs so
 -- exactly one path is exercised at a time and no leftover value can mask a bug.
 
--- (1) JSON claims path — this is the path that was failing on Supabase Cloud.
+-- (1) JSON claims path - this is the path that was failing on Supabase Cloud.
 select is(
   pg_temp.as_auth_text_claims('0a0a0a0a-0000-0000-0000-000000000001',
     'select core.current_user_id()::text'),
@@ -272,7 +272,7 @@ select is(
   'JSON claims: empty sub resolves to NULL identity and sees no rows'
 );
 
--- (2) Legacy flattened claim path — must keep working unchanged.
+-- (2) Legacy flattened claim path - must keep working unchanged.
 select is(
   pg_temp.as_auth_text('0a0a0a0a-0000-0000-0000-000000000001',
     'select core.current_user_id()::text'),
@@ -280,7 +280,7 @@ select is(
   'legacy claim.sub: core.current_user_id() resolves sub from request.jwt.claim.sub'
 );
 
--- (3) Backend app.current_user_id fallback — must keep working unchanged.
+-- (3) Backend app.current_user_id fallback - must keep working unchanged.
 select is(
   pg_temp.as_auth_text_app('0a0a0a0a-0000-0000-0000-000000000001',
     'select core.current_user_id()::text'),

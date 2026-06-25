@@ -7,7 +7,7 @@
 --   * schema `api` and the view `api.my_tenant_memberships` exist;
 --   * the view is security_invoker (RLS in core is enforced as the caller);
 --   * `api` contains NO SECURITY DEFINER function;
---   * `anon` gets nothing on `api` (no USAGE, no SELECT) — fail-closed;
+--   * `anon` gets nothing on `api` (no USAGE, no SELECT) - fail-closed;
 --   * `authenticated` has USAGE on `api` + SELECT on the view, and NO writes;
 --   * behaviorally, an authenticated user reads ONLY their own ACTIVE
 --     memberships joined to their tenant (id/slug/name/kind), never another
