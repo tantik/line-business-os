@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 import {
   BACKUP_FILENAME_REGEX,
   BACKUP_SCHEMAS,
+  DEFAULT_BACKUP_DIRNAME,
   DEFAULT_OUTPUT_DIR,
   MIN_RETENTION,
+  REPO_ROOT,
   buildBackupFilename,
   buildPgDumpArgs,
   parseDatabaseUrl,
   parseEncryptionKey,
+  resolveOutputDir,
   resolveRetentionCount,
   safeBackupMessages,
   selectFilesToPrune,
@@ -75,6 +78,45 @@ test('resolveRetentionCount honors values at or above 7', () => {
 test('resolveRetentionCount falls back to 7 for non-integer input', () => {
   assert.equal(resolveRetentionCount('abc'), 7);
   assert.equal(resolveRetentionCount('7.5'), 7);
+});
+
+// --- output directory -------------------------------------------------------
+
+test('REPO_ROOT resolves to the repository root, not the package dir', () => {
+  const expectedRoot = path.resolve(HERE, '..', '..', '..');
+  assert.equal(REPO_ROOT, expectedRoot);
+  const normalized = REPO_ROOT.split(path.sep).join('/');
+  assert.ok(
+    !normalized.endsWith('packages/db'),
+    `REPO_ROOT must not be the package dir: ${normalized}`,
+  );
+});
+
+test('DEFAULT_OUTPUT_DIR is the repo-root backups dir, not packages/db/backups', () => {
+  const expected = path.resolve(HERE, '..', '..', '..', DEFAULT_BACKUP_DIRNAME);
+  assert.equal(DEFAULT_OUTPUT_DIR, expected);
+  assert.ok(path.isAbsolute(DEFAULT_OUTPUT_DIR), 'default output dir must be absolute');
+  assert.equal(path.basename(DEFAULT_OUTPUT_DIR), 'backups');
+
+  const normalized = DEFAULT_OUTPUT_DIR.split(path.sep).join('/');
+  assert.ok(
+    !normalized.includes('packages/db/backups'),
+    `default must not resolve inside packages/db: ${normalized}`,
+  );
+});
+
+test('resolveOutputDir defaults to the repo-root backups dir', () => {
+  assert.equal(resolveOutputDir(undefined), DEFAULT_OUTPUT_DIR);
+  assert.equal(resolveOutputDir(''), DEFAULT_OUTPUT_DIR);
+  assert.equal(resolveOutputDir('   '), DEFAULT_OUTPUT_DIR);
+});
+
+test('resolveOutputDir honors a BACKUP_OUTPUT_DIR override verbatim', () => {
+  const override = path.join('tmp', 'custom-backups');
+  assert.equal(resolveOutputDir(override), override);
+
+  const absoluteOverride = path.resolve(HERE, 'some-other-backups');
+  assert.equal(resolveOutputDir(absoluteOverride), absoluteOverride);
 });
 
 // --- filename ---------------------------------------------------------------

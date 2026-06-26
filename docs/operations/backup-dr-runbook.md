@@ -162,12 +162,36 @@ pnpm db:backup
 - `DATABASE_URL` — backup **source** connection. Read from env, never logged, and
   passed to `pg_dump` via `PG*` env vars (never as a CLI argument).
 - `BACKUP_ENCRYPTION_KEY` — base64-encoded **32-byte** key for AES-256-GCM.
-- `BACKUP_OUTPUT_DIR` *(optional)* — output folder; defaults to `backups/`.
+- `BACKUP_OUTPUT_DIR` *(optional)* — output folder override. When unset, the tool
+  writes to the **repo-root** `backups/` directory (see "Output location" below).
 - `BACKUP_RETENTION_COUNT` *(optional)* — number of backups to keep; defaults to
   `7` and is **never allowed below 7**.
 
 Values live only in a gitignored local env file / password manager — never in
 Git, docs, logs, or chat.
+
+### Prerequisites
+
+- **PostgreSQL client tools must be installed and `pg_dump` must be on `PATH`.**
+  The tool shells out to `pg_dump`; if it is missing, the backup fails fast with
+  a "is it installed and on PATH?" error. Confirm with `pg_dump --version`.
+- On **Windows**, the Stage 2B local smoke test used the **PostgreSQL 17
+  command-line tools** (`pg_dump (PostgreSQL) 17.6`). Install the PostgreSQL
+  client/command-line tools and ensure their `bin` directory is on `PATH`
+  (for example `C:\Program Files\PostgreSQL\17\bin` — example only, not a
+  required path).
+
+### Output location
+
+- The default output directory is the **repo-root** `backups/` directory. It is
+  anchored to the script's own location (`packages/db/scripts/backup.ts`), not to
+  the current working directory.
+- This holds even when invoked via `pnpm db:backup`
+  (`pnpm --filter @line-os/db backup`), which runs with cwd = `packages/db`. The
+  artifact still lands in repo-root `backups/`, **not** `packages/db/backups/`.
+- Set `BACKUP_OUTPUT_DIR` to override this. An explicit override is used verbatim;
+  a relative override resolves against the current working directory.
+- Backup artifacts are **gitignored** (`backups/`) and must never be committed.
 
 ### Format and scope
 
@@ -198,6 +222,11 @@ Git, docs, logs, or chat.
 - **No secrets in logs/docs/chat.** The tool prints only safe operational
   messages (start, pg_dump completed, encrypted backup written, retention
   applied, backup path) — never the DB URL, credentials, or row data.
+
+> **TODO (pg_dump version):** The local smoke test used `pg_dump 17.6`. Before
+> any production / Cloud backup, confirm the **actual Cloud Postgres version** and
+> use a compatible `pg_dump` (generally `pg_dump` >= the server major version).
+> Do not assume the local and Cloud Postgres versions match.
 
 ## 10. Out of scope for this stage
 
