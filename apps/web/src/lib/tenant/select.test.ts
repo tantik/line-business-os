@@ -40,13 +40,13 @@ test('selectActiveTenant defaults to the first membership', () => {
 });
 
 test('selectActiveTenant honors a requested tenant the user belongs to', () => {
-  const result = selectActiveTenant([membership('a'), membership('b')], 'b');
+  const result = selectActiveTenant([membership('a'), membership('b')], { requestedTenantId: 'b' });
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.tenant.tenantId, 'b');
 });
 
 test('selectActiveTenant returns unauthorized for a non-member tenant', () => {
-  const result = selectActiveTenant([membership('a')], 'zzz');
+  const result = selectActiveTenant([membership('a')], { requestedTenantId: 'zzz' });
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.reason, 'unauthorized');
 });
@@ -124,15 +124,91 @@ test('selectActiveTenant tie-break: equal name + slug + location -> tenantId dec
 
 test('selectActiveTenant requestedTenantId overrides the deterministic default', () => {
   // Default would be 'a'; an explicit valid member id must win.
-  const result = selectActiveTenant([membership('a'), membership('b'), membership('c')], 'c');
+  const result = selectActiveTenant([membership('a'), membership('b'), membership('c')], {
+    requestedTenantId: 'c',
+  });
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.tenant.tenantId, 'c');
 });
 
 test('selectActiveTenant invalid requestedTenantId is unauthorized, never a fallback', () => {
-  const result = selectActiveTenant([membership('a'), membership('b')], 'zzz');
+  const result = selectActiveTenant([membership('a'), membership('b')], { requestedTenantId: 'zzz' });
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.reason, 'unauthorized');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1G Stage 2 - lenient candidate (active tenant cookie hint).
+//
+// candidateTenantId is a HINT: honored only if it is a real membership, and
+// otherwise silently ignored in favor of the deterministic default. It must
+// never escalate to `unauthorized`, and an explicit requestedTenantId always
+// wins over it (and stays strict).
+// ---------------------------------------------------------------------------
+
+test('selectActiveTenant honors a candidateTenantId the user belongs to', () => {
+  // Default would be 'a'; a valid member candidate must be selected instead.
+  const result = selectActiveTenant([membership('a'), membership('b'), membership('c')], {
+    candidateTenantId: 'c',
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.tenant.tenantId, 'c');
+});
+
+test('selectActiveTenant stale candidateTenantId falls back to the deterministic default', () => {
+  const result = selectActiveTenant([membership('b'), membership('a')], {
+    candidateTenantId: 'zzz',
+  });
+  assert.equal(result.ok, true);
+  // Not unauthorized; falls back to the deterministic default ('a').
+  if (result.ok) assert.equal(result.tenant.tenantId, 'a');
+});
+
+test('selectActiveTenant absent candidateTenantId falls back to the deterministic default', () => {
+  const nullCandidate = selectActiveTenant([membership('b'), membership('a')], {
+    candidateTenantId: null,
+  });
+  assert.equal(nullCandidate.ok, true);
+  if (nullCandidate.ok) assert.equal(nullCandidate.tenant.tenantId, 'a');
+
+  const noOptions = selectActiveTenant([membership('b'), membership('a')]);
+  assert.equal(noOptions.ok, true);
+  if (noOptions.ok) assert.equal(noOptions.tenant.tenantId, 'a');
+});
+
+test('selectActiveTenant requestedTenantId wins over candidateTenantId', () => {
+  const result = selectActiveTenant([membership('a'), membership('b'), membership('c')], {
+    requestedTenantId: 'b',
+    candidateTenantId: 'c',
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.tenant.tenantId, 'b');
+});
+
+test('selectActiveTenant invalid requestedTenantId with valid candidate is unauthorized, no fallback', () => {
+  const result = selectActiveTenant([membership('a'), membership('c')], {
+    requestedTenantId: 'zzz',
+    candidateTenantId: 'c',
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, 'unauthorized');
+});
+
+test('selectActiveTenant candidate path does not mutate the input array', () => {
+  const input = [membership('c'), membership('a'), membership('b')];
+  const snapshot = input.map((m) => m.tenantId);
+  selectActiveTenant(input, { candidateTenantId: 'b' });
+  assert.deepEqual(
+    input.map((m) => m.tenantId),
+    snapshot,
+    'input array order must be preserved',
+  );
+});
+
+test('selectActiveTenant no_membership wins even with a candidateTenantId', () => {
+  const result = selectActiveTenant([], { candidateTenantId: 'c' });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, 'no_membership');
 });
 
 // ---------------------------------------------------------------------------
