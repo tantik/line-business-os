@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listTenantMemberships } from './membership.js';
 
@@ -82,4 +83,108 @@ test('listTenantMemberships maps an unknown error to unexpected_error', async ()
   const result = await listTenantMemberships(client, 'user-1');
   assert.equal(result.status, 'unexpected_error');
   if (result.status === 'unexpected_error') assert.equal(result.message, 'boom');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1F Stage 2A — offline Data API facade contract regression guard.
+//
+// These tests lock in HOW the helper talks to Supabase (not just what it
+// returns) so a future refactor cannot silently drift off the safe app-facing
+// `api` facade back onto raw `core`, add tenant/user `.eq()` filters, or change
+// the projected column set. Fully offline: a recording stub captures the query
+// builder calls; no network, no Cloud, no secrets, no service_role.
+// ---------------------------------------------------------------------------
+
+interface RecordedCall {
+  method: string;
+  args: unknown[];
+}
+
+/**
+ * Like `stubClient`, but records every query-builder method call (method name +
+ * arguments) so tests can assert the exact facade contract the helper uses.
+ */
+function recordingClient(result: { data: unknown; error: unknown }): {
+  client: SupabaseClient;
+  calls: RecordedCall[];
+} {
+  const calls: RecordedCall[] = [];
+  const builder: Record<string, unknown> = {};
+  for (const method of ['schema', 'from', 'select', 'eq']) {
+    builder[method] = (...args: unknown[]) => {
+      calls.push({ method, args });
+      return builder;
+    };
+  }
+  builder.then = (resolve: (value: unknown) => unknown) => resolve(result);
+  return { client: builder as unknown as SupabaseClient, calls };
+}
+
+const EXPECTED_SELECT = 'tenant_id, tenant_slug, tenant_name, tenant_kind, location_id, status';
+
+test('listTenantMemberships reads through the api facade view with the exact projection', async () => {
+  const { client, calls } = recordingClient({ data: [row], error: null });
+  await listTenantMemberships(client, 'user-1');
+
+  const schemaCall = calls.find((c) => c.method === 'schema');
+  assert.ok(schemaCall, 'expected a .schema() call');
+  assert.deepEqual(schemaCall!.args, ['api'], ".schema() must target the 'api' facade");
+
+  const fromCall = calls.find((c) => c.method === 'from');
+  assert.ok(fromCall, 'expected a .from() call');
+  assert.deepEqual(
+    fromCall!.args,
+    ['my_tenant_memberships'],
+    ".from() must target the 'my_tenant_memberships' view",
+  );
+
+  const selectCall = calls.find((c) => c.method === 'select');
+  assert.ok(selectCall, 'expected a .select() call');
+  assert.deepEqual(
+    selectCall!.args,
+    [EXPECTED_SELECT],
+    '.select() must project exactly the api.my_tenant_memberships columns',
+  );
+});
+
+test('listTenantMemberships never touches raw core, never filters, never widens', async () => {
+  const { client, calls } = recordingClient({ data: [row], error: null });
+  await listTenantMemberships(client, 'user-1');
+
+  // Must NOT reach raw `core` via the schema selector.
+  const schemaTargets = calls.filter((c) => c.method === 'schema').flatMap((c) => c.args);
+  assert.ok(!schemaTargets.includes('core'), "must never call .schema('core')");
+
+  // Must NOT read the underlying core tables directly.
+  const fromTargets = calls.filter((c) => c.method === 'from').flatMap((c) => c.args);
+  assert.ok(
+    !fromTargets.includes('tenant_memberships'),
+    "must never call .from('tenant_memberships') (raw core table)",
+  );
+  assert.ok(!fromTargets.includes('tenants'), "must never call .from('tenants') (raw core table)");
+
+  // The facade view is self-scoped server-side; the helper must add no client
+  // tenant/user filters (which would imply trusting a client-supplied id).
+  assert.ok(
+    !calls.some((c) => c.method === 'eq'),
+    'must not add any .eq() tenant/user filter; the view is self-scoped',
+  );
+
+  // Exactly one schema/from/select hop — no extra query surface.
+  assert.equal(calls.filter((c) => c.method === 'schema').length, 1);
+  assert.equal(calls.filter((c) => c.method === 'from').length, 1);
+  assert.equal(calls.filter((c) => c.method === 'select').length, 1);
+});
+
+test('listTenantMemberships uses no service-role path (anon/RLS client only)', () => {
+  // Guard against a future regression that imports the server-only service-role
+  // client into this framework-agnostic helper. The browser bundle + this
+  // helper must use the anon key + RLS only; service_role is server-only.
+  const source = readFileSync(new URL('./membership.ts', import.meta.url), 'utf8');
+  assert.ok(!/service_role/i.test(source), 'membership.ts must not reference service_role');
+  assert.ok(
+    !/createServiceClient/.test(source),
+    'membership.ts must not import createServiceClient',
+  );
+  assert.ok(!/\.schema\(\s*['"]core['"]\s*\)/.test(source), "membership.ts must not select schema('core')");
 });
