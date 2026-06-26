@@ -43,7 +43,7 @@ export default async function DashboardPage() {
 
   switch (result.status) {
     case 'success': {
-      const { activeTenant, memberships, userId } = result.data;
+      const { activeTenant, memberships } = result.data;
       return (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: 32 }}>
           <div
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
               <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
             </p>
             <p style={{ margin: '4px 0 0', color: '#6b7280' }}>
-              kind: {activeTenant.tenantKind} | memberships: {memberships.length} | user: {userId}
+              kind: {activeTenant.tenantKind} | memberships: {memberships.length}
             </p>
           </section>
         </main>
