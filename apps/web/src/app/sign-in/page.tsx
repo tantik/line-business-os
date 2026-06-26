@@ -9,7 +9,7 @@ import { signIn } from '@/lib/auth/actions';
  * client JS and no Supabase client run in the browser for the submit. Already
  * authenticated visitors are sent straight to the dashboard. A generic error is
  * shown when `?error=1` is present (set by the action on bad input or failed
- * auth) — we never reveal which field was wrong or echo the auth error.
+ * auth) - we never reveal which field was wrong or echo the auth error.
  *
  * Sign-up, password reset, OAuth/social, and LINE login are intentionally NOT
  * implemented in this phase (foundation only).

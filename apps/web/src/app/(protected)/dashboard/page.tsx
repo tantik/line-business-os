@@ -34,8 +34,8 @@ function SignOutButton() {
 
 /**
  * Minimal authenticated dashboard scaffold. It demonstrates the foundation
- * flow (auth → membership → active tenant) and renders the matching safe state
- * for every outcome. It hosts NO product logic — Workforce/Booking/AI modules
+ * flow (auth -> membership -> active tenant) and renders the matching safe state
+ * for every outcome. It hosts NO product logic - Workforce/Booking/AI modules
  * are not implemented here.
  */
 export default async function DashboardPage() {
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
               <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
             </p>
             <p style={{ margin: '4px 0 0', color: '#6b7280' }}>
-              kind: {activeTenant.tenantKind} · memberships: {memberships.length} · user: {userId}
+              kind: {activeTenant.tenantKind} | memberships: {memberships.length} | user: {userId}
             </p>
           </section>
         </main>
