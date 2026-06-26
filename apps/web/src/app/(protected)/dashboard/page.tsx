@@ -1,5 +1,6 @@
 import { requireTenantContext } from '@/lib/tenant/context';
 import { signOut } from '@/lib/auth/actions';
+import { TenantSwitcher } from '@/components/tenant-switcher';
 import {
   ErrorState,
   MissingConfigState,
@@ -67,6 +68,7 @@ export default async function DashboardPage() {
               kind: {activeTenant.tenantKind} | memberships: {memberships.length}
             </p>
           </section>
+          <TenantSwitcher memberships={memberships} activeTenantId={activeTenant.tenantId} />
         </main>
       );
     }

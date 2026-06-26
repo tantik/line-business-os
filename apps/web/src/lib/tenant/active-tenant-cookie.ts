@@ -53,3 +53,31 @@ export function parseActiveTenantCookieValue(raw: string | null | undefined): st
 
   return trimmed.toLowerCase();
 }
+
+/** Cookie options applied when writing the active-tenant cookie. */
+export interface ActiveTenantCookieOptions {
+  httpOnly: true;
+  sameSite: 'lax';
+  secure: boolean;
+  path: '/';
+}
+
+/**
+ * Pure factory for the active-tenant cookie write options.
+ *
+ * Kept here (framework-agnostic, no `next/headers`) so the security-relevant
+ * flags are unit-testable without a request context. The cookie is a hint only
+ * and carries no sensitive data, but it is still scoped fail-safe:
+ *   - `httpOnly` so client JS can never read/forge it,
+ *   - `sameSite: 'lax'` to limit cross-site submission,
+ *   - `secure` in production (HTTPS-only),
+ *   - `path: '/'` so it applies to the whole app.
+ */
+export function buildActiveTenantCookieOptions(isProduction: boolean): ActiveTenantCookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    path: '/',
+  };
+}
