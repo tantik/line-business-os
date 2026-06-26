@@ -10,6 +10,12 @@
 > stages. Until then, treat the "future daily logical backup" steps as the
 > target process, not an existing one.
 
+> **Incident detection and triage** are handled by
+> `docs/operations/incident-response-runbook.md`. The **RTO clock starts when an
+> incident is detected**, so monitoring is required to make the RTO target in §1
+> meaningful — a daily backup alone does not help if nobody knows the product is
+> down.
+
 ## 1. MVP backup policy
 
 | Parameter | MVP target | Notes |
