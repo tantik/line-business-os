@@ -27,7 +27,7 @@
  *   [ 16 bytes ] GCM auth tag     : trailing
  *
  * Required env: DATABASE_URL, BACKUP_ENCRYPTION_KEY
- * Optional env: BACKUP_OUTPUT_DIR (default "backups"),
+ * Optional env: BACKUP_OUTPUT_DIR (default: repo-root "backups/"),
  *               BACKUP_RETENTION_COUNT (default 7, never below 7)
  */
 import { spawn } from 'node:child_process';
@@ -35,7 +35,7 @@ import { createCipheriv, randomBytes } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readdir, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Readable } from 'node:stream';
 
 /** Schemas captured by the backup: application schemas + auth. */
@@ -53,8 +53,44 @@ export const BACKUP_SCHEMAS = [
 /** Minimum number of daily backups to retain. Never go below this. */
 export const MIN_RETENTION = 7;
 
-/** Default output directory (relative to the repo / cwd). Gitignored. */
-export const DEFAULT_OUTPUT_DIR = 'backups';
+/**
+ * Repo root, derived from this script's own location
+ * (`packages/db/scripts/backup.ts` -> three levels up). Anchoring to the
+ * script path makes the default output deterministic regardless of the process
+ * cwd: `pnpm --filter @line-os/db backup` runs with cwd = `packages/db`, which
+ * would otherwise resolve a relative `backups/` to `packages/db/backups/`.
+ */
+export const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+);
+
+/** Name of the default backups directory (under the repo root). Gitignored. */
+export const DEFAULT_BACKUP_DIRNAME = 'backups';
+
+/**
+ * Default output directory: `<repo-root>/backups`. Absolute and
+ * cwd-independent. Gitignored.
+ */
+export const DEFAULT_OUTPUT_DIR = path.resolve(REPO_ROOT, DEFAULT_BACKUP_DIRNAME);
+
+/**
+ * Resolve the backup output directory.
+ * - If `override` (BACKUP_OUTPUT_DIR) is set and non-empty, it is used verbatim
+ *   as an explicit override. Relative overrides resolve against the current
+ *   working directory, preserving prior behavior for explicit opt-in.
+ * - Otherwise the default is the repo-root `backups/` directory, never a
+ *   package-local `packages/db/backups/`. process.cwd() is NOT used for the
+ *   default.
+ */
+export function resolveOutputDir(override: string | undefined): string {
+  if (override !== undefined && override.trim() !== '') {
+    return override;
+  }
+  return DEFAULT_OUTPUT_DIR;
+}
 
 /** AES-256-GCM, 12-byte IV, 16-byte tag (matches @line-os/db crypto). */
 const ALGORITHM = 'aes-256-gcm';
@@ -242,9 +278,7 @@ async function main(): Promise<void> {
   }
   const key = parseEncryptionKey(process.env.BACKUP_ENCRYPTION_KEY);
   const retention = resolveRetentionCount(process.env.BACKUP_RETENTION_COUNT);
-  const outputDirRaw = process.env.BACKUP_OUTPUT_DIR;
-  const outputDir =
-    outputDirRaw !== undefined && outputDirRaw.trim() !== '' ? outputDirRaw : DEFAULT_OUTPUT_DIR;
+  const outputDir = resolveOutputDir(process.env.BACKUP_OUTPUT_DIR);
 
   const connectionEnv = parseDatabaseUrl(databaseUrl);
 

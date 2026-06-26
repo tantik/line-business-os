@@ -88,14 +88,16 @@
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `DATABASE_URL` | **Backup source** connection for the local backup tool (`pnpm db:backup`). Same variable as §1; read from env, never logged, passed to `pg_dump` via `PG*` env vars. | Root gitignored env / password manager | **secret** | now |
 | `BACKUP_ENCRYPTION_KEY` | Base64-encoded **32-byte** key to encrypt backup artifacts at rest with AES-256-GCM (backups may contain PII). | Password manager / secret store only | **secret** | now |
-| `BACKUP_OUTPUT_DIR` | Optional output folder for encrypted backups. Defaults to `backups/` (gitignored). | Backup tooling config (non-sensitive) | public | now |
+| `BACKUP_OUTPUT_DIR` | **Optional** output folder override for encrypted backups. If omitted, the tool uses the **repo-root** `backups/` directory (gitignored), even when run via `pnpm db:backup` (cwd = `packages/db`). | Backup tooling config (non-sensitive) | public | now |
 | `BACKUP_RETENTION_COUNT` | Optional number of daily backups to keep. Defaults to `7`; never below 7. | Backup tooling config (non-sensitive) | public | now |
 | `BACKUP_STORAGE_TARGET` | Destination for offsite/external backup upload (decided in the DR pre-client checklist). | Backup tooling config / secret store | secret-adjacent | future |
 
 > The local backup tool (`pnpm db:backup`) uses `DATABASE_URL`,
 > `BACKUP_ENCRYPTION_KEY`, and the optional `BACKUP_OUTPUT_DIR` /
-> `BACKUP_RETENTION_COUNT`. `BACKUP_STORAGE_TARGET` remains a placeholder until
-> offsite/scheduled backup is built (later stage). Names only — never values.
+> `BACKUP_RETENTION_COUNT`. `BACKUP_OUTPUT_DIR` is optional; when omitted, the
+> tool writes to the repo-root `backups/` directory. `BACKUP_STORAGE_TARGET`
+> remains a placeholder until offsite/scheduled backup is built (later stage).
+> Names only — never values.
 
 ## Rules (always)
 
