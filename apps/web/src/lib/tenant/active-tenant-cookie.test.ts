@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACTIVE_TENANT_COOKIE,
+  buildActiveTenantCookieOptions,
   parseActiveTenantCookieValue,
 } from './active-tenant-cookie.js';
 
@@ -49,4 +50,25 @@ test('parseActiveTenantCookieValue: valid uppercase UUID -> lowercase UUID', () 
 
 test('parseActiveTenantCookieValue: valid UUID with surrounding spaces -> trimmed lowercase', () => {
   assert.equal(parseActiveTenantCookieValue(`  ${UPPER_UUID}  `), LOWER_UUID);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1G Stage 3 - cookie write options factory (pure, security flags).
+// ---------------------------------------------------------------------------
+
+test('buildActiveTenantCookieOptions: httpOnly, sameSite lax, path / always set', () => {
+  for (const isProd of [true, false]) {
+    const options = buildActiveTenantCookieOptions(isProd);
+    assert.equal(options.httpOnly, true);
+    assert.equal(options.sameSite, 'lax');
+    assert.equal(options.path, '/');
+  }
+});
+
+test('buildActiveTenantCookieOptions: secure is true in production', () => {
+  assert.equal(buildActiveTenantCookieOptions(true).secure, true);
+});
+
+test('buildActiveTenantCookieOptions: secure is false outside production', () => {
+  assert.equal(buildActiveTenantCookieOptions(false).secure, false);
 });
