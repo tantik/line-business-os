@@ -8,7 +8,7 @@
     "start": "next start -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/supabase/env.test.ts src/lib/auth/user.test.ts src/lib/tenant/select.test.ts src/lib/tenant/membership.test.ts"
+    "test": "node --import tsx --test src/lib/supabase/env.test.ts src/lib/auth/user.test.ts src/lib/auth/credentials.test.ts src/lib/tenant/select.test.ts src/lib/tenant/membership.test.ts"
   },
   "dependencies": {
     "@line-os/booking": "workspace:*",

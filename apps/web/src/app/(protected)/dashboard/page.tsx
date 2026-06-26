@@ -1,4 +1,5 @@
 import { requireTenantContext } from '@/lib/tenant/context';
+import { signOut } from '@/lib/auth/actions';
 import {
   ErrorState,
   MissingConfigState,
@@ -8,6 +9,28 @@ import {
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+/** Minimal sign-out control; posts to the `signOut` Server Action. */
+function SignOutButton() {
+  return (
+    <form action={signOut}>
+      <button
+        type="submit"
+        style={{
+          padding: '8px 14px',
+          background: '#fff',
+          color: '#111827',
+          border: '1px solid #d1d5db',
+          borderRadius: 6,
+          fontSize: 14,
+          cursor: 'pointer',
+        }}
+      >
+        Sign out
+      </button>
+    </form>
+  );
+}
 
 /**
  * Minimal authenticated dashboard scaffold. It demonstrates the foundation
@@ -23,7 +46,12 @@ export default async function DashboardPage() {
       const { activeTenant, memberships, userId } = result.data;
       return (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: 32 }}>
-          <h1>Dashboard</h1>
+          <div
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+          >
+            <h1 style={{ margin: 0 }}>Dashboard</h1>
+            <SignOutButton />
+          </div>
           <p style={{ color: '#6b7280' }}>
             Authenticated foundation scaffold. Modules will mount here in later phases.
           </p>
