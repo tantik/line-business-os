@@ -82,15 +82,20 @@
 | `LINE_LIFF_ID` | LIFF app id (server-side reference). | Server config | public-ish | future |
 | `NEXT_PUBLIC_LIFF_ID` | LIFF app id exposed to the browser. | Web app env (public) | public | future |
 
-## 6. Backup (future)
+## 6. Backup
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
-| `BACKUP_STORAGE_TARGET` | Destination for daily DB backups (decided in the DR pre-client checklist). | Backup tooling config / secret store | secret-adjacent | future |
-| `BACKUP_ENCRYPTION_KEY` | Key to encrypt backup artifacts at rest (backups may contain PII). | Password manager / secret store only | **secret** | future |
+| `DATABASE_URL` | **Backup source** connection for the local backup tool (`pnpm db:backup`). Same variable as §1; read from env, never logged, passed to `pg_dump` via `PG*` env vars. | Root gitignored env / password manager | **secret** | now |
+| `BACKUP_ENCRYPTION_KEY` | Base64-encoded **32-byte** key to encrypt backup artifacts at rest with AES-256-GCM (backups may contain PII). | Password manager / secret store only | **secret** | now |
+| `BACKUP_OUTPUT_DIR` | Optional output folder for encrypted backups. Defaults to `backups/` (gitignored). | Backup tooling config (non-sensitive) | public | now |
+| `BACKUP_RETENTION_COUNT` | Optional number of daily backups to keep. Defaults to `7`; never below 7. | Backup tooling config (non-sensitive) | public | now |
+| `BACKUP_STORAGE_TARGET` | Destination for offsite/external backup upload (decided in the DR pre-client checklist). | Backup tooling config / secret store | secret-adjacent | future |
 
-> Backup variable names are placeholders until the backup tooling is built
-> (later stage). They are documented so a full rebuild knows what to provision.
+> The local backup tool (`pnpm db:backup`) uses `DATABASE_URL`,
+> `BACKUP_ENCRYPTION_KEY`, and the optional `BACKUP_OUTPUT_DIR` /
+> `BACKUP_RETENTION_COUNT`. `BACKUP_STORAGE_TARGET` remains a placeholder until
+> offsite/scheduled backup is built (later stage). Names only — never values.
 
 ## Rules (always)
 

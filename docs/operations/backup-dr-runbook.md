@@ -143,8 +143,65 @@ Complete every item before onboarding the first real client:
 - **Backups may contain PII** and must be encrypted and stored safely.
 - **No API keys, passwords, JWTs, or refresh tokens** in docs, chat, or commits.
 
-## 9. Out of scope for this stage
+## 9. Local daily backup tool (Stage 2)
 
-This runbook does NOT implement backup scripts, restore automation, scheduling,
-or any Cloud operation. Those are later stages and require their own approved
-tasks.
+A **local, manual** encrypted backup tool is implemented for MVP. It runs
+against the **local** database only and must not be pointed at Supabase Cloud
+without explicit approval.
+
+### Command
+
+```
+pnpm db:backup
+```
+
+(Equivalent: `pnpm --filter @line-os/db backup`, i.e. `tsx scripts/backup.ts`.)
+
+### Required / optional environment (names only — never values)
+
+- `DATABASE_URL` — backup **source** connection. Read from env, never logged, and
+  passed to `pg_dump` via `PG*` env vars (never as a CLI argument).
+- `BACKUP_ENCRYPTION_KEY` — base64-encoded **32-byte** key for AES-256-GCM.
+- `BACKUP_OUTPUT_DIR` *(optional)* — output folder; defaults to `backups/`.
+- `BACKUP_RETENTION_COUNT` *(optional)* — number of backups to keep; defaults to
+  `7` and is **never allowed below 7**.
+
+Values live only in a gitignored local env file / password manager — never in
+Git, docs, logs, or chat.
+
+### Format and scope
+
+- `pg_dump -Fc` (custom/compressed format), restore-portable
+  (`--no-owner --no-privileges`).
+- Output is encrypted at rest: `linebos-YYYYMMDD-HHmmss.dump.enc`
+  (layout: 8-byte magic+version, 12-byte IV, ciphertext, 16-byte GCM tag). The
+  plaintext dump is streamed straight into the cipher and never written to disk.
+- **Included schemas:** `core`, `audit`, `workforce`, `booking`, `ai`, `public`,
+  `api`, and `auth` (so auth users are recoverable).
+- **Excluded:** Supabase-managed/secret schemas (`vault`, `pgsodium`, `realtime`,
+  `extensions`, `graphql`, `graphql_public`, `supabase_functions`,
+  `supabase_migrations`, `cron`, `net`, `pgbouncer`, system catalogs).
+- **Not covered:** Supabase Storage files / uploaded files (separate future
+  plan — see §3).
+
+### Retention
+
+- Keeps a **minimum of 7** daily backups. Pruning runs **only after** a
+  successful backup, touches **only** files matching the backup naming pattern,
+  and never reduces retention below 7.
+
+### Warnings
+
+- **Do not run against Cloud** unless explicitly approved.
+- **Do not restore to Cloud** without separate, explicit approval (no restore
+  tooling exists yet — see §10).
+- **No secrets in logs/docs/chat.** The tool prints only safe operational
+  messages (start, pg_dump completed, encrypted backup written, retention
+  applied, backup path) — never the DB URL, credentials, or row data.
+
+## 10. Out of scope for this stage
+
+This runbook's Stage 2 implements only the **local manual** backup tool above.
+It does NOT implement restore automation, a scheduled GitHub Actions backup,
+external/offsite storage upload, or any Cloud operation. Those are later stages
+and require their own approved tasks.
