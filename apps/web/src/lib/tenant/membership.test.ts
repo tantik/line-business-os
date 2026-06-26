@@ -66,6 +66,27 @@ test('listTenantMemberships returns no_membership for an empty result', async ()
   assert.equal(result.status, 'no_membership');
 });
 
+test('listTenantMemberships returns memberships in deterministic (sorted) order', async () => {
+  // Unordered rows as the Data API might return them; the helper must apply the
+  // shared comparator (tenantName -> slug -> locationId(nulls last) -> tenantId).
+  const client = stubClient({
+    data: [
+      { ...row, tenant_id: 't-c', tenant_name: 'Charlie', tenant_slug: 'c' },
+      { ...row, tenant_id: 't-a', tenant_name: 'Alpha', tenant_slug: 'a' },
+      { ...row, tenant_id: 't-b', tenant_name: 'Bravo', tenant_slug: 'b' },
+    ],
+    error: null,
+  });
+  const result = await listTenantMemberships(client, 'user-1');
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.deepEqual(
+      result.data.map((m) => m.tenantId),
+      ['t-a', 't-b', 't-c'],
+    );
+  }
+});
+
 test('listTenantMemberships maps a permission-denied error to unauthorized', async () => {
   const client = stubClient({
     data: null,
@@ -86,7 +107,7 @@ test('listTenantMemberships maps an unknown error to unexpected_error', async ()
 });
 
 // ---------------------------------------------------------------------------
-// Phase 1F Stage 2A — offline Data API facade contract regression guard.
+// Phase 1F Stage 2A - offline Data API facade contract regression guard.
 //
 // These tests lock in HOW the helper talks to Supabase (not just what it
 // returns) so a future refactor cannot silently drift off the safe app-facing
@@ -110,7 +131,9 @@ function recordingClient(result: { data: unknown; error: unknown }): {
 } {
   const calls: RecordedCall[] = [];
   const builder: Record<string, unknown> = {};
-  for (const method of ['schema', 'from', 'select', 'eq']) {
+  // `order` is included so the contract test can prove the helper sorts in JS
+  // (via the shared comparator) and never pushes ordering into the DB query.
+  for (const method of ['schema', 'from', 'select', 'eq', 'order']) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return builder;
@@ -170,7 +193,14 @@ test('listTenantMemberships never touches raw core, never filters, never widens'
     'must not add any .eq() tenant/user filter; the view is self-scoped',
   );
 
-  // Exactly one schema/from/select hop — no extra query surface.
+  // Ordering is applied in JS via the shared comparator, never pushed into the
+  // DB query (which would widen the query-builder contract).
+  assert.ok(
+    !calls.some((c) => c.method === 'order'),
+    'must not add any .order() to the DB query; sorting is done in JS',
+  );
+
+  // Exactly one schema/from/select hop - no extra query surface.
   assert.equal(calls.filter((c) => c.method === 'schema').length, 1);
   assert.equal(calls.filter((c) => c.method === 'from').length, 1);
   assert.equal(calls.filter((c) => c.method === 'select').length, 1);

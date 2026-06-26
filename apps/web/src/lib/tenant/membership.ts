@@ -5,6 +5,7 @@ import type {
   TenantKind,
   TenantMembership,
 } from './types';
+import { compareTenantMemberships } from './select';
 
 /**
  * Read the current user's ACTIVE tenant memberships through the RLS-scoped
@@ -14,7 +15,7 @@ import type {
  * Framework-agnostic (no Next.js imports) and unit-testable with a stubbed
  * client. Returns a typed result for each outcome instead of throwing.
  *
- * NOTE (ADR 0006 → ADR 0008): Phase 1E-3 moves this read off raw `core` and onto
+ * NOTE (ADR 0006 -> ADR 0008): Phase 1E-3 moves this read off raw `core` and onto
  * the app-facing `api` facade. The app now selects from the security-invoker view
  * `api.my_tenant_memberships`, which is ALREADY self-scoped server-side to
  * `core.current_user_id()` and `status = 'active'` (the view's own WHERE clause)
@@ -69,6 +70,9 @@ export async function listTenantMemberships(
     }));
 
     if (memberships.length === 0) return { status: 'no_membership' };
+    // Return a deterministic order (shared comparator) so the default active
+    // tenant and any future membership list are stable, not DB-order dependent.
+    memberships.sort(compareTenantMemberships);
     return { status: 'success', data: memberships };
   } catch (err) {
     return {
