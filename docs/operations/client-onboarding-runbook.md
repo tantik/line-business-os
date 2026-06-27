@@ -1,8 +1,9 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-4b — Local-only committed onboarding (the first stage with
-  a real `COMMIT`; LOCAL only, strictly gated)
+- Phase: 1H Stage 3d-doc — First real local owner onboarding procedure
+  (documentation only; builds on Stage 3c-4b local-only committed onboarding,
+  the first stage with a real `COMMIT`; LOCAL only, strictly gated)
 - Scope: **Documentation + pure validation helpers + a CLI that runs the write
   path either inside a LOCAL dry-run transaction (always rolls back) or, when all
   Stage 3c-4a gates pass, inside a LOCAL committed transaction.** This runbook
@@ -411,3 +412,266 @@ This runbook does **not** cover:
 - **LINE integration** — not part of onboarding yet.
 - **Workforce / Booking migration** — module data migration is out of scope.
 - **Admin console** — no self-service or admin UI; onboarding is manual.
+
+## 12. First real local owner onboarding procedure (Phase 1H Stage 3d)
+
+This section is the operator-facing procedure for onboarding the **first real
+local owner** — a real Supabase **Auth** user (not a synthetic id) onboarded
+against the **local** database only. It builds on the Stage 3c-4b local
+committed path (§5) and the verification + safety rules above; it does **not**
+change any of them. It is **LOCAL only**: no Supabase Cloud, no `service_role`,
+no auth-admin, no production onboarding.
+
+> This is a checklist and a set of command **templates with placeholders**, not
+> copy-paste commands with real values. Never substitute a real UUID, real
+> email, secret, or DB URL into this document.
+
+### 12.A. Preconditions
+
+Confirm **all** of these before starting:
+
+- [ ] **Local only.** The target is the local database at `127.0.0.1:54322`.
+      No Cloud, ever.
+- [ ] **`dev` is clean.** Work happens on `dev` (or a feature branch off `dev`);
+      `git status` is clean before and after the procedure.
+- [ ] **Local DB is running** on `127.0.0.1:54322` (Supabase local stack up).
+- [ ] **Web app is available locally** (the local Next.js app is running) so the
+      owner can sign in for verification.
+- [ ] **No `service_role`** is used at any point (RLS + anon key only in the app;
+      the onboarding CLI uses a plain local `pg` connection, never `service_role`).
+- [ ] **No auth-admin.** The platform never creates/invites the auth user.
+- [ ] **No real customer email.** Real customer PII is out of scope for this
+      stage.
+- [ ] **Owner email is omitted** for this first real run (`--owner-email` is not
+      passed; PII env vars are therefore not required).
+- [ ] **A fresh encrypted backup is required before the commit** (§12.C) and must
+      pass the backup-artifact gate (§5, Stage 3c-4a).
+
+### 12.B. Owner identity (real local Supabase Auth user)
+
+Identity follows the MVP **Option A** model (§0): the owner exists in Supabase
+Auth first; onboarding only **links** to that existing auth user id.
+
+1. The owner must already have a **real local Supabase Auth user**. The platform
+   does not create it (no auth-admin, no self-service signup in this stage).
+2. **Obtain the auth user id the MVP-safe way — local Supabase Studio:**
+   - Open the **local** Supabase Studio for the local stack.
+   - Go to **Authentication → Users**.
+   - **Copy the user's UUID manually** from the Users list.
+3. Use that UUID **only at run time** as the value for `--owner-auth-user-id`.
+
+Hard rules for the auth user id:
+
+- **Do NOT store the UUID in this doc or in any run report.** Use the placeholder
+  `<OWNER_AUTH_USER_ID>` everywhere written down.
+- **Do NOT paste the UUID into chat tools, logs, or report files.**
+- **Do NOT use an email-to-uid lookup in application code.** Identity is never
+  resolved from email; email is never identity authority.
+- **Do NOT use auth-admin** (no admin API calls), **no CLI helper**, **no
+  debug web display**, and **no `SELECT` from `auth.users` in code** to obtain
+  the id. Manual copy from local Studio is the only sanctioned method.
+
+### 12.C. Fresh encrypted backup (required before commit)
+
+The committed run is gated on a fresh, encrypted backup artifact. Backup stays a
+**separate explicit step**; onboarding never auto-runs a backup.
+
+1. Create a fresh backup:
+
+```bash
+pnpm db:backup
+```
+
+2. The artifact is written to the gitignored repo-root `backups/` directory as an
+   encrypted file named `linebos-YYYYMMDD-HHmmss.dump.enc`.
+3. Requirements enforced by the commit gate (metadata only — the file is never
+   read, decrypted, or uploaded):
+   - the file must **exist**, be a **regular, non-empty** file,
+   - end in **`.dump.enc`** and match `linebos-YYYYMMDD-HHmmss.dump.enc`,
+   - be **modified within the last 24 hours** (fresh).
+4. Pass the artifact path to `--backup-artifact` in the **commit** command
+   (§12.E). Refer to it as `<BACKUP_ARTIFACT>` when writing anything down.
+
+Safety:
+
+- **Do NOT print or paste `BACKUP_ENCRYPTION_KEY`** (or any key) anywhere.
+- **Do NOT decrypt or upload** the backup. The gate is metadata-only.
+
+### 12.D. Dry-run command template (omit owner email)
+
+Run a dry-run first against the same local `DATABASE_URL`. The dry-run executes
+the full write path inside a transaction that **always `ROLLBACK`s** — it
+persists nothing — and prints redacted operation counts to review before
+committing. **The dry-run omits the owner email and takes no backup artifact.**
+
+```bash
+pnpm db:onboard-tenant -- \
+  --tenant-name "<TENANT_NAME>" \
+  --tenant-slug "<TENANT_SLUG>" \
+  --owner-auth-user-id "<OWNER_AUTH_USER_ID>" \
+  --location-name "<LOCATION_NAME>" \
+  --timezone Asia/Tokyo \
+  --modules core,workforce \
+  --dry-run
+```
+
+Expected: the CLI reports the planned operation counts, then
+`local dry-run transaction executed`, `transaction rolled back`, and
+`no DB rows persisted`. Review the counts against §12.F before committing.
+
+### 12.E. Commit command template (full gates)
+
+Only after a satisfactory dry-run and a fresh backup, run the **gated local
+commit**. All gate flags are mandatory; omit `--owner-email` for the first real
+run.
+
+```bash
+pnpm db:onboard-tenant -- \
+  --tenant-name "<TENANT_NAME>" \
+  --tenant-slug "<TENANT_SLUG>" \
+  --owner-auth-user-id "<OWNER_AUTH_USER_ID>" \
+  --location-name "<LOCATION_NAME>" \
+  --timezone Asia/Tokyo \
+  --modules core,workforce \
+  --commit \
+  --yes \
+  --i-understand-this-writes-local-db \
+  --backup-artifact "<BACKUP_ARTIFACT>" \
+  --target local
+```
+
+Gate behavior (all fail safely **before** any DB interaction):
+
+- missing any of `--commit` / `--yes` / `--i-understand-this-writes-local-db` /
+  `--backup-artifact` / `--target local` → refuses to run,
+- `--target` anything other than `local` → rejected (the bad value is never
+  echoed); Cloud/remote targets are impossible,
+- an invalid/stale backup artifact → rejected,
+- a non-local / Cloud-like `DATABASE_URL` → rejected by the local guard before
+  connecting.
+
+Expected on success: `local committed onboarding executed`,
+`backup artifact gate passed`, `local target confirmed`, the changed/audit row
+counts, and `no Cloud touched`.
+
+### 12.F. Expected DB deltas (modules `core,workforce`, no email)
+
+A first commit on a brand-new tenant with `--modules core,workforce` and no
+owner email persists exactly these deltas:
+
+| Table | Expected delta |
+| ----- | -------------- |
+| `core.tenants` | **+1** |
+| `core.users` | **+1** (owner mirror; no PII columns set) |
+| `core.locations` | **+1** |
+| `core.tenant_memberships` | **+1** (status `active`) |
+| `core.role_assignments` | **+1** (`tenant_owner`, tenant-wide `location_id` NULL) |
+| `core.tenant_modules` | **+2** (`core` + `workforce`) |
+| `audit.audit_logs` | **+8** (7 changed-op rows + 1 `summary` row) |
+
+Verify by capturing **counts only** before and after (never row contents, ids,
+or PII). The CLI's own redacted output
+(`committed rows persisted: N change(s), M audit row(s)`) is the primary safe
+evidence.
+
+### 12.G. Web verification (owner)
+
+After the commit:
+
+1. The owner **signs in** at `/sign-in` with their real local Auth credentials.
+2. The **dashboard** (`/dashboard`) should show the **active tenant** — the new
+   tenant name + slug, `kind: client`, and `memberships: 1`.
+3. **Tenant switcher:** with exactly **one** membership the switcher is **hidden
+   by design** (it renders only for 2+ memberships). A hidden switcher therefore
+   confirms a single membership; it is **not** a failure.
+4. **Active tenant cookie** is only a **hint**: it is always revalidated against
+   live memberships, and a stale/forged cookie is ignored in favor of the
+   deterministic default.
+5. **Modules** are **not yet visibly represented** in the dashboard UI, so module
+   enablement is verified at the **data/runbook level** (the `core.tenant_modules`
+   delta in §12.F), not visually, for now.
+
+### 12.H. Non-member isolation verification
+
+Prove a different local user cannot see the new tenant:
+
+1. Create or sign in as a **second local Auth user** that has **no membership**
+   in the onboarded tenant.
+2. Open `/dashboard` → it should show **no tenant / a safe empty state**
+   (no tenant name or slug is revealed).
+3. **Forged/invalid active tenant selection must not grant access:** the tenant
+   switcher's action revalidates any submitted tenant id against live
+   memberships (STRICT path) and fails closed; a forged active-tenant cookie is
+   only a lenient hint and is ignored for a non-member.
+4. The **`api` facade / RLS returns no memberships** for the non-member
+   (`api.my_tenant_memberships` is self-scoped to the current user and
+   `status = 'active'`, backed by core RLS).
+5. **No `service_role`** is involved at any point.
+
+### 12.I. Idempotency check (optional but recommended)
+
+Re-run the **exact same commit command** (§12.E) once more:
+
+- It should be a **no-op**: the CLI prints
+  `no-op: tenant already onboarded; nothing to change` and
+  `no rows persisted (transaction rolled back)`.
+- **No new rows** in any table from §12.F.
+- **No new audit rows** (changed-only auditing writes nothing on a pure reuse).
+- **No `COMMIT`** is issued on the all-reuse / no-change path (the transaction is
+  rolled back as a no-op).
+
+### 12.J. Redacted local-only run report template
+
+Record the run using this template. It contains **only** safe, non-identifying
+facts. Fill the bracketed fields with safe values (counts, pass/fail, basenames,
+host:port).
+
+```text
+# Real Local Owner Onboarding — Run Report (LOCAL ONLY)
+
+Date/time:            <YYYY-MM-DD HH:MM local>
+Local target:         127.0.0.1:54322            (host:port only)
+Backup artifact:      basename=<linebos-YYYYMMDD-HHmmss.dump.enc>
+                      size=<bytes>  age=<hours within 24h>
+Dry-run status:       <pass / fail>  (rolled back, nothing persisted)
+Commit status:        <committed / no-op / failed>
+
+Before/after count deltas (counts only — no rows, no ids):
+  core.tenants            <before> -> <after>  (expected +1)
+  core.users              <before> -> <after>  (expected +1)
+  core.locations          <before> -> <after>  (expected +1)
+  core.tenant_memberships <before> -> <after>  (expected +1)
+  core.role_assignments   <before> -> <after>  (expected +1)
+  core.tenant_modules     <before> -> <after>  (expected +2)
+  audit.audit_logs        <before> -> <after>  (expected +8)
+
+Owner sign-in verification:      <pass / fail>
+Dashboard tenant visibility:     <pass / fail>
+Tenant switcher behavior:        <pass / fail>  (hidden for single membership is OK)
+Non-member isolation:            <pass / fail>
+DATABASE_URL cleared from shell: <yes / no>
+git clean:                       <yes / no>
+```
+
+The report MUST NOT include any of the following:
+
+- the DB URL / `DATABASE_URL`,
+- passwords,
+- the backup encryption key,
+- JWTs or refresh tokens,
+- `service_role` or the anon key,
+- real user UUIDs,
+- real emails,
+- table rows,
+- ids,
+- audit metadata.
+
+### 12.K. Cleanup policy
+
+- **Default: leave the local real-owner tenant in place.** It is a useful local
+  fixture for sign-in / switcher / isolation checks and future tests, and it
+  holds no real PII (email omitted).
+- **No `db reset`** in this stage (a reset would also wipe the existing
+  `smoke-commit-tenant`). Only reset later with **explicit approval**.
+- **No manual SQL cleanup** and **no restore** in this stage.
+- **No Cloud cleanup** — nothing was ever created in Cloud.

@@ -133,6 +133,26 @@
 > its value, never the raw email, never the DB URL). No **new** variable names
 > are introduced by onboarding. Names only — never values.
 
+### Stage 3d (first real local owner onboarding) — env clarifications
+
+Stage 3d is documentation/procedure only and introduces **no new environment
+variables**. For the first real local owner onboarding procedure (see
+`docs/operations/client-onboarding-runbook.md` §12):
+
+- **No new env vars** are added or required by Stage 3d.
+- `DATABASE_URL` is the **local** connection used by both the backup tool
+  (`pnpm db:backup`) and the onboarding commands (`pnpm db:onboard-tenant`,
+  dry-run and gated local commit). It is read from env, guarded as local
+  (`127.0.0.1:54322`), and **never logged**.
+- `BACKUP_ENCRYPTION_KEY` is **required to create the backup** (`pnpm db:backup`).
+  The committed onboarding run does **not** read or need this key — it only
+  validates the artifact's file metadata.
+- `PII_ENCRYPTION_KEY` / `PII_HASH_PEPPER` are **not required** for the first
+  real local run because the **owner email is omitted** (no PII is written). They
+  are needed only when an owner email is supplied (a later, separate stage).
+- The **backup artifact path is a CLI argument** (`--backup-artifact <path>`),
+  **not an environment variable**, and is never a secret.
+
 ## Rules (always)
 
 - **Do not commit values.** Names only in this repo.

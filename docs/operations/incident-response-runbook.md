@@ -135,6 +135,17 @@ Symptom: `/api/health` returns `ok` but users hit errors.
 - **Idempotency limits blast radius.** A re-run on an already-onboarded tenant
   changes nothing and `ROLLBACK`s as a no-op (no `COMMIT`, no audit rows), so a
   retry of a fully-completed run is safe.
+- **If the owner cannot see their tenant after a local commit** (the dashboard
+  shows an empty / no-tenant state for the owner): **do not blindly re-run the
+  commit.** Instead, in order, (1) **verify the auth user id mapping** — confirm
+  the `--owner-auth-user-id` used matches the owner's real local Supabase Auth
+  user id (re-check it the MVP-safe way via local Studio; never via email-to-uid
+  lookup, auth-admin, or `service_role`); (2) **verify the expected row/audit
+  counts** for the tenant (counts only, per the onboarding runbook §12.F); and
+  (3) **verify the membership status is `active`** (the facade only returns
+  active memberships). Keep any notes **redacted** (no real UUIDs, emails,
+  secrets, DB URLs, or table rows). A re-run with the corrected id is safe
+  because onboarding is idempotent.
 - **If a committed run's outcome is unknown** (e.g. the CLI reports the commit
   outcome as indeterminate, or it crashed around the `COMMIT`): **stop. Do not
   blindly retry.** First **verify the actual state** (expected row/audit counts

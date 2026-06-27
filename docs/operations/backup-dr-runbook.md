@@ -265,3 +265,23 @@ and require their own approved tasks.
   reset`** (re-applies migrations to a clean local DB) or a **restore** of the
   fresh encrypted backup artifact (see §10). Because committed onboarding is
   local only, no Cloud restore is involved.
+
+## 12. First real local owner onboarding (Phase 1H Stage 3d) — backup notes
+
+The first real local owner onboarding procedure
+(`docs/operations/client-onboarding-runbook.md` §12) reuses this runbook's
+backup tool and gate; it adds no new backup behavior.
+
+- **A fresh encrypted backup is required before the committed run.** Run
+  `pnpm db:backup` (§9) immediately before the gated local commit and confirm the
+  artifact passes the 24-hour freshness gate.
+- **Backup stays separate from onboarding.** Creating the backup is an explicit
+  operator step; it is never part of the onboarding command.
+- **Onboarding does not auto-run a backup.** The committed path only **validates**
+  the artifact's file metadata (existence, regular non-empty file, `.dump.enc`
+  canonical name, modified within 24h). It **never reads, decrypts, uploads, or
+  creates** a backup.
+- **No restore and no cleanup in Stage 3d.** Stage 3d is documentation only and
+  leaves the local real-owner tenant in place. No restore tooling is run, no
+  `db reset` is performed, and no Cloud operation occurs. Restore/reset remain
+  governed by §6 / §11 and require explicit approval.
