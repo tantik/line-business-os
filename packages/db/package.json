@@ -12,7 +12,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test scripts/backup.test.ts",
+    "test": "node --import tsx --test scripts/backup.test.ts scripts/onboard-tenant.test.ts",
     "seed": "tsx scripts/seed.ts",
     "backup": "tsx scripts/backup.ts",
     "gen:types": "supabase gen types typescript --local --schema core,audit,workforce,booking,ai > src/types.generated.ts"
