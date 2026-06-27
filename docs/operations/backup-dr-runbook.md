@@ -237,27 +237,31 @@ and require their own approved tasks.
 
 ## 11. Forward note — backups vs. onboarding writes
 
-- **A backup is required before any future _committed_ onboarding.** Run a fresh
-  `pnpm db:backup` (see §9) and confirm the artifact before the first onboarding
-  run that durably persists rows. This is a hard gate for the committed stage.
-- **The backup-artifact gate is implemented (Phase 1H Stage 3c-4a).** The
-  onboarding CLI now **validates** an operator-supplied backup artifact before a
-  future committed run: the file must **exist**, be a **regular, non-empty**
-  file, be named `linebos-YYYYMMDD-HHmmss.dump.enc` (ending in `.dump.enc`), and
-  have been **modified within the last 24 hours**. Validation is **metadata
-  only** — onboarding **never reads, decrypts, or uploads** the backup, and
-  **never auto-runs** a backup. Creating the backup stays a **separate explicit
-  operator step** (`pnpm db:backup`). Stage 3c-4a still implements **no
-  `COMMIT`**: even with a valid backup and all gates, committed onboarding is
-  refused and nothing is written. The future committed stage (3c-4b) must use a
-  **fresh** encrypted backup artifact that passes this gate.
-- **The onboarding dry-run stages persist nothing.** Phase 1H Stage **3c-3a**
-  (write SQL builders + fake executor) makes **no DB connection** and writes
-  nothing. Stage **3c-3b** (now implemented) wraps the write path in a **local
-  dry-run transaction that always `ROLLBACK`s**: the writes execute against the
-  local schema and are then discarded, so it leaves the database byte-identical.
-  Neither stage commits (there is **no `COMMIT`**) or leaves any durable change,
-  so no backup is consumed or required by them. A manual local smoke test should
-  confirm before/after row counts are identical (see the onboarding runbook §9).
-- Only the later **committed** onboarding stage performs durable writes; that
-  stage is when the backup gate above applies.
+- **A fresh backup is required before any LOCAL _committed_ onboarding (Phase 1H
+  Stage 3c-4b).** Run a fresh `pnpm db:backup` (see §9) and confirm the artifact
+  before any committed onboarding run that durably persists rows. This is a hard
+  gate for the committed path.
+- **The backup-artifact gate (Phase 1H Stage 3c-4a) now guards a real `COMMIT`.**
+  The onboarding CLI **validates** an operator-supplied backup artifact **before
+  it connects** to the local database: the file must **exist**, be a **regular,
+  non-empty** file, be named `linebos-YYYYMMDD-HHmmss.dump.enc` (ending in
+  `.dump.enc`), and have been **modified within the last 24 hours**. Validation
+  is **metadata only** — onboarding **never reads, decrypts, or uploads** the
+  backup, and **never auto-runs** a backup. Creating the backup stays a
+  **separate explicit operator step** (`pnpm db:backup`); committed onboarding
+  **does not auto-backup**.
+- **Committed onboarding is LOCAL only (Stage 3c-4b).** It targets the local
+  database (loopback host + port 54322) and never touches Supabase Cloud. The
+  only file with the transaction-finalizing `COMMIT` is
+  `packages/db/scripts/onboard-commit.ts`; `onboard-write.ts` stays
+  `COMMIT`-free.
+- **The onboarding dry-run path persists nothing.** Stage **3c-3a** (write SQL
+  builders + fake executor) makes **no DB connection**. Stage **3c-3b** wraps the
+  write path in a **local dry-run transaction that always `ROLLBACK`s**: the
+  writes execute against the local schema and are then discarded, leaving the
+  database byte-identical. The dry-run never commits and consumes no backup —
+  run it to preview a committed onboarding before committing.
+- **Recovery for a local committed smoke test** is a local **`supabase db
+  reset`** (re-applies migrations to a clean local DB) or a **restore** of the
+  fresh encrypted backup artifact (see §10). Because committed onboarding is
+  local only, no Cloud restore is involved.

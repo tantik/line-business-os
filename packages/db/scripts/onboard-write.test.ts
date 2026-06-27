@@ -494,6 +494,106 @@ test('audit metadata contains no email, owner id, or UUID-like string', async ()
 });
 
 // ===========================================================================
+// Changed-only audit (committed path policy)
+// ===========================================================================
+
+test('changed-only audit: a fresh create writes one row per change + a summary (8 total)', async () => {
+  const input = parsedInput({ ownerEmail: undefined });
+  const plan = buildOnboardingPlan(input, {});
+  const runner = new FakeRunner(createResponses());
+
+  const summary = await executeOnboardingWritePlan(runner, input, plan, {}, {
+    auditMode: 'changed-only',
+  });
+
+  // tenant + user + location + membership + role_assignment + 2 modules = 7.
+  assert.equal(summary.changedOperationCount, 7);
+  assert.equal(summary.auditRowCount, 8, 'seven changed rows + one summary row');
+  assert.equal(callsTo(runner, ONBOARD_WRITE_SQL.insertAudit).length, 8);
+});
+
+test('changed-only audit: a pure all-reuse run writes no audit rows and no summary', async () => {
+  const input = parsedInput({ ownerEmail: undefined });
+  const state = reuseState();
+  const plan = buildOnboardingPlan(input, state);
+  const runner = new FakeRunner(
+    createResponses({ [ONBOARD_WRITE_SQL.selectLocations]: [{ id: FAKE_LOCATION_UUID, name: 'Main Store' }] }),
+  );
+
+  const summary = await executeOnboardingWritePlan(runner, input, plan, state, {
+    auditMode: 'changed-only',
+  });
+
+  assert.equal(summary.changedOperationCount, 0);
+  assert.equal(summary.auditRowCount, 0, 'a pure reuse run must not be audited');
+  assert.equal(callsTo(runner, ONBOARD_WRITE_SQL.insertAudit).length, 0);
+});
+
+test('changed-only audit: only the changed operation is recorded on a partial change', async () => {
+  const input = parsedInput({ ownerEmail: undefined });
+  // workforce is disabled → exactly one state-changing op (enable workforce).
+  const state = reuseState({ enabledModules: ['core'] });
+  const plan = buildOnboardingPlan(input, state);
+  const runner = new FakeRunner(
+    createResponses({ [ONBOARD_WRITE_SQL.selectLocations]: [{ id: FAKE_LOCATION_UUID, name: 'Main Store' }] }),
+  );
+
+  const summary = await executeOnboardingWritePlan(runner, input, plan, state, {
+    auditMode: 'changed-only',
+  });
+
+  assert.equal(summary.changedOperationCount, 1);
+  assert.equal(summary.auditRowCount, 2, 'one changed row + one summary row');
+  const auditCalls = callsTo(runner, ONBOARD_WRITE_SQL.insertAudit);
+  assert.equal(auditCalls.length, 2);
+  // The single non-summary audit row is the workforce enable.
+  const actions = auditCalls.map((c) => c.values[6]);
+  assert.ok(actions.includes('enable'), 'the changed op (enable) is audited');
+  assert.ok(actions.includes('summary'), 'a summary row is still written');
+});
+
+test('buildAuditRows changed-only filters reuse and omits the summary when nothing changed', () => {
+  const allReuse: OnboardingWriteOperation[] = [
+    { entity: 'tenant', action: 'reuse' },
+    { entity: 'membership', action: 'reuse' },
+  ];
+  assert.deepEqual(
+    buildAuditRows({ tenantId: FAKE_TENANT_UUID, tenantSlug: 'acme-kk', operations: allReuse }, {
+      auditMode: 'changed-only',
+    }),
+    [],
+    'no rows at all for a pure reuse operation set',
+  );
+
+  const withChange: OnboardingWriteOperation[] = [
+    { entity: 'tenant', action: 'reuse' },
+    { entity: 'tenant_module', action: 'enable', module: 'workforce' },
+  ];
+  const rows = buildAuditRows(
+    { tenantId: FAKE_TENANT_UUID, tenantSlug: 'acme-kk', operations: withChange },
+    { auditMode: 'changed-only' },
+  );
+  assert.equal(rows.length, 2, 'one changed row + summary');
+  assert.equal(rows[0]?.action, 'enable');
+  assert.equal(rows[1]?.action, 'summary');
+});
+
+test('default audit mode still records reuse rows + a summary (dry-run behavior preserved)', async () => {
+  const input = parsedInput({ ownerEmail: undefined });
+  const state = reuseState();
+  const plan = buildOnboardingPlan(input, state);
+  const runner = new FakeRunner(
+    createResponses({ [ONBOARD_WRITE_SQL.selectLocations]: [{ id: FAKE_LOCATION_UUID, name: 'Main Store' }] }),
+  );
+
+  const summary = await executeOnboardingWritePlan(runner, input, plan, state);
+
+  assert.equal(summary.changedOperationCount, 0);
+  assert.ok(summary.auditRowCount >= summary.operations.length + 1, 'all ops + summary are audited');
+  assert.equal(callsTo(runner, ONBOARD_WRITE_SQL.insertAudit).length, summary.auditRowCount);
+});
+
+// ===========================================================================
 // Redacted summary
 // ===========================================================================
 
@@ -1018,6 +1118,7 @@ test('apps/web does not import any onboarding script', () => {
           text.includes('onboard-db') ||
           text.includes('onboard-tenant') ||
           text.includes('onboard-write') ||
+          text.includes('onboard-commit') ||
           text.includes('onboard-backup-gate')
         ) {
           offenders.push(full);

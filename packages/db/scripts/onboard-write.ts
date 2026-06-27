@@ -121,6 +121,31 @@ export interface OnboardingWriteOperation {
   module?: ModuleCode;
 }
 
+/**
+ * Which executed operations get durable audit rows.
+ *   - `all` (default): one row per operation (including `reuse`) plus a summary
+ *     row — the behavior the local dry-run relies on.
+ *   - `changed-only`: rows ONLY for state-changing operations, and a summary row
+ *     ONLY when at least one state-changing operation occurred (a pure all-reuse
+ *     run writes NO audit rows at all). Used by the committed path so an
+ *     idempotent re-run never pollutes the audit trail.
+ */
+export type OnboardingAuditMode = 'all' | 'changed-only';
+
+/** Actions that actually change durable state (everything except `reuse`). */
+export const STATE_CHANGING_WRITE_ACTIONS: ReadonlySet<OnboardingWriteAction> = new Set([
+  'create',
+  'create_with_pii',
+  'pii_backfill',
+  'activate',
+  'enable',
+]);
+
+/** True when an operation's action changed durable state (not a pure reuse). */
+export function isStateChangingAction(action: OnboardingWriteAction): boolean {
+  return STATE_CHANGING_WRITE_ACTIONS.has(action);
+}
+
 /** Owner-email PII material (never the raw email). */
 export interface PreparedOwnerEmailPII {
   emailEncrypted: Buffer;
@@ -160,6 +185,8 @@ export interface ExecuteOnboardingWriteOptions {
   /** Prepared owner-email PII (required when the owner email is provided). */
   ownerEmailPII?: PreparedOwnerEmailPII | null;
   policy?: OnboardingWritePolicy;
+  /** Audit row policy (default `all`; the committed path uses `changed-only`). */
+  auditMode?: OnboardingAuditMode;
 }
 
 /** An audit row built for an executed/reused operation (system actor, no PII). */
@@ -188,6 +215,8 @@ export interface ExecutedOnboardingWriteSummary {
   tenantSlug: string;
   operations: OnboardingWriteOperation[];
   operationCounts: Record<string, number>;
+  /** Number of operations that changed durable state (excludes pure reuse). */
+  changedOperationCount: number;
   auditRowCount: number;
 }
 
@@ -295,15 +324,33 @@ export function validateWritablePlanOrThrow(
  * carries ONLY safe values — tenant slug, operation labels, module codes, and
  * counts — never the owner email, the owner auth user id, secrets, or UUIDs.
  * `entityId` is intentionally `null` so no runtime UUID leaks into the trail.
+ *
+ * With `auditMode: 'changed-only'` only state-changing operations are recorded,
+ * and the summary row is emitted ONLY when at least one such operation occurred,
+ * so a pure all-reuse run produces NO audit rows. The default `all` preserves
+ * the per-operation + summary behavior the local dry-run relies on.
  */
-export function buildAuditRows(params: {
-  tenantId: string;
-  tenantSlug: string;
-  operations: OnboardingWriteOperation[];
-}): OnboardingAuditRow[] {
+export function buildAuditRows(
+  params: {
+    tenantId: string;
+    tenantSlug: string;
+    operations: OnboardingWriteOperation[];
+  },
+  options: { auditMode?: OnboardingAuditMode } = {},
+): OnboardingAuditRow[] {
   const { tenantId, tenantSlug, operations } = params;
+  const auditMode = options.auditMode ?? 'all';
+  const relevant =
+    auditMode === 'changed-only'
+      ? operations.filter((op) => isStateChangingAction(op.action))
+      : operations;
 
-  const rows: OnboardingAuditRow[] = operations.map((op) => ({
+  // No durable audit for a pure reuse run (changed-only with nothing changed).
+  if (relevant.length === 0) {
+    return [];
+  }
+
+  const rows: OnboardingAuditRow[] = relevant.map((op) => ({
     tenantId,
     actorId: null,
     actorKind: 'system',
@@ -328,7 +375,7 @@ export function buildAuditRows(params: {
     action: 'summary',
     metadata: {
       tenant_slug: tenantSlug,
-      counts: countOperations(operations),
+      counts: countOperations(relevant),
     },
   });
 
@@ -502,7 +549,11 @@ export async function executeOnboardingWritePlan(
   }
 
   // --- Audit --------------------------------------------------------------
-  const auditRows = buildAuditRows({ tenantId, tenantSlug: input.tenantSlug, operations });
+  const auditMode = options.auditMode ?? 'all';
+  const auditRows = buildAuditRows(
+    { tenantId, tenantSlug: input.tenantSlug, operations },
+    { auditMode },
+  );
   for (const row of auditRows) {
     await runner.query(ONBOARD_WRITE_SQL.insertAudit, [
       row.tenantId,
@@ -516,6 +567,8 @@ export async function executeOnboardingWritePlan(
     ]);
   }
 
+  const changedOperationCount = operations.filter((op) => isStateChangingAction(op.action)).length;
+
   return {
     stage: 'phase-1h-stage-3c3a',
     persisted: false,
@@ -525,6 +578,7 @@ export async function executeOnboardingWritePlan(
     tenantSlug: input.tenantSlug,
     operations,
     operationCounts: countOperations(operations),
+    changedOperationCount,
     auditRowCount: auditRows.length,
   };
 }
@@ -722,7 +776,7 @@ export async function withLocalDryRunTransaction<T>(
  * never echoes the email or any key material. Missing-env failures keep naming
  * only the relevant variable; anything else is collapsed to a generic message.
  */
-function safeOwnerPiiPrepMessage(error: unknown): string {
+export function safeOwnerPiiPrepMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
   if (message.includes('PII_ENCRYPTION_KEY')) {
     return message.includes('32 bytes')

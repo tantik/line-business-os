@@ -815,12 +815,45 @@ export interface CliDryRunTransactionResult {
   write: { operationCounts: Record<string, number> };
 }
 
+/**
+ * Structural shape of a LOCAL commit transaction result the CLI needs to print
+ * (Stage 3c-4b). The full result (with the nested redacted write summary) is
+ * produced by `runOnboardingCommitTransactionFromEnv` in `./onboard-commit`; the
+ * CLI only reads these log-safe fields, so this file never imports a DB driver
+ * and never carries the transaction-finalizing token itself.
+ */
+export interface CliCommitTransactionResult {
+  mode: 'commit';
+  tenantSlug: string;
+  ownerEmailProvided: boolean;
+  dbTarget: SafeDbTarget;
+  committed: boolean;
+  persisted: boolean;
+  noop: boolean;
+  changedOperationCount: number;
+  auditRowCount: number;
+  write: { operationCounts: Record<string, number> };
+}
+
+/** Options handed to the lazy commit transaction runner. */
+export interface CliCommitTransactionOptions {
+  backupArtifactPath: string;
+}
+
 /** Injectable dependencies for {@link runOnboardingCli} (no DB in tests). */
 export interface OnboardingCliDeps {
   /** Environment source (defaults to `process.env`). */
   env?: { DATABASE_URL?: string };
   /** Runs the local dry-run transaction. Defaults to a lazy `./onboard-write`. */
   runDryRunTransaction?: (input: OnboardingInput) => Promise<CliDryRunTransactionResult>;
+  /**
+   * Runs the LOCAL commit transaction. Defaults to a lazy `./onboard-commit`;
+   * injectable so unit tests never open a real connection.
+   */
+  runCommitTransaction?: (
+    input: OnboardingInput,
+    options: CliCommitTransactionOptions,
+  ) => Promise<CliCommitTransactionResult>;
   /**
    * Validate the backup artifact on disk (metadata only). Defaults to a lazy
    * `./onboard-backup-gate`; injectable so unit tests can avoid the filesystem.
@@ -838,7 +871,9 @@ export type OnboardingCliPath =
   | 'db-url-error'
   | 'commit-gate-error'
   | 'backup-artifact-error'
-  | 'commit-refused'
+  | 'commit-executed'
+  | 'commit-noop'
+  | 'commit-error'
   | 'dry-run-transaction'
   | 'dry-run-transaction-error'
   | 'validation-only';
@@ -879,7 +914,22 @@ async function defaultValidateBackupArtifact(
 }
 
 /**
- * Onboarding CLI routing (Stage 3c-4a), free of `process.exit` and `console`
+ * Default LOCAL commit transaction runner: lazy import keeps `pg` (and the
+ * transaction-finalizing token, which lives only in `./onboard-commit`) out of
+ * this driver-free file until the commit path actually runs.
+ */
+async function defaultRunCommitTransaction(
+  input: OnboardingInput,
+  options: CliCommitTransactionOptions,
+): Promise<CliCommitTransactionResult> {
+  const { runOnboardingCommitTransactionFromEnv } = await import('./onboard-commit.js');
+  return runOnboardingCommitTransactionFromEnv(input, {
+    backupArtifactPath: options.backupArtifactPath,
+  });
+}
+
+/**
+ * Onboarding CLI routing (Stage 3c-4b), free of `process.exit` and `console`
  * so it is fully unit-testable. Parses args, validates input, and guards
  * DATABASE_URL if present, then:
  *
@@ -889,15 +939,18 @@ async function defaultValidateBackupArtifact(
  *     summary plus the rolled-back / nothing-persisted / no-commit lines;
  *   - **dry-run + DATABASE_URL absent** → keeps the prior validation-only
  *     behavior (plans against an empty state, no connection, no rows);
- *   - **commit (Stage 3c-4a)** → validates the strict confirmation gates
+ *   - **commit (Stage 3c-4b)** → validates the strict confirmation gates
  *     (`--i-understand-this-writes-local-db`, `--target local`,
  *     `--backup-artifact <path>`) and the backup artifact on disk (metadata
- *     only), then REFUSES: it exits non-zero WITHOUT reading DATABASE_URL,
- *     connecting, or writing (there is no COMMIT), so it can never report a
- *     false success. Committed (durable) onboarding is Stage 3c-4b.
+ *     only) BEFORE any DB interaction, then runs the LOCAL commit transaction
+ *     (`runOnboardingCommitTransactionFromEnv`), which commits ONLY when
+ *     something changed and reports a no-op (rolled back) when the tenant is
+ *     already onboarded. Gate/backup failures fail before connecting.
  *
- * It never imports a DB driver itself: the dry-run transaction and the backup
- * gate are reached via lazy imports (or injected dependencies in tests).
+ * It never imports a DB driver itself: the dry-run transaction, the commit
+ * transaction, and the backup gate are reached via lazy imports (or injected
+ * dependencies in tests). The transaction-finalizing token lives only in
+ * `./onboard-commit`.
  */
 export async function runOnboardingCli(
   argv: string[],
@@ -930,11 +983,11 @@ export async function runOnboardingCli(
     return { exitCode: 1, path: 'input-error', lines, errors: parsedInput.errors, connectionAttempted: false };
   }
 
-  // Commit (Stage 3c-4a): validate the strict confirmation gates and the backup
-  // artifact, then REFUSE. This branch runs BEFORE any DATABASE_URL is read, so
-  // commit never reads/guards/opens a connection, never writes, and never calls
-  // the dry-run transaction. Committed (durable) onboarding and COMMIT wiring are
-  // Stage 3c-4b.
+  // Commit (Stage 3c-4b): validate the strict confirmation gates and the backup
+  // artifact BEFORE any DB interaction, then run the LOCAL commit transaction.
+  // Gate/backup failures fail before connecting. The transaction-finalizing
+  // token lives ONLY in `./onboard-commit` (reached lazily / via deps); this
+  // file stays driver-free and never issues SQL itself.
   if (mode.value === 'commit') {
     const gates = validateCommitGates(parsedArgs.value);
     if (!gates.ok) {
@@ -961,24 +1014,52 @@ export async function runOnboardingCli(
       };
     }
 
-    // All gates + the backup artifact validated, but committed (durable)
-    // onboarding is NOT implemented in this stage: no connection, no writes,
-    // no durable commit. The CLI exits non-zero so it can never look like a
-    // successful committed onboarding.
-    lines.push('commit requested');
-    lines.push('local commit gates validated');
-    lines.push('backup artifact validated');
-    lines.push('committed (durable) onboarding is not implemented yet (Stage 3c-4a)');
-    lines.push('no database connection attempted');
-    lines.push('no rows written');
-    lines.push('no durable commit available in this stage');
+    // Gates + backup artifact validated → run the strictly-local commit path.
+    const runCommitTransaction = deps.runCommitTransaction ?? defaultRunCommitTransaction;
+    let result: CliCommitTransactionResult;
+    try {
+      result = await runCommitTransaction(parsedInput.value, {
+        backupArtifactPath: gates.backupArtifact,
+      });
+    } catch (err) {
+      return {
+        exitCode: 1,
+        path: 'commit-error',
+        mode: mode.value,
+        lines,
+        errors: [
+          err instanceof Error ? err.message : 'failed to run the local onboarding commit transaction.',
+        ],
+        connectionAttempted: true,
+      };
+    }
+
+    lines.push('mode: commit');
+    lines.push('local target confirmed');
+    lines.push('backup artifact gate passed');
+    lines.push(`tenant slug: ${result.tenantSlug}`);
+    lines.push(`owner email provided: ${result.ownerEmailProvided ? 'yes' : 'no'}`);
+    lines.push(`db target: ${result.dbTarget.target}:${result.dbTarget.port}`);
+    for (const [operation, count] of Object.entries(result.write.operationCounts)) {
+      lines.push(`plan ${operation}: ${count}`);
+    }
+    if (result.committed) {
+      lines.push('local committed onboarding executed');
+      lines.push(
+        `committed rows persisted: ${result.changedOperationCount} change(s), ${result.auditRowCount} audit row(s)`,
+      );
+    } else {
+      lines.push('no-op: tenant already onboarded; nothing to change');
+      lines.push('no rows persisted (transaction rolled back)');
+    }
+    lines.push('no Cloud touched');
     return {
-      exitCode: 1,
-      path: 'commit-refused',
+      exitCode: 0,
+      path: result.committed ? 'commit-executed' : 'commit-noop',
       mode: mode.value,
       lines,
-      errors: ['committed (durable) onboarding is not implemented yet; re-run with --dry-run.'],
-      connectionAttempted: false,
+      errors: [],
+      connectionAttempted: true,
     };
   }
 
@@ -1063,9 +1144,9 @@ function printError(message: string): void {
  * imports the driver, instantiates a client, or opens a connection itself.
  */
 async function main(): Promise<void> {
-  printLine('Stage 3c-4a onboarding CLI');
+  printLine('Stage 3c-4b onboarding CLI');
   printLine('dry-run runs the write path in a transaction that always rolls back');
-  printLine('commit validates gates + a backup artifact only; committed onboarding is not implemented (no durable writes)');
+  printLine('commit (local only, fully gated) persists changes via a single local transaction; an already-onboarded tenant is a no-op');
 
   const outcome = await runOnboardingCli(process.argv.slice(2));
   for (const message of outcome.errors) printError(message);
