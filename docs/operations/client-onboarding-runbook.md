@@ -1,27 +1,32 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-4a — Commit gates + backup-artifact validation (still no
-  COMMIT; committed onboarding remains refused)
+- Phase: 1H Stage 3c-4b — Local-only committed onboarding (the first stage with
+  a real `COMMIT`; LOCAL only, strictly gated)
 - Scope: **Documentation + pure validation helpers + a CLI that runs the write
-  path inside a LOCAL dry-run transaction that always rolls back.** This runbook
+  path either inside a LOCAL dry-run transaction (always rolls back) or, when all
+  Stage 3c-4a gates pass, inside a LOCAL committed transaction.** This runbook
   describes the manual onboarding procedure for the first real clients and the
-  identity/idempotency rules the future server-only onboarding routine will
-  follow. It contains **no executable SQL with real values**. The **committed
-  (durable)** onboarding routine is still a later, separately approved stage.
-  Stage 3a/3b shipped pure validation/planning helpers; Stage 3c-1 added a
-  validation-only CLI shell + a local-only `DATABASE_URL` guard; Stage 3c-2
-  added the `pg` driver and a **read-only**, **local-only** state loader
+  identity/idempotency rules the server-only onboarding routine follows. It
+  contains **no executable SQL with real values**. Stage 3a/3b shipped pure
+  validation/planning helpers; Stage 3c-1 added a validation-only CLI shell + a
+  local-only `DATABASE_URL` guard; Stage 3c-2 added the `pg` driver and a
+  **read-only**, **local-only** state loader
   (`packages/db/scripts/onboard-db.ts`); Stage 3c-3a added the write-side module
   (`packages/db/scripts/onboard-write.ts`): parameterized write **SQL builders**
-  and an **executor** exercised against an injected fake `QueryRunner`.
-  **Stage 3c-3b** wires that write path into a **local-only dry-run
-  transaction**: in dry-run, when a **local** `DATABASE_URL` is set, the CLI
-  opens one `pg.Client`, runs `BEGIN` → load state → plan → validate → execute
-  the writes, and then **always `ROLLBACK`s** and closes the connection. It
-  **persists zero rows**, **never commits** (there is **no `COMMIT`** anywhere
-  in the write path), and **never touches Supabase Cloud**. Live, durable
-  (committed) onboarding writes remain unimplemented.
+  and an **executor** exercised against an injected fake `QueryRunner`;
+  **Stage 3c-3b** wired that write path into a **local-only dry-run transaction**
+  that **always `ROLLBACK`s**; **Stage 3c-4a** added the **strict commit gates**
+  and **backup-artifact validation**. **Stage 3c-4b** adds
+  `packages/db/scripts/onboard-commit.ts` — the **only** file that carries the
+  transaction-finalizing `COMMIT`. When (and only when) every Stage 3c-4a gate
+  passes, the CLI opens one **local** `pg.Client`, runs
+  `BEGIN` → load state → plan → validate → execute → (changed-only) audit and
+  **`COMMIT`s only after every write/audit succeeds**; an already-onboarded
+  tenant changes nothing and is **`ROLLBACK`ed as a no-op** (no `COMMIT`, no
+  audit rows). `onboard-write.ts` stays permanently `COMMIT`-free. It remains
+  **local only** (loopback host + port 54322): **no Supabase Cloud, no
+  `service_role`, no auth-admin, no Data API**.
 
 > While onboarding is manual, the first tenant owner is created **server-side by
 > an operator**. There is no self-service signup yet and no admin console.
@@ -174,16 +179,13 @@ Mode flags:
 - `--commit` **without** `--yes` **fails safely**.
 - Unknown args, positional args, and missing values **fail safely**.
 
-### Stage 3c-4a commit gates (committed onboarding still refused)
+### Stage 3c-4b local-only committed onboarding (the first real COMMIT)
 
-Stage 3c-4a adds the **strict commit confirmation gates** and **backup-artifact
-validation** that the future committed (durable) onboarding stage (3c-4b) will
-require. **`COMMIT` is still not implemented:** even when every gate passes, the
-CLI **refuses**, **never reads `DATABASE_URL`**, **never connects**, **never
-writes**, **never calls the dry-run transaction**, and **exits non-zero** — so it
-can never look like a successful committed onboarding.
+Stage 3c-4b implements **local-only committed onboarding**. The strict Stage
+3c-4a **commit confirmation gates** and **backup-artifact validation** are now
+the precondition for a real, durable `COMMIT` against the **local** database.
 
-A future committed run requires **all** of:
+A committed run requires **all** of these flags:
 
 - `--commit`
 - `--yes`
@@ -191,12 +193,12 @@ A future committed run requires **all** of:
 - `--backup-artifact <path>`
 - `--target local`
 
-The gates fail safely (before any DB interaction) when any are missing, when
+The gates fail safely **before any DB interaction** when any are missing, when
 `--target` is anything other than `local` (Cloud/remote targets are rejected and
 the bad value is never echoed), or when the backup artifact is invalid.
 
-**Backup-artifact validation** (metadata only — the file is **never read,
-decrypted, or uploaded**, and no backup is auto-run):
+**Backup-artifact validation** runs **before** the DB connection (metadata only —
+the file is **never read, decrypted, or uploaded**, and no backup is auto-run):
 
 - the path must be provided,
 - the file must **exist** and be a **regular file**,
@@ -205,28 +207,60 @@ decrypted, or uploaded**, and no backup is auto-run):
   (`linebos-YYYYMMDD-HHmmss.dump.enc`),
 - it must have been **modified within the last 24 hours** (a fresh backup).
 
-Error messages are static and never echo the full path, the DB URL, secrets, the
-owner email, or real UUIDs. Creating the backup remains a **separate explicit
-operator step** (`pnpm db:backup`); onboarding only **validates** the artifact.
+**Strongly recommended:** run a **`--dry-run`** against the same local
+`DATABASE_URL` first (it executes the full write path in a transaction that
+always rolls back) and review the planned operation counts before committing.
+
+**Transaction flow** (`packages/db/scripts/onboard-commit.ts`, the only file with
+`COMMIT`): validate the backup artifact → read `DATABASE_URL` → run the pure
+local guard (`assertLocalDatabaseUrl`) **before** connecting → open **one**
+`pg.Client` → `set statement_timeout` → `BEGIN` → load state **inside the
+transaction** → build plan → validate writable plan → execute the writes →
+write **changed-only** audit rows → `COMMIT` **only after** every write/audit
+succeeds. On any error before the commit it best-effort `ROLLBACK`s; the client
+is always closed in a `finally`. If the `COMMIT` itself fails the outcome is
+**unknown** and a static indeterminate error is returned (never a false
+rollback claim).
+
+**First commit on an empty tenant** persists these state-changing operations and
+audit rows:
+
+- `tenant.create`, `user.create`, `location.create`, `membership.create`,
+  `role_assignment.create`, `tenant_module.enable` ×2, plus one `summary` audit
+  row — **8 audit rows total** (7 changed ops + 1 summary).
+
+**Idempotency / second commit:** a pure all-reuse plan changes nothing, so the
+transaction is **`ROLLBACK`ed as a no-op** — **no `COMMIT`** and **zero durable
+audit rows** (no audit pollution). The CLI prints a *no-op: tenant already
+onboarded* line and exits **0**. Audit rows are always **changed-only**
+(`create` / `create_with_pii` / `pii_backfill` / `activate` / `enable`), and a
+`summary` row is written only when at least one state-changing operation
+occurred. Audit rows keep `actor_kind = system`, `actor_id = null`,
+`entity_id = null` (MVP), and redacted metadata.
+
+**Not in this stage:** no Cloud, no `service_role`, no auth-admin, no Data API,
+no migrations, no schema/RLS/grant changes, and **no synthetic owner sign-in** —
+identity always comes from the real `--owner-auth-user-id`.
 
 Safety of the shell output:
 
-- The summary **never** prints the owner email, the owner auth user id, the
-  `DATABASE_URL`, secrets, raw driver errors, or real UUIDs. It reports the
-  tenant slug, the run mode, whether an email was provided (boolean), the safe
-  local DB target (`local-postgres:54322`) when checked, and the planned
-  operation counts. Tenant/role UUIDs read/written during the transaction are
-  held in memory only to scope the writes and are never printed.
-- When a local `DATABASE_URL` is set the dry-run prints, among others: *local
-  dry-run transaction executed*, *transaction rolled back*, *no DB rows
-  persisted*, *no live commit implemented*.
+- The output **never** prints the owner email, the owner auth user id, the
+  `DATABASE_URL`, the backup filename, secrets, raw driver errors, or real
+  UUIDs. It reports the tenant slug, the run mode, whether an email was provided
+  (boolean), the safe local DB target (`local-postgres:54322`), the planned
+  operation counts, and — on a successful commit — the changed/audit row counts.
+- A successful commit prints, among others: *local committed onboarding
+  executed*, *backup artifact gate passed*, *local target confirmed*, *no Cloud
+  touched*. A no-op prints *no-op: tenant already onboarded; nothing to change*
+  and *no rows persisted (transaction rolled back)*.
 - The **local guard still blocks** non-local / Supabase-Cloud-like hosts and the
-  wrong port before any connection is attempted.
+  wrong port **before** any connection is attempted.
 
 The pure validation/planning helpers and the local `DATABASE_URL` guard live in
-`packages/db/scripts/onboard-tenant.ts` (driver-free). The `pg`-backed read-only
-connection and SELECT-only loader live in `packages/db/scripts/onboard-db.ts`
-(the only onboarding file that imports a DB driver).
+`packages/db/scripts/onboard-tenant.ts` (driver-free; it reaches the commit
+runner via a lazy import). The `pg`-backed read-only loader lives in
+`onboard-db.ts`; the write SQL/executor in `onboard-write.ts` (permanently
+`COMMIT`-free); the commit transaction in `onboard-commit.ts`.
 
 ### Stage 3c-3b local dry-run transaction (always ROLLBACK)
 

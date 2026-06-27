@@ -99,37 +99,39 @@
 > remains a placeholder until offsite/scheduled backup is built (later stage).
 > Names only — never values.
 
-## 7. Onboarding (Stage 3c-4a commit gates + backup-artifact validation; committed writes are a future stage)
+## 7. Onboarding (Stage 3c-4b local-only committed onboarding)
 
-> **No new environment variables** are introduced by Stage 3c-4a. The commit
+> **No new environment variables** are introduced by Stage 3c-4b. The commit
 > gates are CLI flags, and `--backup-artifact <path>` is a **CLI argument
 > (a filesystem path), not a secret** — it is validated by file metadata only
 > (existence, regular file, non-empty, `.dump.enc` name, modified within 24h) and
-> is never decrypted, uploaded, or printed in full. `DATABASE_URL` is still
-> required only for the DB-connected **dry-run** mode; the **commit** path in
-> Stage 3c-4a is refused **before** `DATABASE_URL` is read (there is no `COMMIT`),
-> so commit never connects.
+> is never decrypted, uploaded, or printed in full. The **local commit** path
+> uses the same `DATABASE_URL` as the dry-run: it is read **only inside the
+> commit runner**, **after** the backup artifact passes, and is **guarded as
+> local** (loopback host + port `54322`) **before any connection**. A non-local /
+> Cloud-like `DATABASE_URL` fails **before** connecting; commit never touches
+> Cloud.
 
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
-| `DATABASE_URL` | Onboarding **local dry-run transaction** source connection (same variable as §1). It is guarded (local-host + port `54322`) and, **if set** in dry-run, used by the CLI to open **one** local `pg.Client`, run `BEGIN` → load state → execute the write path → **always `ROLLBACK`**. The transaction is exercised against the real local schema but **persists zero rows**; there is **no `COMMIT`**. Read from env **only inside the transaction runner**, **never logged**, and **never** pointed at Cloud. | Root gitignored env / password manager | **secret** | now |
-| `PII_ENCRYPTION_KEY` | Used by the onboarding **write path** to encrypt the owner email (`core.users.email_encrypted`). Required **only when an owner email is provided** and would be written/backfilled in the dry-run transaction. Unit tests use **synthetic** values only; a real local dry-run still rolls back and persists nothing. | Server-only secret store / password manager | **secret** | now (write path) |
-| `PII_HASH_PEPPER` | Used by the onboarding **write path** for the owner email blind index (`core.users.email_hash`). Required **only when an owner email is provided** and would be written/backfilled in the dry-run transaction. Unit tests use **synthetic** values only. | Server-only secret store / password manager | **secret** | now (write path) |
+| `DATABASE_URL` | Onboarding **local transaction** source connection (same variable as §1), used by both the **dry-run** (always `ROLLBACK`) and the **local commit** path (Stage 3c-4b). It is guarded (local-host + port `54322`) **before** any connection. In commit mode the CLI opens **one** local `pg.Client`, runs `BEGIN` → load state → execute the write path → write changed-only audit rows → **`COMMIT` only when something changed** (an all-reuse run `ROLLBACK`s as a no-op). Read from env **only inside the runner**, **never logged**, **never** pointed at Cloud. | Root gitignored env / password manager | **secret** | now |
+| `PII_ENCRYPTION_KEY` | Used by the onboarding **write path** to encrypt the owner email (`core.users.email_encrypted`). Required **only when an owner email is provided** and would be written/backfilled (in dry-run or commit). Unit tests use **synthetic** values only and make no real DB connection. | Server-only secret store / password manager | **secret** | now (write path) |
+| `PII_HASH_PEPPER` | Used by the onboarding **write path** for the owner email blind index (`core.users.email_hash`). Required **only when an owner email is provided** and would be written/backfilled (in dry-run or commit). Unit tests use **synthetic** values only. | Server-only secret store / password manager | **secret** | now (write path) |
 
-> The onboarding CLI (`pnpm db:onboard-tenant`) runs a **local dry-run
-> transaction**: it parses/validates inputs, guards `DATABASE_URL` (**local
-> only**), and — when set in dry-run — opens one local `pg.Client`, executes the
-> write path inside a transaction, and **always `ROLLBACK`s**, persisting **no
-> rows** and never touching Cloud. There is **no `COMMIT`** anywhere in the write
-> path, and `--commit --yes` still exits non-zero without connecting.
+> The onboarding CLI (`pnpm db:onboard-tenant`) runs either a **local dry-run
+> transaction** (always `ROLLBACK`) or, when **all** Stage 3c-4a gates pass
+> (`--commit --yes --i-understand-this-writes-local-db --target local
+> --backup-artifact <path>`), a **local committed transaction**. Order of
+> precedence for commit: validate gates → validate the backup artifact → read +
+> guard `DATABASE_URL` (local only) → prepare owner PII → connect → transact.
 > `PII_ENCRYPTION_KEY` and `PII_HASH_PEPPER` are needed **only when an owner
-> email would be written/backfilled**; the unit tests use **synthetic** values
-> and make **no real DB connection**. `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and
-> `PII_HASH_PEPPER` values are **never logged or printed**, and error messages
-> name the missing variable only (never its value, never the raw email). No
-> **new** variable names are introduced by onboarding. Names only — never
-> values.
+> email would be written/backfilled**, and their absence fails **before** any
+> connection. The backup artifact is a **CLI path**, never an env variable.
+> `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and `PII_HASH_PEPPER` values are **never
+> logged or printed**, and error messages name the missing variable only (never
+> its value, never the raw email, never the DB URL). No **new** variable names
+> are introduced by onboarding. Names only — never values.
 
 ## Rules (always)
 

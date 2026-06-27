@@ -119,19 +119,29 @@ Symptom: `/api/health` returns `ok` but users hit errors.
   does not exercise product features. Treat a feature-level bug as a deploy issue
   (§5.1) if it correlates with a recent deploy.
 
-### 5.6 Onboarding (forward note — no committed writes yet)
+### 5.6 Onboarding (Phase 1H Stage 3c-4b — local-only committed onboarding)
 
-- **Phase 1H Stage 3c-4a performs no committed onboarding writes.** The
-  onboarding CLI only runs a local dry-run transaction (always rolled back) or,
-  for `--commit`, validates the confirmation gates + the backup artifact and then
-  **refuses** without connecting or writing. So onboarding cannot be the cause of
-  a data-loss incident in this stage.
-- **Future committed onboarding (Stage 3c-4b) failures** will require the
-  backup/verification procedure: a fresh encrypted backup must exist and pass the
-  artifact gate **before** the run, and after a committed run the operator
-  verifies before/after row counts. If a committed run's outcome is ever
-  indeterminate, treat it per §5.3 (data loss/corruption) and restore from the
-  pre-onboarding backup. Never restore to Cloud without separate approval.
+- **Committed onboarding is LOCAL only and strictly gated.** The onboarding CLI
+  runs either a local dry-run transaction (always rolled back) or, when **all**
+  confirmation gates pass (`--commit --yes --i-understand-this-writes-local-db
+  --target local --backup-artifact <path>`), a **local committed transaction**
+  (`packages/db/scripts/onboard-commit.ts`, the only file with `COMMIT`). It can
+  never touch Supabase Cloud, and a non-local `DATABASE_URL` fails before
+  connecting.
+- **A fresh encrypted backup must exist and pass the artifact gate _before_ a
+  committed run.** Onboarding never auto-runs a backup. Recovery for a local
+  committed run is a local **`supabase db reset`** or a **restore** of the
+  pre-onboarding backup artifact — local only, never a Cloud restore.
+- **Idempotency limits blast radius.** A re-run on an already-onboarded tenant
+  changes nothing and `ROLLBACK`s as a no-op (no `COMMIT`, no audit rows), so a
+  retry of a fully-completed run is safe.
+- **If a committed run's outcome is unknown** (e.g. the CLI reports the commit
+  outcome as indeterminate, or it crashed around the `COMMIT`): **stop. Do not
+  blindly retry.** First **verify the actual state** (expected row/audit counts
+  for the tenant) against the local database. Only once the state is known,
+  either re-run (if nothing was persisted) or treat it per §5.3 (data
+  loss/corruption) and restore from the pre-onboarding backup. Never restore to
+  Cloud without separate approval.
 
 ## 6. Strong warnings
 

@@ -34,6 +34,7 @@ import {
   validateOwnerEmail,
   validateTenantSlug,
   validateTimezone,
+  type CliCommitTransactionResult,
   type CliDryRunTransactionResult,
   type ExistingOnboardingState,
   type OnboardingInput,
@@ -734,14 +735,14 @@ test('runOnboardingCli: dry-run WITHOUT DATABASE_URL keeps the validation-only p
   assert.ok(outcome.lines.some((l) => l.startsWith('validation complete (dry-run)')));
 });
 
-// --- commit gates + backup artifact (Stage 3c-4a) ---------------------------
+// --- commit gates + backup artifact + local commit (Stage 3c-4b) ------------
 
 const VALID_BACKUP_NAME = 'linebos-20260101-090500.dump.enc';
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Throwaway temp dir, cleaned up after the test. */
 function makeTempDir(t: { after: (fn: () => void) => void }): string {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'lbos-cli-3c4a-'));
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'lbos-cli-3c4b-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -756,35 +757,76 @@ function commitArgv(extra: string[] = []): string[] {
   return validArgv(['--commit', '--yes', ...extra]);
 }
 
-/** A dry-run transaction spy that must never be invoked on the commit path. */
-function spyDryRun(): {
-  deps: (env?: Record<string, string>) => Parameters<typeof runOnboardingCli>[1];
-  calls: () => number;
-} {
-  let n = 0;
+function fakeCommitResult(
+  overrides: Partial<CliCommitTransactionResult> = {},
+): CliCommitTransactionResult {
   return {
-    deps: (env = {}) => ({
-      env,
+    mode: 'commit',
+    tenantSlug: 'acme-kk',
+    ownerEmailProvided: false,
+    dbTarget: { target: 'local-postgres', port: 54322 },
+    committed: true,
+    persisted: true,
+    noop: false,
+    changedOperationCount: 7,
+    auditRowCount: 8,
+    write: { operationCounts: { 'tenant.create': 1, 'tenant_module.enable.core': 1 } },
+    ...overrides,
+  };
+}
+
+/**
+ * CLI spies for both transaction paths. Neither the dry-run nor the commit
+ * transaction should ever open a real connection in these tests; both are
+ * injected so the routing can be asserted without a DB. The commit behavior is
+ * overridable per-test (e.g. a no-op result or a thrown safe error).
+ */
+function spyCli(): {
+  deps: (opts?: {
+    env?: Record<string, string>;
+    commit?: (
+      input: OnboardingInput,
+      options: { backupArtifactPath: string },
+    ) => Promise<CliCommitTransactionResult>;
+  }) => Parameters<typeof runOnboardingCli>[1];
+  dryRunCalls: () => number;
+  commitCalls: () => number;
+  lastBackupPath: () => string | undefined;
+} {
+  let dry = 0;
+  let commit = 0;
+  let lastBackup: string | undefined;
+  return {
+    deps: (opts = {}) => ({
+      env: opts.env ?? {},
       runDryRunTransaction: async () => {
-        n += 1;
+        dry += 1;
         return fakeDryRunResult();
       },
+      runCommitTransaction: async (input, options) => {
+        commit += 1;
+        lastBackup = options.backupArtifactPath;
+        return opts.commit ? opts.commit(input, options) : fakeCommitResult();
+      },
     }),
-    calls: () => n,
+    dryRunCalls: () => dry,
+    commitCalls: () => commit,
+    lastBackupPath: () => lastBackup,
   };
 }
 
 test('runOnboardingCli: commit without --yes fails as a mode error (no connection)', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(validArgv(['--commit']), spy.deps());
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'mode-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.dryRunCalls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
 test('runOnboardingCli: commit without --i-understand-this-writes-local-db is refused before connect', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--target', 'local', '--backup-artifact', `/tmp/${VALID_BACKUP_NAME}`]),
     spy.deps(),
@@ -792,12 +834,12 @@ test('runOnboardingCli: commit without --i-understand-this-writes-local-db is re
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'commit-gate-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
   assert.ok(outcome.errors.some((e) => /i-understand-this-writes-local-db/.test(e)));
 });
 
 test('runOnboardingCli: commit without --backup-artifact is refused before connect', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local']),
     spy.deps(),
@@ -805,12 +847,12 @@ test('runOnboardingCli: commit without --backup-artifact is refused before conne
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'commit-gate-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
   assert.ok(outcome.errors.some((e) => /--backup-artifact/.test(e)));
 });
 
 test('runOnboardingCli: commit without --target local is refused before connect', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--backup-artifact', `/tmp/${VALID_BACKUP_NAME}`]),
     spy.deps(),
@@ -818,12 +860,12 @@ test('runOnboardingCli: commit without --target local is refused before connect'
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'commit-gate-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
   assert.ok(outcome.errors.some((e) => /--target local/.test(e)));
 });
 
 test('runOnboardingCli: commit with --target cloud is refused (no echo of the bad value)', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
       '--i-understand-this-writes-local-db',
@@ -837,13 +879,13 @@ test('runOnboardingCli: commit with --target cloud is refused (no echo of the ba
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'commit-gate-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
   assert.ok(!JSON.stringify(outcome).includes('cloud'), 'must not echo the bad target');
 });
 
 test('runOnboardingCli: commit with a missing backup file fails (not found, before connect)', async (t) => {
   const dir = makeTempDir(t);
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
       '--i-understand-this-writes-local-db',
@@ -857,7 +899,7 @@ test('runOnboardingCli: commit with a missing backup file fails (not found, befo
   assert.equal(outcome.exitCode, 1);
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
   assert.ok(outcome.errors.some((e) => /not found/i.test(e)));
 });
 
@@ -865,32 +907,32 @@ test('runOnboardingCli: commit with a directory backup path fails', async (t) =>
   const dir = makeTempDir(t);
   const asDir = path.join(dir, VALID_BACKUP_NAME);
   mkdirSync(asDir);
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', asDir]),
     spy.deps(),
   );
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.ok(outcome.errors.some((e) => /not a file/i.test(e)));
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
 test('runOnboardingCli: commit with an empty backup file fails', async (t) => {
   const dir = makeTempDir(t);
   const empty = path.join(dir, VALID_BACKUP_NAME);
   writeFileSync(empty, '');
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', empty]),
     spy.deps(),
   );
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.ok(outcome.errors.some((e) => /empty/i.test(e)));
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
 test('runOnboardingCli: commit with a wrong-extension backup file fails', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
       '--i-understand-this-writes-local-db',
@@ -903,11 +945,11 @@ test('runOnboardingCli: commit with a wrong-extension backup file fails', async 
   );
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.ok(outcome.errors.some((e) => /\.dump\.enc/i.test(e)));
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
 test('runOnboardingCli: commit with an invalid backup filename fails', async () => {
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
       '--i-understand-this-writes-local-db',
@@ -920,7 +962,7 @@ test('runOnboardingCli: commit with an invalid backup filename fails', async () 
   );
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.ok(outcome.errors.some((e) => /filename is invalid/i.test(e)));
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
 test('runOnboardingCli: commit with a stale (>24h) backup file fails', async (t) => {
@@ -928,55 +970,89 @@ test('runOnboardingCli: commit with a stale (>24h) backup file fails', async (t)
   const full = freshBackup(dir);
   const old = new Date(Date.now() - 25 * HOUR_MS);
   utimesSync(full, old, old);
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
     spy.deps(),
   );
   assert.equal(outcome.path, 'backup-artifact-error');
   assert.ok(outcome.errors.some((e) => /too old/i.test(e)));
-  assert.equal(spy.calls(), 0);
+  assert.equal(spy.commitCalls(), 0);
 });
 
-test('runOnboardingCli: commit with all gates + a valid backup STILL refuses (no COMMIT in 3c-4a)', async (t) => {
+test('runOnboardingCli: commit with all gates + a valid backup runs the local commit path', async (t) => {
   const dir = makeTempDir(t);
   const full = freshBackup(dir);
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
-    spy.deps(),
+    spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+  );
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'commit-executed');
+  assert.equal(outcome.connectionAttempted, true);
+  assert.equal(spy.commitCalls(), 1, 'the commit transaction must be invoked');
+  assert.equal(spy.dryRunCalls(), 0, 'commit must never call the dry-run transaction');
+  assert.equal(spy.lastBackupPath(), full, 'the validated backup path is handed to the commit runner');
+  assert.ok(outcome.lines.includes('local committed onboarding executed'));
+  assert.ok(outcome.lines.includes('backup artifact gate passed'));
+  assert.ok(outcome.lines.includes('local target confirmed'));
+  assert.ok(outcome.lines.includes('no Cloud touched'));
+  assert.ok(outcome.lines.includes('db target: local-postgres:54322'));
+});
+
+test('runOnboardingCli: commit on an already-onboarded tenant reports a no-op (exit 0)', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      commit: async () =>
+        fakeCommitResult({
+          committed: false,
+          persisted: false,
+          noop: true,
+          changedOperationCount: 0,
+          auditRowCount: 0,
+        }),
+    }),
+  );
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'commit-noop');
+  assert.equal(spy.commitCalls(), 1);
+  assert.ok(outcome.lines.some((l) => /no-op/.test(l)));
+  assert.ok(outcome.lines.includes('no rows persisted (transaction rolled back)'));
+  assert.ok(!outcome.lines.includes('local committed onboarding executed'));
+});
+
+test('runOnboardingCli: a failing commit transaction surfaces a safe error', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      commit: async () => {
+        throw new Error('The local onboarding commit transaction failed and was rolled back.');
+      },
+    }),
   );
   assert.equal(outcome.exitCode, 1);
-  assert.equal(outcome.path, 'commit-refused');
-  assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0, 'commit must never call the dry-run transaction');
-  assert.ok(outcome.lines.includes('committed (durable) onboarding is not implemented yet (Stage 3c-4a)'));
-  assert.ok(outcome.lines.includes('no rows written'));
-  assert.ok(outcome.lines.includes('no database connection attempted'));
-});
-
-test('runOnboardingCli: commit ignores DATABASE_URL entirely (even a Cloud-like one) and never connects', async (t) => {
-  const dir = makeTempDir(t);
-  const full = freshBackup(dir);
-  const spy = spyDryRun();
-  const outcome = await runOnboardingCli(
-    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
-    spy.deps({ DATABASE_URL: 'postgresql://u:p@db.abc.supabase.co:5432/postgres' }),
-  );
-  // Commit is refused BEFORE DATABASE_URL is read, so it is never a db-url-error
-  // and it never connects.
-  assert.equal(outcome.path, 'commit-refused');
-  assert.equal(outcome.connectionAttempted, false);
-  assert.equal(spy.calls(), 0);
-  const serialized = JSON.stringify(outcome);
-  assert.ok(!serialized.includes('supabase.co'), 'must not echo the DB host');
-  assert.ok(!serialized.includes('postgresql://'), 'must not echo the connection string');
+  assert.equal(outcome.path, 'commit-error');
+  assert.equal(spy.commitCalls(), 1);
+  const joined = outcome.errors.join(' ');
+  assert.ok(joined.length > 0);
+  assert.ok(!joined.includes('@'));
+  assert.ok(!UUID_LIKE.test(joined));
 });
 
 test('runOnboardingCli: commit output leaks no email, owner id, UUID, or DATABASE_URL', async (t) => {
   const dir = makeTempDir(t);
   const full = freshBackup(dir);
-  const spy = spyDryRun();
+  const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
       '--owner-email',
@@ -987,9 +1063,12 @@ test('runOnboardingCli: commit output leaks no email, owner id, UUID, or DATABAS
       '--backup-artifact',
       full,
     ]),
-    spy.deps({ DATABASE_URL: LOCAL_DB_URL }),
+    spy.deps({
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      commit: async () => fakeCommitResult({ ownerEmailProvided: true }),
+    }),
   );
-  assert.equal(outcome.path, 'commit-refused');
+  assert.equal(outcome.path, 'commit-executed');
   const serialized = JSON.stringify(outcome);
   assert.ok(!serialized.includes(FAKE_OWNER_EMAIL), 'owner email leaked');
   assert.ok(!serialized.includes('@'), 'email-like token leaked');
@@ -1078,13 +1157,24 @@ test('onboard-tenant.ts has no direct pg import / new Client / .connect', () => 
   assert.ok(!/\.connect\s*\(/.test(source), 'must not open a DB connection');
 });
 
-// --- Stage 3c-4a source guards ---------------------------------------------
+// --- Stage 3c-4b source guards ---------------------------------------------
 
-test('no onboard-commit.ts exists yet (committed onboarding is Stage 3c-4b)', () => {
+test('onboard-commit.ts exists and is reached only via a lazy import', () => {
   assert.equal(
     existsSync(path.join(HERE, 'onboard-commit.ts')),
-    false,
-    'onboard-commit.ts must not exist until Stage 3c-4b adds COMMIT wiring',
+    true,
+    'Stage 3c-4b adds onboard-commit.ts (the only file with the COMMIT token)',
+  );
+  const source = readFileSync(path.join(HERE, 'onboard-tenant.ts'), 'utf8');
+  // The CLI must not statically import the commit module; it reaches it lazily
+  // so this file stays driver-free and free of the transaction COMMIT token.
+  assert.ok(
+    !/import\s+[^;]*from\s+['"]\.\/onboard-commit\.js['"]/.test(source),
+    'onboard-tenant.ts must not statically import onboard-commit',
+  );
+  assert.ok(
+    /import\(\s*['"]\.\/onboard-commit\.js['"]\s*\)/.test(source),
+    'onboard-tenant.ts must reach onboard-commit via a lazy import',
   );
 });
 
