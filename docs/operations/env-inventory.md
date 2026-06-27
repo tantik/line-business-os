@@ -99,20 +99,23 @@
 > remains a placeholder until offsite/scheduled backup is built (later stage).
 > Names only — never values.
 
-## 7. Onboarding (Stage 3c-1 validation-only; DB writes are a future stage)
+## 7. Onboarding (Stage 3c-2 read-only local state loading; DB writes are a future stage)
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
-| `DATABASE_URL` | Future onboarding **target** connection (same variable as §1). In **Stage 3c-1** it is only **validated/guarded if present** (local-host + port `54322`); the tool **does not connect**. Read from env, **never logged**. | Root gitignored env / password manager | **secret** | now |
-| `PII_ENCRYPTION_KEY` | Used by the **future** DB stage to encrypt the owner email (`core.users.email_encrypted`). Not used by the Stage 3c-1 validation-only shell. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
-| `PII_HASH_PEPPER` | Used by the **future** DB stage for the owner email blind index (`core.users.email_hash`). Not used by the Stage 3c-1 validation-only shell. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
+| `DATABASE_URL` | Onboarding **read-only** source connection (same variable as §1). In **Stage 3c-2** it is guarded (local-host + port `54322`) and, **if set**, used by the CLI to connect to the **local** Supabase Postgres and run **SELECT-only** reads (read-only session) to load existing state. **No writes.** Read from env, **never logged**. | Root gitignored env / password manager | **secret** | now |
+| `PII_ENCRYPTION_KEY` | Used by the **future** DB-write stage to encrypt the owner email (`core.users.email_encrypted`). **Not used** by the Stage 3c-2 read-only loader. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
+| `PII_HASH_PEPPER` | Used by the **future** DB-write stage for the owner email blind index (`core.users.email_hash`). **Not used** by the Stage 3c-2 read-only loader. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
 
-> The onboarding CLI (`pnpm db:onboard-tenant`) is **validation-only** in Stage
-> 3c-1: it parses/validates inputs and guards `DATABASE_URL` (local-only) **if
-> set**, but **makes no DB connection** and reads/writes **no rows**. It adds
-> **no DB driver**. `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and `PII_HASH_PEPPER`
-> values are **never logged or printed**. No **new** variable names are
-> introduced by onboarding. Names only — never values.
+> The onboarding CLI (`pnpm db:onboard-tenant`) performs **read-only local DB
+> state loading** in Stage 3c-2: it parses/validates inputs, guards
+> `DATABASE_URL` (**local only**), and — when set — connects to the **local**
+> Postgres to run **SELECT-only** reads, writing **no rows** and never touching
+> Cloud. It uses the `pg` driver (no Supabase client, no `service_role`, no Data
+> API). `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and `PII_HASH_PEPPER` values are
+> **never logged or printed**, and raw driver errors are never surfaced. No
+> **new** variable names are introduced by onboarding. Names only — never
+> values.
 
 ## Rules (always)
 

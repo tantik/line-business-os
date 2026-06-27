@@ -671,6 +671,52 @@ export function createValidationOnlyCliSummary(
   };
 }
 
+/** Where the existing-state used to build the plan came from. */
+export type OnboardingStateSource = 'empty' | 'local-read-only';
+
+/**
+ * Log-safe summary of a Stage 3c-2 run. Like {@link ValidationOnlyCliSummary}
+ * but reflects optional local READ-ONLY state loading. It still carries NO
+ * owner identity (no auth user id / email) and no UUIDs: the plan it embeds is
+ * built from non-PII existing-state facts only.
+ */
+export interface ReadOnlyCliSummary {
+  stage: 'phase-1h-stage-3c2';
+  mode: OnboardingMode;
+  dbConnection: 'none' | 'local-read-only';
+  liveOnboarding: 'not-implemented';
+  ownerEmailProvided: boolean;
+  dbTarget: SafeDbTarget | 'not-checked';
+  stateSource: OnboardingStateSource;
+  plan: RedactedOnboardingSummary;
+}
+
+/**
+ * Build a redacted, no-PII summary from validated input and the existing state
+ * (empty for a no-DB run, or loaded read-only from the local DB). Pure: it
+ * never connects; the caller supplies the already-loaded state. The owner's
+ * email/auth id are never copied into the summary.
+ */
+export function createReadOnlyCliSummary(
+  input: OnboardingInput,
+  mode: OnboardingMode,
+  existingState: ExistingOnboardingState,
+  stateSource: OnboardingStateSource,
+  dbTarget?: SafeDbTarget,
+): ReadOnlyCliSummary {
+  const plan = buildOnboardingPlan(input, existingState);
+  return {
+    stage: 'phase-1h-stage-3c2',
+    mode,
+    dbConnection: stateSource === 'local-read-only' ? 'local-read-only' : 'none',
+    liveOnboarding: 'not-implemented',
+    ownerEmailProvided: input.ownerEmail !== null,
+    dbTarget: dbTarget ?? 'not-checked',
+    stateSource,
+    plan: redactOnboardingSummary(plan),
+  };
+}
+
 function printLine(message: string): void {
   console.log(`[onboard-tenant] ${message}`);
 }
@@ -680,20 +726,24 @@ function printError(message: string): void {
 }
 
 /**
- * Validation-only CLI shell (Stage 3c-1). Parses args, validates input, guards
- * DATABASE_URL if present, and prints a redacted summary. It makes NO database
- * connection and runs NO queries. A `--commit --yes` request resolves the
- * commit mode but exits non-zero because live writes are not implemented yet,
- * preventing a false "success" signal.
+ * Onboarding CLI shell (Stage 3c-2). Parses args, validates input, and guards
+ * DATABASE_URL if present. In dry-run, when DATABASE_URL is set it loads the
+ * existing onboarding state READ-ONLY from the LOCAL database (SELECT-only,
+ * via `./onboard-db`) and plans against it; otherwise it plans against an empty
+ * state. It writes NO rows. A `--commit --yes` request resolves the commit mode
+ * but exits non-zero — and never connects — because live writes are not
+ * implemented yet, preventing a false "success" signal.
+ *
+ * The DB driver lives ONLY in `./onboard-db` and is loaded lazily here, so this
+ * file stays driver-free: it never imports the driver, instantiates a client,
+ * or opens a connection itself.
  */
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
 
-  printLine('Stage 3c-1 validation-only shell');
-  printLine('no DB connection made');
-  printLine('no DB rows read');
+  printLine('Stage 3c-2 onboarding CLI (read-only)');
   printLine('no DB rows written');
-  printLine('live onboarding not implemented yet');
+  printLine('no live onboarding implemented');
 
   const parsedArgs = parseOnboardingCliArgs(argv);
   if (!parsedArgs.ok) {
@@ -722,10 +772,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Only READ the env var to guard it; never log it, never connect.
+  // Only READ the env var to guard it; never log it. The actual connection is
+  // made later, read-only, inside ./onboard-db (and only when in dry-run).
   let dbTarget: SafeDbTarget | undefined;
   const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
+  const hasDatabaseUrl = databaseUrl !== undefined && databaseUrl.trim() !== '';
+  if (hasDatabaseUrl) {
     try {
       dbTarget = assertLocalDatabaseUrl(databaseUrl);
     } catch (err) {
@@ -734,7 +786,35 @@ async function main(): Promise<void> {
     }
   }
 
-  const summary = createValidationOnlyCliSummary(parsedInput.value, mode.value, dbTarget);
+  // Commit mode never connects and never writes in Stage 3c-2.
+  if (mode.value === 'commit') {
+    printError('commit requested, but live DB writes are not implemented in Stage 3c-2.');
+    process.exit(1);
+  }
+
+  // Dry-run: optionally load existing state READ-ONLY from the local DB.
+  let existingState: ExistingOnboardingState = {};
+  let stateSource: OnboardingStateSource = 'empty';
+  if (hasDatabaseUrl) {
+    try {
+      // Lazy import keeps the DB driver isolated to ./onboard-db.
+      const { loadExistingOnboardingStateFromEnv } = await import('./onboard-db.js');
+      existingState = await loadExistingOnboardingStateFromEnv(parsedInput.value);
+      stateSource = 'local-read-only';
+    } catch (err) {
+      // Errors from ./onboard-db are already mapped to safe, secret-free text.
+      printError(err instanceof Error ? err.message : 'failed to load onboarding state.');
+      process.exit(1);
+    }
+  }
+
+  const summary = createReadOnlyCliSummary(
+    parsedInput.value,
+    mode.value,
+    existingState,
+    stateSource,
+    dbTarget,
+  );
 
   printLine(`mode: ${summary.mode}`);
   printLine(`tenant slug: ${summary.plan.tenantSlug}`);
@@ -748,12 +828,14 @@ async function main(): Promise<void> {
     printLine(`plan ${operation}: ${count}`);
   }
 
-  if (summary.mode === 'commit') {
-    printError('commit requested, but live DB writes are not implemented in Stage 3c-1.');
-    process.exit(1);
+  if (summary.stateSource === 'local-read-only') {
+    printLine('local read-only DB state loaded');
+    printLine('no DB rows written');
+    printLine('no live onboarding implemented');
+    printLine('validation complete (dry-run): read-only, no rows changed.');
+  } else {
+    printLine('validation complete (dry-run): no database was touched.');
   }
-
-  printLine('validation complete (dry-run): no database was touched.');
   process.exit(0);
 }
 
