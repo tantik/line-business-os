@@ -119,6 +119,20 @@ Symptom: `/api/health` returns `ok` but users hit errors.
   does not exercise product features. Treat a feature-level bug as a deploy issue
   (§5.1) if it correlates with a recent deploy.
 
+### 5.6 Onboarding (forward note — no committed writes yet)
+
+- **Phase 1H Stage 3c-4a performs no committed onboarding writes.** The
+  onboarding CLI only runs a local dry-run transaction (always rolled back) or,
+  for `--commit`, validates the confirmation gates + the backup artifact and then
+  **refuses** without connecting or writing. So onboarding cannot be the cause of
+  a data-loss incident in this stage.
+- **Future committed onboarding (Stage 3c-4b) failures** will require the
+  backup/verification procedure: a fresh encrypted backup must exist and pass the
+  artifact gate **before** the run, and after a committed run the operator
+  verifies before/after row counts. If a committed run's outcome is ever
+  indeterminate, treat it per §5.3 (data loss/corruption) and restore from the
+  pre-onboarding backup. Never restore to Cloud without separate approval.
+
 ## 6. Strong warnings
 
 - **No auto rollback for MVP.** Rollback is a human decision via Vercel.

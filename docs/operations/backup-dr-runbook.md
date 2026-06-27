@@ -240,6 +240,17 @@ and require their own approved tasks.
 - **A backup is required before any future _committed_ onboarding.** Run a fresh
   `pnpm db:backup` (see §9) and confirm the artifact before the first onboarding
   run that durably persists rows. This is a hard gate for the committed stage.
+- **The backup-artifact gate is implemented (Phase 1H Stage 3c-4a).** The
+  onboarding CLI now **validates** an operator-supplied backup artifact before a
+  future committed run: the file must **exist**, be a **regular, non-empty**
+  file, be named `linebos-YYYYMMDD-HHmmss.dump.enc` (ending in `.dump.enc`), and
+  have been **modified within the last 24 hours**. Validation is **metadata
+  only** — onboarding **never reads, decrypts, or uploads** the backup, and
+  **never auto-runs** a backup. Creating the backup stays a **separate explicit
+  operator step** (`pnpm db:backup`). Stage 3c-4a still implements **no
+  `COMMIT`**: even with a valid backup and all gates, committed onboarding is
+  refused and nothing is written. The future committed stage (3c-4b) must use a
+  **fresh** encrypted backup artifact that passes this gate.
 - **The onboarding dry-run stages persist nothing.** Phase 1H Stage **3c-3a**
   (write SQL builders + fake executor) makes **no DB connection** and writes
   nothing. Stage **3c-3b** (now implemented) wraps the write path in a **local

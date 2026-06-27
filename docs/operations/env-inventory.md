@@ -99,7 +99,17 @@
 > remains a placeholder until offsite/scheduled backup is built (later stage).
 > Names only — never values.
 
-## 7. Onboarding (Stage 3c-3b local dry-run transaction; committed writes are a future stage)
+## 7. Onboarding (Stage 3c-4a commit gates + backup-artifact validation; committed writes are a future stage)
+
+> **No new environment variables** are introduced by Stage 3c-4a. The commit
+> gates are CLI flags, and `--backup-artifact <path>` is a **CLI argument
+> (a filesystem path), not a secret** — it is validated by file metadata only
+> (existence, regular file, non-empty, `.dump.enc` name, modified within 24h) and
+> is never decrypted, uploaded, or printed in full. `DATABASE_URL` is still
+> required only for the DB-connected **dry-run** mode; the **commit** path in
+> Stage 3c-4a is refused **before** `DATABASE_URL` is read (there is no `COMMIT`),
+> so commit never connects.
+
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
