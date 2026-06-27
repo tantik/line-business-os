@@ -99,6 +99,21 @@
 > remains a placeholder until offsite/scheduled backup is built (later stage).
 > Names only — never values.
 
+## 7. Onboarding (Stage 3c-1 validation-only; DB writes are a future stage)
+
+| Variable | Purpose | Where it should live | Visibility | When |
+| -------- | ------- | -------------------- | ---------- | ---- |
+| `DATABASE_URL` | Future onboarding **target** connection (same variable as §1). In **Stage 3c-1** it is only **validated/guarded if present** (local-host + port `54322`); the tool **does not connect**. Read from env, **never logged**. | Root gitignored env / password manager | **secret** | now |
+| `PII_ENCRYPTION_KEY` | Used by the **future** DB stage to encrypt the owner email (`core.users.email_encrypted`). Not used by the Stage 3c-1 validation-only shell. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
+| `PII_HASH_PEPPER` | Used by the **future** DB stage for the owner email blind index (`core.users.email_hash`). Not used by the Stage 3c-1 validation-only shell. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
+
+> The onboarding CLI (`pnpm db:onboard-tenant`) is **validation-only** in Stage
+> 3c-1: it parses/validates inputs and guards `DATABASE_URL` (local-only) **if
+> set**, but **makes no DB connection** and reads/writes **no rows**. It adds
+> **no DB driver**. `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and `PII_HASH_PEPPER`
+> values are **never logged or printed**. No **new** variable names are
+> introduced by onboarding. Names only — never values.
+
 ## Rules (always)
 
 - **Do not commit values.** Names only in this repo.
