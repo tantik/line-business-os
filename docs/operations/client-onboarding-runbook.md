@@ -1,25 +1,26 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-3a — Write SQL builders + fake-executor tests (no DB)
-- Scope: **Documentation + pure validation helpers + a read-only CLI shell +
-  write-side SQL builders that run only against a fake (injected) query
-  runner.** This runbook describes the manual onboarding procedure for the first
-  real clients and the identity/idempotency rules the future server-only
-  onboarding routine will follow. It contains **no executable SQL with real
-  values**. The live, DB-writing onboarding routine is still a later, separately
-  approved stage. Stage 3a/3b shipped pure validation/planning helpers; Stage
-  3c-1 added a validation-only CLI shell + a local-only `DATABASE_URL` guard;
-  Stage 3c-2 added the `pg` driver and a **read-only**, **local-only** state
-  loader (`packages/db/scripts/onboard-db.ts`). **Stage 3c-3a** adds the
-  write-side module (`packages/db/scripts/onboard-write.ts`): parameterized
-  write **SQL builders** and an **executor that runs only against an injected
-  fake `QueryRunner`**. It **does not connect to any database**, **does not wire
-  the CLI to the write path**, **writes nothing to the local DB**, and **never
-  commits** — there is no `COMMIT` and no transaction control in this stage. The
-  real local **dry-run transaction with `ROLLBACK`** plus CLI wiring and the
-  manual rollback smoke test are the **next** stage (3c-3b). Live, durable
-  onboarding writes remain unimplemented.
+- Phase: 1H Stage 3c-3b — Local dry-run transaction wiring (always ROLLBACK)
+- Scope: **Documentation + pure validation helpers + a CLI that runs the write
+  path inside a LOCAL dry-run transaction that always rolls back.** This runbook
+  describes the manual onboarding procedure for the first real clients and the
+  identity/idempotency rules the future server-only onboarding routine will
+  follow. It contains **no executable SQL with real values**. The **committed
+  (durable)** onboarding routine is still a later, separately approved stage.
+  Stage 3a/3b shipped pure validation/planning helpers; Stage 3c-1 added a
+  validation-only CLI shell + a local-only `DATABASE_URL` guard; Stage 3c-2
+  added the `pg` driver and a **read-only**, **local-only** state loader
+  (`packages/db/scripts/onboard-db.ts`); Stage 3c-3a added the write-side module
+  (`packages/db/scripts/onboard-write.ts`): parameterized write **SQL builders**
+  and an **executor** exercised against an injected fake `QueryRunner`.
+  **Stage 3c-3b** wires that write path into a **local-only dry-run
+  transaction**: in dry-run, when a **local** `DATABASE_URL` is set, the CLI
+  opens one `pg.Client`, runs `BEGIN` → load state → plan → validate → execute
+  the writes, and then **always `ROLLBACK`s** and closes the connection. It
+  **persists zero rows**, **never commits** (there is **no `COMMIT`** anywhere
+  in the write path), and **never touches Supabase Cloud**. Live, durable
+  (committed) onboarding writes remain unimplemented.
 
 > While onboarding is manual, the first tenant owner is created **server-side by
 > an operator**. There is no self-service signup yet and no admin console.
@@ -127,15 +128,19 @@ human action would take. **This is a checklist, not copy-paste SQL.**
   body, query, or header.
 - Treat owner email and any PII as encrypted-at-rest data; never log plaintext.
 
-## 5. Onboarding command (Stage 3c-2: read-only local state loading)
+## 5. Onboarding command (Stage 3c-3b: local dry-run transaction)
 
 The command validates the operator's inputs and the **local-only target guard**.
-In dry-run, **if `DATABASE_URL` is present** it connects to the **local** Supabase
-Postgres and loads the existing onboarding state **read-only** (SELECT-only) to
-plan against, then prints a redacted, no-PII summary. **If `DATABASE_URL` is
-absent**, it keeps the prior validation-only behavior (plans against an empty
-state, no connection). In all cases it **writes no row, runs no onboarding, and
-never touches Cloud.** Live DB writes are a later, separately approved stage.
+In dry-run, **if a local `DATABASE_URL` is present** it opens **one** local
+`pg.Client`, runs the write path inside a single transaction
+(`BEGIN` → load existing state → build plan → validate → execute the writes),
+and then **always `ROLLBACK`s** and closes the connection — so the real write
+path is exercised against the local schema but **zero rows are persisted**. It
+then prints a redacted, no-PII summary. **If `DATABASE_URL` is absent**, it keeps
+the prior validation-only behavior (plans against an empty state, no
+connection). In all cases it **persists nothing, never commits (there is no
+`COMMIT`), and never touches Cloud.** Committed (durable) DB writes are a later,
+separately approved stage.
 
 ```bash
 pnpm db:onboard-tenant -- \
@@ -167,10 +172,11 @@ Mode flags:
 - `--dry-run` together with `--commit` **fails safely**.
 - `--commit` **without** `--yes` **fails safely**. A future committed write will
   require `--commit --yes`.
-- In Stage 3c-2, `--commit --yes` resolves the commit mode but the CLI **still
+- In Stage 3c-3b, `--commit --yes` resolves the commit mode but the CLI **still
   writes nothing**, **never connects**, and **exits non-zero**, clearly stating
-  that live DB writes are not implemented yet (so it can never report a false
-  success).
+  that committed (durable) DB writes are not implemented yet (so it can never
+  report a false success). `--commit --yes` can **never** persist data in this
+  stage.
 - Unknown args, positional args, and missing values **fail safely**.
 
 Safety of the shell output:
@@ -179,10 +185,11 @@ Safety of the shell output:
   `DATABASE_URL`, secrets, raw driver errors, or real UUIDs. It reports the
   tenant slug, the run mode, whether an email was provided (boolean), the safe
   local DB target (`local-postgres:54322`) when checked, and the planned
-  operation counts. Tenant/role UUIDs read during loading are held in memory
-  only to scope follow-up reads and are never printed.
-- When `DATABASE_URL` is set it prints, among others: *local read-only DB state
-  loaded*, *no DB rows written*, *no live onboarding implemented*.
+  operation counts. Tenant/role UUIDs read/written during the transaction are
+  held in memory only to scope the writes and are never printed.
+- When a local `DATABASE_URL` is set the dry-run prints, among others: *local
+  dry-run transaction executed*, *transaction rolled back*, *no DB rows
+  persisted*, *no live commit implemented*.
 - The **local guard still blocks** non-local / Supabase-Cloud-like hosts and the
   wrong port before any connection is attempted.
 
@@ -191,21 +198,32 @@ The pure validation/planning helpers and the local `DATABASE_URL` guard live in
 connection and SELECT-only loader live in `packages/db/scripts/onboard-db.ts`
 (the only onboarding file that imports a DB driver).
 
-### Stage 3c-3a write builders (fake executor only — no DB)
+### Stage 3c-3b local dry-run transaction (always ROLLBACK)
 
-Stage 3c-3a adds `packages/db/scripts/onboard-write.ts`: the only onboarding
-file allowed to contain write SQL. In this stage it is intentionally limited:
+`packages/db/scripts/onboard-write.ts` is the only onboarding file allowed to
+contain write SQL **and** transaction-control SQL (`begin` / `rollback`). It is
+the write-side driver file; the read-side loader (`onboard-db.ts`) stays
+SELECT-only.
 
-- It adds **parameterized write SQL builders** and an **executor that runs only
-  against an injected fake `QueryRunner`** (used solely by the unit tests).
-- It **does not connect** to any database, **does not read** any DB connection
-  string, **does not wire the CLI** to the write path, **writes nothing** to the
-  local DB, and **never commits**. There is **no `COMMIT`** and **no transaction
-  control** (`BEGIN`/`ROLLBACK`) in 3c-3a.
-- The **real local dry-run transaction with `ROLLBACK`**, the CLI wiring, and the
-  manual rollback smoke test are the **next** stage (3c-3b). Audit rows are built
-  and exercised by the fake runner now; real (rolled-back) audit inserts come in
-  3c-3b.
+- It exposes a **local-only dry-run transaction**
+  (`runOnboardingDryRunTransactionFromEnv` / `withLocalDryRunTransaction`) that
+  reads `DATABASE_URL` **only** inside the runner, runs the pure local guard
+  (`assertLocalDatabaseUrl`) **before** opening any connection, then opens **one**
+  `pg.Client` (never a pool).
+- The transaction executes `begin` → `loadExistingOnboardingState` → build plan
+  → `validateWritablePlanOrThrow` → `executeOnboardingWritePlan` (including the
+  audit inserts), and then **always issues `rollback`** and closes the
+  connection in a `finally`. On any error after `begin` it best-effort rolls
+  back and still closes the connection.
+- It **never commits** — there is **no `COMMIT`** token anywhere in the write
+  path — so **zero rows are persisted**. The writes execute (so the plan is
+  exercised against the real local schema) and are then discarded.
+- It **never** uses the `service_role` key, a Supabase client, the Data API, a
+  connection pool, or Cloud. All errors are mapped to short, static,
+  secret-free messages (no DB URL, credentials, SQL values, UUIDs, or email).
+- The unit tests use a **fake `QueryRunner` / fake `Client`** only and **make no
+  real DB connection**. A real run is **local-only** against
+  `127.0.0.1:54322`.
 
 The write builders implement these policies (verified by the fake-executor
 tests), which the future committed routine will reuse unchanged:
@@ -237,9 +255,10 @@ tests), which the future committed routine will reuse unchanged:
   `actor_id = null`), `module = 'core'`, and carry only safe metadata (tenant
   slug, action labels, module codes, counts) — never the owner email, the owner
   auth user id, secrets, or UUIDs.
-- **Local-only.** There is **no Cloud onboarding**; the read-side guard rejects
-  non-local / Supabase-Cloud-like hosts, and the write path never connects in
-  this stage.
+- **Local-only.** There is **no Cloud onboarding**; the same guard
+  (`assertLocalDatabaseUrl`) rejects non-local / Supabase-Cloud-like hosts and
+  the wrong port **before** the dry-run transaction opens any connection, so the
+  write path only ever connects to the local Postgres at `127.0.0.1:54322`.
 
 ## 6. Idempotency rules
 
@@ -282,6 +301,27 @@ operation labels only.
 - [ ] **No secrets printed** — no DB URLs, keys, passwords, tokens, JWTs.
 - [ ] **No real UUIDs** in reports/chat (owner auth user id stays out of logs).
 - [ ] **`git` clean** before and after.
+
+### Manual local dry-run smoke test (optional; local-only)
+
+The dry-run transaction always rolls back, so it must leave the database byte
+identical. To verify this manually (optional, and only against the **local**
+DB):
+
+1. Export a **local-only** `DATABASE_URL`
+   (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`).
+2. Capture safe **before** counts (e.g. `select count(*)` on `core.tenants`,
+   `core.locations`, `core.tenant_memberships`, `core.role_assignments`,
+   `core.tenant_modules`, `audit.audit_logs`). Record counts only — never row
+   contents, UUIDs, or PII.
+3. Run the onboarding CLI in **dry-run** with a **synthetic** owner auth user id
+   (omit `--owner-email` on the first pass).
+4. Capture the **after** counts the same way.
+5. **Confirm before == after** for every table (the rollback persisted nothing).
+6. **Clear `DATABASE_URL`** from the shell afterwards.
+
+Report the smoke test separately, and print **no** secrets, real UUIDs, emails,
+or the DB URL.
 
 ## 10. Verification checklist
 

@@ -717,44 +717,100 @@ export function createReadOnlyCliSummary(
   };
 }
 
-function printLine(message: string): void {
-  console.log(`[onboard-tenant] ${message}`);
+// ===========================================================================
+// Stage 3c-3b: CLI routing (testable; no DB connection of its own)
+// ===========================================================================
+
+/**
+ * Structural shape of a local dry-run transaction result the CLI needs to print.
+ * The full result (with the nested redacted write summary) is produced by
+ * `runOnboardingDryRunTransactionFromEnv` in `./onboard-write`; the CLI only
+ * reads these log-safe fields, so this file never imports a DB driver.
+ */
+export interface CliDryRunTransactionResult {
+  mode: 'dry-run';
+  tenantSlug: string;
+  ownerEmailProvided: boolean;
+  dbTarget: SafeDbTarget;
+  rolledBack: true;
+  persisted: false;
+  write: { operationCounts: Record<string, number> };
 }
 
-function printError(message: string): void {
-  console.error(`[onboard-tenant] error: ${message}`);
+/** Injectable dependencies for {@link runOnboardingCli} (no DB in tests). */
+export interface OnboardingCliDeps {
+  /** Environment source (defaults to `process.env`). */
+  env?: { DATABASE_URL?: string };
+  /** Runs the local dry-run transaction. Defaults to a lazy `./onboard-write`. */
+  runDryRunTransaction?: (input: OnboardingInput) => Promise<CliDryRunTransactionResult>;
+}
+
+/** Which branch the CLI took (used by tests; never carries PII). */
+export type OnboardingCliPath =
+  | 'parse-error'
+  | 'mode-error'
+  | 'input-error'
+  | 'db-url-error'
+  | 'commit-refused'
+  | 'dry-run-transaction'
+  | 'dry-run-transaction-error'
+  | 'validation-only';
+
+/**
+ * Redacted, log-safe outcome of a CLI run. `lines` / `errors` are the messages
+ * the thin `main` wrapper prints; they NEVER contain the owner email, the owner
+ * auth user id, the DATABASE_URL, secrets, or real UUIDs.
+ */
+export interface OnboardingCliOutcome {
+  exitCode: 0 | 1;
+  path: OnboardingCliPath;
+  mode?: OnboardingMode;
+  lines: string[];
+  errors: string[];
+  /** Whether a DB connection was (or would be) attempted on this path. */
+  connectionAttempted: boolean;
+}
+
+/** Default dry-run transaction runner: lazy import keeps `pg` out of this file. */
+async function defaultRunDryRunTransaction(
+  input: OnboardingInput,
+): Promise<CliDryRunTransactionResult> {
+  const { runOnboardingDryRunTransactionFromEnv } = await import('./onboard-write.js');
+  return runOnboardingDryRunTransactionFromEnv(input);
 }
 
 /**
- * Onboarding CLI shell (Stage 3c-2). Parses args, validates input, and guards
- * DATABASE_URL if present. In dry-run, when DATABASE_URL is set it loads the
- * existing onboarding state READ-ONLY from the LOCAL database (SELECT-only,
- * via `./onboard-db`) and plans against it; otherwise it plans against an empty
- * state. It writes NO rows. A `--commit --yes` request resolves the commit mode
- * but exits non-zero — and never connects — because live writes are not
- * implemented yet, preventing a false "success" signal.
+ * Onboarding CLI routing (Stage 3c-3b), free of `process.exit` and `console`
+ * so it is fully unit-testable. Parses args, validates input, and guards
+ * DATABASE_URL if present, then:
  *
- * The DB driver lives ONLY in `./onboard-db` and is loaded lazily here, so this
- * file stays driver-free: it never imports the driver, instantiates a client,
- * or opens a connection itself.
+ *   - **dry-run + DATABASE_URL set** → runs the LOCAL dry-run transaction
+ *     (`runOnboardingDryRunTransactionFromEnv`), which executes the write path
+ *     inside a transaction that ALWAYS rolls back, then prints a redacted
+ *     summary plus the rolled-back / nothing-persisted / no-commit lines;
+ *   - **dry-run + DATABASE_URL absent** → keeps the prior validation-only
+ *     behavior (plans against an empty state, no connection, no rows);
+ *   - **commit** → exits non-zero WITHOUT connecting or writing (there is no
+ *     COMMIT), so it can never report a false success.
+ *
+ * It never imports a DB driver itself: the dry-run transaction is reached via a
+ * lazy import (or an injected dependency in tests).
  */
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-
-  printLine('Stage 3c-2 onboarding CLI (read-only)');
-  printLine('no DB rows written');
-  printLine('no live onboarding implemented');
+export async function runOnboardingCli(
+  argv: string[],
+  deps: OnboardingCliDeps = {},
+): Promise<OnboardingCliOutcome> {
+  const env = deps.env ?? process.env;
+  const lines: string[] = [];
 
   const parsedArgs = parseOnboardingCliArgs(argv);
   if (!parsedArgs.ok) {
-    for (const message of parsedArgs.errors) printError(message);
-    process.exit(1);
+    return { exitCode: 1, path: 'parse-error', lines, errors: parsedArgs.errors, connectionAttempted: false };
   }
 
   const mode = resolveOnboardingMode(parsedArgs.value);
   if (!mode.ok) {
-    printError(mode.error);
-    process.exit(1);
+    return { exitCode: 1, path: 'mode-error', lines, errors: [mode.error], connectionAttempted: false };
   }
 
   const parsedInput = parseOnboardingInput({
@@ -768,75 +824,112 @@ async function main(): Promise<void> {
     dryRun: mode.value === 'dry-run',
   });
   if (!parsedInput.ok) {
-    for (const message of parsedInput.errors) printError(message);
-    process.exit(1);
+    return { exitCode: 1, path: 'input-error', lines, errors: parsedInput.errors, connectionAttempted: false };
   }
 
-  // Only READ the env var to guard it; never log it. The actual connection is
-  // made later, read-only, inside ./onboard-db (and only when in dry-run).
+  // Only READ the env var to guard it; never log it.
   let dbTarget: SafeDbTarget | undefined;
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = env.DATABASE_URL;
   const hasDatabaseUrl = databaseUrl !== undefined && databaseUrl.trim() !== '';
   if (hasDatabaseUrl) {
     try {
       dbTarget = assertLocalDatabaseUrl(databaseUrl);
     } catch (err) {
-      printError(err instanceof Error ? err.message : 'invalid DATABASE_URL.');
-      process.exit(1);
+      return {
+        exitCode: 1,
+        path: 'db-url-error',
+        lines,
+        errors: [err instanceof Error ? err.message : 'invalid DATABASE_URL.'],
+        connectionAttempted: false,
+      };
     }
   }
 
-  // Commit mode never connects and never writes in Stage 3c-2.
+  // Commit never connects and never writes: there is no COMMIT in any stage yet.
   if (mode.value === 'commit') {
-    printError('commit requested, but live DB writes are not implemented in Stage 3c-2.');
-    process.exit(1);
+    return {
+      exitCode: 1,
+      path: 'commit-refused',
+      mode: mode.value,
+      lines,
+      errors: [
+        'commit requested, but committed (durable) onboarding is not implemented (no COMMIT). Re-run with --dry-run.',
+      ],
+      connectionAttempted: false,
+    };
   }
 
-  // Dry-run: optionally load existing state READ-ONLY from the local DB.
-  let existingState: ExistingOnboardingState = {};
-  let stateSource: OnboardingStateSource = 'empty';
+  // Dry-run WITH DATABASE_URL → run the local dry-run transaction (always rolls
+  // back). The driver lives in ./onboard-write, reached lazily / via deps.
   if (hasDatabaseUrl) {
+    const runDryRunTransaction = deps.runDryRunTransaction ?? defaultRunDryRunTransaction;
+    let result: CliDryRunTransactionResult;
     try {
-      // Lazy import keeps the DB driver isolated to ./onboard-db.
-      const { loadExistingOnboardingStateFromEnv } = await import('./onboard-db.js');
-      existingState = await loadExistingOnboardingStateFromEnv(parsedInput.value);
-      stateSource = 'local-read-only';
+      result = await runDryRunTransaction(parsedInput.value);
     } catch (err) {
-      // Errors from ./onboard-db are already mapped to safe, secret-free text.
-      printError(err instanceof Error ? err.message : 'failed to load onboarding state.');
-      process.exit(1);
+      return {
+        exitCode: 1,
+        path: 'dry-run-transaction-error',
+        mode: mode.value,
+        lines,
+        errors: [
+          err instanceof Error ? err.message : 'failed to run the local onboarding dry-run transaction.',
+        ],
+        connectionAttempted: true,
+      };
     }
+
+    lines.push(`mode: ${result.mode}`);
+    lines.push(`tenant slug: ${result.tenantSlug}`);
+    lines.push(`owner email provided: ${result.ownerEmailProvided ? 'yes' : 'no'}`);
+    lines.push(`db target: ${result.dbTarget.target}:${result.dbTarget.port}`);
+    for (const [operation, count] of Object.entries(result.write.operationCounts)) {
+      lines.push(`plan ${operation}: ${count}`);
+    }
+    lines.push('local dry-run transaction executed');
+    lines.push('transaction rolled back');
+    lines.push('no DB rows persisted');
+    lines.push('no live commit implemented');
+    return { exitCode: 0, path: 'dry-run-transaction', mode: mode.value, lines, errors: [], connectionAttempted: true };
   }
 
-  const summary = createReadOnlyCliSummary(
-    parsedInput.value,
-    mode.value,
-    existingState,
-    stateSource,
-    dbTarget,
-  );
-
-  printLine(`mode: ${summary.mode}`);
-  printLine(`tenant slug: ${summary.plan.tenantSlug}`);
-  printLine(`owner email provided: ${summary.ownerEmailProvided ? 'yes' : 'no'}`);
-  printLine(
-    summary.dbTarget === 'not-checked'
-      ? 'db target: not checked (DATABASE_URL not set)'
-      : `db target: ${summary.dbTarget.target}:${summary.dbTarget.port}`,
-  );
+  // Dry-run WITHOUT DATABASE_URL → validation-only (no connection, empty state).
+  const summary = createReadOnlyCliSummary(parsedInput.value, mode.value, {}, 'empty', dbTarget);
+  lines.push(`mode: ${summary.mode}`);
+  lines.push(`tenant slug: ${summary.plan.tenantSlug}`);
+  lines.push(`owner email provided: ${summary.ownerEmailProvided ? 'yes' : 'no'}`);
+  lines.push('db target: not checked (DATABASE_URL not set)');
   for (const [operation, count] of Object.entries(summary.plan.operationCounts)) {
-    printLine(`plan ${operation}: ${count}`);
+    lines.push(`plan ${operation}: ${count}`);
   }
+  lines.push('validation complete (dry-run): no database was touched.');
+  return { exitCode: 0, path: 'validation-only', mode: mode.value, lines, errors: [], connectionAttempted: false };
+}
 
-  if (summary.stateSource === 'local-read-only') {
-    printLine('local read-only DB state loaded');
-    printLine('no DB rows written');
-    printLine('no live onboarding implemented');
-    printLine('validation complete (dry-run): read-only, no rows changed.');
-  } else {
-    printLine('validation complete (dry-run): no database was touched.');
-  }
-  process.exit(0);
+function printLine(message: string): void {
+  console.log(`[onboard-tenant] ${message}`);
+}
+
+function printError(message: string): void {
+  console.error(`[onboard-tenant] error: ${message}`);
+}
+
+/**
+ * Thin CLI entrypoint (Stage 3c-3b). Delegates all routing to
+ * {@link runOnboardingCli}, then prints the redacted lines/errors and exits.
+ * The DB driver lives ONLY in `./onboard-write` (write path) and `./onboard-db`
+ * (read path) and is reached lazily, so this file stays driver-free: it never
+ * imports the driver, instantiates a client, or opens a connection itself.
+ */
+async function main(): Promise<void> {
+  printLine('Stage 3c-3b onboarding CLI');
+  printLine('dry-run only; the write path runs in a transaction that always rolls back');
+  printLine('no committed (durable) onboarding implemented; nothing is persisted');
+
+  const outcome = await runOnboardingCli(process.argv.slice(2));
+  for (const message of outcome.errors) printError(message);
+  for (const line of outcome.lines) printLine(line);
+  process.exit(outcome.exitCode);
 }
 
 const invokedDirectly =

@@ -4,11 +4,16 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  ONBOARD_TX_SQL,
   ONBOARD_WRITE_SQL,
   buildAuditRows,
   executeOnboardingWritePlan,
+  mapDryRunTransactionErrorToSafeMessage,
   prepareOwnerEmailPII,
+  runOnboardingDryRunTransactionFromEnv,
   validateWritablePlanOrThrow,
+  withLocalDryRunTransaction,
+  type DryRunPgClient,
   type OnboardingWriteOperation,
 } from './onboard-write.js';
 import {
@@ -18,7 +23,7 @@ import {
   type OnboardingInput,
   type RawOnboardingInput,
 } from './onboard-tenant.js';
-import type { QueryRunner } from './onboard-db.js';
+import { ONBOARD_DB_QUERIES, type QueryRunner } from './onboard-db.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
@@ -616,28 +621,337 @@ test('validateWritablePlanOrThrow safe-fails on ambiguous existing state', () =>
 });
 
 // ===========================================================================
-// Transaction control deferred to Stage 3c-3b
+// Transaction control (Stage 3c-3b: BEGIN/ROLLBACK present, never COMMIT)
 // ===========================================================================
 
-test('Stage 3c-3a has no BEGIN/COMMIT/ROLLBACK (transaction wrapper is next stage)', () => {
+test('Stage 3c-3b has BEGIN + ROLLBACK transaction control but never COMMIT', () => {
   const source = readFileSync(path.join(HERE, 'onboard-write.ts'), 'utf8');
-  assert.ok(!/\bbegin\b/i.test(source), 'no BEGIN in Stage 3c-3a');
-  assert.ok(!/\bcommit\b/i.test(source), 'no COMMIT in Stage 3c-3a');
-  assert.ok(!/\brollback\b/i.test(source), 'no ROLLBACK in Stage 3c-3a');
+  // The dry-run wrapper opens and discards a transaction.
+  assert.ok(/\bbegin\b/i.test(source), 'expected BEGIN transaction control');
+  assert.ok(/\brollback\b/i.test(source), 'expected ROLLBACK transaction control');
+  // It must never commit: the literal COMMIT token must not appear at all.
+  assert.ok(!/\bcommit\b/i.test(source), 'COMMIT must never appear in onboard-write.ts');
+});
+
+test('the transaction-control SQL is begin/rollback only (no commit token)', () => {
+  assert.equal(ONBOARD_TX_SQL.begin, 'begin');
+  assert.equal(ONBOARD_TX_SQL.rollback, 'rollback');
+  assert.equal(ONBOARD_TX_SQL.statementTimeout, "set statement_timeout = '10s'");
+  const serialized = JSON.stringify(ONBOARD_TX_SQL);
+  assert.ok(!/\bcommit\b/i.test(serialized), 'no commit token in the transaction SQL');
+});
+
+// ===========================================================================
+// Local dry-run transaction wrapper (fake Client only — no real DB)
+// ===========================================================================
+
+const LOCAL_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const LOCAL_DB_TARGET = { target: 'local-postgres' as const, port: 54322 };
+
+/** Fake pg client: records connect/query/end order; never touches a real DB. */
+class FakeDryRunClient implements DryRunPgClient {
+  public events: string[] = [];
+  public queries: { text: string; values: readonly unknown[] }[] = [];
+  public connected = false;
+  public ended = 0;
+
+  constructor(
+    private readonly opts: {
+      responses?: Record<string, unknown[]>;
+      connectError?: unknown;
+      errorOnQuery?: (text: string) => unknown;
+    } = {},
+  ) {}
+
+  async connect(): Promise<void> {
+    this.events.push('connect');
+    if (this.opts.connectError !== undefined) throw this.opts.connectError;
+    this.connected = true;
+  }
+
+  async query(text: string, values?: readonly unknown[]): Promise<{ rows: unknown[] }> {
+    this.events.push(`query:${text}`);
+    this.queries.push({ text, values: values ?? [] });
+    const err = this.opts.errorOnQuery?.(text);
+    if (err !== undefined) throw err;
+    return { rows: this.opts.responses?.[text] ?? [] };
+  }
+
+  async end(): Promise<void> {
+    this.events.push('end');
+    this.ended += 1;
+  }
+}
+
+/** Full scripted responses for a tenant-already-onboarded (reuse) dry-run. */
+function reuseDbResponses(): Record<string, unknown[]> {
+  return {
+    [ONBOARD_DB_QUERIES.ownerMirror]: [{ exists: 1 }],
+    // Same text as ONBOARD_WRITE_SQL.selectTenant — reuse keeps it consistent.
+    [ONBOARD_DB_QUERIES.tenantBySlug]: [{ id: FAKE_TENANT_UUID, name: 'Acme KK', kind: 'client' }],
+    [ONBOARD_DB_QUERIES.locations]: [{ name: 'Main Store' }],
+    [ONBOARD_DB_QUERIES.membership]: [{ status: 'active' }],
+    [ONBOARD_DB_QUERIES.tenantOwnerRole]: [{ id: FAKE_ROLE_UUID }],
+    [ONBOARD_DB_QUERIES.roleAssignment]: [{ exists: 1 }],
+    [ONBOARD_DB_QUERIES.enabledModules]: [{ module: 'core' }, { module: 'workforce' }],
+    [ONBOARD_WRITE_SQL.selectLocations]: [{ id: FAKE_LOCATION_UUID, name: 'Main Store' }],
+  };
+}
+
+function withDatabaseUrl<T>(value: string | undefined, fn: () => Promise<T>): Promise<T> {
+  const prev = process.env.DATABASE_URL;
+  if (value === undefined) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = value;
+  const restore = (): void => {
+    if (prev === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = prev;
+  };
+  return fn().then(
+    (result) => {
+      restore();
+      return result;
+    },
+    (error: unknown) => {
+      restore();
+      throw error;
+    },
+  );
+}
+
+test('withLocalDryRunTransaction: guard before connect; BEGIN before writes; ROLLBACK after; end last; no COMMIT', async () => {
+  const client = new FakeDryRunClient();
+  const result = await withLocalDryRunTransaction(
+    LOCAL_DB_URL,
+    async (runner) => {
+      await runner.query('insert into core.tenants (slug) values ($1)', ['acme-kk']);
+      return 'done';
+    },
+    {
+      createClient: () => client,
+      assertLocalUrl: () => {
+        client.events.push('guard');
+        return LOCAL_DB_TARGET;
+      },
+    },
+  );
+
+  assert.equal(result, 'done');
+  assert.ok(client.events.indexOf('guard') < client.events.indexOf('connect'), 'guard must run before connect');
+
+  const beginIdx = client.events.indexOf(`query:${ONBOARD_TX_SQL.begin}`);
+  const writeIdx = client.events.findIndex((e) => e.startsWith('query:insert'));
+  const rollbackIdx = client.events.lastIndexOf(`query:${ONBOARD_TX_SQL.rollback}`);
+  assert.ok(beginIdx >= 0, 'BEGIN must be issued');
+  assert.ok(writeIdx > beginIdx, 'writes must run after BEGIN');
+  assert.ok(rollbackIdx > writeIdx, 'ROLLBACK must run after the writes');
+  assert.equal(client.events[client.events.length - 1], 'end', 'connection must close last');
+  assert.ok(!client.events.some((e) => /query:commit/i.test(e)), 'no COMMIT may be issued');
+  assert.equal(client.ended, 1);
+});
+
+test('withLocalDryRunTransaction: rolls back + closes when the write path throws after BEGIN', async () => {
+  const client = new FakeDryRunClient();
+  await assert.rejects(
+    () =>
+      withLocalDryRunTransaction(
+        LOCAL_DB_URL,
+        async (runner) => {
+          await runner.query('insert into core.tenants (slug) values ($1)', ['acme-kk']);
+          throw new Error('boom in write path');
+        },
+        { createClient: () => client, assertLocalUrl: () => LOCAL_DB_TARGET },
+      ),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      return true;
+    },
+  );
+
+  assert.ok(client.events.includes(`query:${ONBOARD_TX_SQL.begin}`), 'BEGIN must have run');
+  assert.ok(client.events.includes(`query:${ONBOARD_TX_SQL.rollback}`), 'ROLLBACK must run on error');
+  assert.equal(client.events[client.events.length - 1], 'end', 'connection must close even on error');
+  assert.ok(!client.events.some((e) => /query:commit/i.test(e)), 'no COMMIT may be issued');
+});
+
+test('withLocalDryRunTransaction: connection failure → safe message; no BEGIN; client closed', async () => {
+  const client = new FakeDryRunClient({
+    connectError: {
+      code: 'ECONNREFUSED',
+      message: 'connect ECONNREFUSED 127.0.0.1:54322 postgres://secretuser:sup3rsecretpw@127.0.0.1:54322/postgres',
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      withLocalDryRunTransaction(LOCAL_DB_URL, async () => 'unused', {
+        createClient: () => client,
+        assertLocalUrl: () => LOCAL_DB_TARGET,
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.equal(err.message, 'Could not connect to the local database.');
+      assert.ok(!err.message.includes('secretuser'), 'username leaked');
+      assert.ok(!err.message.includes('sup3rsecretpw'), 'password leaked');
+      assert.ok(!err.message.includes('127.0.0.1'), 'host leaked');
+      assert.ok(!err.message.includes('postgres://'), 'connection URL leaked');
+      return true;
+    },
+  );
+
+  assert.ok(!client.events.includes(`query:${ONBOARD_TX_SQL.begin}`), 'must not BEGIN after a failed connect');
+  assert.ok(client.events.includes('end'), 'client must be closed after a failed connect');
+});
+
+test('withLocalDryRunTransaction: rollback failure surfaces a safe message and still closes', async () => {
+  const client = new FakeDryRunClient({
+    errorOnQuery: (text) =>
+      text === ONBOARD_TX_SQL.rollback
+        ? { code: 'XX000', message: 'raw driver text postgres://u:p@h:54322/db' }
+        : undefined,
+  });
+
+  await assert.rejects(
+    () =>
+      withLocalDryRunTransaction(
+        LOCAL_DB_URL,
+        async (runner) => {
+          await runner.query('insert into core.tenants (slug) values ($1)', ['acme-kk']);
+          return 'ok';
+        },
+        { createClient: () => client, assertLocalUrl: () => LOCAL_DB_TARGET },
+      ),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.ok(!err.message.includes('postgres://'), 'connection URL leaked');
+      assert.ok(!err.message.includes('raw driver text'), 'raw driver text leaked');
+      assert.ok(!UUID_LIKE.test(err.message), 'a UUID-like string leaked');
+      return true;
+    },
+  );
+  assert.equal(client.events[client.events.length - 1], 'end', 'connection must still close');
+});
+
+test('runOnboardingDryRunTransactionFromEnv: reuse happy path → rolled back, nothing persisted, redacted', async () => {
+  const client = new FakeDryRunClient({ responses: reuseDbResponses() });
+  const result = await withDatabaseUrl(LOCAL_DB_URL, () =>
+    runOnboardingDryRunTransactionFromEnv(parsedInput({ ownerEmail: undefined }), {
+      createClient: () => client,
+    }),
+  );
+
+  assert.equal(result.stage, 'phase-1h-stage-3c3b');
+  assert.equal(result.mode, 'dry-run');
+  assert.equal(result.rolledBack, true);
+  assert.equal(result.persisted, false);
+  assert.equal(result.committed, false);
+  assert.equal(result.transaction, 'rolled-back');
+  assert.equal(result.tenantSlug, 'acme-kk');
+  assert.deepEqual(result.dbTarget, LOCAL_DB_TARGET);
+
+  // The transaction was opened and discarded; never committed.
+  assert.ok(client.events.includes(`query:${ONBOARD_TX_SQL.begin}`));
+  assert.ok(client.events.includes(`query:${ONBOARD_TX_SQL.rollback}`));
+  assert.ok(!client.events.some((e) => /query:commit/i.test(e)), 'no COMMIT may be issued');
+  assert.equal(client.events[client.events.length - 1], 'end');
+
+  // The result is fully redacted (no email/UUID/DATABASE_URL).
+  const serialized = JSON.stringify(result);
+  assert.ok(!serialized.includes('@'), 'email-like token leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
+  assert.ok(!serialized.includes(FAKE_TENANT_UUID), 'tenant uuid leaked');
+  assert.ok(!serialized.includes(FAKE_ROLE_UUID), 'role uuid leaked');
+  assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
+  assert.ok(!serialized.includes('DATABASE_URL'), 'DATABASE_URL leaked');
+});
+
+test('runOnboardingDryRunTransactionFromEnv: missing DATABASE_URL → safe error, no connection', async () => {
+  const client = new FakeDryRunClient();
+  await withDatabaseUrl(undefined, async () => {
+    await assert.rejects(
+      () =>
+        runOnboardingDryRunTransactionFromEnv(parsedInput({ ownerEmail: undefined }), {
+          createClient: () => client,
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(/DATABASE_URL/.test(err.message), 'must name the missing variable');
+        return true;
+      },
+    );
+    assert.equal(client.connected, false, 'must never connect when DATABASE_URL is absent');
+    assert.equal(client.events.length, 0, 'no client activity without DATABASE_URL');
+  });
+});
+
+test('runOnboardingDryRunTransactionFromEnv: PII env missing (email provided) → safe error, no connection', async () => {
+  const client = new FakeDryRunClient({ responses: reuseDbResponses() });
+  const prevKey = process.env.PII_ENCRYPTION_KEY;
+  const prevPepper = process.env.PII_HASH_PEPPER;
+  delete process.env.PII_ENCRYPTION_KEY;
+  delete process.env.PII_HASH_PEPPER;
+  try {
+    await withDatabaseUrl(LOCAL_DB_URL, async () => {
+      await assert.rejects(
+        () =>
+          runOnboardingDryRunTransactionFromEnv(parsedInput({ ownerEmail: FAKE_OWNER_EMAIL }), {
+            createClient: () => client,
+          }),
+        (err: unknown) => {
+          assert.ok(err instanceof Error);
+          assert.ok(/PII_ENCRYPTION_KEY/.test(err.message), 'must name the missing PII env var');
+          assert.ok(!err.message.includes('@'), 'must not echo the email');
+          assert.ok(!err.message.includes(FAKE_OWNER_EMAIL));
+          return true;
+        },
+      );
+      assert.equal(client.connected, false, 'must not connect when PII prep fails');
+    });
+  } finally {
+    if (prevKey === undefined) delete process.env.PII_ENCRYPTION_KEY;
+    else process.env.PII_ENCRYPTION_KEY = prevKey;
+    if (prevPepper === undefined) delete process.env.PII_HASH_PEPPER;
+    else process.env.PII_HASH_PEPPER = prevPepper;
+  }
+});
+
+test('mapDryRunTransactionErrorToSafeMessage returns static, secret-free messages', () => {
+  const leaky = {
+    code: 'ECONNREFUSED',
+    message: 'connect ECONNREFUSED postgres://secretuser:sup3rsecretpw@127.0.0.1:54322/postgres',
+  };
+  const messages = [
+    mapDryRunTransactionErrorToSafeMessage(leaky),
+    mapDryRunTransactionErrorToSafeMessage({ code: '23503' }),
+    mapDryRunTransactionErrorToSafeMessage({ code: '23505' }),
+    mapDryRunTransactionErrorToSafeMessage({ code: '22P02' }),
+    mapDryRunTransactionErrorToSafeMessage({ code: '42P01' }),
+    mapDryRunTransactionErrorToSafeMessage({ code: '57014' }),
+    mapDryRunTransactionErrorToSafeMessage(new Error('some raw driver text')),
+    mapDryRunTransactionErrorToSafeMessage('weird'),
+  ];
+
+  for (const message of messages) {
+    assert.ok(message.length > 0);
+    assert.ok(!message.includes('secretuser'), 'username leaked');
+    assert.ok(!message.includes('sup3rsecretpw'), 'password leaked');
+    assert.ok(!message.includes('postgres://'), 'connection URL leaked');
+    assert.ok(!message.includes('127.0.0.1'), 'host leaked');
+    assert.ok(!message.includes('@'), 'host/credential token leaked');
+    assert.ok(!UUID_LIKE.test(message), 'a UUID-like string leaked');
+    assert.ok(!/\bcommit\b/i.test(message), 'no commit token in safe messages');
+  }
 });
 
 // ===========================================================================
 // Source guards
 // ===========================================================================
 
-test('onboard-write.ts uses no service_role / Supabase client / driver', () => {
+test('onboard-write.ts uses no service_role / Supabase client', () => {
   const source = readFileSync(path.join(HERE, 'onboard-write.ts'), 'utf8');
   assert.ok(!/service_role/i.test(source), 'must not mention service_role');
   assert.ok(!source.includes('SUPABASE_SERVICE_ROLE'), 'must not read the service role key');
   assert.ok(!source.includes('createServiceClient'), 'must not use the service client');
   assert.ok(!/@supabase\/supabase-js/.test(source), 'must not import the Supabase client');
-  assert.ok(!/from\s+['"]pg['"]/.test(source), "must not import 'pg'");
-  assert.ok(!/new\s+Client\s*\(/.test(source), 'must not instantiate a DB client');
 });
 
 test('onboard-write.ts contains no COMMIT and no DELETE/TRUNCATE/DROP/ALTER/GRANT', () => {
@@ -647,10 +961,14 @@ test('onboard-write.ts contains no COMMIT and no DELETE/TRUNCATE/DROP/ALTER/GRAN
   assert.ok(!forbidden.test(source), 'a destructive DDL/DML token is present');
 });
 
-test('onboard-write.ts reads no DATABASE_URL and does no console logging', () => {
+test('onboard-write.ts does no console logging (DATABASE_URL is read but never logged)', () => {
   const source = readFileSync(path.join(HERE, 'onboard-write.ts'), 'utf8');
-  assert.ok(!source.includes('DATABASE_URL'), 'must not reference DATABASE_URL');
+  // The dry-run runner reads DATABASE_URL, but it must never print/log it.
   assert.ok(!/console\./.test(source), 'must not log via console');
+  assert.ok(
+    !/console\.[a-z]+\([^)]*DATABASE_URL/i.test(source),
+    'must never print DATABASE_URL',
+  );
 });
 
 test('write SQL tokens live in onboard-write.ts, not onboard-db.ts', () => {
