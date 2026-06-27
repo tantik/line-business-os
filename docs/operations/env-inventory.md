@@ -99,21 +99,25 @@
 > remains a placeholder until offsite/scheduled backup is built (later stage).
 > Names only — never values.
 
-## 7. Onboarding (Stage 3c-2 read-only local state loading; DB writes are a future stage)
+## 7. Onboarding (Stage 3c-3a write builders + fake executor; DB writes are a future stage)
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
-| `DATABASE_URL` | Onboarding **read-only** source connection (same variable as §1). In **Stage 3c-2** it is guarded (local-host + port `54322`) and, **if set**, used by the CLI to connect to the **local** Supabase Postgres and run **SELECT-only** reads (read-only session) to load existing state. **No writes.** Read from env, **never logged**. | Root gitignored env / password manager | **secret** | now |
-| `PII_ENCRYPTION_KEY` | Used by the **future** DB-write stage to encrypt the owner email (`core.users.email_encrypted`). **Not used** by the Stage 3c-2 read-only loader. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
-| `PII_HASH_PEPPER` | Used by the **future** DB-write stage for the owner email blind index (`core.users.email_hash`). **Not used** by the Stage 3c-2 read-only loader. | Server-only secret store / password manager | **secret** | future (onboarding writes) |
+| `DATABASE_URL` | Onboarding **read-only** source connection (same variable as §1). In the read path it is guarded (local-host + port `54322`) and, **if set**, used by the CLI to connect to the **local** Supabase Postgres and run **SELECT-only** reads (read-only session) to load existing state. **No writes.** The **Stage 3c-3a write builders never read it and never connect.** Read from env, **never logged**. | Root gitignored env / password manager | **secret** | now |
+| `PII_ENCRYPTION_KEY` | Used by the onboarding **write path** to encrypt the owner email (`core.users.email_encrypted`). Required **only when an owner email is provided** and would be written/backfilled. In **Stage 3c-3a** it is exercised by tests with **synthetic** values only (no real DB, no committed writes). | Server-only secret store / password manager | **secret** | now (write path) |
+| `PII_HASH_PEPPER` | Used by the onboarding **write path** for the owner email blind index (`core.users.email_hash`). Required **only when an owner email is provided** and would be written/backfilled. In **Stage 3c-3a** it is exercised by tests with **synthetic** values only. | Server-only secret store / password manager | **secret** | now (write path) |
 
-> The onboarding CLI (`pnpm db:onboard-tenant`) performs **read-only local DB
-> state loading** in Stage 3c-2: it parses/validates inputs, guards
-> `DATABASE_URL` (**local only**), and — when set — connects to the **local**
-> Postgres to run **SELECT-only** reads, writing **no rows** and never touching
-> Cloud. It uses the `pg` driver (no Supabase client, no `service_role`, no Data
-> API). `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and `PII_HASH_PEPPER` values are
-> **never logged or printed**, and raw driver errors are never surfaced. No
+> The onboarding read CLI (`pnpm db:onboard-tenant`) performs **read-only local
+> DB state loading**: it parses/validates inputs, guards `DATABASE_URL` (**local
+> only**), and — when set — connects to the **local** Postgres to run
+> **SELECT-only** reads, writing **no rows** and never touching Cloud.
+> **Stage 3c-3a** adds write-side SQL builders (`onboard-write.ts`) that run
+> **only against a fake, injected query runner**: they make **no DB connection**,
+> are **not wired to the CLI**, and **never commit**. `PII_ENCRYPTION_KEY` and
+> `PII_HASH_PEPPER` are needed only when an owner email would be written; the
+> 3c-3a tests use **synthetic** values. `DATABASE_URL`, `PII_ENCRYPTION_KEY`, and
+> `PII_HASH_PEPPER` values are **never logged or printed**, and error messages
+> name the missing variable only (never its value, never the raw email). No
 > **new** variable names are introduced by onboarding. Names only — never
 > values.
 
