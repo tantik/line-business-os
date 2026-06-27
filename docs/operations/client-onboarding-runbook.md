@@ -1,16 +1,22 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-1 — Onboarding CLI shell + local DB guard (validation-only)
-- Scope: **Documentation + pure validation helpers + a validation-only CLI
-  shell.** This runbook describes the manual onboarding procedure for the first
-  real clients and the identity/idempotency rules the future server-only
-  onboarding routine will follow. It contains **no executable SQL with real
-  values**. The live, DB-writing onboarding script is a later, separately
-  approved stage. Stage 3a/3b shipped pure validation/planning helpers; Stage
-  3c-1 adds a **validation-only** CLI shell + a local-only `DATABASE_URL` guard
-  (`packages/db/scripts/onboard-tenant.ts`) that **never connects to a database,
-  never reads or writes any row, and adds no DB driver** — **zero DB risk**.
+- Phase: 1H Stage 3c-2 — Read-only local DB state loading
+- Scope: **Documentation + pure validation helpers + a CLI shell with read-only
+  local DB state loading.** This runbook describes the manual onboarding
+  procedure for the first real clients and the identity/idempotency rules the
+  future server-only onboarding routine will follow. It contains **no executable
+  SQL with real values**. The live, DB-writing onboarding script is a later,
+  separately approved stage. Stage 3a/3b shipped pure validation/planning
+  helpers; Stage 3c-1 added a validation-only CLI shell + a local-only
+  `DATABASE_URL` guard. **Stage 3c-2** adds the `pg` driver and a **read-only**,
+  **local-only** state loader (`packages/db/scripts/onboard-db.ts`): when
+  `DATABASE_URL` is set, the CLI connects to the **local** Supabase Postgres,
+  pins the session read-only (`SET default_transaction_read_only = on`), runs
+  **SELECT-only** reads to build the existing onboarding state, and closes the
+  connection. It **writes no rows**, opens no write transaction, writes no audit
+  rows, never touches Cloud, and never logs `DATABASE_URL`, credentials, owner
+  identity, or raw driver errors. Live onboarding writes remain unimplemented.
 
 > While onboarding is manual, the first tenant owner is created **server-side by
 > an operator**. There is no self-service signup yet and no admin console.
@@ -118,13 +124,15 @@ human action would take. **This is a checklist, not copy-paste SQL.**
   body, query, or header.
 - Treat owner email and any PII as encrypted-at-rest data; never log plaintext.
 
-## 5. Onboarding command (Stage 3c-1: validation-only)
+## 5. Onboarding command (Stage 3c-2: read-only local state loading)
 
-The command exists today as a **validation-only CLI shell**. It validates the
-operator's inputs and (if `DATABASE_URL` is present) the **local-only target
-guard**, then prints a redacted, no-PII summary. It **does not connect to any
-database, does not read or write any row, and does not run onboarding.** Live
-DB writes are a later, separately approved stage.
+The command validates the operator's inputs and the **local-only target guard**.
+In dry-run, **if `DATABASE_URL` is present** it connects to the **local** Supabase
+Postgres and loads the existing onboarding state **read-only** (SELECT-only) to
+plan against, then prints a redacted, no-PII summary. **If `DATABASE_URL` is
+absent**, it keeps the prior validation-only behavior (plans against an empty
+state, no connection). In all cases it **writes no row, runs no onboarding, and
+never touches Cloud.** Live DB writes are a later, separately approved stage.
 
 ```bash
 pnpm db:onboard-tenant -- \
@@ -156,22 +164,29 @@ Mode flags:
 - `--dry-run` together with `--commit` **fails safely**.
 - `--commit` **without** `--yes` **fails safely**. A future committed write will
   require `--commit --yes`.
-- In Stage 3c-1, `--commit --yes` resolves the commit mode but the shell **still
-  writes nothing** and **exits non-zero**, clearly stating that live DB writes
-  are not implemented yet (so it can never report a false success).
+- In Stage 3c-2, `--commit --yes` resolves the commit mode but the CLI **still
+  writes nothing**, **never connects**, and **exits non-zero**, clearly stating
+  that live DB writes are not implemented yet (so it can never report a false
+  success).
 - Unknown args, positional args, and missing values **fail safely**.
 
 Safety of the shell output:
 
 - The summary **never** prints the owner email, the owner auth user id, the
-  `DATABASE_URL`, secrets, or real UUIDs. It reports the tenant slug, the run
-  mode, whether an email was provided (boolean), the safe local DB target
-  (`local-postgres:54322`) when checked, and the planned operation counts.
-- It prints: *Stage 3c-1 validation-only shell*, *no DB connection made*, *no DB
-  rows read*, *no DB rows written*, *live onboarding not implemented yet*.
+  `DATABASE_URL`, secrets, raw driver errors, or real UUIDs. It reports the
+  tenant slug, the run mode, whether an email was provided (boolean), the safe
+  local DB target (`local-postgres:54322`) when checked, and the planned
+  operation counts. Tenant/role UUIDs read during loading are held in memory
+  only to scope follow-up reads and are never printed.
+- When `DATABASE_URL` is set it prints, among others: *local read-only DB state
+  loaded*, *no DB rows written*, *no live onboarding implemented*.
+- The **local guard still blocks** non-local / Supabase-Cloud-like hosts and the
+  wrong port before any connection is attempted.
 
 The pure validation/planning helpers and the local `DATABASE_URL` guard live in
-`packages/db/scripts/onboard-tenant.ts` (no DB access, no DB driver).
+`packages/db/scripts/onboard-tenant.ts` (driver-free). The `pg`-backed read-only
+connection and SELECT-only loader live in `packages/db/scripts/onboard-db.ts`
+(the only onboarding file that imports a DB driver).
 
 ### Future DB-stage policies (not implemented in Stage 3c-1)
 
