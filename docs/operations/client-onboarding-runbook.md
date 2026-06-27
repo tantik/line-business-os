@@ -1,7 +1,8 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-3b — Local dry-run transaction wiring (always ROLLBACK)
+- Phase: 1H Stage 3c-4a — Commit gates + backup-artifact validation (still no
+  COMMIT; committed onboarding remains refused)
 - Scope: **Documentation + pure validation helpers + a CLI that runs the write
   path inside a LOCAL dry-run transaction that always rolls back.** This runbook
   describes the manual onboarding procedure for the first real clients and the
@@ -170,14 +171,43 @@ Mode flags:
   the run resolves to `dry-run`.
 - `--dry-run` is allowed and explicit.
 - `--dry-run` together with `--commit` **fails safely**.
-- `--commit` **without** `--yes` **fails safely**. A future committed write will
-  require `--commit --yes`.
-- In Stage 3c-3b, `--commit --yes` resolves the commit mode but the CLI **still
-  writes nothing**, **never connects**, and **exits non-zero**, clearly stating
-  that committed (durable) DB writes are not implemented yet (so it can never
-  report a false success). `--commit --yes` can **never** persist data in this
-  stage.
+- `--commit` **without** `--yes` **fails safely**.
 - Unknown args, positional args, and missing values **fail safely**.
+
+### Stage 3c-4a commit gates (committed onboarding still refused)
+
+Stage 3c-4a adds the **strict commit confirmation gates** and **backup-artifact
+validation** that the future committed (durable) onboarding stage (3c-4b) will
+require. **`COMMIT` is still not implemented:** even when every gate passes, the
+CLI **refuses**, **never reads `DATABASE_URL`**, **never connects**, **never
+writes**, **never calls the dry-run transaction**, and **exits non-zero** — so it
+can never look like a successful committed onboarding.
+
+A future committed run requires **all** of:
+
+- `--commit`
+- `--yes`
+- `--i-understand-this-writes-local-db`
+- `--backup-artifact <path>`
+- `--target local`
+
+The gates fail safely (before any DB interaction) when any are missing, when
+`--target` is anything other than `local` (Cloud/remote targets are rejected and
+the bad value is never echoed), or when the backup artifact is invalid.
+
+**Backup-artifact validation** (metadata only — the file is **never read,
+decrypted, or uploaded**, and no backup is auto-run):
+
+- the path must be provided,
+- the file must **exist** and be a **regular file**,
+- it must be **non-empty**,
+- its name must end in **`.dump.enc`** and match the canonical backup filename
+  (`linebos-YYYYMMDD-HHmmss.dump.enc`),
+- it must have been **modified within the last 24 hours** (a fresh backup).
+
+Error messages are static and never echo the full path, the DB URL, secrets, the
+owner email, or real UUIDs. Creating the backup remains a **separate explicit
+operator step** (`pnpm db:backup`); onboarding only **validates** the artifact.
 
 Safety of the shell output:
 

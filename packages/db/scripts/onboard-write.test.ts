@@ -1017,7 +1017,8 @@ test('apps/web does not import any onboarding script', () => {
         if (
           text.includes('onboard-db') ||
           text.includes('onboard-tenant') ||
-          text.includes('onboard-write')
+          text.includes('onboard-write') ||
+          text.includes('onboard-backup-gate')
         ) {
           offenders.push(full);
         }

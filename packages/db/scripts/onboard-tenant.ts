@@ -24,6 +24,7 @@
  * with zero database risk.
  */
 import { pathToFileURL } from 'node:url';
+import type { BackupArtifactValidationResult } from './onboard-backup-gate.js';
 
 /** Module codes the platform understands (`core.module_code`). */
 export const VALID_MODULE_CODES = [
@@ -489,6 +490,12 @@ export interface OnboardingCliFlags {
   dryRun: boolean;
   commit: boolean;
   yes: boolean;
+  /** Commit gate: operator explicitly acknowledges a local DB write (Stage 3c-4a). */
+  iUnderstandThisWritesLocalDb: boolean;
+  /** Commit gate: path to a fresh encrypted backup artifact (validated, never read). */
+  backupArtifact?: string;
+  /** Commit gate: must be `local`; Cloud/remote targets are never accepted. */
+  target?: string;
 }
 
 type OnboardingStringFlag =
@@ -498,7 +505,9 @@ type OnboardingStringFlag =
   | 'ownerEmail'
   | 'locationName'
   | 'timezone'
-  | 'modules';
+  | 'modules'
+  | 'backupArtifact'
+  | 'target';
 
 /** Map of `--flag` → string field for value-taking args. */
 const VALUE_FLAG_MAP: Record<string, OnboardingStringFlag> = {
@@ -509,14 +518,18 @@ const VALUE_FLAG_MAP: Record<string, OnboardingStringFlag> = {
   '--location-name': 'locationName',
   '--timezone': 'timezone',
   '--modules': 'modules',
+  '--backup-artifact': 'backupArtifact',
+  '--target': 'target',
 };
 
 /** Map of `--flag` → boolean field for switch args. */
-const BOOLEAN_FLAG_MAP: Record<string, 'dryRun' | 'commit' | 'yes'> = {
-  '--dry-run': 'dryRun',
-  '--commit': 'commit',
-  '--yes': 'yes',
-};
+const BOOLEAN_FLAG_MAP: Record<string, 'dryRun' | 'commit' | 'yes' | 'iUnderstandThisWritesLocalDb'> =
+  {
+    '--dry-run': 'dryRun',
+    '--commit': 'commit',
+    '--yes': 'yes',
+    '--i-understand-this-writes-local-db': 'iUnderstandThisWritesLocalDb',
+  };
 
 /**
  * Parse raw CLI argv (already sliced past node + script path) into flags.
@@ -526,7 +539,12 @@ const BOOLEAN_FLAG_MAP: Record<string, 'dryRun' | 'commit' | 'yes'> = {
  */
 export function parseOnboardingCliArgs(argv: string[]): ParseResult<OnboardingCliFlags> {
   const errors: string[] = [];
-  const flags: OnboardingCliFlags = { dryRun: false, commit: false, yes: false };
+  const flags: OnboardingCliFlags = {
+    dryRun: false,
+    commit: false,
+    yes: false,
+    iUnderstandThisWritesLocalDb: false,
+  };
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -578,6 +596,66 @@ export function resolveOnboardingMode(flags: {
     return { ok: true, value: 'commit' };
   }
   return { ok: true, value: 'dry-run' };
+}
+
+// ===========================================================================
+// Stage 3c-4a: strict commit confirmation gates (pure; no DB, no fs)
+// ===========================================================================
+
+/** The only accepted `--target` value for a committed run. Cloud is impossible. */
+export const COMMIT_TARGET_LOCAL = 'local';
+
+/** Commit-gate inputs (a subset of {@link OnboardingCliFlags}). */
+export interface CommitGateFlags {
+  iUnderstandThisWritesLocalDb: boolean;
+  backupArtifact?: string;
+  target?: string;
+}
+
+/**
+ * Result of the pure commit-gate check. On success it returns the (trimmed)
+ * backup artifact path the caller must still validate on disk via
+ * {@link BackupArtifactValidationResult}. It NEVER echoes the offending value
+ * (e.g. a wrong `--target`) so no operator-supplied value can leak.
+ */
+export type CommitGatesResult =
+  | { ok: true; backupArtifact: string }
+  | { ok: false; errors: string[] };
+
+/**
+ * Validate the strict commit confirmation gates (Stage 3c-4a). This runs only
+ * once the mode has already resolved to `commit` (i.e. `--commit --yes`). It is
+ * PURE: it touches no database and no filesystem (the backup file itself is
+ * validated separately). Every required gate must be present:
+ *   - `--i-understand-this-writes-local-db`
+ *   - `--target local` (Cloud/remote targets are rejected)
+ *   - `--backup-artifact <path>` (presence only here; file checked later)
+ *
+ * Errors are static and never echo the supplied value.
+ */
+export function validateCommitGates(flags: CommitGateFlags): CommitGatesResult {
+  const errors: string[] = [];
+
+  if (!flags.iUnderstandThisWritesLocalDb) {
+    errors.push('commit requires --i-understand-this-writes-local-db.');
+  }
+
+  const target = flags.target?.trim();
+  if (target === undefined || target === '') {
+    errors.push('commit requires --target local.');
+  } else if (target.toLowerCase() !== COMMIT_TARGET_LOCAL) {
+    errors.push('commit --target must be local; Cloud/remote targets are not allowed.');
+  }
+
+  const backupArtifact = flags.backupArtifact?.trim();
+  if (backupArtifact === undefined || backupArtifact === '') {
+    errors.push('commit requires --backup-artifact <path>.');
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  return { ok: true, backupArtifact: backupArtifact as string };
 }
 
 // ===========================================================================
@@ -743,6 +821,13 @@ export interface OnboardingCliDeps {
   env?: { DATABASE_URL?: string };
   /** Runs the local dry-run transaction. Defaults to a lazy `./onboard-write`. */
   runDryRunTransaction?: (input: OnboardingInput) => Promise<CliDryRunTransactionResult>;
+  /**
+   * Validate the backup artifact on disk (metadata only). Defaults to a lazy
+   * `./onboard-backup-gate`; injectable so unit tests can avoid the filesystem.
+   */
+  validateBackupArtifact?: (
+    artifactPath: string | undefined,
+  ) => BackupArtifactValidationResult | Promise<BackupArtifactValidationResult>;
 }
 
 /** Which branch the CLI took (used by tests; never carries PII). */
@@ -751,6 +836,8 @@ export type OnboardingCliPath =
   | 'mode-error'
   | 'input-error'
   | 'db-url-error'
+  | 'commit-gate-error'
+  | 'backup-artifact-error'
   | 'commit-refused'
   | 'dry-run-transaction'
   | 'dry-run-transaction-error'
@@ -780,7 +867,19 @@ async function defaultRunDryRunTransaction(
 }
 
 /**
- * Onboarding CLI routing (Stage 3c-3b), free of `process.exit` and `console`
+ * Default backup-artifact validator: lazy import keeps `fs`/`backup` out of the
+ * module's import graph until the commit path actually needs them. Metadata
+ * only — it never reads, decrypts, uploads, or connects.
+ */
+async function defaultValidateBackupArtifact(
+  artifactPath: string | undefined,
+): Promise<BackupArtifactValidationResult> {
+  const { validateBackupArtifactForCommit } = await import('./onboard-backup-gate.js');
+  return validateBackupArtifactForCommit(artifactPath);
+}
+
+/**
+ * Onboarding CLI routing (Stage 3c-4a), free of `process.exit` and `console`
  * so it is fully unit-testable. Parses args, validates input, and guards
  * DATABASE_URL if present, then:
  *
@@ -790,11 +889,15 @@ async function defaultRunDryRunTransaction(
  *     summary plus the rolled-back / nothing-persisted / no-commit lines;
  *   - **dry-run + DATABASE_URL absent** → keeps the prior validation-only
  *     behavior (plans against an empty state, no connection, no rows);
- *   - **commit** → exits non-zero WITHOUT connecting or writing (there is no
- *     COMMIT), so it can never report a false success.
+ *   - **commit (Stage 3c-4a)** → validates the strict confirmation gates
+ *     (`--i-understand-this-writes-local-db`, `--target local`,
+ *     `--backup-artifact <path>`) and the backup artifact on disk (metadata
+ *     only), then REFUSES: it exits non-zero WITHOUT reading DATABASE_URL,
+ *     connecting, or writing (there is no COMMIT), so it can never report a
+ *     false success. Committed (durable) onboarding is Stage 3c-4b.
  *
- * It never imports a DB driver itself: the dry-run transaction is reached via a
- * lazy import (or an injected dependency in tests).
+ * It never imports a DB driver itself: the dry-run transaction and the backup
+ * gate are reached via lazy imports (or injected dependencies in tests).
  */
 export async function runOnboardingCli(
   argv: string[],
@@ -827,7 +930,59 @@ export async function runOnboardingCli(
     return { exitCode: 1, path: 'input-error', lines, errors: parsedInput.errors, connectionAttempted: false };
   }
 
-  // Only READ the env var to guard it; never log it.
+  // Commit (Stage 3c-4a): validate the strict confirmation gates and the backup
+  // artifact, then REFUSE. This branch runs BEFORE any DATABASE_URL is read, so
+  // commit never reads/guards/opens a connection, never writes, and never calls
+  // the dry-run transaction. Committed (durable) onboarding and COMMIT wiring are
+  // Stage 3c-4b.
+  if (mode.value === 'commit') {
+    const gates = validateCommitGates(parsedArgs.value);
+    if (!gates.ok) {
+      return {
+        exitCode: 1,
+        path: 'commit-gate-error',
+        mode: mode.value,
+        lines,
+        errors: gates.errors,
+        connectionAttempted: false,
+      };
+    }
+
+    const validateBackupArtifact = deps.validateBackupArtifact ?? defaultValidateBackupArtifact;
+    const backupResult = await validateBackupArtifact(gates.backupArtifact);
+    if (!backupResult.ok) {
+      return {
+        exitCode: 1,
+        path: 'backup-artifact-error',
+        mode: mode.value,
+        lines,
+        errors: [backupResult.error],
+        connectionAttempted: false,
+      };
+    }
+
+    // All gates + the backup artifact validated, but committed (durable)
+    // onboarding is NOT implemented in this stage: no connection, no writes,
+    // no durable commit. The CLI exits non-zero so it can never look like a
+    // successful committed onboarding.
+    lines.push('commit requested');
+    lines.push('local commit gates validated');
+    lines.push('backup artifact validated');
+    lines.push('committed (durable) onboarding is not implemented yet (Stage 3c-4a)');
+    lines.push('no database connection attempted');
+    lines.push('no rows written');
+    lines.push('no durable commit available in this stage');
+    return {
+      exitCode: 1,
+      path: 'commit-refused',
+      mode: mode.value,
+      lines,
+      errors: ['committed (durable) onboarding is not implemented yet; re-run with --dry-run.'],
+      connectionAttempted: false,
+    };
+  }
+
+  // Only READ the env var to guard it; never log it. (Dry-run path only.)
   let dbTarget: SafeDbTarget | undefined;
   const databaseUrl = env.DATABASE_URL;
   const hasDatabaseUrl = databaseUrl !== undefined && databaseUrl.trim() !== '';
@@ -843,20 +998,6 @@ export async function runOnboardingCli(
         connectionAttempted: false,
       };
     }
-  }
-
-  // Commit never connects and never writes: there is no COMMIT in any stage yet.
-  if (mode.value === 'commit') {
-    return {
-      exitCode: 1,
-      path: 'commit-refused',
-      mode: mode.value,
-      lines,
-      errors: [
-        'commit requested, but committed (durable) onboarding is not implemented (no COMMIT). Re-run with --dry-run.',
-      ],
-      connectionAttempted: false,
-    };
   }
 
   // Dry-run WITH DATABASE_URL → run the local dry-run transaction (always rolls
@@ -922,9 +1063,9 @@ function printError(message: string): void {
  * imports the driver, instantiates a client, or opens a connection itself.
  */
 async function main(): Promise<void> {
-  printLine('Stage 3c-3b onboarding CLI');
-  printLine('dry-run only; the write path runs in a transaction that always rolls back');
-  printLine('no committed (durable) onboarding implemented; nothing is persisted');
+  printLine('Stage 3c-4a onboarding CLI');
+  printLine('dry-run runs the write path in a transaction that always rolls back');
+  printLine('commit validates gates + a backup artifact only; committed onboarding is not implemented (no durable writes)');
 
   const outcome = await runOnboardingCli(process.argv.slice(2));
   for (const message of outcome.errors) printError(message);
