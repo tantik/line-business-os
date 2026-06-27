@@ -1,14 +1,16 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3a — Onboarding docs + pure validation helpers
-- Scope: **Documentation + pure validation helpers only.** This runbook
-  describes the manual onboarding procedure for the first real clients and the
-  identity/idempotency rules the future server-only onboarding routine will
-  follow. It contains **no executable SQL with real values**. The live,
-  DB-writing onboarding script is a later, separately approved stage; this stage
-  ships only pure validation/planning helpers
-  (`packages/db/scripts/onboard-tenant.ts`) and tests — **zero DB risk**.
+- Phase: 1H Stage 3c-1 — Onboarding CLI shell + local DB guard (validation-only)
+- Scope: **Documentation + pure validation helpers + a validation-only CLI
+  shell.** This runbook describes the manual onboarding procedure for the first
+  real clients and the identity/idempotency rules the future server-only
+  onboarding routine will follow. It contains **no executable SQL with real
+  values**. The live, DB-writing onboarding script is a later, separately
+  approved stage. Stage 3a/3b shipped pure validation/planning helpers; Stage
+  3c-1 adds a **validation-only** CLI shell + a local-only `DATABASE_URL` guard
+  (`packages/db/scripts/onboard-tenant.ts`) that **never connects to a database,
+  never reads or writes any row, and adds no DB driver** — **zero DB risk**.
 
 > While onboarding is manual, the first tenant owner is created **server-side by
 > an operator**. There is no self-service signup yet and no admin console.
@@ -116,10 +118,13 @@ human action would take. **This is a checklist, not copy-paste SQL.**
   body, query, or header.
 - Treat owner email and any PII as encrypted-at-rest data; never log plaintext.
 
-## 5. Future onboarding command shape (not implemented yet)
+## 5. Onboarding command (Stage 3c-1: validation-only)
 
-The future server-only routine will be invoked as a manual command. **Example
-shape only — do not run it in this stage** (no live script exists):
+The command exists today as a **validation-only CLI shell**. It validates the
+operator's inputs and (if `DATABASE_URL` is present) the **local-only target
+guard**, then prints a redacted, no-PII summary. It **does not connect to any
+database, does not read or write any row, and does not run onboarding.** Live
+DB writes are a later, separately approved stage.
 
 ```bash
 pnpm db:onboard-tenant -- \
@@ -133,14 +138,57 @@ pnpm db:onboard-tenant -- \
   --dry-run
 ```
 
-- `--owner-auth-user-id` is the authoritative identity (Option A).
-- `--owner-email` is optional PII stored later; never logged.
-- `--modules` lists modules **beyond** `core` (`core` is force-included).
-- `--dry-run` produces a plan and writes nothing.
+Arguments:
 
-The pure validation/planning helpers for this command already exist in
-`packages/db/scripts/onboard-tenant.ts` (no DB access). The DB-writing routine
-is a later, separately approved stage.
+- **Required:** `--tenant-name`, `--tenant-slug`, `--owner-auth-user-id`,
+  `--location-name`.
+- **Optional:** `--owner-email` (PII, stored later, never logged), `--timezone`
+  (default `Asia/Tokyo`), `--modules` (modules **beyond** `core`; `core` is
+  force-included).
+- `--owner-auth-user-id` is the authoritative identity (Option A); identity is
+  never resolved from email.
+
+Mode flags:
+
+- **Default mode is `dry-run`.** If neither `--dry-run` nor `--commit` is given,
+  the run resolves to `dry-run`.
+- `--dry-run` is allowed and explicit.
+- `--dry-run` together with `--commit` **fails safely**.
+- `--commit` **without** `--yes` **fails safely**. A future committed write will
+  require `--commit --yes`.
+- In Stage 3c-1, `--commit --yes` resolves the commit mode but the shell **still
+  writes nothing** and **exits non-zero**, clearly stating that live DB writes
+  are not implemented yet (so it can never report a false success).
+- Unknown args, positional args, and missing values **fail safely**.
+
+Safety of the shell output:
+
+- The summary **never** prints the owner email, the owner auth user id, the
+  `DATABASE_URL`, secrets, or real UUIDs. It reports the tenant slug, the run
+  mode, whether an email was provided (boolean), the safe local DB target
+  (`local-postgres:54322`) when checked, and the planned operation counts.
+- It prints: *Stage 3c-1 validation-only shell*, *no DB connection made*, *no DB
+  rows read*, *no DB rows written*, *live onboarding not implemented yet*.
+
+The pure validation/planning helpers and the local `DATABASE_URL` guard live in
+`packages/db/scripts/onboard-tenant.ts` (no DB access, no DB driver).
+
+### Future DB-stage policies (not implemented in Stage 3c-1)
+
+These are recorded now so the future DB-writing routine implements them:
+
+- **Suspended membership → fail by default.** Onboarding does not silently
+  reactivate a suspended owner membership.
+- **Revoked membership → fail by default.** Onboarding does not silently
+  resurrect a revoked owner membership.
+- **Existing user mirror email → do not overwrite existing PII.** If a
+  `core.users` mirror already exists, its encrypted email/hash are not clobbered.
+- **Role assignment (`location_id = NULL`) → SELECT-then-insert.** Because the
+  unique index treats `NULL` `location_id` as distinct, the tenant-wide
+  `tenant_owner` assignment must be guarded by a SELECT-then-insert in script
+  logic (no DB unique-index change is made now).
+- **Local-only.** There is **no Cloud onboarding**; the guard rejects non-local
+  / Supabase-Cloud-like hosts.
 
 ## 6. Idempotency rules
 

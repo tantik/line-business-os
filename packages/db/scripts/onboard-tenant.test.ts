@@ -6,12 +6,16 @@ import { fileURLToPath } from 'node:url';
 import {
   RESERVED_TENANT_SLUGS,
   VALID_MODULE_CODES,
+  assertLocalDatabaseUrl,
   buildOnboardingPlan,
+  createValidationOnlyCliSummary,
   normalizeLocationName,
   normalizeTenantSlug,
   parseModules,
+  parseOnboardingCliArgs,
   parseOnboardingInput,
   redactOnboardingSummary,
+  resolveOnboardingMode,
   validateOwnerAuthUserId,
   validateOwnerEmail,
   validateTenantSlug,
@@ -335,18 +339,218 @@ test('redactOnboardingSummary leaks no raw email, owner id, or UUID-like string'
   assert.ok(!uuidLike.test(serialized), 'a UUID-like string leaked');
 });
 
+// --- parseOnboardingCliArgs -------------------------------------------------
+
+function validArgv(extra: string[] = []): string[] {
+  return [
+    '--tenant-name',
+    'Acme KK',
+    '--tenant-slug',
+    'acme-kk',
+    '--owner-auth-user-id',
+    FAKE_OWNER_UUID,
+    '--location-name',
+    'Main Store',
+    ...extra,
+  ];
+}
+
+test('parseOnboardingCliArgs parses valid minimal args', () => {
+  const result = parseOnboardingCliArgs(validArgv());
+  assert.ok(result.ok);
+  assert.equal(result.value.tenantName, 'Acme KK');
+  assert.equal(result.value.tenantSlug, 'acme-kk');
+  assert.equal(result.value.ownerAuthUserId, FAKE_OWNER_UUID);
+  assert.equal(result.value.locationName, 'Main Store');
+  assert.equal(result.value.dryRun, false);
+  assert.equal(result.value.commit, false);
+  assert.equal(result.value.yes, false);
+});
+
+test('parseOnboardingCliArgs parses optional args and switches', () => {
+  const result = parseOnboardingCliArgs(
+    validArgv([
+      '--owner-email',
+      FAKE_OWNER_EMAIL,
+      '--timezone',
+      'America/New_York',
+      '--modules',
+      'core,workforce',
+      '--dry-run',
+    ]),
+  );
+  assert.ok(result.ok);
+  assert.equal(result.value.ownerEmail, FAKE_OWNER_EMAIL);
+  assert.equal(result.value.timezone, 'America/New_York');
+  assert.equal(result.value.modules, 'core,workforce');
+  assert.equal(result.value.dryRun, true);
+});
+
+test('parseOnboardingCliArgs rejects an unknown flag', () => {
+  const result = parseOnboardingCliArgs([...validArgv(), '--teleport', 'now']);
+  assert.ok(!result.ok);
+});
+
+test('parseOnboardingCliArgs rejects a positional argument without echoing it', () => {
+  const result = parseOnboardingCliArgs([...validArgv(), 'secret-positional@example.jp']);
+  assert.ok(!result.ok);
+  assert.ok(
+    !result.errors.join(' ').includes('secret-positional@example.jp'),
+    'must not echo a (possibly sensitive) positional value',
+  );
+});
+
+test('parseOnboardingCliArgs rejects a missing value (end of argv)', () => {
+  const result = parseOnboardingCliArgs(['--tenant-name']);
+  assert.ok(!result.ok);
+});
+
+test('parseOnboardingCliArgs rejects a missing value (next token is a flag)', () => {
+  const result = parseOnboardingCliArgs(['--tenant-name', '--tenant-slug', 'acme-kk']);
+  assert.ok(!result.ok);
+});
+
+// --- resolveOnboardingMode --------------------------------------------------
+
+test('resolveOnboardingMode defaults to dry-run when neither flag is set', () => {
+  const result = resolveOnboardingMode({ dryRun: false, commit: false, yes: false });
+  assert.ok(result.ok);
+  assert.equal(result.value, 'dry-run');
+});
+
+test('resolveOnboardingMode honors an explicit --dry-run', () => {
+  const result = resolveOnboardingMode({ dryRun: true, commit: false, yes: false });
+  assert.ok(result.ok);
+  assert.equal(result.value, 'dry-run');
+});
+
+test('resolveOnboardingMode rejects --dry-run and --commit together', () => {
+  const result = resolveOnboardingMode({ dryRun: true, commit: true, yes: true });
+  assert.ok(!result.ok);
+});
+
+test('resolveOnboardingMode rejects --commit without --yes', () => {
+  const result = resolveOnboardingMode({ dryRun: false, commit: true, yes: false });
+  assert.ok(!result.ok);
+});
+
+test('resolveOnboardingMode resolves commit with --commit --yes (still no live writes here)', () => {
+  const result = resolveOnboardingMode({ dryRun: false, commit: true, yes: true });
+  assert.ok(result.ok);
+  assert.equal(result.value, 'commit');
+  // The shell still refuses to write: createValidationOnlyCliSummary marks the
+  // run as live-onboarding-not-implemented regardless of mode.
+  const summary = createValidationOnlyCliSummary(parsedInput(), 'commit');
+  assert.equal(summary.liveOnboarding, 'not-implemented');
+  assert.equal(summary.dbConnection, 'none');
+  assert.equal(summary.mode, 'commit');
+});
+
+// --- createValidationOnlyCliSummary (redaction) -----------------------------
+
+test('createValidationOnlyCliSummary keeps the tenant slug and mode', () => {
+  const summary = createValidationOnlyCliSummary(parsedInput({ modules: 'core,workforce' }), 'dry-run');
+  assert.equal(summary.mode, 'dry-run');
+  assert.equal(summary.plan.tenantSlug, 'acme-kk');
+  assert.equal(summary.dbTarget, 'not-checked');
+});
+
+test('createValidationOnlyCliSummary reflects whether an email was provided (boolean only)', () => {
+  const withEmail = createValidationOnlyCliSummary(parsedInput({ ownerEmail: FAKE_OWNER_EMAIL }), 'dry-run');
+  const withoutEmail = createValidationOnlyCliSummary(parsedInput({ ownerEmail: undefined }), 'dry-run');
+  assert.equal(withEmail.ownerEmailProvided, true);
+  assert.equal(withoutEmail.ownerEmailProvided, false);
+});
+
+test('createValidationOnlyCliSummary leaks no raw email, owner id, or UUID-like string', () => {
+  const summary = createValidationOnlyCliSummary(parsedInput(), 'dry-run');
+  const serialized = JSON.stringify(summary);
+
+  assert.ok(!serialized.includes(FAKE_OWNER_EMAIL), 'email leaked');
+  assert.ok(!serialized.includes('@'), 'an email-like token leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
+
+  const uuidLike = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  assert.ok(!uuidLike.test(serialized), 'a UUID-like string leaked');
+});
+
+// --- assertLocalDatabaseUrl -------------------------------------------------
+
+test('assertLocalDatabaseUrl accepts the local 127.0.0.1:54322 target', () => {
+  const target = assertLocalDatabaseUrl('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+  assert.deepEqual(target, { target: 'local-postgres', port: 54322 });
+});
+
+test('assertLocalDatabaseUrl accepts localhost:54322', () => {
+  const target = assertLocalDatabaseUrl('postgresql://postgres:postgres@localhost:54322/postgres');
+  assert.equal(target.port, 54322);
+});
+
+test('assertLocalDatabaseUrl rejects a *.supabase.co host', () => {
+  assert.throws(() => assertLocalDatabaseUrl('postgresql://postgres:pw@db.abcdefgh.supabase.co:54322/postgres'));
+});
+
+test('assertLocalDatabaseUrl rejects a *.pooler.supabase.com host', () => {
+  assert.throws(() =>
+    assertLocalDatabaseUrl('postgresql://postgres:pw@aws-0-ap-northeast-1.pooler.supabase.com:54322/postgres'),
+  );
+});
+
+test('assertLocalDatabaseUrl rejects a non-local host', () => {
+  assert.throws(() => assertLocalDatabaseUrl('postgresql://postgres:pw@example.com:54322/postgres'));
+});
+
+test('assertLocalDatabaseUrl rejects the wrong port', () => {
+  assert.throws(() => assertLocalDatabaseUrl('postgresql://postgres:pw@127.0.0.1:5432/postgres'));
+});
+
+test('assertLocalDatabaseUrl rejects a non-postgres protocol', () => {
+  assert.throws(() => assertLocalDatabaseUrl('mysql://postgres:pw@127.0.0.1:54322/postgres'));
+});
+
+test('assertLocalDatabaseUrl rejects a malformed URL', () => {
+  assert.throws(() => assertLocalDatabaseUrl('not a url'));
+});
+
+test('assertLocalDatabaseUrl error messages never include the raw URL, username, or password', () => {
+  const raw = 'postgresql://secretuser:sup3rsecretpw@evil.supabase.co:54322/postgres';
+  assert.throws(
+    () => assertLocalDatabaseUrl(raw),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.ok(!err.message.includes(raw), 'raw URL leaked');
+      assert.ok(!err.message.includes('secretuser'), 'username leaked');
+      assert.ok(!err.message.includes('sup3rsecretpw'), 'password leaked');
+      assert.ok(!err.message.includes('evil.supabase.co'), 'host leaked');
+      return true;
+    },
+  );
+});
+
 // --- source guards ----------------------------------------------------------
 
-test('onboard helper does not import a DB driver or read connection config', () => {
+test('onboard helper does not import a DB driver or open a connection', () => {
   const source = readFileSync(path.join(HERE, 'onboard-tenant.ts'), 'utf8');
 
   assert.ok(!/from\s+['"]pg['"]/.test(source), "must not import the 'pg' driver");
   assert.ok(!/from\s+['"]postgres['"]/.test(source), "must not import the 'postgres' driver");
   assert.ok(!/require\(\s*['"](?:pg|postgres)['"]\s*\)/.test(source), 'must not require a DB driver');
-  assert.ok(!source.includes('DATABASE_URL'), 'must not read DATABASE_URL');
   assert.ok(!/service_role/i.test(source), 'must not mention service_role');
   assert.ok(!source.includes('SUPABASE_SERVICE_ROLE'), 'must not mention the service role key');
   assert.ok(!source.includes('createServiceClient'), 'must not use the service client');
+
+  // Stage 3c-1 may READ process.env.DATABASE_URL to guard it, but must never
+  // open a connection and never print/log the URL value.
+  assert.ok(!/new\s+Client\s*\(/.test(source), 'must not instantiate a DB client');
+  assert.ok(!/\.connect\s*\(/.test(source), 'must not open a DB connection');
+  assert.ok(
+    !/console\.[a-z]+\([^)]*DATABASE_URL/i.test(source),
+    'must not print DATABASE_URL',
+  );
+  assert.ok(
+    !/console\.[a-z]+\([^)]*databaseUrl/.test(source),
+    'must not print the parsed DATABASE_URL value',
+  );
 });
 
 test('apps/web does not import the onboard helper', () => {

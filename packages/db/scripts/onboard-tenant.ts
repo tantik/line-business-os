@@ -1,19 +1,29 @@
 /**
- * Pure onboarding validation / planning helpers (Phase 1H Stage 3a/3b).
+ * Onboarding validation / planning helpers + validation-only CLI shell
+ * (Phase 1H Stage 3a/3b pure helpers; Stage 3c-1 adds the CLI shell + local
+ * DATABASE_URL guard).
  *
- * SCOPE — this module is intentionally PURE. It only validates and normalizes
- * operator-supplied input and builds an idempotency PLAN. It deliberately:
- *   - never connects to a database,
- *   - never reads connection / environment configuration,
- *   - never imports a database driver,
- *   - never performs any write,
- *   - never holds the owner's identity (auth user id / email) inside the plan,
+ * SCOPE — this module stays ZERO-DB-RISK. The validation/planning helpers are
+ * PURE: they only validate and normalize operator-supplied input and build an
+ * idempotency PLAN. They deliberately:
+ *   - never perform any write,
+ *   - never hold the owner's identity (auth user id / email) inside the plan,
  *     so a redacted summary is safe by construction.
  *
- * The live, single-transaction onboarding routine is a later, separately
- * approved stage. Keeping this layer pure makes it fully unit-testable
- * (`node --import tsx --test`) with zero database risk.
+ * Stage 3c-1 additionally provides a CLI shell (`main`) and a local-only
+ * `assertLocalDatabaseUrl` guard. These deliberately:
+ *   - never import a database driver (`pg` / `postgres`),
+ *   - never open a database connection,
+ *   - never run any SELECT / INSERT / UPDATE / DELETE,
+ *   - only READ `process.env.DATABASE_URL` to validate/guard it (never log it,
+ *     never connect), and only emit a redacted, no-PII summary.
+ *
+ * The live, single-transaction onboarding routine (the `pg` driver, real reads
+ * and writes) is a later, separately approved stage. Keeping this layer
+ * connection-free makes it fully unit-testable (`node --import tsx --test`)
+ * with zero database risk.
  */
+import { pathToFileURL } from 'node:url';
 
 /** Module codes the platform understands (`core.module_code`). */
 export const VALID_MODULE_CODES = [
@@ -455,4 +465,304 @@ export function redactOnboardingSummary(plan: OnboardingPlan): RedactedOnboardin
     conflictCount: plan.conflicts.length,
     conflicts: plan.conflicts,
   };
+}
+
+// ===========================================================================
+// Stage 3c-1: CLI parsing helpers (pure)
+// ===========================================================================
+
+/**
+ * Resolved run mode. `dry-run` is the safe default; `commit` is reserved for a
+ * future stage and currently still writes nothing.
+ */
+export type OnboardingMode = 'dry-run' | 'commit';
+
+/** Raw, parsed CLI flags (still untrusted; validated by parseOnboardingInput). */
+export interface OnboardingCliFlags {
+  tenantName?: string;
+  tenantSlug?: string;
+  ownerAuthUserId?: string;
+  ownerEmail?: string;
+  locationName?: string;
+  timezone?: string;
+  modules?: string;
+  dryRun: boolean;
+  commit: boolean;
+  yes: boolean;
+}
+
+type OnboardingStringFlag =
+  | 'tenantName'
+  | 'tenantSlug'
+  | 'ownerAuthUserId'
+  | 'ownerEmail'
+  | 'locationName'
+  | 'timezone'
+  | 'modules';
+
+/** Map of `--flag` → string field for value-taking args. */
+const VALUE_FLAG_MAP: Record<string, OnboardingStringFlag> = {
+  '--tenant-name': 'tenantName',
+  '--tenant-slug': 'tenantSlug',
+  '--owner-auth-user-id': 'ownerAuthUserId',
+  '--owner-email': 'ownerEmail',
+  '--location-name': 'locationName',
+  '--timezone': 'timezone',
+  '--modules': 'modules',
+};
+
+/** Map of `--flag` → boolean field for switch args. */
+const BOOLEAN_FLAG_MAP: Record<string, 'dryRun' | 'commit' | 'yes'> = {
+  '--dry-run': 'dryRun',
+  '--commit': 'commit',
+  '--yes': 'yes',
+};
+
+/**
+ * Parse raw CLI argv (already sliced past node + script path) into flags.
+ * Fails safe on: unknown flags, positional args, and missing values. Never
+ * echoes positional values (they could be misplaced PII); only flag-shaped
+ * tokens (`--foo`) are named in errors.
+ */
+export function parseOnboardingCliArgs(argv: string[]): ParseResult<OnboardingCliFlags> {
+  const errors: string[] = [];
+  const flags: OnboardingCliFlags = { dryRun: false, commit: false, yes: false };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === undefined) continue;
+
+    const valueKey = Object.hasOwn(VALUE_FLAG_MAP, token) ? VALUE_FLAG_MAP[token] : undefined;
+    const booleanKey = Object.hasOwn(BOOLEAN_FLAG_MAP, token) ? BOOLEAN_FLAG_MAP[token] : undefined;
+
+    if (valueKey !== undefined) {
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('--')) {
+        errors.push(`Missing value for ${token}.`);
+        continue; // do not consume the next token
+      }
+      flags[valueKey] = next;
+      i += 1;
+    } else if (booleanKey !== undefined) {
+      flags[booleanKey] = true;
+    } else if (token.startsWith('--')) {
+      errors.push(`Unknown argument: ${token}.`);
+    } else {
+      errors.push('Unexpected positional argument (use --flag value form).');
+    }
+  }
+
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: flags };
+}
+
+/**
+ * Resolve the run mode from the mode-related flags.
+ * - neither flag → `dry-run` (safe default).
+ * - `--dry-run` + `--commit` together → fail safe.
+ * - `--commit` without `--yes` → fail safe.
+ * - `--commit --yes` → `commit` (but Stage 3c-1 still writes nothing).
+ */
+export function resolveOnboardingMode(flags: {
+  dryRun: boolean;
+  commit: boolean;
+  yes: boolean;
+}): ValidationResult<OnboardingMode> {
+  if (flags.dryRun && flags.commit) {
+    return { ok: false, error: 'Cannot combine --dry-run with --commit; choose one.' };
+  }
+  if (flags.commit && !flags.yes) {
+    return { ok: false, error: '--commit requires explicit --yes confirmation.' };
+  }
+  if (flags.commit && flags.yes) {
+    return { ok: true, value: 'commit' };
+  }
+  return { ok: true, value: 'dry-run' };
+}
+
+// ===========================================================================
+// Stage 3c-1: Local-only DATABASE_URL guard (pure; never connects)
+// ===========================================================================
+
+/** Safe, log-friendly description of an accepted local DB target (no secrets). */
+export interface SafeDbTarget {
+  target: 'local-postgres';
+  port: number;
+}
+
+/** Only loopback hosts are accepted. `::1` is normalized (brackets stripped). */
+const ALLOWED_LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+
+/** The expected Supabase local Postgres port. */
+const LOCAL_DB_PORT = '54322';
+
+/**
+ * Validate that a DATABASE_URL points at the LOCAL database only, returning a
+ * safe target descriptor. This function NEVER connects and NEVER imports a DB
+ * driver. All error messages are static and intentionally exclude the raw URL,
+ * username, password, and the offending host value.
+ */
+export function assertLocalDatabaseUrl(databaseUrl: string): SafeDbTarget {
+  let url: URL;
+  try {
+    url = new URL(databaseUrl);
+  } catch {
+    throw new Error('DATABASE_URL is not a valid connection URL.');
+  }
+
+  if (url.protocol !== 'postgres:' && url.protocol !== 'postgresql:') {
+    throw new Error('DATABASE_URL must use the postgres:// (or postgresql://) protocol.');
+  }
+
+  // Strip IPv6 brackets so `[::1]` matches `::1`.
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  if (host.endsWith('.supabase.co') || host.endsWith('.pooler.supabase.com')) {
+    throw new Error('Refusing a Supabase Cloud-like database host; onboarding is local-only.');
+  }
+  if (!ALLOWED_LOCAL_HOSTS.has(host)) {
+    throw new Error('DATABASE_URL host is not an allowed local host (expected 127.0.0.1 or localhost).');
+  }
+  if (url.port !== LOCAL_DB_PORT) {
+    throw new Error('DATABASE_URL must target the local database port 54322.');
+  }
+
+  return { target: 'local-postgres', port: Number(LOCAL_DB_PORT) };
+}
+
+// ===========================================================================
+// Stage 3c-1: Validation-only summary + CLI shell (no DB connection)
+// ===========================================================================
+
+/**
+ * Log-safe summary of a validation-only CLI run. Carries NO owner identity:
+ * the owner's auth user id and email never appear (only a boolean flag for
+ * whether an email was supplied).
+ */
+export interface ValidationOnlyCliSummary {
+  stage: 'phase-1h-stage-3c1';
+  mode: OnboardingMode;
+  dbConnection: 'none';
+  liveOnboarding: 'not-implemented';
+  ownerEmailProvided: boolean;
+  dbTarget: SafeDbTarget | 'not-checked';
+  plan: RedactedOnboardingSummary;
+}
+
+/**
+ * Build a redacted, no-PII summary for a validation-only run. Uses an EMPTY
+ * existing-state mock (no DB read), so the plan reflects a fresh tenant. The
+ * owner's email/auth id are never copied into the summary.
+ */
+export function createValidationOnlyCliSummary(
+  input: OnboardingInput,
+  mode: OnboardingMode,
+  dbTarget?: SafeDbTarget,
+): ValidationOnlyCliSummary {
+  const plan = buildOnboardingPlan(input, {});
+  return {
+    stage: 'phase-1h-stage-3c1',
+    mode,
+    dbConnection: 'none',
+    liveOnboarding: 'not-implemented',
+    ownerEmailProvided: input.ownerEmail !== null,
+    dbTarget: dbTarget ?? 'not-checked',
+    plan: redactOnboardingSummary(plan),
+  };
+}
+
+function printLine(message: string): void {
+  console.log(`[onboard-tenant] ${message}`);
+}
+
+function printError(message: string): void {
+  console.error(`[onboard-tenant] error: ${message}`);
+}
+
+/**
+ * Validation-only CLI shell (Stage 3c-1). Parses args, validates input, guards
+ * DATABASE_URL if present, and prints a redacted summary. It makes NO database
+ * connection and runs NO queries. A `--commit --yes` request resolves the
+ * commit mode but exits non-zero because live writes are not implemented yet,
+ * preventing a false "success" signal.
+ */
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+
+  printLine('Stage 3c-1 validation-only shell');
+  printLine('no DB connection made');
+  printLine('no DB rows read');
+  printLine('no DB rows written');
+  printLine('live onboarding not implemented yet');
+
+  const parsedArgs = parseOnboardingCliArgs(argv);
+  if (!parsedArgs.ok) {
+    for (const message of parsedArgs.errors) printError(message);
+    process.exit(1);
+  }
+
+  const mode = resolveOnboardingMode(parsedArgs.value);
+  if (!mode.ok) {
+    printError(mode.error);
+    process.exit(1);
+  }
+
+  const parsedInput = parseOnboardingInput({
+    tenantName: parsedArgs.value.tenantName,
+    tenantSlug: parsedArgs.value.tenantSlug,
+    ownerAuthUserId: parsedArgs.value.ownerAuthUserId,
+    ownerEmail: parsedArgs.value.ownerEmail,
+    locationName: parsedArgs.value.locationName,
+    timezone: parsedArgs.value.timezone,
+    modules: parsedArgs.value.modules,
+    dryRun: mode.value === 'dry-run',
+  });
+  if (!parsedInput.ok) {
+    for (const message of parsedInput.errors) printError(message);
+    process.exit(1);
+  }
+
+  // Only READ the env var to guard it; never log it, never connect.
+  let dbTarget: SafeDbTarget | undefined;
+  const databaseUrl = process.env.DATABASE_URL;
+  if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
+    try {
+      dbTarget = assertLocalDatabaseUrl(databaseUrl);
+    } catch (err) {
+      printError(err instanceof Error ? err.message : 'invalid DATABASE_URL.');
+      process.exit(1);
+    }
+  }
+
+  const summary = createValidationOnlyCliSummary(parsedInput.value, mode.value, dbTarget);
+
+  printLine(`mode: ${summary.mode}`);
+  printLine(`tenant slug: ${summary.plan.tenantSlug}`);
+  printLine(`owner email provided: ${summary.ownerEmailProvided ? 'yes' : 'no'}`);
+  printLine(
+    summary.dbTarget === 'not-checked'
+      ? 'db target: not checked (DATABASE_URL not set)'
+      : `db target: ${summary.dbTarget.target}:${summary.dbTarget.port}`,
+  );
+  for (const [operation, count] of Object.entries(summary.plan.operationCounts)) {
+    printLine(`plan ${operation}: ${count}`);
+  }
+
+  if (summary.mode === 'commit') {
+    printError('commit requested, but live DB writes are not implemented in Stage 3c-1.');
+    process.exit(1);
+  }
+
+  printLine('validation complete (dry-run): no database was touched.');
+  process.exit(0);
+}
+
+const invokedDirectly =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  main().catch((err: unknown) => {
+    printError(err instanceof Error ? err.message : 'unknown error');
+    process.exit(1);
+  });
 }
