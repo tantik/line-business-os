@@ -16,10 +16,12 @@ import {
   parseOnboardingInput,
   redactOnboardingSummary,
   resolveOnboardingMode,
+  runOnboardingCli,
   validateOwnerAuthUserId,
   validateOwnerEmail,
   validateTenantSlug,
   validateTimezone,
+  type CliDryRunTransactionResult,
   type ExistingOnboardingState,
   type OnboardingInput,
   type RawOnboardingInput,
@@ -578,6 +580,162 @@ test('apps/web does not import the onboard helper', () => {
   walk(webSrc);
 
   assert.deepEqual(offenders, [], `apps/web must not reference the onboard helper: ${offenders.join(', ')}`);
+});
+
+// --- runOnboardingCli (Stage 3c-3b routing; no real DB) ---------------------
+
+const LOCAL_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const UUID_LIKE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+function fakeDryRunResult(
+  overrides: Partial<CliDryRunTransactionResult> = {},
+): CliDryRunTransactionResult {
+  return {
+    mode: 'dry-run',
+    tenantSlug: 'acme-kk',
+    ownerEmailProvided: false,
+    dbTarget: { target: 'local-postgres', port: 54322 },
+    rolledBack: true,
+    persisted: false,
+    write: { operationCounts: { 'tenant.reuse': 1, 'tenant_module.reuse.core': 1 } },
+    ...overrides,
+  };
+}
+
+test('runOnboardingCli: dry-run WITH DATABASE_URL takes the dry-run transaction path', async () => {
+  let called = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async (input) => {
+      called += 1;
+      assert.equal(input.tenantSlug, 'acme-kk');
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(called, 1, 'the dry-run transaction must be invoked');
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'dry-run-transaction');
+  assert.equal(outcome.connectionAttempted, true);
+  assert.ok(outcome.lines.includes('local dry-run transaction executed'));
+  assert.ok(outcome.lines.includes('transaction rolled back'));
+  assert.ok(outcome.lines.includes('no DB rows persisted'));
+  assert.ok(outcome.lines.includes('no live commit implemented'));
+  assert.ok(outcome.lines.includes('db target: local-postgres:54322'));
+});
+
+test('runOnboardingCli: dry-run WITHOUT DATABASE_URL keeps the validation-only path', async () => {
+  let called = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: {},
+    runDryRunTransaction: async () => {
+      called += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(called, 0, 'must not run a transaction without DATABASE_URL');
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'validation-only');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.lines.includes('db target: not checked (DATABASE_URL not set)'));
+  assert.ok(outcome.lines.some((l) => l.startsWith('validation complete (dry-run)')));
+});
+
+test('runOnboardingCli: commit exits non-zero and never connects or writes', async () => {
+  let called = 0;
+  const outcome = await runOnboardingCli(validArgv(['--commit', '--yes']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => {
+      called += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(called, 0, 'commit must not run any transaction');
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'commit-refused');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.errors.length > 0);
+  assert.ok(/commit/i.test(outcome.errors.join(' ')));
+  assert.ok(!/\bcommit\b/i.test(outcome.lines.join(' ')), 'no commit lines emitted');
+});
+
+test('runOnboardingCli: an invalid (non-local) DATABASE_URL fails safely before any transaction', async () => {
+  let called = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: 'postgresql://u:p@db.abc.supabase.co:5432/postgres' },
+    runDryRunTransaction: async () => {
+      called += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(called, 0, 'must not run a transaction for a non-local URL');
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'db-url-error');
+  assert.equal(outcome.connectionAttempted, false);
+  const joined = [...outcome.errors, ...outcome.lines].join(' ');
+  assert.ok(!joined.includes('supabase.co'), 'must not echo the offending host');
+  assert.ok(!joined.includes('db.abc.supabase.co'));
+});
+
+test('runOnboardingCli: dry-run transaction lines leak no email, owner id, UUID, or DATABASE_URL', async () => {
+  const outcome = await runOnboardingCli(validArgv(['--owner-email', FAKE_OWNER_EMAIL, '--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => fakeDryRunResult({ ownerEmailProvided: true }),
+  });
+
+  assert.equal(outcome.path, 'dry-run-transaction');
+  const serialized = JSON.stringify(outcome);
+  assert.ok(!serialized.includes(FAKE_OWNER_EMAIL), 'owner email leaked');
+  assert.ok(!serialized.includes('@'), 'email-like token leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
+  assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
+  assert.ok(!serialized.includes('DATABASE_URL'), 'DATABASE_URL leaked');
+  assert.ok(!serialized.includes(LOCAL_DB_URL), 'the connection string leaked');
+});
+
+test('runOnboardingCli: surfaces a safe error when the dry-run transaction fails', async () => {
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => {
+      throw new Error('The local onboarding dry-run transaction failed and was rolled back.');
+    },
+  });
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'dry-run-transaction-error');
+  assert.ok(outcome.errors.length > 0);
+  const joined = outcome.errors.join(' ');
+  assert.ok(!joined.includes('@'));
+  assert.ok(!UUID_LIKE.test(joined));
+});
+
+test('runOnboardingCli: invalid input fails before touching the database', async () => {
+  let called = 0;
+  const outcome = await runOnboardingCli(['--tenant-name', 'Acme KK', '--tenant-slug', 'no'], {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => {
+      called += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(called, 0);
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'input-error');
+  assert.equal(outcome.connectionAttempted, false);
+});
+
+// --- source guard: onboard-tenant.ts stays driver-free ----------------------
+
+test('onboard-tenant.ts has no direct pg import / new Client / .connect', () => {
+  const source = readFileSync(path.join(HERE, 'onboard-tenant.ts'), 'utf8');
+  assert.ok(!/from\s+['"]pg['"]/.test(source), "must not import 'pg' directly");
+  assert.ok(!/require\(\s*['"]pg['"]\s*\)/.test(source), "must not require 'pg'");
+  assert.ok(!/new\s+Client\s*\(/.test(source), 'must not instantiate a DB client');
+  assert.ok(!/\.connect\s*\(/.test(source), 'must not open a DB connection');
 });
 
 // --- sanity: module code coverage ------------------------------------------

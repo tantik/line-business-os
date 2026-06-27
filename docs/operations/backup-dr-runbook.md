@@ -242,8 +242,11 @@ and require their own approved tasks.
   run that durably persists rows. This is a hard gate for the committed stage.
 - **The onboarding dry-run stages persist nothing.** Phase 1H Stage **3c-3a**
   (write SQL builders + fake executor) makes **no DB connection** and writes
-  nothing, and Stage **3c-3b** wraps the write path in a **local dry-run
-  transaction that always `ROLLBACK`s** — neither stage commits or leaves any
-  durable change, so no backup is consumed or required by them.
+  nothing. Stage **3c-3b** (now implemented) wraps the write path in a **local
+  dry-run transaction that always `ROLLBACK`s**: the writes execute against the
+  local schema and are then discarded, so it leaves the database byte-identical.
+  Neither stage commits (there is **no `COMMIT`**) or leaves any durable change,
+  so no backup is consumed or required by them. A manual local smoke test should
+  confirm before/after row counts are identical (see the onboarding runbook §9).
 - Only the later **committed** onboarding stage performs durable writes; that
   stage is when the backup gate above applies.

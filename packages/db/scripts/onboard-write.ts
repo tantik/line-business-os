@@ -1,20 +1,26 @@
 /**
- * Onboarding WRITE-side SQL builders + a fake-executable executor
- * (Phase 1H Stage 3c-3a).
+ * Onboarding WRITE-side SQL builders + executor + local dry-run transaction
+ * (Phase 1H Stage 3c-3b).
  *
  * SCOPE — this is the ONLY onboarding file allowed to contain write SQL and
- * (later) transaction-control SQL. In Stage 3c-3a it is deliberately
- * connection-free and persists nothing:
- *   - it NEVER imports a database driver, NEVER constructs/opens a `pg` client,
- *     and NEVER reads any database connection string / DB URL env var — the
- *     executor runs against an INJECTED {@link QueryRunner} only, so it is fully
- *     unit testable with a fake runner and never touches a real database,
- *   - it issues NO transaction-finalizing statement and persists NO change; the
- *     real single-transaction dry-run wrapper and the CLI wiring are deferred to
- *     Stage 3c-3b. Transaction wrapping is implemented in Stage 3c-3b; durable
- *     onboarding remains a separate, later, approved stage,
- *   - it does NOT log (no console output at all); it returns a redacted, no-PII summary
- *     and builds audit rows whose metadata carries only safe values
+ * transaction-control SQL (`begin` / `rollback`). It is the WRITE-side driver
+ * file; the read-side state loader (`onboard-db.ts`) stays SELECT-only.
+ *
+ * Stage 3c-3a shipped the parameterized write SQL builders and an executor that
+ * runs against an INJECTED {@link QueryRunner} (fully unit-testable with a fake
+ * runner). **Stage 3c-3b** adds a LOCAL-ONLY dry-run transaction wrapper:
+ *   - it reads `DATABASE_URL` ONLY inside the transaction runner, runs it
+ *     through the pure local guard (`assertLocalDatabaseUrl`) BEFORE opening any
+ *     connection, then opens ONE `pg.Client` (never a pool),
+ *   - it executes `begin` → load state → plan → validate → execute writes, then
+ *     ALWAYS issues `rollback`; it NEVER commits — no transaction-finalizing
+ *     statement appears in this file. Writes execute (so the plan is exercised
+ *     against the real schema) and are then discarded; nothing is ever persisted,
+ *   - on any error after `begin` it best-effort rolls back, always closes the
+ *     connection in a `finally`, and only ever throws short, static,
+ *     secret-free errors (no DB URL, credentials, SQL values, UUIDs, or email),
+ *   - it does NOT log (no console output at all); it returns a redacted, no-PII
+ *     summary and builds audit rows whose metadata carries only safe values
  *     (tenant slug, operation labels, module codes, counts) — never the owner
  *     email, the owner auth user id, secrets, or UUIDs.
  *
@@ -22,12 +28,17 @@
  * used for identity lookup. Owner email, when provided, is written exclusively
  * as encrypted blob + blind-index hash via `@line-os/db` crypto.
  *
- * No Supabase client, no privileged service key, no Data API, no Cloud.
+ * No connection pool, no privileged service-role key, no Supabase client, no
+ * Data API, no Cloud. The committed (durable) onboarding routine and
+ * any transaction-finalizing write remain a separate, later, approved stage.
  */
+import { Client } from 'pg';
 import { protectSearchablePII } from '../src/crypto.js';
 import {
   MEMBERSHIP_STATUS_ACTIVE,
   TENANT_KIND_CLIENT,
+  assertLocalDatabaseUrl,
+  buildOnboardingPlan,
   normalizeLocationName,
 } from './onboard-tenant.js';
 import type {
@@ -36,8 +47,9 @@ import type {
   OnboardingInput,
   OnboardingPlan,
   PlanEntity,
+  SafeDbTarget,
 } from './onboard-tenant.js';
-// Type-only import: erased at compile time, so this file never loads `pg`.
+import { loadExistingOnboardingState } from './onboard-db.js';
 import type { QueryRunner } from './onboard-db.js';
 
 /** System role key (migration 0008) granted to a tenant's owner membership. */
@@ -50,9 +62,11 @@ const TENANT_OWNER_ROLE_KEY = 'tenant_owner';
  * upsert never touches `config`, and no transaction-finalizing statement exists
  * anywhere).
  *
- * NOTE: there is intentionally NO transaction-control SQL here in Stage 3c-3a.
- * Transaction wrapping (and a real connection) arrive in Stage 3c-3b; no change
- * is ever persisted — durable onboarding is a separate, later, approved stage.
+ * NOTE: transaction-control SQL (`begin` / `rollback`) lives in
+ * {@link ONBOARD_TX_SQL} below; there is intentionally no transaction-finalizing
+ * write anywhere in this file. The Stage 3c-3b dry-run wrapper always rolls back
+ * — no change is ever persisted; durable onboarding is a separate, later,
+ * approved stage.
  */
 export const ONBOARD_WRITE_SQL = {
   insertTenant:
@@ -512,5 +526,269 @@ export async function executeOnboardingWritePlan(
     operations,
     operationCounts: countOperations(operations),
     auditRowCount: auditRows.length,
+  };
+}
+
+// ===========================================================================
+// Stage 3c-3b: local-only dry-run transaction wrapper (ALWAYS ROLLBACK)
+// ===========================================================================
+
+/**
+ * Transaction-control + session SQL for the LOCAL dry-run only. There is
+ * deliberately no transaction-finalizing write: the dry-run always discards its
+ * work via `rollback`.
+ */
+export const ONBOARD_TX_SQL = {
+  statementTimeout: "set statement_timeout = '10s'",
+  begin: 'begin',
+  rollback: 'rollback',
+} as const;
+
+/**
+ * Minimal `pg` client surface used by the dry-run transaction. Keeping it small
+ * makes the wrapper fully unit-testable with a FAKE client (no real database in
+ * tests) while the default implementation adapts a real `pg.Client`.
+ */
+export interface DryRunPgClient {
+  connect(): Promise<void>;
+  query(text: string, values?: readonly unknown[]): Promise<{ rows: unknown[] }>;
+  end(): Promise<void>;
+}
+
+/** Injectable dependencies for the dry-run transaction (defaults use `pg`). */
+export interface DryRunTransactionDeps {
+  /** Construct the (writable) local client. Defaults to a real `pg.Client`. */
+  createClient?: (connectionString: string) => DryRunPgClient;
+  /** Local-only URL guard. Defaults to {@link assertLocalDatabaseUrl}. */
+  assertLocalUrl?: (databaseUrl: string) => SafeDbTarget;
+  /** Map a driver error to a safe message. Defaults to the safe mapper below. */
+  mapError?: (error: unknown) => string;
+}
+
+/**
+ * Redacted result of a local dry-run transaction. Carries NO owner identity and
+ * NO UUIDs: only the tenant slug, the safe local DB target, the nested redacted
+ * write summary, and explicit flags proving the work was rolled back and that
+ * nothing was persisted (and that nothing was committed).
+ */
+export interface DryRunTransactionResult {
+  stage: 'phase-1h-stage-3c3b';
+  mode: 'dry-run';
+  dbConnection: 'local-write-dry-run';
+  transaction: 'rolled-back';
+  rolledBack: true;
+  committed: false;
+  persisted: false;
+  liveOnboarding: 'not-implemented';
+  stateSource: 'local-read-write-dry-run';
+  ownerEmailProvided: boolean;
+  tenantSlug: string;
+  dbTarget: SafeDbTarget;
+  write: ExecutedOnboardingWriteSummary;
+}
+
+/**
+ * Map a driver / transaction failure to a short, static, secret-free message.
+ * NEVER echoes the raw error, connection URL, host, credentials, SQL values,
+ * UUIDs, or the owner email. Every write-time failure is reported as having been
+ * rolled back, because the wrapper always discards its work.
+ */
+export function mapDryRunTransactionErrorToSafeMessage(error: unknown): string {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code)
+      : '';
+  switch (code) {
+    case 'ECONNREFUSED':
+    case 'ETIMEDOUT':
+    case 'ENOTFOUND':
+    case 'EHOSTUNREACH':
+      return 'Could not connect to the local database.';
+    case '28P01':
+    case '28000':
+      return 'Local database access was rejected.';
+    case '3D000':
+      return 'Local database does not exist.';
+    case '42P01':
+    case '42703':
+    case '42883':
+    case '3F000':
+      return 'Onboarding schema mismatch; run local migrations first. The dry-run was rolled back.';
+    case '23503':
+      return 'A required related row was missing (foreign key); the dry-run was rolled back.';
+    case '23505':
+      return 'A unique constraint blocked the write; the dry-run was rolled back.';
+    case '23502':
+      return 'A required value was missing (not-null); the dry-run was rolled back.';
+    case '22P02':
+    case '23514':
+      return 'A value failed validation (enum/check); the dry-run was rolled back.';
+    case '25006':
+      return 'The session rejected a write; no rows were persisted.';
+    case '57014':
+      return 'The dry-run transaction timed out and was rolled back.';
+    default:
+      return 'The local onboarding dry-run transaction failed and was rolled back.';
+  }
+}
+
+/** Adapt a real `pg.Client` to the {@link DryRunPgClient} surface. */
+function defaultCreateDryRunClient(connectionString: string): DryRunPgClient {
+  const client = new Client({ connectionString });
+  return {
+    connect: async () => {
+      await client.connect();
+    },
+    query: async (text: string, values?: readonly unknown[]) => {
+      const result = await client.query(text, values ? Array.from(values) : undefined);
+      return { rows: result.rows };
+    },
+    end: async () => {
+      await client.end();
+    },
+  };
+}
+
+/**
+ * Open ONE local writable connection, run `fn` inside a `begin` … `rollback`
+ * transaction, and ALWAYS roll back, then close the connection. It NEVER
+ * commits (no transaction-finalizing write is issued). The local-only guard runs
+ * BEFORE any connection is opened. Writes execute (so the plan is exercised
+ * against the real schema) and are then discarded — nothing is persisted. No
+ * pool, no privileged service-role key, no Supabase client, no Data API.
+ */
+export async function withLocalDryRunTransaction<T>(
+  databaseUrl: string,
+  fn: (runner: QueryRunner) => Promise<T>,
+  deps: DryRunTransactionDeps = {},
+): Promise<T> {
+  const assertLocalUrl = deps.assertLocalUrl ?? assertLocalDatabaseUrl;
+  const createClient = deps.createClient ?? defaultCreateDryRunClient;
+  const mapError = deps.mapError ?? mapDryRunTransactionErrorToSafeMessage;
+
+  // Guard BEFORE constructing the client or opening any connection.
+  assertLocalUrl(databaseUrl);
+
+  const client = createClient(databaseUrl);
+
+  try {
+    await client.connect();
+  } catch (error) {
+    await client.end().catch(() => undefined);
+    throw new Error(mapError(error));
+  }
+
+  const runner: QueryRunner = {
+    async query<R = unknown>(text: string, values?: readonly unknown[]): Promise<{ rows: R[] }> {
+      try {
+        const result = await client.query(text, values);
+        return { rows: result.rows as R[] };
+      } catch (error) {
+        throw new Error(mapError(error));
+      }
+    },
+  };
+
+  let began = false;
+  try {
+    await runner.query(ONBOARD_TX_SQL.statementTimeout);
+    await runner.query(ONBOARD_TX_SQL.begin);
+    began = true;
+
+    const value = await fn(runner);
+
+    // Always discard the work — the dry-run persists nothing.
+    await runner.query(ONBOARD_TX_SQL.rollback);
+    return value;
+  } catch (error) {
+    if (began) {
+      // Best-effort rollback: never let a rollback failure mask the original
+      // error, and never surface raw driver text. The connection is closed in
+      // `finally`, so an aborted transaction persists nothing regardless.
+      try {
+        await client.query(ONBOARD_TX_SQL.rollback);
+      } catch {
+        // Intentionally ignored — see above.
+      }
+    }
+    throw error instanceof Error ? error : new Error(mapError(error));
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+/**
+ * Reduce an owner-email PII preparation failure to a short, static message that
+ * never echoes the email or any key material. Missing-env failures keep naming
+ * only the relevant variable; anything else is collapsed to a generic message.
+ */
+function safeOwnerPiiPrepMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (message.includes('PII_ENCRYPTION_KEY')) {
+    return message.includes('32 bytes')
+      ? 'PII_ENCRYPTION_KEY is invalid (it must decode to exactly 32 bytes for AES-256).'
+      : 'PII_ENCRYPTION_KEY is required to write the owner email.';
+  }
+  if (message.includes('PII_HASH_PEPPER')) {
+    return 'PII_HASH_PEPPER is required to write the owner email.';
+  }
+  return 'Failed to prepare owner email PII; no value is ever logged.';
+}
+
+/**
+ * Read `DATABASE_URL` from the environment, guard it as LOCAL-only, then run the
+ * onboarding write path inside a single local dry-run transaction that ALWAYS
+ * rolls back. Returns a redacted, no-PII, no-UUID result proving nothing was
+ * persisted. It NEVER commits — no transaction-finalizing write is issued in
+ * this path — and never touches Supabase Cloud. `DATABASE_URL` is read here
+ * only; it is never logged.
+ */
+export async function runOnboardingDryRunTransactionFromEnv(
+  input: OnboardingInput,
+  deps: DryRunTransactionDeps = {},
+): Promise<DryRunTransactionResult> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (databaseUrl === undefined || databaseUrl.trim() === '') {
+    throw new Error('DATABASE_URL is required for the local onboarding dry-run transaction.');
+  }
+
+  const assertLocalUrl = deps.assertLocalUrl ?? assertLocalDatabaseUrl;
+  // Guard (and capture a safe target) before any connection is opened.
+  const dbTarget = assertLocalUrl(databaseUrl);
+
+  // Prepare owner-email PII (if any) BEFORE connecting; map any failure to a
+  // static message that never echoes the email or key material.
+  let ownerEmailPII: PreparedOwnerEmailPII | null;
+  try {
+    ownerEmailPII = prepareOwnerEmailPII(input.ownerEmail);
+  } catch (error) {
+    throw new Error(safeOwnerPiiPrepMessage(error));
+  }
+
+  const write = await withLocalDryRunTransaction(
+    databaseUrl,
+    async (runner) => {
+      const state = await loadExistingOnboardingState(runner, input);
+      const plan = buildOnboardingPlan(input, state);
+      validateWritablePlanOrThrow(input, plan, state);
+      return executeOnboardingWritePlan(runner, input, plan, state, { ownerEmailPII });
+    },
+    deps,
+  );
+
+  return {
+    stage: 'phase-1h-stage-3c3b',
+    mode: 'dry-run',
+    dbConnection: 'local-write-dry-run',
+    transaction: 'rolled-back',
+    rolledBack: true,
+    committed: false,
+    persisted: false,
+    liveOnboarding: 'not-implemented',
+    stateSource: 'local-read-write-dry-run',
+    ownerEmailProvided: input.ownerEmail !== null,
+    tenantSlug: input.tenantSlug,
+    dbTarget,
+    write,
   };
 }
