@@ -234,3 +234,16 @@ This runbook's Stage 2 implements only the **local manual** backup tool above.
 It does NOT implement restore automation, a scheduled GitHub Actions backup,
 external/offsite storage upload, or any Cloud operation. Those are later stages
 and require their own approved tasks.
+
+## 11. Forward note — backups vs. onboarding writes
+
+- **A backup is required before any future _committed_ onboarding.** Run a fresh
+  `pnpm db:backup` (see §9) and confirm the artifact before the first onboarding
+  run that durably persists rows. This is a hard gate for the committed stage.
+- **The onboarding dry-run stages persist nothing.** Phase 1H Stage **3c-3a**
+  (write SQL builders + fake executor) makes **no DB connection** and writes
+  nothing, and Stage **3c-3b** wraps the write path in a **local dry-run
+  transaction that always `ROLLBACK`s** — neither stage commits or leaves any
+  durable change, so no backup is consumed or required by them.
+- Only the later **committed** onboarding stage performs durable writes; that
+  stage is when the backup gate above applies.

@@ -1,22 +1,25 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3c-2 — Read-only local DB state loading
-- Scope: **Documentation + pure validation helpers + a CLI shell with read-only
-  local DB state loading.** This runbook describes the manual onboarding
-  procedure for the first real clients and the identity/idempotency rules the
-  future server-only onboarding routine will follow. It contains **no executable
-  SQL with real values**. The live, DB-writing onboarding script is a later,
-  separately approved stage. Stage 3a/3b shipped pure validation/planning
-  helpers; Stage 3c-1 added a validation-only CLI shell + a local-only
-  `DATABASE_URL` guard. **Stage 3c-2** adds the `pg` driver and a **read-only**,
-  **local-only** state loader (`packages/db/scripts/onboard-db.ts`): when
-  `DATABASE_URL` is set, the CLI connects to the **local** Supabase Postgres,
-  pins the session read-only (`SET default_transaction_read_only = on`), runs
-  **SELECT-only** reads to build the existing onboarding state, and closes the
-  connection. It **writes no rows**, opens no write transaction, writes no audit
-  rows, never touches Cloud, and never logs `DATABASE_URL`, credentials, owner
-  identity, or raw driver errors. Live onboarding writes remain unimplemented.
+- Phase: 1H Stage 3c-3a — Write SQL builders + fake-executor tests (no DB)
+- Scope: **Documentation + pure validation helpers + a read-only CLI shell +
+  write-side SQL builders that run only against a fake (injected) query
+  runner.** This runbook describes the manual onboarding procedure for the first
+  real clients and the identity/idempotency rules the future server-only
+  onboarding routine will follow. It contains **no executable SQL with real
+  values**. The live, DB-writing onboarding routine is still a later, separately
+  approved stage. Stage 3a/3b shipped pure validation/planning helpers; Stage
+  3c-1 added a validation-only CLI shell + a local-only `DATABASE_URL` guard;
+  Stage 3c-2 added the `pg` driver and a **read-only**, **local-only** state
+  loader (`packages/db/scripts/onboard-db.ts`). **Stage 3c-3a** adds the
+  write-side module (`packages/db/scripts/onboard-write.ts`): parameterized
+  write **SQL builders** and an **executor that runs only against an injected
+  fake `QueryRunner`**. It **does not connect to any database**, **does not wire
+  the CLI to the write path**, **writes nothing to the local DB**, and **never
+  commits** — there is no `COMMIT` and no transaction control in this stage. The
+  real local **dry-run transaction with `ROLLBACK`** plus CLI wiring and the
+  manual rollback smoke test are the **next** stage (3c-3b). Live, durable
+  onboarding writes remain unimplemented.
 
 > While onboarding is manual, the first tenant owner is created **server-side by
 > an operator**. There is no self-service signup yet and no admin console.
@@ -188,22 +191,55 @@ The pure validation/planning helpers and the local `DATABASE_URL` guard live in
 connection and SELECT-only loader live in `packages/db/scripts/onboard-db.ts`
 (the only onboarding file that imports a DB driver).
 
-### Future DB-stage policies (not implemented in Stage 3c-1)
+### Stage 3c-3a write builders (fake executor only — no DB)
 
-These are recorded now so the future DB-writing routine implements them:
+Stage 3c-3a adds `packages/db/scripts/onboard-write.ts`: the only onboarding
+file allowed to contain write SQL. In this stage it is intentionally limited:
+
+- It adds **parameterized write SQL builders** and an **executor that runs only
+  against an injected fake `QueryRunner`** (used solely by the unit tests).
+- It **does not connect** to any database, **does not read** any DB connection
+  string, **does not wire the CLI** to the write path, **writes nothing** to the
+  local DB, and **never commits**. There is **no `COMMIT`** and **no transaction
+  control** (`BEGIN`/`ROLLBACK`) in 3c-3a.
+- The **real local dry-run transaction with `ROLLBACK`**, the CLI wiring, and the
+  manual rollback smoke test are the **next** stage (3c-3b). Audit rows are built
+  and exercised by the fake runner now; real (rolled-back) audit inserts come in
+  3c-3b.
+
+The write builders implement these policies (verified by the fake-executor
+tests), which the future committed routine will reuse unchanged:
 
 - **Suspended membership → fail by default.** Onboarding does not silently
-  reactivate a suspended owner membership.
+  reactivate a suspended owner membership (revoked likewise fails by default).
+  Invited memberships are activated; active memberships are reused.
 - **Revoked membership → fail by default.** Onboarding does not silently
   resurrect a revoked owner membership.
 - **Existing user mirror email → do not overwrite existing PII.** If a
-  `core.users` mirror already exists, its encrypted email/hash are not clobbered.
-- **Role assignment (`location_id = NULL`) → SELECT-then-insert.** Because the
-  unique index treats `NULL` `location_id` as distinct, the tenant-wide
-  `tenant_owner` assignment must be guarded by a SELECT-then-insert in script
-  logic (no DB unique-index change is made now).
-- **Local-only.** There is **no Cloud onboarding**; the guard rejects non-local
-  / Supabase-Cloud-like hosts.
+  `core.users` mirror already exists with PII, its encrypted email/hash are not
+  clobbered. PII backfill is allowed **only** when the existing PII is missing
+  (NULL-guarded `UPDATE`) **and** an owner email was supplied.
+- **Owner email is optional.** PII env (`PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`)
+  is required **only** when an owner email is provided and would be
+  written/backfilled. Errors name the missing env variable only — never its
+  value, and never the raw email.
+- **Location ambiguity → safe-fail.** Locations are matched by normalized name
+  within the tenant. Zero matches → create; one match → reuse; **more than one
+  match → fail safely** (no automatic choice, no DB unique index).
+- **Role assignment (`location_id = NULL`) → `INSERT … SELECT … WHERE NOT
+  EXISTS`.** Because the unique index treats `NULL` `location_id` as distinct,
+  the tenant-wide `tenant_owner` assignment uses `WHERE NOT EXISTS` (never
+  `ON CONFLICT`); no DB unique-index change is made.
+- **Tenant modules.** Requested modules are enabled; a disabled module is
+  re-enabled via `ON CONFLICT … DO UPDATE SET is_enabled = true WHERE
+  is_enabled = false`. Module **`config` is never overwritten**.
+- **Audit.** Audit rows use the **system actor** (`actor_kind = 'system'`,
+  `actor_id = null`), `module = 'core'`, and carry only safe metadata (tenant
+  slug, action labels, module codes, counts) — never the owner email, the owner
+  auth user id, secrets, or UUIDs.
+- **Local-only.** There is **no Cloud onboarding**; the read-side guard rejects
+  non-local / Supabase-Cloud-like hosts, and the write path never connects in
+  this stage.
 
 ## 6. Idempotency rules
 
