@@ -932,7 +932,9 @@ test('runOnboardingCli: commit with an empty backup file fails', async (t) => {
   assert.equal(spy.commitCalls(), 0);
 });
 
-test('runOnboardingCli: commit with a wrong-extension backup file fails', async () => {
+test('runOnboardingCli: commit with a wrong-extension backup file is blocked by preflight (before connect)', async () => {
+  // Stage 4D: the pure preflight validates the backup NAME, so a wrong extension
+  // is caught here (before any connection) rather than by the on-disk gate.
   const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
@@ -944,12 +946,14 @@ test('runOnboardingCli: commit with a wrong-extension backup file fails', async 
     ]),
     spy.deps(),
   );
-  assert.equal(outcome.path, 'backup-artifact-error');
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
   assert.ok(outcome.errors.some((e) => /\.dump\.enc/i.test(e)));
   assert.equal(spy.commitCalls(), 0);
 });
 
-test('runOnboardingCli: commit with an invalid backup filename fails', async () => {
+test('runOnboardingCli: commit with an invalid backup filename is blocked by preflight (before connect)', async () => {
+  // Stage 4D: a malformed backup filename is caught by preflight before connect.
   const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv([
@@ -961,7 +965,8 @@ test('runOnboardingCli: commit with an invalid backup filename fails', async () 
     ]),
     spy.deps(),
   );
-  assert.equal(outcome.path, 'backup-artifact-error');
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
   assert.ok(outcome.errors.some((e) => /filename is invalid/i.test(e)));
   assert.equal(spy.commitCalls(), 0);
 });
@@ -1219,26 +1224,198 @@ test('runOnboardingCli: blocked preflight output leaks no DATABASE_URL, password
   assert.ok(!serialized.includes('service_role'), 'service_role leaked');
 });
 
-test('runOnboardingCli: the commit path does NOT run preflight (Stage 4C is dry-run only)', async (t) => {
+// --- Stage 4D: preflight before the local commit transaction ----------------
+
+test('runOnboardingCli: commit runs preflight BEFORE connecting (and before the backup gate)', async (t) => {
   const dir = makeTempDir(t);
   const full = freshBackup(dir);
-  let pfCalled = 0;
+  const order: string[] = [];
   const spy = spyCli();
   const outcome = await runOnboardingCli(
     commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
     {
       ...spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
-      buildPreflightReport: () => {
-        pfCalled += 1;
-        return realBuildPreflightReport({ target: 'local' });
+      buildPreflightReport: (inputs) => {
+        order.push('preflight');
+        assert.equal(inputs.target, 'local');
+        assert.equal(inputs.commitRequested, true, 'commit must request the commit/backup gates');
+        assert.equal(inputs.databaseUrl, LOCAL_DB_URL);
+        assert.equal(inputs.explicitYes, true);
+        assert.equal(inputs.explicitLocalWriteAcknowledgement, true);
+        return realBuildPreflightReport(inputs);
+      },
+      validateBackupArtifact: (p) => {
+        order.push('backup-gate');
+        assert.equal(p, full);
+        return { ok: true, basename: VALID_BACKUP_NAME, ageHours: 0 };
       },
     },
   );
 
+  assert.deepEqual(
+    order,
+    ['preflight', 'backup-gate'],
+    'preflight must run before the backup gate (and before any connection)',
+  );
   assert.equal(outcome.exitCode, 0);
   assert.equal(outcome.path, 'commit-executed');
-  assert.equal(pfCalled, 0, 'preflight must NOT be wired into the commit path in this stage');
-  assert.equal(spy.commitCalls(), 1, 'commit behavior is unchanged');
+  assert.equal(outcome.connectionAttempted, true);
+  assert.equal(spy.commitCalls(), 1, 'the commit transaction runs after a passing preflight');
+  assert.ok(outcome.lines.includes('preflight: PASS'));
+  assert.ok(outcome.lines.includes('preflight ran before commit'));
+  assert.ok(outcome.lines.includes('backup artifact gate passed'));
+});
+
+test('runOnboardingCli: a blocked preflight prevents the commit connection and returns non-zero', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  let commitCalled = 0;
+  let backupCalled = 0;
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    {
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      // Force a block independently of the inputs by reporting a Cloud target.
+      buildPreflightReport: () => realBuildPreflightReport({ target: 'cloud' }),
+      validateBackupArtifact: () => {
+        backupCalled += 1;
+        return { ok: true, basename: VALID_BACKUP_NAME, ageHours: 0 };
+      },
+      runCommitTransaction: async () => {
+        commitCalled += 1;
+        return fakeCommitResult();
+      },
+    },
+  );
+
+  assert.equal(commitCalled, 0, 'the commit transaction must never run when preflight is blocked');
+  assert.equal(backupCalled, 0, 'the backup gate must not run when preflight is blocked');
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.lines.includes('preflight: BLOCKED'));
+  assert.ok(outcome.lines.includes('no DB connection opened (preflight failed before connect)'));
+  assert.ok(outcome.lines.includes('no BEGIN issued; no commit transaction started'));
+  assert.ok(outcome.errors.some((e) => /preflight blocked/.test(e)));
+});
+
+test('runOnboardingCli: commit with a Cloud-looking DATABASE_URL is blocked by preflight before connect', async (t) => {
+  // Synthetic Cloud-looking Postgres URL userinfo (`u:p`) — not a real secret;
+  // present only to prove a Cloud DB URL blocks before connect and is not echoed.
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const cloud = 'postgresql://u:p@db.abc.supabase.co:5432/postgres';
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({ env: { DATABASE_URL: cloud } }),
+  );
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.equal(spy.commitCalls(), 0);
+  const joined = [...outcome.errors, ...outcome.lines].join(' ');
+  assert.ok(!joined.includes('supabase.co'), 'must not echo the offending host');
+  assert.ok(!joined.includes('u:p'), 'must not echo the URL userinfo');
+});
+
+test('runOnboardingCli: commit with a relative backup path is blocked by preflight before connect', async () => {
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv([
+      '--i-understand-this-writes-local-db',
+      '--target',
+      'local',
+      '--backup-artifact',
+      `relative/${VALID_BACKUP_NAME}`,
+    ]),
+    spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+  );
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.equal(spy.commitCalls(), 0);
+  assert.ok(outcome.errors.some((e) => /absolute/i.test(e)));
+});
+
+test('runOnboardingCli: commit with a Cloud-looking NEXT_PUBLIC_SUPABASE_URL warns but does not block', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({
+      env: {
+        DATABASE_URL: LOCAL_DB_URL,
+        NEXT_PUBLIC_SUPABASE_URL: 'https://exampleref.supabase.co',
+      },
+    }),
+  );
+
+  assert.equal(outcome.exitCode, 0, 'a Cloud-looking web URL must NOT block commit by itself');
+  assert.equal(outcome.path, 'commit-executed');
+  assert.equal(spy.commitCalls(), 1);
+  assert.ok(outcome.lines.includes('preflight: PASS'));
+});
+
+test('runOnboardingCli: the backup gate still runs (and can still fail) after a passing preflight', async (t) => {
+  const dir = makeTempDir(t);
+  // Absolute, correctly-named, but the file does not exist → preflight (name
+  // only, no metadata) PASSES; the on-disk backup gate then fails before connect.
+  const missing = path.join(dir, VALID_BACKUP_NAME);
+  let pfCalled = 0;
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', missing]),
+    {
+      ...spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+      buildPreflightReport: (inputs) => {
+        pfCalled += 1;
+        return realBuildPreflightReport(inputs);
+      },
+    },
+  );
+
+  assert.equal(pfCalled, 1, 'preflight runs');
+  assert.equal(outcome.path, 'backup-artifact-error', 'the real backup gate still guards the artifact');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.equal(spy.commitCalls(), 0);
+  assert.ok(outcome.errors.some((e) => /not found/i.test(e)));
+});
+
+test('runOnboardingCli: blocked commit preflight output leaks no DATABASE_URL, password, host, or backup name', async (t) => {
+  // Synthetic Cloud-looking Postgres URL userinfo (`user`/`sup3rsecret`) — not a
+  // real secret; present only to prove the raw URL/password never appear.
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const cloud = 'postgresql://user:sup3rsecret@db.exampleref.supabase.co:5432/postgres';
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv([
+      '--owner-email',
+      FAKE_OWNER_EMAIL,
+      '--i-understand-this-writes-local-db',
+      '--target',
+      'local',
+      '--backup-artifact',
+      full,
+    ]),
+    spy.deps({ env: { DATABASE_URL: cloud } }),
+  );
+
+  assert.equal(outcome.path, 'preflight-blocked');
+  const serialized = JSON.stringify(outcome);
+  assert.ok(!serialized.includes(cloud), 'raw DATABASE_URL leaked');
+  assert.ok(!serialized.includes('sup3rsecret'), 'DB password leaked');
+  assert.ok(!serialized.includes('db.exampleref.supabase.co'), 'DB host leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_EMAIL), 'owner email leaked');
+  assert.ok(!serialized.includes('@'), 'email-like token leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
+  assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
+  assert.ok(!serialized.includes(VALID_BACKUP_NAME), 'the backup filename leaked into output');
+  assert.ok(!serialized.includes('service_role'), 'service_role leaked');
 });
 
 test('runOnboardingCli: dry-run transaction lines leak no email, owner id, UUID, or DATABASE_URL', async () => {
