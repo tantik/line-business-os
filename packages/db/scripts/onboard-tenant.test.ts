@@ -40,6 +40,7 @@ import {
   type OnboardingInput,
   type RawOnboardingInput,
 } from './onboard-tenant.js';
+import { buildPreflightReport as realBuildPreflightReport } from './onboard-preflight.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
@@ -1080,7 +1081,10 @@ test('runOnboardingCli: commit output leaks no email, owner id, UUID, or DATABAS
   assert.ok(!serialized.includes(VALID_BACKUP_NAME), 'the backup filename leaked into output');
 });
 
-test('runOnboardingCli: an invalid (non-local) DATABASE_URL fails safely before any transaction', async () => {
+test('runOnboardingCli: a Cloud-looking DATABASE_URL is blocked by preflight before any transaction', async () => {
+  // Synthetic Cloud-looking Postgres URL: `u:p` is synthetic URL userinfo, not a
+  // real email or secret; it exists only to prove Cloud DB URLs are blocked and
+  // their value is never echoed.
   let called = 0;
   const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
     env: { DATABASE_URL: 'postgresql://u:p@db.abc.supabase.co:5432/postgres' },
@@ -1090,13 +1094,151 @@ test('runOnboardingCli: an invalid (non-local) DATABASE_URL fails safely before 
     },
   });
 
-  assert.equal(called, 0, 'must not run a transaction for a non-local URL');
+  assert.equal(called, 0, 'must not run a transaction for a Cloud-looking URL');
   assert.equal(outcome.exitCode, 1);
-  assert.equal(outcome.path, 'db-url-error');
+  assert.equal(outcome.path, 'preflight-blocked');
   assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.lines.includes('preflight: BLOCKED'), 'must clearly indicate preflight blocked');
+  assert.ok(
+    outcome.lines.includes('no BEGIN issued; no dry-run transaction started'),
+    'must state no BEGIN / no transaction',
+  );
   const joined = [...outcome.errors, ...outcome.lines].join(' ');
   assert.ok(!joined.includes('supabase.co'), 'must not echo the offending host');
   assert.ok(!joined.includes('db.abc.supabase.co'));
+  assert.ok(!joined.includes('u:p'), 'must not echo the URL userinfo');
+});
+
+// --- Stage 4C: preflight before the local dry-run transaction ---------------
+
+test('runOnboardingCli: dry-run WITH DATABASE_URL runs preflight BEFORE connecting', async () => {
+  const order: string[] = [];
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    buildPreflightReport: (inputs) => {
+      order.push('preflight');
+      assert.equal(inputs.target, 'local');
+      assert.equal(inputs.commitRequested, false, 'dry-run must not request the commit/backup gates');
+      assert.equal(inputs.databaseUrl, LOCAL_DB_URL);
+      return realBuildPreflightReport(inputs);
+    },
+    runDryRunTransaction: async () => {
+      order.push('dry-run');
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.deepEqual(order, ['preflight', 'dry-run'], 'preflight must run before the transaction');
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'dry-run-transaction');
+  assert.equal(outcome.connectionAttempted, true);
+  assert.ok(outcome.lines.includes('preflight: PASS'));
+  assert.ok(outcome.lines.includes('local dry-run transaction executed'));
+  assert.ok(outcome.lines.includes('transaction rolled back'));
+});
+
+test('runOnboardingCli: a blocked preflight prevents the DB connection and returns non-zero', async () => {
+  let dryCalled = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    // Force a block independently of the URL by reporting a Cloud target.
+    buildPreflightReport: () => realBuildPreflightReport({ target: 'cloud' }),
+    runDryRunTransaction: async () => {
+      dryCalled += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(dryCalled, 0, 'the dry-run transaction must never be called when preflight is blocked');
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.lines.includes('preflight: BLOCKED'), 'must clearly indicate a blocked preflight');
+  assert.ok(outcome.lines.includes('no DB connection opened (preflight failed before connect)'));
+  assert.ok(outcome.errors.some((e) => /preflight blocked/.test(e)));
+});
+
+test('runOnboardingCli: a Cloud-looking NEXT_PUBLIC_SUPABASE_URL warns but does not block the dry-run', async () => {
+  let dryCalled = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    // Real preflight: a Cloud-like web URL is a non-blocking warning only.
+    env: {
+      DATABASE_URL: LOCAL_DB_URL,
+      NEXT_PUBLIC_SUPABASE_URL: 'https://exampleref.supabase.co',
+    },
+    runDryRunTransaction: async () => {
+      dryCalled += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(dryCalled, 1, 'a Cloud-looking web URL must NOT block the dry-run by itself');
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'dry-run-transaction');
+  assert.ok(outcome.lines.includes('preflight: PASS'));
+});
+
+test('runOnboardingCli: dry-run WITHOUT DATABASE_URL does not run preflight (validation-only unchanged)', async () => {
+  let pfCalled = 0;
+  let dryCalled = 0;
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: {},
+    buildPreflightReport: () => {
+      pfCalled += 1;
+      return realBuildPreflightReport({ target: 'local' });
+    },
+    runDryRunTransaction: async () => {
+      dryCalled += 1;
+      return fakeDryRunResult();
+    },
+  });
+
+  assert.equal(pfCalled, 0, 'preflight must not run on the validation-only path');
+  assert.equal(dryCalled, 0, 'no transaction without DATABASE_URL');
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'validation-only');
+  assert.equal(outcome.connectionAttempted, false);
+  assert.ok(outcome.lines.some((l) => l.startsWith('validation complete (dry-run)')));
+});
+
+test('runOnboardingCli: blocked preflight output leaks no DATABASE_URL, password, or host', async () => {
+  // Synthetic Cloud-looking Postgres URL: `user`/`sup3rsecret` are synthetic URL
+  // userinfo (not a real email or real secret), present only to prove the raw
+  // URL and password never appear in the blocked output.
+  const cloud = 'postgresql://user:sup3rsecret@db.exampleref.supabase.co:5432/postgres';
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: cloud },
+    runDryRunTransaction: async () => fakeDryRunResult(),
+  });
+
+  assert.equal(outcome.path, 'preflight-blocked');
+  const serialized = JSON.stringify(outcome);
+  assert.ok(!serialized.includes(cloud), 'raw DATABASE_URL leaked');
+  assert.ok(!serialized.includes('sup3rsecret'), 'DB password leaked');
+  assert.ok(!serialized.includes('db.exampleref.supabase.co'), 'DB host leaked');
+  assert.ok(!serialized.includes('service_role'), 'service_role leaked');
+});
+
+test('runOnboardingCli: the commit path does NOT run preflight (Stage 4C is dry-run only)', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  let pfCalled = 0;
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    {
+      ...spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+      buildPreflightReport: () => {
+        pfCalled += 1;
+        return realBuildPreflightReport({ target: 'local' });
+      },
+    },
+  );
+
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'commit-executed');
+  assert.equal(pfCalled, 0, 'preflight must NOT be wired into the commit path in this stage');
+  assert.equal(spy.commitCalls(), 1, 'commit behavior is unchanged');
 });
 
 test('runOnboardingCli: dry-run transaction lines leak no email, owner id, UUID, or DATABASE_URL', async () => {

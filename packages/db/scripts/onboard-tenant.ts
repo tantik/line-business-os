@@ -25,6 +25,9 @@
  */
 import { pathToFileURL } from 'node:url';
 import type { BackupArtifactValidationResult } from './onboard-backup-gate.js';
+// Type-only import: no runtime edge, so this does not create an import cycle
+// with the (pure) preflight aggregator, which depends on this module.
+import type { PreflightInputs, PreflightReport } from './onboard-preflight.js';
 
 /** Module codes the platform understands (`core.module_code`). */
 export const VALID_MODULE_CODES = [
@@ -843,7 +846,14 @@ export interface CliCommitTransactionOptions {
 /** Injectable dependencies for {@link runOnboardingCli} (no DB in tests). */
 export interface OnboardingCliDeps {
   /** Environment source (defaults to `process.env`). */
-  env?: { DATABASE_URL?: string };
+  env?: { DATABASE_URL?: string; NEXT_PUBLIC_SUPABASE_URL?: string };
+  /**
+   * Build the pure preflight report (Stage 4C). Defaults to a lazy
+   * `./onboard-preflight` import so this driver-free file keeps its lazy-
+   * composition style and avoids a static import cycle. PURE: no DB, no I/O,
+   * no probes; it only aggregates the existing redacted checks over the inputs.
+   */
+  buildPreflightReport?: (inputs: PreflightInputs) => PreflightReport | Promise<PreflightReport>;
   /** Runs the local dry-run transaction. Defaults to a lazy `./onboard-write`. */
   runDryRunTransaction?: (input: OnboardingInput) => Promise<CliDryRunTransactionResult>;
   /**
@@ -869,6 +879,7 @@ export type OnboardingCliPath =
   | 'mode-error'
   | 'input-error'
   | 'db-url-error'
+  | 'preflight-blocked'
   | 'commit-gate-error'
   | 'backup-artifact-error'
   | 'commit-executed'
@@ -899,6 +910,17 @@ async function defaultRunDryRunTransaction(
 ): Promise<CliDryRunTransactionResult> {
   const { runOnboardingDryRunTransactionFromEnv } = await import('./onboard-write.js');
   return runOnboardingDryRunTransactionFromEnv(input);
+}
+
+/**
+ * Default preflight report builder (Stage 4C): lazy import keeps the (pure)
+ * aggregator out of this module's static import graph and avoids an import cycle
+ * (the aggregator imports this module). It performs NO I/O — only the pure,
+ * redacted checklist over operator-supplied inputs.
+ */
+async function defaultBuildPreflightReport(inputs: PreflightInputs): Promise<PreflightReport> {
+  const { buildPreflightReport } = await import('./onboard-preflight.js');
+  return buildPreflightReport(inputs);
 }
 
 /**
@@ -1063,27 +1085,50 @@ export async function runOnboardingCli(
     };
   }
 
-  // Only READ the env var to guard it; never log it. (Dry-run path only.)
-  let dbTarget: SafeDbTarget | undefined;
   const databaseUrl = env.DATABASE_URL;
   const hasDatabaseUrl = databaseUrl !== undefined && databaseUrl.trim() !== '';
+
+  // Dry-run WITH DATABASE_URL → Stage 4C: run the PURE preflight checklist
+  // BEFORE any DB interaction. A blocked preflight fails closed: NO connection,
+  // NO BEGIN, and the dry-run transaction runner is never called. Preflight runs
+  // the same local DB guard (`assertLocalDatabaseUrl`), so a Cloud-looking or
+  // malformed DATABASE_URL is blocked here, before connect, and its value is
+  // never echoed (the guard's messages are static and secret-free). A
+  // Cloud-looking NEXT_PUBLIC_SUPABASE_URL is only a warning and does not block.
+  // The dry-run never requires the commit/backup gates (commitRequested: false).
   if (hasDatabaseUrl) {
-    try {
-      dbTarget = assertLocalDatabaseUrl(databaseUrl);
-    } catch (err) {
+    const buildReport = deps.buildPreflightReport ?? defaultBuildPreflightReport;
+    const report = await buildReport({
+      target: 'local',
+      databaseUrl,
+      nextPublicSupabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+      commitRequested: false,
+      modules: parsedInput.value.modules,
+      tenantSlug: parsedInput.value.tenantSlug,
+      tenantName: parsedInput.value.tenantName,
+      locationName: parsedInput.value.locationName,
+    });
+
+    if (!report.ok) {
+      lines.push('mode: dry-run');
+      lines.push('preflight: BLOCKED');
+      lines.push('no DB connection opened (preflight failed before connect)');
+      lines.push('no BEGIN issued; no dry-run transaction started');
       return {
         exitCode: 1,
-        path: 'db-url-error',
+        path: 'preflight-blocked',
+        mode: mode.value,
         lines,
-        errors: [err instanceof Error ? err.message : 'invalid DATABASE_URL.'],
+        errors:
+          report.blockedReasons.length > 0
+            ? report.blockedReasons.map((reason) => `preflight blocked: ${reason}`)
+            : ['preflight blocked the dry-run.'],
         connectionAttempted: false,
       };
     }
-  }
 
-  // Dry-run WITH DATABASE_URL → run the local dry-run transaction (always rolls
-  // back). The driver lives in ./onboard-write, reached lazily / via deps.
-  if (hasDatabaseUrl) {
+    // Preflight passed → run the local dry-run transaction (always rolls back).
+    // The driver lives in ./onboard-write, reached lazily / via deps.
     const runDryRunTransaction = deps.runDryRunTransaction ?? defaultRunDryRunTransaction;
     let result: CliDryRunTransactionResult;
     try {
@@ -1101,6 +1146,7 @@ export async function runOnboardingCli(
       };
     }
 
+    lines.push('preflight: PASS');
     lines.push(`mode: ${result.mode}`);
     lines.push(`tenant slug: ${result.tenantSlug}`);
     lines.push(`owner email provided: ${result.ownerEmailProvided ? 'yes' : 'no'}`);
@@ -1116,7 +1162,8 @@ export async function runOnboardingCli(
   }
 
   // Dry-run WITHOUT DATABASE_URL → validation-only (no connection, empty state).
-  const summary = createReadOnlyCliSummary(parsedInput.value, mode.value, {}, 'empty', dbTarget);
+  // Unchanged by Stage 4C: preflight is only wired into the transactional path.
+  const summary = createReadOnlyCliSummary(parsedInput.value, mode.value, {}, 'empty');
   lines.push(`mode: ${summary.mode}`);
   lines.push(`tenant slug: ${summary.plan.tenantSlug}`);
   lines.push(`owner email provided: ${summary.ownerEmailProvided ? 'yes' : 'no'}`);
@@ -1144,8 +1191,8 @@ function printError(message: string): void {
  * imports the driver, instantiates a client, or opens a connection itself.
  */
 async function main(): Promise<void> {
-  printLine('Stage 3c-4b onboarding CLI');
-  printLine('dry-run runs the write path in a transaction that always rolls back');
+  printLine('Stage 4c onboarding CLI');
+  printLine('dry-run runs preflight first, then the write path in a transaction that always rolls back');
   printLine('commit (local only, fully gated) persists changes via a single local transaction; an already-onboarded tenant is a no-op');
 
   const outcome = await runOnboardingCli(process.argv.slice(2));
