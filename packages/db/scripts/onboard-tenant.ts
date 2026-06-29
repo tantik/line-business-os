@@ -961,13 +961,15 @@ async function defaultRunCommitTransaction(
  *     summary plus the rolled-back / nothing-persisted / no-commit lines;
  *   - **dry-run + DATABASE_URL absent** → keeps the prior validation-only
  *     behavior (plans against an empty state, no connection, no rows);
- *   - **commit (Stage 3c-4b)** → validates the strict confirmation gates
- *     (`--i-understand-this-writes-local-db`, `--target local`,
- *     `--backup-artifact <path>`) and the backup artifact on disk (metadata
- *     only) BEFORE any DB interaction, then runs the LOCAL commit transaction
- *     (`runOnboardingCommitTransactionFromEnv`), which commits ONLY when
- *     something changed and reports a no-op (rolled back) when the tenant is
- *     already onboarded. Gate/backup failures fail before connecting.
+ *   - **commit (Stage 3c-4b + Stage 4D)** → validates the strict confirmation
+ *     gates (`--i-understand-this-writes-local-db`, `--target local`,
+ *     `--backup-artifact <path>`), then runs the PURE preflight checklist
+ *     (Stage 4D) as an earlier safety layer, then validates the backup artifact
+ *     on disk (metadata only) — all BEFORE any DB interaction — and finally runs
+ *     the LOCAL commit transaction (`runOnboardingCommitTransactionFromEnv`),
+ *     which commits ONLY when something changed and reports a no-op (rolled
+ *     back) when the tenant is already onboarded. A blocked preflight,
+ *     gate failure, or backup failure all fail before connecting.
  *
  * It never imports a DB driver itself: the dry-run transaction, the commit
  * transaction, and the backup gate are reached via lazy imports (or injected
@@ -1023,6 +1025,52 @@ export async function runOnboardingCli(
       };
     }
 
+    // Stage 4D: run the PURE preflight checklist BEFORE any DB interaction and
+    // BEFORE the on-disk backup gate — an additional, earlier safety layer that
+    // never replaces the existing gates. A blocked preflight fails closed: NO
+    // connection, NO BEGIN, the backup gate is NOT run, and the commit
+    // transaction runner is never called. Preflight runs the same local DB guard
+    // (`assertLocalDatabaseUrl`), so a Cloud-looking / malformed DATABASE_URL or
+    // a relative backup path is blocked here, before connect, and its value is
+    // never echoed (the guard/check messages are static and secret-free). A
+    // Cloud-looking NEXT_PUBLIC_SUPABASE_URL is only a warning and does not
+    // block. No on-disk metadata is supplied (the artifact's freshness/size is
+    // still validated by the dedicated backup gate below), so preflight adds no
+    // new filesystem reads.
+    const buildReport = deps.buildPreflightReport ?? defaultBuildPreflightReport;
+    const preflight = await buildReport({
+      target: parsedArgs.value.target ?? 'local',
+      databaseUrl: env.DATABASE_URL,
+      nextPublicSupabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+      commitRequested: true,
+      explicitYes: parsedArgs.value.yes,
+      explicitLocalWriteAcknowledgement: parsedArgs.value.iUnderstandThisWritesLocalDb,
+      backupArtifactPath: gates.backupArtifact,
+      modules: parsedInput.value.modules,
+      tenantSlug: parsedInput.value.tenantSlug,
+      tenantName: parsedInput.value.tenantName,
+      locationName: parsedInput.value.locationName,
+    });
+
+    if (!preflight.ok) {
+      lines.push('mode: commit');
+      lines.push('preflight ran before commit');
+      lines.push('preflight: BLOCKED');
+      lines.push('no DB connection opened (preflight failed before connect)');
+      lines.push('no BEGIN issued; no commit transaction started');
+      return {
+        exitCode: 1,
+        path: 'preflight-blocked',
+        mode: mode.value,
+        lines,
+        errors:
+          preflight.blockedReasons.length > 0
+            ? preflight.blockedReasons.map((reason) => `preflight blocked: ${reason}`)
+            : ['preflight blocked the commit.'],
+        connectionAttempted: false,
+      };
+    }
+
     const validateBackupArtifact = deps.validateBackupArtifact ?? defaultValidateBackupArtifact;
     const backupResult = await validateBackupArtifact(gates.backupArtifact);
     if (!backupResult.ok) {
@@ -1057,6 +1105,8 @@ export async function runOnboardingCli(
     }
 
     lines.push('mode: commit');
+    lines.push('preflight ran before commit');
+    lines.push('preflight: PASS');
     lines.push('local target confirmed');
     lines.push('backup artifact gate passed');
     lines.push(`tenant slug: ${result.tenantSlug}`);
@@ -1191,9 +1241,9 @@ function printError(message: string): void {
  * imports the driver, instantiates a client, or opens a connection itself.
  */
 async function main(): Promise<void> {
-  printLine('Stage 4c onboarding CLI');
+  printLine('Stage 4d onboarding CLI');
   printLine('dry-run runs preflight first, then the write path in a transaction that always rolls back');
-  printLine('commit (local only, fully gated) persists changes via a single local transaction; an already-onboarded tenant is a no-op');
+  printLine('commit (local only, fully gated) runs preflight first, then persists changes via a single local transaction; an already-onboarded tenant is a no-op');
 
   const outcome = await runOnboardingCli(process.argv.slice(2));
   for (const message of outcome.errors) printError(message);
