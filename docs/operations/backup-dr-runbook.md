@@ -285,3 +285,37 @@ backup tool and gate; it adds no new backup behavior.
   leaves the local real-owner tenant in place. No restore tooling is run, no
   `db reset` is performed, and no Cloud operation occurs. Restore/reset remain
   governed by §6 / §11 and require explicit approval.
+
+## 13. First real local owner onboarding executed (Phase 1H Stage 3e) — backup notes
+
+Stage 3e **executed** the first real local owner onboarding (see
+`docs/operations/client-onboarding-runbook.md` §13) and exercised this runbook's
+backup tool and gate for real. It adds **no new backup behavior**; the findings
+below harden the operational steps.
+
+- **`pg_dump` must be on `PATH`.** In Stage 3e, `pnpm db:backup` initially
+  **failed** because `pg_dump` was not on `PATH` (see §9 "Prerequisites").
+  Confirm with `pg_dump --version` before relying on a backup. On the Stage 3e
+  Windows machine the PostgreSQL 17 tools lived under a local programs path, e.g.
+  `C:\Users\<USER>\AppData\Local\Programs\postgresql-17\pgsql\bin` (example only —
+  not a required path), added to `PATH` for the **current shell only**:
+
+```powershell
+$env:Path = "C:\Users\<USER>\AppData\Local\Programs\postgresql-17\pgsql\bin;$env:Path"
+```
+
+- **Use a fresh backup artifact; never reuse a stale one.** After a **failed**
+  backup attempt, create a **new** backup before retrying the commit. Do **not**
+  reuse an old/partial artifact to satisfy the commit gate.
+- **The commit gate requires a backup artifact.** The committed onboarding run
+  refuses to proceed without a valid, fresh artifact (§11; metadata-only
+  validation — never read, decrypted, or uploaded).
+- **Pass the artifact path as an ABSOLUTE path.** Because `pnpm --filter
+  @line-os/db` can run from the **package** working directory, a **relative**
+  `--backup-artifact` path may not resolve. In Stage 3e a relative path produced a
+  safe `error: backup artifact not found` and the commit was blocked with **zero
+  DB deltas** (an expected negative/safety case). Always pass the absolute path.
+- **Local only.** Stage 3e touched **no Cloud** and used **no `service_role`**.
+  Recovery for the local committed tenant remains a local `supabase db reset` or a
+  restore of the pre-onboarding encrypted artifact (§6 / §11) — never a Cloud
+  restore without separate approval.

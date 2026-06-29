@@ -154,6 +154,36 @@ Symptom: `/api/health` returns `ok` but users hit errors.
   loss/corruption) and restore from the pre-onboarding backup. Never restore to
   Cloud without separate approval.
 
+### 5.7 Internal schema exposed via the Data API (Stage 3e finding)
+
+Symptom: the Supabase **Data API exposes internal schemas** (`core`, `audit`,
+`workforce`, `booking`, `ai`) instead of only the safe `api` facade — for
+example a stale local runtime with
+`PGRST_DB_SCHEMAS=public,core,audit,workforce,booking,ai` rather than the correct
+`PGRST_DB_SCHEMAS=public,api`.
+
+- Action (local): **restart the local Supabase stack** so the correct schema
+  exposure reloads (`npx supabase stop` then `npx supabase start`), then confirm
+  the Data API exposes only `public,api`.
+- The app-facing Data API must expose **only the `api` facade** (plus `public`);
+  internal schemas must **never** be reachable by the anon key. Treat unexpected
+  Cloud-side exposure as a configuration incident and correct the project's
+  exposed-schema setting before continuing.
+- **No `service_role`** is used to diagnose or fix this; it is a Data API
+  exposed-schema configuration issue, not a data issue.
+
+### 5.8 Local vs Cloud env confusion during a local procedure
+
+Symptom: a local onboarding/verification procedure appears to act on the wrong
+target, or `NEXT_PUBLIC_SUPABASE_URL` points at an unexpected host.
+
+- Action: **verify the target host only** (never print keys). For local testing
+  the web env should point at the local Supabase host; after the procedure,
+  **restore the Cloud env** (e.g. from `apps/web/.env.local.cloud-backup`) and
+  re-verify the Cloud host.
+- Clear temporary env vars (`DATABASE_URL`, `PGPASSWORD`, `BACKUP_ENCRYPTION_KEY`)
+  and run-specific shell variables afterward, and confirm `git status` is clean.
+
 ## 6. Strong warnings
 
 - **No auto rollback for MVP.** Rollback is a human decision via Vercel.

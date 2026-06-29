@@ -1,9 +1,10 @@
 # Manual Client Onboarding Runbook
 
 - Status: Active (manual, MVP)
-- Phase: 1H Stage 3d-doc — First real local owner onboarding procedure
-  (documentation only; builds on Stage 3c-4b local-only committed onboarding,
-  the first stage with a real `COMMIT`; LOCAL only, strictly gated)
+- Phase: 1H Stage 3e — First real local owner onboarding **executed and verified**
+  (documentation only here; §13 is the execution final report + runbook
+  hardening). Builds on Stage 3d (procedure) and Stage 3c-4b local-only committed
+  onboarding, the first stage with a real `COMMIT`; LOCAL only, strictly gated.
 - Scope: **Documentation + pure validation helpers + a CLI that runs the write
   path either inside a LOCAL dry-run transaction (always rolls back) or, when all
   Stage 3c-4a gates pass, inside a LOCAL committed transaction.** This runbook
@@ -154,7 +155,7 @@ pnpm db:onboard-tenant -- \
   --tenant-name "Acme KK" \
   --tenant-slug acme-kk \
   --owner-auth-user-id <uuid> \
-  --owner-email owner@example.jp \
+  --owner-email <OWNER_EMAIL> \
   --location-name "Main Store" \
   --timezone Asia/Tokyo \
   --modules core,workforce \
@@ -675,3 +676,281 @@ The report MUST NOT include any of the following:
   `smoke-commit-tenant`). Only reset later with **explicit approval**.
 - **No manual SQL cleanup** and **no restore** in this stage.
 - **No Cloud cleanup** — nothing was ever created in Cloud.
+
+## 13. First real local owner onboarding — execution final report (Phase 1H Stage 3e)
+
+Stage 3e **executed the §12 procedure for the first time** against the **local**
+database, and it **passed**. A real local Supabase **Auth** user was onboarded
+as a tenant **owner**; the **local committed** run wrote the expected rows; and
+the **web dashboard** saw the active tenant through the **app-facing `api`
+facade** (anon key + RLS). **Cloud was not touched, `service_role` was not
+used**, and no internal schema was exposed to the app. This section is the
+operational final report + hardening checklist. It **changes none** of the §12
+gates, safety rules, or expected deltas.
+
+> **Synthetic-only.** Every value below is a placeholder. No real UUID, email,
+> key, token, cookie, or DB URL appears here, and none may ever be added.
+
+### 13.0. Invariants reconfirmed by Stage 3e
+
+- The **frontend/web app must never access raw internal schemas.** It reads
+  **only** through the safe **`api`** facade (anon key + RLS), never `core`,
+  `audit`, `workforce`, `booking`, or `ai` directly.
+- Internal schemas **`core`, `audit`, `workforce`, `booking`, `ai` must remain
+  internal** and must never be reachable through the Supabase Data API.
+- The Supabase Data API must expose **only the safe `api` facade schema** (plus
+  `public`) for app-facing access.
+- **No `service_role`** anywhere in the app or onboarding path. **No Cloud.**
+
+### 13.A. Preflight (verify env + local PostgREST runtime state)
+
+Before testing, confirm the web app is pointed at **local**, not Cloud, and that
+the local Data API exposes only the safe facade.
+
+- [ ] **Confirm web env target is local, not Cloud.** Verify which env the web
+      app uses (`apps/web/.env.local`) and that `NEXT_PUBLIC_SUPABASE_URL` points
+      at the **local** Supabase host. **Verify the host only — never print keys.**
+      (Check the URL host/origin, e.g. with a host-only inspection; do not echo
+      the anon key.)
+- [ ] **Confirm correct local PostgREST runtime state.** The local Data API must
+      expose only the safe facade schema:
+
+```
+PGRST_DB_SCHEMAS=public,api
+PGRST_DB_EXTRA_SEARCH_PATH=public
+```
+
+- [ ] **Watch for stale/wrong PostgREST state.** Stage 3e found a **stale** local
+      runtime state that wrongly exposed internal schemas through the Data API:
+
+```
+# WRONG / stale — internal schemas exposed via Data API (must NOT persist)
+PGRST_DB_SCHEMAS=public,core,audit,workforce,booking,ai
+```
+
+- [ ] **If stale, restart the local Supabase stack** to reload the correct
+      schema exposure:
+
+```bash
+npx supabase stop
+npx supabase start
+```
+
+> The Supabase CLI may **not** be globally available as `supabase` on this
+> machine; `npx supabase ...` worked. Use whichever resolves; do not assume a
+> global `supabase` binary exists.
+
+### 13.B. Auth / Data API verification (local anon key only)
+
+- [ ] **Use the local anon / publishable key** for local Auth + Data API checks.
+- [ ] **Do NOT use the Storage Access Key.** It is the wrong key type for
+      Auth/Data API and causes confusing failures.
+- [ ] **Do NOT use `service_role`** at any point.
+- [ ] **Direct local Auth password grant passed** (the owner can obtain a session
+      against the local Auth endpoint using the local anon key). Never print the
+      returned tokens.
+- [ ] **Facade reachable before onboarding.** A self-scoped read of the facade
+      returns `200` with an **empty** result for an owner with no membership yet:
+
+```
+GET api.my_tenant_memberships?select=*   ->   200 OK, [] (empty)
+```
+
+- [ ] **Use the real facade projection.** An earlier **`400`** was caused by
+      **manually requesting non-existing columns** (`location_name`, `role_code`).
+      The actual app-facing projection of `api.my_tenant_memberships` is:
+
+```
+tenant_id, tenant_slug, tenant_name, tenant_kind, location_id, status
+```
+
+- [ ] **Dashboard pre-onboarding expected state** (owner with no membership):
+
+```
+No workspace yet
+Your account is not a member of any tenant. Ask an administrator for an invitation.
+```
+
+### 13.C. Backup (fresh artifact + pg_dump on PATH)
+
+The committed run is gated on a **fresh** encrypted backup artifact (§12.C).
+Stage 3e backup findings:
+
+- [ ] **`pg_dump` must be on `PATH`.** `pnpm db:backup` initially **failed**
+      because `pg_dump` was not on `PATH`. Confirm with `pg_dump --version`.
+- [ ] **Windows PostgreSQL 17 tools path used in Stage 3e** (example only; verify
+      your install):
+
+```
+C:\Users\<USER>\AppData\Local\Programs\postgresql-17\pgsql\bin
+```
+
+- [ ] **Temporary PATH for the current shell only** (example; do not persist):
+
+```powershell
+$env:Path = "C:\Users\<USER>\AppData\Local\Programs\postgresql-17\pgsql\bin;$env:Path"
+```
+
+- [ ] **Use a fresh backup artifact.** After a failed backup attempt, create a
+      **new** backup. **Do NOT reuse an old/stale backup artifact** to satisfy the
+      gate.
+- [ ] **The commit gate requires a backup artifact** (§5 / §12.C). No fresh
+      artifact → no commit.
+- [ ] **Pass the backup artifact path as an ABSOLUTE path.** `pnpm --filter
+      @line-os/db` can execute from the **package** working directory, so a
+      relative path may not resolve. Always use the artifact's absolute path for
+      `--backup-artifact` (see 13.E for the safety case when this was relative).
+
+### 13.D. Dry-run (transaction that always rolls back)
+
+- [ ] **Dry-run executes inside a transaction** against the same local
+      `DATABASE_URL` (§12.D).
+- [ ] **Dry-run always `ROLLBACK`s** — it persists nothing.
+- [ ] **Expected count deltas after the dry-run: every tracked table delta = 0.**
+      Capture counts only (never rows, ids, or PII) and confirm before == after
+      for all of `core.tenants`, `core.users`, `core.locations`,
+      `core.tenant_memberships`, `core.role_assignments`, `core.tenant_modules`,
+      `audit.audit_logs`.
+
+### 13.E. Failed commit attempt (expected negative / safety case)
+
+The first commit attempt **failed safely** and is documented here as an
+**expected negative/safety case** — proof the gate works.
+
+- **Cause:** the `--backup-artifact` path was **relative**, so the gate could not
+  resolve the file.
+- **Result:**
+
+```
+error: backup artifact not found
+```
+
+- **Post-check (`FailedCommitCheck`):** all tracked-table deltas **stayed 0** —
+  the failed gate ran **before any DB interaction**, so nothing was persisted.
+
+Treat this as the correct behavior: a missing/unresolved backup artifact must
+block the commit with **zero** side effects. The fix is to re-run the commit with
+the **absolute** artifact path (13.C / §12.E).
+
+### 13.F. Successful local commit (LOCAL only)
+
+After the absolute-path fix, the **gated local commit** succeeded. **Local only.**
+Required explicit commit flags (all mandatory — §12.E):
+
+```
+--commit
+--yes
+--i-understand-this-writes-local-db
+--backup-artifact <ABSOLUTE_PATH>
+--target local
+```
+
+Expected output concepts (redacted, no secrets/PII):
+
+```
+local target confirmed
+backup artifact gate passed
+local committed onboarding executed
+committed rows persisted
+no Cloud touched
+```
+
+Expected DB deltas (first commit on a new tenant, modules `core,workforce`,
+owner email omitted) — matches §12.F:
+
+| Table | Expected delta |
+| ----- | -------------- |
+| `core.tenants` | **+1** |
+| `core.users` | **+1** |
+| `core.locations` | **+1** |
+| `core.tenant_memberships` | **+1** |
+| `core.role_assignments` | **+1** |
+| `core.tenant_modules` | **+2** |
+| `audit.audit_logs` | **+8** |
+
+### 13.G. Web verification (owner sees active tenant via the `api` facade)
+
+- [ ] **Before onboarding:** the dashboard shows **No workspace yet** (13.B).
+- [ ] **After onboarding:** the dashboard shows the **active tenant**, read
+      through the app-facing **`api`** facade (anon key + RLS), e.g. the synthetic
+      example:
+
+```
+Real Local Owner Test (real-local-owner-test)
+kind: client | memberships: 1
+```
+
+- [ ] **Port 3000 `EADDRINUSE`** on starting the web app usually means the web
+      app is **already running** — not necessarily a failure. Reuse the running
+      instance or stop the existing process; do not assume the verification
+      failed.
+
+### 13.H. Cleanup (restore Cloud env; clear temporaries; verify clean)
+
+- [ ] **Restore the Cloud web env.** Restore `apps/web/.env.local` from
+      `apps/web/.env.local.cloud-backup` after local verification, so the web app
+      is no longer pointed at local.
+- [ ] **Verify the Cloud host only** afterwards (host/origin of
+      `NEXT_PUBLIC_SUPABASE_URL`) — **never print keys**.
+- [ ] **Clear temporary environment variables** from the shell:
+
+```
+DATABASE_URL
+PGPASSWORD
+BACKUP_ENCRYPTION_KEY
+```
+
+- [ ] **Clear temporary PowerShell variables** used during the run:
+
+```
+OwnerAuthUserId
+BackupArtifact
+TenantName
+TenantSlug
+LocationName
+Modules
+```
+
+- [ ] **Verify `git status` is clean** (the run changed no tracked files).
+- [ ] **Baseline reference.** The latest `dev` baseline before this docs branch
+      was commit `80b1f96` (merge of the Stage 3d real-local-onboarding runbook
+      PR). The execution was performed on top of that baseline.
+
+### 13.I. Stage 3e QA checklist (hardened)
+
+Use this checklist for every future local owner onboarding run. Each item maps to
+a real failure mode observed or guarded in Stage 3e.
+
+- [ ] **No stale PostgREST schema exposure.** `PGRST_DB_SCHEMAS=public,api`
+      (not the internal-schema list). Restart the local stack if stale (13.A).
+- [ ] **No local vs Cloud env confusion.** Confirm `NEXT_PUBLIC_SUPABASE_URL`
+      host is the intended target (local for testing) — host only, no keys (13.A).
+- [ ] **No Auth key-type confusion.** Use the **anon/publishable** key for
+      Auth/Data API; **not** the Storage Access Key; **never** `service_role`
+      (13.B).
+- [ ] **Backup succeeds / `pg_dump` present.** `pg_dump --version` works; backup
+      created fresh (13.C).
+- [ ] **Backup artifact path is absolute** (not relative) for `--backup-artifact`
+      (13.C / 13.E).
+- [ ] **Dry-run persistence is zero.** Every tracked-table delta = 0 after the
+      dry-run (13.D).
+- [ ] **A failed commit gate produces zero deltas.** A blocked/failed commit
+      leaves all deltas at 0 (13.E).
+- [ ] **Dashboard empty state before onboarding** (No workspace yet) (13.B/13.G).
+- [ ] **Dashboard active-tenant state after onboarding** via the `api` facade
+      (13.G).
+- [ ] **Cleanup restored the Cloud env** and cleared temporary env/PowerShell
+      variables; `git status` clean (13.H).
+
+### 13.J. Product / Ops meaning (what Stage 3e does and does NOT prove)
+
+- **What it proves:** the **local** onboarding path is **usable end-to-end** — a
+  real local Auth user can be onboarded as owner, the committed write produces the
+  expected rows, and the owner sees the active tenant through the safe `api`
+  facade. This validates the design for **future repeatable onboarding**.
+- **What it does NOT prove:** this is **not** real Cloud/production customer
+  onboarding. **Real Cloud/prod onboarding remains a future, separately approved
+  process** and must add, at minimum: a backup, a rollback plan, an audit /
+  privacy / legal review, explicit approval, and stricter operational controls.
+  Cloud/prod onboarding steps must **not** be treated as executable from this
+  runbook.
