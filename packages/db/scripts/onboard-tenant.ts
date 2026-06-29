@@ -950,6 +950,95 @@ async function defaultRunCommitTransaction(
   });
 }
 
+// ===========================================================================
+// Stage 4E: final operator report (pure, redacted, report-only)
+// ===========================================================================
+
+/** Marker line that opens every Stage 4E final operator report section. */
+export const FINAL_REPORT_HEADER = 'final operator report:';
+
+/** Prefix on every final-report body line, so the section is easy to grep/test. */
+const REPORT_LINE_PREFIX = 'report:';
+
+/**
+ * Render the already-redacted operation counts as a single, log-safe line. The
+ * counts carry only entity/action labels and integers (e.g. `tenant.create=1`):
+ * they never contain owner identity, emails, UUIDs, or secrets.
+ */
+function formatRedactedOperationCounts(operationCounts: Record<string, number>): string {
+  const entries = Object.entries(operationCounts).map(([op, count]) => `${op}=${count}`);
+  return entries.length > 0 ? entries.join(', ') : '(none)';
+}
+
+/**
+ * Build the final operator report for a SUCCESSFUL local dry-run (Stage 4E).
+ * PURE and report-only: it reads only the already-redacted dry-run result, never
+ * mutates anything, and emits no secrets (no DATABASE_URL value, no password, no
+ * owner id/email/UUID). It deliberately never claims a commit happened — it only
+ * reminds the operator how to proceed to a (separate, fully-gated) commit.
+ */
+export function buildDryRunOperatorReport(result: CliDryRunTransactionResult): string[] {
+  return [
+    FINAL_REPORT_HEADER,
+    `${REPORT_LINE_PREFIX} mode: dry-run (validation only; nothing was persisted)`,
+    `${REPORT_LINE_PREFIX} preflight: PASS`,
+    `${REPORT_LINE_PREFIX} transaction: rolled back`,
+    `${REPORT_LINE_PREFIX} data persisted: none`,
+    `${REPORT_LINE_PREFIX} planned changes (redacted): ${formatRedactedOperationCounts(result.write.operationCounts)}`,
+    `${REPORT_LINE_PREFIX} Cloud not touched by this local dry-run`,
+    `${REPORT_LINE_PREFIX} next step: review the planned changes above; to apply them, re-run in commit mode with all explicit gates (--commit --yes --i-understand-this-writes-local-db --target local --backup-artifact <absolute path>) after taking a fresh encrypted backup`,
+  ];
+}
+
+/**
+ * Build the final operator report for a SUCCESSFUL local commit (Stage 4E).
+ * PURE and report-only: it reads only the already-redacted commit result. It
+ * accurately reflects committed vs no-op, reminds the operator to verify in the
+ * dashboard, and prints a manual cleanup checklist. The checklist references
+ * environment-variable NAMES only (never values) and this tool changes no
+ * environment itself. No secrets are emitted (no DATABASE_URL value, no
+ * password, no backup full path — only the gate status — and no owner
+ * id/email/UUID).
+ */
+export function buildCommitOperatorReport(result: CliCommitTransactionResult): string[] {
+  const lines: string[] = [
+    FINAL_REPORT_HEADER,
+    `${REPORT_LINE_PREFIX} mode: local commit`,
+    `${REPORT_LINE_PREFIX} preflight: PASS`,
+    `${REPORT_LINE_PREFIX} backup artifact gate: passed`,
+  ];
+
+  if (result.committed) {
+    lines.push(`${REPORT_LINE_PREFIX} transaction: committed`);
+    lines.push(
+      `${REPORT_LINE_PREFIX} data persisted: yes (${result.changedOperationCount} change(s), ${result.auditRowCount} audit row(s))`,
+    );
+  } else {
+    lines.push(`${REPORT_LINE_PREFIX} transaction: no-op (rolled back; tenant already onboarded)`);
+    lines.push(`${REPORT_LINE_PREFIX} data persisted: none`);
+  }
+
+  lines.push(
+    `${REPORT_LINE_PREFIX} changes (redacted): ${formatRedactedOperationCounts(result.write.operationCounts)}`,
+  );
+  lines.push(
+    `${REPORT_LINE_PREFIX} verify: open the local dashboard and confirm the tenant, location, membership, and enabled modules look correct`,
+  );
+  lines.push(`${REPORT_LINE_PREFIX} cleanup checklist (manual; this tool changes no environment):`);
+  lines.push(`${REPORT_LINE_PREFIX}   - unset DATABASE_URL`);
+  lines.push(`${REPORT_LINE_PREFIX}   - unset PGPASSWORD`);
+  lines.push(`${REPORT_LINE_PREFIX}   - unset BACKUP_ENCRYPTION_KEY`);
+  lines.push(
+    `${REPORT_LINE_PREFIX}   - clear any onboarding-specific shell/session variables you exported for this run`,
+  );
+  lines.push(
+    `${REPORT_LINE_PREFIX}   - restore .env.local to its intended Cloud/local mode if you changed it`,
+  );
+  lines.push(`${REPORT_LINE_PREFIX} Cloud not touched by this local commit`);
+
+  return lines;
+}
+
 /**
  * Onboarding CLI routing (Stage 3c-4b), free of `process.exit` and `console`
  * so it is fully unit-testable. Parses args, validates input, and guards
@@ -1125,6 +1214,10 @@ export async function runOnboardingCli(
       lines.push('no rows persisted (transaction rolled back)');
     }
     lines.push('no Cloud touched');
+    // Stage 4E: append the final, redacted operator report (committed vs no-op,
+    // dashboard verification, manual cleanup checklist). Report-only; no env is
+    // mutated and no secret is emitted.
+    lines.push(...buildCommitOperatorReport(result));
     return {
       exitCode: 0,
       path: result.committed ? 'commit-executed' : 'commit-noop',
@@ -1208,6 +1301,9 @@ export async function runOnboardingCli(
     lines.push('transaction rolled back');
     lines.push('no DB rows persisted');
     lines.push('no live commit implemented');
+    // Stage 4E: append the final, redacted operator report (rolled back, nothing
+    // persisted, planned changes, and the next-step reminder). Report-only.
+    lines.push(...buildDryRunOperatorReport(result));
     return { exitCode: 0, path: 'dry-run-transaction', mode: mode.value, lines, errors: [], connectionAttempted: true };
   }
 
@@ -1241,9 +1337,10 @@ function printError(message: string): void {
  * imports the driver, instantiates a client, or opens a connection itself.
  */
 async function main(): Promise<void> {
-  printLine('Stage 4d onboarding CLI');
+  printLine('Stage 4e onboarding CLI');
   printLine('dry-run runs preflight first, then the write path in a transaction that always rolls back');
   printLine('commit (local only, fully gated) runs preflight first, then persists changes via a single local transaction; an already-onboarded tenant is a no-op');
+  printLine('successful dry-run and commit runs end with a final, redacted operator report (no data is mutated by the report)');
 
   const outcome = await runOnboardingCli(process.argv.slice(2));
   for (const message of outcome.errors) printError(message);

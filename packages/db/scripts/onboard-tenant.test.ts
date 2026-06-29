@@ -16,9 +16,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   COMMIT_TARGET_LOCAL,
+  FINAL_REPORT_HEADER,
   RESERVED_TENANT_SLUGS,
   VALID_MODULE_CODES,
   assertLocalDatabaseUrl,
+  buildCommitOperatorReport,
+  buildDryRunOperatorReport,
   buildOnboardingPlan,
   createValidationOnlyCliSummary,
   normalizeLocationName,
@@ -1080,8 +1083,11 @@ test('runOnboardingCli: commit output leaks no email, owner id, UUID, or DATABAS
   assert.ok(!serialized.includes('@'), 'email-like token leaked');
   assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
   assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
-  assert.ok(!serialized.includes('DATABASE_URL'), 'DATABASE_URL leaked');
+  // Stage 4E: the cleanup checklist references the DATABASE_URL env var NAME, so
+  // the raw VALUE (connection string / any postgres URL) is what must be absent.
   assert.ok(!serialized.includes(LOCAL_DB_URL), 'the connection string leaked');
+  assert.ok(!serialized.includes('postgresql://'), 'a connection URL leaked');
+  assert.ok(!/DATABASE_URL\s*=/.test(serialized), 'a DATABASE_URL assignment leaked');
   // The validated backup basename must not surface in the output either.
   assert.ok(!serialized.includes(VALID_BACKUP_NAME), 'the backup filename leaked into output');
 });
@@ -1507,6 +1513,230 @@ test('onboard-tenant.ts stays driver-free and adds no service_role / Supabase cl
   assert.ok(!source.includes('SUPABASE_SERVICE_ROLE'), 'must not read the service role key');
   assert.ok(!source.includes('createServiceClient'), 'must not use the service client');
   assert.ok(!/@supabase\/supabase-js/.test(source), 'must not import the Supabase client');
+});
+
+// --- Stage 4E: final operator report ---------------------------------------
+
+test('runOnboardingCli: successful dry-run includes the final operator report', async () => {
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => fakeDryRunResult(),
+  });
+
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'dry-run-transaction');
+  assert.ok(outcome.lines.includes(FINAL_REPORT_HEADER), 'must include the final report header');
+  assert.ok(
+    outcome.lines.some((l) => /report: mode: dry-run/.test(l)),
+    'report states dry-run mode',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: transaction: rolled back/.test(l)),
+    'report states rollback',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: data persisted: none/.test(l)),
+    'report states nothing persisted',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: planned changes \(redacted\):/.test(l)),
+    'report summarizes planned changes',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: Cloud not touched/.test(l)),
+    'report states Cloud not touched',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: next step:/.test(l)),
+    'report includes a next-step reminder',
+  );
+});
+
+test('runOnboardingCli: dry-run report never implies a commit happened', async () => {
+  const outcome = await runOnboardingCli(validArgv(['--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => fakeDryRunResult(),
+  });
+
+  // The next-step reminder may mention "--commit" as guidance, but the report
+  // must never claim a commit executed or that anything was persisted.
+  assert.ok(!outcome.lines.some((l) => /committed/i.test(l)), 'must not claim a commit happened');
+  assert.ok(
+    !outcome.lines.includes('local committed onboarding executed'),
+    'must not show the commit success line',
+  );
+  assert.ok(
+    !outcome.lines.some((l) => /transaction: committed/.test(l)),
+    'must not show a committed transaction status',
+  );
+});
+
+test('runOnboardingCli: dry-run final report leaks no email, owner id, UUID, DATABASE_URL, password, or service_role', async () => {
+  const outcome = await runOnboardingCli(validArgv(['--owner-email', FAKE_OWNER_EMAIL, '--dry-run']), {
+    env: { DATABASE_URL: LOCAL_DB_URL },
+    runDryRunTransaction: async () => fakeDryRunResult({ ownerEmailProvided: true }),
+  });
+
+  assert.equal(outcome.path, 'dry-run-transaction');
+  assert.ok(outcome.lines.includes(FINAL_REPORT_HEADER));
+  const serialized = JSON.stringify(outcome);
+  assert.ok(!serialized.includes(FAKE_OWNER_EMAIL), 'owner email leaked');
+  assert.ok(!serialized.includes('@'), 'email-like token leaked');
+  assert.ok(!serialized.includes(FAKE_OWNER_UUID), 'owner auth user id leaked');
+  assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
+  assert.ok(!serialized.includes('DATABASE_URL'), 'DATABASE_URL leaked (dry-run report omits it)');
+  assert.ok(!serialized.includes(LOCAL_DB_URL), 'the connection string leaked');
+  assert.ok(!serialized.includes('service_role'), 'service_role leaked');
+});
+
+test('runOnboardingCli: successful commit includes the final operator report (committed)', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+  );
+
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'commit-executed');
+  assert.ok(outcome.lines.includes(FINAL_REPORT_HEADER), 'must include the final report header');
+  assert.ok(outcome.lines.some((l) => /report: mode: local commit/.test(l)));
+  assert.ok(
+    outcome.lines.some((l) => /report: backup artifact gate: passed/.test(l)),
+    'report includes the backup artifact gate status',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: transaction: committed/.test(l)),
+    'report states committed',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: data persisted: yes/.test(l)),
+    'report states data persisted',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: verify: open the local dashboard/.test(l)),
+    'report includes a dashboard verification reminder',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: cleanup checklist/.test(l)),
+    'report includes a cleanup checklist',
+  );
+  assert.ok(outcome.lines.some((l) => /unset DATABASE_URL/.test(l)), 'cleanup mentions DATABASE_URL');
+  assert.ok(outcome.lines.some((l) => /unset PGPASSWORD/.test(l)), 'cleanup mentions PGPASSWORD');
+  assert.ok(
+    outcome.lines.some((l) => /unset BACKUP_ENCRYPTION_KEY/.test(l)),
+    'cleanup mentions BACKUP_ENCRYPTION_KEY',
+  );
+  assert.ok(
+    outcome.lines.some((l) => /report: Cloud not touched by this local commit/.test(l)),
+    'report states Cloud not touched',
+  );
+  // The backup artifact gate STATUS is shown, but never the full path or basename.
+  const serialized = JSON.stringify(outcome);
+  assert.ok(!serialized.includes(VALID_BACKUP_NAME), 'the backup filename leaked into the report');
+  assert.ok(!serialized.includes(full), 'the full backup path leaked into the report');
+});
+
+test('runOnboardingCli: commit no-op final report states no-op and no persistence', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      commit: async () =>
+        fakeCommitResult({
+          committed: false,
+          persisted: false,
+          noop: true,
+          changedOperationCount: 0,
+          auditRowCount: 0,
+        }),
+    }),
+  );
+
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.path, 'commit-noop');
+  assert.ok(outcome.lines.includes(FINAL_REPORT_HEADER));
+  assert.ok(outcome.lines.some((l) => /report: transaction: no-op/.test(l)), 'report states a no-op');
+  assert.ok(outcome.lines.some((l) => /report: data persisted: none/.test(l)));
+  assert.ok(
+    !outcome.lines.some((l) => /report: transaction: committed/.test(l)),
+    'no-op must not claim committed',
+  );
+});
+
+test('runOnboardingCli: blocked preflight on commit shows no final operator report', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    {
+      ...spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+      buildPreflightReport: () => realBuildPreflightReport({ target: 'cloud' }),
+    },
+  );
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'preflight-blocked');
+  assert.ok(!outcome.lines.includes(FINAL_REPORT_HEADER), 'a blocked path must not show the success report');
+  assert.ok(!outcome.lines.some((l) => /report: transaction: committed/.test(l)));
+});
+
+test('runOnboardingCli: failed backup artifact gate shows no final operator report', async (t) => {
+  const dir = makeTempDir(t);
+  // Absolute, well-named, but absent → preflight passes, the fs gate then fails.
+  const missing = path.join(dir, VALID_BACKUP_NAME);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', missing]),
+    spy.deps({ env: { DATABASE_URL: LOCAL_DB_URL } }),
+  );
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'backup-artifact-error');
+  assert.equal(spy.commitCalls(), 0);
+  assert.ok(!outcome.lines.includes(FINAL_REPORT_HEADER), 'a failed gate must not show the success report');
+});
+
+test('runOnboardingCli: failed commit transaction shows no final operator report', async (t) => {
+  const dir = makeTempDir(t);
+  const full = freshBackup(dir);
+  const spy = spyCli();
+  const outcome = await runOnboardingCli(
+    commitArgv(['--i-understand-this-writes-local-db', '--target', 'local', '--backup-artifact', full]),
+    spy.deps({
+      env: { DATABASE_URL: LOCAL_DB_URL },
+      commit: async () => {
+        throw new Error('The local onboarding commit transaction failed and was rolled back.');
+      },
+    }),
+  );
+
+  assert.equal(outcome.exitCode, 1);
+  assert.equal(outcome.path, 'commit-error');
+  assert.ok(!outcome.lines.includes(FINAL_REPORT_HEADER), 'a failed commit must not show the success report');
+  assert.ok(!outcome.lines.some((l) => /report: transaction: committed/.test(l)));
+});
+
+test('buildDryRunOperatorReport / buildCommitOperatorReport are pure and leak no secrets', () => {
+  const dryReport = buildDryRunOperatorReport(fakeDryRunResult());
+  const commitReport = buildCommitOperatorReport(fakeCommitResult());
+  const serialized = JSON.stringify([dryReport, commitReport]);
+
+  assert.ok(dryReport[0] === FINAL_REPORT_HEADER);
+  assert.ok(commitReport[0] === FINAL_REPORT_HEADER);
+  // Deterministic: same input → same output.
+  assert.deepEqual(buildDryRunOperatorReport(fakeDryRunResult()), dryReport);
+  assert.deepEqual(buildCommitOperatorReport(fakeCommitResult()), commitReport);
+
+  assert.ok(!serialized.includes('@'), 'email-like token leaked');
+  assert.ok(!UUID_LIKE.test(serialized), 'a UUID-like string leaked');
+  assert.ok(!serialized.includes('postgresql://'), 'a connection URL leaked');
+  assert.ok(!/service_role/i.test(serialized), 'service_role-like token leaked');
 });
 
 // --- sanity: module code coverage ------------------------------------------
