@@ -153,6 +153,58 @@ variables**. For the first real local owner onboarding procedure (see
 - The **backup artifact path is a CLI argument** (`--backup-artifact <path>`),
   **not an environment variable**, and is never a secret.
 
+### Stage 3e (first real local owner onboarding executed) — env clarifications
+
+Stage 3e **executed** the first real local owner onboarding (see
+`docs/operations/client-onboarding-runbook.md` §13) and introduces **no new
+application environment variables**. It does surface two **local runtime
+configuration** facts and a set of **temporary** shell values that must be
+cleared after a run. As always: **names only — never values**.
+
+**Local PostgREST (Data API) runtime config — exposure boundary.** These control
+which schemas the **local** Supabase Data API exposes. The app-facing Data API
+must expose **only** the safe `api` facade (plus `public`); internal schemas
+(`core`, `audit`, `workforce`, `booking`, `ai`) must remain internal.
+
+| Variable | Purpose | Correct local value (Stage 3e) | Visibility | When |
+| -------- | ------- | ------------------------------ | ---------- | ---- |
+| `PGRST_DB_SCHEMAS` | Schemas the local Data API exposes. Must be the safe facade only. | `public,api` | public (local config) | now (local) |
+| `PGRST_DB_EXTRA_SEARCH_PATH` | Extra Postgres search path for the local Data API. | `public` | public (local config) | now (local) |
+
+> **Stale-state warning (Stage 3e finding).** A **stale/wrong** local runtime was
+> observed exposing internal schemas through the Data API:
+> `PGRST_DB_SCHEMAS=public,core,audit,workforce,booking,ai`. This is a
+> misconfiguration — internal schemas must **not** be reachable via the Data API.
+> Fix it by restarting the local Supabase stack (`npx supabase stop` then
+> `npx supabase start`) so the correct schema exposure reloads. These are
+> **local-only** runtime settings; they are not app secrets and carry no values
+> here.
+
+**Local vs Cloud web env (verify before testing).** Confirm
+`NEXT_PUBLIC_SUPABASE_URL` points at the intended target by inspecting the
+**host only** — **never print the anon key**. During Stage 3e the web env was
+temporarily pointed at local for verification and then **restored to Cloud** from
+`apps/web/.env.local.cloud-backup` (a gitignored local backup of the env file;
+not committed, contains no values in Git).
+
+**Key-type clarity (Stage 3e finding).** For local Auth + Data API checks, use
+the **anon / publishable** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` /
+`SUPABASE_ANON_KEY`). Do **not** use the **Storage Access Key** (wrong key type)
+and **never** use `SUPABASE_SERVICE_ROLE_KEY` for onboarding or app-facing reads.
+
+**Temporary shell values to clear after a run.** These are set only for the
+duration of a local onboarding run and must be cleared afterward. They hold
+sensitive material or run-specific identity and must never be committed, logged,
+or pasted into chat.
+
+- Temporary **environment variables** to clear: `DATABASE_URL`, `PGPASSWORD`,
+  `BACKUP_ENCRYPTION_KEY`.
+- Temporary **PowerShell variables** to clear: `OwnerAuthUserId`,
+  `BackupArtifact`, `TenantName`, `TenantSlug`, `LocationName`, `Modules`.
+
+After clearing, verify `git status` is clean (no env file or artifact was
+committed).
+
 ## Rules (always)
 
 - **Do not commit values.** Names only in this repo.
