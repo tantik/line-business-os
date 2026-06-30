@@ -1,4 +1,6 @@
 import { requireTenantContext } from '@/lib/tenant/context';
+import { createClient } from '@/lib/supabase/server';
+import { listTenantAdminMembers } from '@/lib/tenant/admin-members';
 import Link from 'next/link';
 import {
   ErrorState,
@@ -12,12 +14,113 @@ export const dynamic = 'force-dynamic';
 
 const sections = ['Locations management', 'Modules management', 'Members and roles', 'Billing'];
 
+type AdminMembersResult = Awaited<ReturnType<typeof listTenantAdminMembers>>;
+
+function AdminMembersSummary({ result }: { result: AdminMembersResult }) {
+  if (result.status === 'success') {
+    return (
+      <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+            <p style={{ margin: '6px 0 0', color: '#6b7280' }}>
+              Read-only membership rows available to tenant admins.
+            </p>
+          </div>
+          <span style={{ color: '#6b7280', fontSize: 14, whiteSpace: 'nowrap' }}>
+            total: {result.data.length}
+          </span>
+        </div>
+
+        {result.data.length === 0 ? (
+          <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
+            No manageable member rows available.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: '#6b7280' }}>
+                  <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Tenant</th>
+                  <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Slug</th>
+                  <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Kind</th>
+                  <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>
+                    Location scope
+                  </th>
+                  <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.data.map((member, index) => (
+                  <tr
+                    key={`${member.tenantId}:${member.locationId ?? 'all'}:${member.membershipStatus}:${index}`}
+                  >
+                    <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                      <strong>{member.tenantName}</strong>
+                    </td>
+                    <td
+                      style={{
+                        borderBottom: '1px solid #f3f4f6',
+                        padding: '10px',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {member.tenantSlug}
+                    </td>
+                    <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                      {member.tenantKind}
+                    </td>
+                    <td
+                      style={{
+                        borderBottom: '1px solid #f3f4f6',
+                        padding: '10px',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {member.locationId ?? 'All locations'}
+                    </td>
+                    <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                      {member.membershipStatus}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  if (result.status === 'unauthorized') {
+    return (
+      <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+        <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
+          Member summary is unavailable for this tenant.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
+      <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+      <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
+        Member summary could not be loaded.
+      </p>
+    </section>
+  );
+}
+
 export default async function TenantAdminPage() {
   const result = await requireTenantContext();
 
   switch (result.status) {
     case 'success': {
       const { activeTenant } = result.data;
+      const supabase = await createClient();
+      const membersResult = await listTenantAdminMembers(supabase);
 
       return (
         <main style={{ maxWidth: 960, margin: '0 auto', padding: 32 }}>
@@ -49,6 +152,8 @@ export default async function TenantAdminPage() {
               <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
             </p>
           </section>
+
+          <AdminMembersSummary result={membersResult} />
 
           <div
             style={{
