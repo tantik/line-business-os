@@ -1,4 +1,4 @@
-# Phase 1H Stage 5A — Real Customer Onboarding Design / Review
+# Phase 1H Stage 5A - Real Customer Onboarding Design / Review
 
 ## 1. Executive summary
 
@@ -30,19 +30,19 @@ Current local dry-run safety chain:
 
 ```text
 preflight
-→ local transaction
-→ rollback
-→ final operator report
+-> local transaction
+-> rollback
+-> final operator report
 ```
 
 Current local commit safety chain:
 
 ```text
 commit gates
-→ preflight
-→ backup artifact gate
-→ local commit transaction
-→ final operator report
+-> preflight
+-> backup artifact gate
+-> local commit transaction
+-> final operator report
 ```
 
 The current workflow is intentionally local-first.
@@ -335,7 +335,7 @@ For Japanese SMB customers, verification should also confirm that customer-facin
 
 ## 10. Proposed implementation roadmap
 
-### Stage 5B — local operator command hardening / docs sync
+### Stage 5B - local operator command hardening / docs sync
 
 Goal:
 
@@ -361,7 +361,7 @@ Validation required:
 * safety scan;
 * command examples reviewed for secret safety.
 
-### Stage 5C — staging / Cloud-dev onboarding design
+### Stage 5C - staging / Cloud-dev onboarding design
 
 Goal:
 
@@ -385,7 +385,7 @@ Validation required:
 * security review;
 * approval gates review.
 
-### Stage 5D — Cloud-dev read-only verification plan
+### Stage 5D - Cloud-dev read-only verification plan
 
 Goal:
 
@@ -408,7 +408,7 @@ Validation required:
 * no secrets printed;
 * internal schemas remain unexposed.
 
-### Stage 5E — Cloud-dev write path proposal, not implementation
+### Stage 5E - Cloud-dev write path proposal, not implementation
 
 Goal:
 
@@ -434,7 +434,7 @@ Validation required:
 * audit plan;
 * tenant isolation test plan.
 
-### Stage 5F — production onboarding approval checklist
+### Stage 5F - production onboarding approval checklist
 
 Goal:
 
@@ -459,7 +459,7 @@ Validation required:
 * customer confirmation item;
 * operator sign-off item.
 
-### Stage 5G — first real customer onboarding runbook
+### Stage 5G - first real customer onboarding runbook
 
 Goal:
 
