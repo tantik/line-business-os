@@ -1,4 +1,5 @@
 import { requireTenantContext } from '@/lib/tenant/context';
+import Link from 'next/link';
 import {
   ErrorState,
   MissingConfigState,
@@ -25,6 +26,18 @@ export default async function TenantAdminPage() {
             <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
               Tenant management tools will be enabled in later phases.
             </p>
+            <Link
+              href="/dashboard"
+              style={{
+                display: 'inline-block',
+                marginTop: 12,
+                color: '#111827',
+                fontSize: 14,
+                textDecoration: 'underline',
+              }}
+            >
+              Back to dashboard
+            </Link>
           </header>
 
           <section
