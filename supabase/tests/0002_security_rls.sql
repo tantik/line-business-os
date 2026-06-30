@@ -72,10 +72,11 @@ select has_trigger(
   'enforce_platform_staff_immutable trigger is installed on core.users'
 );
 
--- --- Narrow authenticated grants only (Phase 1D, Option T1) -----------------
--- Phase 1D (migration 0013) opens the first direct-DB access surface for the
--- `authenticated` role: USAGE on schema core + SELECT on exactly two core
--- tables. RLS remains the security boundary; these grants only let RLS engage.
+-- --- Narrow authenticated grants only (Phase 1D + app facade reads) ---------
+-- Phase 1D (migration 0013) opened the first direct-DB access surface for the
+-- `authenticated` role: USAGE on schema core + SELECT on core.tenants and
+-- core.tenant_memberships. Later app-facing security-invoker views add SELECT
+-- on core.locations and core.tenant_modules so RLS can engage as the caller.
 -- `anon` still gets NOTHING, and no other business table/schema is opened.
 
 -- anon: no table grants on any business schema (unchanged no-grants posture).
@@ -100,7 +101,9 @@ select ok(
   'authenticated has USAGE on schema core'
 );
 
--- authenticated: SELECT on core.tenants and core.tenant_memberships.
+-- authenticated: SELECT on the exact core tables needed by app-facing facade
+-- views. These are RLS-protected read grants only; core remains internal to the
+-- Data API exposure list.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
@@ -119,8 +122,26 @@ select is(
   1,
   'authenticated has SELECT on core.tenant_memberships'
 );
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'core' and table_name = 'locations'
+      and privilege_type = 'SELECT'),
+  1,
+  'authenticated has SELECT on core.locations'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'core' and table_name = 'tenant_modules'
+      and privilege_type = 'SELECT'),
+  1,
+  'authenticated has SELECT on core.tenant_modules'
+);
 
--- authenticated: NO grants beyond those exact two SELECTs on business schemas.
+-- authenticated: NO grants beyond those exact SELECTs on business schemas.
 -- This catches accidental broadening (extra tables, INSERT/UPDATE/DELETE, etc.).
 select is(
   (select count(*)::int
@@ -129,11 +150,11 @@ select is(
       and table_schema in ('core', 'audit', 'workforce', 'booking', 'ai')
       and not (
         table_schema = 'core'
-        and table_name in ('tenants', 'tenant_memberships')
+        and table_name in ('tenants', 'tenant_memberships', 'locations', 'tenant_modules')
         and privilege_type = 'SELECT'
       )),
   0,
-  'authenticated has no business-table grants beyond the two intended SELECTs'
+  'authenticated has no business-table grants beyond the intended read SELECTs'
 );
 
 -- Product schemas (workforce/booking/ai) and audit expose no client grants.

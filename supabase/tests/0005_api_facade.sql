@@ -5,6 +5,7 @@
 --
 -- Proves the production-safe facade added by 0015_api_facade.sql:
 --   * schema `api` and the view `api.my_tenant_memberships` exist;
+--   * dashboard facade views for tenant locations/modules exist;
 --   * the view is security_invoker (RLS in core is enforced as the caller);
 --   * `api` contains NO SECURITY DEFINER function;
 --   * `anon` gets nothing on `api` (no USAGE, no SELECT) - fail-closed;
@@ -124,9 +125,59 @@ insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('c3333333-3333-3333-3333-333333333333', '0c0c0c0c-0000-0000-0000-000000000004', 'suspended'),
   ('d4444444-4444-4444-4444-444444444444', '0c0c0c0c-0000-0000-0000-000000000004', 'revoked');
 
+insert into core.locations (id, tenant_id, name, timezone, is_active) values
+  ('a1000000-0000-0000-0000-000000000001', 'a1111111-1111-1111-1111-111111111111', 'Tenant A Main', 'Asia/Tokyo', true),
+  ('a1000000-0000-0000-0000-000000000002', 'a1111111-1111-1111-1111-111111111111', 'Tenant A Closed', 'Asia/Tokyo', false),
+  ('b2000000-0000-0000-0000-000000000001', 'b2222222-2222-2222-2222-222222222222', 'Tenant B Main', 'Asia/Tokyo', true);
+
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('a1111111-1111-1111-1111-111111111111', 'workforce', true),
+  ('a1111111-1111-1111-1111-111111111111', 'booking', false),
+  ('b2222222-2222-2222-2222-222222222222', 'booking', true);
+
 -- --- Structural: schema + view exist --------------------------------------
 select has_schema('api', 'schema api exists');
 select has_view('api', 'my_tenant_memberships', 'api.my_tenant_memberships view exists');
+select has_view('api', 'my_tenant_locations', 'api.my_tenant_locations view exists');
+select has_view('api', 'my_tenant_modules', 'api.my_tenant_modules view exists');
+
+select is(
+  (select array_agg(column_name::text order by ordinal_position)
+     from information_schema.columns
+    where table_schema = 'api'
+      and table_name = 'my_tenant_locations'),
+  array['tenant_id', 'location_id', 'location_name', 'timezone', 'is_active']::text[],
+  'api.my_tenant_locations exposes only approved columns'
+);
+select is(
+  (select array_agg(column_name::text order by ordinal_position)
+     from information_schema.columns
+    where table_schema = 'api'
+      and table_name = 'my_tenant_modules'),
+  array['tenant_id', 'module', 'is_enabled']::text[],
+  'api.my_tenant_modules exposes only approved columns'
+);
+
+select is(
+  (select count(*)::int
+     from information_schema.columns
+    where table_schema = 'api'
+      and table_name in ('my_tenant_locations', 'my_tenant_modules')
+      and column_name in (
+        'address_encrypted',
+        'metadata',
+        'config',
+        'id',
+        'user_id',
+        'email',
+        'email_encrypted',
+        'auth_id',
+        'created_at',
+        'updated_at'
+      )),
+  0,
+  'dashboard facade views expose no PII, config, raw row ids, user ids, or timestamps'
+);
 
 -- --- The view is security_invoker -----------------------------------------
 -- reloptions stores the WITH option as text (e.g. {security_invoker=true}); a
@@ -142,6 +193,30 @@ select ok(
       and lower(o.opt) = 'security_invoker=true'
   ),
   'api.my_tenant_memberships is a security_invoker view'
+);
+select ok(
+  exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral unnest(c.reloptions) o(opt)
+    where n.nspname = 'api'
+      and c.relname = 'my_tenant_locations'
+      and lower(o.opt) = 'security_invoker=true'
+  ),
+  'api.my_tenant_locations is a security_invoker view'
+);
+select ok(
+  exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral unnest(c.reloptions) o(opt)
+    where n.nspname = 'api'
+      and c.relname = 'my_tenant_modules'
+      and lower(o.opt) = 'security_invoker=true'
+  ),
+  'api.my_tenant_modules is a security_invoker view'
 );
 
 -- --- No SECURITY DEFINER function in api -----------------------------------
@@ -164,6 +239,14 @@ select ok(
   not has_table_privilege('anon', 'api.my_tenant_memberships', 'SELECT'),
   'anon cannot SELECT api.my_tenant_memberships'
 );
+select ok(
+  not has_table_privilege('anon', 'api.my_tenant_locations', 'SELECT'),
+  'anon cannot SELECT api.my_tenant_locations'
+);
+select ok(
+  not has_table_privilege('anon', 'api.my_tenant_modules', 'SELECT'),
+  'anon cannot SELECT api.my_tenant_modules'
+);
 
 -- --- authenticated has exactly the read surface ----------------------------
 select ok(
@@ -173,6 +256,14 @@ select ok(
 select ok(
   has_table_privilege('authenticated', 'api.my_tenant_memberships', 'SELECT'),
   'authenticated can SELECT api.my_tenant_memberships'
+);
+select ok(
+  has_table_privilege('authenticated', 'api.my_tenant_locations', 'SELECT'),
+  'authenticated can SELECT api.my_tenant_locations'
+);
+select ok(
+  has_table_privilege('authenticated', 'api.my_tenant_modules', 'SELECT'),
+  'authenticated can SELECT api.my_tenant_modules'
 );
 
 -- --- authenticated cannot write through the view ---------------------------
@@ -187,6 +278,30 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'api.my_tenant_memberships', 'DELETE'),
   'authenticated cannot DELETE api.my_tenant_memberships'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_locations', 'INSERT'),
+  'authenticated cannot INSERT api.my_tenant_locations'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_locations', 'UPDATE'),
+  'authenticated cannot UPDATE api.my_tenant_locations'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_locations', 'DELETE'),
+  'authenticated cannot DELETE api.my_tenant_locations'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_modules', 'INSERT'),
+  'authenticated cannot INSERT api.my_tenant_modules'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_modules', 'UPDATE'),
+  'authenticated cannot UPDATE api.my_tenant_modules'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_modules', 'DELETE'),
+  'authenticated cannot DELETE api.my_tenant_modules'
 );
 
 -- --- Behavioral: Alice reads only her own active membership ----------------
@@ -233,6 +348,32 @@ select is(
   0,
   'Alice cannot see Tenant B through the facade'
 );
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_locations'),
+  2,
+  'Alice sees only Tenant A locations through the facade'
+);
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from api.my_tenant_locations
+          where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
+  0,
+  'Alice cannot see Tenant B locations through the facade'
+);
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_modules'),
+  2,
+  'Alice sees only Tenant A modules through the facade'
+);
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from api.my_tenant_modules
+          where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
+  0,
+  'Alice cannot see Tenant B modules through the facade'
+);
 
 -- --- Behavioral: positive path through the Cloud-style JSON claims GUC ------
 -- Regression guard for Phase 1E Stage 2 (migration 0016). On Supabase Cloud the
@@ -274,6 +415,18 @@ select is(
   0,
   'JSON claims: empty sub resolves to NULL identity and sees zero facade rows'
 );
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_locations'),
+  2,
+  'JSON claims: Alice sees Tenant A locations through the facade'
+);
+select is(
+  pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_modules'),
+  2,
+  'JSON claims: Alice sees Tenant A modules through the facade'
+);
 
 -- --- Behavioral: Bob reads only his own active membership ------------------
 select is(
@@ -304,6 +457,18 @@ select is(
   'a1111111-1111-1111-1111-111111111111',
   'Multi''s only facade row is the active Tenant A membership'
 );
+select is(
+  pg_temp.as_auth_count('0c0c0c0c-0000-0000-0000-000000000004',
+    'select count(*)::int from api.my_tenant_locations'),
+  2,
+  'Multi sees locations only for the active Tenant A membership'
+);
+select is(
+  pg_temp.as_auth_count('0c0c0c0c-0000-0000-0000-000000000004',
+    'select count(*)::int from api.my_tenant_modules'),
+  2,
+  'Multi sees modules only for the active Tenant A membership'
+);
 
 -- --- Behavioral: no JWT sub -> zero rows (fail-closed) ---------------------
 select is(
@@ -311,6 +476,18 @@ select is(
     'select count(*)::int from api.my_tenant_memberships'),
   0,
   'authenticated with no JWT sub sees zero rows via the facade'
+);
+select is(
+  pg_temp.as_auth_count('',
+    'select count(*)::int from api.my_tenant_locations'),
+  0,
+  'authenticated with no JWT sub sees zero location rows via the facade'
+);
+select is(
+  pg_temp.as_auth_count('',
+    'select count(*)::int from api.my_tenant_modules'),
+  0,
+  'authenticated with no JWT sub sees zero module rows via the facade'
 );
 
 select * from finish();
