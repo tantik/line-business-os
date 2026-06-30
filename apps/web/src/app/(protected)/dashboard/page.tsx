@@ -4,6 +4,7 @@ import { TenantSwitcher } from '@/components/tenant-switcher';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listTenantModules } from '@/lib/tenant/modules';
+import type { ReactNode } from 'react';
 import {
   ErrorState,
   MissingConfigState,
@@ -36,11 +37,107 @@ function SignOutButton() {
   );
 }
 
+function DashboardCard({ children }: { children: ReactNode }) {
+  return (
+    <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
+      {children}
+    </section>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+  meta,
+}: {
+  title: string;
+  description?: string;
+  meta?: ReactNode;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{title}</h2>
+        {description ? <p style={{ margin: '6px 0 0', color: '#6b7280' }}>{description}</p> : null}
+      </div>
+      {meta ? <span style={{ color: '#6b7280', fontSize: 14, whiteSpace: 'nowrap' }}>{meta}</span> : null}
+    </div>
+  );
+}
+
+function StatusBadge({ tone, children }: { tone: 'active' | 'inactive' | 'neutral'; children: ReactNode }) {
+  const colors = {
+    active: { background: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
+    inactive: { background: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+    neutral: { background: '#eef2ff', color: '#4338ca', border: '#c7d2fe' },
+  }[tone];
+
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 8px',
+        border: `1px solid ${colors.border}`,
+        borderRadius: 999,
+        background: colors.background,
+        color: colors.color,
+        fontSize: 12,
+        lineHeight: 1.5,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function EmptyStateText({ children }: { children: ReactNode }) {
+  return <p style={{ margin: '12px 0 0', color: '#6b7280' }}>{children}</p>;
+}
+
+function AdminActionsPreview() {
+  const actions = ['Manage locations', 'Manage modules', 'Invite members', 'Billing'];
+
+  return (
+    <DashboardCard>
+      <SectionHeader
+        title="Admin actions"
+        description="Management actions will be enabled in later phases."
+      />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: 8,
+          marginTop: 14,
+        }}
+      >
+        {actions.map((action) => (
+          <button
+            key={action}
+            type="button"
+            disabled
+            style={{
+              padding: '8px 12px',
+              background: '#f9fafb',
+              color: '#9ca3af',
+              border: '1px solid #e5e7eb',
+              borderRadius: 6,
+              fontSize: 14,
+              cursor: 'not-allowed',
+            }}
+          >
+            {action}
+          </button>
+        ))}
+      </div>
+    </DashboardCard>
+  );
+}
+
 /**
- * Minimal authenticated dashboard scaffold. It demonstrates the foundation
- * flow (auth -> membership -> active tenant) and renders the matching safe state
- * for every outcome. It hosts NO product logic - Workforce/Booking/AI modules
- * are not implemented here.
+ * Read-only tenant admin shell foundation. It demonstrates the protected
+ * foundation flow and safe dashboard summaries without enabling management
+ * actions or product module workflows yet.
  */
 export default async function DashboardPage() {
   const result = await requireTenantContext();
@@ -65,20 +162,20 @@ export default async function DashboardPage() {
       const enabledModuleCount = activeModules.filter((module) => module.isEnabled).length;
 
       return (
-        <main style={{ maxWidth: 960, margin: '0 auto', padding: 32 }}>
+        <main style={{ maxWidth: 1040, margin: '0 auto', padding: 32 }}>
           <div
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
           >
-            <h1 style={{ margin: 0 }}>Dashboard</h1>
+            <div>
+              <h1 style={{ margin: 0 }}>Dashboard</h1>
+              <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
+                Read-only tenant administration shell. Management actions will mount here in later phases.
+              </p>
+            </div>
             <SignOutButton />
           </div>
-          <p style={{ color: '#6b7280' }}>
-            Authenticated foundation scaffold. Modules will mount here in later phases.
-          </p>
-          <section
-            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
-          >
-            <h2 style={{ marginTop: 0, fontSize: 16 }}>Active tenant</h2>
+          <DashboardCard>
+            <SectionHeader title="Active tenant overview" />
             <p style={{ margin: 0 }}>
               <strong>{activeTenant.tenantName}</strong>{' '}
               <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
@@ -108,11 +205,10 @@ export default async function DashboardPage() {
                 <dd style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{activeLocationScope}</dd>
               </div>
             </dl>
-          </section>
-          <section
-            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
-          >
-            <h2 style={{ marginTop: 0, fontSize: 16 }}>Memberships</h2>
+          </DashboardCard>
+          <AdminActionsPreview />
+          <DashboardCard>
+            <SectionHeader title="Memberships" meta={`count: ${memberships.length}`} />
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
@@ -162,7 +258,7 @@ export default async function DashboardPage() {
                           {membership.locationId ?? 'tenant-wide'}
                         </td>
                         <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                          {isActive ? 'yes' : ''}
+                          {isActive ? <StatusBadge tone="neutral">active</StatusBadge> : ''}
                         </td>
                       </tr>
                     );
@@ -170,16 +266,9 @@ export default async function DashboardPage() {
                 </tbody>
               </table>
             </div>
-          </section>
-          <section
-            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
-          >
-            <div
-              style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}
-            >
-              <h2 style={{ margin: 0, fontSize: 16 }}>Locations</h2>
-              <span style={{ color: '#6b7280', fontSize: 14 }}>count: {activeLocations.length}</span>
-            </div>
+          </DashboardCard>
+          <DashboardCard>
+            <SectionHeader title="Locations" meta={`count: ${activeLocations.length}`} />
             {locationsResult.status === 'success' ? (
               activeLocations.length > 0 ? (
                 <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -201,7 +290,9 @@ export default async function DashboardPage() {
                             {location.timezone}
                           </td>
                           <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                            {location.isActive ? 'active' : 'inactive'}
+                            <StatusBadge tone={location.isActive ? 'active' : 'inactive'}>
+                              {location.isActive ? 'active' : 'inactive'}
+                            </StatusBadge>
                           </td>
                         </tr>
                       ))}
@@ -209,27 +300,17 @@ export default async function DashboardPage() {
                   </table>
                 </div>
               ) : (
-                <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
-                  No locations are available for this tenant yet.
-                </p>
+                <EmptyStateText>No locations are available for this tenant yet.</EmptyStateText>
               )
             ) : (
-              <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
-                Locations are temporarily unavailable.
-              </p>
+              <EmptyStateText>Locations are temporarily unavailable.</EmptyStateText>
             )}
-          </section>
-          <section
-            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
-          >
-            <div
-              style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}
-            >
-              <h2 style={{ margin: 0, fontSize: 16 }}>Modules</h2>
-              <span style={{ color: '#6b7280', fontSize: 14 }}>
-                total: {activeModules.length} | enabled: {enabledModuleCount}
-              </span>
-            </div>
+          </DashboardCard>
+          <DashboardCard>
+            <SectionHeader
+              title="Modules"
+              meta={`total: ${activeModules.length} | enabled: ${enabledModuleCount}`}
+            />
             {modulesResult.status === 'success' ? (
               activeModules.length > 0 ? (
                 <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -247,7 +328,9 @@ export default async function DashboardPage() {
                             <strong>{module.module}</strong>
                           </td>
                           <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                            {module.isEnabled ? 'enabled' : 'disabled'}
+                            <StatusBadge tone={module.isEnabled ? 'active' : 'inactive'}>
+                              {module.isEnabled ? 'enabled' : 'disabled'}
+                            </StatusBadge>
                           </td>
                         </tr>
                       ))}
@@ -255,16 +338,12 @@ export default async function DashboardPage() {
                   </table>
                 </div>
               ) : (
-                <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
-                  No modules are available for this tenant yet.
-                </p>
+                <EmptyStateText>No modules are available for this tenant yet.</EmptyStateText>
               )
             ) : (
-              <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
-                Modules are temporarily unavailable.
-              </p>
+              <EmptyStateText>Modules are temporarily unavailable.</EmptyStateText>
             )}
-          </section>
+          </DashboardCard>
           <TenantSwitcher memberships={memberships} activeTenantId={activeTenant.tenantId} />
         </main>
       );
