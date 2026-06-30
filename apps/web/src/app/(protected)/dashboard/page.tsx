@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listTenantModules } from '@/lib/tenant/modules';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import {
   ErrorState,
   MissingConfigState,
@@ -103,6 +104,22 @@ function AdminActionsPreview() {
         title="Admin actions"
         description="Management actions will be enabled in later phases."
       />
+      <Link
+        href="/dashboard/admin"
+        style={{
+          display: 'inline-block',
+          marginTop: 12,
+          padding: '8px 12px',
+          background: '#fff',
+          color: '#111827',
+          border: '1px solid #d1d5db',
+          borderRadius: 6,
+          fontSize: 14,
+          textDecoration: 'none',
+        }}
+      >
+        Open tenant admin
+      </Link>
       <div
         style={{
           display: 'grid',
