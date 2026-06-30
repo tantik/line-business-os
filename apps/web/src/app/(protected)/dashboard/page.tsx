@@ -1,6 +1,9 @@
 import { requireTenantContext } from '@/lib/tenant/context';
 import { signOut } from '@/lib/auth/actions';
 import { TenantSwitcher } from '@/components/tenant-switcher';
+import { createClient } from '@/lib/supabase/server';
+import { listTenantLocations } from '@/lib/tenant/locations';
+import { listTenantModules } from '@/lib/tenant/modules';
 import {
   ErrorState,
   MissingConfigState,
@@ -46,6 +49,21 @@ export default async function DashboardPage() {
     case 'success': {
       const { activeTenant, memberships } = result.data;
       const activeLocationScope = activeTenant.locationId ?? 'tenant-wide';
+      const supabase = await createClient();
+      const [locationsResult, modulesResult] = await Promise.all([
+        listTenantLocations(supabase),
+        listTenantModules(supabase),
+      ]);
+      const activeLocations =
+        locationsResult.status === 'success'
+          ? locationsResult.data.filter((location) => location.tenantId === activeTenant.tenantId)
+          : [];
+      const activeModules =
+        modulesResult.status === 'success'
+          ? modulesResult.data.filter((module) => module.tenantId === activeTenant.tenantId)
+          : [];
+      const enabledModuleCount = activeModules.filter((module) => module.isEnabled).length;
+
       return (
         <main style={{ maxWidth: 960, margin: '0 auto', padding: 32 }}>
           <div
@@ -152,6 +170,100 @@ export default async function DashboardPage() {
                 </tbody>
               </table>
             </div>
+          </section>
+          <section
+            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
+          >
+            <div
+              style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}
+            >
+              <h2 style={{ margin: 0, fontSize: 16 }}>Locations</h2>
+              <span style={{ color: '#6b7280', fontSize: 14 }}>count: {activeLocations.length}</span>
+            </div>
+            {locationsResult.status === 'success' ? (
+              activeLocations.length > 0 ? (
+                <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                  <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: '#6b7280' }}>
+                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Location</th>
+                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Timezone</th>
+                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeLocations.map((location) => (
+                        <tr key={location.locationId}>
+                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                            <strong>{location.locationName}</strong>
+                          </td>
+                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                            {location.timezone}
+                          </td>
+                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                            {location.isActive ? 'active' : 'inactive'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
+                  No locations are available for this tenant yet.
+                </p>
+              )
+            ) : (
+              <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
+                Locations are temporarily unavailable.
+              </p>
+            )}
+          </section>
+          <section
+            style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
+          >
+            <div
+              style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}
+            >
+              <h2 style={{ margin: 0, fontSize: 16 }}>Modules</h2>
+              <span style={{ color: '#6b7280', fontSize: 14 }}>
+                total: {activeModules.length} | enabled: {enabledModuleCount}
+              </span>
+            </div>
+            {modulesResult.status === 'success' ? (
+              activeModules.length > 0 ? (
+                <div style={{ overflowX: 'auto', marginTop: 12 }}>
+                  <table style={{ width: '100%', minWidth: 360, borderCollapse: 'collapse', fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: '#6b7280' }}>
+                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Module</th>
+                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeModules.map((module) => (
+                        <tr key={`${module.tenantId}:${module.module}`}>
+                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                            <strong>{module.module}</strong>
+                          </td>
+                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                            {module.isEnabled ? 'enabled' : 'disabled'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
+                  No modules are available for this tenant yet.
+                </p>
+              )
+            ) : (
+              <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
+                Modules are temporarily unavailable.
+              </p>
+            )}
           </section>
           <TenantSwitcher memberships={memberships} activeTenantId={activeTenant.tenantId} />
         </main>
