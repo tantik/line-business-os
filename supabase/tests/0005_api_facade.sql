@@ -113,7 +113,9 @@ insert into core.users (id, display_name) values
   ('0a0a0a0a-0000-0000-0000-000000000001', 'Alice (active A)'),
   ('0a0a0a0a-0000-0000-0000-000000000002', 'Bob (active A)'),
   ('0b0b0b0b-0000-0000-0000-000000000003', 'Carol (active B)'),
-  ('0c0c0c0c-0000-0000-0000-000000000004', 'Multi (mixed statuses)');
+  ('0c0c0c0c-0000-0000-0000-000000000004', 'Multi (mixed statuses)'),
+  ('0d0d0d0d-0000-0000-0000-000000000005', 'Manager (member invite A)'),
+  ('0e0e0e0e-0000-0000-0000-000000000006', 'Pending (invited A)');
 
 insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('a1111111-1111-1111-1111-111111111111', '0a0a0a0a-0000-0000-0000-000000000001', 'active'),
@@ -123,7 +125,19 @@ insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('a1111111-1111-1111-1111-111111111111', '0c0c0c0c-0000-0000-0000-000000000004', 'active'),
   ('b2222222-2222-2222-2222-222222222222', '0c0c0c0c-0000-0000-0000-000000000004', 'invited'),
   ('c3333333-3333-3333-3333-333333333333', '0c0c0c0c-0000-0000-0000-000000000004', 'suspended'),
-  ('d4444444-4444-4444-4444-444444444444', '0c0c0c0c-0000-0000-0000-000000000004', 'revoked');
+  ('d4444444-4444-4444-4444-444444444444', '0c0c0c0c-0000-0000-0000-000000000004', 'revoked'),
+  -- Admin facade fixtures: a manager with core.member.invite in Tenant A and
+  -- an invited co-member whose identity/PII must still not be exposed.
+  ('a1111111-1111-1111-1111-111111111111', '0d0d0d0d-0000-0000-0000-000000000005', 'active'),
+  ('a1111111-1111-1111-1111-111111111111', '0e0e0e0e-0000-0000-0000-000000000006', 'invited');
+
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  (
+    'a1111111-1111-1111-1111-111111111111',
+    '0d0d0d0d-0000-0000-0000-000000000005',
+    '00000000-0000-0000-0000-000000000004',
+    null
+  );
 
 insert into core.locations (id, tenant_id, name, timezone, is_active) values
   ('a1000000-0000-0000-0000-000000000001', 'a1111111-1111-1111-1111-111111111111', 'Tenant A Main', 'Asia/Tokyo', true),
@@ -140,6 +154,7 @@ select has_schema('api', 'schema api exists');
 select has_view('api', 'my_tenant_memberships', 'api.my_tenant_memberships view exists');
 select has_view('api', 'my_tenant_locations', 'api.my_tenant_locations view exists');
 select has_view('api', 'my_tenant_modules', 'api.my_tenant_modules view exists');
+select has_view('api', 'my_tenant_admin_members', 'api.my_tenant_admin_members view exists');
 
 select is(
   (select array_agg(column_name::text order by ordinal_position)
@@ -156,6 +171,21 @@ select is(
       and table_name = 'my_tenant_modules'),
   array['tenant_id', 'module', 'is_enabled']::text[],
   'api.my_tenant_modules exposes only approved columns'
+);
+select is(
+  (select array_agg(column_name::text order by ordinal_position)
+     from information_schema.columns
+    where table_schema = 'api'
+      and table_name = 'my_tenant_admin_members'),
+  array[
+    'tenant_id',
+    'tenant_slug',
+    'tenant_name',
+    'tenant_kind',
+    'location_id',
+    'membership_status'
+  ]::text[],
+  'api.my_tenant_admin_members exposes only approved columns'
 );
 
 select is(
@@ -177,6 +207,35 @@ select is(
       )),
   0,
   'dashboard facade views expose no PII, config, raw row ids, user ids, or timestamps'
+);
+
+select is(
+  (select count(*)::int
+     from information_schema.columns
+    where table_schema = 'api'
+      and table_name = 'my_tenant_admin_members'
+      and column_name in (
+        'id',
+        'user_id',
+        'invited_by',
+        'created_at',
+        'updated_at',
+        'email_encrypted',
+        'email_hash',
+        'phone_encrypted',
+        'phone_hash',
+        'display_name',
+        'is_platform_staff',
+        'role_id',
+        'role_key',
+        'role_name',
+        'role_keys',
+        'role_names',
+        'config',
+        'metadata'
+      )),
+  0,
+  'api.my_tenant_admin_members exposes no forbidden member, PII, role, config, metadata, or timestamp columns'
 );
 
 -- --- The view is security_invoker -----------------------------------------
@@ -218,6 +277,18 @@ select ok(
   ),
   'api.my_tenant_modules is a security_invoker view'
 );
+select ok(
+  exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral unnest(c.reloptions) o(opt)
+    where n.nspname = 'api'
+      and c.relname = 'my_tenant_admin_members'
+      and lower(o.opt) = 'security_invoker=true'
+  ),
+  'api.my_tenant_admin_members is a security_invoker view'
+);
 
 -- --- No SECURITY DEFINER function in api -----------------------------------
 select is(
@@ -247,6 +318,14 @@ select ok(
   not has_table_privilege('anon', 'api.my_tenant_modules', 'SELECT'),
   'anon cannot SELECT api.my_tenant_modules'
 );
+select ok(
+  not has_table_privilege('anon', 'api.my_tenant_admin_members', 'SELECT'),
+  'anon cannot SELECT api.my_tenant_admin_members'
+);
+select ok(
+  not has_table_privilege('public', 'api.my_tenant_admin_members', 'SELECT'),
+  'public cannot SELECT api.my_tenant_admin_members'
+);
 
 -- --- authenticated has exactly the read surface ----------------------------
 select ok(
@@ -264,6 +343,10 @@ select ok(
 select ok(
   has_table_privilege('authenticated', 'api.my_tenant_modules', 'SELECT'),
   'authenticated can SELECT api.my_tenant_modules'
+);
+select ok(
+  has_table_privilege('authenticated', 'api.my_tenant_admin_members', 'SELECT'),
+  'authenticated can SELECT api.my_tenant_admin_members'
 );
 
 -- --- authenticated cannot write through the view ---------------------------
@@ -302,6 +385,18 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'api.my_tenant_modules', 'DELETE'),
   'authenticated cannot DELETE api.my_tenant_modules'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_admin_members', 'INSERT'),
+  'authenticated cannot INSERT api.my_tenant_admin_members'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_admin_members', 'UPDATE'),
+  'authenticated cannot UPDATE api.my_tenant_admin_members'
+);
+select ok(
+  not has_table_privilege('authenticated', 'api.my_tenant_admin_members', 'DELETE'),
+  'authenticated cannot DELETE api.my_tenant_admin_members'
 );
 
 -- --- Behavioral: Alice reads only her own active membership ----------------
@@ -375,6 +470,50 @@ select is(
   'Alice cannot see Tenant B modules through the facade'
 );
 
+-- --- Behavioral: tenant admin members facade is manager/admin scoped -------
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    'select count(*)::int from api.my_tenant_admin_members'),
+  0,
+  'regular non-manager Alice sees no tenant admin member rows'
+);
+select is(
+  pg_temp.as_auth_count('0a0a0a0a-0000-0000-0000-000000000001',
+    $q$ select count(*)::int from api.my_tenant_admin_members
+          where tenant_id = 'a1111111-1111-1111-1111-111111111111' $q$),
+  0,
+  'regular non-manager Alice cannot see co-member rows in Tenant A through the admin facade'
+);
+select is(
+  pg_temp.as_auth_count('0d0d0d0d-0000-0000-0000-000000000005',
+    'select count(*)::int from api.my_tenant_admin_members'),
+  5,
+  'user with core.member.invite sees managed tenant membership rows'
+);
+select is(
+  pg_temp.as_auth_count('0d0d0d0d-0000-0000-0000-000000000005',
+    $q$ select count(*)::int from api.my_tenant_admin_members
+          where tenant_id = 'a1111111-1111-1111-1111-111111111111'
+            and membership_status = 'active' $q$),
+  4,
+  'tenant admin members facade exposes active managed membership statuses only as status labels'
+);
+select is(
+  pg_temp.as_auth_count('0d0d0d0d-0000-0000-0000-000000000005',
+    $q$ select count(*)::int from api.my_tenant_admin_members
+          where tenant_id = 'a1111111-1111-1111-1111-111111111111'
+            and membership_status = 'invited' $q$),
+  1,
+  'tenant admin members facade can include invited managed membership status without identity fields'
+);
+select is(
+  pg_temp.as_auth_count('0d0d0d0d-0000-0000-0000-000000000005',
+    $q$ select count(*)::int from api.my_tenant_admin_members
+          where tenant_id = 'b2222222-2222-2222-2222-222222222222' $q$),
+  0,
+  'tenant admin members facade denies cross-tenant rows'
+);
+
 -- --- Behavioral: positive path through the Cloud-style JSON claims GUC ------
 -- Regression guard for Phase 1E Stage 2 (migration 0016). On Supabase Cloud the
 -- JWT subject arrives via the JSON GUC request.jwt.claims, NOT the legacy
@@ -414,6 +553,12 @@ select is(
     'select count(*)::int from api.my_tenant_memberships'),
   0,
   'JSON claims: empty sub resolves to NULL identity and sees zero facade rows'
+);
+select is(
+  pg_temp.as_auth_count_claims('',
+    'select count(*)::int from api.my_tenant_admin_members'),
+  0,
+  'JSON claims: empty sub resolves to NULL identity and sees zero tenant admin member rows'
 );
 select is(
   pg_temp.as_auth_count_claims('0a0a0a0a-0000-0000-0000-000000000001',
@@ -488,6 +633,12 @@ select is(
     'select count(*)::int from api.my_tenant_modules'),
   0,
   'authenticated with no JWT sub sees zero module rows via the facade'
+);
+select is(
+  pg_temp.as_auth_count('',
+    'select count(*)::int from api.my_tenant_admin_members'),
+  0,
+  'authenticated with no JWT sub sees zero tenant admin member rows via the facade'
 );
 
 select * from finish();
