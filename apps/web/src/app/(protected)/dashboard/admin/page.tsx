@@ -12,7 +12,24 @@ import {
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-const sections = ['Locations management', 'Modules management', 'Members and roles', 'Billing'];
+const sectionCards = [
+  {
+    title: 'Локации / точки бизнеса',
+    description: 'Управление физическими адресами, филиалами и бизнес-точками. Действия в данный момент отключены и будут добавлены в следующих фазах.',
+  },
+  {
+    title: 'Модули SaaS',
+    description: 'Активация дополнительных модулей, плагинов и интеграций для выбранного клиента / tenant. Действия в данный момент отключены и будут добавлены в следующих фазах.',
+  },
+  {
+    title: 'Участники и роли',
+    description: 'Управление доступами, добавление новых сотрудников и гибкая настройка ролей. Действия в данный момент отключены и будут добавлены в следующих фазах.',
+  },
+  {
+    title: 'Billing / подписки',
+    description: 'Управление подпиской, просмотр счетов, лимитов и тарифов. Действия в данный момент отключены и будут добавлены в следующих фазах.',
+  },
+];
 
 type AdminMembersResult = Awaited<ReturnType<typeof listTenantAdminMembers>>;
 
@@ -22,19 +39,19 @@ function AdminMembersSummary({ result }: { result: AdminMembersResult }) {
       <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Доступные участники</h2>
             <p style={{ margin: '6px 0 0', color: '#6b7280' }}>
-              Read-only membership rows available to tenant admins.
+              Список только для чтения: участники текущего tenant, полученный через безопасный API-фасад. Действия управления будут доступны позже.
             </p>
           </div>
           <span style={{ color: '#6b7280', fontSize: 14, whiteSpace: 'nowrap' }}>
-            total: {result.data.length}
+            всего: {result.data.length}
           </span>
         </div>
 
         {result.data.length === 0 ? (
           <p style={{ margin: '12px 0 0', color: '#6b7280' }}>
-            No manageable member rows available.
+            Нет доступных участников.
           </p>
         ) : (
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -95,9 +112,9 @@ function AdminMembersSummary({ result }: { result: AdminMembersResult }) {
   if (result.status === 'unauthorized') {
     return (
       <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>Доступные участники</h2>
         <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-          Member summary is unavailable for this tenant.
+          Список участников недоступен для данного клиента (tenant).
         </p>
       </section>
     );
@@ -105,9 +122,9 @@ function AdminMembersSummary({ result }: { result: AdminMembersResult }) {
 
   return (
     <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>Manageable members</h2>
+      <h2 style={{ margin: 0, fontSize: 16 }}>Доступные участники</h2>
       <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-        Member summary could not be loaded.
+        Не удалось загрузить список участников.
       </p>
     </section>
   );
@@ -125,9 +142,9 @@ export default async function TenantAdminPage() {
       return (
         <main style={{ maxWidth: 960, margin: '0 auto', padding: 32 }}>
           <header>
-            <h1 style={{ margin: 0 }}>Tenant admin</h1>
-            <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
-              Tenant management tools will be enabled in later phases.
+            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 'bold' }}>Внутренняя админ-панель LINE Business OS</h1>
+            <p style={{ margin: '8px 0 0', color: '#4b5563', fontSize: 15, lineHeight: '1.5' }}>
+              Режим только чтение: панель для проверки текущего клиента, tenant scope и базовых SaaS-модулей. Действия управления будут добавлены позже.
             </p>
             <Link
               href="/dashboard"
@@ -139,14 +156,14 @@ export default async function TenantAdminPage() {
                 textDecoration: 'underline',
               }}
             >
-              Back to dashboard
+              Вернуться в панель управления
             </Link>
           </header>
 
           <section
             style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}
           >
-            <h2 style={{ marginTop: 0, fontSize: 16 }}>Active tenant</h2>
+            <h2 style={{ marginTop: 0, fontSize: 16, fontWeight: 'bold' }}>Активный клиент / tenant</h2>
             <p style={{ margin: 0 }}>
               <strong>{activeTenant.tenantName}</strong>{' '}
               <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
@@ -163,16 +180,34 @@ export default async function TenantAdminPage() {
               marginTop: 16,
             }}
           >
-            {sections.map((section) => (
+            {sectionCards.map((card) => (
               <section
-                key={section}
+                key={card.title}
                 style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}
               >
-                <h2 style={{ margin: 0, fontSize: 16 }}>{section}</h2>
-                <p style={{ margin: '8px 0 0', color: '#6b7280' }}>Coming later.</p>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 'bold' }}>{card.title}</h3>
+                <p style={{ margin: '8px 0 0', color: '#6b7280', fontSize: 13, lineHeight: '1.4' }}>
+                  {card.description}
+                </p>
               </section>
             ))}
           </div>
+
+          <section
+            style={{
+              border: '1px solid #fca5a5',
+              backgroundColor: '#fef2f2',
+              color: '#991b1b',
+              borderRadius: 8,
+              padding: 16,
+              marginTop: 16,
+            }}
+          >
+            <h2 style={{ marginTop: 0, fontSize: 16, fontWeight: 'bold', color: '#991b1b' }}>Безопасность</h2>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: '1.4' }}>
+              Эта страница работает в режиме строгого разграничения прав доступа. В целях безопасности на ней не отображаются конфиденциальные данные пользователей (такие как email, номера телефонов, user ID или auth ID), внутренние параметры ролей, метаданные, конфигурации, а также сырые ошибки базы данных.
+            </p>
+          </section>
         </main>
       );
     }
