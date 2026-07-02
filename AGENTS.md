@@ -98,7 +98,9 @@ no real PII; client template is a clean, production-auth, strict-RLS starter.
 Machine-enforced guardrails for AI agents live in `.cursor/rules` (architecture,
 security, database/RLS, git workflow, AI-agent workflow, legacy-migration
 boundaries). They restate and operationalize the rules in this file; keep both
-in sync when either changes.
+in sync when either changes. Claude Code guardrails in `.claude/` (`CLAUDE.md`,
+`settings.json`, `skills/*`) must also stay in sync with this file and
+`.cursor/rules/*`.
 
 ## Layout
 

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.development)",
+      "Read(./.env.production)",
+      "Read(./.env.test)",
+      "Read(./.env.*.local)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Read(./**/.env.local*)",
+      "Read(./**/.env.production)",
+      "Read(./**/.env.development)",
+      "Read(./**/.env.test)",
+      "Read(./supabase/.temp/**)",
+      "Read(./backups/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Bash(supabase link*)",
+      "Bash(supabase db push*)",
+      "Bash(pnpm exec supabase db push*)",
+      "Bash(supabase db pull*)",
+      "Bash(pnpm exec supabase db pull*)",
+      "Bash(supabase migration repair*)",
+      "Bash(vercel --prod*)",
+      "Bash(vercel deploy --prod*)",
+      "Bash(git push --force*)",
+      "Bash(git push origin --force*)",
+      "Bash(git push origin main*)",
+      "Bash(rm -rf*)",
+      "Bash(Remove-Item -Recurse -Force*)"
+    ],
+    "ask": [
+      "Bash(supabase db reset*)",
+      "Bash(pnpm exec supabase db reset*)",
+      "Bash(pnpm db:reset*)",
+      "Bash(pnpm db:seed*)",
+      "Bash(git push*)",
+      "Edit(supabase/migrations/**)"
+    ]
+  }
+}
