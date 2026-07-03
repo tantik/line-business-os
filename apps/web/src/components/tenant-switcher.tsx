@@ -1,6 +1,7 @@
 import { setActiveTenant } from '@/lib/tenant/actions';
 import { TENANT_SELECT_FIELD } from '@/lib/tenant/selection';
 import type { TenantMembership } from '@/lib/tenant/types';
+import { card, colors, mutedText } from '@/lib/ui/theme';
 
 /**
  * Presentational tenant switcher (Server Component, no client state).
@@ -21,7 +22,7 @@ export function TenantSwitcher({
   if (memberships.length <= 1) return null;
 
   return (
-    <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
+    <section style={card}>
       <h2 style={{ marginTop: 0, fontSize: 16 }}>Switch tenant</h2>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
         {memberships.map((m) => {
@@ -38,20 +39,17 @@ export function TenantSwitcher({
                     width: '100%',
                     textAlign: 'left',
                     padding: '8px 12px',
-                    background: isActive ? '#eef2ff' : '#fff',
-                    color: '#111827',
-                    border: `1px solid ${isActive ? '#6366f1' : '#d1d5db'}`,
+                    background: isActive ? colors.accentMuted : colors.surfaceElevated,
+                    color: colors.textPrimary,
+                    border: `1px solid ${isActive ? colors.accent : colors.border}`,
                     borderRadius: 6,
                     fontSize: 14,
                     cursor: isActive ? 'default' : 'pointer',
                   }}
                 >
-                  <strong>{m.tenantName}</strong>{' '}
-                  <span style={{ color: '#6b7280' }}>({m.tenantSlug})</span>
-                  {m.locationId ? (
-                    <span style={{ color: '#6b7280' }}> · location: {m.locationId}</span>
-                  ) : null}
-                  {isActive ? <span style={{ color: '#6366f1' }}> · active</span> : null}
+                  <strong>{m.tenantName}</strong> <span style={mutedText}>({m.tenantSlug})</span>
+                  {m.locationId ? <span style={mutedText}> · location: {m.locationId}</span> : null}
+                  {isActive ? <span style={{ color: colors.accent }}> · active</span> : null}
                 </button>
               </form>
             </li>

@@ -32,11 +32,26 @@ Based on the current repository docs, the platform already has:
   LINE webhook verification, and AI human-in-the-loop changes.
 - App-layer tenant/auth foundation and safe dashboard/admin read surfaces.
 - Admin/member visibility foundation through app-facing `api` facades.
-- AI/project rules and Cursor/agent guardrails for safe AI-assisted coding.
+- AI/project rules and Cursor/agent guardrails for safe AI-assisted coding,
+  including Claude Code guardrails (PR #60).
 - Local onboarding, backup/DR, incident response, and env inventory runbooks.
+- Phase 1I Stage 3D complete: an auth redirect fix (PR #61) plus a manual
+  auth smoke test on the **Vercel dev deployment** (Supabase Cloud dev
+  backing it) — health checks, sign-in, `/dashboard`, `/dashboard/admin`,
+  sign-out, and invalid-login handling all verified working end-to-end. See
+  [`../phase-1i-stage-3d-completion-report.md`](../phase-1i-stage-3d-completion-report.md).
+  Production/`main` was **not** updated as part of this — dev/preview only.
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
+
+## Next Recommended Step
+
+**Phase 1J-1 - Workforce MVP architecture plan.** Produce a plan-only design
+for the first vertical module (schema shape, RLS boundaries, Core permission
+wiring, safe UI surface) before any database migration or RLS implementation
+work starts. See the recommendation in
+[`../phase-1i-stage-3d-completion-report.md`](../phase-1i-stage-3d-completion-report.md).
 
 ## MVP Build Order
 
@@ -89,7 +104,9 @@ customer onboarding are complete.
 - **Sprint 0: production readiness docs + Vercel setup** - finish deployment
   checklist, env inventory review, preview/prod separation.
 - **Sprint 1: deployment + smoke tests** - deploy preview, verify auth, health,
-  dashboard/admin, and tenant isolation behavior.
+  dashboard/admin, and tenant isolation behavior. **Dev/preview auth smoke
+  verified** (Phase 1I Stage 3D); production deployment and promotion are
+  still pending and require explicit approval.
 - **Sprint 2: first client onboarding hardening** - rehearse onboarding,
   backup/restore assumptions, support handoff, and redacted reporting.
 - **Sprint 3: first module MVP** - ship the smallest useful Workforce or Booking
