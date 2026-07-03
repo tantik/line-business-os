@@ -12,6 +12,17 @@ import {
   NoTenantState,
   UnauthorizedState,
 } from '@/components/states';
+import {
+  badgeStyle,
+  buttonDisabled,
+  buttonSecondary,
+  card,
+  colors,
+  mutedText,
+  pageStyle,
+  tableCell,
+  tableHeaderCell,
+} from '@/lib/ui/theme';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -20,18 +31,7 @@ export const dynamic = 'force-dynamic';
 function SignOutButton() {
   return (
     <form action={signOut}>
-      <button
-        type="submit"
-        style={{
-          padding: '8px 14px',
-          background: '#fff',
-          color: '#111827',
-          border: '1px solid #d1d5db',
-          borderRadius: 6,
-          fontSize: 14,
-          cursor: 'pointer',
-        }}
-      >
+      <button type="submit" style={buttonSecondary}>
         Sign out
       </button>
     </form>
@@ -39,11 +39,7 @@ function SignOutButton() {
 }
 
 function DashboardCard({ children }: { children: ReactNode }) {
-  return (
-    <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
-      {children}
-    </section>
-  );
+  return <section style={card}>{children}</section>;
 }
 
 function SectionHeader({
@@ -59,40 +55,19 @@ function SectionHeader({
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
       <div>
         <h2 style={{ margin: 0, fontSize: 16 }}>{title}</h2>
-        {description ? <p style={{ margin: '6px 0 0', color: '#6b7280' }}>{description}</p> : null}
+        {description ? <p style={{ margin: '6px 0 0', ...mutedText }}>{description}</p> : null}
       </div>
-      {meta ? <span style={{ color: '#6b7280', fontSize: 14, whiteSpace: 'nowrap' }}>{meta}</span> : null}
+      {meta ? <span style={{ ...mutedText, fontSize: 14, whiteSpace: 'nowrap' }}>{meta}</span> : null}
     </div>
   );
 }
 
 function StatusBadge({ tone, children }: { tone: 'active' | 'inactive' | 'neutral'; children: ReactNode }) {
-  const colors = {
-    active: { background: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
-    inactive: { background: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
-    neutral: { background: '#eef2ff', color: '#4338ca', border: '#c7d2fe' },
-  }[tone];
-
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '2px 8px',
-        border: `1px solid ${colors.border}`,
-        borderRadius: 999,
-        background: colors.background,
-        color: colors.color,
-        fontSize: 12,
-        lineHeight: 1.5,
-      }}
-    >
-      {children}
-    </span>
-  );
+  return <span style={badgeStyle(tone)}>{children}</span>;
 }
 
 function EmptyStateText({ children }: { children: ReactNode }) {
-  return <p style={{ margin: '12px 0 0', color: '#6b7280' }}>{children}</p>;
+  return <p style={{ margin: '12px 0 0', ...mutedText }}>{children}</p>;
 }
 
 function AdminActionsPreview() {
@@ -106,17 +81,7 @@ function AdminActionsPreview() {
       />
       <Link
         href="/dashboard/admin"
-        style={{
-          display: 'inline-block',
-          marginTop: 12,
-          padding: '8px 12px',
-          background: '#fff',
-          color: '#111827',
-          border: '1px solid #d1d5db',
-          borderRadius: 6,
-          fontSize: 14,
-          textDecoration: 'none',
-        }}
+        style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}
       >
         Open tenant admin
       </Link>
@@ -129,20 +94,7 @@ function AdminActionsPreview() {
         }}
       >
         {actions.map((action) => (
-          <button
-            key={action}
-            type="button"
-            disabled
-            style={{
-              padding: '8px 12px',
-              background: '#f9fafb',
-              color: '#9ca3af',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              fontSize: 14,
-              cursor: 'not-allowed',
-            }}
-          >
+          <button key={action} type="button" disabled style={buttonDisabled}>
             {action}
           </button>
         ))}
@@ -179,13 +131,13 @@ export default async function DashboardPage() {
       const enabledModuleCount = activeModules.filter((module) => module.isEnabled).length;
 
       return (
-        <main style={{ maxWidth: 1040, margin: '0 auto', padding: 32 }}>
+        <main style={pageStyle(1040)}>
           <div
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
           >
             <div>
               <h1 style={{ margin: 0 }}>Dashboard</h1>
-              <p style={{ margin: '8px 0 0', color: '#6b7280' }}>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>
                 Read-only tenant administration shell. Management actions will mount here in later phases.
               </p>
             </div>
@@ -194,8 +146,7 @@ export default async function DashboardPage() {
           <DashboardCard>
             <SectionHeader title="Active tenant overview" />
             <p style={{ margin: 0 }}>
-              <strong>{activeTenant.tenantName}</strong>{' '}
-              <span style={{ color: '#6b7280' }}>({activeTenant.tenantSlug})</span>
+              <strong>{activeTenant.tenantName}</strong> <span style={mutedText}>({activeTenant.tenantSlug})</span>
             </p>
             <dl
               style={{
@@ -206,19 +157,19 @@ export default async function DashboardPage() {
               }}
             >
               <div>
-                <dt style={{ color: '#6b7280', fontSize: 13 }}>Slug</dt>
+                <dt style={{ ...mutedText, fontSize: 13 }}>Slug</dt>
                 <dd style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{activeTenant.tenantSlug}</dd>
               </div>
               <div>
-                <dt style={{ color: '#6b7280', fontSize: 13 }}>Kind</dt>
+                <dt style={{ ...mutedText, fontSize: 13 }}>Kind</dt>
                 <dd style={{ margin: '4px 0 0' }}>{activeTenant.tenantKind}</dd>
               </div>
               <div>
-                <dt style={{ color: '#6b7280', fontSize: 13 }}>Memberships</dt>
+                <dt style={{ ...mutedText, fontSize: 13 }}>Memberships</dt>
                 <dd style={{ margin: '4px 0 0' }}>{memberships.length}</dd>
               </div>
               <div>
-                <dt style={{ color: '#6b7280', fontSize: 13 }}>Location scope</dt>
+                <dt style={{ ...mutedText, fontSize: 13 }}>Location scope</dt>
                 <dd style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{activeLocationScope}</dd>
               </div>
             </dl>
@@ -229,13 +180,13 @@ export default async function DashboardPage() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
-                  <tr style={{ textAlign: 'left', color: '#6b7280' }}>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Tenant</th>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Slug</th>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Kind</th>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Location scope</th>
-                    <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Active</th>
+                  <tr style={{ textAlign: 'left' }}>
+                    <th style={tableHeaderCell}>Tenant</th>
+                    <th style={tableHeaderCell}>Slug</th>
+                    <th style={tableHeaderCell}>Kind</th>
+                    <th style={tableHeaderCell}>Status</th>
+                    <th style={tableHeaderCell}>Location scope</th>
+                    <th style={tableHeaderCell}>Active</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,36 +196,18 @@ export default async function DashboardPage() {
                       <tr
                         key={`${membership.tenantId}:${membership.locationId ?? 'tenant-wide'}`}
                         aria-current={isActive ? 'true' : undefined}
-                        style={{ background: isActive ? '#eef2ff' : '#fff' }}
+                        style={{ background: isActive ? colors.accentMuted : 'transparent' }}
                       >
-                        <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                        <td style={tableCell}>
                           <strong>{membership.tenantName}</strong>
                         </td>
-                        <td
-                          style={{
-                            borderBottom: '1px solid #f3f4f6',
-                            padding: '10px',
-                            overflowWrap: 'anywhere',
-                          }}
-                        >
-                          {membership.tenantSlug}
-                        </td>
-                        <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                          {membership.tenantKind}
-                        </td>
-                        <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                          {membership.status}
-                        </td>
-                        <td
-                          style={{
-                            borderBottom: '1px solid #f3f4f6',
-                            padding: '10px',
-                            overflowWrap: 'anywhere',
-                          }}
-                        >
+                        <td style={{ ...tableCell, overflowWrap: 'anywhere' }}>{membership.tenantSlug}</td>
+                        <td style={tableCell}>{membership.tenantKind}</td>
+                        <td style={tableCell}>{membership.status}</td>
+                        <td style={{ ...tableCell, overflowWrap: 'anywhere' }}>
                           {membership.locationId ?? 'tenant-wide'}
                         </td>
-                        <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                        <td style={tableCell}>
                           {isActive ? <StatusBadge tone="neutral">active</StatusBadge> : ''}
                         </td>
                       </tr>
@@ -291,22 +224,20 @@ export default async function DashboardPage() {
                 <div style={{ overflowX: 'auto', marginTop: 12 }}>
                   <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 14 }}>
                     <thead>
-                      <tr style={{ textAlign: 'left', color: '#6b7280' }}>
-                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Location</th>
-                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Timezone</th>
-                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
+                      <tr style={{ textAlign: 'left' }}>
+                        <th style={tableHeaderCell}>Location</th>
+                        <th style={tableHeaderCell}>Timezone</th>
+                        <th style={tableHeaderCell}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {activeLocations.map((location) => (
                         <tr key={location.locationId}>
-                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                          <td style={tableCell}>
                             <strong>{location.locationName}</strong>
                           </td>
-                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
-                            {location.timezone}
-                          </td>
-                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                          <td style={tableCell}>{location.timezone}</td>
+                          <td style={tableCell}>
                             <StatusBadge tone={location.isActive ? 'active' : 'inactive'}>
                               {location.isActive ? 'active' : 'inactive'}
                             </StatusBadge>
@@ -333,18 +264,18 @@ export default async function DashboardPage() {
                 <div style={{ overflowX: 'auto', marginTop: 12 }}>
                   <table style={{ width: '100%', minWidth: 360, borderCollapse: 'collapse', fontSize: 14 }}>
                     <thead>
-                      <tr style={{ textAlign: 'left', color: '#6b7280' }}>
-                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Module</th>
-                        <th style={{ borderBottom: '1px solid #e5e7eb', padding: '8px 10px' }}>Status</th>
+                      <tr style={{ textAlign: 'left' }}>
+                        <th style={tableHeaderCell}>Module</th>
+                        <th style={tableHeaderCell}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {activeModules.map((module) => (
                         <tr key={`${module.tenantId}:${module.module}`}>
-                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                          <td style={tableCell}>
                             <strong>{module.module}</strong>
                           </td>
-                          <td style={{ borderBottom: '1px solid #f3f4f6', padding: '10px' }}>
+                          <td style={tableCell}>
                             <StatusBadge tone={module.isEnabled ? 'active' : 'inactive'}>
                               {module.isEnabled ? 'enabled' : 'disabled'}
                             </StatusBadge>

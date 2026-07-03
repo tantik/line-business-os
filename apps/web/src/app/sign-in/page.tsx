@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
 import { signIn } from '@/lib/auth/actions';
+import { alertDanger, buttonPrimary, input as inputStyle, mutedText, pageStyle } from '@/lib/ui/theme';
 
 /**
  * Minimal email/password sign-in page.
@@ -17,15 +18,6 @@ import { signIn } from '@/lib/auth/actions';
 export const dynamic = 'force-dynamic';
 
 const labelStyle = { display: 'block', marginBottom: 12 } as const;
-const inputStyle = {
-  display: 'block',
-  width: '100%',
-  marginTop: 4,
-  padding: '8px 10px',
-  border: '1px solid #d1d5db',
-  borderRadius: 6,
-  fontSize: 14,
-} as const;
 
 export default async function SignInPage({
   searchParams,
@@ -39,24 +31,14 @@ export default async function SignInPage({
   const hasError = Boolean(params?.error);
 
   return (
-    <main style={{ maxWidth: 420, margin: '0 auto', padding: 32 }}>
+    <main style={pageStyle(420)}>
       <h1>Sign in</h1>
-      <p style={{ color: '#6b7280', marginTop: 0 }}>
+      <p style={{ ...mutedText, marginTop: 0 }}>
         Sign in to LINE Business OS with your email and password.
       </p>
 
       {hasError ? (
-        <p
-          role="alert"
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#991b1b',
-            borderRadius: 6,
-            padding: '8px 12px',
-            fontSize: 14,
-          }}
-        >
+        <p role="alert" style={alertDanger}>
           Invalid email or password. Please try again.
         </p>
       ) : null}
@@ -84,24 +66,12 @@ export default async function SignInPage({
             style={inputStyle}
           />
         </label>
-        <button
-          type="submit"
-          style={{
-            width: '100%',
-            padding: '10px 16px',
-            background: '#111827',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            fontSize: 14,
-            cursor: 'pointer',
-          }}
-        >
+        <button type="submit" style={{ ...buttonPrimary, width: '100%' }}>
           Sign in
         </button>
       </form>
 
-      <p style={{ color: '#9ca3af', fontSize: 13, marginTop: 16 }}>
+      <p style={{ ...mutedText, fontSize: 13, marginTop: 16 }}>
         Sign-up, password reset, and social login are not available yet.
       </p>
     </main>
