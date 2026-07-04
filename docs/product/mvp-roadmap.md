@@ -41,17 +41,32 @@ Based on the current repository docs, the platform already has:
   sign-out, and invalid-login handling all verified working end-to-end. See
   [`../phase-1i-stage-3d-completion-report.md`](../phase-1i-stage-3d-completion-report.md).
   Production/`main` was **not** updated as part of this — dev/preview only.
+- Phase 1J-1H complete: an `apps/api` auth-boundary check
+  (`api.has_permission`) is now reachable end-to-end from `apps/web` and
+  verified with a **local** Supabase E2E smoke test (local auth user, gated
+  local onboarding commit, `/dashboard`, and a new
+  `/dashboard/auth-boundary-smoke` page) — PR #70. A local-runtime fix for
+  `apps/api` (Express 4 alignment, `tsx` as the workspace-TypeScript runtime
+  loader, non-stale incremental build) was required to run it locally — PR
+  #71. See
+  [`../phase-1j-1h-completion-report.md`](../phase-1j-1h-completion-report.md).
+  No Cloud Supabase and no production deployment were part of this phase.
+  This phase also clarified that `/dashboard` is the tenant/customer
+  dashboard, not the future internal platform/operator admin area (see
+  [`../architecture/overview.md`](../architecture/overview.md)).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Phase 1J-1 - Workforce MVP architecture plan.** Produce a plan-only design
-for the first vertical module (schema shape, RLS boundaries, Core permission
-wiring, safe UI surface) before any database migration or RLS implementation
-work starts. See the recommendation in
-[`../phase-1i-stage-3d-completion-report.md`](../phase-1i-stage-3d-completion-report.md).
+**Start the next Workforce MVP vertical slice.** With the local `apps/api`
+runtime fixed and the auth-boundary path confirmed end-to-end (Phase 1J-1H),
+the next step is a real Workforce feature built behind the existing
+`api.has_permission` facade. A plan-only design for a separate internal
+platform/operator admin area (`/platform` or `/ops`) is a later, independent
+step — see
+[`../phase-1j-1h-completion-report.md`](../phase-1j-1h-completion-report.md).
 
 ## MVP Build Order
 
