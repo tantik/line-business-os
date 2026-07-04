@@ -17,6 +17,18 @@ LINE Business OS is one platform with many modules over a shared Core.
      LINE webhooks.
    - `apps/worker` — scheduled jobs (booking reminders, async processing).
 
+### Dashboard vs. platform admin
+
+`/dashboard` in `apps/web` is the **tenant-scoped customer/client admin
+dashboard** — what a tenant's own members see for their own tenant, location,
+and enabled modules. It is **not** an internal SaaS owner/operator admin
+panel. Any future internal platform/operator tooling (cross-tenant
+visibility, platform-wide operations, support/ops workflows) belongs in a
+separate area — for example `/platform` or `/ops` — kept architecturally
+distinct from `/dashboard`, including route namespace and any future RBAC
+distinction between "tenant member" and "platform operator." Client/tenant
+users must only ever see their own tenant/location/module data.
+
 ## Request flow (privileged write)
 
 ```
