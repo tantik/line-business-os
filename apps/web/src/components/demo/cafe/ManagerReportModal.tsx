@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { Modal } from './Modal';
 import { formatMonthDayWeekday, formatHours, formatYen } from '@/lib/demo/cafe/format';
-import { demoColors, shiftTypeDisplayLabel } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, demoColors, shiftTypeDisplayLabel } from '@/lib/demo/cafe/theme';
 import type { ShiftAssignment, ShiftTypeDef, WorkReport } from '@/lib/demo/cafe/types';
 
 interface ManagerReportModalProps {
@@ -25,6 +26,15 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CorrectionField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11.5, color: demoColors.textMuted, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: demoColors.textPrimary }}>{value}</div>
+    </div>
+  );
+}
+
 /**
  * Read-only past-day detail for the manager dashboard — past days are
  * report/view only (shift editing is future-days-only, see
@@ -43,6 +53,8 @@ export function ManagerReportModal({
   shiftTypes,
   isShortageDay,
 }: ManagerReportModalProps) {
+  const [demoStatus, setDemoStatus] = useState<'approved' | 'review_later' | null>(null);
+
   if (!open) return null;
 
   const shiftType = shiftTypes.find((type) => type.id === assignment?.shiftTypeId);
@@ -77,20 +89,59 @@ export function ManagerReportModal({
         )}
       </div>
 
-      {report?.hasCorrectionRequest ? (
+      {report?.hasCorrectionRequest && report.correctionRequest ? (
         <div
           style={{
             marginTop: 12,
-            padding: '10px 12px',
+            padding: '12px 14px',
             borderRadius: 8,
             background: demoColors.alertDangerBg,
             border: `1px solid ${demoColors.danger}`,
-            fontSize: 12.5,
-            color: demoColors.dangerText,
-            fontWeight: 700,
           }}
         >
-          勤務時間の修正依頼あり
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: demoColors.dangerText }}>勤務時間の修正依頼</div>
+          <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: demoColors.textPrimary }}>
+            スタッフが勤務時間の修正を依頼しています。
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <CorrectionField label="申請された出勤時間" value={report.correctionRequest.requestedClockIn ?? '－'} />
+            <CorrectionField label="申請された退勤時間" value={report.correctionRequest.requestedClockOut ?? '－'} />
+            <CorrectionField
+              label="申請された休憩時間"
+              value={report.correctionRequest.requestedBreakMinutes != null ? `${report.correctionRequest.requestedBreakMinutes}分` : '－'}
+            />
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11.5, color: demoColors.textMuted, marginBottom: 2 }}>理由</div>
+            <div
+              style={{
+                fontSize: 13,
+                padding: '8px 10px',
+                borderRadius: 6,
+                background: demoColors.surface,
+                border: `1px solid ${demoColors.border}`,
+              }}
+            >
+              {report.correctionRequest.reason}
+            </div>
+          </div>
+
+          {demoStatus ? (
+            <p style={{ margin: '10px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.dangerText }}>
+              {demoStatus === 'approved' ? '承認済み（デモ）' : '後で確認（デモ）'}
+            </p>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button type="button" style={buttonPrimary} onClick={() => setDemoStatus('approved')}>
+                承認する
+              </button>
+              <button type="button" style={buttonSecondary} onClick={() => setDemoStatus('review_later')}>
+                後で確認
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
 

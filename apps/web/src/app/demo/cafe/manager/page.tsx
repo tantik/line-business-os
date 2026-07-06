@@ -230,6 +230,7 @@ export default function CafeManagerDemoPage() {
 
       {selectedPastCell ? (
         <ManagerReportModal
+          key={`${selectedPastCell.staffId}-${selectedPastCell.date}`}
           open
           onClose={() => setSelectedPastCell(null)}
           staffName={pastCellStaffName}
