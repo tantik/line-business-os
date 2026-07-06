@@ -1,4 +1,5 @@
 import type {
+  CorrectionRequest,
   ManagerAlert,
   Recipe,
   ShiftAssignment,
@@ -206,6 +207,7 @@ export function generateWorkReports(
       let message = '';
       let messageTranslated: string | undefined;
       let hasCorrectionRequest = false;
+      let correctionRequest: CorrectionRequest | undefined;
 
       if (isPrimaryCorrectionDay) {
         // Forgot to press the clock-out button — the system has no recorded clock-out, hence the correction request.
@@ -214,9 +216,22 @@ export function generateWorkReports(
         message = 'I forgot to clock out. I actually worked until 17:30.';
         messageTranslated = '退勤ボタンを押し忘れました。実際は17:30まで勤務しました。';
         hasCorrectionRequest = true;
+        correctionRequest = {
+          requestedClockIn: '08:30',
+          requestedClockOut: '17:30',
+          requestedBreakMinutes: 60,
+          reason: messageTranslated,
+          status: 'pending',
+        };
       } else if (isSecondCorrectionDay) {
         message = '出勤時間を08:30に修正してください。';
         hasCorrectionRequest = true;
+        correctionRequest = {
+          requestedClockIn: '08:30',
+          requestedBreakMinutes: breakMinutes,
+          reason: message,
+          status: 'pending',
+        };
       } else if (isMessageOnlyDay) {
         message = '本日の業務で共有事項があります。';
       }
@@ -233,6 +248,7 @@ export function generateWorkReports(
         message,
         messageTranslated,
         hasCorrectionRequest,
+        correctionRequest,
       });
     });
   });
