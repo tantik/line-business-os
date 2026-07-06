@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { buttonPrimary, demoColors, input, shiftChipColors, shiftChipStyle, shiftTypeDisplayLabel } from '@/lib/demo/cafe/theme';
 import type { ShiftAssignment, ShiftTypeDef, StaffingRequirement } from '@/lib/demo/cafe/types';
+import { DemoHelpButton } from './DemoHelpButton';
+import { HELP_MANAGER_SETTINGS } from '@/lib/demo/cafe/helpContent';
 
 interface SettingsPanelProps {
   requirements: StaffingRequirement[];
@@ -85,7 +87,10 @@ export function SettingsPanel({
         gap: 22,
       }}
     >
-      <strong style={{ fontSize: 15 }}>設定</strong>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <strong style={{ fontSize: 15 }}>設定</strong>
+        <DemoHelpButton content={HELP_MANAGER_SETTINGS} />
+      </div>
 
       <div>
         <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>必要人数（曜日ごと）</div>

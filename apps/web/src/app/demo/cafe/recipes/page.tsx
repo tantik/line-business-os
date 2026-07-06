@@ -6,6 +6,8 @@ import { RecipeCard } from '@/components/demo/cafe/RecipeCard';
 import { RecipeDetail } from '@/components/demo/cafe/RecipeDetail';
 import { BrandMark } from '@/components/demo/cafe/BrandMark';
 import { LangToggle } from '@/components/demo/cafe/LangToggle';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_RECIPES_SHARING } from '@/lib/demo/cafe/helpContent';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { tRecipes } from '@/lib/demo/cafe/i18n.recipes';
 import { DEMO_CAFE_NAME, DEMO_CAFE_NAME_JA, RECIPES } from '@/lib/demo/cafe/data';
@@ -36,8 +38,9 @@ function CafeRecipesDemoPageInner() {
           <BrandMark size={32} />
           <span style={{ fontSize: 14, fontWeight: 700 }}>{lang === 'ja' ? DEMO_CAFE_NAME_JA : DEMO_CAFE_NAME}</span>
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 700, color: demoColors.textMuted }}>{tRecipes(lang, 'recipeSharing')}</span>
+          <DemoHelpButton content={HELP_RECIPES_SHARING} />
           <LangToggle />
         </div>
       </header>

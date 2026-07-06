@@ -12,7 +12,14 @@ import { SettingsPanel } from '@/components/demo/cafe/SettingsPanel';
 import { StaffManagementModal } from '@/components/demo/cafe/StaffManagementModal';
 import { RecipeManagementModal } from '@/components/demo/cafe/RecipeManagementModal';
 import { BrandMark } from '@/components/demo/cafe/BrandMark';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
+import {
+  HELP_MANAGER_AUTO_SCHEDULE,
+  HELP_MANAGER_MONTHLY_REPORT,
+  HELP_MANAGER_SHIFT_TABLE,
+  HELP_MANAGER_STAFF_RECIPE_MANAGEMENT,
+} from '@/lib/demo/cafe/helpContent';
 import {
   autoScheduleFutureAssignments,
   buildWeekDateRange,
@@ -122,10 +129,16 @@ export default function CafeManagerDemoPage() {
 
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <strong style={{ fontSize: 16 }}>シフト表</strong>
-          <button type="button" style={buttonPrimary} onClick={() => setAutoScheduleModalOpen(true)}>
-            自動シフト作成
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <strong style={{ fontSize: 16 }}>シフト表</strong>
+            <DemoHelpButton content={HELP_MANAGER_SHIFT_TABLE} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button type="button" style={buttonPrimary} onClick={() => setAutoScheduleModalOpen(true)}>
+              自動シフト作成
+            </button>
+            <DemoHelpButton content={HELP_MANAGER_AUTO_SCHEDULE} />
+          </div>
         </div>
         <p style={{ margin: '8px 0 4px', fontSize: 12.5, ...mutedText }}>
           セルをクリックして手動でシフトを編集できます。列見出しの「!」は必要人数に対して人員が不足している日を示します。
@@ -170,16 +183,20 @@ export default function CafeManagerDemoPage() {
         />
         <LaborCostSummary staffList={STAFF} assignments={assignments.filter((a) => a.date <= todayIso)} />
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
           <button type="button" style={buttonSecondary} onClick={() => setMonthlyReportModalOpen(true)}>
             月間レポートCSV
           </button>
+          <DemoHelpButton content={HELP_MANAGER_MONTHLY_REPORT} />
         </div>
       </section>
 
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <strong style={{ fontSize: 16 }}>スタッフ・レシピ管理</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <strong style={{ fontSize: 16 }}>スタッフ・レシピ管理</strong>
+            <DemoHelpButton content={HELP_MANAGER_STAFF_RECIPE_MANAGEMENT} />
+          </div>
         </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button type="button" style={buttonSecondary} onClick={() => setStaffModalOpen(true)}>

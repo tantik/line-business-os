@@ -10,6 +10,12 @@ import type { CorrectionRequestPayload } from '@/components/demo/cafe/Correction
 import { ShiftPreferenceModal } from '@/components/demo/cafe/ShiftPreferenceModal';
 import { BrandMark } from '@/components/demo/cafe/BrandMark';
 import { LangToggle } from '@/components/demo/cafe/LangToggle';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import {
+  HELP_STAFF_NEXT_MONTH_PREFERENCE,
+  HELP_STAFF_SHIFT_TABLE,
+  HELP_STAFF_TRANSPORT_MESSAGE,
+} from '@/lib/demo/cafe/helpContent';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
@@ -202,7 +208,10 @@ function CafeStaffDemoPageInner() {
 
       <section style={{ ...card, padding: '14px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '0 8px' }}>
-          <strong style={{ fontSize: 15 }}>{t('shiftTable')}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <strong style={{ fontSize: 15 }}>{t('shiftTable')}</strong>
+            <DemoHelpButton content={HELP_STAFF_SHIFT_TABLE} />
+          </div>
           <div style={{ display: 'inline-flex', border: `1px solid ${demoColors.border}`, borderRadius: 999, overflow: 'hidden' }}>
             {[
               { key: false, label: t('all') },
@@ -246,7 +255,10 @@ function CafeStaffDemoPageInner() {
 
       <section style={{ ...card }}>
         <div style={{ marginTop: 0 }}>
-          <label style={{ fontSize: 13, ...mutedText }}>{t('transport')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <label style={{ fontSize: 13, ...mutedText }}>{t('transport')}</label>
+            <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
+          </div>
           <input
             type="number"
             value={transportYen}
@@ -280,10 +292,13 @@ function CafeStaffDemoPageInner() {
       </section>
 
       <section style={{ ...card }}>
-        <button type="button" style={{ ...buttonPrimary, width: '100%' }} onClick={() => setPreferenceModalOpen(true)}>
-          {t('submitNextMonthPreference')}
-          {preferenceSubmitted ? t('submittedSuffix') : ''}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button type="button" style={{ ...buttonPrimary, flex: 1 }} onClick={() => setPreferenceModalOpen(true)}>
+            {t('submitNextMonthPreference')}
+            {preferenceSubmitted ? t('submittedSuffix') : ''}
+          </button>
+          <DemoHelpButton content={HELP_STAFF_NEXT_MONTH_PREFERENCE} />
+        </div>
       </section>
 
       <WorkReportModal

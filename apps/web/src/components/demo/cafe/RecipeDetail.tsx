@@ -2,6 +2,8 @@ import type { Recipe } from '@/lib/demo/cafe/types';
 import { card, demoColors, RECIPE_BADGE_ICON, recipeBadgeIconStyle } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tRecipes, tRecipeCategory } from '@/lib/demo/cafe/i18n.recipes';
+import { DemoHelpButton } from './DemoHelpButton';
+import { HELP_RECIPES_INGREDIENTS, HELP_RECIPES_MEMO, HELP_RECIPES_STEPS } from '@/lib/demo/cafe/helpContent';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -39,8 +41,9 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
       <p style={{ margin: '14px 0 0', fontSize: 13.5, lineHeight: 1.7, color: demoColors.textPrimary }}>{description}</p>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary, marginBottom: 8 }}>
-          {tRecipes(lang, 'ingredients')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>{tRecipes(lang, 'ingredients')}</div>
+          <DemoHelpButton content={HELP_RECIPES_INGREDIENTS} />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {ingredients.map((ingredient) => (
@@ -61,8 +64,9 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary, marginBottom: 8 }}>
-          {tRecipes(lang, 'steps')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>{tRecipes(lang, 'steps')}</div>
+          <DemoHelpButton content={HELP_RECIPES_STEPS} />
         </div>
         <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 8 }}>
           {steps.map((step, index) => (
@@ -85,7 +89,10 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
             color: demoColors.goldDark,
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>{memoTitle ?? (isEn ? 'Note' : 'メモ')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={{ fontWeight: 700 }}>{memoTitle ?? (isEn ? 'Note' : 'メモ')}</div>
+            <DemoHelpButton content={HELP_RECIPES_MEMO} />
+          </div>
           {memo}
         </div>
       ) : null}
