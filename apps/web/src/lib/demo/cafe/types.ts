@@ -34,6 +34,15 @@ export interface ShiftAssignment {
   shiftTypeId: ShiftTypeId | null;
 }
 
+/** Demo-only work-time correction request a staff member can attach to a past shift report. */
+export interface CorrectionRequest {
+  requestedClockIn?: string;
+  requestedClockOut?: string;
+  requestedBreakMinutes?: number;
+  reason: string;
+  status?: 'pending' | 'approved' | 'review_later';
+}
+
 export interface WorkReport {
   staffId: string;
   date: string;
@@ -48,6 +57,8 @@ export interface WorkReport {
   /** Static demo-only translation of `message` (e.g. EN message -> JA translation for the manager view). Only present for a handful of seeded demo reports — never produced dynamically. */
   messageTranslated?: string;
   hasCorrectionRequest: boolean;
+  /** Present whenever `hasCorrectionRequest` is true — the concrete requested values behind the "!" indicator. */
+  correctionRequest?: CorrectionRequest;
 }
 
 export interface Recipe {
