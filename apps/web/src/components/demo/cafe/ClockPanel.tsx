@@ -6,6 +6,8 @@ import { demoColors } from '@/lib/demo/cafe/theme';
 import type { ClockState } from '@/lib/demo/cafe/types';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
+import { DemoHelpButton } from './DemoHelpButton';
+import { HELP_STAFF_WORK_STATUS } from '@/lib/demo/cafe/helpContent';
 
 const STATUS_LABEL_KEY: Record<ClockState, Parameters<typeof tStaff>[1]> = {
   idle: 'statusIdle',
@@ -80,7 +82,10 @@ export function ClockPanel() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <strong style={{ fontSize: 15 }}>{t('workStatus')}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <strong style={{ fontSize: 15 }}>{t('workStatus')}</strong>
+          <DemoHelpButton content={HELP_STAFF_WORK_STATUS} />
+        </div>
         <span
           style={{
             ...STATUS_TONE[state],
