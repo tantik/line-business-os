@@ -69,18 +69,28 @@ Based on the current repository docs, the platform already has:
   development partner), and internal pricing notes. No code, schema, or
   config changed. See
   [`../phase-1j-3-sales-validation-package.md`](../phase-1j-3-sales-validation-package.md).
+- Phase 1K complete: a docs-only Workforce production MVP architecture —
+  scope/flows/phasing, a proposed `workforce` data model designed to build
+  on the historical `supabase/migrations/0009_workforce.sql` via new,
+  forward-only migrations (that migration is not edited), an RLS/security
+  plan (roles/permissions matrix, tenant/location isolation, audit, pgTAP
+  test plan), and a LINE/LIFF entry plan (not yet implemented). No code,
+  schema, or config changed, and no production database behavior changes.
+  See
+  [`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)
+  and [`../architecture/overview.md`](../architecture/overview.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Start the next Workforce MVP vertical slice.** With the local `apps/api`
-runtime fixed and the auth-boundary path confirmed end-to-end (Phase 1J-1H),
-the next step is a real Workforce feature built behind the existing
-`api.has_permission` facade. A plan-only design for a separate internal
-platform/operator admin area (`/platform` or `/ops`) is a later, independent
-step — see
+**Implement Phase 1L — the first real Workforce MVP slice**, per
+[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md),
+starting from tenant/location-aware staff profiles and recipes/manuals, then
+shift requests, then work reports/corrections, then LINE entry. A plan-only
+design for a separate internal platform/operator admin area (`/platform` or
+`/ops`) is a later, independent step — see
 [`../phase-1j-1h-completion-report.md`](../phase-1j-1h-completion-report.md).
 
 ## MVP Build Order
