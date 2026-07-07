@@ -19,7 +19,7 @@ export const Employee = z.object({
   tenantId: z.string().uuid(),
   locationId: z.string().uuid().nullable(),
   name: z.string().min(1), // decrypted at the service boundary
-  position: z.string().nullable().optional(),
+  positionLabel: z.string().nullable().optional(),
   isActive: z.boolean().default(true),
 });
 export type Employee = z.infer<typeof Employee>;
