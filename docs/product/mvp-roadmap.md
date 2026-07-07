@@ -54,6 +54,15 @@ Based on the current repository docs, the platform already has:
   This phase also clarified that `/dashboard` is the tenant/customer
   dashboard, not the future internal platform/operator admin area (see
   [`../architecture/overview.md`](../architecture/overview.md)).
+- Phase 1J-2 complete: a public, unauthenticated cafe workforce demo
+  (`/demo/cafe`, `/demo/cafe/recipes`, `/demo/cafe/manager`,
+  `/demo/cafe/guide`) shipped across PRs #73, #75, #76, #77 — staff/manager
+  UI, recipe sharing, a manager correction-detail fix, help popovers, and a
+  premium guide page. **UI and mock data only** — no schema, no `apps/api`,
+  no LINE integration, and no change to `/dashboard`, `/workforce`, or
+  `/booking`. This is a sales/demo-ready proof of concept, not the production
+  Workforce module. See
+  [`../phase-1j-2-cafe-workforce-demo-closeout-report.md`](../phase-1j-2-cafe-workforce-demo-closeout-report.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
