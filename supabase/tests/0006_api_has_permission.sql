@@ -138,10 +138,16 @@ select is(
     where table_schema = 'api'
       and table_name not in (
         'my_tenant_memberships', 'my_tenant_locations',
-        'my_tenant_modules', 'my_tenant_admin_members'
+        'my_tenant_modules', 'my_tenant_admin_members',
+        -- Phase 1L-3 (0023_workforce_api_facade.sql): 7 new read-only
+        -- workforce views, added in a later, separate migration.
+        'workforce_my_staff_profile', 'workforce_staff_directory',
+        'workforce_recipe_categories', 'workforce_recipes',
+        'workforce_recipe_ingredients', 'workforce_recipe_steps',
+        'workforce_recipe_notes'
       )),
   0,
-  'no new api view was introduced by the has_permission migration'
+  'no new api view was introduced by the has_permission migration, beyond Phase 1L-3''s later workforce facade'
 );
 
 -- --- Grants: PUBLIC/anon denied, authenticated allowed ----------------------
