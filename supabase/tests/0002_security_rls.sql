@@ -143,28 +143,84 @@ select is(
 
 -- authenticated: NO grants beyond those exact SELECTs on business schemas.
 -- This catches accidental broadening (extra tables, INSERT/UPDATE/DELETE, etc.).
+-- The workforce exception mirrors Phase 1L-3's 0023_workforce_api_facade.sql
+-- dependency grants (SELECT only, on exactly these 6 tables).
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema in ('core', 'audit', 'workforce', 'booking', 'ai')
       and not (
-        table_schema = 'core'
-        and table_name in ('tenants', 'tenant_memberships', 'locations', 'tenant_modules')
-        and privilege_type = 'SELECT'
+        (
+          table_schema = 'core'
+          and table_name in ('tenants', 'tenant_memberships', 'locations', 'tenant_modules')
+          and privilege_type = 'SELECT'
+        )
+        or (
+          table_schema = 'workforce'
+          and table_name in (
+            'employees', 'recipe_categories', 'recipes',
+            'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+          )
+          and privilege_type = 'SELECT'
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs'
 );
 
--- Product schemas (workforce/booking/ai) and audit expose no client grants.
+-- Product schemas (booking/ai) and audit expose no client grants at all.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee in ('anon', 'authenticated')
-      and table_schema in ('audit', 'workforce', 'booking', 'ai')),
+      and table_schema in ('audit', 'booking', 'ai')),
   0,
-  'audit + product schemas expose no anon/authenticated table grants'
+  'audit + booking/ai schemas expose no anon/authenticated table grants'
+);
+
+-- workforce: anon still has zero grants (Phase 1L-3's authenticated-only read
+-- facade, 0023_workforce_api_facade.sql, does not touch anon's posture).
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'anon'
+      and table_schema = 'workforce'),
+  0,
+  'anon has no table grants on workforce'
+);
+
+-- workforce: authenticated has SELECT-only on exactly the 6 named tables
+-- backing Phase 1L-3's api facade (0023_workforce_api_facade.sql) -- nothing
+-- else in workforce (shifts/shift_requests/leave_requests/attendance) and no
+-- INSERT/UPDATE/DELETE anywhere in workforce.
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name in (
+        'employees', 'recipe_categories', 'recipes',
+        'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+      )
+      and privilege_type = 'SELECT'),
+  6,
+  'authenticated has SELECT on exactly the 6 workforce facade tables'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and not (
+        table_name in (
+          'employees', 'recipe_categories', 'recipes',
+          'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+        )
+        and privilege_type = 'SELECT'
+      )),
+  0,
+  'authenticated has no workforce grants beyond the intended 6 SELECTs (no writes, no other tables)'
 );
 
 select * from finish();

@@ -49,18 +49,34 @@ select is(
   'RLS is enabled on every new recipe table'
 );
 
--- --- No anon/authenticated grants were introduced ----------------------------
+-- --- No anon/authenticated grants were introduced (at the time of 0020/0021) -
+-- Phase 1L-3 (0023_workforce_api_facade.sql) later added persistent
+-- `authenticated`-only SELECT grants on these 5 tables (plus
+-- workforce.employees) for its api facade; `anon` remains at zero.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
-    where grantee in ('anon', 'authenticated')
+    where grantee = 'anon'
       and table_schema = 'workforce'
       and table_name in (
         'recipe_categories', 'recipes', 'recipe_ingredients',
         'recipe_steps', 'recipe_notes'
       )),
   0,
-  'no anon/authenticated grants on any new recipe table'
+  'no anon grants on any new recipe table'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name in (
+        'recipe_categories', 'recipes', 'recipe_ingredients',
+        'recipe_steps', 'recipe_notes'
+      )
+      and not (privilege_type = 'SELECT')),
+  0,
+  'authenticated has no grant beyond SELECT on any new recipe table (Phase 1L-3''s 0023_workforce_api_facade.sql facade dependency grant)'
 );
 
 -- --- Permission catalog: 5 new keys exist, correct module --------------------
