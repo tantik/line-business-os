@@ -16,6 +16,11 @@ export const PERMISSIONS = {
     shiftWrite: 'workforce.shift.write',
     attendanceManage: 'workforce.attendance.manage',
     requestManage: 'workforce.request.manage',
+    staffRead: 'workforce.staff.read',
+    staffManage: 'workforce.staff.manage',
+    recipeRead: 'workforce.recipe.read',
+    recipeManage: 'workforce.recipe.manage',
+    recipePublish: 'workforce.recipe.publish',
   },
   booking: {
     bookingRead: 'booking.booking.read',

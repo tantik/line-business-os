@@ -30,7 +30,7 @@ async function main() {
     location_id: CAFE_LOCATION,
     name_encrypted: bufferToBytea(encryptPII(name, enc)),
     name_hash: blindIndex(name, pepper),
-    position: 'Barista',
+    position_label: 'Barista',
     employment_type: 'part_time',
   }));
 
