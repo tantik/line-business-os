@@ -79,14 +79,29 @@ Based on the current repository docs, the platform already has:
   See
   [`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)
   and [`../architecture/overview.md`](../architecture/overview.md).
+- Phase 1L-0 complete: a docs-only Workforce first MVP slice implementation
+  plan — inspected the current migrations/RBAC/audit/API-facade/pgTAP state,
+  confirmed staff profiles (extending `workforce.employees`) + recipe/manual
+  sharing as the first Phase 1L slice, and produced a concrete data-model/
+  RLS/API/audit/test/migration plan for Phase 1L-1. Closed both open
+  implementation decisions: recipe publish state is a `text` + `check`
+  `status` column (`draft`/`published`/`archived`, not an enum, not an
+  `is_active` overload), and Workforce adds five new explicit permissions
+  (`workforce.staff.read`/`.manage`, `workforce.recipe.read`/`.manage`/
+  `.publish`) rather than reusing `workforce.shift.*`. No code, schema, or
+  config changed. See
+  [`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Implement Phase 1L — the first real Workforce MVP slice**, per
-[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md),
+**Implement Phase 1L-1 — Workforce Staff Profiles + Recipes DB Foundation**,
+per
+[`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md)
+(itself informed by
+[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)),
 starting from tenant/location-aware staff profiles and recipes/manuals, then
 shift requests, then work reports/corrections, then LINE entry. A plan-only
 design for a separate internal platform/operator admin area (`/platform` or
