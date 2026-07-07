@@ -63,6 +63,12 @@ Based on the current repository docs, the platform already has:
   `/booking`. This is a sales/demo-ready proof of concept, not the production
   Workforce module. See
   [`../phase-1j-2-cafe-workforce-demo-closeout-report.md`](../phase-1j-2-cafe-workforce-demo-closeout-report.md).
+- Phase 1J-3 complete: a docs-only Cafe Workforce sales validation package —
+  a first-client message, a demo script, an interview checklist, an 8-week
+  free pilot definition (継続時 月額4,980円（税別）, 0円 setup for this first
+  development partner), and internal pricing notes. No code, schema, or
+  config changed. See
+  [`../phase-1j-3-sales-validation-package.md`](../phase-1j-3-sales-validation-package.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
