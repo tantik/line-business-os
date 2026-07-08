@@ -70,6 +70,26 @@ function EmptyStateText({ children }: { children: ReactNode }) {
   return <p style={{ margin: '12px 0 0', ...mutedText }}>{children}</p>;
 }
 
+function WorkforcePreview({ enabled }: { enabled: boolean }) {
+  return (
+    <DashboardCard>
+      <SectionHeader title="Workforce" description="Staff recipes and reference material." />
+      {enabled ? (
+        <Link
+          href="/dashboard/workforce"
+          style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}
+        >
+          Open Workforce
+        </Link>
+      ) : (
+        <button type="button" disabled style={{ ...buttonDisabled, marginTop: 12 }}>
+          Workforce (not enabled)
+        </button>
+      )}
+    </DashboardCard>
+  );
+}
+
 function AdminActionsPreview() {
   const actions = ['Manage locations', 'Manage modules', 'Invite members', 'Billing'];
 
@@ -129,6 +149,9 @@ export default async function DashboardPage() {
           ? modulesResult.data.filter((module) => module.tenantId === activeTenant.tenantId)
           : [];
       const enabledModuleCount = activeModules.filter((module) => module.isEnabled).length;
+      const workforceEnabled = activeModules.some(
+        (module) => module.module === 'workforce' && module.isEnabled,
+      );
 
       return (
         <main style={pageStyle(1040)}>
@@ -175,6 +198,7 @@ export default async function DashboardPage() {
             </dl>
           </DashboardCard>
           <AdminActionsPreview />
+          <WorkforcePreview enabled={workforceEnabled} />
           <DashboardCard>
             <SectionHeader title="Memberships" meta={`count: ${memberships.length}`} />
             <div style={{ overflowX: 'auto' }}>
