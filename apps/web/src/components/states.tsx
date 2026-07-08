@@ -63,3 +63,23 @@ export function MissingConfigState() {
     </StateShell>
   );
 }
+
+export function NotFoundState() {
+  return (
+    <StateShell title="Not found">
+      <p style={mutedText}>
+        The item you are looking for does not exist or is not available to you.
+      </p>
+    </StateShell>
+  );
+}
+
+export function ModuleUnavailableState() {
+  return (
+    <StateShell title="Feature unavailable">
+      <p style={mutedText}>
+        This feature is not enabled for your workspace. Ask an administrator to enable it.
+      </p>
+    </StateShell>
+  );
+}
