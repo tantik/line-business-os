@@ -113,18 +113,27 @@ Based on the current repository docs, the platform already has:
   designed. No app code, routes, migrations, or Cloud actions were part of
   this planning step. See
   [`../phase-1l-5-workforce-app-api-integration-plan.md`](../phase-1l-5-workforce-app-api-integration-plan.md).
+- Phase 1L-5A complete: a read-only Workforce Recipes UI (`/dashboard/workforce`,
+  `/dashboard/workforce/recipes`, `/dashboard/workforce/recipes/[recipeId]`),
+  gated by the workforce module and reading `api.workforce_*` facade views,
+  merged via PR #87 (merge commit `dfad872`). No writes, `service_role` use,
+  `apps/api` endpoints, schema/RLS/migration changes, or Cloud/production
+  actions were part of this slice. See
+  [`../phase-1l-5a-workforce-recipes-ui-closeout.md`](../phase-1l-5a-workforce-recipes-ui-closeout.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Phase 1L-5A — read-only Workforce Recipes UI implementation**, per
+**Phase 1L-5B — my staff profile card**, per
 [`../phase-1l-5-workforce-app-api-integration-plan.md`](../phase-1l-5-workforce-app-api-integration-plan.md)
 (itself building on
 [`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md),
 [`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md), and
-[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)).
+[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)),
+or a separate controlled Cloud-dev smoke seed first if full recipe-data smoke
+is required before 1L-5B.
 Production sync remains gated behind a separate production readiness review.
 A plan-only design for a separate internal platform/operator admin area
 (`/platform` or `/ops`) is a later, independent step — see
