@@ -91,21 +91,36 @@ Based on the current repository docs, the platform already has:
   `.publish`) rather than reusing `workforce.shift.*`. No code, schema, or
   config changed. See
   [`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md).
+- Phase 1L-1 through 1L-3 complete: Workforce staff profiles + recipes DB
+  foundation, RLS policies, and the `api.workforce_*` API facade views landed
+  through local migrations `0020`–`0023` (PRs #82, #83, #84).
+- Phase 1L-4 complete: the Supabase Cloud dev project (`line-business-os-dev`)
+  was synced to local migrations `0019`–`0023` — this also applied the
+  previously pending `0019_api_has_permission_facade.sql` — dry-run
+  reviewed, then applied via `db push --linked`, then verified via
+  `migration list --linked`
+  (Local = Remote through `0023`). Anonymous REST checks confirmed the
+  `workforce` schema and the new `api.workforce_*` facade views remain
+  unreachable by anon requests; the Dashboard's exposed-schema config was
+  manually confirmed as `public`, `graphql_public`, `api` only. Production
+  was not touched. See
+  [`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Implement Phase 1L-1 — Workforce Staff Profiles + Recipes DB Foundation**,
-per
+**Phase 1L-5 — app/API integration planning** for the Workforce staff
+profile and recipe facade views now available in Cloud dev, per
+[`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md)
+(itself building on
 [`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md)
-(itself informed by
-[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)),
-starting from tenant/location-aware staff profiles and recipes/manuals, then
-shift requests, then work reports/corrections, then LINE entry. A plan-only
-design for a separate internal platform/operator admin area (`/platform` or
-`/ops`) is a later, independent step — see
+and
+[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)).
+Production sync remains gated behind a separate production readiness review.
+A plan-only design for a separate internal platform/operator admin area
+(`/platform` or `/ops`) is a later, independent step — see
 [`../phase-1j-1h-completion-report.md`](../phase-1j-1h-completion-report.md).
 
 ## MVP Build Order
