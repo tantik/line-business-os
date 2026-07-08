@@ -105,18 +105,25 @@ Based on the current repository docs, the platform already has:
   manually confirmed as `public`, `graphql_public`, `api` only. Production
   was not touched. See
   [`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md).
+- Phase 1L-5 planning complete: planned Workforce staff profile and recipe
+  facade view app/API integration — 1L-5A (a read-only Recipes UI under
+  `/dashboard/workforce/*`, reading `api.workforce_*` views from Next.js
+  Server Components) and 1L-5B (a my staff profile card), with staff
+  directory UI deferred until staff display-name resolution is separately
+  designed. No app code, routes, migrations, or Cloud actions were part of
+  this planning step. See
+  [`../phase-1l-5-workforce-app-api-integration-plan.md`](../phase-1l-5-workforce-app-api-integration-plan.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Phase 1L-5 — app/API integration planning** for the Workforce staff
-profile and recipe facade views now available in Cloud dev, per
-[`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md)
+**Phase 1L-5A — read-only Workforce Recipes UI implementation**, per
+[`../phase-1l-5-workforce-app-api-integration-plan.md`](../phase-1l-5-workforce-app-api-integration-plan.md)
 (itself building on
-[`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md)
-and
+[`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md),
+[`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md), and
 [`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)).
 Production sync remains gated behind a separate production readiness review.
 A plan-only design for a separate internal platform/operator admin area
