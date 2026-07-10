@@ -1,0 +1,27 @@
+-- ============================================================================
+-- 0024  Workforce Cafe v0.1: authenticated write grants foundation (Slice 1A)
+-- ----------------------------------------------------------------------------
+-- Phase 1J-1/1K's original plan routed all Workforce writes through
+-- `apps/api` + service-role. Slice 1A's confirmed direction instead lets a
+-- later slice's Server Actions write directly as `authenticated`, with RLS as
+-- the real security boundary (never `service_role` in `apps/web` -- see
+-- CLAUDE.md's highest-risk constraints). This migration opens exactly the
+-- INSERT/UPDATE surface Server Actions will need on `workforce.employees`
+-- (already SELECT-granted by 0023_workforce_api_facade.sql); the RLS policies
+-- that make these grants safe already exist (`wf_employees_staff_manage`,
+-- 0022_workforce_staff_recipes_rls_policies.sql) and are unchanged here.
+--
+-- Scope note: recipe-table write grants are deliberately NOT added in this
+-- migration. Slice 1A's required DB direction lists them as conditional
+-- ("if needed") and no recipe table is otherwise touched by this slice --
+-- adding unused write grants ahead of an actual recipe-write Server Action
+-- would widen the authenticated privilege surface without a corresponding
+-- consumer or test. Add them in the slice that actually implements recipe
+-- write Server Actions.
+--
+-- No DELETE grant: staff-profile retirement is `is_active = false` (an
+-- UPDATE), matching the no-hard-delete convention already established for
+-- employees/recipes (0022).
+-- ============================================================================
+
+grant insert, update on workforce.employees to authenticated;

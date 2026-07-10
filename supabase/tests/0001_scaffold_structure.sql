@@ -46,6 +46,8 @@ select has_table('workforce', 'shifts',         'workforce.shifts exists');
 select has_table('workforce', 'shift_requests', 'workforce.shift_requests exists');
 select has_table('workforce', 'leave_requests', 'workforce.leave_requests exists');
 select has_table('workforce', 'attendance',     'workforce.attendance exists');
+select has_table('workforce', 'shift_types',         'workforce.shift_types exists (Cafe v0.1 Slice 1A)');
+select has_table('workforce', 'employee_line_links', 'workforce.employee_line_links exists (Cafe v0.1 Slice 1A)');
 
 select has_table('booking', 'services',       'booking.services exists');
 select has_table('booking', 'staff',          'booking.staff exists');

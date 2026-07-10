@@ -9,20 +9,24 @@
 -- IMPORTANT -- test-only grants: through 0022, `workforce` had ZERO table
 -- grants to anon/authenticated (0013's posture). 0023_workforce_api_facade.sql
 -- (Phase 1L-3) later added persistent `authenticated`-only SELECT grants on
--- exactly 6 workforce tables for its api facade; `anon` remains at zero.
--- Section 1 below asserts that exact baseline FIRST (anon still zero,
--- authenticated exactly the 6 persistent SELECTs and nothing wider), before
--- anything else in this file grants more. A table with zero GRANTs raises a
--- permission-denied error for ANY role attempting to touch it, before RLS is
--- even evaluated -- so exercising the RLS *policies* themselves beyond what
--- 0023 already covers still requires `authenticated` to hold ordinary table
--- privileges for the remaining commands. Section 2 then grants
--- select/insert/update/delete on the six workforce tables to `authenticated`
--- for the rest of this file only -- this is DDL inside the same transaction
--- that `rollback;` undoes at the very end, so it never persists. Every
--- visibility/mutation assertion after Section 2 is scoped by explicit id (not
--- a blanket table count), so earlier mutations in this file can never leak
--- into a later assertion's result.
+-- 6 workforce tables for its api facade; `anon` remains at zero. Workforce
+-- Cafe v0.1 Slice 1A (0024-0029, later still) added further persistent
+-- `authenticated` grants on top of that: INSERT/UPDATE on employees, and
+-- SELECT+INSERT+UPDATE on shift_types/shifts/shift_requests/attendance/
+-- employee_line_links. Section 1 below asserts that combined baseline FIRST
+-- (anon still zero, authenticated exactly the 0023 SELECTs plus the Slice 1A
+-- grants and nothing wider), before anything else in this file grants more.
+-- A table with zero GRANTs raises a permission-denied error for ANY role
+-- attempting to touch it, before RLS is even evaluated -- so exercising the
+-- RLS *policies* themselves on the recipe tables beyond what 0023 already
+-- covers still requires `authenticated` to hold ordinary table privileges for
+-- the remaining commands. Section 2 then grants select/insert/update/delete
+-- on the six recipe/employees tables to `authenticated` for the rest of this
+-- file only -- this is DDL inside the same transaction that `rollback;`
+-- undoes at the very end, so it never persists. Every visibility/mutation
+-- assertion after Section 2 is scoped by explicit id (not a blanket table
+-- count), so earlier mutations in this file can never leak into a later
+-- assertion's result.
 -- ============================================================================
 
 begin;
@@ -49,7 +53,8 @@ select is(
 
 -- authenticated: exactly the 6 persistent SELECT grants added by
 -- 0023_workforce_api_facade.sql, before this file's own Section 2 adds its
--- temporary (rolled-back) grants -- nothing wider persists.
+-- temporary (rolled-back) grants -- nothing wider persists beyond Slice 1A's
+-- own separate write-grant foundation (asserted below).
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
@@ -63,20 +68,55 @@ select is(
   6,
   'baseline: authenticated has SELECT on exactly the 6 workforce facade tables (0023)'
 );
+
+-- authenticated: Slice 1A's (0024-0029) write-grant foundation -- employees
+-- gains INSERT/UPDATE (its SELECT is already counted above), and 5 new
+-- tables each gain SELECT+INSERT+UPDATE.
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name = 'employees'
+      and privilege_type in ('INSERT', 'UPDATE')),
+  2,
+  'baseline: authenticated has INSERT+UPDATE on workforce.employees (Slice 1A, 0024)'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
+      and privilege_type in ('SELECT', 'INSERT', 'UPDATE')),
+  15,
+  'baseline: authenticated has exactly SELECT+INSERT+UPDATE on each of the 5 Slice 1A workforce tables'
+);
+
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'workforce'
       and not (
-        table_name in (
-          'employees', 'recipe_categories', 'recipes',
-          'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+        (
+          table_name in (
+            'employees', 'recipe_categories', 'recipes',
+            'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+          )
+          and privilege_type = 'SELECT'
         )
-        and privilege_type = 'SELECT'
+        or (
+          table_name = 'employees'
+          and privilege_type in ('INSERT', 'UPDATE')
+        )
+        or (
+          table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'baseline: authenticated has no workforce grants beyond the 6 intended SELECTs before this file''s own test-only grants'
+  'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation, before this file''s own test-only grants'
 );
 
 -- --- old employees policies are gone ----------------------------------------

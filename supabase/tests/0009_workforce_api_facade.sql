@@ -11,8 +11,10 @@
 --   * anon is fully denied (no SELECT on any of the 7 views, no grant of any
 --     kind on workforce);
 --   * authenticated has SELECT-only on the 7 views and SELECT-only on
---     exactly the 6 named workforce base tables (nothing else in workforce,
---     no INSERT/UPDATE/DELETE anywhere);
+--     exactly the 6 named workforce base tables (as of this facade, 0023;
+--     Workforce Cafe v0.1 Slice 1A, 0024-0029, later added its own separate,
+--     documented INSERT/UPDATE write-grant foundation on employees plus 5
+--     new tables -- asserted here as an intentional widening, not leakage);
 --   * behaviorally: self-profile scoping, staff-directory tenant/location
 --     scoping, cross-tenant denial, published-vs-draft/archived recipe
 --     visibility, location-scoped recipe visibility, and child-row
@@ -355,6 +357,11 @@ select is(
 
 -- ============================================================================
 -- Section 8: grants -- authenticated SELECT-only on exactly the 6 base tables
+--            (as of this facade, 0023) -- Workforce Cafe v0.1 Slice 1A
+--            (0024-0029, later still) added its own separate write-grant
+--            foundation on employees plus 5 new tables; that is a deliberate,
+--            documented widening (RLS remains the real boundary), asserted
+--            here rather than treated as leakage.
 -- ============================================================================
 
 select is(
@@ -376,12 +383,22 @@ select is(
     where grantee = 'authenticated'
       and table_schema = 'workforce'
       and table_name in (
-        'employees', 'recipe_categories', 'recipes',
+        'recipe_categories', 'recipes',
         'recipe_ingredients', 'recipe_steps', 'recipe_notes'
       )
       and privilege_type <> 'SELECT'),
   0,
-  'authenticated has no INSERT/UPDATE/DELETE on the 6 required workforce base tables'
+  'authenticated has no INSERT/UPDATE/DELETE on the 5 recipe/category workforce base tables'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name = 'employees'
+      and privilege_type not in ('SELECT', 'INSERT', 'UPDATE')),
+  0,
+  'authenticated has no DELETE on workforce.employees (Slice 1A added INSERT/UPDATE only)'
 );
 select is(
   (select count(*)::int
@@ -390,10 +407,11 @@ select is(
       and table_schema = 'workforce'
       and table_name not in (
         'employees', 'recipe_categories', 'recipes',
-        'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+        'recipe_ingredients', 'recipe_steps', 'recipe_notes',
+        'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links'
       )),
   0,
-  'authenticated has no grants on any other workforce table (shifts/shift_requests/leave_requests/attendance)'
+  'authenticated has no grants on any other workforce table (e.g. leave_requests)'
 );
 
 -- ============================================================================
