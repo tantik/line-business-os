@@ -8,11 +8,12 @@
     "start": "next start -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/supabase/env.test.ts src/lib/auth/user.test.ts src/lib/auth/credentials.test.ts src/lib/tenant/select.test.ts src/lib/tenant/membership.test.ts src/lib/tenant/locations.test.ts src/lib/tenant/modules.test.ts src/lib/tenant/admin-members.test.ts src/lib/tenant/active-tenant-cookie.test.ts src/lib/tenant/selection.test.ts src/lib/health/health.test.ts src/lib/api/auth-boundary-smoke.service.test.ts src/lib/workforce/recipe-categories.test.ts src/lib/workforce/recipes.test.ts src/lib/workforce/staff-profile.test.ts src/lib/workforce/auto-distribute.test.ts"
+    "test": "node --import tsx --test src/lib/supabase/env.test.ts src/lib/auth/user.test.ts src/lib/auth/credentials.test.ts src/lib/tenant/select.test.ts src/lib/tenant/membership.test.ts src/lib/tenant/locations.test.ts src/lib/tenant/modules.test.ts src/lib/tenant/admin-members.test.ts src/lib/tenant/active-tenant-cookie.test.ts src/lib/tenant/selection.test.ts src/lib/health/health.test.ts src/lib/api/auth-boundary-smoke.service.test.ts src/lib/workforce/recipe-categories.test.ts src/lib/workforce/recipes.test.ts src/lib/workforce/staff-profile.test.ts src/lib/workforce/auto-distribute.test.ts src/lib/workforce/pg-error.test.ts src/lib/workforce/timezone.test.ts src/lib/workforce/validation.test.ts src/lib/workforce/employees-input.test.ts src/lib/workforce/schedule-input.test.ts src/lib/workforce/attendance-input.test.ts src/lib/workforce/employees.test.ts src/lib/workforce/employee-line-links.test.ts src/lib/workforce/shift-types.test.ts src/lib/workforce/shift-assignments.test.ts src/lib/workforce/shift-requests.test.ts src/lib/workforce/attendance.test.ts"
   },
   "dependencies": {
     "@line-os/booking": "workspace:*",
     "@line-os/config": "workspace:*",
+    "@line-os/db": "workspace:*",
     "@line-os/ui": "workspace:*",
     "@line-os/workforce": "workspace:*",
     "@supabase/ssr": "^0.5.2",

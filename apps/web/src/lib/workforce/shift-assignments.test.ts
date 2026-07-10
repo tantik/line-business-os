@@ -1,0 +1,118 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  insertDraftShiftAssignments,
+  listShiftAssignments,
+  mapDraftAssignmentToInsertRow,
+  publishShiftAssignments,
+  toAutoDistributeExistingAssignment,
+  updateShiftAssignment,
+  type WorkforceShiftAssignment,
+} from './shift-assignments.js';
+import { recordingClient } from './test-helpers.js';
+import type { DraftAssignment } from './auto-distribute.js';
+
+const TENANT_ID = 'tenant-a';
+
+const draft: DraftAssignment = {
+  employeeId: 'emp-1',
+  workDate: '2026-08-03',
+  shiftTypeId: 'st-1',
+  startsAtLocal: '09:00',
+  endsAtLocal: '13:00',
+  breakMinutes: 15,
+  published: false,
+  source: 'auto',
+};
+
+test('mapDraftAssignmentToInsertRow converts local wall-clock to a UTC instant via the tenant time zone', () => {
+  const row = mapDraftAssignmentToInsertRow(draft, TENANT_ID, 'loc-1', 'Asia/Tokyo');
+  assert.equal(row.tenant_id, TENANT_ID);
+  assert.equal(row.location_id, 'loc-1');
+  assert.equal(row.employee_id, 'emp-1');
+  assert.equal(row.starts_at, '2026-08-03T00:00:00.000Z');
+  assert.equal(row.ends_at, '2026-08-03T04:00:00.000Z');
+  assert.equal(row.published, false);
+});
+
+test('toAutoDistributeExistingAssignment converts a read row back to local wall-clock, locked always false', () => {
+  const entry: WorkforceShiftAssignment = {
+    assignmentId: 'a1',
+    tenantId: TENANT_ID,
+    locationId: 'loc-1',
+    employeeId: 'emp-1',
+    shiftTypeId: 'st-1',
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 15,
+    role: null,
+    notes: null,
+    published: true,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  };
+  const result = toAutoDistributeExistingAssignment(entry, 'Asia/Tokyo');
+  assert.deepEqual(result, {
+    employeeId: 'emp-1',
+    workDate: '2026-08-03',
+    shiftTypeId: 'st-1',
+    startsAtLocal: '09:00',
+    endsAtLocal: '13:00',
+    breakMinutes: 15,
+    published: true,
+    locked: false,
+  });
+});
+
+test('toAutoDistributeExistingAssignment returns null for an unassigned shift (no employeeId)', () => {
+  const entry: WorkforceShiftAssignment = {
+    assignmentId: 'a2',
+    tenantId: TENANT_ID,
+    locationId: 'loc-1',
+    employeeId: null,
+    shiftTypeId: null,
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 0,
+    role: null,
+    notes: null,
+    published: false,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  };
+  assert.equal(toAutoDistributeExistingAssignment(entry, 'Asia/Tokyo'), null);
+});
+
+test('listShiftAssignments applies fromIso/toIsoExclusive bounds when provided', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  await listShiftAssignments(client, TENANT_ID, { fromIso: '2026-08-01T00:00:00.000Z', toIsoExclusive: '2026-08-08T00:00:00.000Z' });
+  assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'starts_at'));
+  assert.ok(calls.some((c) => c.method === 'lt' && c.args[0] === 'starts_at'));
+});
+
+test('insertDraftShiftAssignments skips the network call for an empty draft set', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  const result = await insertDraftShiftAssignments(client, []);
+  assert.deepEqual(result, { status: 'success', data: { inserted: 0 } });
+  assert.equal(calls.length, 0);
+});
+
+test('insertDraftShiftAssignments reports the inserted count', async () => {
+  const { client } = recordingClient({ data: [{ assignment_id: 'a1' }, { assignment_id: 'a2' }], error: null });
+  const rows = [mapDraftAssignmentToInsertRow(draft, TENANT_ID, 'loc-1', 'Asia/Tokyo')];
+  const result = await insertDraftShiftAssignments(client, rows);
+  assert.deepEqual(result, { status: 'success', data: { inserted: 2 } });
+});
+
+test('updateShiftAssignment returns not_found when the row is not visible/does not exist', async () => {
+  const { client } = recordingClient({ data: null, error: null });
+  const result = await updateShiftAssignment(client, TENANT_ID, 'missing', { published: true });
+  assert.equal(result.status, 'not_found');
+});
+
+test('publishShiftAssignments reports the published count and filters published=false within bounds', async () => {
+  const { client, calls } = recordingClient({ data: [{ assignment_id: 'a1' }], error: null });
+  const result = await publishShiftAssignments(client, TENANT_ID, 'loc-1', '2026-08-01T00:00:00.000Z', '2026-08-08T00:00:00.000Z');
+  assert.deepEqual(result, { status: 'success', data: { published: 1 } });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+});
