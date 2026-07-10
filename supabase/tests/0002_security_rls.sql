@@ -144,7 +144,13 @@ select is(
 -- authenticated: NO grants beyond those exact SELECTs on business schemas.
 -- This catches accidental broadening (extra tables, INSERT/UPDATE/DELETE, etc.).
 -- The workforce exception mirrors Phase 1L-3's 0023_workforce_api_facade.sql
--- dependency grants (SELECT only, on exactly these 6 tables).
+-- dependency grants (SELECT only, on 6 tables) plus Workforce Cafe v0.1 Slice
+-- 1A's (0024-0029) authenticated write-grant foundation: employees gains
+-- INSERT/UPDATE (0024), and shift_types/shifts/shift_requests/attendance/
+-- employee_line_links each gain SELECT+INSERT+UPDATE (0025/0026/0027/0028/
+-- 0029) so their RLS policies (including the new self-scope ones) have
+-- something to engage against. RLS remains the real boundary; these grants
+-- only let it engage.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
@@ -159,14 +165,26 @@ select is(
         or (
           table_schema = 'workforce'
           and table_name in (
-            'employees', 'recipe_categories', 'recipes',
+            'recipe_categories', 'recipes',
             'recipe_ingredients', 'recipe_steps', 'recipe_notes'
           )
           and privilege_type = 'SELECT'
         )
+        or (
+          table_schema = 'workforce'
+          and table_name = 'employees'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
+        or (
+          table_schema = 'workforce'
+          and table_name in (
+            'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links'
+          )
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'authenticated has no business-table grants beyond the intended read SELECTs'
+  'authenticated has no business-table grants beyond the intended read SELECTs and Slice 1A write-grant foundation'
 );
 
 -- Product schemas (booking/ai) and audit expose no client grants at all.
@@ -190,37 +208,86 @@ select is(
   'anon has no table grants on workforce'
 );
 
--- workforce: authenticated has SELECT-only on exactly the 6 named tables
--- backing Phase 1L-3's api facade (0023_workforce_api_facade.sql) -- nothing
--- else in workforce (shifts/shift_requests/leave_requests/attendance) and no
--- INSERT/UPDATE/DELETE anywhere in workforce.
+-- workforce: authenticated has SELECT-only on the 5 read-only facade tables
+-- backing Phase 1L-3's api facade (0023_workforce_api_facade.sql).
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'workforce'
       and table_name in (
-        'employees', 'recipe_categories', 'recipes',
+        'recipe_categories', 'recipes',
         'recipe_ingredients', 'recipe_steps', 'recipe_notes'
       )
       and privilege_type = 'SELECT'),
-  6,
-  'authenticated has SELECT on exactly the 6 workforce facade tables'
+  5,
+  'authenticated has SELECT on exactly the 5 recipe/category workforce facade tables'
+);
+
+-- workforce: authenticated has SELECT+INSERT+UPDATE on exactly the 6 tables
+-- Workforce Cafe v0.1 Slice 1A (0024-0029) opened for a later slice's
+-- Server Actions to write directly as `authenticated`, with RLS (including
+-- the new self-scope policies) as the real boundary -- employees gains only
+-- INSERT/UPDATE here (its SELECT already counted above via 0023); the other
+-- 5 are new tables/first-ever grants.
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and table_name = 'employees'
+      and privilege_type in ('SELECT', 'INSERT', 'UPDATE')),
+  3,
+  'authenticated has exactly SELECT+INSERT+UPDATE on workforce.employees'
 );
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'workforce'
+      and table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
+      and privilege_type in ('SELECT', 'INSERT', 'UPDATE')),
+  15,
+  'authenticated has exactly SELECT+INSERT+UPDATE on each of the 5 Slice 1A workforce tables (3 privileges x 5 tables)'
+);
+
+-- No DELETE, and no grant on leave_requests anywhere -- neither is opened by
+-- this slice (retirement/decisions stay UPDATE-only; leave_requests is
+-- untouched).
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
+      and (privilege_type = 'DELETE' or table_name = 'leave_requests')),
+  0,
+  'authenticated has no DELETE grant anywhere in workforce, and no grant at all on leave_requests'
+);
+
+-- Full accounting: the two counts above plus the 5 recipe/category SELECTs
+-- are the ENTIRE authenticated grant surface on workforce -- nothing else
+-- leaked in.
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'workforce'
       and not (
-        table_name in (
-          'employees', 'recipe_categories', 'recipes',
-          'recipe_ingredients', 'recipe_steps', 'recipe_notes'
+        (
+          table_name in ('recipe_categories', 'recipes', 'recipe_ingredients', 'recipe_steps', 'recipe_notes')
+          and privilege_type = 'SELECT'
         )
-        and privilege_type = 'SELECT'
+        or (
+          table_name = 'employees'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
+        or (
+          table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'authenticated has no workforce grants beyond the intended 6 SELECTs (no writes, no other tables)'
+  'authenticated has no workforce grants beyond the intended read SELECTs and Slice 1A write-grant foundation'
 );
 
 select * from finish();
