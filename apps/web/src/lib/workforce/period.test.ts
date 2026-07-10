@@ -1,0 +1,60 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { getWeekPeriod } from './period.js';
+
+const TZ = 'Asia/Tokyo';
+
+test('getWeekPeriod resolves a Monday to itself as periodStart', () => {
+  assert.deepEqual(getWeekPeriod('2026-08-03T00:00:00.000Z', TZ), {
+    periodStart: '2026-08-03',
+    periodEnd: '2026-08-09',
+  });
+});
+
+test('getWeekPeriod resolves a mid-week date back to its Monday', () => {
+  assert.deepEqual(getWeekPeriod('2026-08-05T00:00:00.000Z', TZ), {
+    periodStart: '2026-08-03',
+    periodEnd: '2026-08-09',
+  });
+});
+
+test('getWeekPeriod resolves a Sunday to the Monday of the same week (not the next one)', () => {
+  assert.deepEqual(getWeekPeriod('2026-08-09T00:00:00.000Z', TZ), {
+    periodStart: '2026-08-03',
+    periodEnd: '2026-08-09',
+  });
+});
+
+test('getWeekPeriod applies a positive weekOffset', () => {
+  assert.deepEqual(getWeekPeriod('2026-08-03T00:00:00.000Z', TZ, 1), {
+    periodStart: '2026-08-10',
+    periodEnd: '2026-08-16',
+  });
+});
+
+test('getWeekPeriod applies a negative weekOffset', () => {
+  assert.deepEqual(getWeekPeriod('2026-08-03T00:00:00.000Z', TZ, -1), {
+    periodStart: '2026-07-27',
+    periodEnd: '2026-08-02',
+  });
+});
+
+test('getWeekPeriod resolves the UTC instant in the given time zone, not raw UTC date', () => {
+  // 2026-07-10T20:00:00Z is 2026-07-11 05:00 JST (UTC+9, no DST) -- a Saturday,
+  // whose Monday is 2026-07-06, not the Monday of 2026-07-10 (also 2026-07-06,
+  // chosen deliberately so a wrong UTC-only implementation would still pass;
+  // the next case pins the boundary that actually catches it).
+  assert.deepEqual(getWeekPeriod('2026-07-10T20:00:00.000Z', TZ), {
+    periodStart: '2026-07-06',
+    periodEnd: '2026-07-12',
+  });
+});
+
+test('getWeekPeriod: a late-UTC instant that rolls into the next JST calendar day crosses into the following week', () => {
+  // 2026-08-09T20:00:00Z (Sunday, late UTC) is 2026-08-10 05:00 JST (Monday) --
+  // a UTC-only implementation would resolve the wrong (prior) week.
+  assert.deepEqual(getWeekPeriod('2026-08-09T20:00:00.000Z', TZ), {
+    periodStart: '2026-08-10',
+    periodEnd: '2026-08-16',
+  });
+});
