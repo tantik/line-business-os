@@ -96,6 +96,18 @@ export default async function WorkforceLandingPage() {
           </header>
           <MyStaffProfileCard profileResult={profileResult} />
           <section style={card}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+            <p style={{ margin: '8px 0 0', ...mutedText }}>
+              Submit shift preferences, view your published schedule, and file work reports and correction requests.
+            </p>
+            <Link
+              href="/dashboard/workforce/staff"
+              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}
+            >
+              Open staff dashboard
+            </Link>
+          </section>
+          <section style={card}>
             <h2 style={{ margin: 0, fontSize: 16 }}>Manager</h2>
             <p style={{ margin: '8px 0 0', ...mutedText }}>
               Review staff, shift preferences, and the weekly schedule; run auto-distribution and publish shifts.
