@@ -120,6 +120,72 @@ export function parseUpdateShiftAssignmentInput(formData: FormData): UpdateShift
 }
 
 // ============================================================================
+// createShiftAssignment (FormData) -- new single-row assignment into a
+// previously-empty grid cell, not an edit of an existing one. Mirrors
+// UpdateShiftAssignmentFormInput minus assignmentId; employeeId is mandatory
+// (non-null) since the whole point of this action is picking someone --
+// unassigning has its own dedicated action (updateShiftAssignment with a
+// blank employeeId).
+// ============================================================================
+
+export interface CreateShiftAssignmentFormInput {
+  locationId: string;
+  employeeId: string;
+  shiftTypeId: string | null;
+  workDate: string;
+  startsAtLocal: string;
+  endsAtLocal: string;
+  breakMinutes: number;
+  role: string | null;
+  notes: string | null;
+}
+
+export function parseCreateShiftAssignmentInput(formData: FormData): CreateShiftAssignmentFormInput | null {
+  const locationId = parseUuid(formData.get('locationId'));
+  if (!locationId) return null;
+
+  const employeeId = parseUuid(formData.get('employeeId'));
+  if (!employeeId) return null;
+
+  const rawShiftTypeId = formData.get('shiftTypeId');
+  let shiftTypeId: string | null = null;
+  if (typeof rawShiftTypeId === 'string' && rawShiftTypeId.trim().length > 0) {
+    shiftTypeId = parseUuid(rawShiftTypeId);
+    if (!shiftTypeId) return null;
+  }
+
+  const workDate = parseIsoDate(formData.get('workDate'));
+  if (!workDate) return null;
+
+  const startsAtLocal = parseLocalTime(formData.get('startsAtLocal'));
+  const endsAtLocal = parseLocalTime(formData.get('endsAtLocal'));
+  if (!startsAtLocal || !endsAtLocal || endsAtLocal <= startsAtLocal) return null;
+
+  const rawBreakMinutes = formData.get('breakMinutes');
+  const breakMinutes =
+    rawBreakMinutes === null || rawBreakMinutes === '' ? 0 : parseNonNegativeInt(rawBreakMinutes, MAX_BREAK_MINUTES);
+  if (breakMinutes === null) return null;
+
+  const role = parseOptionalTrimmedString(formData.get('role'), ROLE_MAX_LENGTH);
+  if (!role.ok) return null;
+
+  const notes = parseOptionalTrimmedString(formData.get('notes'), NOTES_MAX_LENGTH);
+  if (!notes.ok) return null;
+
+  return {
+    locationId,
+    employeeId,
+    shiftTypeId,
+    workDate,
+    startsAtLocal,
+    endsAtLocal,
+    breakMinutes,
+    role: role.value,
+    notes: notes.value,
+  };
+}
+
+// ============================================================================
 // publishSchedule (FormData)
 // ============================================================================
 

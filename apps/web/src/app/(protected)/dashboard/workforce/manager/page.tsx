@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
+import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
@@ -95,8 +96,9 @@ export default async function WorkforceManagerPage({
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-      const [staffResult, shiftTypesResult, requestsResult, assignmentsResult] = await Promise.all([
+      const [staffResult, lineLinksResult, shiftTypesResult, requestsResult, assignmentsResult] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
+        listEmployeeLineLinks(supabase, activeTenant.tenantId),
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference' }),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
@@ -124,6 +126,7 @@ export default async function WorkforceManagerPage({
             periodEnd={periodEnd}
             weekOffset={weekOffset}
             staff={staffResult.status === 'success' ? staffResult.data : null}
+            lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}

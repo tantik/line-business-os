@@ -4,12 +4,13 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
+import type { WorkforceEmployeeLineLink } from '@/lib/workforce/employee-line-links';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
-import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
+import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
   alertDanger,
@@ -24,6 +25,10 @@ import {
   tableCell,
   tableHeaderCell,
 } from '@/lib/ui/theme';
+import { describeWriteError } from './error-copy';
+import { StaffForm } from './staff-form';
+import { LineLinkForm } from './line-link-form';
+import { ShiftCellEditor } from './shift-cell-editor';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,
@@ -52,22 +57,10 @@ export interface ManagerDashboardClientProps {
   periodEnd: string;
   weekOffset: number;
   staff: WorkforceStaffManageEntry[] | null;
+  lineLinks: WorkforceEmployeeLineLink[] | null;
   shiftTypes: WorkforceShiftType[] | null;
   requests: WorkforceShiftRequest[] | null;
   assignments: WorkforceShiftAssignment[] | null;
-}
-
-function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>, { status: 'success' }>): string {
-  switch (result.status) {
-    case 'not_found':
-      return 'Not found.';
-    case 'not_authenticated':
-      return 'Please sign in again.';
-    case 'no_membership':
-      return 'You are not a member of this workspace.';
-    default:
-      return result.message;
-  }
 }
 
 function weekDates(periodStart: string): string[] {
@@ -85,6 +78,7 @@ export function ManagerDashboardClient({
   periodEnd,
   weekOffset,
   staff,
+  lineLinks,
   shiftTypes,
   requests,
   assignments,
@@ -93,6 +87,9 @@ export function ManagerDashboardClient({
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [addingStaff, setAddingStaff] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
 
@@ -101,6 +98,10 @@ export function ManagerDashboardClient({
     [shiftTypes],
   );
   const staffById = useMemo(() => new Map((staff ?? []).map((s) => [s.staffId, s])), [staff]);
+  const isLineLinkedByEmployeeId = useMemo(
+    () => new Map((lineLinks ?? []).filter((l) => l.isActive).map((l) => [l.employeeId, true])),
+    [lineLinks],
+  );
 
   const localAssignments = useMemo(
     () =>
@@ -114,6 +115,29 @@ export function ManagerDashboardClient({
 
   function assignmentFor(staffId: string, date: string) {
     return localAssignments.find((a) => a.assignment.employeeId === staffId && a.workDate === date);
+  }
+
+  function cellKey(staffId: string, date: string) {
+    return `${staffId}:${date}`;
+  }
+
+  function handleSetActive(staffId: string, nextActive: boolean) {
+    if (!nextActive && !window.confirm('Deactivate this staff member?')) return;
+    setBanner(null);
+    setPendingAction(`active-${staffId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('staffId', staffId);
+      if (nextActive) formData.set('isActive', 'true');
+      const result = await setEmployeeActive(formData);
+      if (result.status === 'success') {
+        setBanner({ tone: 'success', message: nextActive ? 'Staff member activated.' : 'Staff member deactivated.' });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setPendingAction(null);
+    });
   }
 
   function handleAutoDistribute() {
@@ -196,7 +220,26 @@ export function ManagerDashboardClient({
       ) : null}
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+          {staff !== null && !addingStaff ? (
+            <button type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
+              + Add staff
+            </button>
+          ) : null}
+        </div>
+
+        {addingStaff ? (
+          <StaffForm
+            locationId={locationId}
+            onSuccess={() => {
+              setAddingStaff(false);
+              router.refresh();
+            }}
+            onCancel={() => setAddingStaff(false)}
+          />
+        ) : null}
+
         {staff === null ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>Staff list is temporarily unavailable.</p>
         ) : staff.length === 0 ? (
@@ -209,19 +252,63 @@ export function ManagerDashboardClient({
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Position</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Employment type</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>LINE</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {staff.map((s) => (
-                <tr key={s.staffId}>
-                  <td style={tableCell}>{s.name}</td>
-                  <td style={tableCell}>{s.positionLabel ?? '-'}</td>
-                  <td style={tableCell}>{s.employmentType ?? '-'}</td>
-                  <td style={tableCell}>
-                    <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? 'Active' : 'Inactive'}</span>
-                  </td>
-                </tr>
-              ))}
+              {staff.map((s) => {
+                if (editingStaffId === s.staffId) {
+                  return (
+                    <tr key={s.staffId}>
+                      <td colSpan={6} style={tableCell}>
+                        <StaffForm
+                          locationId={locationId}
+                          employee={s}
+                          onSuccess={() => {
+                            setEditingStaffId(null);
+                            router.refresh();
+                          }}
+                          onCancel={() => setEditingStaffId(null)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                }
+                const togglingActive = pendingAction === `active-${s.staffId}`;
+                return (
+                  <tr key={s.staffId}>
+                    <td style={tableCell}>{s.name}</td>
+                    <td style={tableCell}>{s.positionLabel ?? '-'}</td>
+                    <td style={tableCell}>{s.employmentType ?? '-'}</td>
+                    <td style={tableCell}>
+                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? 'Active' : 'Inactive'}</span>
+                    </td>
+                    <td style={tableCell}>
+                      <LineLinkForm
+                        employeeId={s.staffId}
+                        isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
+                        onSuccess={() => router.refresh()}
+                      />
+                    </td>
+                    <td style={tableCell}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingStaffId(s.staffId)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          style={isPending && togglingActive ? buttonDisabled : buttonSecondary}
+                          disabled={isPending}
+                          onClick={() => handleSetActive(s.staffId, !s.isActive)}
+                        >
+                          {togglingActive ? 'Saving...' : s.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -335,11 +422,43 @@ export function ManagerDashboardClient({
                   <tr key={s.staffId}>
                     <td style={tableCell}>{s.name}</td>
                     {dates.map((date) => {
+                      const key = cellKey(s.staffId, date);
                       const entry = assignmentFor(s.staffId, date);
+
+                      if (editingCellKey === key) {
+                        return (
+                          <td key={date} style={tableCell}>
+                            <ShiftCellEditor
+                              locationId={locationId}
+                              workDate={date}
+                              rowStaffId={s.staffId}
+                              existing={
+                                entry
+                                  ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal }
+                                  : undefined
+                              }
+                              staff={staff ?? []}
+                              shiftTypes={shiftTypes ?? []}
+                              onSuccess={() => {
+                                setEditingCellKey(null);
+                                router.refresh();
+                              }}
+                              onCancel={() => setEditingCellKey(null)}
+                            />
+                          </td>
+                        );
+                      }
+
                       if (!entry) {
                         return (
                           <td key={date} style={{ ...tableCell, ...mutedText }}>
-                            -
+                            {s.isActive ? (
+                              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCellKey(key)}>
+                                Assign
+                              </button>
+                            ) : (
+                              '-'
+                            )}
                           </td>
                         );
                       }
@@ -354,14 +473,28 @@ export function ManagerDashboardClient({
                                 {entry.assignment.published ? 'Published' : 'Draft'}
                               </span>
                             </span>
-                            <button
-                              type="button"
-                              style={isPending && unassigning ? buttonDisabled : buttonSecondary}
-                              disabled={isPending}
-                              onClick={() => handleUnassign(entry)}
-                            >
-                              {unassigning ? 'Unassigning...' : 'Unassign'}
-                            </button>
+                            {entry.assignment.published ? (
+                              <span style={{ ...mutedText, fontSize: 12 }}>Published -- read-only</span>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  style={buttonSecondary}
+                                  disabled={isPending}
+                                  onClick={() => setEditingCellKey(key)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  style={isPending && unassigning ? buttonDisabled : buttonSecondary}
+                                  disabled={isPending}
+                                  onClick={() => handleUnassign(entry)}
+                                >
+                                  {unassigning ? 'Unassigning...' : 'Unassign'}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       );
