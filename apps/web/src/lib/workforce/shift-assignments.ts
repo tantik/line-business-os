@@ -141,6 +141,64 @@ export async function insertDraftShiftAssignments(
   }
 }
 
+export interface CreateShiftAssignmentInput {
+  employeeId: string;
+  shiftTypeId: string | null;
+  /** Already resolved to a UTC instant by the caller (`localDateTimeToUtcIso`), never a bare local time. */
+  startsAt: string;
+  endsAt: string;
+  breakMinutes: number;
+  role: string | null;
+  notes: string | null;
+}
+
+/**
+ * Manager manual assignment of a single, specific employee/date/shift-type
+ * into a previously-empty grid cell -- a single-row INSERT into
+ * `api.workforce_shift_assignments`, always `published: false`. Distinct from
+ * `insertDraftShiftAssignments` (bulk, `runAutoDistribution`-only): this is
+ * the one-cell-at-a-time counterpart to `updateShiftAssignment`, covered by
+ * the same `wf_shifts_manage` RLS policy the bulk insert already relies on.
+ */
+export async function createShiftAssignment(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  input: CreateShiftAssignmentInput,
+): Promise<WorkforceWriteResult<WorkforceShiftAssignment>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_assignments')
+      .insert({
+        tenant_id: tenantId,
+        location_id: locationId,
+        employee_id: input.employeeId,
+        shift_type_id: input.shiftTypeId,
+        starts_at: input.startsAt,
+        ends_at: input.endsAt,
+        break_minutes: input.breakMinutes,
+        role: input.role,
+        notes: input.notes,
+        published: false,
+      })
+      .select(ASSIGNMENT_SELECT)
+      .single();
+
+    if (error) {
+      // 23503 = foreign_key_violation: employeeId/shiftTypeId doesn't exist in this tenant.
+      if (error.code === '23503') return { status: 'not_found' };
+      return mapWorkforceWriteError(error, 'create this shift assignment');
+    }
+    return { status: 'success', data: mapAssignmentRow(data as ApiWorkforceShiftAssignmentRow) };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error creating this shift assignment.',
+    };
+  }
+}
+
 export interface UpdateShiftAssignmentPatch {
   employeeId?: string | null;
   shiftTypeId?: string | null;

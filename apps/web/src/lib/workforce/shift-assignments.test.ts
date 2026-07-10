@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  createShiftAssignment,
   insertDraftShiftAssignments,
   listShiftAssignments,
   mapDraftAssignmentToInsertRow,
@@ -102,6 +103,78 @@ test('insertDraftShiftAssignments reports the inserted count', async () => {
   const rows = [mapDraftAssignmentToInsertRow(draft, TENANT_ID, 'loc-1', 'Asia/Tokyo')];
   const result = await insertDraftShiftAssignments(client, rows);
   assert.deepEqual(result, { status: 'success', data: { inserted: 2 } });
+});
+
+test('createShiftAssignment inserts a single published:false row for a specific employee/date/shift-type', async () => {
+  const { client, calls } = recordingClient({
+    data: {
+      assignment_id: 'a3',
+      tenant_id: TENANT_ID,
+      location_id: 'loc-1',
+      employee_id: 'emp-1',
+      shift_type_id: 'st-1',
+      starts_at: '2026-08-03T00:00:00.000Z',
+      ends_at: '2026-08-03T04:00:00.000Z',
+      break_minutes: 15,
+      role: null,
+      notes: null,
+      published: false,
+      created_at: '2026-08-01T00:00:00.000Z',
+      updated_at: '2026-08-01T00:00:00.000Z',
+    },
+    error: null,
+  });
+
+  const result = await createShiftAssignment(client, TENANT_ID, 'loc-1', {
+    employeeId: 'emp-1',
+    shiftTypeId: 'st-1',
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 15,
+    role: null,
+    notes: null,
+  });
+
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.equal(result.data.assignmentId, 'a3');
+    assert.equal(result.data.published, false);
+  }
+  const insertCall = calls.find((c) => c.method === 'insert');
+  assert.ok(insertCall);
+  const row = insertCall!.args[0] as Record<string, unknown>;
+  assert.equal(row.tenant_id, TENANT_ID);
+  assert.equal(row.location_id, 'loc-1');
+  assert.equal(row.employee_id, 'emp-1');
+  assert.equal(row.published, false);
+});
+
+test('createShiftAssignment maps a foreign-key violation (23503) to not_found', async () => {
+  const { client } = recordingClient({ data: null, error: { code: '23503', message: 'fk violation' } });
+  const result = await createShiftAssignment(client, TENANT_ID, 'loc-1', {
+    employeeId: 'nonexistent-employee',
+    shiftTypeId: null,
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 0,
+    role: null,
+    notes: null,
+  });
+  assert.equal(result.status, 'not_found');
+});
+
+test('createShiftAssignment maps an RLS denial to unauthorized', async () => {
+  const { client } = recordingClient({ data: null, error: { code: '42501', message: 'row-level security' } });
+  const result = await createShiftAssignment(client, TENANT_ID, 'loc-1', {
+    employeeId: 'emp-1',
+    shiftTypeId: null,
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 0,
+    role: null,
+    notes: null,
+  });
+  assert.equal(result.status, 'unauthorized');
 });
 
 test('updateShiftAssignment returns not_found when the row is not visible/does not exist', async () => {

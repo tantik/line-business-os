@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
   parseRunAutoDistributionInput,
   parseSubmitShiftPreferenceInput,
@@ -83,6 +84,71 @@ test('parseUpdateShiftAssignmentInput rejects endsAtLocal <= startsAtLocal', () 
       formData({
         assignmentId: ASSIGNMENT_ID,
         locationId: LOCATION_ID,
+        workDate: '2026-08-03',
+        startsAtLocal: '13:00',
+        endsAtLocal: '09:00',
+      }),
+    ),
+    null,
+  );
+});
+
+test('parseCreateShiftAssignmentInput parses a full valid assignment', () => {
+  const fd = formData({
+    locationId: LOCATION_ID,
+    employeeId: EMPLOYEE_ID,
+    shiftTypeId: SHIFT_TYPE_ID,
+    workDate: '2026-08-03',
+    startsAtLocal: '09:00',
+    endsAtLocal: '13:00',
+    breakMinutes: '15',
+    role: 'Barista',
+    notes: 'Cover for Kenji',
+  });
+  assert.deepEqual(parseCreateShiftAssignmentInput(fd), {
+    locationId: LOCATION_ID,
+    employeeId: EMPLOYEE_ID,
+    shiftTypeId: SHIFT_TYPE_ID,
+    workDate: '2026-08-03',
+    startsAtLocal: '09:00',
+    endsAtLocal: '13:00',
+    breakMinutes: 15,
+    role: 'Barista',
+    notes: 'Cover for Kenji',
+  });
+});
+test('parseCreateShiftAssignmentInput defaults breakMinutes to 0 and shiftTypeId to null when absent', () => {
+  const result = parseCreateShiftAssignmentInput(
+    formData({
+      locationId: LOCATION_ID,
+      employeeId: EMPLOYEE_ID,
+      workDate: '2026-08-03',
+      startsAtLocal: '09:00',
+      endsAtLocal: '13:00',
+    }),
+  );
+  assert.equal(result?.shiftTypeId, null);
+  assert.equal(result?.breakMinutes, 0);
+});
+test('parseCreateShiftAssignmentInput rejects a missing employeeId (unlike update, there is no unassign path here)', () => {
+  assert.equal(
+    parseCreateShiftAssignmentInput(
+      formData({
+        locationId: LOCATION_ID,
+        workDate: '2026-08-03',
+        startsAtLocal: '09:00',
+        endsAtLocal: '13:00',
+      }),
+    ),
+    null,
+  );
+});
+test('parseCreateShiftAssignmentInput rejects endsAtLocal <= startsAtLocal', () => {
+  assert.equal(
+    parseCreateShiftAssignmentInput(
+      formData({
+        locationId: LOCATION_ID,
+        employeeId: EMPLOYEE_ID,
         workDate: '2026-08-03',
         startsAtLocal: '13:00',
         endsAtLocal: '09:00',

@@ -8,6 +8,7 @@ import { listWorkforceStaffDirectory } from './employees';
 import { listWorkforceShiftTypes } from './shift-types';
 import { listShiftRequestsForManager, submitShiftPreference as submitShiftPreferenceWrite } from './shift-requests';
 import {
+  createShiftAssignment as createShiftAssignmentWrite,
   insertDraftShiftAssignments,
   listShiftAssignments,
   mapDraftAssignmentToInsertRow,
@@ -19,6 +20,7 @@ import {
 import { autoDistribute, type AutoDistributeEmployee, type AutoDistributePreference } from './auto-distribute';
 import { addIsoDays, localDateTimeToUtcIso } from './timezone';
 import {
+  parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
   parseRunAutoDistributionInput,
   parseSubmitShiftPreferenceInput,
@@ -183,6 +185,33 @@ export async function updateShiftAssignment(formData: FormData): Promise<Workfor
     role: input.role,
     notes: input.notes,
     published: input.published,
+  });
+}
+
+/** Manager manual assignment of a specific employee into a previously-empty grid cell -- see `createShiftAssignment` in `shift-assignments.ts`. */
+export async function createShiftAssignment(formData: FormData): Promise<WorkforceWriteResult<WorkforceShiftAssignment>> {
+  const input = parseCreateShiftAssignmentInput(formData);
+  if (!input) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  const locationsResult = await listTenantLocations(supabase);
+  if (locationsResult.status !== 'success') return locationsResult;
+  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === input.locationId);
+  if (!location) return { status: 'not_found' };
+
+  return createShiftAssignmentWrite(supabase, tenantId, input.locationId, {
+    employeeId: input.employeeId,
+    shiftTypeId: input.shiftTypeId,
+    startsAt: localDateTimeToUtcIso(input.workDate, input.startsAtLocal, location.timezone),
+    endsAt: localDateTimeToUtcIso(input.workDate, input.endsAtLocal, location.timezone),
+    breakMinutes: input.breakMinutes,
+    role: input.role,
+    notes: input.notes,
   });
 }
 
