@@ -8,6 +8,7 @@ import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
+import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -96,12 +97,22 @@ export default async function WorkforceManagerPage({
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-      const [staffResult, lineLinksResult, shiftTypesResult, requestsResult, assignmentsResult] = await Promise.all([
+      const [
+        staffResult,
+        lineLinksResult,
+        shiftTypesResult,
+        requestsResult,
+        assignmentsResult,
+        correctionRequestsResult,
+        attendanceResult,
+      ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference' }),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
+        listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
+        listAttendanceForManager(supabase, activeTenant.tenantId),
       ]);
 
       return (
@@ -130,6 +141,8 @@ export default async function WorkforceManagerPage({
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
+            correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
+            attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
           />
         </main>
       );

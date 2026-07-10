@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceEmployeeLineLink } from '@/lib/workforce/employee-line-links';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
-import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
+import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
+import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
   alertDanger,
@@ -61,6 +63,8 @@ export interface ManagerDashboardClientProps {
   shiftTypes: WorkforceShiftType[] | null;
   requests: WorkforceShiftRequest[] | null;
   assignments: WorkforceShiftAssignment[] | null;
+  correctionRequests: WorkforceShiftRequest[] | null;
+  attendance: WorkforceAttendance[] | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -82,6 +86,8 @@ export function ManagerDashboardClient({
   shiftTypes,
   requests,
   assignments,
+  correctionRequests,
+  attendance,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,6 +107,23 @@ export function ManagerDashboardClient({
   const isLineLinkedByEmployeeId = useMemo(
     () => new Map((lineLinks ?? []).filter((l) => l.isActive).map((l) => [l.employeeId, true])),
     [lineLinks],
+  );
+  const attendanceById = useMemo(
+    () => new Map((attendance ?? []).map((a) => [a.attendanceId, a])),
+    [attendance],
+  );
+
+  const pendingCorrections = useMemo(
+    () => (correctionRequests ?? []).filter((r) => r.status === 'pending'),
+    [correctionRequests],
+  );
+  const decidedCorrections = useMemo(
+    () =>
+      (correctionRequests ?? [])
+        .filter((r) => r.status !== 'pending')
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 10),
+    [correctionRequests],
   );
 
   const localAssignments = useMemo(
@@ -205,6 +228,24 @@ export function ManagerDashboardClient({
       const result = await updateShiftAssignment(formData);
       if (result.status === 'success') {
         setBanner({ tone: 'success', message: 'Shift unassigned.' });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setPendingAction(null);
+    });
+  }
+
+  function handleDecideCorrection(requestId: string, decision: ShiftRequestDecision) {
+    setBanner(null);
+    setPendingAction(`decide-${requestId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('requestId', requestId);
+      formData.set('decision', decision);
+      const result = await decideCorrectionRequest(formData);
+      if (result.status === 'success') {
+        setBanner({ tone: 'success', message: decision === 'approved' ? 'Correction approved.' : 'Correction rejected.' });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -379,6 +420,98 @@ export function ManagerDashboardClient({
               </table>
             );
           })()
+        )}
+      </section>
+
+      <section style={card}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>Correction requests</h2>
+        {correctionRequests === null ? (
+          <p style={{ margin: '8px 0 0', ...mutedText }}>Correction requests are temporarily unavailable.</p>
+        ) : (
+          <>
+            {pendingCorrections.length === 0 ? (
+              <p style={{ margin: '8px 0 0', ...mutedText }}>No pending correction requests.</p>
+            ) : (
+              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Attendance</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingCorrections.map((r) => {
+                    const deciding = pendingAction === `decide-${r.requestId}`;
+                    const message = typeof r.details.message === 'string' ? r.details.message : '-';
+                    const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
+                    return (
+                      <tr key={r.requestId}>
+                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                        <td style={tableCell}>{r.workDate}</td>
+                        <td style={tableCell}>{message}</td>
+                        <td style={tableCell}>
+                          {relatedAttendance
+                            ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
+                            : '-'}
+                        </td>
+                        <td style={tableCell}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              style={isPending ? buttonDisabled : buttonPrimary}
+                              disabled={isPending}
+                              onClick={() => handleDecideCorrection(r.requestId, 'approved')}
+                            >
+                              {deciding ? 'Saving...' : 'Approve'}
+                            </button>
+                            <button
+                              type="button"
+                              style={isPending ? buttonDisabled : buttonSecondary}
+                              disabled={isPending}
+                              onClick={() => handleDecideCorrection(r.requestId, 'rejected')}
+                            >
+                              {deciding ? 'Saving...' : 'Reject'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {decidedCorrections.length > 0 ? (
+              <>
+                <h3 style={{ margin: '16px 0 0', fontSize: 14 }}>Recently decided</h3>
+                <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decidedCorrections.map((r) => (
+                      <tr key={r.requestId}>
+                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                        <td style={tableCell}>{r.workDate}</td>
+                        <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
+                        <td style={tableCell}>
+                          <span style={badgeStyle(r.status === 'approved' ? 'active' : 'inactive')}>{r.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : null}
+          </>
         )}
       </section>
 
