@@ -102,6 +102,9 @@ importers:
       '@line-os/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@line-os/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@line-os/ui':
         specifier: workspace:*
         version: link:../../packages/ui

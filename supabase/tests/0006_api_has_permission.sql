@@ -148,10 +148,13 @@ select is(
         -- Workforce Cafe v0.1 Slice 1A (0030_workforce_cafe_api_facade.sql):
         -- 4 new read-only views, added in a later, separate migration.
         'workforce_shift_types', 'workforce_shift_assignments',
-        'workforce_shift_requests', 'workforce_attendance'
+        'workforce_shift_requests', 'workforce_attendance',
+        -- Workforce Cafe v0.1 Slice 1C (0031_workforce_cafe_write_facade.sql):
+        -- 2 new views, added in a later, separate migration.
+        'workforce_employee_line_links', 'workforce_staff_manage'
       )),
   0,
-  'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A''s later workforce facades'
+  'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'
 );
 
 -- --- Grants: PUBLIC/anon denied, authenticated allowed ----------------------

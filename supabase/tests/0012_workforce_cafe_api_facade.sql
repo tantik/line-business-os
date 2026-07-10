@@ -197,6 +197,10 @@ select ok(has_table_privilege('authenticated', 'api.workforce_shift_assignments'
 select ok(has_table_privilege('authenticated', 'api.workforce_shift_requests', 'SELECT'), 'authenticated can SELECT api.workforce_shift_requests');
 select ok(has_table_privilege('authenticated', 'api.workforce_attendance', 'SELECT'), 'authenticated can SELECT api.workforce_attendance');
 
+-- As of 0031 (Slice 1C), authenticated also holds INSERT/UPDATE on these 4
+-- views (the write facade Server Actions use, since PostgREST never exposes
+-- `workforce` directly) -- but still never DELETE, and still nothing beyond
+-- SELECT/INSERT/UPDATE.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
@@ -206,9 +210,22 @@ select is(
         'workforce_shift_types', 'workforce_shift_assignments',
         'workforce_shift_requests', 'workforce_attendance'
       )
-      and privilege_type <> 'SELECT'),
+      and privilege_type = 'DELETE'),
   0,
-  'authenticated has no INSERT/UPDATE/DELETE on any of the 4 workforce cafe api views'
+  'authenticated has no DELETE on any of the 4 workforce cafe api views'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'api'
+      and table_name in (
+        'workforce_shift_types', 'workforce_shift_assignments',
+        'workforce_shift_requests', 'workforce_attendance'
+      )
+      and privilege_type not in ('SELECT', 'INSERT', 'UPDATE')),
+  0,
+  'authenticated has no grant beyond SELECT/INSERT/UPDATE on any of the 4 workforce cafe api views'
 );
 
 -- ============================================================================
