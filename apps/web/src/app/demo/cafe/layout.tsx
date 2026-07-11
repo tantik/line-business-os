@@ -10,13 +10,15 @@ export const metadata: Metadata = {
 /**
  * Public, unauthenticated shell for the cafe workforce sales demo. Lives
  * outside `(protected)` on purpose — no session/tenant context, mock data
- * only. See docs/phase-1j-2-cafe-workforce-demo-to-production-plan.md.
+ * only. See docs/phase-1j-2-cafe-workforce-demo-to-production-plan.md and
+ * docs/phase-1n-4a-cafe-demo-package-closeout.md.
  *
- * `/demo/cafe`, `/demo/cafe/recipes` and `/demo/cafe/manager` are three
- * separate direct-entry screens (mirroring three separate future LINE Rich
- * Menu / manager-link entry points) and intentionally share no navigation —
- * this shell only provides the warm page background. No in-UI disclaimer
- * banner is shown; the demo/testing explanation is handled outside the UI.
+ * `/demo/cafe` is a premium product-overview hub linking to the three
+ * direct-entry screens `/demo/cafe/staff`, `/demo/cafe/manager` and
+ * `/demo/cafe/recipes` (mirroring three separate future LINE Rich Menu /
+ * manager-link entry points). This shell only provides the warm page
+ * background. No in-UI disclaimer banner is shown; the demo/testing
+ * explanation is handled outside the UI.
  */
 export default function DemoCafeLayout({ children }: { children: ReactNode }) {
   return (
