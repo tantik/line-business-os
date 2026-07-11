@@ -486,7 +486,7 @@ function Hero() {
           </p>
 
           <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <PrimaryButton href="/demo/cafe">スタッフ用デモを見る</PrimaryButton>
+            <PrimaryButton href="/demo/cafe/staff">スタッフ用デモを見る</PrimaryButton>
             <SecondaryButton href="/demo/cafe/recipes">レシピ共有を見る</SecondaryButton>
             <SecondaryButton href="/demo/cafe/manager">店長ダッシュボードを見る</SecondaryButton>
           </div>
@@ -751,7 +751,7 @@ function DemoUrlSection() {
   const demos = [
     {
       title: 'スタッフ用アプリ',
-      path: '/demo/cafe',
+      path: '/demo/cafe/staff',
       value: '出勤から退勤、シフト確認まで。スタッフが毎日開く入口になる画面です。',
       device: 'スマートフォン推奨',
       features: ['出退勤・休憩の記録', 'シフト・本日のメッセージ確認', '来月のシフト希望提出', 'JA / EN 切替'],
@@ -839,12 +839,12 @@ function StaffAppSection() {
     <Reveal>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 0.9fr) minmax(280px, 1.1fr)', gap: 40 }}>
         <div>
-          <SectionHeading eyebrow="/demo/cafe" title="スタッフ用アプリ" />
+          <SectionHeading eyebrow="/demo/cafe/staff" title="スタッフ用アプリ" />
           <p style={{ margin: '18px 0 0', fontSize: 15, lineHeight: 1.95, color: colors.textMuted }}>
             出勤・退勤・休憩、シフト確認、交通費、本日のメッセージ、来月のシフト希望をスマートフォンで確認できます。
           </p>
           <div style={{ marginTop: 20 }}>
-            <SecondaryButton href="/demo/cafe">スタッフ用デモを見る</SecondaryButton>
+            <SecondaryButton href="/demo/cafe/staff">スタッフ用デモを見る</SecondaryButton>
           </div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 18, alignItems: 'flex-start' }}>
@@ -1130,7 +1130,7 @@ function FinalCTASection() {
           </p>
           <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
             <Link
-              href="/demo/cafe"
+              href="/demo/cafe/staff"
               className="cafe-guide-btn"
               style={{
                 display: 'inline-flex',

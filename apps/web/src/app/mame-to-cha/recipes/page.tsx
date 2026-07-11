@@ -1,10 +1,10 @@
 import { RecipeView } from '@/components/demo/cafe/views/RecipeView';
 import { LangProvider } from '@/lib/demo/cafe/i18n';
-import { BrandProvider, CAFE_DEMO_BRAND } from '@/lib/demo/brand';
+import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
 
-export default function CafeRecipesDemoPage() {
+export default function MameToChaRecipesPage() {
   return (
-    <BrandProvider brand={CAFE_DEMO_BRAND}>
+    <BrandProvider brand={MAME_TO_CHA_BRAND}>
       <LangProvider>
         <RecipeView />
       </LangProvider>
