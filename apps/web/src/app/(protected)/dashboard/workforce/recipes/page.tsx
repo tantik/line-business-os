@@ -12,7 +12,7 @@ import {
   NoTenantState,
   UnauthorizedState,
 } from '@/components/states';
-import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -82,15 +82,23 @@ export default async function WorkforceRecipesPage() {
           ) : (
             groups.map((group) => (
               <section key={group.category?.categoryId ?? 'uncategorized'} style={card}>
-                <h2 style={{ margin: 0, fontSize: 16 }}>
-                  {group.category ? group.category.labelJa || group.category.labelEn : 'Uncategorized'}
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h2 style={{ margin: 0, fontSize: 16 }}>
+                    {group.category ? group.category.labelJa || group.category.labelEn : 'Uncategorized'}
+                  </h2>
+                  {group.recipes.length > 0 ? (
+                    <span style={badgeStyle('neutral')}>{group.recipes.length}</span>
+                  ) : null}
+                </div>
                 {group.recipes.length === 0 ? (
                   <EmptyStateText>No recipes in this category yet.</EmptyStateText>
                 ) : (
                   <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
                     {group.recipes.map((recipe) => (
-                      <li key={recipe.recipeId} style={{ marginTop: 8 }}>
+                      <li
+                        key={recipe.recipeId}
+                        style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8 }}
+                      >
                         <Link
                           href={`/dashboard/workforce/recipes/${recipe.recipeId}`}
                           style={{ ...linkAccent, textDecoration: 'underline' }}
