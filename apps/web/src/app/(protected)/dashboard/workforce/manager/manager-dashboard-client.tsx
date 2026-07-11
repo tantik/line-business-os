@@ -439,6 +439,8 @@ export function ManagerDashboardClient({
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Attendance</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Daily message</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
                   </tr>
                 </thead>
@@ -457,6 +459,8 @@ export function ManagerDashboardClient({
                             ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
                             : '-'}
                         </td>
+                        <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
+                        <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                         <td style={tableCell}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button
@@ -493,20 +497,33 @@ export function ManagerDashboardClient({
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Attendance</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Daily message</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {decidedCorrections.map((r) => (
-                      <tr key={r.requestId}>
-                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                        <td style={tableCell}>{r.workDate}</td>
-                        <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
-                        <td style={tableCell}>
-                          <span style={badgeStyle(r.status === 'approved' ? 'active' : 'inactive')}>{r.status}</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {decidedCorrections.map((r) => {
+                      const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
+                      return (
+                        <tr key={r.requestId}>
+                          <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                          <td style={tableCell}>{r.workDate}</td>
+                          <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
+                          <td style={tableCell}>
+                            {relatedAttendance
+                              ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
+                              : '-'}
+                          </td>
+                          <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
+                          <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
+                          <td style={tableCell}>
+                            <span style={badgeStyle(r.status === 'approved' ? 'active' : 'inactive')}>{r.status}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </>
