@@ -120,6 +120,16 @@ Based on the current repository docs, the platform already has:
   `apps/api` endpoints, schema/RLS/migration changes, or Cloud/production
   actions were part of this slice. See
   [`../phase-1l-5a-workforce-recipes-ui-closeout.md`](../phase-1l-5a-workforce-recipes-ui-closeout.md).
+- Phase 1M complete: the first production-path (non-demo) Cafe Workforce
+  v0.1 write slice — DB schedule/write foundation, auto-distribution,
+  write helpers/actions, manager UI (including manual staff/shift editing
+  and correction review), staff UI, and a smoke UI clarity pass (PRs
+  #90–#97). The full staff-preference to manager-publish to work-report to
+  correction-approval flow was verified end-to-end on Vercel dev Preview
+  against Supabase Cloud dev. LIFF, LINE rich menu, production deployment,
+  billing, inventory, CRM, full visual polish, and automated Playwright E2E
+  are explicitly not covered. See
+  [`../phase-1m-cafe-workforce-smoke-closeout.md`](../phase-1m-cafe-workforce-smoke-closeout.md).
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
