@@ -52,6 +52,8 @@ export interface StaffDashboardClientProps {
   assignments: WorkforceShiftAssignment[] | null;
   /** The caller's own attendance rows (self-scoped by RLS), not date-filtered by the caller. */
   attendance: WorkforceAttendance[] | null;
+  /** The caller's own `kind: 'correction'` shift requests (self-scoped by RLS), not date-filtered by the caller. */
+  correctionRequests: WorkforceShiftRequest[] | null;
 }
 
 function formatWeekday(isoDate: string): string {
@@ -68,6 +70,7 @@ export function StaffDashboardClient({
   requests,
   assignments,
   attendance,
+  correctionRequests,
 }: StaffDashboardClientProps) {
   const router = useRouter();
   const [banner, setBanner] = useState<string | null>(null);
@@ -95,6 +98,16 @@ export function StaffDashboardClient({
   const myAttendanceThisWeek = useMemo(
     () => (attendance ?? []).filter((a) => a.workDate >= periodStart && a.workDate <= periodEnd).sort((a, b) => a.workDate.localeCompare(b.workDate)),
     [attendance, periodStart, periodEnd],
+  );
+
+  const attendanceById = useMemo(() => new Map((attendance ?? []).map((a) => [a.attendanceId, a])), [attendance]);
+
+  const myCorrectionsThisWeek = useMemo(
+    () =>
+      (correctionRequests ?? [])
+        .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
+        .sort((a, b) => a.workDate.localeCompare(b.workDate)),
+    [correctionRequests, periodStart, periodEnd],
   );
 
   function handleFormSuccess(message: string) {
@@ -228,6 +241,7 @@ export function StaffDashboardClient({
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock in</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock out</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
               </tr>
             </thead>
@@ -241,6 +255,7 @@ export function StaffDashboardClient({
                     <td style={tableCell}>{clockIn}</td>
                     <td style={tableCell}>{clockOut}</td>
                     <td style={tableCell}>{a.transportationCost ?? '-'}</td>
+                    <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
                     <td style={tableCell}>{a.status}</td>
                   </tr>
                 );
@@ -261,6 +276,47 @@ export function StaffDashboardClient({
           defaultWorkDate={periodStart}
           onSuccess={() => handleFormSuccess('Correction request submitted.')}
         />
+      </section>
+
+      <section style={card}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>My correction requests this week</h2>
+        {correctionRequests === null ? (
+          <p style={{ margin: '8px 0 0', ...mutedText }}>Your correction requests are temporarily unavailable.</p>
+        ) : myCorrectionsThisWeek.length === 0 ? (
+          <p style={{ margin: '8px 0 0', ...mutedText }}>No correction requests submitted for this week yet.</p>
+        ) : (
+          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Related work report</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myCorrectionsThisWeek.map((r) => {
+                const message = typeof r.details.message === 'string' ? r.details.message : '-';
+                const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
+                const relatedSummary = relatedAttendance
+                  ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
+                  : '-';
+                return (
+                  <tr key={r.requestId}>
+                    <td style={tableCell}>{r.workDate}</td>
+                    <td style={tableCell}>{message}</td>
+                    <td style={tableCell}>
+                      <span style={badgeStyle(r.status === 'approved' ? 'active' : r.status === 'rejected' ? 'inactive' : 'neutral')}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td style={tableCell}>{relatedSummary}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <p style={{ marginTop: 16 }}>

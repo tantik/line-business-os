@@ -131,12 +131,14 @@ export default async function WorkforceStaffPage({
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-      const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult] = await Promise.all([
-        listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-        listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
-        listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
-        listMyAttendance(supabase, activeTenant.tenantId),
-      ]);
+      const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, correctionRequestsResult] =
+        await Promise.all([
+          listWorkforceShiftTypes(supabase, activeTenant.tenantId),
+          listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
+          listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
+          listMyAttendance(supabase, activeTenant.tenantId),
+          listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
+        ]);
 
       // `listShiftAssignments` is shared with the manager view and returns
       // every employee's rows at this location -- narrow to the caller's own
@@ -169,6 +171,7 @@ export default async function WorkforceStaffPage({
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
             assignments={myPublishedAssignments}
             attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
+            correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
           />
         </main>
       );
