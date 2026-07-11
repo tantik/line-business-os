@@ -10,10 +10,34 @@ import {
   NoTenantState,
   UnauthorizedState,
 } from '@/components/states';
-import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { badgeStyle, buttonSecondary, card, colors, mutedText, pageStyle } from '@/lib/ui/theme';
+import { primaryCard } from './_ui/workforce-theme';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+/** Small circular monogram badge, used to give each nav card a distinct visual marker (cafe operations feel, no icon library). */
+function IconBadge({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        background: colors.accentMuted,
+        color: colors.accent,
+        fontSize: 14,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 /**
  * My staff profile card. `profileResult` is a `TenantAccessResult` of the
@@ -29,7 +53,7 @@ function MyStaffProfileCard({
   profileResult: Awaited<ReturnType<typeof getMyWorkforceStaffProfile>>;
 }) {
   return (
-    <section style={card}>
+    <section style={primaryCard}>
       <h2 style={{ margin: 0, fontSize: 16 }}>My staff profile</h2>
       {profileResult.status === 'success' && profileResult.data ? (
         <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
@@ -91,41 +115,41 @@ export default async function WorkforceLandingPage() {
           <header>
             <h1 style={{ margin: 0 }}>Workforce</h1>
             <p style={{ margin: '8px 0 0', ...mutedText }}>
-              Staff recipes and reference material for {activeTenant.tenantName}.
+              Cafe staff scheduling, shift reports, and recipes for {activeTenant.tenantName}.
             </p>
           </header>
           <MyStaffProfileCard profileResult={profileResult} />
           <section style={card}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <IconBadge label="S" />
+              <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+            </div>
             <p style={{ margin: '8px 0 0', ...mutedText }}>
               Submit shift preferences, view your published schedule, and file work reports and correction requests.
             </p>
-            <Link
-              href="/dashboard/workforce/staff"
-              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}
-            >
+            <Link href="/dashboard/workforce/staff" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
               Open staff dashboard
             </Link>
           </section>
           <section style={card}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Manager</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <IconBadge label="M" />
+              <h2 style={{ margin: 0, fontSize: 16 }}>Manager</h2>
+            </div>
             <p style={{ margin: '8px 0 0', ...mutedText }}>
               Review staff, shift preferences, and the weekly schedule; run auto-distribution and publish shifts.
             </p>
-            <Link
-              href="/dashboard/workforce/manager"
-              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}
-            >
+            <Link href="/dashboard/workforce/manager" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
               Open manager dashboard
             </Link>
           </section>
           <section style={card}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Recipes</h2>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>Browse published recipes by category.</p>
-            <Link
-              href="/dashboard/workforce/recipes"
-              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, textDecoration: 'underline' }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <IconBadge label="R" />
+              <h2 style={{ margin: 0, fontSize: 16 }}>Recipes</h2>
+            </div>
+            <p style={{ margin: '8px 0 0', ...mutedText }}>Browse published recipes and manuals by category.</p>
+            <Link href="/dashboard/workforce/recipes" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
               View recipes
             </Link>
           </section>

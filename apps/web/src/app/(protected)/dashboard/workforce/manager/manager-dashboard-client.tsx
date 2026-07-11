@@ -27,6 +27,16 @@ import {
   tableCell,
   tableHeaderCell,
 } from '@/lib/ui/theme';
+import {
+  buttonDanger,
+  correctionStatusBadgeStyle,
+  correctionStatusLabel,
+  primaryCard,
+  shiftChipColors,
+  shiftChipStyle,
+  todayIsoInTimeZone,
+  todayRowStyle,
+} from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import { StaffForm } from './staff-form';
 import { LineLinkForm } from './line-link-form';
@@ -92,12 +102,17 @@ export function ManagerDashboardClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [banner, setBanner] = useState<{
+    tone: 'success' | 'error';
+    message: string;
+    stats?: { label: string; value: number }[];
+  } | null>(null);
   const [addingStaff, setAddingStaff] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
+  const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
 
   const shiftTypeById = useMemo(
     () => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])),
@@ -178,7 +193,13 @@ export function ManagerDashboardClient({
         const r = result.data as RunAutoDistributionActionResult;
         setBanner({
           tone: 'success',
-          message: `Created ${r.draftCount} draft shift(s). Shortages: ${r.shortages.length}, unplaced: ${r.unplaced.length}, staff with no submitted preferences: ${r.nonSubmitters.length}.`,
+          message: `Created ${r.draftCount} draft shift(s).`,
+          stats: [
+            { label: 'Draft shifts', value: r.draftCount },
+            { label: 'Shortages', value: r.shortages.length },
+            { label: 'Unplaced', value: r.unplaced.length },
+            { label: 'No preferences submitted', value: r.nonSubmitters.length },
+          ],
         });
         router.refresh();
       } else {
@@ -257,7 +278,30 @@ export function ManagerDashboardClient({
   return (
     <>
       {banner ? (
-        <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>{banner.message}</div>
+        <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>
+          <div>{banner.message}</div>
+          {banner.stats ? (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {banner.stats.map((stat) => (
+                <span
+                  key={stat.label}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'baseline',
+                    gap: 4,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: colors.surfaceElevated,
+                    fontSize: 12,
+                  }}
+                >
+                  <strong style={{ fontSize: 13 }}>{stat.value}</strong>
+                  <span style={mutedText}>{stat.label}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <section style={card}>
@@ -339,7 +383,7 @@ export function ManagerDashboardClient({
                         </button>
                         <button
                           type="button"
-                          style={isPending && togglingActive ? buttonDisabled : buttonSecondary}
+                          style={isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary}
                           disabled={isPending}
                           onClick={() => handleSetActive(s.staffId, !s.isActive)}
                         >
@@ -353,6 +397,163 @@ export function ManagerDashboardClient({
             </tbody>
           </table>
         )}
+      </section>
+
+      <section style={primaryCard}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>
+            Weekly schedule ({periodStart} - {periodEnd})
+          </h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+              Prev week
+            </Link>
+            <Link
+              href="/dashboard/workforce/manager"
+              style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
+              aria-disabled={weekOffset === 0}
+            >
+              This week
+            </Link>
+            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+              Next week
+            </Link>
+          </div>
+        </div>
+
+        {staff === null || staff.length === 0 ? (
+          <p style={{ margin: '12px 0 0', ...mutedText }}>Add staff to see the weekly schedule.</p>
+        ) : (
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
+                  {dates.map((date) => (
+                    <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
+                      {formatWeekday(date)}
+                      <br />
+                      {date.slice(5)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map((s) => (
+                  <tr key={s.staffId}>
+                    <td style={tableCell}>{s.name}</td>
+                    {dates.map((date) => {
+                      const key = cellKey(s.staffId, date);
+                      const entry = assignmentFor(s.staffId, date);
+
+                      if (editingCellKey === key) {
+                        return (
+                          <td key={date} style={tableCell}>
+                            <ShiftCellEditor
+                              locationId={locationId}
+                              workDate={date}
+                              rowStaffId={s.staffId}
+                              existing={
+                                entry
+                                  ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal }
+                                  : undefined
+                              }
+                              staff={staff ?? []}
+                              shiftTypes={shiftTypes ?? []}
+                              onSuccess={() => {
+                                setEditingCellKey(null);
+                                router.refresh();
+                              }}
+                              onCancel={() => setEditingCellKey(null)}
+                            />
+                          </td>
+                        );
+                      }
+
+                      if (!entry) {
+                        return (
+                          <td key={date} style={tableCell}>
+                            {s.isActive ? (
+                              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCellKey(key)}>
+                                Assign
+                              </button>
+                            ) : (
+                              <span style={mutedText}>-</span>
+                            )}
+                          </td>
+                        );
+                      }
+                      const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
+                      const unassigning = pendingAction === `unassign-${entry.assignment.assignmentId}`;
+                      return (
+                        <td key={date} style={tableCell}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>
+                                {shiftType?.code ?? 'Custom'}
+                              </span>
+                              <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
+                                {entry.assignment.published ? 'Published' : 'Draft'}
+                              </span>
+                            </div>
+                            {entry.assignment.published ? (
+                              <span style={{ ...mutedText, fontSize: 12 }}>Published -- read-only</span>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  style={buttonSecondary}
+                                  disabled={isPending}
+                                  onClick={() => setEditingCellKey(key)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  style={isPending && unassigning ? buttonDisabled : buttonSecondary}
+                                  disabled={isPending}
+                                  onClick={() => handleUnassign(entry)}
+                                >
+                                  {unassigning ? 'Unassigning...' : 'Unassign'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+          <h3 style={{ margin: 0, fontSize: 14 }}>Actions</h3>
+          <p style={{ margin: '8px 0 12px', ...mutedText }}>
+            Auto-distribution uses a fixed cafe default (1 staff for the AM window, 1 for the PM window, every day) --
+            there is no settings screen for this yet.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              style={isPending ? buttonDisabled : buttonPrimary}
+              disabled={isPending}
+              onClick={handleAutoDistribute}
+            >
+              {pendingAction === 'auto-distribute' ? 'Running...' : 'Run auto-distribution'}
+            </button>
+            <button
+              type="button"
+              style={isPending ? buttonDisabled : buttonSecondary}
+              disabled={isPending}
+              onClick={handlePublish}
+            >
+              {pendingAction === 'publish' ? 'Publishing...' : 'Publish schedule'}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section style={card}>
@@ -374,7 +575,9 @@ export function ManagerDashboardClient({
             <tbody>
               {shiftTypes.map((st) => (
                 <tr key={st.shiftTypeId}>
-                  <td style={tableCell}>{st.code}</td>
+                  <td style={tableCell}>
+                    <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId))}>{st.code}</span>
+                  </td>
                   <td style={tableCell}>{st.labelJa || st.labelEn || '-'}</td>
                   <td style={tableCell}>
                     {st.startsAtLocal} - {st.endsAtLocal}
@@ -408,11 +611,17 @@ export function ManagerDashboardClient({
                 </thead>
                 <tbody>
                   {inPeriod.map((r) => (
-                    <tr key={r.requestId}>
+                    <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
                       <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
                       <td style={tableCell}>{r.workDate}</td>
                       <td style={tableCell}>
-                        {r.isUnavailable ? 'Unavailable' : shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
+                        {r.isUnavailable ? (
+                          'Unavailable'
+                        ) : (
+                          <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
+                            {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -429,6 +638,9 @@ export function ManagerDashboardClient({
           <p style={{ margin: '8px 0 0', ...mutedText }}>Correction requests are temporarily unavailable.</p>
         ) : (
           <>
+            <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Needs action
+            </p>
             {pendingCorrections.length === 0 ? (
               <p style={{ margin: '8px 0 0', ...mutedText }}>No pending correction requests.</p>
             ) : (
@@ -489,8 +701,8 @@ export function ManagerDashboardClient({
             )}
 
             {decidedCorrections.length > 0 ? (
-              <>
-                <h3 style={{ margin: '16px 0 0', fontSize: 14 }}>Recently decided</h3>
+              <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>Recently decided</h3>
                 <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
@@ -519,168 +731,17 @@ export function ManagerDashboardClient({
                           <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
                           <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                           <td style={tableCell}>
-                            <span style={badgeStyle(r.status === 'approved' ? 'active' : 'inactive')}>{r.status}</span>
+                            <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status)}</span>
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </>
+              </div>
             ) : null}
           </>
         )}
-      </section>
-
-      <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>
-            Weekly schedule ({periodStart} - {periodEnd})
-          </h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-              Prev week
-            </Link>
-            <Link href="/dashboard/workforce/manager" style={buttonSecondary}>
-              This week
-            </Link>
-            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-              Next week
-            </Link>
-          </div>
-        </div>
-
-        {staff === null || staff.length === 0 ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>Add staff to see the weekly schedule.</p>
-        ) : (
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
-                  {dates.map((date) => (
-                    <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
-                      {formatWeekday(date)}
-                      <br />
-                      {date.slice(5)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((s) => (
-                  <tr key={s.staffId}>
-                    <td style={tableCell}>{s.name}</td>
-                    {dates.map((date) => {
-                      const key = cellKey(s.staffId, date);
-                      const entry = assignmentFor(s.staffId, date);
-
-                      if (editingCellKey === key) {
-                        return (
-                          <td key={date} style={tableCell}>
-                            <ShiftCellEditor
-                              locationId={locationId}
-                              workDate={date}
-                              rowStaffId={s.staffId}
-                              existing={
-                                entry
-                                  ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal }
-                                  : undefined
-                              }
-                              staff={staff ?? []}
-                              shiftTypes={shiftTypes ?? []}
-                              onSuccess={() => {
-                                setEditingCellKey(null);
-                                router.refresh();
-                              }}
-                              onCancel={() => setEditingCellKey(null)}
-                            />
-                          </td>
-                        );
-                      }
-
-                      if (!entry) {
-                        return (
-                          <td key={date} style={{ ...tableCell, ...mutedText }}>
-                            {s.isActive ? (
-                              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCellKey(key)}>
-                                Assign
-                              </button>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                        );
-                      }
-                      const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
-                      const unassigning = pendingAction === `unassign-${entry.assignment.assignmentId}`;
-                      return (
-                        <td key={date} style={tableCell}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span>
-                              {shiftType?.code ?? 'Custom'}{' '}
-                              <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
-                                {entry.assignment.published ? 'Published' : 'Draft'}
-                              </span>
-                            </span>
-                            {entry.assignment.published ? (
-                              <span style={{ ...mutedText, fontSize: 12 }}>Published -- read-only</span>
-                            ) : (
-                              <div style={{ display: 'flex', gap: 4 }}>
-                                <button
-                                  type="button"
-                                  style={buttonSecondary}
-                                  disabled={isPending}
-                                  onClick={() => setEditingCellKey(key)}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  style={isPending && unassigning ? buttonDisabled : buttonSecondary}
-                                  disabled={isPending}
-                                  onClick={() => handleUnassign(entry)}
-                                >
-                                  {unassigning ? 'Unassigning...' : 'Unassign'}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Actions</h2>
-        <p style={{ margin: '8px 0 12px', ...mutedText }}>
-          Auto-distribution uses a fixed cafe default (1 staff for the AM window, 1 for the PM window, every day) --
-          there is no settings screen for this yet.
-        </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            style={isPending ? buttonDisabled : buttonPrimary}
-            disabled={isPending}
-            onClick={handleAutoDistribute}
-          >
-            {pendingAction === 'auto-distribute' ? 'Running...' : 'Run auto-distribution'}
-          </button>
-          <button
-            type="button"
-            style={isPending ? buttonDisabled : buttonSecondary}
-            disabled={isPending}
-            onClick={handlePublish}
-          >
-            {pendingAction === 'publish' ? 'Publishing...' : 'Publish schedule'}
-          </button>
-        </div>
       </section>
 
       <p style={{ marginTop: 16 }}>
