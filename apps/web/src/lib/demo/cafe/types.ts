@@ -40,7 +40,7 @@ export interface CorrectionRequest {
   requestedClockOut?: string;
   requestedBreakMinutes?: number;
   reason: string;
-  status?: 'pending' | 'approved' | 'review_later';
+  status?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface WorkReport {
