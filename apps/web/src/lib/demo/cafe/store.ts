@@ -157,19 +157,32 @@ function persist(scope: DemoCafeStoreScope, state: DemoCafeStoreState) {
   }
 }
 
-/** Loads the given scope's store, reseeding whenever nothing is stored yet or the stored seed is for a different calendar day. */
-function ensureLoaded(scope: DemoCafeStoreScope): DemoCafeStoreState {
-  if (!isBrowser()) return cachedStateByScope.get(scope) ?? EMPTY_STORE;
+/** Reads from localStorage, reseeding whenever nothing is stored yet or the stored seed is for a different calendar day. Only called on cache misses (first load) or on external storage events — never from `getSnapshot` itself, so it never allocates a fresh object on a render that didn't change anything. */
+function loadFromStorageOrSeed(scope: DemoCafeStoreScope): DemoCafeStoreState {
   const todayIso = currentTodayIso();
   const stored = readFromStorage(scope);
   if (stored && stored.seedDateIso === todayIso) {
-    cachedStateByScope.set(scope, stored);
     return stored;
   }
   const seeded = buildSeedState(todayIso);
-  cachedStateByScope.set(scope, seeded);
   writeToStorage(scope, seeded);
   return seeded;
+}
+
+/**
+ * Returns the cached snapshot for `scope`, populating the cache on first
+ * access only. This is what `useSyncExternalStore`'s `getSnapshot` calls, so
+ * it must return the same object reference across renders until the state
+ * actually changes (mutators, reset, or a cross-tab storage event) — never
+ * re-read/parse localStorage here.
+ */
+function ensureLoaded(scope: DemoCafeStoreScope): DemoCafeStoreState {
+  const cached = cachedStateByScope.get(scope);
+  if (cached) return cached;
+  if (!isBrowser()) return EMPTY_STORE;
+  const loaded = loadFromStorageOrSeed(scope);
+  cachedStateByScope.set(scope, loaded);
+  return loaded;
 }
 
 function getServerSnapshot(): DemoCafeStoreState {
@@ -185,6 +198,10 @@ function subscribeToScope(scope: DemoCafeStoreScope, callback: () => void): () =
   const storageKey = storageKeyForScope(scope);
   function handleStorage(event: StorageEvent) {
     if (event.key && event.key !== storageKey) return;
+    // Another tab changed this scope's localStorage entry — refresh the
+    // cached snapshot here (not in getSnapshot) so the next getSnapshot()
+    // call returns a new-but-stable reference instead of re-parsing.
+    cachedStateByScope.set(scope, loadFromStorageOrSeed(scope));
     callback();
   }
   function handleUpdate(event: Event) {
