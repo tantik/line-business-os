@@ -33,7 +33,14 @@ import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText, pageStyle } from '@/lib/demo/cafe/theme';
 import type { ShiftTypeDef, StaffingRequirement } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
-import { autoScheduleDraft, publishSchedule, scopeForBrandSlug, updateDraftAssignment, useDemoCafeStore } from '@/lib/demo/cafe/store';
+import {
+  autoScheduleDraft,
+  publishSchedule,
+  resolveCorrectionRequest,
+  scopeForBrandSlug,
+  updateDraftAssignment,
+  useDemoCafeStore,
+} from '@/lib/demo/cafe/store';
 
 /** Manager weekly-schedule dashboard. Shared by `/demo/cafe/manager` and `/mame-to-cha/manager`. */
 export function ManagerView() {
@@ -282,6 +289,8 @@ export function ManagerView() {
           assignment={pastCellAssignment}
           shiftTypes={shiftTypes}
           isShortageDay={shortageDateSet.has(selectedPastCell.date)}
+          onApproveCorrection={() => resolveCorrectionRequest(selectedPastCell.staffId, selectedPastCell.date, 'approved', scope)}
+          onRejectCorrection={() => resolveCorrectionRequest(selectedPastCell.staffId, selectedPastCell.date, 'rejected', scope)}
         />
       ) : null}
 

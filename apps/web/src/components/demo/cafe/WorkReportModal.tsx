@@ -44,9 +44,29 @@ export function WorkReportModal({ open, onClose, report, onOpenCorrectionForm }:
 
       <div style={{ marginTop: 16 }}>
         {report.hasCorrectionRequest ? (
-          <span style={{ ...buttonSecondary, display: 'inline-block', cursor: 'default', opacity: 0.8 }}>
-            {t('correctionRequested')}
-          </span>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <span style={{ ...buttonSecondary, display: 'inline-block', cursor: 'default', opacity: 0.8, width: 'fit-content' }}>
+              {t('correctionRequested')}
+            </span>
+            <span
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                color:
+                  report.correctionRequest?.status === 'approved'
+                    ? demoColors.accentStrong
+                    : report.correctionRequest?.status === 'rejected'
+                      ? demoColors.danger
+                      : demoColors.warning,
+              }}
+            >
+              {report.correctionRequest?.status === 'approved'
+                ? t('correctionStatusApproved')
+                : report.correctionRequest?.status === 'rejected'
+                  ? t('correctionStatusRejected')
+                  : t('correctionStatusPending')}
+            </span>
+          </div>
         ) : (
           <button type="button" style={buttonPrimary} onClick={() => onOpenCorrectionForm(report)}>
             {t('requestCorrection')}

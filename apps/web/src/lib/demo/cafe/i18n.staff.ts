@@ -46,6 +46,9 @@ interface StaffDict {
   dash: string;
   requestCorrection: string;
   correctionRequested: string;
+  correctionStatusPending: string;
+  correctionStatusApproved: string;
+  correctionStatusRejected: string;
   correctionModalTitle: string;
   workDate: string;
   actualClockIn: string;
@@ -111,6 +114,9 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     dash: '－',
     requestCorrection: '勤務時間の修正を依頼',
     correctionRequested: '修正依頼済み',
+    correctionStatusPending: '確認待ち',
+    correctionStatusApproved: '承認されました',
+    correctionStatusRejected: '却下されました',
     // CorrectionRequestModal
     correctionModalTitle: '勤務時間の修正を依頼',
     workDate: '勤務日',
@@ -175,6 +181,9 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     dash: '–',
     requestCorrection: 'Request a correction',
     correctionRequested: 'Correction requested',
+    correctionStatusPending: 'Pending review',
+    correctionStatusApproved: 'Approved',
+    correctionStatusRejected: 'Rejected',
     // CorrectionRequestModal
     correctionModalTitle: 'Request a working-hours correction',
     workDate: 'Work date',
