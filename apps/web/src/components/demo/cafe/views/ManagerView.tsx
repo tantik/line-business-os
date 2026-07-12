@@ -13,6 +13,7 @@ import { StaffManagementModal } from '@/components/demo/cafe/StaffManagementModa
 import { RecipeManagementModal } from '@/components/demo/cafe/RecipeManagementModal';
 import { BrandMark } from '@/components/demo/cafe/BrandMark';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { DemoResetButton } from '@/components/demo/cafe/DemoResetButton';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
 import {
   HELP_MANAGER_AUTO_SCHEDULE,
@@ -129,12 +130,23 @@ export function ManagerView() {
 
   return (
     <main style={pageStyle(1180)}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <BrandMark size={52} />
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24 }}>店長ダッシュボード</h1>
-          <p style={{ margin: '2px 0 0', ...mutedText }}>{brand.nameJa}（デモ）</p>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <BrandMark size={52} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 24 }}>店長ダッシュボード</h1>
+            <p style={{ margin: '2px 0 0', ...mutedText }}>{brand.nameJa}（デモ環境）</p>
+          </div>
         </div>
+        <DemoResetButton
+          scope={scope}
+          label="デモをリセット"
+          doneLabel="リセットしました"
+          confirmTitle="デモをリセットしますか？"
+          confirmBody="このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。"
+          confirmLabel="リセットする"
+          cancelLabel="キャンセル"
+        />
       </header>
 
       <div style={{ marginTop: 20 }}>

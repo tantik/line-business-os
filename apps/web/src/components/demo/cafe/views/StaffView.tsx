@@ -11,6 +11,7 @@ import { ShiftPreferenceModal } from '@/components/demo/cafe/ShiftPreferenceModa
 import { BrandMark } from '@/components/demo/cafe/BrandMark';
 import { LangToggle } from '@/components/demo/cafe/LangToggle';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { DemoResetButton } from '@/components/demo/cafe/DemoResetButton';
 import {
   HELP_STAFF_NEXT_MONTH_PREFERENCE,
   HELP_STAFF_SHIFT_TABLE,
@@ -160,14 +161,28 @@ export function StaffView() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           <BrandMark />
           <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 20 }}>{lang === 'ja' ? brand.nameJa : brand.name}</h1>
+            <h1 style={{ margin: 0, fontSize: 20 }}>
+              {lang === 'ja' ? brand.nameJa : brand.name}
+              <span style={{ fontSize: 12, fontWeight: 500, color: demoColors.textMuted }}>{t('demoEnvironmentSuffix')}</span>
+            </h1>
             <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: demoColors.textPrimary }}>
               {currentStaff.name}
               {lang === 'ja' ? ' さん' : ''}
             </p>
           </div>
         </div>
-        <LangToggle />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <DemoResetButton
+            scope={scope}
+            label={t('resetDemo')}
+            doneLabel={t('resetDemoDone')}
+            confirmTitle={t('resetConfirmTitle')}
+            confirmBody={t('resetConfirmBody')}
+            confirmLabel={t('resetConfirmButton')}
+            cancelLabel={t('resetCancelButton')}
+          />
+          <LangToggle />
+        </div>
       </header>
 
       <div style={{ marginTop: 16 }}>
