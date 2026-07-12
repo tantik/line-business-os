@@ -19,19 +19,12 @@ import {
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
-import {
-  buildDemoDateRange,
-  CURRENT_STAFF_DEMO_WORKED_HOURS,
-  CURRENT_STAFF_ID,
-  generateAssignments,
-  generateWorkReports,
-  SHIFT_TYPES,
-  STAFF,
-} from '@/lib/demo/cafe/data';
+import { CURRENT_STAFF_DEMO_WORKED_HOURS, CURRENT_STAFF_ID, SHIFT_TYPES, STAFF } from '@/lib/demo/cafe/data';
 import { formatYen } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, card, demoColors, input, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
 import type { WorkReport } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
+import { saveTodayMessage, scopeForBrandSlug, submitCorrectionRequest, useDemoCafeStore } from '@/lib/demo/cafe/store';
 
 const TRANSPORT_STORAGE_KEY = 'demo-cafe-transport-yen';
 
@@ -60,6 +53,10 @@ export function StaffView() {
   const todayIso = useTodayIso();
   const currentStaff = STAFF.find((staff) => staff.id === CURRENT_STAFF_ID)!;
 
+  const scope = scopeForBrandSlug(brand.slug);
+  const demoStore = useDemoCafeStore(scope);
+  const workReports = demoStore.workReports;
+
   const [onlyMe, setOnlyMe] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [transportYen, setTransportYen] = useState(currentStaff.defaultTransportYen);
@@ -68,7 +65,6 @@ export function StaffView() {
   const [selectedReportDate, setSelectedReportDate] = useState<string | null>(null);
   const [preferenceModalOpen, setPreferenceModalOpen] = useState(false);
   const [preferenceSubmitted, setPreferenceSubmitted] = useState(currentStaff.submittedPreference);
-  const [workReports, setWorkReports] = useState<WorkReport[]>([]);
   const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
   const [correctionDefaults, setCorrectionDefaults] = useState<CorrectionRequestPayload>(
     emptyCorrectionDefaults(todayIso ?? ''),
@@ -76,9 +72,12 @@ export function StaffView() {
 
   useEffect(() => {
     if (!todayIso) return;
-    const dates = buildDemoDateRange(new Date(`${todayIso}T00:00:00`));
-    const assignments = generateAssignments(dates, todayIso);
-    setWorkReports(generateWorkReports(dates, assignments, todayIso));
+    const existing = workReports.find((report) => report.date === todayIso && report.staffId === CURRENT_STAFF_ID);
+    if (existing) {
+      setTodayMessage(existing.message);
+      setMessageSaved(existing.message.length > 0);
+    }
+    // Only prefill once per day change (workReports intentionally excluded) — user typing shouldn't be clobbered by their own save round-tripping through the store.
   }, [todayIso]);
 
   useEffect(() => {
@@ -93,29 +92,7 @@ export function StaffView() {
 
   function handleSaveMessage() {
     if (!todayIso) return;
-    setWorkReports((prev) => {
-      const index = prev.findIndex((report) => report.date === todayIso && report.staffId === CURRENT_STAFF_ID);
-      if (index >= 0) {
-        const next = [...prev];
-        next[index] = { ...next[index]!, message: todayMessage };
-        return next;
-      }
-      return [
-        ...prev,
-        {
-          staffId: CURRENT_STAFF_ID,
-          date: todayIso,
-          plannedLabel: '－',
-          actualClockIn: null,
-          breakMinutes: 0,
-          actualClockOut: null,
-          actualWorkedHours: null,
-          transportYen,
-          message: todayMessage,
-          hasCorrectionRequest: false,
-        },
-      ];
-    });
+    saveTodayMessage(CURRENT_STAFF_ID, todayIso, todayMessage, scope);
     setMessageSaved(true);
   }
 
@@ -136,36 +113,7 @@ export function StaffView() {
   }
 
   function handleCorrectionSubmit(payload: CorrectionRequestPayload) {
-    setWorkReports((prev) => {
-      const index = prev.findIndex((report) => report.date === payload.date && report.staffId === CURRENT_STAFF_ID);
-      if (index >= 0) {
-        const next = [...prev];
-        next[index] = {
-          ...next[index]!,
-          actualClockIn: payload.actualClockIn || next[index]!.actualClockIn,
-          actualClockOut: payload.actualClockOut || next[index]!.actualClockOut,
-          breakMinutes: payload.breakMinutes,
-          message: payload.message || next[index]!.message,
-          hasCorrectionRequest: true,
-        };
-        return next;
-      }
-      return [
-        ...prev,
-        {
-          staffId: CURRENT_STAFF_ID,
-          date: payload.date,
-          plannedLabel: '－',
-          actualClockIn: payload.actualClockIn || null,
-          breakMinutes: payload.breakMinutes,
-          actualClockOut: payload.actualClockOut || null,
-          actualWorkedHours: null,
-          transportYen: currentStaff.defaultTransportYen,
-          message: payload.message,
-          hasCorrectionRequest: true,
-        },
-      ];
-    });
+    submitCorrectionRequest(CURRENT_STAFF_ID, payload, scope);
   }
 
   if (!todayIso) {
@@ -232,6 +180,7 @@ export function StaffView() {
             currentStaffId={CURRENT_STAFF_ID}
             onlyCurrentStaff={onlyMe}
             workReports={workReports}
+            assignments={demoStore.assignmentsPublished}
             onCellClick={(_staffId, date) => setSelectedReportDate(date)}
             lang={lang}
           />
