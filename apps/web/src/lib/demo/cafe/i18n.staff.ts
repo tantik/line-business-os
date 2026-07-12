@@ -46,6 +46,9 @@ interface StaffDict {
   dash: string;
   requestCorrection: string;
   correctionRequested: string;
+  correctionStatusPending: string;
+  correctionStatusApproved: string;
+  correctionStatusRejected: string;
   correctionModalTitle: string;
   workDate: string;
   actualClockIn: string;
@@ -60,6 +63,13 @@ interface StaffDict {
   optionalMessage: string;
   optionalNotePlaceholder: string;
   unspecified: string;
+  demoEnvironmentSuffix: string;
+  resetDemo: string;
+  resetDemoDone: string;
+  resetConfirmTitle: string;
+  resetConfirmBody: string;
+  resetConfirmButton: string;
+  resetCancelButton: string;
 }
 
 /** UI-chrome dictionary for `/demo/cafe` (staff app) and the modals it opens. Static demo copy only. */
@@ -111,6 +121,9 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     dash: '－',
     requestCorrection: '勤務時間の修正を依頼',
     correctionRequested: '修正依頼済み',
+    correctionStatusPending: '確認待ち',
+    correctionStatusApproved: '承認されました',
+    correctionStatusRejected: '却下されました',
     // CorrectionRequestModal
     correctionModalTitle: '勤務時間の修正を依頼',
     workDate: '勤務日',
@@ -127,6 +140,13 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     optionalMessage: 'メッセージ（任意）',
     optionalNotePlaceholder: '例: 10日は終日休み希望です。',
     unspecified: '未指定',
+    demoEnvironmentSuffix: '（デモ環境）',
+    resetDemo: 'デモをリセット',
+    resetDemoDone: 'リセットしました',
+    resetConfirmTitle: 'デモをリセットしますか？',
+    resetConfirmBody: 'このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。',
+    resetConfirmButton: 'リセットする',
+    resetCancelButton: 'キャンセル',
   },
   en: {
     clockIn: 'Clock in',
@@ -175,6 +195,9 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     dash: '–',
     requestCorrection: 'Request a correction',
     correctionRequested: 'Correction requested',
+    correctionStatusPending: 'Pending review',
+    correctionStatusApproved: 'Approved',
+    correctionStatusRejected: 'Rejected',
     // CorrectionRequestModal
     correctionModalTitle: 'Request a working-hours correction',
     workDate: 'Work date',
@@ -191,6 +214,14 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     optionalMessage: 'Message (optional)',
     optionalNotePlaceholder: 'e.g. I would like the 10th off all day.',
     unspecified: 'Unspecified',
+    demoEnvironmentSuffix: ' (Demo environment)',
+    resetDemo: 'Reset demo',
+    resetDemoDone: 'Demo reset',
+    resetConfirmTitle: 'Reset this demo?',
+    resetConfirmBody:
+      'This clears the schedule, messages, and correction requests in this demo environment back to their starting state. This cannot be undone.',
+    resetConfirmButton: 'Reset',
+    resetCancelButton: 'Cancel',
   },
 };
 

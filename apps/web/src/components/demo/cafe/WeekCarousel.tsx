@@ -3,10 +3,10 @@
 import { useMemo, useRef } from 'react';
 import type { TouchEvent } from 'react';
 import { ShiftTable } from './ShiftTable';
-import { buildWeekDateRange, generateAssignments } from '@/lib/demo/cafe/data';
+import { buildWeekDateRange } from '@/lib/demo/cafe/data';
 import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonSecondary, demoColors } from '@/lib/demo/cafe/theme';
-import type { ShiftTypeDef, StaffMember, WorkReport } from '@/lib/demo/cafe/types';
+import type { ShiftAssignment, ShiftTypeDef, StaffMember, WorkReport } from '@/lib/demo/cafe/types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 
@@ -22,6 +22,8 @@ interface WeekCarouselProps {
   lang: Lang;
   /** Current staff member's work reports (incl. today's saved message, if any) — needed so the own-row message indicator can render on the compact staff table. */
   workReports: WorkReport[];
+  /** Published schedule assignments (staff must never see draft/unpublished manager edits) — filtered here to the week in view. */
+  assignments: ShiftAssignment[];
 }
 
 /** Minimum horizontal swipe distance (px) before it's treated as a week-change gesture rather than a tap. */
@@ -53,14 +55,19 @@ export function WeekCarousel({
   onCellClick,
   lang,
   workReports,
+  assignments,
 }: WeekCarouselProps) {
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
   const touchStartX = useRef<number | null>(null);
 
-  const { dates, assignments } = useMemo(() => {
-    const weekDates = buildWeekDateRange(weekOffset, new Date(`${todayIso}T00:00:00`));
-    return { dates: weekDates, assignments: generateAssignments(weekDates, todayIso) };
-  }, [weekOffset, todayIso]);
+  const dates = useMemo(
+    () => buildWeekDateRange(weekOffset, new Date(`${todayIso}T00:00:00`)),
+    [weekOffset, todayIso],
+  );
+  const weekAssignments = useMemo(
+    () => assignments.filter((assignment) => dates.includes(assignment.date)),
+    [assignments, dates],
+  );
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
     touchStartX.current = event.touches[0]?.clientX ?? null;
@@ -130,7 +137,7 @@ export function WeekCarousel({
             dates={dates}
             todayIso={todayIso}
             staffList={staffList}
-            assignments={assignments}
+            assignments={weekAssignments}
             shiftTypes={shiftTypes}
             mode="staff"
             currentStaffId={currentStaffId}

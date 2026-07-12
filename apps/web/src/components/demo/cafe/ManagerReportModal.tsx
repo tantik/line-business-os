@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Modal } from './Modal';
 import { formatMonthDayWeekday, formatHours, formatYen } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, demoColors, shiftTypeDisplayLabel } from '@/lib/demo/cafe/theme';
@@ -15,6 +14,8 @@ interface ManagerReportModalProps {
   assignment: ShiftAssignment | null | undefined;
   shiftTypes: ShiftTypeDef[];
   isShortageDay: boolean;
+  onApproveCorrection: () => void;
+  onRejectCorrection: () => void;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -52,9 +53,9 @@ export function ManagerReportModal({
   assignment,
   shiftTypes,
   isShortageDay,
+  onApproveCorrection,
+  onRejectCorrection,
 }: ManagerReportModalProps) {
-  const [demoStatus, setDemoStatus] = useState<'approved' | 'review_later' | null>(null);
-
   if (!open) return null;
 
   const shiftType = shiftTypes.find((type) => type.id === assignment?.shiftTypeId);
@@ -128,17 +129,17 @@ export function ManagerReportModal({
             </div>
           </div>
 
-          {demoStatus ? (
-            <p style={{ margin: '10px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.dangerText }}>
-              {demoStatus === 'approved' ? '承認済み（デモ）' : '後で確認（デモ）'}
-            </p>
+          {report.correctionRequest.status === 'approved' ? (
+            <p style={{ margin: '10px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.accentStrong }}>承認済み</p>
+          ) : report.correctionRequest.status === 'rejected' ? (
+            <p style={{ margin: '10px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.dangerText }}>却下済み</p>
           ) : (
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button type="button" style={buttonPrimary} onClick={() => setDemoStatus('approved')}>
+              <button type="button" style={buttonPrimary} onClick={onApproveCorrection}>
                 承認する
               </button>
-              <button type="button" style={buttonSecondary} onClick={() => setDemoStatus('review_later')}>
-                後で確認
+              <button type="button" style={buttonSecondary} onClick={onRejectCorrection}>
+                却下する
               </button>
             </div>
           )}

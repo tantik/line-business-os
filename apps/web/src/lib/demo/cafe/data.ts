@@ -320,7 +320,9 @@ export function computeManagerAlerts(
 ): ManagerAlert[] {
   const alerts: ManagerAlert[] = [];
 
-  const correctionCount = workReports.filter((report) => report.hasCorrectionRequest).length;
+  const correctionCount = workReports.filter(
+    (report) => report.hasCorrectionRequest && (report.correctionRequest?.status ?? 'pending') === 'pending',
+  ).length;
   if (correctionCount > 0) {
     alerts.push({ id: 'correction', label: `勤務時間修正依頼: ${correctionCount}件`, tone: 'warning' });
   }
