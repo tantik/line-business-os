@@ -59,6 +59,8 @@ export interface WorkReport {
   hasCorrectionRequest: boolean;
   /** Present whenever `hasCorrectionRequest` is true — the concrete requested values behind the "!" indicator. */
   correctionRequest?: CorrectionRequest;
+  /** Live ClockPanel state for today's report, demo-only. Absent (or on seeded past reports) is treated as 'idle'. */
+  clockState?: ClockState;
 }
 
 export interface Recipe {

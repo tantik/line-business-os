@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { demoColors } from '@/lib/demo/cafe/theme';
 import type { ClockState } from '@/lib/demo/cafe/types';
@@ -39,37 +38,23 @@ function actionButtonStyle(active: boolean, disabled: boolean): CSSProperties {
   };
 }
 
-/** 出勤/退勤 + 休憩開始/休憩終了 as exactly 2 state-changing buttons. Self-contained UI state, demo only — no time tracking backend. */
-export function ClockPanel() {
+interface ClockPanelProps {
+  /** Current clock state, sourced from the shared demo store so it survives refresh and is scoped per brand. */
+  state: ClockState;
+  /** Clock-in time label to show alongside the status pill (e.g. "09:05〜"), or null before clocking in. */
+  clockInLabel: string | null;
+  onClockToggle: () => void;
+  onBreakToggle: () => void;
+}
+
+/** 出勤/退勤 + 休憩開始/休憩終了 as exactly 2 state-changing buttons. Controlled by the caller — see `StaffView` for the shared-store wiring. Demo only — no real time-tracking backend. */
+export function ClockPanel({ state, clockInLabel, onClockToggle, onBreakToggle }: ClockPanelProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
-  const [state, setState] = useState<ClockState>('idle');
-  const [clockInLabel, setClockInLabel] = useState<string | null>(null);
-
-  function nowLabel(): string {
-    return new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  }
 
   const isWorking = state === 'clocked_in' || state === 'on_break';
   const onBreak = state === 'on_break';
   const clockedOut = state === 'clocked_out';
-
-  function handleWorkButtonClick() {
-    if (!isWorking) {
-      setState('clocked_in');
-      setClockInLabel(nowLabel());
-    } else {
-      setState('clocked_out');
-    }
-  }
-
-  function handleBreakButtonClick() {
-    if (onBreak) {
-      setState('clocked_in');
-    } else {
-      setState('on_break');
-    }
-  }
 
   return (
     <section
@@ -104,7 +89,7 @@ export function ClockPanel() {
         <button
           type="button"
           disabled={clockedOut}
-          onClick={handleWorkButtonClick}
+          onClick={onClockToggle}
           style={actionButtonStyle(isWorking, clockedOut)}
         >
           {isWorking ? t('clockOut') : t('clockIn')}
@@ -112,7 +97,7 @@ export function ClockPanel() {
         <button
           type="button"
           disabled={!isWorking}
-          onClick={handleBreakButtonClick}
+          onClick={onBreakToggle}
           style={actionButtonStyle(onBreak, !isWorking)}
         >
           {onBreak ? t('breakEnd') : t('breakStart')}

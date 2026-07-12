@@ -343,7 +343,7 @@ export function resolveCorrectionRequest(
 export function recordClockEvent(
   staffId: string,
   date: string,
-  patch: Partial<Pick<WorkReport, 'actualClockIn' | 'actualClockOut' | 'breakMinutes'>>,
+  patch: Partial<Pick<WorkReport, 'actualClockIn' | 'actualClockOut' | 'breakMinutes' | 'clockState'>>,
   scope: DemoCafeStoreScope = DEFAULT_SCOPE,
 ) {
   withState(scope, (state) => upsertWorkReport(state, staffId, date, patch));

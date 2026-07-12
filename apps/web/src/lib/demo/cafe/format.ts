@@ -50,3 +50,8 @@ export function formatHours(hours: number): string {
 export function isSameDate(a: string, b: string): boolean {
   return a === b;
 }
+
+/** "HH:MM" label for a clock-in/out timestamp, matching the seeded demo data's time format. */
+export function formatClockLabel(date: Date): string {
+  return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}

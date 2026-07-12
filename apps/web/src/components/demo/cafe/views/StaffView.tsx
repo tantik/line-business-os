@@ -20,11 +20,17 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
 import { CURRENT_STAFF_DEMO_WORKED_HOURS, CURRENT_STAFF_ID, SHIFT_TYPES, STAFF } from '@/lib/demo/cafe/data';
-import { formatYen } from '@/lib/demo/cafe/format';
+import { formatClockLabel, formatYen } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, card, demoColors, input, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
 import type { WorkReport } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
-import { saveTodayMessage, scopeForBrandSlug, submitCorrectionRequest, useDemoCafeStore } from '@/lib/demo/cafe/store';
+import {
+  recordClockEvent,
+  saveTodayMessage,
+  scopeForBrandSlug,
+  submitCorrectionRequest,
+  useDemoCafeStore,
+} from '@/lib/demo/cafe/store';
 
 const TRANSPORT_STORAGE_KEY = 'demo-cafe-transport-yen';
 
@@ -116,6 +122,27 @@ export function StaffView() {
     submitCorrectionRequest(CURRENT_STAFF_ID, payload, scope);
   }
 
+  const todayReport = todayIso
+    ? workReports.find((report) => report.date === todayIso && report.staffId === CURRENT_STAFF_ID)
+    : undefined;
+  const clockState = todayReport?.clockState ?? 'idle';
+  const clockInLabel = todayReport?.actualClockIn ?? null;
+
+  function handleClockToggle() {
+    if (!todayIso) return;
+    const isWorking = clockState === 'clocked_in' || clockState === 'on_break';
+    if (!isWorking) {
+      recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: 'clocked_in', actualClockIn: formatClockLabel(new Date()) }, scope);
+    } else {
+      recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: 'clocked_out', actualClockOut: formatClockLabel(new Date()) }, scope);
+    }
+  }
+
+  function handleBreakToggle() {
+    if (!todayIso) return;
+    recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: clockState === 'on_break' ? 'clocked_in' : 'on_break' }, scope);
+  }
+
   if (!todayIso) {
     return (
       <main style={mobilePageStyle(720)}>
@@ -144,7 +171,12 @@ export function StaffView() {
       </header>
 
       <div style={{ marginTop: 16 }}>
-        <ClockPanel />
+        <ClockPanel
+          state={clockState}
+          clockInLabel={clockInLabel}
+          onClockToggle={handleClockToggle}
+          onBreakToggle={handleBreakToggle}
+        />
       </div>
 
       <section style={{ ...card, padding: '14px 8px' }}>
