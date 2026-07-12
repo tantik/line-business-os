@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ManagerAlerts } from '@/components/demo/cafe/ManagerAlerts';
 import { ShiftEditModal } from '@/components/demo/cafe/ShiftEditModal';
@@ -21,12 +21,9 @@ import {
   HELP_MANAGER_STAFF_RECIPE_MANAGEMENT,
 } from '@/lib/demo/cafe/helpContent';
 import {
-  autoScheduleFutureAssignments,
   buildWeekDateRange,
   computeManagerAlerts,
   computeShortageDateSet,
-  generateAssignments,
-  generateWorkReports,
   MAX_MONTHLY_HOURS,
   SHIFT_TYPES,
   STAFF,
@@ -34,8 +31,9 @@ import {
 } from '@/lib/demo/cafe/data';
 import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText, pageStyle } from '@/lib/demo/cafe/theme';
-import type { ShiftAssignment, ShiftTypeDef, StaffingRequirement, WorkReport } from '@/lib/demo/cafe/types';
+import type { ShiftTypeDef, StaffingRequirement } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
+import { autoScheduleDraft, publishSchedule, scopeForBrandSlug, updateDraftAssignment, useDemoCafeStore } from '@/lib/demo/cafe/store';
 
 /** Manager weekly-schedule dashboard. Shared by `/demo/cafe/manager` and `/mame-to-cha/manager`. */
 export function ManagerView() {
@@ -47,8 +45,10 @@ export function ManagerView() {
     [todayIso, weekOffset],
   );
 
-  const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
-  const [workReports, setWorkReports] = useState<WorkReport[]>([]);
+  const scope = scopeForBrandSlug(brand.slug);
+  const demoStore = useDemoCafeStore(scope);
+  const assignments = demoStore.assignmentsDraft;
+  const workReports = demoStore.workReports;
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeDef[]>(SHIFT_TYPES);
   const [requirements, setRequirements] = useState<StaffingRequirement[]>(STAFFING_REQUIREMENTS);
   const [maxMonthlyHours, setMaxMonthlyHours] = useState(MAX_MONTHLY_HOURS);
@@ -59,12 +59,17 @@ export function ManagerView() {
   const [recipeModalOpen, setRecipeModalOpen] = useState(false);
   const [monthlyReportModalOpen, setMonthlyReportModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (!todayIso) return;
-    const nextAssignments = generateAssignments(dates, todayIso);
-    setAssignments(nextAssignments);
-    setWorkReports(generateWorkReports(dates, nextAssignments, todayIso));
-  }, [todayIso, dates]);
+  /** True whenever a future-dated draft edit hasn't been published yet — drives the "unpublished changes" banner. */
+  const hasUnpublishedChanges = useMemo(() => {
+    if (!todayIso) return false;
+    return demoStore.assignmentsDraft.some((draft) => {
+      if (draft.date <= todayIso) return false;
+      const published = demoStore.assignmentsPublished.find(
+        (a) => a.staffId === draft.staffId && a.date === draft.date,
+      );
+      return !published || published.shiftTypeId !== draft.shiftTypeId;
+    });
+  }, [demoStore.assignmentsDraft, demoStore.assignmentsPublished, todayIso]);
 
   const alerts = useMemo(
     () => (todayIso ? computeManagerAlerts(dates, assignments, workReports, todayIso, requirements) : []),
@@ -140,11 +145,34 @@ export function ManagerView() {
               自動シフト作成
             </button>
             <DemoHelpButton content={HELP_MANAGER_AUTO_SCHEDULE} />
+            <button
+              type="button"
+              style={{ ...buttonPrimary, background: hasUnpublishedChanges ? demoColors.accent : demoColors.textMuted }}
+              disabled={!hasUnpublishedChanges}
+              onClick={() => publishSchedule(scope)}
+            >
+              スケジュールを公開
+            </button>
           </div>
         </div>
         <p style={{ margin: '8px 0 4px', fontSize: 12.5, ...mutedText }}>
           セルをクリックして手動でシフトを編集できます。列見出しの「!」は必要人数に対して人員が不足している日を示します。
         </p>
+        {hasUnpublishedChanges ? (
+          <p style={{ margin: '4px 0', fontSize: 12.5, fontWeight: 700, color: demoColors.warning }}>
+            未公開の変更があります。「スケジュールを公開」を押すとスタッフ画面に反映されます。
+          </p>
+        ) : demoStore.publishedAt ? (
+          <p style={{ margin: '4px 0', fontSize: 12, ...mutedText }}>
+            最終公開:{' '}
+            {new Date(demoStore.publishedAt).toLocaleString('ja-JP', {
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        ) : null}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
           {dates.length > 0 ? (
@@ -238,11 +266,7 @@ export function ManagerView() {
           shiftTypes={shiftTypes}
           alertMessages={selectedCellAlerts}
           onSave={(shiftTypeId) => {
-            setAssignments((prev) =>
-              prev.map((a) =>
-                a.staffId === selectedCell.staffId && a.date === selectedCell.date ? { ...a, shiftTypeId } : a,
-              ),
-            );
+            updateDraftAssignment(selectedCell.staffId, selectedCell.date, shiftTypeId, scope);
           }}
         />
       ) : null}
@@ -265,7 +289,7 @@ export function ManagerView() {
         open={autoScheduleModalOpen}
         onClose={() => setAutoScheduleModalOpen(false)}
         onConfirm={() => {
-          setAssignments((prev) => autoScheduleFutureAssignments(prev, dates, todayIso));
+          autoScheduleDraft(dates, todayIso, scope);
         }}
       />
 
