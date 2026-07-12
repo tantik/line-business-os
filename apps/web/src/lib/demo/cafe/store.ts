@@ -14,12 +14,19 @@
  * plus a same-tab `CustomEvent` (storage events don't fire in the tab that
  * made the change).
  *
+ * State is namespaced per `DemoCafeStoreScope` (one localStorage key per
+ * scope) so the generic `/demo/cafe/*` demo and the branded `/mame-to-cha/*`
+ * demo never bleed into each other, and so a later `app.oruwa.jp/mame-to-cha/*`
+ * real product route (not implemented here — no DB/auth in this slice) has a
+ * distinct namespace to eventually migrate off of rather than colliding with
+ * the public demo's localStorage data.
+ *
  * Demo-only: no backend, no auth, no real persistence guarantee. See
  * docs/phase-1j-2-cafe-workforce-demo-to-production-plan.md for what a real
  * module would need instead.
  */
 
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import {
   autoScheduleFutureAssignments,
   generateAssignments,
@@ -29,8 +36,23 @@ import {
 import { addDays, startOfDay, toISODate } from './format';
 import type { CorrectionRequest, ShiftAssignment, WorkReport } from './types';
 
-const STORAGE_KEY = 'demo-cafe-store-v1';
+/** Distinct localStorage namespaces for each public demo surface. */
+export const DEMO_CAFE_STORE_SCOPES = ['generic-cafe', 'mame-to-cha'] as const;
+export type DemoCafeStoreScope = (typeof DEMO_CAFE_STORE_SCOPES)[number];
+
+const DEFAULT_SCOPE: DemoCafeStoreScope = 'generic-cafe';
+
+/** Maps a demo brand slug (see `lib/demo/brand.tsx`) to its store scope. Unknown slugs fall back to the generic demo scope. Intentionally takes a plain string, not a `DemoBrand`, so this module never has to import the UI-facing brand module. */
+export function scopeForBrandSlug(slug: string): DemoCafeStoreScope {
+  return slug === 'mame-to-cha' ? 'mame-to-cha' : DEFAULT_SCOPE;
+}
+
+const STORAGE_KEY_PREFIX = 'demo-cafe-store-v1';
 const UPDATE_EVENT = 'demo-cafe-store-updated';
+
+function storageKeyForScope(scope: DemoCafeStoreScope): string {
+  return `${STORAGE_KEY_PREFIX}:${scope}`;
+}
 
 export interface DemoCafeStoreState {
   /** Calendar date (ISO) the current seed was generated for. Used to detect day rollover and reseed. */
@@ -89,12 +111,12 @@ function buildSeedState(todayIso: string): DemoCafeStoreState {
   };
 }
 
-let cachedState: DemoCafeStoreState = EMPTY_STORE;
+const cachedStateByScope = new Map<DemoCafeStoreScope, DemoCafeStoreState>();
 
-function readFromStorage(): DemoCafeStoreState | null {
+function readFromStorage(scope: DemoCafeStoreScope): DemoCafeStoreState | null {
   if (!isBrowser()) return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKeyForScope(scope));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<DemoCafeStoreState>;
     if (
@@ -118,73 +140,92 @@ function readFromStorage(): DemoCafeStoreState | null {
   }
 }
 
-function writeToStorage(state: DemoCafeStoreState) {
+function writeToStorage(scope: DemoCafeStoreScope, state: DemoCafeStoreState) {
   if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(storageKeyForScope(scope), JSON.stringify(state));
   } catch {
     // Demo-only best-effort persistence — ignore quota/serialization errors.
   }
 }
 
-function persist(state: DemoCafeStoreState) {
-  cachedState = state;
-  writeToStorage(state);
+function persist(scope: DemoCafeStoreScope, state: DemoCafeStoreState) {
+  cachedStateByScope.set(scope, state);
+  writeToStorage(scope, state);
   if (isBrowser()) {
-    window.dispatchEvent(new CustomEvent(UPDATE_EVENT));
+    window.dispatchEvent(new CustomEvent(UPDATE_EVENT, { detail: { scope } }));
   }
 }
 
-/** Loads the store, reseeding whenever nothing is stored yet or the stored seed is for a different calendar day. */
-function ensureLoaded(): DemoCafeStoreState {
-  if (!isBrowser()) return cachedState;
+/** Loads the given scope's store, reseeding whenever nothing is stored yet or the stored seed is for a different calendar day. */
+function ensureLoaded(scope: DemoCafeStoreScope): DemoCafeStoreState {
+  if (!isBrowser()) return cachedStateByScope.get(scope) ?? EMPTY_STORE;
   const todayIso = currentTodayIso();
-  const stored = readFromStorage();
+  const stored = readFromStorage(scope);
   if (stored && stored.seedDateIso === todayIso) {
-    cachedState = stored;
-    return cachedState;
+    cachedStateByScope.set(scope, stored);
+    return stored;
   }
   const seeded = buildSeedState(todayIso);
-  cachedState = seeded;
-  writeToStorage(seeded);
-  return cachedState;
-}
-
-function getSnapshot(): DemoCafeStoreState {
-  return ensureLoaded();
+  cachedStateByScope.set(scope, seeded);
+  writeToStorage(scope, seeded);
+  return seeded;
 }
 
 function getServerSnapshot(): DemoCafeStoreState {
   return EMPTY_STORE;
 }
 
-function subscribe(callback: () => void): () => void {
+interface DemoCafeStoreUpdateEventDetail {
+  scope: DemoCafeStoreScope;
+}
+
+function subscribeToScope(scope: DemoCafeStoreScope, callback: () => void): () => void {
   if (!isBrowser()) return () => {};
+  const storageKey = storageKeyForScope(scope);
   function handleStorage(event: StorageEvent) {
-    if (event.key && event.key !== STORAGE_KEY) return;
+    if (event.key && event.key !== storageKey) return;
+    callback();
+  }
+  function handleUpdate(event: Event) {
+    const detail = (event as CustomEvent<DemoCafeStoreUpdateEventDetail>).detail;
+    if (detail && detail.scope !== scope) return;
     callback();
   }
   window.addEventListener('storage', handleStorage);
-  window.addEventListener(UPDATE_EVENT, callback);
+  window.addEventListener(UPDATE_EVENT, handleUpdate);
   return () => {
     window.removeEventListener('storage', handleStorage);
-    window.removeEventListener(UPDATE_EVENT, callback);
+    window.removeEventListener(UPDATE_EVENT, handleUpdate);
   };
 }
 
-/** React hook exposing the live shared demo store. Re-renders on same-tab mutations and cross-tab storage events. */
-export function useDemoCafeStore(): DemoCafeStoreState {
+/**
+ * React hook exposing the live shared demo store for one scope. Re-renders
+ * on same-tab mutations to that scope and cross-tab storage events.
+ * `scope` defaults to the generic `/demo/cafe` demo — pass `'mame-to-cha'`
+ * (or `scopeForBrandSlug(brand.slug)`) for the branded demo so the two never
+ * share localStorage state.
+ */
+export function useDemoCafeStore(scope: DemoCafeStoreScope = DEFAULT_SCOPE): DemoCafeStoreState {
+  const subscribe = useCallback((callback: () => void) => subscribeToScope(scope, callback), [scope]);
+  const getSnapshot = useCallback(() => ensureLoaded(scope), [scope]);
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-function withState(mutate: (state: DemoCafeStoreState) => DemoCafeStoreState) {
-  const current = ensureLoaded();
-  persist(mutate(current));
+function withState(scope: DemoCafeStoreScope, mutate: (state: DemoCafeStoreState) => DemoCafeStoreState) {
+  const current = ensureLoaded(scope);
+  persist(scope, mutate(current));
 }
 
 /** Manager edits a single cell — writes to the draft only, never directly visible to staff until published. */
-export function updateDraftAssignment(staffId: string, date: string, shiftTypeId: string | null) {
-  withState((state) => ({
+export function updateDraftAssignment(
+  staffId: string,
+  date: string,
+  shiftTypeId: string | null,
+  scope: DemoCafeStoreScope = DEFAULT_SCOPE,
+) {
+  withState(scope, (state) => ({
     ...state,
     assignmentsDraft: state.assignmentsDraft.map((assignment) =>
       assignment.staffId === staffId && assignment.date === date ? { ...assignment, shiftTypeId } : assignment,
@@ -193,16 +234,16 @@ export function updateDraftAssignment(staffId: string, date: string, shiftTypeId
 }
 
 /** Wraps the existing `autoScheduleFutureAssignments` generator, applied to the draft only. */
-export function autoScheduleDraft(dates: string[], todayIso: string) {
-  withState((state) => ({
+export function autoScheduleDraft(dates: string[], todayIso: string, scope: DemoCafeStoreScope = DEFAULT_SCOPE) {
+  withState(scope, (state) => ({
     ...state,
     assignmentsDraft: autoScheduleFutureAssignments(state.assignmentsDraft, dates, todayIso),
   }));
 }
 
 /** Copies the manager's draft schedule into what staff see, and stamps the publish time. */
-export function publishSchedule() {
-  withState((state) => ({
+export function publishSchedule(scope: DemoCafeStoreScope = DEFAULT_SCOPE) {
+  withState(scope, (state) => ({
     ...state,
     assignmentsPublished: state.assignmentsDraft,
     publishedAt: new Date().toISOString(),
@@ -239,8 +280,13 @@ function upsertWorkReport(
 }
 
 /** Staff saves their "today's message" — shared so the manager dashboard sees the same report. */
-export function saveTodayMessage(staffId: string, date: string, message: string) {
-  withState((state) => upsertWorkReport(state, staffId, date, { message }));
+export function saveTodayMessage(
+  staffId: string,
+  date: string,
+  message: string,
+  scope: DemoCafeStoreScope = DEFAULT_SCOPE,
+) {
+  withState(scope, (state) => upsertWorkReport(state, staffId, date, { message }));
 }
 
 export interface CorrectionRequestSubmission {
@@ -252,8 +298,12 @@ export interface CorrectionRequestSubmission {
 }
 
 /** Staff submits a work-time correction request, flagging the shared report for manager review. */
-export function submitCorrectionRequest(staffId: string, payload: CorrectionRequestSubmission) {
-  withState((state) => {
+export function submitCorrectionRequest(
+  staffId: string,
+  payload: CorrectionRequestSubmission,
+  scope: DemoCafeStoreScope = DEFAULT_SCOPE,
+) {
+  withState(scope, (state) => {
     const existing = state.workReports.find((report) => report.staffId === staffId && report.date === payload.date);
     const correctionRequest: CorrectionRequest = {
       requestedClockIn: payload.actualClockIn || undefined,
@@ -274,8 +324,13 @@ export function submitCorrectionRequest(staffId: string, payload: CorrectionRequ
 }
 
 /** Manager approves or rejects a pending correction request — the resolution persists in the shared store. */
-export function resolveCorrectionRequest(staffId: string, date: string, status: 'approved' | 'rejected') {
-  withState((state) => {
+export function resolveCorrectionRequest(
+  staffId: string,
+  date: string,
+  status: 'approved' | 'rejected',
+  scope: DemoCafeStoreScope = DEFAULT_SCOPE,
+) {
+  withState(scope, (state) => {
     const existing = state.workReports.find((report) => report.staffId === staffId && report.date === date);
     if (!existing?.correctionRequest) return state;
     return upsertWorkReport(state, staffId, date, {
@@ -289,12 +344,13 @@ export function recordClockEvent(
   staffId: string,
   date: string,
   patch: Partial<Pick<WorkReport, 'actualClockIn' | 'actualClockOut' | 'breakMinutes'>>,
+  scope: DemoCafeStoreScope = DEFAULT_SCOPE,
 ) {
-  withState((state) => upsertWorkReport(state, staffId, date, patch));
+  withState(scope, (state) => upsertWorkReport(state, staffId, date, patch));
 }
 
 /** Clears the demo back to a fresh seed — safe to call repeatedly between client demo runs. */
-export function resetDemoStore() {
+export function resetDemoStore(scope: DemoCafeStoreScope = DEFAULT_SCOPE) {
   if (!isBrowser()) return;
-  persist(buildSeedState(currentTodayIso()));
+  persist(scope, buildSeedState(currentTodayIso()));
 }
