@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
 import { signIn } from '@/lib/auth/actions';
+import { sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { alertDanger, buttonPrimary, input as inputStyle, mutedText, pageStyle } from '@/lib/ui/theme';
 
 /**
@@ -22,12 +23,14 @@ const labelStyle = { display: 'block', marginBottom: 12 } as const;
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; returnTo?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (user) redirect('/dashboard');
-
   const params = await searchParams;
+  const safeReturnTo = sanitizePreviewReturnTo(params?.returnTo);
+
+  const user = await getCurrentUser();
+  if (user) redirect(safeReturnTo ?? '/dashboard');
+
   const hasError = Boolean(params?.error);
 
   return (
@@ -44,6 +47,7 @@ export default async function SignInPage({
       ) : null}
 
       <form action={signIn}>
+        {safeReturnTo ? <input type="hidden" name="returnTo" value={safeReturnTo} /> : null}
         <label style={labelStyle}>
           Email
           <input
