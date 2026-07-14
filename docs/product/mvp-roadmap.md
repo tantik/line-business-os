@@ -131,8 +131,51 @@ Based on the current repository docs, the platform already has:
   are explicitly not covered. See
   [`../phase-1m-cafe-workforce-smoke-closeout.md`](../phase-1m-cafe-workforce-smoke-closeout.md).
 
+- Phase 1N-4A complete: a client-ready public cafe demo package — the
+  shared `HubView`/`ManagerView`/`StaffView`/`RecipeView` components and the
+  `/mame-to-cha/*` public pathname alongside the existing `/demo/cafe/*`
+  pathname, both unauthenticated and mock-data-only (PR #102).
+- Phase 1N-4B complete: functional `localStorage`-backed demo workflows for
+  the public cafe demo — a client-side demo store (clock in/out, work
+  reports, correction review, a demo reset control) with no schema, no
+  `apps/api`, and no DB access (PR #103).
+- Phase 1N-4C Slice A prepared (**documentation only — not implemented**):
+  a DB-backed Mame To Cha client acceptance architecture (host routing,
+  strict tenant/location resolution, Server Action tenant pinning, sign-in
+  return path, onboarding manifest/runbook, promotion allowlist, module
+  entitlement enforcement) plus the durable, project-wide modular product
+  governance and client-request classification decision. See
+  [`../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md`](../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md)
+  and
+  [`../adr/0010-modular-product-governance-and-client-request-classification.md`](../adr/0010-modular-product-governance-and-client-request-classification.md).
+  No app code, migrations, or Cloud/Vercel/DNS actions were part of this
+  slice.
+
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
+
+## Phase 1N-4C Remaining Slices (not yet started)
+
+- **B1** — host routing (`preview.oruwa.jp` rewrite) + strict preview read
+  shell + Workforce entitlement guard.
+- **B2** — write-side tenant pinning (shared Server Action resolver) +
+  mutation-level module entitlement rechecks.
+- **C** — local onboarding rehearsal against the existing local-only
+  `db:onboard-tenant` tool.
+- **D** — Cloud acceptance onboarding and Auth user creation, each write
+  step separately approved.
+- **E** — browser/RLS/module-entitlement smoke testing against the live
+  acceptance environment.
+- **F** — production pre-staging and Phase 1N-4D planning.
+
+## Phase 1N-4D and Beyond
+
+- **Phase 1N-4D** — `app.oruwa.jp/mame-to-cha/*` production launch, on a
+  separate Supabase production project, gated by the production readiness
+  prerequisites in
+  [`../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md`](../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md).
+- **Phase 1N-5** — LINE/LIFF integration, after the web acceptance/
+  production path (1N-4C/1N-4D) is stable.
 
 ## Next Recommended Step
 
