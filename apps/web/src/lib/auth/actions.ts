@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { SIGN_IN_PATH } from './require-user';
 import { parseCredentials } from './credentials';
+import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 
 /**
  * Server Actions for the minimal email/password auth flow.
@@ -27,15 +28,16 @@ import { parseCredentials } from './credentials';
  *   nothing until a manual reload forces a fresh fetch.
  */
 
-/** Sign-in landing with a generic error flag; the value carries no detail. */
-const SIGN_IN_ERROR_PATH = `${SIGN_IN_PATH}?error=1`;
-
 /** Where a successful sign-in lands. The protected layout re-checks auth. */
 const DASHBOARD_PATH = '/dashboard';
 
 export async function signIn(formData: FormData): Promise<void> {
+  // Re-sanitize server-side rather than trusting the hidden form field as-is -
+  // a malicious client could submit `returnTo` without ever rendering the page.
+  const safeReturnTo = sanitizePreviewReturnTo(formData.get('returnTo')?.toString());
+
   const credentials = parseCredentials(formData);
-  if (!credentials) redirect(SIGN_IN_ERROR_PATH);
+  if (!credentials) redirect(buildSignInErrorPath(safeReturnTo));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
@@ -44,10 +46,10 @@ export async function signIn(formData: FormData): Promise<void> {
   });
 
   // Fail closed with a generic redirect; do not log or echo the auth error.
-  if (error) redirect(SIGN_IN_ERROR_PATH);
+  if (error) redirect(buildSignInErrorPath(safeReturnTo));
 
   revalidatePath('/', 'layout');
-  redirect(DASHBOARD_PATH);
+  redirect(safeReturnTo ?? DASHBOARD_PATH);
 }
 
 export async function signOut(): Promise<void> {
