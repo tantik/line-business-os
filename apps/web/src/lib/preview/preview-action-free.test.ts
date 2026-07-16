@@ -5,24 +5,25 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 /**
- * Phase 1N-4C Slice B1 - source-text regression guards proving the Mame To
- * Cha preview dependency graph is structurally action-free, not just
- * UI-hidden.
+ * Phase 1N-4C Slice B2a - source-text regression guards proving the Mame To
+ * Cha preview dependency graph registers exactly its allowlisted preview
+ * Server Actions, never anything else.
  *
- * These are static-source checks only (this repo's `node:test` suite has no
- * jsdom/RTL, and `.next` does not exist before a build) - the authoritative,
- * build-verified proof is `scripts/verify-preview-no-server-actions.mjs`,
- * which parses `.next/server/server-reference-manifest.json` after
- * `next build` and fails if any preview route registers a Server Action
- * worker. Run both: this file catches the regression immediately during
- * `pnpm test` (fast, no build needed); the manifest script is the ground
- * truth Next.js itself compiled (`pnpm verify:preview-no-actions`).
+ * Evolves the prior B1-era version of this file (which asserted every
+ * preview-reachable file imported ZERO mutation Server Actions). B2a
+ * intentionally ships seven manager preview actions, so the check is now a
+ * role-aware allowlist: the manager route and its client islands may import
+ * only the seven `previewXxx` manager action exports; every other
+ * preview-reachable file (staff/root/recipes routes, the display components)
+ * must remain fully action-free, exactly as in B1.
  *
- * Unlike the prior version of this file, every preview-reachable source file
- * is scanned - not only the leaf `page.tsx` routes - which is exactly the gap
- * that let the previous `readOnly`-prop approach pass this suite while still
- * registering all 12 Workforce mutation actions as callable workers for the
- * preview manager route (confirmed by inspecting the manifest directly).
+ * These are static-source checks only - the authoritative, build-verified
+ * proof is `scripts/verify-preview-server-actions.mjs`, which parses
+ * `.next/server/server-reference-manifest.json` after `next build` and fails
+ * if any preview route registers a worker outside its exact allowlist. Run
+ * both: this file catches the regression immediately during `pnpm test`
+ * (fast, no build needed); the manifest script is the ground truth Next.js
+ * itself compiled (`pnpm verify:preview-actions`).
  */
 
 // Deliberately joins as a plain filesystem path (not `new URL()`), since
@@ -35,11 +36,7 @@ function read(relativeToThisFile: string): string {
   return readFileSync(path.join(THIS_DIR, relativeToThisFile), 'utf8');
 }
 
-/**
- * Only the `import ...` statement lines, not the whole file text - so a doc
- * comment that explains *why* a component must not be imported (and
- * necessarily names it in prose) can never itself trip these guards.
- */
+/** Only the `import ...` statement lines - so a doc comment explaining why a component must not be imported never itself trips these guards. */
 function importLines(source: string): string {
   return source
     .split('\n')
@@ -47,18 +44,46 @@ function importLines(source: string): string {
     .join('\n');
 }
 
-/** Every file in the preview dependency graph: the shared display components plus all five route files. */
-const PREVIEW_FILES = [
+/** Action-free display components + all five preview route files - must register zero Server Actions, unchanged from B1. */
+const ACTION_FREE_PREVIEW_FILES = [
   'manager-view.tsx',
   'staff-view.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/page.tsx',
-  '../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/[recipeId]/page.tsx',
 ];
 
-const MUTATION_ACTION_MODULES = ['staff-actions', 'schedule-actions', 'attendance-actions'];
+/** The four new B2a interactive client islands - 'use client' components that build FormData/plain-object payloads for a preview Server Action, and the only files where a submitted authority field could ever appear. */
+const MANAGER_ISLAND_FILES = [
+  'preview-staff-form.tsx',
+  'preview-shift-editor.tsx',
+  'preview-schedule-actions.tsx',
+  'preview-correction-actions.tsx',
+];
+
+/** The manager route page plus its new B2a interactive client islands - the only preview files permitted to import a preview Server Action, and only the exact seven B2a exports. The page itself is a server component that legitimately handles `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
+const MANAGER_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx', ...MANAGER_ISLAND_FILES];
+
+const ALL_PREVIEW_FILES = [...ACTION_FREE_PREVIEW_FILES, ...MANAGER_PREVIEW_FILES];
+
+const B2A_MANAGER_ACTION_EXPORTS = [
+  'previewUpsertEmployee',
+  'previewSetEmployeeActive',
+  'previewCreateShiftAssignment',
+  'previewUpdateShiftAssignment',
+  'previewRunAutoDistribution',
+  'previewPublishSchedule',
+  'previewDecideCorrectionRequest',
+];
+
+const B2B_STAFF_ACTION_EXPORTS = [
+  'previewSubmitShiftPreference',
+  'previewSubmitWorkReport',
+  'previewSubmitCorrectionRequest',
+];
+
+const DASHBOARD_MUTATION_ACTION_MODULES = ['staff-actions', 'schedule-actions', 'attendance-actions'];
 
 const MUTATION_FORM_COMPONENTS = [
   'StaffForm',
@@ -72,18 +97,29 @@ const MUTATION_FORM_COMPONENTS = [
 /** The full interactive dashboard client components must never be imported by preview - not even alongside a readOnly-style prop. */
 const DASHBOARD_CLIENT_COMPONENTS = ['ManagerDashboardClient', 'StaffDashboardClient'];
 
-for (const file of PREVIEW_FILES) {
-  test(`${file}: does not import any Workforce mutation Server Action module`, () => {
+/** Matches `@/lib/workforce/<dashboard-action-module>` or `@/lib/workforce/employee-line-links` specifically - never the preview wrapper of the same basename under `@/lib/preview/actions/`. */
+function importsDashboardActionModule(importsText: string, moduleName: string): boolean {
+  return new RegExp(`['"]@/lib/workforce/${moduleName}(?:\\.js)?['"]`).test(importsText);
+}
+
+for (const file of ALL_PREVIEW_FILES) {
+  test(`${file}: does not import a raw dashboard action module (staff-actions/schedule-actions/attendance-actions under lib/workforce)`, () => {
     const imports = importLines(read(file));
-    for (const moduleName of MUTATION_ACTION_MODULES) {
+    for (const moduleName of DASHBOARD_MUTATION_ACTION_MODULES) {
       assert.ok(
-        !new RegExp(`['"][^'"]*${moduleName}(?:\\.js)?['"]`).test(imports),
-        `${file} must not import from a module matching "${moduleName}"`,
+        !importsDashboardActionModule(imports, moduleName),
+        `${file} must not import the dashboard action module @/lib/workforce/${moduleName}`,
       );
     }
   });
 
-  test(`${file}: does not import a known mutation-form component`, () => {
+  test(`${file}: does not import the LINE bind/unbind mutation actions (a read-only import of listEmployeeLineLinks from the same module is fine and unchanged from B1)`, () => {
+    const imports = importLines(read(file));
+    assert.ok(!/\bbindEmployeeLineUser\b/.test(imports), `${file} must not import bindEmployeeLineUser`);
+    assert.ok(!/\bunbindEmployeeLineUser\b/.test(imports), `${file} must not import unbindEmployeeLineUser`);
+  });
+
+  test(`${file}: does not import a known dashboard mutation-form component`, () => {
     const imports = importLines(read(file));
     for (const componentName of MUTATION_FORM_COMPONENTS) {
       assert.ok(
@@ -98,14 +134,53 @@ for (const file of PREVIEW_FILES) {
     for (const componentName of DASHBOARD_CLIENT_COMPONENTS) {
       assert.ok(
         !new RegExp(`\\b${componentName}\\b`).test(imports),
-        `${file} must not import ${componentName} - preview must render only action-free display components`,
+        `${file} must not import ${componentName} - preview must render only action-free display components or preview-specific islands`,
       );
     }
+  });
+
+  test(`${file}: does not reference any B2b staff-submission preview action (not implemented in this slice)`, () => {
+    const source = read(file);
+    for (const exportName of B2B_STAFF_ACTION_EXPORTS) {
+      assert.ok(!source.includes(exportName), `${file} must not reference the B2b action ${exportName}`);
+    }
+  });
+}
+
+for (const file of ACTION_FREE_PREVIEW_FILES) {
+  test(`${file}: registers no preview Server Action (does not import from lib/preview/actions/*)`, () => {
+    const imports = importLines(read(file));
+    assert.ok(!/['"]\.*\/?(?:\.\.\/)*(?:lib\/)?preview\/actions\//.test(imports), `${file} must not import from a preview/actions module`);
   });
 
   test(`${file}: contains no <form action= binding`, () => {
     const source = read(file);
     assert.ok(!/<form\s[^>]*\baction\s*=/.test(source), `${file} must not contain a <form action=...> binding`);
+  });
+}
+
+for (const file of MANAGER_PREVIEW_FILES) {
+  test(`${file}: imports only the exact allowlisted B2a manager preview actions, never any other name from lib/preview/actions/*`, () => {
+    const imports = importLines(read(file));
+    const actionImportLines = imports
+      .split('\n')
+      .filter((line) => /['"][^'"]*\/preview\/actions\/[^'"]+['"]/.test(line));
+
+    for (const line of actionImportLines) {
+      const braceMatch = line.match(/\{([^}]*)\}/);
+      assert.ok(braceMatch, `${file}: expected a named import from a preview/actions module, got: ${line}`);
+      const namesText: string = braceMatch?.[1] ?? '';
+      const names = namesText
+        .split(',')
+        .map((n) => n.trim())
+        .filter(Boolean);
+      for (const name of names) {
+        assert.ok(
+          B2A_MANAGER_ACTION_EXPORTS.includes(name),
+          `${file} imports "${name}" from a preview/actions module, which is not one of the seven allowlisted B2a manager actions`,
+        );
+      }
+    }
   });
 }
 
@@ -120,5 +195,30 @@ test('manager-view.tsx and staff-view.tsx expose no callback prop shaped like a 
   for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
     const source = read(file);
     assert.ok(!/formData/.test(source), `${file} must not construct FormData (a mutation-submission pattern)`);
+  }
+});
+
+test('the four B2a manager client islands are all "use client" components', () => {
+  for (const file of ['preview-staff-form.tsx', 'preview-shift-editor.tsx', 'preview-schedule-actions.tsx', 'preview-correction-actions.tsx']) {
+    const source = read(file);
+    assert.ok(/^\s*['"]use client['"]/m.test(source), `${file} must be a 'use client' component`);
+  }
+});
+
+test('no B2a manager preview island exposes a tenant/tenantSlug/module-enabled authority field', () => {
+  const forbiddenLiterals = ['tenantId', 'tenantSlug', 'moduleEnabled'];
+  for (const file of MANAGER_ISLAND_FILES) {
+    const source = read(file);
+    for (const literal of forbiddenLiterals) {
+      assert.ok(!source.includes(literal), `${file} must not reference "${literal}" - tenant/module authority is always server-resolved`);
+    }
+  }
+});
+
+test('no B2a manager preview island exposes a permission-key-shaped or locationId-as-authority field', () => {
+  for (const file of MANAGER_ISLAND_FILES) {
+    const source = read(file);
+    assert.ok(!/workforce\.[a-z]+\.[a-z]+/.test(source), `${file} must not reference a permission-key-shaped literal`);
+    assert.ok(!/\blocationId\b/.test(source), `${file} must not reference "locationId" - the active location is always server-resolved, never a form field`);
   }
 });
