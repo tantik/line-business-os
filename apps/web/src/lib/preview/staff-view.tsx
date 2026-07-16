@@ -218,7 +218,6 @@ export function PreviewStaffView({
             </tbody>
           </table>
         )}
-        <p style={{ margin: '12px 0 0', ...mutedText }}>シフト希望の提出は、このプレビューでは利用できません。</p>
       </section>
 
       <section style={card}>
@@ -257,7 +256,6 @@ export function PreviewStaffView({
             </tbody>
           </table>
         )}
-        <p style={{ margin: '12px 0 0', ...mutedText }}>勤務報告の提出は、このプレビューでは利用できません。</p>
       </section>
 
       <section style={card}>
@@ -291,7 +289,6 @@ export function PreviewStaffView({
             </tbody>
           </table>
         )}
-        <p style={{ margin: '12px 0 0', ...mutedText }}>修正依頼の提出は、このプレビューでは利用できません。</p>
       </section>
     </>
   );

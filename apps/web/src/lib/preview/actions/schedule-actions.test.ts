@@ -109,3 +109,7 @@ test('never references tenantSlug/moduleEnabled authority literals', () => {
   assert.ok(!SOURCE.includes('tenantSlug'));
   assert.ok(!SOURCE.includes('moduleEnabled'));
 });
+
+test('never exports a B2b staff action (kept in a separate file so a route importing one role\'s actions never bundles the other role\'s worker registrations)', () => {
+  assert.ok(!/export async function previewSubmit/.test(SOURCE));
+});

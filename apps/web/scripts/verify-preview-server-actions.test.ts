@@ -151,9 +151,8 @@ test('manager preview route rejects an eighth, non-allowlisted action name', () 
   assert.equal(result.allowlistViolations[0]?.exportedName, 'previewSomethingElse');
 });
 
-test('staff/root/recipes preview routes reject any registered action (zero-allowed)', () => {
+test('root/recipes preview routes reject any registered action (zero-allowed)', () => {
   for (const route of [
-    'app/_client-preview/mame-to-cha/staff/page',
     'app/_client-preview/mame-to-cha/page',
     'app/_client-preview/mame-to-cha/recipes/page',
     'app/_client-preview/mame-to-cha/recipes/[recipeId]/page',
@@ -162,6 +161,52 @@ test('staff/root/recipes preview routes reject any registered action (zero-allow
     const result = evaluateManifestEntries(entries);
     assert.equal(result.allowlistViolations.length, 1, `expected a violation for route ${route}`);
   }
+});
+
+test('staff preview route accepts exactly the three allowlisted B2b actions and nothing else', () => {
+  const threeAllowed = ['previewSubmitShiftPreference', 'previewSubmitWorkReport', 'previewSubmitCorrectionRequest'];
+  const entries = threeAllowed.map((exportedName) =>
+    actionEntry({
+      exportedName,
+      filename: 'src/lib/preview/actions/schedule-actions.ts',
+      workers: { 'app/_client-preview/mame-to-cha/staff/page': {} },
+    }),
+  );
+  const result = evaluateManifestEntries(entries);
+  assert.deepEqual(result.allowlistViolations, []);
+  assert.deepEqual(result.forbiddenModuleViolations, []);
+  assert.deepEqual(result.unknownRouteViolations, []);
+});
+
+test('staff preview route rejects the set when one of the three B2b actions is missing (each allowed action independently passes, but the exact triple is not itself enforced by evaluateManifestEntries - covered instead by the static import checks in preview-action-free.test.ts)', () => {
+  const twoOfThree = ['previewSubmitShiftPreference', 'previewSubmitWorkReport'].map((exportedName) =>
+    actionEntry({ exportedName, workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } }),
+  );
+  const result = evaluateManifestEntries(twoOfThree);
+  assert.deepEqual(result.allowlistViolations, []);
+});
+
+test('staff preview route rejects a fourth, unknown B2b-shaped action name', () => {
+  const entries = [
+    actionEntry({ exportedName: 'previewSubmitSomethingElse', workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } }),
+  ];
+  const result = evaluateManifestEntries(entries);
+  assert.equal(result.allowlistViolations.length, 1);
+  assert.equal(result.allowlistViolations[0]?.exportedName, 'previewSubmitSomethingElse');
+});
+
+test('a B2a manager action registered as a worker for the staff route is an allowlist violation (roles are not interchangeable)', () => {
+  const entries = [actionEntry({ exportedName: 'previewUpsertEmployee', workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } })];
+  const result = evaluateManifestEntries(entries);
+  assert.equal(result.allowlistViolations.length, 1);
+});
+
+test('a B2b staff action registered as a worker for the manager route is an allowlist violation (roles are not interchangeable)', () => {
+  const entries = [
+    actionEntry({ exportedName: 'previewSubmitShiftPreference', workers: { 'app/_client-preview/mame-to-cha/manager/page': {} } }),
+  ];
+  const result = evaluateManifestEntries(entries);
+  assert.equal(result.allowlistViolations.length, 1);
 });
 
 test('a raw dashboard action module registered as a worker for a preview route is a forbidden-module violation, not merely an allowlist violation', () => {

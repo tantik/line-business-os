@@ -35,3 +35,7 @@ test('never references tenantSlug/moduleEnabled authority literals or a client-s
   assert.ok(!SOURCE.includes('moduleEnabled'));
   assert.ok(!/formData\.get\('employeeId'\)/.test(SOURCE), 'the manager decision has no legitimate reason to accept an employeeId field');
 });
+
+test('never exports a B2b staff action (kept in staff-attendance-actions.ts so a route importing one role\'s actions never bundles the other role\'s worker registrations)', () => {
+  assert.ok(!/export async function previewSubmit/.test(SOURCE));
+});

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 1N-4C Slice B2a - post-build, role-aware verification that every
+ * Phase 1N-4C Slice B2a/B2b - post-build, role-aware verification that every
  * Mame To Cha preview route registers only its exact allowlisted Server
  * Action workers, never anything else.
  *
@@ -64,8 +64,10 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewDecideCorrectionRequest',
     ]),
   ],
-  // B2b (staff writes) is not implemented in this slice - zero actions.
-  [STAFF_ROUTE, new Set()],
+  [
+    STAFF_ROUTE,
+    new Set(['previewSubmitShiftPreference', 'previewSubmitWorkReport', 'previewSubmitCorrectionRequest']),
+  ],
   [ROOT_ROUTE, new Set()],
   [RECIPES_ROUTE, new Set()],
   [RECIPE_DETAIL_ROUTE, new Set()],
