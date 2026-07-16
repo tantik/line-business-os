@@ -22,7 +22,10 @@ import {
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
-import { PreviewReadOnlyNotice } from '@/lib/preview/states';
+import { PreviewStaffForm } from '@/lib/preview/preview-staff-form';
+import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
+import { PreviewScheduleActions } from '@/lib/preview/preview-schedule-actions';
+import { PreviewCorrectionActions } from '@/lib/preview/preview-correction-actions';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -112,8 +115,6 @@ export default async function MameToChaPreviewManagerPage({
         </Link>
       </header>
 
-      <PreviewReadOnlyNotice />
-
       <PreviewManagerView
         timeZone={location.timezone}
         periodStart={periodStart}
@@ -127,6 +128,27 @@ export default async function MameToChaPreviewManagerPage({
         correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         basePath={PREVIEW_BASE_PATH}
+      />
+
+      <PreviewStaffForm staff={staffResult.status === 'success' ? staffResult.data : null} />
+
+      <PreviewShiftEditor
+        timeZone={location.timezone}
+        staff={staffResult.status === 'success' ? staffResult.data : null}
+        shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
+        assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
+        defaultWorkDate={periodStart}
+      />
+
+      <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
+
+      <PreviewCorrectionActions
+        pendingRequests={
+          correctionRequestsResult.status === 'success'
+            ? correctionRequestsResult.data.filter((r) => r.status === 'pending')
+            : []
+        }
+        staff={staffResult.status === 'success' ? staffResult.data : null}
       />
     </main>
   );
