@@ -59,3 +59,59 @@ test('authorize.ts never imports a raw dashboard action module', () => {
 test('ManagerPermission is restricted to the three exact permission keys the B2a matrix requires', () => {
   assert.ok(/'workforce\.staff\.manage'\s*\|\s*'workforce\.shift\.write'\s*\|\s*'workforce\.request\.manage'/.test(SOURCE));
 });
+
+// ============================================================================
+// Phase 1N-4C Slice B2b - resolvePreviewStaffContext
+// ============================================================================
+
+function fnBody(name: string): string {
+  const start = SOURCE.indexOf(`export async function ${name}(`);
+  assert.ok(start >= 0, `expected to find export async function ${name}(`);
+  return SOURCE.slice(start);
+}
+
+test('resolvePreviewStaffContext resolves tenant context before checking module/profile/location', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  const tenantIdx = body.indexOf('resolvePreviewTenantContext(');
+  const moduleIdx = body.indexOf('resolvePreviewWorkforceModule(');
+  const profileIdx = body.indexOf('getMyWorkforceStaffProfile(');
+  const locationIdx = body.indexOf('resolveStaffLocation(');
+  assert.ok(tenantIdx >= 0 && moduleIdx >= 0 && profileIdx >= 0 && locationIdx >= 0, 'expected all four resolution calls to be present');
+  assert.ok(tenantIdx < moduleIdx, 'tenant resolution must run before the module check');
+  assert.ok(moduleIdx < profileIdx, 'module check must run before profile resolution');
+  assert.ok(profileIdx < locationIdx, 'profile resolution must run before location resolution');
+});
+
+test('resolvePreviewStaffContext never calls the manager permission RPC (staff authorization is self-binding + RLS, not a permission pre-check)', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  assert.ok(!/checkManagerPermission\(/.test(body));
+  assert.ok(!/has_permission/.test(body));
+});
+
+test('resolvePreviewStaffContext fails closed to no_profile when the caller has no employee binding', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  assert.ok(/if \(!profileResult\.data\)/.test(body));
+  const idx = body.indexOf('if (!profileResult.data)');
+  const snippet = body.slice(idx, idx + 120);
+  assert.ok(/status: 'no_profile'/.test(snippet));
+});
+
+test('resolvePreviewStaffContext fails closed to no_profile (never falls back to another location) when resolveStaffLocation returns null', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  assert.ok(/if \(!location\)/.test(body));
+  const idx = body.indexOf('if (!location)');
+  const snippet = body.slice(idx, idx + 120);
+  assert.ok(/status: 'no_profile'/.test(snippet));
+});
+
+test('resolvePreviewStaffContext derives employeeId from profile.staffId and locationId/timeZone from the resolved location, never from a client-supplied value', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  assert.ok(/employeeId:\s*profile\.staffId/.test(body));
+  assert.ok(/locationId:\s*location\.locationId/.test(body));
+  assert.ok(/timeZone:\s*location\.timezone/.test(body));
+});
+
+test('resolvePreviewStaffContext never reads the active-tenant cookie', () => {
+  const body = fnBody('resolvePreviewStaffContext');
+  assert.ok(!/getActiveTenantCookieValue|setActiveTenantCookie/.test(body));
+});

@@ -5,17 +5,18 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 /**
- * Phase 1N-4C Slice B2a - source-text regression guards proving the Mame To
- * Cha preview dependency graph registers exactly its allowlisted preview
- * Server Actions, never anything else.
+ * Phase 1N-4C Slice B2a/B2b - source-text regression guards proving the Mame
+ * To Cha preview dependency graph registers exactly its allowlisted preview
+ * Server Actions per route, never anything else.
  *
  * Evolves the prior B1-era version of this file (which asserted every
- * preview-reachable file imported ZERO mutation Server Actions). B2a
- * intentionally ships seven manager preview actions, so the check is now a
- * role-aware allowlist: the manager route and its client islands may import
- * only the seven `previewXxx` manager action exports; every other
- * preview-reachable file (staff/root/recipes routes, the display components)
- * must remain fully action-free, exactly as in B1.
+ * preview-reachable file imported ZERO mutation Server Actions), then the
+ * B2a-era version (manager route only). B2b adds the staff route's own exact
+ * three-action allowlist: the check is now role-aware across three tiers -
+ * the manager route/islands may import only the seven `previewXxx` manager
+ * actions; the staff route/islands may import only the three `previewSubmitXxx`
+ * staff actions; every other preview-reachable file (root/recipes routes, the
+ * display components) must remain fully action-free, exactly as in B1.
  *
  * These are static-source checks only - the authoritative, build-verified
  * proof is `scripts/verify-preview-server-actions.mjs`, which parses
@@ -44,17 +45,16 @@ function importLines(source: string): string {
     .join('\n');
 }
 
-/** Action-free display components + all five preview route files - must register zero Server Actions, unchanged from B1. */
+/** Action-free display components + root/recipes preview route files - must register zero Server Actions, unchanged from B1. */
 const ACTION_FREE_PREVIEW_FILES = [
   'manager-view.tsx',
   'staff-view.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/page.tsx',
-  '../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/[recipeId]/page.tsx',
 ];
 
-/** The four new B2a interactive client islands - 'use client' components that build FormData/plain-object payloads for a preview Server Action, and the only files where a submitted authority field could ever appear. */
+/** The four B2a manager interactive client islands - 'use client' components that build FormData/plain-object payloads for a preview Server Action, and the only files where a submitted authority field could ever appear. */
 const MANAGER_ISLAND_FILES = [
   'preview-staff-form.tsx',
   'preview-shift-editor.tsx',
@@ -62,10 +62,20 @@ const MANAGER_ISLAND_FILES = [
   'preview-correction-actions.tsx',
 ];
 
-/** The manager route page plus its new B2a interactive client islands - the only preview files permitted to import a preview Server Action, and only the exact seven B2a exports. The page itself is a server component that legitimately handles `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
+/** The manager route page plus its B2a interactive client islands - the only preview files permitted to import a preview Server Action from the manager allowlist, and only the exact seven B2a exports. The page itself is a server component that legitimately handles `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
 const MANAGER_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx', ...MANAGER_ISLAND_FILES];
 
-const ALL_PREVIEW_FILES = [...ACTION_FREE_PREVIEW_FILES, ...MANAGER_PREVIEW_FILES];
+/** The three B2b staff interactive client islands - 'use client' components that build FormData payloads for a preview staff Server Action. */
+const STAFF_ISLAND_FILES = [
+  'preview-shift-preference-form.tsx',
+  'preview-work-report-form.tsx',
+  'preview-correction-request-form.tsx',
+];
+
+/** The staff route page plus its B2b interactive client islands - the only preview files permitted to import a preview Server Action from the staff allowlist, and only the exact three B2b exports. The page itself is a server component that legitimately resolves `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
+const STAFF_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx', ...STAFF_ISLAND_FILES];
+
+const ALL_PREVIEW_FILES = [...ACTION_FREE_PREVIEW_FILES, ...MANAGER_PREVIEW_FILES, ...STAFF_PREVIEW_FILES];
 
 const B2A_MANAGER_ACTION_EXPORTS = [
   'previewUpsertEmployee',
@@ -138,13 +148,6 @@ for (const file of ALL_PREVIEW_FILES) {
       );
     }
   });
-
-  test(`${file}: does not reference any B2b staff-submission preview action (not implemented in this slice)`, () => {
-    const source = read(file);
-    for (const exportName of B2B_STAFF_ACTION_EXPORTS) {
-      assert.ok(!source.includes(exportName), `${file} must not reference the B2b action ${exportName}`);
-    }
-  });
 }
 
 for (const file of ACTION_FREE_PREVIEW_FILES) {
@@ -156,6 +159,13 @@ for (const file of ACTION_FREE_PREVIEW_FILES) {
   test(`${file}: contains no <form action= binding`, () => {
     const source = read(file);
     assert.ok(!/<form\s[^>]*\baction\s*=/.test(source), `${file} must not contain a <form action=...> binding`);
+  });
+
+  test(`${file}: does not reference any B2a manager or B2b staff preview action`, () => {
+    const source = read(file);
+    for (const exportName of [...B2A_MANAGER_ACTION_EXPORTS, ...B2B_STAFF_ACTION_EXPORTS]) {
+      assert.ok(!source.includes(exportName), `${file} must not reference the preview action ${exportName}`);
+    }
   });
 }
 
@@ -182,7 +192,60 @@ for (const file of MANAGER_PREVIEW_FILES) {
       }
     }
   });
+
+  test(`${file}: does not reference any B2b staff preview action`, () => {
+    const source = read(file);
+    for (const exportName of B2B_STAFF_ACTION_EXPORTS) {
+      assert.ok(!source.includes(exportName), `${file} must not reference the B2b staff action ${exportName} - manager and staff preview actions are never interchangeable`);
+    }
+  });
 }
+
+for (const file of STAFF_PREVIEW_FILES) {
+  test(`${file}: imports only the exact allowlisted B2b staff preview actions, never any other name from lib/preview/actions/*`, () => {
+    const imports = importLines(read(file));
+    const actionImportLines = imports
+      .split('\n')
+      .filter((line) => /['"][^'"]*\/preview\/actions\/[^'"]+['"]/.test(line));
+
+    for (const line of actionImportLines) {
+      const braceMatch = line.match(/\{([^}]*)\}/);
+      assert.ok(braceMatch, `${file}: expected a named import from a preview/actions module, got: ${line}`);
+      const namesText: string = braceMatch?.[1] ?? '';
+      const names = namesText
+        .split(',')
+        .map((n) => n.trim())
+        .filter(Boolean);
+      for (const name of names) {
+        assert.ok(
+          B2B_STAFF_ACTION_EXPORTS.includes(name),
+          `${file} imports "${name}" from a preview/actions module, which is not one of the three allowlisted B2b staff actions`,
+        );
+      }
+    }
+  });
+
+  test(`${file}: does not reference any B2a manager preview action`, () => {
+    const source = read(file);
+    for (const exportName of B2A_MANAGER_ACTION_EXPORTS) {
+      assert.ok(!source.includes(exportName), `${file} must not reference the B2a manager action ${exportName} - manager and staff preview actions are never interchangeable`);
+    }
+  });
+}
+
+test('the exact three B2b staff actions are each imported by at least one staff preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
+  const combinedSource = STAFF_PREVIEW_FILES.map((file) => read(file)).join('\n');
+  for (const exportName of B2B_STAFF_ACTION_EXPORTS) {
+    assert.ok(combinedSource.includes(exportName), `expected some staff preview file to import ${exportName}`);
+  }
+});
+
+test('the exact seven B2a manager actions are each imported by at least one manager preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
+  const combinedSource = MANAGER_PREVIEW_FILES.map((file) => read(file)).join('\n');
+  for (const exportName of B2A_MANAGER_ACTION_EXPORTS) {
+    assert.ok(combinedSource.includes(exportName), `expected some manager preview file to import ${exportName}`);
+  }
+});
 
 test('manager-view.tsx and staff-view.tsx are not client components (no client bundle => no possible action-reference registration)', () => {
   for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
@@ -199,7 +262,14 @@ test('manager-view.tsx and staff-view.tsx expose no callback prop shaped like a 
 });
 
 test('the four B2a manager client islands are all "use client" components', () => {
-  for (const file of ['preview-staff-form.tsx', 'preview-shift-editor.tsx', 'preview-schedule-actions.tsx', 'preview-correction-actions.tsx']) {
+  for (const file of MANAGER_ISLAND_FILES) {
+    const source = read(file);
+    assert.ok(/^\s*['"]use client['"]/m.test(source), `${file} must be a 'use client' component`);
+  }
+});
+
+test('the three B2b staff client islands are all "use client" components', () => {
+  for (const file of STAFF_ISLAND_FILES) {
     const source = read(file);
     assert.ok(/^\s*['"]use client['"]/m.test(source), `${file} must be a 'use client' component`);
   }
@@ -220,5 +290,41 @@ test('no B2a manager preview island exposes a permission-key-shaped or locationI
     const source = read(file);
     assert.ok(!/workforce\.[a-z]+\.[a-z]+/.test(source), `${file} must not reference a permission-key-shaped literal`);
     assert.ok(!/\blocationId\b/.test(source), `${file} must not reference "locationId" - the active location is always server-resolved, never a form field`);
+  }
+});
+
+/** Every identity/authority field forbidden in a B2b staff preview form (B2b plan Section 3). */
+const B2B_FORBIDDEN_STAFF_FORM_LITERALS = [
+  'tenantId',
+  'tenantSlug',
+  'locationId',
+  'employeeId',
+  'staffId',
+  'userId',
+  'moduleEnabled',
+];
+
+test('no B2b staff preview island exposes a tenant/location/employee/staff/user/module authority field', () => {
+  for (const file of STAFF_ISLAND_FILES) {
+    const source = read(file);
+    for (const literal of B2B_FORBIDDEN_STAFF_FORM_LITERALS) {
+      assert.ok(!source.includes(literal), `${file} must not reference "${literal}" - identity/location authority is always server-resolved from the authenticated employee binding`);
+    }
+  }
+});
+
+test('no B2b staff preview island exposes a permission-key-shaped or role-name-as-authority field, and no name="role"/name="permission" form field', () => {
+  for (const file of STAFF_ISLAND_FILES) {
+    const source = read(file);
+    assert.ok(!/workforce\.[a-z]+\.[a-z]+/.test(source), `${file} must not reference a permission-key-shaped literal`);
+    assert.ok(!/name=["']role["']/.test(source), `${file} must not submit a "role" form field`);
+    assert.ok(!/name=["']permission["']/.test(source), `${file} must not submit a "permission" form field`);
+  }
+});
+
+test('no B2b staff preview island adds a hidden identity/authority input field', () => {
+  for (const file of STAFF_ISLAND_FILES) {
+    const source = read(file);
+    assert.ok(!/<input[^>]*type=["']hidden["']/.test(source), `${file} must not contain any <input type="hidden"> field`);
   }
 });

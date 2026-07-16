@@ -15,6 +15,7 @@ const ALL_FAILURE_STATUSES: PreviewWriteFailureStatus[] = [
   'no_access',
   'module_disabled',
   'location_blocked',
+  'no_profile',
   'invalid_input',
   'not_found',
   'duplicate',

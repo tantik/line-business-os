@@ -21,7 +21,9 @@ import {
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
-import { PreviewReadOnlyNotice } from '@/lib/preview/states';
+import { PreviewShiftPreferenceForm } from '@/lib/preview/preview-shift-preference-form';
+import { PreviewWorkReportForm } from '@/lib/preview/preview-work-report-form';
+import { PreviewCorrectionRequestForm } from '@/lib/preview/preview-correction-request-form';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -37,18 +39,24 @@ function parseWeekOffset(raw: string | undefined): number {
 }
 
 /**
- * Mame To Cha preview staff view (Phase 1N-4C Slice B1) - read-only reuse of
- * the existing Workforce staff data loaders, rendered through the
- * action-free `PreviewStaffView` display component (see
- * `lib/preview/staff-view.tsx`). This page and its dependency graph import
- * no Server Action and no dashboard interactive component - the dashboard's
- * `StaffDashboardClient` (which does own the mutation forms/actions) is
- * never imported here, so no mutation action can be registered as a callable
- * worker for this route (verified by `scripts/verify-preview-no-server-actions.mjs`).
+ * Mame To Cha preview staff view (Phase 1N-4C Slice B1 read shell + Slice B2b
+ * staff preview writes) - reuses the existing Workforce staff data loaders,
+ * rendered through the action-free `PreviewStaffView` display component (see
+ * `lib/preview/staff-view.tsx`) plus the three B2b preview-specific client
+ * islands (`PreviewShiftPreferenceForm`/`PreviewWorkReportForm`/
+ * `PreviewCorrectionRequestForm`). This page and its dependency graph import
+ * no dashboard Server Action and no dashboard interactive component - the
+ * dashboard's `StaffDashboardClient` (which owns the dashboard mutation
+ * forms/actions) is never imported here, and the only Server Actions
+ * reachable from this route are the three allowlisted `previewSubmitXxx`
+ * staff actions (verified by `scripts/verify-preview-server-actions.mjs`).
  * Location resolution here is intentionally strict (`resolveStaffLocation`,
  * architecture plan Section F2): it never falls back to the tenant's
  * active/first location on mismatch the way the lenient dashboard staff page
- * does - a mismatch always fails closed to a neutral "no profile" state.
+ * does - a mismatch always fails closed to a neutral "no profile" state. The
+ * B2b Server Actions independently re-resolve this same strict binding
+ * server-side via `resolvePreviewStaffContext()` - the read-side `profile`/
+ * `location` computed here are never passed to a Server Action as authority.
  */
 export default async function MameToChaPreviewStaffPage({
   searchParams,
@@ -117,8 +125,6 @@ export default async function MameToChaPreviewStaffPage({
         </Link>
       </header>
 
-      <PreviewReadOnlyNotice />
-
       <PreviewStaffView
         timeZone={location.timezone}
         periodStart={periodStart}
@@ -131,6 +137,18 @@ export default async function MameToChaPreviewStaffPage({
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
         basePath={PREVIEW_BASE_PATH}
+      />
+
+      <PreviewShiftPreferenceForm
+        shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
+        defaultWorkDate={periodStart}
+      />
+
+      <PreviewWorkReportForm defaultWorkDate={periodStart} />
+
+      <PreviewCorrectionRequestForm
+        attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}
+        defaultWorkDate={periodStart}
       />
     </main>
   );

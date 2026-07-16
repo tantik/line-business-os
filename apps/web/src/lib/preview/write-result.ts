@@ -20,6 +20,7 @@ export type PreviewWriteFailureStatus =
   | 'no_access'
   | 'module_disabled'
   | 'location_blocked'
+  | 'no_profile'
   | 'invalid_input'
   | 'not_found'
   | 'duplicate'
@@ -34,6 +35,7 @@ const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
   no_access: 'この操作を行う権限がありません。',
   module_disabled: 'ワークフォース機能はこのワークスペースで有効になっていません。',
   location_blocked: '店舗の設定を確認できません。担当者にお問い合わせください。',
+  no_profile: 'このアカウントに紐づくスタッフ情報がありません。担当者にお問い合わせください。',
   invalid_input: '入力内容を確認してください。',
   not_found: '対象の情報が見つかりません。',
   duplicate: 'すでに同じ内容が登録されています。',
