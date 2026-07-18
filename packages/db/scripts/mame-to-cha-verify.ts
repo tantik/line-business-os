@@ -46,13 +46,13 @@ export const MAME_TO_CHA_VERIFY_SQL = {
     'select id, is_active, location_id from workforce.shift_types where tenant_id = $1 and location_id = $2 and code = $3',
   recipeCountByTitle: 'select count(*)::int as count from workforce.recipes where tenant_id = $1 and title_ja = $2',
   shiftAssignmentExists:
-    'select 1 as exists from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3',
+    'select exists (select 1 from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3) as exists',
   shiftPreferenceExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3) as exists",
   workReportExists:
-    'select 1 as exists from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3',
+    'select exists (select 1 from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3) as exists',
   correctionRequestExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3) as exists",
 } as const;
 
 export type VerifyCheckStatus = 'pass' | 'fail' | 'not_checked';

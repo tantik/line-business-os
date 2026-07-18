@@ -234,3 +234,23 @@ test('this file never queries the protected mame-to-cha-tokyo tenant literally',
   const allSql = Object.values(MAME_TO_CHA_VERIFY_SQL).join(' ');
   assert.ok(!allSql.includes('mame-to-cha-tokyo'));
 });
+
+test('acceptance-data existence queries use a real Postgres boolean, never "select 1 as exists"', () => {
+  const existenceChecks = [
+    MAME_TO_CHA_VERIFY_SQL.shiftAssignmentExists,
+    MAME_TO_CHA_VERIFY_SQL.shiftPreferenceExists,
+    MAME_TO_CHA_VERIFY_SQL.workReportExists,
+    MAME_TO_CHA_VERIFY_SQL.correctionRequestExists,
+  ];
+  for (const sql of existenceChecks) {
+    // `select 1 as exists` yields a Postgres integer (1), not a boolean, so
+    // `rows[0]?.exists === true` at the call sites silently always fails.
+    // `select exists (subquery) as exists` is the only form that returns a
+    // real boolean, so require that shape here.
+    assert.ok(
+      /select\s+exists\s*\(/i.test(sql),
+      `expected "select exists (...)" boolean form, got: ${sql}`,
+    );
+    assert.ok(!/^select\s+1\s+as\s+exists/i.test(sql.trim()), `must not use "select 1 as exists": ${sql}`);
+  }
+});
