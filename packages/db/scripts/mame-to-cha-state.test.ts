@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { QueryRunner } from './onboard-db.js';
-import { MAME_TO_CHA_STATE_SQL, loadExistingMameToChaFixtureState } from './mame-to-cha-state.js';
+import {
+  MAME_TO_CHA_STATE_SQL,
+  loadExistingMameToChaFixtureState,
+  validateMameToChaIdentityOrThrow,
+} from './mame-to-cha-state.js';
 import type { MameToChaFixtureIdentity } from './mame-to-cha-state.js';
 import { MAME_TO_CHA_FIXTURE } from './mame-to-cha-fixture.js';
 import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
@@ -47,6 +51,7 @@ test('reports the tenant/location/module/membership state accurately when everyt
     [MAME_TO_CHA_STATE_SQL.locationsByTenant]: [{ id: LOCATION_ID, name: MAME_TO_CHA_FIXTURE.location.name, is_active: true }],
     [MAME_TO_CHA_STATE_SQL.enabledModules]: [{ module: 'core' }, { module: 'workforce' }],
     [MAME_TO_CHA_STATE_SQL.roleByKey]: (v) => [{ id: v[0] === 'manager' ? 'role-manager' : 'role-employee' }],
+    [MAME_TO_CHA_STATE_SQL.userMirrorExists]: [{ exists: true }],
     [MAME_TO_CHA_STATE_SQL.membershipStatus]: [{ status: 'active' }],
     [MAME_TO_CHA_STATE_SQL.roleAssignmentExists]: [{ exists: true }],
     [MAME_TO_CHA_STATE_SQL.employeeByUser]: [{ id: EMPLOYEE_ID, location_id: LOCATION_ID, is_active: true }],
@@ -71,6 +76,66 @@ test('reports the tenant/location/module/membership state accurately when everyt
   assert.equal(loaded.ids.staffEmployeeId, EMPLOYEE_ID);
   assert.equal(loaded.state.acceptanceDataPresent?.shiftAssignment, true);
   assert.equal(loaded.state.acceptanceDataPresent?.workReport, true);
+  assert.equal(loaded.state.userMirrorsByLogicalId?.['manager-1'], true);
+  assert.equal(loaded.state.userMirrorsByLogicalId?.['staff-1'], true);
+});
+
+test('state loader reads both manager and staff core.users mirrors independently', async () => {
+  const runner = new FakeRunner({
+    [MAME_TO_CHA_STATE_SQL.tenantBySlug]: [],
+    [MAME_TO_CHA_STATE_SQL.roleByKey]: (v) => [{ id: v[0] === 'manager' ? 'role-manager' : 'role-employee' }],
+    // Only the manager's auth user id has a core.users mirror; staff does not.
+    [MAME_TO_CHA_STATE_SQL.userMirrorExists]: (v) => [{ exists: v[0] === MANAGER_USER_ID }],
+  });
+  const loaded = await loadExistingMameToChaFixtureState(runner, MAME_TO_CHA_FIXTURE, IDENTITY, NOW);
+  assert.equal(loaded.state.userMirrorsByLogicalId?.['manager-1'], true);
+  assert.equal(loaded.state.userMirrorsByLogicalId?.['staff-1'], false);
+});
+
+test('user mirror lookup runs even when the tenant does not exist (core.users is not tenant-scoped)', async () => {
+  const calls: { text: string; values: readonly unknown[] }[] = [];
+  const runner: QueryRunner = {
+    async query<T = unknown>(text: string, values?: readonly unknown[]) {
+      calls.push({ text, values: values ?? [] });
+      if (text === MAME_TO_CHA_STATE_SQL.tenantBySlug) return { rows: [] as T[] };
+      if (text === MAME_TO_CHA_STATE_SQL.roleByKey) return { rows: [{ id: 'some-role-id' }] as T[] };
+      if (text === MAME_TO_CHA_STATE_SQL.userMirrorExists) return { rows: [{ exists: false }] as T[] };
+      return { rows: [] as T[] };
+    },
+  };
+  await loadExistingMameToChaFixtureState(runner, MAME_TO_CHA_FIXTURE, IDENTITY, NOW);
+  const mirrorCalls = calls.filter((c) => c.text === MAME_TO_CHA_STATE_SQL.userMirrorExists);
+  assert.equal(mirrorCalls.length, 2, 'both manager and staff mirrors must be checked regardless of tenant existence');
+});
+
+// ===========================================================================
+// validateMameToChaIdentityOrThrow -- reject identical manager/staff ids
+// ===========================================================================
+
+test('validateMameToChaIdentityOrThrow accepts distinct manager/staff ids', () => {
+  assert.doesNotThrow(() => validateMameToChaIdentityOrThrow(IDENTITY));
+});
+
+test('validateMameToChaIdentityOrThrow rejects identical manager/staff ids', () => {
+  assert.throws(
+    () => validateMameToChaIdentityOrThrow({ managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID }),
+    /distinct/,
+  );
+});
+
+test('loadExistingMameToChaFixtureState rejects identical manager/staff ids before any query', async () => {
+  let queried = false;
+  const runner: QueryRunner = {
+    async query() {
+      queried = true;
+      return { rows: [] };
+    },
+  };
+  await assert.rejects(
+    loadExistingMameToChaFixtureState(runner, MAME_TO_CHA_FIXTURE, { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID }, NOW),
+    /distinct/,
+  );
+  assert.equal(queried, false, 'no query should run once the identity gate throws');
 });
 
 test('an inactive location with a matching name is never treated as the resolved location', async () => {

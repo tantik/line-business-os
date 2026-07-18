@@ -30,6 +30,8 @@ export const REQUIRED_MANAGER_PERMISSIONS = [
 
 export const MAME_TO_CHA_VERIFY_SQL = {
   tenantCount: 'select count(*)::int as count, id, kind from core.tenants where slug = $1 group by id, kind',
+  /** core.users is not tenant-scoped: a mirror row's existence is checked by id alone. */
+  userMirrorCount: 'select count(*)::int as count from core.users where id = $1',
   activeLocationCount:
     'select count(*)::int as count from core.locations where tenant_id = $1 and is_active = true',
   workforceModuleEnabled:
@@ -138,6 +140,22 @@ export async function runMameToChaVerifyChecks(
     };
   }
 
+  // Defense-in-depth: the fixture requires two distinct identities. A shared
+  // manager/staff id would make every identity-scoped check below ambiguous
+  // (checking the same underlying row under two different logical ids).
+  if (
+    identity.managerUserId !== undefined &&
+    identity.staffUserId !== undefined &&
+    identity.managerUserId === identity.staffUserId
+  ) {
+    return {
+      ok: false,
+      tenantSlug: fixture.tenant.slug,
+      checks: [fail('identity.distinct', 'Manager and staff auth user ids must be distinct.')],
+      failures: ['manager and staff auth user ids must be distinct'],
+    };
+  }
+
   const tenantRows = await runner.query<TenantCountRow>(MAME_TO_CHA_VERIFY_SQL.tenantCount, [fixture.tenant.slug]);
   const tenantRow = tenantRows.rows[0];
   const tenantCount = tenantRows.rows.reduce((sum, r) => sum + r.count, 0);
@@ -174,9 +192,23 @@ export async function runMameToChaVerifyChecks(
   for (const role of fixture.roles) {
     const userId = role.role === 'manager' ? identity.managerUserId : identity.staffUserId;
     if (userId === undefined) {
+      checks.push(notChecked(`user_mirror.${role.logicalId}`, `No auth user id supplied for "${role.logicalId}"; skipped.`));
       checks.push(notChecked(`membership.${role.logicalId}`, `No auth user id supplied for "${role.logicalId}"; skipped.`));
       continue;
     }
+
+    // core.users mirror: required before membership/employee_binding can
+    // exist at all (both FK to core.users(id)); check it explicitly so a
+    // missing mirror is reported by name, not just as a downstream FK/read
+    // failure.
+    const mirrorRows = await runner.query<CountRow>(MAME_TO_CHA_VERIFY_SQL.userMirrorCount, [userId]);
+    const mirrorCount = mirrorRows.rows[0]?.count ?? 0;
+    checks.push(
+      mirrorCount === 1
+        ? pass(`user_mirror.${role.logicalId}`, `core.users mirror exists exactly once for "${role.logicalId}".`)
+        : fail(`user_mirror.${role.logicalId}`, `Expected exactly one core.users mirror row for "${role.logicalId}", found ${mirrorCount}.`),
+    );
+
     const membershipRows = await runner.query<StatusRow>(MAME_TO_CHA_VERIFY_SQL.membershipStatus, [tenantId, userId]);
     const status = membershipRows.rows[0]?.status;
     checks.push(

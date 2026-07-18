@@ -42,6 +42,7 @@ function fullPassResponses(): Record<string, Response> {
     [MAME_TO_CHA_VERIFY_SQL.tenantCount]: [{ count: 1, id: TENANT_ID, kind: 'client' }],
     [MAME_TO_CHA_VERIFY_SQL.activeLocationCount]: [{ count: 1 }],
     [MAME_TO_CHA_VERIFY_SQL.workforceModuleEnabled]: [{ is_enabled: true }],
+    [MAME_TO_CHA_VERIFY_SQL.userMirrorCount]: [{ count: 1 }],
     [MAME_TO_CHA_VERIFY_SQL.membershipStatus]: [{ status: 'active' }],
     [MAME_TO_CHA_VERIFY_SQL.roleAssignmentRoleId]: (v) => [{ role_id: v[1] === MANAGER_USER_ID ? MANAGER_ROLE_ID : 'employee-role-id' }],
     [MAME_TO_CHA_VERIFY_SQL.rolePermissions]: [...REQUIRED_MANAGER_PERMISSIONS].map((permission_key) => ({ permission_key })),
@@ -142,9 +143,74 @@ test('missing identity skips (not_checked) identity-scoped checks instead of fai
   const runner = new FakeRunner(fullPassResponses());
   const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {}, NOW);
   const membershipChecks = report.checks.filter((c) => c.id.startsWith('membership.'));
+  const mirrorChecks = report.checks.filter((c) => c.id.startsWith('user_mirror.'));
   assert.ok(membershipChecks.every((c) => c.status === 'not_checked'));
+  assert.ok(mirrorChecks.every((c) => c.status === 'not_checked'), 'user_mirror checks must be not_checked, never a silent pass');
+  assert.ok(mirrorChecks.length > 0, 'user_mirror checks must still be reported (as not_checked), not omitted');
   // Structural checks (tenant/location/module) still ran and passed.
   assert.ok(report.checks.some((c) => c.id === 'tenant.exists-exactly-once' && c.status === 'pass'));
+});
+
+test('not_checked is never conflated with pass -- omitting identity never contributes to ok/failures', async () => {
+  const runner = new FakeRunner(fullPassResponses());
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {}, NOW);
+  const notCheckedIds = report.checks.filter((c) => c.status === 'not_checked').map((c) => c.id);
+  assert.ok(notCheckedIds.length > 0);
+  for (const id of notCheckedIds) {
+    assert.ok(!report.failures.some((m) => m.toLowerCase().includes(id.toLowerCase())), `not_checked id "${id}" must not appear as a failure`);
+  }
+  // The structural checks alone are sufficient for ok:true here (fullPassResponses
+  // is a fully-correct fixture); not_checked entries did not need to "pass" for that.
+  assert.equal(report.ok, true);
+});
+
+test('detects a missing core.users mirror for the manager identity', async () => {
+  const responses = fullPassResponses();
+  responses[MAME_TO_CHA_VERIFY_SQL.userMirrorCount] = (v) => [{ count: v[0] === MANAGER_USER_ID ? 0 : 1 }];
+  const runner = new FakeRunner(responses);
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {
+    managerUserId: MANAGER_USER_ID,
+    staffUserId: STAFF_USER_ID,
+  }, NOW);
+  assert.equal(report.ok, false);
+  assert.ok(report.failures.some((m) => m.includes('core.users mirror')));
+  const managerMirrorCheck = report.checks.find((c) => c.id === 'user_mirror.manager-1');
+  assert.equal(managerMirrorCheck?.status, 'fail');
+});
+
+test('detects a missing core.users mirror for the staff identity', async () => {
+  const responses = fullPassResponses();
+  responses[MAME_TO_CHA_VERIFY_SQL.userMirrorCount] = (v) => [{ count: v[0] === STAFF_USER_ID ? 0 : 1 }];
+  const runner = new FakeRunner(responses);
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {
+    managerUserId: MANAGER_USER_ID,
+    staffUserId: STAFF_USER_ID,
+  }, NOW);
+  assert.equal(report.ok, false);
+  const staffMirrorCheck = report.checks.find((c) => c.id === 'user_mirror.staff-1');
+  assert.equal(staffMirrorCheck?.status, 'fail');
+});
+
+test('detects a duplicate core.users mirror row', async () => {
+  const responses = fullPassResponses();
+  responses[MAME_TO_CHA_VERIFY_SQL.userMirrorCount] = [{ count: 2 }];
+  const runner = new FakeRunner(responses);
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {
+    managerUserId: MANAGER_USER_ID,
+    staffUserId: STAFF_USER_ID,
+  }, NOW);
+  assert.equal(report.ok, false);
+  assert.ok(report.failures.some((m) => m.includes('found 2')));
+});
+
+test('rejects identical manager/staff ids before any query', async () => {
+  const runner = new FakeRunner(fullPassResponses());
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {
+    managerUserId: MANAGER_USER_ID,
+    staffUserId: MANAGER_USER_ID,
+  }, NOW);
+  assert.equal(report.ok, false);
+  assert.equal(runner.calls.length, 0, 'no query should run once the identity gate rejects');
 });
 
 test('report never carries a UUID or secret-shaped value in check messages', async () => {

@@ -26,6 +26,12 @@ export const MAME_TO_CHA_STATE_SQL = {
     'select 1 as exists from core.role_assignments where tenant_id = $1 and user_id = $2 and role_id = $3 and location_id is null',
   employeeByUser:
     'select id, location_id, is_active from workforce.employees where tenant_id = $1 and user_id = $2',
+  /**
+   * Whether a `core.users` mirror row exists for a given auth user id.
+   * Deliberately NOT tenant-scoped: `core.users` mirrors an `auth.users`
+   * identity platform-wide, independent of any tenant membership.
+   */
+  userMirrorExists: 'select 1 as exists from core.users where id = $1',
   shiftTypeCodes: 'select code from workforce.shift_types where tenant_id = $1 and location_id = $2',
   recipeCategoryLabels: 'select label_ja from workforce.recipe_categories where tenant_id = $1',
   recipeTitles: 'select title_ja from workforce.recipes where tenant_id = $1',
@@ -91,6 +97,23 @@ export interface MameToChaFixtureIdentity {
   staffUserId: string;
 }
 
+/**
+ * Reject an identity where the manager and staff auth user ids are
+ * identical, BEFORE any query is issued. The fixture requires two distinct
+ * identities (one manager membership/role assignment, one staff employee
+ * binding); a single shared user id would silently conflate the two,
+ * corrupting the plan's per-logical-id bookkeeping (membership/role-
+ * assignment/employee-binding state for "manager-1" and "staff-1" would
+ * both resolve to the same underlying row).
+ */
+export function validateMameToChaIdentityOrThrow(identity: MameToChaFixtureIdentity): void {
+  if (identity.managerUserId === identity.staffUserId) {
+    throw new Error(
+      'Manager and staff auth user ids must be distinct; refusing to proceed with a single shared identity.',
+    );
+  }
+}
+
 export interface LoadedMameToChaFixtureState {
   ids: ResolvedMameToChaFixtureIds;
   state: ExistingMameToChaFixtureState;
@@ -110,6 +133,8 @@ export async function loadExistingMameToChaFixtureState(
   identity: MameToChaFixtureIdentity,
   now: Date = new Date(),
 ): Promise<LoadedMameToChaFixtureState> {
+  validateMameToChaIdentityOrThrow(identity);
+
   const tenantResult = await runner.query<TenantRow>(MAME_TO_CHA_STATE_SQL.tenantBySlug, [
     fixture.tenant.slug,
   ]);
@@ -118,6 +143,7 @@ export async function loadExistingMameToChaFixtureState(
 
   let locationId: string | null = null;
   const enabledModules: string[] = [];
+  const userMirrorsByLogicalId: ExistingMameToChaFixtureState['userMirrorsByLogicalId'] = {};
   const membershipsByLogicalId: ExistingMameToChaFixtureState['membershipsByLogicalId'] = {};
   const roleAssignmentsByLogicalId: ExistingMameToChaFixtureState['roleAssignmentsByLogicalId'] = {};
   const employeeBindingsByLogicalId: ExistingMameToChaFixtureState['employeeBindingsByLogicalId'] = {};
@@ -139,6 +165,16 @@ export async function loadExistingMameToChaFixtureState(
     const roleResult = await runner.query<IdRow>(MAME_TO_CHA_STATE_SQL.roleByKey, [role.role]);
     const roleId = roleResult.rows[0]?.id;
     if (roleId !== undefined) roleIdByKey[role.role] = roleId;
+  }
+
+  // core.users mirrors (platform-level; independent of the tenant existing
+  // yet -- a mirror row is not tenant-scoped). Required BEFORE membership/
+  // employee_binding can be planned as "create", since both FK to
+  // core.users(id) and there is no auto-mirror trigger from auth.users.
+  for (const role of fixture.roles) {
+    const userId = userIdByLogicalId[role.logicalId];
+    const mirrorResult = await runner.query<ExistsRow>(MAME_TO_CHA_STATE_SQL.userMirrorExists, [userId]);
+    userMirrorsByLogicalId[role.logicalId] = mirrorResult.rows[0]?.exists === true;
   }
 
   if (tenantId !== null) {
@@ -251,6 +287,7 @@ export async function loadExistingMameToChaFixtureState(
     },
     state: {
       tenantExists: tenantId !== null,
+      userMirrorsByLogicalId,
       locationExists: locationId !== null,
       enabledModules,
       membershipsByLogicalId,

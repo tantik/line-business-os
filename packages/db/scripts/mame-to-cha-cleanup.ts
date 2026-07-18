@@ -18,6 +18,19 @@
  * intentionally out of scope for automatic cleanup (a higher-blast-radius
  * action reserved for an explicit, separately approved manual step).
  *
+ * **`core.users` mirror rows and the underlying Supabase `auth.users`
+ * identities are NEVER deleted by this module, in any mode.** There is no
+ * `deleteUserMirror`/`deleteAuthUser` statement anywhere in this file (see
+ * `MAME_TO_CHA_CLEANUP_SQL` -- no `core.users`/`auth.users` entry exists).
+ * Cleanup always removes memberships and the employee binding FIRST (safe
+ * dependency order, both scoped to the fixture's exact tenant + user id),
+ * which is sufficient to detach the identity from the `mame-to-cha` fixture
+ * -- there is no safe, fixture-owned way to decide whether a `core.users`/
+ * `auth.users` row is used by anything else (other tenants, other local
+ * fixtures), so leaving both intact is the deliberate, documented default.
+ * Removing an Auth user, if ever needed, is a separate, explicit, manual
+ * step outside this tool's automatic cleanup scope.
+ *
  * Reuses the already-hardened local transaction wrappers
  * (`withLocalDryRunTransaction`/`withLocalCommitTransaction`) rather than
  * re-implementing transaction control.
@@ -29,7 +42,7 @@ import { withLocalDryRunTransaction, type DryRunTransactionDeps } from './onboar
 import { withLocalCommitTransaction, type CommitDecision, type CommitTransactionDeps } from './onboard-commit.js';
 import { FIXTURE_TENANT_SLUG, PROTECTED_TENANT_SLUGS } from './mame-to-cha-fixture.js';
 import type { FixtureRoleKey, MameToChaFixtureManifest } from './mame-to-cha-fixture.js';
-import { loadExistingMameToChaFixtureState } from './mame-to-cha-state.js';
+import { loadExistingMameToChaFixtureState, validateMameToChaIdentityOrThrow } from './mame-to-cha-state.js';
 import type { MameToChaFixtureIdentity, LoadedMameToChaFixtureState } from './mame-to-cha-state.js';
 import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
 
@@ -195,6 +208,7 @@ export async function executeMameToChaCleanupPlan(
   now: Date = new Date(),
 ): Promise<ExecutedMameToChaCleanupSummary> {
   validateMameToChaCleanupOrThrow(fixture);
+  validateMameToChaIdentityOrThrow(identity);
 
   const tenantId = loaded.ids.tenantId;
   if (tenantId === null) {
@@ -305,6 +319,7 @@ export async function runMameToChaCleanupDryRunFromEnv(
   deps: DryRunTransactionDeps = {},
 ): Promise<MameToChaCleanupDryRunResult> {
   validateMameToChaCleanupOrThrow(fixture);
+  validateMameToChaIdentityOrThrow(identity);
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined || databaseUrl.trim() === '') {
     throw new Error('DATABASE_URL is required for the local cleanup dry-run.');
@@ -353,6 +368,7 @@ export async function runMameToChaCleanupCommitFromEnv(
   deps: CommitTransactionDeps = {},
 ): Promise<MameToChaCleanupCommitResult> {
   validateMameToChaCleanupOrThrow(fixture);
+  validateMameToChaIdentityOrThrow(identity);
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined || databaseUrl.trim() === '') {
     throw new Error('DATABASE_URL is required for the local cleanup commit.');

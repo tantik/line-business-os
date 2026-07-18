@@ -13,9 +13,41 @@ test('a from-scratch plan creates every entity, nothing reused', () => {
   assert.equal(plan.operations.filter((op) => op.entity === 'shift_type').length, MAME_TO_CHA_FIXTURE.shiftTypes.length);
 });
 
+test('a from-scratch plan explicitly models both manager and staff core-user mirrors', () => {
+  const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {});
+  const mirrorOps = plan.operations.filter((op) => op.entity === 'user_mirror');
+  assert.equal(mirrorOps.length, 2);
+  assert.ok(mirrorOps.every((op) => op.action === 'create'));
+  assert.deepEqual(
+    mirrorOps.map((op) => op.key).sort(),
+    ['manager-1', 'staff-1'],
+  );
+});
+
+test('user_mirror operations are planned before membership/employee_binding (write-order contract)', () => {
+  const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {});
+  const mirrorIndex = plan.operations.findIndex((op) => op.entity === 'user_mirror');
+  const membershipIndex = plan.operations.findIndex((op) => op.entity === 'membership');
+  const employeeBindingIndex = plan.operations.findIndex((op) => op.entity === 'employee_binding');
+  assert.ok(mirrorIndex >= 0);
+  assert.ok(mirrorIndex < membershipIndex);
+  assert.ok(mirrorIndex < employeeBindingIndex);
+});
+
+test('an existing manager mirror (only) plans reuse for manager, create for staff', () => {
+  const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {
+    userMirrorsByLogicalId: { 'manager-1': true },
+  });
+  const managerOp = plan.operations.find((op) => op.entity === 'user_mirror' && op.key === 'manager-1');
+  const staffOp = plan.operations.find((op) => op.entity === 'user_mirror' && op.key === 'staff-1');
+  assert.equal(managerOp?.action, 'reuse');
+  assert.equal(staffOp?.action, 'create');
+});
+
 test('a fully-existing state plans reuse everywhere (idempotent, no dependent writes)', () => {
   const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {
     tenantExists: true,
+    userMirrorsByLogicalId: { 'manager-1': true, 'staff-1': true },
     locationExists: true,
     enabledModules: ['core', 'workforce'],
     membershipsByLogicalId: { 'manager-1': 'active', 'staff-1': 'active' },

@@ -16,6 +16,7 @@ import type { MameToChaFixtureManifest } from './mame-to-cha-fixture.js';
 
 export type PlanEntity =
   | 'tenant'
+  | 'user_mirror'
   | 'location'
   | 'tenant_module'
   | 'membership'
@@ -45,6 +46,14 @@ export interface PlanOperation {
  */
 export interface ExistingMameToChaFixtureState {
   tenantExists?: boolean;
+  /**
+   * Whether a `core.users` mirror row already exists for each role's auth
+   * user id, keyed by fixture logical id (never a UUID). Required BEFORE
+   * `membership`/`employee_binding` can be written -- both FK to
+   * `core.users(id)`, and there is no auto-mirror trigger from `auth.users`
+   * (matching the generic onboarding tool's own documented convention).
+   */
+  userMirrorsByLogicalId?: Record<string, boolean | undefined>;
   locationExists?: boolean;
   enabledModules?: readonly string[];
   membershipsByLogicalId?: Record<string, 'active' | 'invited' | 'suspended' | 'revoked' | undefined>;
@@ -86,6 +95,18 @@ export function buildMameToChaFixturePlan(
     action: existingState.tenantExists ? 'reuse' : 'create',
     key: fixture.tenant.slug,
   });
+
+  // Manager/staff core.users mirrors -- must be planned (and, at write time,
+  // created) BEFORE membership/employee_binding, both of which FK to
+  // core.users(id). Keyed by fixture logical id, never a UUID.
+  for (const role of fixture.roles) {
+    const hasMirror = existingState.userMirrorsByLogicalId?.[role.logicalId] === true;
+    operations.push({
+      entity: 'user_mirror',
+      action: hasMirror ? 'reuse' : 'create',
+      key: role.logicalId,
+    });
+  }
 
   operations.push({
     entity: 'location',

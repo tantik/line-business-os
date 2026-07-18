@@ -12,6 +12,18 @@
  * This mirrors (and reuses) `onboard-tenant.ts`'s local DB guard rather than
  * duplicating its logic, so a Cloud-like or malformed DATABASE_URL is
  * rejected by the exact same code path `db:onboard-tenant` already uses.
+ *
+ * ACCEPTED LOCAL/TEST EMAIL CONVENTION: `looksLikeLocalTestEmail` requires a
+ * syntactically valid email address ending in one of `.test`, `.local`,
+ * `example.com`, or `example.jp` (case-insensitive). Anything else FAILS
+ * this guard (`severity: 'error'`) -- this is a hard rejection, not a
+ * warning, deliberately matching `mame-to-cha-auth.ts`'s
+ * `provisionMameToChaLocalAuthUsers`, which hard-rejects the identical
+ * condition before making any Auth admin call. The two checks must never
+ * diverge in strictness: an operator must see the same fail-closed
+ * verdict whether they run `dry-run`/`apply`/`verify`/`cleanup` (this
+ * guard) or `auth-provision` (the Auth-specific guard) against the same
+ * configured email. The failure message never echoes the offending value.
  */
 import { assertLocalDatabaseUrl } from './onboard-tenant.js';
 import type { SafeDbTarget } from './onboard-tenant.js';
@@ -167,7 +179,15 @@ export function checkMameToChaLocalEnvironment(
     });
   }
 
-  // 6. Email-shaped env vars must look like obviously local/test addresses, never a real customer address.
+  // 6. Email-shaped env vars must look like obviously local/test addresses,
+  // never a real customer address. This is a hard FAIL, not a warning --
+  // aligned with `mame-to-cha-auth.ts`'s `provisionMameToChaLocalAuthUsers`,
+  // which hard-rejects the identical condition before any Auth admin call.
+  // Two independent checks of the same fact must agree in strictness, so an
+  // operator cannot see "ok: true (warning)" here and be misled about what
+  // `auth-provision` will do with the same env vars. The message never
+  // echoes the offending value -- only the env var NAME and the accepted
+  // domain convention (`.test` / `.local` / `example.com` / `example.jp`).
   for (const varName of ['MAME_TO_CHA_LOCAL_MANAGER_EMAIL', 'MAME_TO_CHA_LOCAL_STAFF_EMAIL'] as const) {
     const value = env[varName];
     if (typeof value !== 'string' || value.trim() === '') continue;
@@ -175,10 +195,10 @@ export function checkMameToChaLocalEnvironment(
     checks.push({
       id: `env.${varName}.shape`,
       ok,
-      severity: ok ? 'info' : 'warning',
+      severity: 'error',
       message: ok
         ? `${varName} looks like a local/test address.`
-        : `${varName} does not look like an obviously local/test address (expected a .test/.local/example.com/example.jp domain); never use a real client email here.`,
+        : `${varName} does not look like an obviously local/test address (expected a .test/.local/example.com/example.jp domain); refusing to proceed with what may be a real client email (value never logged).`,
     });
   }
 

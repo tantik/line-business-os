@@ -12,7 +12,7 @@ import {
   runMameToChaApplyDryRunTransactionFromEnv,
   runMameToChaApplyCommitTransactionFromEnv,
 } from './mame-to-cha-write.js';
-import type { DryRunPgClient } from './onboard-write.js';
+import { ONBOARD_WRITE_SQL, type DryRunPgClient } from './onboard-write.js';
 import type { CommitPgClient } from './onboard-commit.js';
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -151,12 +151,102 @@ test('a from-scratch execution creates every fixture entity and scopes every wri
       assert.equal(call.values[0], TENANT_ID, `expected ${text} to be scoped to the resolved tenant id`);
     }
   }
+
+  // The core.users mirror insert (fully parameterized: a single bound user
+  // id, never interpolated) must run for both identities.
+  const mirrorCalls = runner.calls.filter((c) => c.text === ONBOARD_WRITE_SQL.insertUser);
+  assert.equal(mirrorCalls.length, 2);
+  assert.deepEqual(
+    mirrorCalls.map((c) => c.values[0]).sort(),
+    [MANAGER_USER_ID, STAFF_USER_ID].sort(),
+  );
+});
+
+test('the core.users mirror insert runs before any membership or employee-binding insert (write-order contract)', async () => {
+  const runner = new FakeRunner(freshCreateResponses());
+  await executeMameToChaFixtureWritePlan(runner, MAME_TO_CHA_FIXTURE, IDENTITY, freshPlan(), freshIds(), {
+    now: NOW,
+    piiEnv: SYNTHETIC_PII_ENV,
+  });
+
+  const indexOfFirst = (text: string) => runner.calls.findIndex((c) => c.text === text);
+  const mirrorIndex = runner.calls.findIndex((c) => c.text === ONBOARD_WRITE_SQL.insertUser);
+  const membershipIndex = indexOfFirst(MAME_TO_CHA_WRITE_SQL.insertMembership);
+  const employeeIndex = indexOfFirst(MAME_TO_CHA_WRITE_SQL.insertEmployee);
+
+  assert.ok(mirrorIndex >= 0, 'expected at least one core.users mirror insert');
+  assert.ok(mirrorIndex < membershipIndex, 'mirror insert must run before the first membership insert');
+  assert.ok(mirrorIndex < employeeIndex, 'mirror insert must run before the employee-binding insert');
+});
+
+test('an existing manager mirror is reused (no insert) while a missing staff mirror is created', async () => {
+  const runner = new FakeRunner(freshCreateResponses());
+  const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {
+    userMirrorsByLogicalId: { 'manager-1': true },
+  });
+  await executeMameToChaFixtureWritePlan(runner, MAME_TO_CHA_FIXTURE, IDENTITY, plan, freshIds(), {
+    now: NOW,
+    piiEnv: SYNTHETIC_PII_ENV,
+  });
+  const mirrorCalls = runner.calls.filter((c) => c.text === ONBOARD_WRITE_SQL.insertUser);
+  assert.equal(mirrorCalls.length, 1, 'only the staff mirror (missing) should be inserted');
+  assert.equal(mirrorCalls[0]?.values[0], STAFF_USER_ID);
+});
+
+test('the core.users mirror insert never touches an unrelated user row (no wildcard, no other id parameter)', async () => {
+  const runner = new FakeRunner(freshCreateResponses());
+  await executeMameToChaFixtureWritePlan(runner, MAME_TO_CHA_FIXTURE, IDENTITY, freshPlan(), freshIds(), {
+    now: NOW,
+    piiEnv: SYNTHETIC_PII_ENV,
+  });
+  const mirrorCalls = runner.calls.filter((c) => c.text === ONBOARD_WRITE_SQL.insertUser);
+  for (const call of mirrorCalls) {
+    assert.equal(call.values.length, 1, 'insertUser must bind exactly one parameter (the target user id)');
+    assert.ok(
+      call.values[0] === MANAGER_USER_ID || call.values[0] === STAFF_USER_ID,
+      'insertUser must only ever target the two explicit fixture identities',
+    );
+  }
+});
+
+// ===========================================================================
+// Identical manager/staff identity is rejected before any query
+// ===========================================================================
+
+test('executeMameToChaFixtureWritePlan rejects identical manager/staff ids before any query', async () => {
+  const runner = new FakeRunner(freshCreateResponses());
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    executeMameToChaFixtureWritePlan(runner, MAME_TO_CHA_FIXTURE, identicalIdentity, freshPlan(), freshIds(), {
+      now: NOW,
+      piiEnv: SYNTHETIC_PII_ENV,
+    }),
+    /distinct/,
+  );
+  assert.equal(runner.calls.length, 0, 'no query should run once the identity gate throws');
+});
+
+test('runMameToChaApplyDryRunTransactionFromEnv rejects identical manager/staff ids before connecting', async () => {
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    runMameToChaApplyDryRunTransactionFromEnv(MAME_TO_CHA_FIXTURE, identicalIdentity),
+    /distinct/,
+  );
+});
+
+test('runMameToChaApplyCommitTransactionFromEnv rejects identical manager/staff ids before connecting', async () => {
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    runMameToChaApplyCommitTransactionFromEnv(MAME_TO_CHA_FIXTURE, identicalIdentity),
+    /distinct/,
+  );
 });
 
 test('a fully-existing state plans/executes as all-reuse (idempotent, no dependent writes)', async () => {
   const runner = new FakeRunner(freshCreateResponses());
   const plan = buildMameToChaFixturePlan(MAME_TO_CHA_FIXTURE, {
     tenantExists: true,
+    userMirrorsByLogicalId: { 'manager-1': true, 'staff-1': true },
     locationExists: true,
     enabledModules: ['core', 'workforce'],
     membershipsByLogicalId: { 'manager-1': 'active', 'staff-1': 'active' },
@@ -204,6 +294,11 @@ test('a fully-existing state plans/executes as all-reuse (idempotent, no depende
   for (const text of insertTexts) {
     assert.equal(runner.calls.filter((c) => c.text === text).length, 0, `unexpected insert: ${text}`);
   }
+  assert.equal(
+    runner.calls.filter((c) => c.text === ONBOARD_WRITE_SQL.insertUser).length,
+    0,
+    'an already-mirrored identity must not be re-inserted',
+  );
 });
 
 test('a suspended manager membership blocks the entire write before any insert', async () => {
@@ -289,6 +384,7 @@ function fakeClient(responses: Record<string, Response>): DryRunPgClient & Commi
  */
 class StatefulFakeDb implements DryRunPgClient, CommitPgClient {
   tenant: { id: string; name: string; kind: string } | null = null;
+  userMirrors = new Set<string>(); // core.users.id
   locations: { id: string; name: string; is_active: boolean }[] = [];
   enabledModules = new Set<string>();
   memberships = new Map<string, string>(); // `${tenantId}:${userId}` -> status
@@ -322,6 +418,11 @@ class StatefulFakeDb implements DryRunPgClient, CommitPgClient {
         return { rows: this.tenant ? [this.tenant] : [] };
       case MAME_TO_CHA_WRITE_SQL.insertTenant:
         this.tenant = { id: TENANT_ID, name: String(v[1]), kind: String(v[2]) };
+        return { rows: [] };
+      case MAME_TO_CHA_STATE_SQL.userMirrorExists:
+        return { rows: [{ exists: this.userMirrors.has(String(v[0])) }] };
+      case ONBOARD_WRITE_SQL.insertUser:
+        this.userMirrors.add(String(v[0]));
         return { rows: [] };
       case MAME_TO_CHA_STATE_SQL.locationsByTenant:
         return { rows: this.locations };
@@ -492,6 +593,7 @@ test('runMameToChaApplyCommitTransactionFromEnv is a rolled-back no-op on an all
     ],
     [MAME_TO_CHA_STATE_SQL.enabledModules]: [{ module: 'core' }, { module: 'workforce' }],
     [MAME_TO_CHA_STATE_SQL.roleByKey]: (values) => [{ id: values[0] === 'manager' ? MANAGER_ROLE_ID : STAFF_ROLE_ID }],
+    [MAME_TO_CHA_STATE_SQL.userMirrorExists]: [{ exists: true }],
     [MAME_TO_CHA_STATE_SQL.membershipStatus]: [{ status: 'active' }],
     [MAME_TO_CHA_STATE_SQL.roleAssignmentExists]: [{ exists: true }],
     [MAME_TO_CHA_STATE_SQL.employeeByUser]: [{ id: EMPLOYEE_ID, location_id: LOCATION_ID, is_active: true }],

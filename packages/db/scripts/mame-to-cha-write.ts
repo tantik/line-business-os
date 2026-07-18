@@ -23,6 +23,27 @@
  * name) is written exclusively as encrypted blob + blind-index hash via
  * `@line-os/db/crypto`, exactly like `onboard-write.ts`'s owner-email path
  * -- never a new plaintext storage path.
+ *
+ * WRITE ORDER (FK-driven): tenant -> manager/staff `core.users` mirrors ->
+ * location -> tenant modules -> per role: membership -> role assignment ->
+ * (staff only) employee binding -> shift types -> recipes -> acceptance
+ * data. The `core.users` mirror step is mandatory and runs BEFORE any
+ * membership/employee_binding write: `core.tenant_memberships.user_id` and
+ * `workforce.employees.user_id` both FK to `core.users(id)`, and there is
+ * no auto-mirror trigger from `auth.users` (the exact fact
+ * `docs/operations/client-onboarding-runbook.md` documents for the generic
+ * onboarding tool's owner identity -- this module reuses the identical
+ * `ONBOARD_WRITE_SQL.insertUser` statement rather than inventing a new one).
+ * `validateMameToChaIdentityOrThrow` additionally rejects an identical
+ * manager/staff user id BEFORE any query, since the fixture requires two
+ * distinct identities.
+ *
+ * CONCURRENCY NOTE: this is a local, single-operator rehearsal tool.
+ * `workforce.employees` (and `workforce.recipe_categories`/`workforce.recipes`)
+ * have no DB-level unique constraint on their fixture-matching natural key,
+ * so idempotency there relies on this module's own state-then-write
+ * sequencing, not a database guarantee. Do not run two
+ * `apply --confirm-apply` processes concurrently against the same fixture.
  */
 import { protectSearchablePII } from '../src/crypto.js';
 import { assertLocalDatabaseUrl, normalizeLocationName } from './onboard-tenant.js';
@@ -34,7 +55,12 @@ import {
   type CommitDecision,
   type CommitTransactionDeps,
 } from './onboard-commit.js';
-import { withLocalDryRunTransaction, ONBOARD_TX_SQL, type DryRunTransactionDeps } from './onboard-write.js';
+import {
+  withLocalDryRunTransaction,
+  ONBOARD_TX_SQL,
+  ONBOARD_WRITE_SQL,
+  type DryRunTransactionDeps,
+} from './onboard-write.js';
 import type { MameToChaFixtureManifest, FixtureRoleKey } from './mame-to-cha-fixture.js';
 import { FIXTURE_TENANT_SLUG, PROTECTED_TENANT_SLUGS } from './mame-to-cha-fixture.js';
 import {
@@ -43,11 +69,22 @@ import {
   type PlanEntity,
   type PlanAction,
 } from './mame-to-cha-plan.js';
-import { MAME_TO_CHA_STATE_SQL, loadExistingMameToChaFixtureState } from './mame-to-cha-state.js';
+import {
+  MAME_TO_CHA_STATE_SQL,
+  loadExistingMameToChaFixtureState,
+  validateMameToChaIdentityOrThrow,
+} from './mame-to-cha-state.js';
 import type { MameToChaFixtureIdentity, ResolvedMameToChaFixtureIds } from './mame-to-cha-state.js';
 import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
 
-/** Parameterized write SQL. Every statement binds values; none interpolates. */
+/**
+ * Parameterized write SQL. Every statement binds values; none interpolates.
+ * `insertUser` is REUSED verbatim from `onboard-write.ts`'s `ONBOARD_WRITE_SQL`
+ * (not redefined here) -- it is the exact, already-approved "insert the
+ * core.users mirror row, no PII" statement the generic onboarding tool
+ * already uses for its owner identity, with the identical `on conflict (id)
+ * do nothing` idempotency guard.
+ */
 export const MAME_TO_CHA_WRITE_SQL = {
   insertTenant:
     'insert into core.tenants (slug, name, kind) values ($1, $2, $3) on conflict (slug) do nothing',
@@ -268,6 +305,7 @@ export async function executeMameToChaFixtureWritePlan(
   ids: ResolvedMameToChaFixtureIds,
   options: { auditMode?: MameToChaAuditMode; now?: Date; piiEnv?: MameToChaPIIEnv } = {},
 ): Promise<ExecutedMameToChaWriteSummary> {
+  validateMameToChaIdentityOrThrow(identity);
   validateMameToChaWritePlanOrThrow(fixture, plan);
 
   const now = options.now ?? new Date();
@@ -290,6 +328,21 @@ export async function executeMameToChaFixtureWritePlan(
   ]);
   const tenantId = tenantResult.rows[0]?.id;
   if (tenantId === undefined) throw new Error('Fixture tenant row was not found after the write; refusing to continue.');
+
+  // --- Manager/staff core.users mirrors ---------------------------------------
+  // MUST run before membership/employee_binding: both FK to core.users(id),
+  // and there is no auto-mirror trigger from auth.users (matching the
+  // generic onboarding tool's own documented convention, onboard-write.ts's
+  // `insertUser`). No email/name is invented here and no password is ever
+  // stored -- this is the minimal, no-PII mirror row.
+  for (const role of fixture.roles) {
+    const mirrorUserId = role.role === 'manager' ? identity.managerUserId : identity.staffUserId;
+    const mirrorAction = opAction('user_mirror', role.logicalId);
+    if (mirrorAction === 'create') {
+      await runner.query(ONBOARD_WRITE_SQL.insertUser, [mirrorUserId]);
+    }
+    operations.push({ entity: 'user_mirror', action: mirrorAction, key: role.logicalId });
+  }
 
   // --- Location ---------------------------------------------------------------
   const locationAction = opAction('location', fixture.location.logicalId);
@@ -549,6 +602,8 @@ export async function runMameToChaApplyDryRunTransactionFromEnv(
   options: { now?: Date; piiEnv?: MameToChaPIIEnv } = {},
   deps: DryRunTransactionDeps = {},
 ): Promise<MameToChaDryRunResult> {
+  validateMameToChaIdentityOrThrow(identity);
+
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined || databaseUrl.trim() === '') {
     throw new Error('DATABASE_URL is required for the local fixture dry-run transaction.');
@@ -601,6 +656,8 @@ export async function runMameToChaApplyCommitTransactionFromEnv(
   options: { now?: Date; piiEnv?: MameToChaPIIEnv } = {},
   deps: CommitTransactionDeps = {},
 ): Promise<MameToChaCommitResult> {
+  validateMameToChaIdentityOrThrow(identity);
+
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined || databaseUrl.trim() === '') {
     throw new Error('DATABASE_URL is required for the local fixture commit transaction.');

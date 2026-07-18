@@ -163,6 +163,22 @@ test('no cleanup SQL literally references mame-to-cha-tokyo or truncates/drops',
   assert.ok(!/\b(truncate|drop)\b/i.test(allSql));
 });
 
+test('no cleanup SQL statement ever targets core.users or auth.users (Auth/user-mirror deletion is out of scope)', () => {
+  const allSql = Object.values(MAME_TO_CHA_CLEANUP_SQL).join(' ').toLowerCase();
+  assert.ok(!allSql.includes('core.users'));
+  assert.ok(!allSql.includes('auth.users'));
+});
+
+test('executeMameToChaCleanupPlan rejects identical manager/staff ids before any query', async () => {
+  const runner = new FakeRunner();
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    executeMameToChaCleanupPlan(runner, MAME_TO_CHA_FIXTURE, identicalIdentity, fullyPresentLoadedState(), NOW),
+    /distinct/,
+  );
+  assert.equal(runner.calls.length, 0, 'no query should run once the identity gate throws');
+});
+
 test('the shift-assignment/preference/work-report/correction-request deletes target the exact acceptance-data key', async () => {
   const runner = new FakeRunner();
   await executeMameToChaCleanupPlan(runner, MAME_TO_CHA_FIXTURE, IDENTITY, fullyPresentLoadedState(), NOW);
@@ -191,6 +207,22 @@ test('runMameToChaCleanupDryRunFromEnv requires DATABASE_URL', async () => {
   await assert.rejects(
     runMameToChaCleanupDryRunFromEnv(MAME_TO_CHA_FIXTURE, IDENTITY, NOW),
     /DATABASE_URL is required/,
+  );
+});
+
+test('runMameToChaCleanupDryRunFromEnv rejects identical manager/staff ids before connecting', async () => {
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    runMameToChaCleanupDryRunFromEnv(MAME_TO_CHA_FIXTURE, identicalIdentity, NOW),
+    /distinct/,
+  );
+});
+
+test('runMameToChaCleanupCommitFromEnv rejects identical manager/staff ids before connecting', async () => {
+  const identicalIdentity: MameToChaFixtureIdentity = { managerUserId: MANAGER_USER_ID, staffUserId: MANAGER_USER_ID };
+  await assert.rejects(
+    runMameToChaCleanupCommitFromEnv(MAME_TO_CHA_FIXTURE, identicalIdentity, NOW),
+    /distinct/,
   );
 });
 

@@ -82,11 +82,21 @@ test('looksLikeLocalTestEmail rejects a plausible real-looking domain', () => {
   assert.equal(looksLikeLocalTestEmail('not-an-email'), false);
 });
 
-test('warns (does not block) on a non-local-looking manager email', () => {
+test('hard-fails (does not merely warn) on a non-local-looking manager email, aligned with the auth-provision guard', () => {
   const report = checkMameToChaLocalEnvironment(
     fullEnv({ MAME_TO_CHA_LOCAL_MANAGER_EMAIL: 'owner@mame-to-cha.jp' }),
     MAME_TO_CHA_FIXTURE,
   );
-  assert.equal(report.ok, true);
-  assert.ok(report.warnings.some((m) => m.includes('MAME_TO_CHA_LOCAL_MANAGER_EMAIL')));
+  assert.equal(report.ok, false);
+  assert.ok(report.blockedReasons.some((m) => m.includes('MAME_TO_CHA_LOCAL_MANAGER_EMAIL')));
+  assert.ok(!report.blockedReasons.some((m) => m.includes('mame-to-cha.jp')), 'must never echo the offending email value');
+});
+
+test('hard-fails on a non-local-looking staff email', () => {
+  const report = checkMameToChaLocalEnvironment(
+    fullEnv({ MAME_TO_CHA_LOCAL_STAFF_EMAIL: 'staff@realclient.co.jp' }),
+    MAME_TO_CHA_FIXTURE,
+  );
+  assert.equal(report.ok, false);
+  assert.ok(report.blockedReasons.some((m) => m.includes('MAME_TO_CHA_LOCAL_STAFF_EMAIL')));
 });

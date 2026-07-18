@@ -148,11 +148,17 @@ It blocks (severity `error`) when:
 - The fixture's tenant slug is not exactly `mame-to-cha`, or collides with a
   protected slug (defense-in-depth: the tracked fixture always passes this,
   but the check exists so a future fixture edit cannot silently drift).
-
-It warns (non-blocking) when a manager/staff email doesn't look like an
-obviously local/test address (`.test`/`.local`/`example.com`/`example.jp`) —
-so a real client email is flagged, not silently accepted, without turning a
-warning into a hard block for legitimate local variations.
+- A configured manager/staff email doesn't look like an obviously local/test
+  address (`.test`/`.local`/`example.com`/`example.jp` — see
+  `looksLikeLocalTestEmail`). **This blocks** (`severity: error`), it does
+  not merely warn — aligned with `mame-to-cha-auth.ts`'s
+  `provisionMameToChaLocalAuthUsers`, which hard-rejects the identical
+  condition before any Auth admin call. An earlier revision of this guard
+  only warned here while `auth-provision` hard-rejected the same condition;
+  that inconsistency is fixed so both surfaces agree on one fail-closed
+  policy for the exact same input. The failure message never echoes the
+  configured email value — only the env var name and the accepted domain
+  convention.
 
 ## 6. Credential handling
 
@@ -221,16 +227,32 @@ Implementation (`mame-to-cha-write.ts`):
 
 - Identity is **explicit only** — `--manager-user-id`/`--staff-user-id` — the
   same MVP Option A discipline as `onboard-tenant.ts`'s owner: never
-  resolved from an email lookup.
+  resolved from an email lookup. `validateMameToChaIdentityOrThrow`
+  (`mame-to-cha-state.ts`) rejects an identical manager/staff id **before any
+  query** — the fixture requires two distinct identities, and a shared id
+  would conflate the manager and staff logical roles onto one underlying row.
 - `loadExistingMameToChaFixtureState` (`mame-to-cha-state.ts`, SELECT-only)
   loads current state fresh inside the transaction; `buildMameToChaFixturePlan`
   decides create/reuse/conflict per entity; `validateMameToChaWritePlanOrThrow`
   fails **before any write** on an empty/wrong/protected tenant slug or an
   unresolved plan conflict (e.g. a suspended membership).
+- **`core.users` mirror rows are an explicit, modeled plan entity
+  (`user_mirror`), not an incidental query.** `core.tenant_memberships.user_id`
+  and `workforce.employees.user_id` both FK to `core.users(id)`, and there is
+  no auto-mirror trigger from `auth.users` — the exact fact
+  `docs/operations/client-onboarding-runbook.md` documents for the generic
+  onboarding tool's owner identity. `executeMameToChaFixtureWritePlan`
+  therefore inserts the manager's and staff's `core.users` mirror rows
+  (reusing `onboard-write.ts`'s exact `ONBOARD_WRITE_SQL.insertUser` — `insert
+  into core.users (id) values ($1) on conflict (id) do nothing`, no invented
+  email/name, no password ever stored) **immediately after the tenant is
+  resolved and before any membership/employee-binding write** — see Section
+  "Write order" below.
 - `executeMameToChaFixtureWritePlan` issues fully parameterized SQL for:
-  tenant, location, `core`+`workforce` tenant modules, manager/staff
-  memberships, role assignments (`manager`/`employee` role keys, tenant-wide
-  `location_id is null`, matching `core.has_permission`'s own
+  tenant, manager/staff `core.users` mirrors, location, `core`+`workforce`
+  tenant modules, manager/staff memberships, role assignments
+  (`manager`/`employee` role keys, tenant-wide `location_id is null`,
+  matching `core.has_permission`'s own
   `location_id is null OR location_id = p_location_id` semantics), the staff
   employee binding (name written via `protectSearchablePII`, never
   plaintext), AM/PM shift types, one recipe category + recipe, and the four
@@ -255,6 +277,32 @@ Implementation (`mame-to-cha-write.ts`):
   tenant slug, operation label, and fixture-owned key — never a UUID, email,
   or secret (asserted by a dedicated leak test).
 
+**Write order (FK-driven):** tenant → manager/staff `core.users` mirrors →
+location → tenant modules → per role: membership → role assignment →
+(staff only) employee binding → shift types → recipes → acceptance data.
+The `core.users` mirror step is mandatory and must run before any
+membership/employee-binding write, because both of those tables FK to
+`core.users(id)`. This was a **critical gap in an earlier revision of this
+slice** — apply would fail with a Postgres `23503` foreign-key violation on
+its very first membership insert against a freshly `auth-provision`-ed user,
+because no `core.users` mirror existed yet. It is fixed as described above;
+`mame-to-cha-write.test.ts` and `mame-to-cha-plan.test.ts` both assert the
+`user_mirror` step is planned/executed strictly before `membership` and
+`employee_binding`.
+
+**Concurrency note:** this is a local, single-operator rehearsal tool.
+`workforce.employees` (and `workforce.recipe_categories`/`workforce.recipes`)
+have no DB-level unique constraint on their fixture-matching natural key, so
+idempotency there relies on this module's own state-then-write sequencing,
+not a database guarantee. **Do not run two `apply --confirm-apply` processes
+concurrently** against the same fixture — no migration or locking framework
+is introduced to enforce this; it is a documented operational constraint,
+not a database-enforced one. `core.users`/`core.tenant_memberships` writes
+remain safe under this constraint regardless (both have real unique/FK
+constraints), so a concurrency violation can duplicate at most an employee
+binding or a recipe/category row, never a tenant, membership, or user
+mirror — and `verify` (Section 9) detects any such duplicate.
+
 **Not executed in this task.** Every test above uses a fake `QueryRunner`/
 `pg.Client`; `pnpm db:mame-to-cha-rehearsal -- apply ...` was never run.
 
@@ -272,26 +320,34 @@ Implementation (`mame-to-cha-verify.ts`, SELECT-only):
   references `mame-to-cha-tokyo` literally.
 - Checks: tenant exists **exactly once** (and reports a duplicate, not just
   "missing"); tenant `kind`; **exactly one** active location (0 or 2+ both
-  fail); `workforce` module enabled; manager/staff membership `status =
-  'active'`; manager's role assignment holds all three permission keys every
-  B2a wrapper needs (`workforce.staff.manage`, `workforce.shift.write`,
-  `workforce.request.manage` — Section 3.1a of the B2 writes plan); the staff
-  employee binding exists **exactly once** (duplicate detection), is active,
-  and has a location; each shift type exists, is active, and is scoped to
-  the resolved location; each recipe exists exactly once; the four
-  acceptance-data rows exist, matched by the exact deterministic key the
-  write path used (same `mame-to-cha-dates.ts` helpers, so verify and apply
-  can never silently disagree about "today").
+  fail); `workforce` module enabled; **for each identity supplied, a
+  `core.users` mirror row exists exactly once** (checked explicitly, by
+  name, before the membership check that depends on it); manager/staff
+  membership `status = 'active'`; manager's role assignment holds all three
+  permission keys every B2a wrapper needs (`workforce.staff.manage`,
+  `workforce.shift.write`, `workforce.request.manage` — Section 3.1a of the
+  B2 writes plan); the staff employee binding exists **exactly once**
+  (duplicate detection), is active, and has a location; each shift type
+  exists, is active, and is scoped to the resolved location; each recipe
+  exists exactly once; the four acceptance-data rows exist, matched by the
+  exact deterministic key the write path used (same `mame-to-cha-dates.ts`
+  helpers, so verify and apply can never silently disagree about "today").
+- **Identical manager/staff ids are rejected as a failure** (not silently
+  accepted) before any query, for the same reason `apply` rejects them.
 - **Identity is optional.** When `--manager-user-id`/`--staff-user-id` is
-  omitted, the identity-scoped checks report `not_checked` (not a failure)
-  so a structural check can still run without both Auth users yet existing.
+  omitted, the identity-scoped checks (including the new `user_mirror.*`
+  checks) report `not_checked` (not a failure) so a structural check can
+  still run without both Auth users yet existing. `not_checked` is a
+  distinct status from `pass`/`fail` and never contributes to `ok`/
+  `failures` — omitting identity can never turn a real failure into a pass.
 - Returns a deterministic `{ ok, checks[], failures[] }` report; no check
   message ever contains a UUID or an email-shaped string (asserted by a
   dedicated leak test).
 
 **Not executed in this task.** `mame-to-cha-verify.test.ts` exercises every
 branch (missing tenant, duplicate tenant, 0/2+ locations, module disabled,
-missing permission, duplicate employee binding, missing identity) against a
+missing/duplicate `core.users` mirror, missing permission, duplicate
+employee binding, identical manager/staff ids, missing identity) against a
 fake runner; `runLocalMameToChaVerify` (the real, `pg`-connecting entry
 point) was never invoked.
 
@@ -330,6 +386,16 @@ Implementation (`mame-to-cha-cleanup.ts`):
 - Never deletes shared/global reference data (`core.roles`,
   `core.permissions`, `core.role_permissions`) — no cleanup SQL statement
   touches any of those tables.
+- **`core.users` mirror rows and the underlying Supabase `auth.users`
+  identities are never deleted, in any cleanup mode.** There is no
+  `deleteUserMirror`/`deleteAuthUser` statement in `MAME_TO_CHA_CLEANUP_SQL`.
+  Cleanup removes the membership and employee binding first (safe
+  dependency order), which is sufficient to detach the identity from the
+  `mame-to-cha` fixture; there is no safe, fixture-owned way to tell whether
+  a `core.users`/`auth.users` row is used by anything else (another tenant,
+  another local fixture), so both are left intact by design. Removing an
+  Auth user, if ever needed, remains a separate, explicit, manual step —
+  this cleanup command is deliberately never broadened to include it.
 
 **Not executed in this task.** `mame-to-cha-cleanup.test.ts` exercises the
 full plan/execute/transaction pipeline against a fake runner/client;
@@ -512,6 +578,22 @@ and never via a live invocation of the CLI in this task.
 
 ## 15. Remaining risks / explicit approvals required for C2
 
+- **Fixed: the `core.users` mirror gap found by final review.** A
+  pre-push security/correctness review found that `apply` never created the
+  `core.users` mirror row for the manager/staff auth user ids, which would
+  have made the first real `apply` fail with a Postgres `23503`
+  foreign-key violation (safely rolled back, no data corruption — but a
+  hard correctness blocker for C2). This is fixed: `mame-to-cha-plan.ts`
+  models `user_mirror` as an explicit plan entity, `mame-to-cha-state.ts`
+  loads its existence, and `mame-to-cha-write.ts` inserts it (reusing
+  `onboard-write.ts`'s `ONBOARD_WRITE_SQL.insertUser`) immediately after the
+  tenant and before any membership/employee-binding write. `verify` now
+  checks the mirror explicitly per identity. See Section 8's "Write order"
+  note for detail.
+- **Fixed: email-guard strictness inconsistency.** The general rehearsal
+  env guard (`mame-to-cha-env-guard.ts`) previously only warned on a
+  non-local-looking manager/staff email while `auth-provision` hard-rejected
+  the identical condition. Both now hard-fail identically (Section 5/6).
 - **C2 is now "run it," not "build it."** Every code path `apply`/`verify`/
   `cleanup`/`auth-provision` needs is implemented and unit-tested; C2's job
   is to start a local Supabase stack, export the real local env vars, and
