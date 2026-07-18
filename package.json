@@ -25,7 +25,8 @@
     "db:diff": "supabase db diff",
     "db:migrate": "supabase db push",
     "db:backup": "pnpm --filter @line-os/db backup",
-    "db:onboard-tenant": "pnpm --filter @line-os/db onboard-tenant"
+    "db:onboard-tenant": "pnpm --filter @line-os/db onboard-tenant",
+    "db:mame-to-cha-rehearsal": "pnpm --filter @line-os/db mame-to-cha-rehearsal"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
