@@ -603,35 +603,24 @@ per the hard restrictions.
 
 ## L. Onboarding manifest specification
 
-**Manifest convention (resolved):** committed manifests are **YAML**,
-stored under **`docs/onboarding/`**. The first real manifest for this
-phase is proposed as `docs/onboarding/mame-to-cha-acceptance.manifest.yaml`
-(created at Slice C, not by this Slice A document). A manifest is a
-version-controlled, non-secret file that declares desired state without
-executing anything:
+**Manifest convention (resolved by Slice C1):** the committed manifest is
+the typed, non-secret fixture
+`packages/db/scripts/mame-to-cha-fixture.ts`. Slice C1 selected a typed
+definition instead of the originally sketched YAML file because the
+repository has no YAML parsing dependency and the tool consumes this shape
+directly. The fixture is version-controlled, validated by tests, and declares
+desired state without executing anything.
 
-```yaml
-# NON-SECRET. No emails, no passwords, no UUIDs. Slugs/codes only.
-manifest_version: 1
-tenant:
-  slug: mame-to-cha
-  display_name: "Mame To Cha"
-  kind: client            # not "demo" — see core.tenants.kind values
-locations:
-  - logical_id: main-cafe
-    name: "Mame To Cha — <location name TBD>"
-    timezone: Asia/Tokyo
-modules:
-  - workforce
-roles:
-  - logical_id: manager-1
-    role: manager   # core.roles.key, supabase/migrations/0008_rbac_seed.sql
-  - logical_id: staff-1
-    role: employee  # core.roles.key, supabase/migrations/0008_rbac_seed.sql
-    requires_employee_binding: true   # see Section F2 (staff) / B7
-notes:
-  - "Real email addresses and passwords are never stored in this file."
-  - "Tenant/location/employee UUIDs are assigned at onboarding time and recorded only in the (out-of-band) runbook execution log, not in this manifest."
+Its reviewed logical shape is:
+
+```text
+manifest version: 1
+tenant: mame-to-cha / Mame To Cha / client
+location: main-cafe / Asia/Tokyo
+modules: workforce
+roles: manager-1 -> manager; staff-1 -> employee + employee binding
+identity values: environment-variable names only, never values
+acceptance content: synthetic markers only
 ```
 
 Rules:
@@ -855,10 +844,14 @@ list.
 - **O5. Production infrastructure ownership/timeline.** Who owns
   provisioning the separate production Supabase project and `app.oruwa.jp`
   binding (Section R), and by when.
-- ~~**O6. Manifest file location/format.**~~ **Resolved.** Committed
-  manifests are YAML under `docs/onboarding/`; the first manifest for this
-  phase is `docs/onboarding/mame-to-cha-acceptance.manifest.yaml` (Section
-  L), created at Slice C, not by this Slice A document.
+- ~~**O6. Manifest file location/format.**~~ **Resolved by Slice C1.** The
+  tracked manifest is the typed, non-secret fixture
+  `packages/db/scripts/mame-to-cha-fixture.ts`, covered by
+  `mame-to-cha-fixture.test.ts`. Slice C1 selected this over YAML to avoid an
+  otherwise unused YAML parsing dependency. The fixture carries only logical
+  identifiers, labels, codes, environment-variable names, and synthetic
+  acceptance markers; it contains no credential values, real UUIDs, or real
+  customer PII.
 - **O7. Vercel environment model.** Whether to adopt Vercel Custom
   Environments (if plan tier allows) versus the default long-lived
   Preview-deployment approach (Section Q) — a cost/complexity tradeoff for

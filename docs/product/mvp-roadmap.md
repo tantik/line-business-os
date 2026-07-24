@@ -139,7 +139,7 @@ Based on the current repository docs, the platform already has:
   the public cafe demo — a client-side demo store (clock in/out, work
   reports, correction review, a demo reset control) with no schema, no
   `apps/api`, and no DB access (PR #103).
-- Phase 1N-4C Slice A prepared (**documentation only — not implemented**):
+- Phase 1N-4C Slice A complete (documentation-only architecture scope):
   a DB-backed Mame To Cha client acceptance architecture (host routing,
   strict tenant/location resolution, Server Action tenant pinning, sign-in
   return path, onboarding manifest/runbook, promotion allowlist, module
@@ -148,22 +148,26 @@ Based on the current repository docs, the platform already has:
   [`../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md`](../phase-1n-4c-mame-to-cha-db-preview-architecture-plan.md)
   and
   [`../adr/0010-modular-product-governance-and-client-request-classification.md`](../adr/0010-modular-product-governance-and-client-request-classification.md).
-  No app code, migrations, or Cloud/Vercel/DNS actions were part of this
-  slice.
+  No app code, migrations, or Cloud/Vercel/DNS actions were part of Slice A.
 
 This does not mean Workforce, Booking, CRM, analytics, billing, or production
 customer onboarding are complete.
 
-## Phase 1N-4C Remaining Slices (not yet started)
+Phase 1N-4C Slices B1 and B2 are complete: host-based preview routing,
+strict DB-backed preview reads, preview-safe tenant-pinned writes, and
+mutation-level module/permission rechecks are implemented.
 
-- **B1** — host routing (`preview.oruwa.jp` rewrite) + strict preview read
-  shell + Workforce entitlement guard.
-- **B2** — write-side tenant pinning (shared Server Action resolver) +
-  mutation-level module entitlement rechecks.
-- **C** — local onboarding rehearsal against the existing local-only
-  `db:onboard-tenant` tool.
-- **D** — Cloud acceptance onboarding and Auth user creation, each write
-  step separately approved.
+Phase 1N-4C Slices C1 and C2 are complete: the deterministic local onboarding
+fixture/tooling was implemented, then executed against local Supabase.
+Manager/staff Auth, fixture verification, authenticated browser smoke, and
+the negative `staff -> manager` authorization check passed. PR #110 merged
+the final C2 fixes into `dev`. No Supabase Cloud write was part of Slice C.
+
+## Phase 1N-4C Remaining Slices
+
+- **D (next)** — Cloud acceptance onboarding and Auth user creation, with a
+  read-only preflight first and each write step separately approved. See
+  [`../phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md`](../phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md).
 - **E** — browser/RLS/module-entitlement smoke testing against the live
   acceptance environment.
 - **F** — production pre-staging and Phase 1N-4D planning.
@@ -179,14 +183,10 @@ customer onboarding are complete.
 
 ## Next Recommended Step
 
-**Phase 1L-5B — my staff profile card**, per
-[`../phase-1l-5-workforce-app-api-integration-plan.md`](../phase-1l-5-workforce-app-api-integration-plan.md)
-(itself building on
-[`../phase-1l-4-cloud-dev-sync-completion-report.md`](../phase-1l-4-cloud-dev-sync-completion-report.md),
-[`../phase-1l-0-workforce-mvp-slice-plan.md`](../phase-1l-0-workforce-mvp-slice-plan.md), and
-[`../phase-1k-workforce-production-mvp-architecture.md`](../phase-1k-workforce-production-mvp-architecture.md)),
-or a separate controlled Cloud-dev smoke seed first if full recipe-data smoke
-is required before 1L-5B.
+**Phase 1N-4C Slice D preparation**: classify the client's additions, confirm
+the acceptance manifest and environment targets, and produce a read-only
+preflight report. Only after that report is reviewed may the first narrow
+Cloud operation be proposed for separate approval.
 Production sync remains gated behind a separate production readiness review.
 A plan-only design for a separate internal platform/operator admin area
 (`/platform` or `/ops`) is a later, independent step — see
