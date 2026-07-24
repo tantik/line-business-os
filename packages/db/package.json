@@ -12,13 +12,14 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test scripts/backup.test.ts scripts/onboard-tenant.test.ts scripts/onboard-db.test.ts scripts/onboard-write.test.ts scripts/onboard-backup-gate.test.ts scripts/onboard-commit.test.ts scripts/onboard-preflight.test.ts scripts/onboard-preflight-cli.test.ts scripts/mame-to-cha-fixture.test.ts scripts/mame-to-cha-env-guard.test.ts scripts/mame-to-cha-plan.test.ts scripts/mame-to-cha-schema-check.test.ts scripts/mame-to-cha-dates.test.ts scripts/mame-to-cha-state.test.ts scripts/mame-to-cha-write.test.ts scripts/mame-to-cha-verify.test.ts scripts/mame-to-cha-cleanup.test.ts scripts/mame-to-cha-auth.test.ts scripts/mame-to-cha-rehearsal.test.ts scripts/mame-to-cha-cloud-gates.test.ts scripts/mame-to-cha-cloud-gate-plan.test.ts scripts/mame-to-cha-cloud-d1.test.ts scripts/mame-to-cha-cloud-d1-cli.test.ts",
+    "test": "node --import tsx --test scripts/backup.test.ts scripts/onboard-tenant.test.ts scripts/onboard-db.test.ts scripts/onboard-write.test.ts scripts/onboard-backup-gate.test.ts scripts/onboard-commit.test.ts scripts/onboard-preflight.test.ts scripts/onboard-preflight-cli.test.ts scripts/mame-to-cha-fixture.test.ts scripts/mame-to-cha-env-guard.test.ts scripts/mame-to-cha-plan.test.ts scripts/mame-to-cha-schema-check.test.ts scripts/mame-to-cha-dates.test.ts scripts/mame-to-cha-state.test.ts scripts/mame-to-cha-write.test.ts scripts/mame-to-cha-verify.test.ts scripts/mame-to-cha-cleanup.test.ts scripts/mame-to-cha-auth.test.ts scripts/mame-to-cha-rehearsal.test.ts scripts/mame-to-cha-cloud-gates.test.ts scripts/mame-to-cha-cloud-gate-plan.test.ts scripts/mame-to-cha-cloud-d1.test.ts scripts/mame-to-cha-cloud-d1-cli.test.ts scripts/mame-to-cha-cloud-d2.test.ts",
     "seed": "tsx scripts/seed.ts",
     "backup": "tsx scripts/backup.ts",
     "onboard-tenant": "tsx scripts/onboard-tenant.ts",
     "mame-to-cha-rehearsal": "tsx scripts/mame-to-cha-rehearsal.ts",
     "mame-to-cha-cloud-gate-plan": "tsx scripts/mame-to-cha-cloud-gate-plan.ts",
     "mame-to-cha-cloud-d1": "tsx scripts/mame-to-cha-cloud-d1-cli.ts",
+    "mame-to-cha-cloud-d2": "tsx scripts/mame-to-cha-cloud-d2-cli.ts",
     "gen:types": "supabase gen types typescript --local --schema core,audit,workforce,booking,ai > src/types.generated.ts"
   },
   "dependencies": {
