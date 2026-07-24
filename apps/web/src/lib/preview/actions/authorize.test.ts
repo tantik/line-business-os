@@ -56,8 +56,15 @@ test('authorize.ts never imports a raw dashboard action module', () => {
   assert.ok(!/@\/lib\/workforce\/(staff-actions|schedule-actions|attendance-actions|employee-line-links)/.test(SOURCE));
 });
 
-test('ManagerPermission is restricted to the three exact permission keys the B2a matrix requires', () => {
-  assert.ok(/'workforce\.staff\.manage'\s*\|\s*'workforce\.shift\.write'\s*\|\s*'workforce\.request\.manage'/.test(SOURCE));
+test('ManagerPermission is restricted to the exact preview manager permission keys', () => {
+  for (const permission of [
+    'workforce.staff.manage',
+    'workforce.shift.write',
+    'workforce.request.manage',
+    'workforce.recipe.manage',
+  ]) {
+    assert.ok(SOURCE.includes(`'${permission}'`));
+  }
 });
 
 // ============================================================================

@@ -9,7 +9,8 @@ import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/ui/th
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for work
- * report (attendance) submission. Calls only `previewSubmitWorkReport` (never
+ * report details (transportation/message) submission. Clock-in/out is owned
+ * by `PreviewClockPanel`. Calls only `previewSubmitWorkReport` (never
  * the dashboard `attendance-actions.ts`). No employee/location/tenant field
  * is ever submitted or controllable from this form.
  */
@@ -45,24 +46,6 @@ export function PreviewWorkReportForm({ defaultWorkDate }: PreviewWorkReportForm
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
           <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
-        </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label style={{ flex: 1 }}>
-            <span style={{ ...mutedText, fontSize: 13 }}>出勤</span>
-            <input style={inputStyle} type="time" name="clockInLocal" />
-          </label>
-          <label style={{ flex: 1 }}>
-            <span style={{ ...mutedText, fontSize: 13 }}>退勤</span>
-            <input style={inputStyle} type="time" name="clockOutLocal" />
-          </label>
-        </div>
-        <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>休憩時間</span>
-          <select style={inputStyle} name="actualBreakMinutes" defaultValue="0">
-            <option value="0">0分</option>
-            <option value="30">30分</option>
-            <option value="60">60分</option>
-          </select>
         </label>
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>

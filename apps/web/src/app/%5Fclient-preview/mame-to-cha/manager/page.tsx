@@ -11,6 +11,7 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
+import { listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -27,6 +28,7 @@ import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
 import { PreviewScheduleActions } from '@/lib/preview/preview-schedule-actions';
 import { PreviewCorrectionActions } from '@/lib/preview/preview-correction-actions';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
+import { PreviewRecipeKindManager } from '@/lib/preview/preview-recipe-kind-manager';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -96,6 +98,7 @@ export default async function MameToChaPreviewManagerPage({
     assignmentsResult,
     correctionRequestsResult,
     attendanceResult,
+    recipesResult,
   ] = await Promise.all([
     listWorkforceStaffForManager(supabase, activeTenant.tenantId),
     listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -104,6 +107,7 @@ export default async function MameToChaPreviewManagerPage({
     listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
     listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
     listAttendanceForManager(supabase, activeTenant.tenantId),
+    listWorkforceRecipes(supabase, activeTenant.tenantId),
   ]);
 
   return (
@@ -156,6 +160,8 @@ export default async function MameToChaPreviewManagerPage({
         }
         staff={staffResult.status === 'success' ? staffResult.data : null}
       />
+
+      <PreviewRecipeKindManager recipes={recipesResult.status === 'success' ? recipesResult.data : null} />
     </main>
   );
 }

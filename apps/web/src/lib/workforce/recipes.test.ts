@@ -2,7 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getWorkforceRecipeDetail, groupRecipesByCategory, listWorkforceRecipes } from './recipes.js';
+import {
+  getWorkforceRecipeDetail,
+  groupRecipesByCategory,
+  listWorkforceRecipes,
+  updateWorkforceRecipeContentKind,
+} from './recipes.js';
 import type { WorkforceRecipe } from './recipes.js';
 import type { WorkforceRecipeCategory } from './recipe-categories.js';
 
@@ -18,13 +23,14 @@ function recordingClient(result: { data: unknown; error: unknown }): {
 } {
   const calls: RecordedCall[] = [];
   const builder: Record<string, unknown> = {};
-  for (const method of ['schema', 'from', 'select', 'eq', 'order']) {
+  for (const method of ['schema', 'from', 'select', 'update', 'eq', 'order']) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return builder;
     };
   }
   builder.then = (resolve: (value: unknown) => unknown) => resolve(result);
+  builder.maybeSingle = () => Promise.resolve(result);
   return { client: builder as unknown as SupabaseClient, calls };
 }
 
@@ -128,6 +134,27 @@ test('listWorkforceRecipes returns empty success for an empty result', async () 
 
   assert.equal(result.status, 'success');
   if (result.status === 'success') assert.deepEqual(result.data, []);
+});
+
+test('updateWorkforceRecipeContentKind changes only content_kind and narrows by tenant + recipe id', async () => {
+  const { client, calls } = recordingClient({
+    data: { ...recipeRow, content_kind: 'instruction' },
+    error: null,
+  });
+
+  const result = await updateWorkforceRecipeContentKind(client, TENANT_ID, RECIPE_ID, 'instruction');
+
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data.contentKind, 'instruction');
+  assert.deepEqual(calls.find((call) => call.method === 'update')?.args, [{ content_kind: 'instruction' }]);
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'tenant_id' && call.args[1] === TENANT_ID));
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'recipe_id' && call.args[1] === RECIPE_ID));
+});
+
+test('updateWorkforceRecipeContentKind returns not_found when RLS/filter exposes no target row', async () => {
+  const { client } = recordingClient({ data: null, error: null });
+  const result = await updateWorkforceRecipeContentKind(client, TENANT_ID, RECIPE_ID, 'instruction');
+  assert.deepEqual(result, { status: 'not_found' });
 });
 
 test('listWorkforceRecipes returns recipes in deterministic sorted order', async () => {

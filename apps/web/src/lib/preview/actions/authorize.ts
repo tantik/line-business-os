@@ -27,7 +27,11 @@ import {
  * these three exact permission keys, never a role name or a client-supplied
  * value.
  */
-export type ManagerPermission = 'workforce.staff.manage' | 'workforce.shift.write' | 'workforce.request.manage';
+export type ManagerPermission =
+  | 'workforce.staff.manage'
+  | 'workforce.shift.write'
+  | 'workforce.request.manage'
+  | 'workforce.recipe.manage';
 
 export interface PreviewManagerContext {
   supabase: SupabaseClient;

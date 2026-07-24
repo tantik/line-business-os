@@ -1,5 +1,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import type { WorkforceWriteResult } from './result-types';
+import { mapWorkforceWriteError } from './pg-error';
 import type { WorkforceRecipeCategory } from './recipe-categories';
 
 /** Flat row shape returned by `api.workforce_recipes`. */
@@ -176,6 +178,32 @@ export async function listWorkforceRecipes(
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error reading workforce recipes.',
+    };
+  }
+}
+
+export async function updateWorkforceRecipeContentKind(
+  supabase: SupabaseClient,
+  tenantId: string,
+  recipeId: string,
+  contentKind: 'recipe' | 'instruction',
+): Promise<WorkforceWriteResult<WorkforceRecipe>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_recipes')
+      .update({ content_kind: contentKind })
+      .eq('tenant_id', tenantId)
+      .eq('recipe_id', recipeId)
+      .select(RECIPE_SELECT)
+      .maybeSingle();
+    if (error) return mapWorkforceWriteError(error, 'classify this recipe');
+    if (!data) return { status: 'not_found' };
+    return { status: 'success', data: mapRecipeRow(data as ApiWorkforceRecipeRow) };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error classifying this recipe.',
     };
   }
 }
