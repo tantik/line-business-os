@@ -12,6 +12,13 @@
 /** The only host this rewrite applies to; every other host is unaffected. */
 export const PREVIEW_HOST = 'preview.oruwa.jp';
 
+/**
+ * Match the production hostname and the same hostname with a local dev port.
+ * Anchors prevent suffix/prefix lookalikes from reaching the authenticated
+ * preview shell.
+ */
+export const PREVIEW_HOST_PATTERN = '^preview\\.oruwa\\.jp(?::\\d+)?$';
+
 /** Public source path family the rewrite intercepts (unauthenticated on every other host). */
 export const PREVIEW_SOURCE_BASE = '/mame-to-cha';
 
@@ -31,12 +38,12 @@ export function buildPreviewRewrites() {
   return [
     {
       source: PREVIEW_SOURCE_BASE,
-      has: [{ type: 'host', value: PREVIEW_HOST }],
+      has: [{ type: 'host', value: PREVIEW_HOST_PATTERN }],
       destination: PREVIEW_DESTINATION_BASE,
     },
     {
       source: `${PREVIEW_SOURCE_BASE}/:path*`,
-      has: [{ type: 'host', value: PREVIEW_HOST }],
+      has: [{ type: 'host', value: PREVIEW_HOST_PATTERN }],
       destination: `${PREVIEW_DESTINATION_BASE}/:path*`,
     },
   ];

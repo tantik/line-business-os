@@ -153,6 +153,44 @@ test('an inactive location with a matching name is never treated as the resolved
   const loaded = await loadExistingMameToChaFixtureState(runner, MAME_TO_CHA_FIXTURE, IDENTITY, NOW);
   assert.equal(loaded.ids.locationId, null, 'an inactive location must never be resolved as the active one');
   assert.equal(loaded.state.locationExists, false);
+  assert.equal(loaded.anchorNow, NOW);
+});
+
+test('existing tenant creation time anchors acceptance lookups across later runs', async () => {
+  const createdAt = new Date('2026-07-18T07:33:20.000Z');
+  const laterNow = new Date('2026-07-24T00:00:00.000Z');
+  const expectedShiftDate = resolveIsoDate(createdAt, MAME_TO_CHA_FIXTURE.acceptanceData.shiftAssignmentDayOffset);
+  const expectedStartsAt = localDateTimeToUtcIso(
+    expectedShiftDate,
+    MAME_TO_CHA_FIXTURE.shiftTypes[0]!.startsAtLocal,
+    MAME_TO_CHA_FIXTURE.location.timezone,
+  );
+  const runner = new FakeRunner({
+    [MAME_TO_CHA_STATE_SQL.tenantBySlug]: [{
+      id: TENANT_ID,
+      name: MAME_TO_CHA_FIXTURE.tenant.displayName,
+      kind: 'client',
+      created_at: createdAt,
+    }],
+    [MAME_TO_CHA_STATE_SQL.locationsByTenant]: [{ id: LOCATION_ID, name: MAME_TO_CHA_FIXTURE.location.name, is_active: true }],
+    [MAME_TO_CHA_STATE_SQL.enabledModules]: [{ module: 'core' }, { module: 'workforce' }],
+    [MAME_TO_CHA_STATE_SQL.roleByKey]: (v) => [{ id: v[0] === 'manager' ? 'role-manager' : 'role-employee' }],
+    [MAME_TO_CHA_STATE_SQL.userMirrorExists]: [{ exists: true }],
+    [MAME_TO_CHA_STATE_SQL.membershipStatus]: [{ status: 'active' }],
+    [MAME_TO_CHA_STATE_SQL.roleAssignmentExists]: [{ exists: true }],
+    [MAME_TO_CHA_STATE_SQL.employeeByUser]: [{ id: EMPLOYEE_ID, location_id: LOCATION_ID, is_active: true }],
+    [MAME_TO_CHA_STATE_SQL.shiftTypeCodes]: MAME_TO_CHA_FIXTURE.shiftTypes.map((s) => ({ code: s.code })),
+    [MAME_TO_CHA_STATE_SQL.recipeCategoryLabels]: MAME_TO_CHA_FIXTURE.recipes.map((r) => ({ label_ja: r.categoryLabelJa })),
+    [MAME_TO_CHA_STATE_SQL.recipeTitles]: MAME_TO_CHA_FIXTURE.recipes.map((r) => ({ title_ja: r.titleJa })),
+    [MAME_TO_CHA_STATE_SQL.shiftAssignmentExists]: (v) => [{ exists: v[2] === expectedStartsAt }],
+    [MAME_TO_CHA_STATE_SQL.shiftPreferenceExists]: [{ exists: true }],
+    [MAME_TO_CHA_STATE_SQL.workReportExists]: [{ exists: true }],
+    [MAME_TO_CHA_STATE_SQL.correctionRequestExists]: [{ exists: true }],
+  });
+
+  const loaded = await loadExistingMameToChaFixtureState(runner, MAME_TO_CHA_FIXTURE, IDENTITY, laterNow);
+  assert.equal(loaded.anchorNow.toISOString(), createdAt.toISOString());
+  assert.equal(loaded.state.acceptanceDataPresent?.shiftAssignment, true);
 });
 
 test('this file issues only SELECT statements (read-only)', async () => {

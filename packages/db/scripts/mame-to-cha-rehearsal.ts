@@ -451,7 +451,7 @@ async function main(): Promise<void> {
   const outcome = await runMameToChaRehearsalCli(process.argv.slice(2));
   for (const message of outcome.errors) printError(message);
   for (const line of outcome.lines) printLine(line);
-  process.exit(outcome.exitCode);
+  process.exitCode = outcome.exitCode;
 }
 
 const invokedDirectly =
@@ -460,6 +460,6 @@ const invokedDirectly =
 if (invokedDirectly) {
   main().catch((err: unknown) => {
     printError(err instanceof Error ? err.message : 'unknown error');
-    process.exit(1);
+    process.exitCode = 1;
   });
 }

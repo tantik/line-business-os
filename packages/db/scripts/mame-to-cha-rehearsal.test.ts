@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseRehearsalCliArgs, runMameToChaRehearsalCli } from './mame-to-cha-rehearsal.js';
 import type { MameToChaRehearsalEnv } from './mame-to-cha-env-guard.js';
 import type { SchemaCheckReport } from './mame-to-cha-schema-check.js';
@@ -329,4 +331,23 @@ test('this session never invokes apply/cleanup/auth-provision against a real dat
   // supplies an explicit fake dependency; none rely on the default lazy
   // imports that would touch a real `pg` connection or Supabase admin API.
   assert.ok(true);
+});
+
+// --- direct CLI wrapper lifecycle (source guard) ----------------------------
+// A real end-to-end test of `main()`'s exit behavior would require spawning
+// this script against a real local Supabase instance, which this task may
+// not do. Instead, assert at the source level that the direct-invocation
+// wrapper sets `process.exitCode` (safe: lets pending async handles, e.g.
+// from the Supabase Auth Admin fetch calls, close on their own) and never
+// calls `process.exit(...)` directly, which forcibly tears down the process
+// and can race in-flight libuv handle cleanup on Windows.
+
+test('the direct CLI wrapper (main()) never calls process.exit(...) directly', () => {
+  const thisFile = fileURLToPath(import.meta.url);
+  const sourceFile = thisFile.replace(/\.test\.ts$/, '.ts').replace(/\.test\.js$/, '.ts');
+  const source = readFileSync(sourceFile, 'utf8');
+
+  assert.ok(!/process\.exit\(/.test(source), 'process.exit(...) must not appear in mame-to-cha-rehearsal.ts');
+  assert.ok(/process\.exitCode\s*=\s*outcome\.exitCode/.test(source), 'main() must set process.exitCode = outcome.exitCode');
+  assert.ok(/process\.exitCode\s*=\s*1/.test(source), 'the main().catch(...) handler must set process.exitCode = 1');
 });

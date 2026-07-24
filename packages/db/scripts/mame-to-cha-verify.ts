@@ -19,7 +19,7 @@ import { assertLocalDatabaseUrl } from './onboard-tenant.js';
 import { FIXTURE_TENANT_SLUG, PROTECTED_TENANT_SLUGS } from './mame-to-cha-fixture.js';
 import type { MameToChaFixtureManifest } from './mame-to-cha-fixture.js';
 import type { MameToChaFixtureIdentity } from './mame-to-cha-state.js';
-import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
+import { localDateTimeToUtcIso, resolveFixtureAnchorNow, resolveIsoDate } from './mame-to-cha-dates.js';
 
 /** The exact permission keys every B2a manager wrapper requires (B2 writes plan Section 3.1a). */
 export const REQUIRED_MANAGER_PERMISSIONS = [
@@ -29,7 +29,8 @@ export const REQUIRED_MANAGER_PERMISSIONS = [
 ] as const;
 
 export const MAME_TO_CHA_VERIFY_SQL = {
-  tenantCount: 'select count(*)::int as count, id, kind from core.tenants where slug = $1 group by id, kind',
+  tenantCount:
+    'select count(*)::int as count, id, kind, created_at from core.tenants where slug = $1 group by id, kind, created_at',
   /** core.users is not tenant-scoped: a mirror row's existence is checked by id alone. */
   userMirrorCount: 'select count(*)::int as count from core.users where id = $1',
   activeLocationCount:
@@ -46,13 +47,13 @@ export const MAME_TO_CHA_VERIFY_SQL = {
     'select id, is_active, location_id from workforce.shift_types where tenant_id = $1 and location_id = $2 and code = $3',
   recipeCountByTitle: 'select count(*)::int as count from workforce.recipes where tenant_id = $1 and title_ja = $2',
   shiftAssignmentExists:
-    'select 1 as exists from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3',
+    'select exists (select 1 from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3) as exists',
   shiftPreferenceExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3) as exists",
   workReportExists:
-    'select 1 as exists from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3',
+    'select exists (select 1 from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3) as exists',
   correctionRequestExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3) as exists",
 } as const;
 
 export type VerifyCheckStatus = 'pass' | 'fail' | 'not_checked';
@@ -74,6 +75,7 @@ interface TenantCountRow {
   count: number;
   id: string;
   kind: string;
+  created_at?: Date | string;
 }
 interface CountRow {
   count: number;
@@ -171,6 +173,7 @@ export async function runMameToChaVerifyChecks(
     return { ok: false, tenantSlug: fixture.tenant.slug, checks, failures: checks.filter((c) => c.status === 'fail').map((c) => c.message) };
   }
   const tenantId = tenantRow.id;
+  const anchorNow = resolveFixtureAnchorNow(tenantRow.created_at, now);
 
   const activeLocationRows = await runner.query<CountRow>(MAME_TO_CHA_VERIFY_SQL.activeLocationCount, [tenantId]);
   const activeLocationCount = activeLocationRows.rows[0]?.count ?? 0;
@@ -314,7 +317,7 @@ export async function runMameToChaVerifyChecks(
   } else {
     const primaryShiftType = fixture.shiftTypes[0];
     if (primaryShiftType !== undefined) {
-      const shiftDate = resolveIsoDate(now, fixture.acceptanceData.shiftAssignmentDayOffset);
+      const shiftDate = resolveIsoDate(anchorNow, fixture.acceptanceData.shiftAssignmentDayOffset);
       const startsAtIso = localDateTimeToUtcIso(shiftDate, primaryShiftType.startsAtLocal, fixture.location.timezone);
       const shiftRows = await runner.query<ExistsRow>(MAME_TO_CHA_VERIFY_SQL.shiftAssignmentExists, [
         tenantId,
@@ -327,7 +330,7 @@ export async function runMameToChaVerifyChecks(
           : fail('acceptance_data.shift_assignment', 'Acceptance shift assignment is missing.'),
       );
 
-      const preferenceDate = resolveIsoDate(now, fixture.acceptanceData.shiftPreferenceDayOffset);
+      const preferenceDate = resolveIsoDate(anchorNow, fixture.acceptanceData.shiftPreferenceDayOffset);
       const preferenceRows = await runner.query<ExistsRow>(MAME_TO_CHA_VERIFY_SQL.shiftPreferenceExists, [
         tenantId,
         staffEmployeeId,
@@ -339,7 +342,7 @@ export async function runMameToChaVerifyChecks(
           : fail('acceptance_data.shift_preference', 'Acceptance shift preference request is missing.'),
       );
 
-      const workReportDate = resolveIsoDate(now, fixture.acceptanceData.workReportDayOffset);
+      const workReportDate = resolveIsoDate(anchorNow, fixture.acceptanceData.workReportDayOffset);
       const workReportRows = await runner.query<ExistsRow>(MAME_TO_CHA_VERIFY_SQL.workReportExists, [
         tenantId,
         staffEmployeeId,
@@ -351,7 +354,7 @@ export async function runMameToChaVerifyChecks(
           : fail('acceptance_data.work_report', 'Acceptance work report is missing.'),
       );
 
-      const correctionDate = resolveIsoDate(now, fixture.acceptanceData.correctionRequestDayOffset);
+      const correctionDate = resolveIsoDate(anchorNow, fixture.acceptanceData.correctionRequestDayOffset);
       const correctionRows = await runner.query<ExistsRow>(MAME_TO_CHA_VERIFY_SQL.correctionRequestExists, [
         tenantId,
         staffEmployeeId,

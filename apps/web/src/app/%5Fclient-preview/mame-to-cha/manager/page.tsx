@@ -26,6 +26,7 @@ import { PreviewStaffForm } from '@/lib/preview/preview-staff-form';
 import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
 import { PreviewScheduleActions } from '@/lib/preview/preview-schedule-actions';
 import { PreviewCorrectionActions } from '@/lib/preview/preview-correction-actions';
+import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,11 @@ export default async function MameToChaPreviewManagerPage({
   searchParams: Promise<{ weekOffset?: string }>;
 }) {
   await requirePreviewUser(MANAGER_PUBLIC_PATH);
+
+  // Page-level authorization must run before any tenant-wide manager loader
+  // or manager action form is rendered. Server Actions repeat their own
+  // permission checks, but that does not protect the page's read surface.
+  if (!(await authorizePreviewManagerPage())) return <PreviewNoAccessState />;
 
   const tenantResult = await resolvePreviewTenantContext();
   if (tenantResult.status !== 'success') return <PreviewNoAccessState />;
