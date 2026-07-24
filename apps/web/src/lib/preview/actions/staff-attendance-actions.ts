@@ -2,7 +2,7 @@
 
 import { submitCorrectionRequest as submitCorrectionRequestWrite, type WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import { listMyAttendance, submitWorkReport as submitWorkReportWrite, type WorkforceAttendance } from '@/lib/workforce/attendance';
-import { localDateTimeToUtcIso } from '@/lib/workforce/timezone';
+import { localDateTimeToUtcIso, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { parseSubmitCorrectionRequestInput, parseSubmitWorkReportInput } from '@/lib/workforce/attendance-input';
 import { resolvePreviewStaffContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
@@ -35,8 +35,10 @@ export async function previewSubmitWorkReport(formData: FormData): Promise<Previ
   const input = parseSubmitWorkReportInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
-  const clockIn = input.clockInLocal ? localDateTimeToUtcIso(input.workDate, input.clockInLocal, timeZone) : null;
-  const clockOut = input.clockOutLocal ? localDateTimeToUtcIso(input.workDate, input.clockOutLocal, timeZone) : null;
+  // Omitted clock fields must remain unchanged. Passing null here would erase
+  // clock events recorded by the dedicated clock-in/clock-out actions.
+  const clockIn = input.clockInLocal ? localDateTimeToUtcIso(input.workDate, input.clockInLocal, timeZone) : undefined;
+  const clockOut = input.clockOutLocal ? localDateTimeToUtcIso(input.workDate, input.clockOutLocal, timeZone) : undefined;
 
   const result = await submitWorkReportWrite(supabase, tenantId, {
     employeeId,
@@ -49,6 +51,69 @@ export async function previewSubmitWorkReport(formData: FormData): Promise<Previ
     dailyMessage: input.dailyMessage,
   });
   return mapWorkforceWriteResult(result);
+}
+
+/** Clock in at the server-observed current instant for the resolved staff location. */
+export async function previewClockIn(): Promise<PreviewWriteResult<WorkforceAttendance>> {
+  const contextResult = await resolvePreviewStaffContext();
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = contextResult.context;
+  const nowIso = new Date().toISOString();
+  const { workDate } = utcIsoToLocalDateTime(nowIso, timeZone);
+
+  const attendanceResult = await listMyAttendance(supabase, tenantId);
+  if (attendanceResult.status !== 'success') return mapWorkforceWriteResult(attendanceResult);
+  const existing = attendanceResult.data.find(
+    (entry) =>
+      entry.workDate === workDate &&
+      entry.employeeId === employeeId &&
+      entry.locationId === locationId,
+  );
+  if (existing?.clockIn || existing?.clockOut) return { status: 'duplicate' };
+
+  return mapWorkforceWriteResult(
+    await submitWorkReportWrite(supabase, tenantId, {
+      employeeId,
+      locationId,
+      workDate,
+      clockIn: nowIso,
+      actualBreakMinutes: 0,
+    }),
+  );
+}
+
+/** Clock out at the server-observed current instant after an exact 0/30/60 break choice. */
+export async function previewClockOut(formData: FormData): Promise<PreviewWriteResult<WorkforceAttendance>> {
+  const rawBreakMinutes = formData.get('actualBreakMinutes');
+  if (rawBreakMinutes !== '0' && rawBreakMinutes !== '30' && rawBreakMinutes !== '60') {
+    return PREVIEW_INVALID_INPUT_RESULT;
+  }
+
+  const contextResult = await resolvePreviewStaffContext();
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = contextResult.context;
+  const nowIso = new Date().toISOString();
+  const { workDate } = utcIsoToLocalDateTime(nowIso, timeZone);
+
+  const attendanceResult = await listMyAttendance(supabase, tenantId);
+  if (attendanceResult.status !== 'success') return mapWorkforceWriteResult(attendanceResult);
+  const existing = attendanceResult.data.find(
+    (entry) =>
+      entry.workDate === workDate &&
+      entry.employeeId === employeeId &&
+      entry.locationId === locationId,
+  );
+  if (!existing?.clockIn || existing.clockOut) return { status: 'not_found' };
+
+  return mapWorkforceWriteResult(
+    await submitWorkReportWrite(supabase, tenantId, {
+      employeeId,
+      locationId,
+      workDate,
+      clockOut: nowIso,
+      actualBreakMinutes: Number(rawBreakMinutes),
+    }),
+  );
 }
 
 /**

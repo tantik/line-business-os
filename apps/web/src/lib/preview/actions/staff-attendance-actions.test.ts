@@ -18,9 +18,30 @@ function fnBody(name: string, nextName?: string): string {
   return SOURCE.slice(start, end);
 }
 
-test('exports exactly previewSubmitWorkReport and previewSubmitCorrectionRequest', () => {
-  assert.ok(/export async function previewSubmitWorkReport\(/.test(SOURCE));
-  assert.ok(/export async function previewSubmitCorrectionRequest\(/.test(SOURCE));
+test('exports exactly the four staff attendance actions', () => {
+  assert.deepEqual(
+    [...SOURCE.matchAll(/export async function (preview[A-Za-z]+)\(/g)].map((match) => match[1]),
+    ['previewSubmitWorkReport', 'previewClockIn', 'previewClockOut', 'previewSubmitCorrectionRequest'],
+  );
+});
+
+test('clock actions derive date/time from the server instant and resolved location timezone', () => {
+  const clockInBody = fnBody('previewClockIn', 'previewClockOut');
+  const clockOutBody = fnBody('previewClockOut', 'previewSubmitCorrectionRequest');
+  for (const body of [clockInBody, clockOutBody]) {
+    assert.ok(/new Date\(\)\.toISOString\(\)/.test(body));
+    assert.ok(/utcIsoToLocalDateTime\(nowIso, timeZone\)/.test(body));
+    assert.ok(/listMyAttendance\(supabase, tenantId\)/.test(body));
+    assert.ok(!/listAttendanceForManager\(/.test(body));
+  }
+});
+
+test('previewClockOut accepts only the exact 0/30/60 break choices before resolving context', () => {
+  const body = fnBody('previewClockOut', 'previewSubmitCorrectionRequest');
+  assert.ok(/rawBreakMinutes !== '0'/.test(body));
+  assert.ok(/rawBreakMinutes !== '30'/.test(body));
+  assert.ok(/rawBreakMinutes !== '60'/.test(body));
+  assert.ok(body.indexOf('rawBreakMinutes') < body.indexOf('resolvePreviewStaffContext()'));
 });
 
 test('previewSubmitWorkReport and previewSubmitCorrectionRequest resolve the staff context, never the manager context', () => {
@@ -36,6 +57,14 @@ test('previewSubmitWorkReport derives clockIn/clockOut from the resolved context
   const body = fnBody('previewSubmitWorkReport', 'previewSubmitCorrectionRequest');
   assert.ok(/localDateTimeToUtcIso\(input\.workDate, input\.clockInLocal, timeZone\)/.test(body));
   assert.ok(/localDateTimeToUtcIso\(input\.workDate, input\.clockOutLocal, timeZone\)/.test(body));
+});
+
+test('previewSubmitWorkReport preserves clock events when the detail form omits clock fields', () => {
+  const body = fnBody('previewSubmitWorkReport', 'previewSubmitCorrectionRequest');
+  assert.ok(/input\.clockInLocal[\s\S]*: undefined/.test(body));
+  assert.ok(/input\.clockOutLocal[\s\S]*: undefined/.test(body));
+  assert.ok(!/input\.clockInLocal[\s\S]*: null/.test(body));
+  assert.ok(!/input\.clockOutLocal[\s\S]*: null/.test(body));
 });
 
 test('previewSubmitWorkReport and previewSubmitCorrectionRequest pass only server-resolved employeeId/locationId to the service-layer call, never a client-supplied one', () => {

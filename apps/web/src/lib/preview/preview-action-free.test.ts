@@ -13,8 +13,8 @@ import path from 'node:path';
  * preview-reachable file imported ZERO mutation Server Actions), then the
  * B2a-era version (manager route only). B2b adds the staff route's own exact
  * three-action allowlist: the check is now role-aware across three tiers -
- * the manager route/islands may import only the seven `previewXxx` manager
- * actions; the staff route/islands may import only the three `previewSubmitXxx`
+ * the manager route/islands may import only the exact manager action set;
+ * the staff route/islands may import only the exact staff action set;
  * staff actions; every other preview-reachable file (root/recipes routes, the
  * display components) must remain fully action-free, exactly as in B1.
  *
@@ -54,21 +54,23 @@ const ACTION_FREE_PREVIEW_FILES = [
   '../../app/%5Fclient-preview/mame-to-cha/recipes/[recipeId]/page.tsx',
 ];
 
-/** The four B2a manager interactive client islands - 'use client' components that build FormData/plain-object payloads for a preview Server Action, and the only files where a submitted authority field could ever appear. */
+/** Manager interactive client islands and the only files where a submitted authority field could ever appear. */
 const MANAGER_ISLAND_FILES = [
   'preview-staff-form.tsx',
   'preview-shift-editor.tsx',
   'preview-schedule-actions.tsx',
   'preview-correction-actions.tsx',
+  'preview-recipe-kind-manager.tsx',
 ];
 
-/** The manager route page plus its B2a interactive client islands - the only preview files permitted to import a preview Server Action from the manager allowlist, and only the exact seven B2a exports. The page itself is a server component that legitimately handles `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
+/** The manager route page plus its interactive client islands - only exact manager allowlist imports are permitted. */
 const MANAGER_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx', ...MANAGER_ISLAND_FILES];
 
-/** The three B2b staff interactive client islands - 'use client' components that build FormData payloads for a preview staff Server Action. */
+/** The B2b staff interactive client islands - 'use client' components that call preview staff Server Actions. */
 const STAFF_ISLAND_FILES = [
   'preview-shift-preference-form.tsx',
   'preview-work-report-form.tsx',
+  'preview-clock-panel.tsx',
   'preview-correction-request-form.tsx',
 ];
 
@@ -85,11 +87,14 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewRunAutoDistribution',
   'previewPublishSchedule',
   'previewDecideCorrectionRequest',
+  'previewSetRecipeContentKind',
 ];
 
 const B2B_STAFF_ACTION_EXPORTS = [
   'previewSubmitShiftPreference',
   'previewSubmitWorkReport',
+  'previewClockIn',
+  'previewClockOut',
   'previewSubmitCorrectionRequest',
 ];
 
@@ -187,7 +192,7 @@ for (const file of MANAGER_PREVIEW_FILES) {
       for (const name of names) {
         assert.ok(
           B2A_MANAGER_ACTION_EXPORTS.includes(name),
-          `${file} imports "${name}" from a preview/actions module, which is not one of the seven allowlisted B2a manager actions`,
+          `${file} imports "${name}" from a preview/actions module, which is not an allowlisted manager action`,
         );
       }
     }
@@ -233,14 +238,14 @@ for (const file of STAFF_PREVIEW_FILES) {
   });
 }
 
-test('the exact three B2b staff actions are each imported by at least one staff preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
+test('the exact B2b staff actions are each imported by at least one staff preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
   const combinedSource = STAFF_PREVIEW_FILES.map((file) => read(file)).join('\n');
   for (const exportName of B2B_STAFF_ACTION_EXPORTS) {
     assert.ok(combinedSource.includes(exportName), `expected some staff preview file to import ${exportName}`);
   }
 });
 
-test('the exact seven B2a manager actions are each imported by at least one manager preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
+test('the exact manager actions are each imported by at least one manager preview file (the allowlist above is not vacuously satisfied by importing none of them)', () => {
   const combinedSource = MANAGER_PREVIEW_FILES.map((file) => read(file)).join('\n');
   for (const exportName of B2A_MANAGER_ACTION_EXPORTS) {
     assert.ok(combinedSource.includes(exportName), `expected some manager preview file to import ${exportName}`);
@@ -277,14 +282,14 @@ test('manager-view.tsx and staff-view.tsx expose no callback prop shaped like a 
   }
 });
 
-test('the four B2a manager client islands are all "use client" components', () => {
+test('the manager client islands are all "use client" components', () => {
   for (const file of MANAGER_ISLAND_FILES) {
     const source = read(file);
     assert.ok(/^\s*['"]use client['"]/m.test(source), `${file} must be a 'use client' component`);
   }
 });
 
-test('the three B2b staff client islands are all "use client" components', () => {
+test('the B2b staff client islands are all "use client" components', () => {
   for (const file of STAFF_ISLAND_FILES) {
     const source = read(file);
     assert.ok(/^\s*['"]use client['"]/m.test(source), `${file} must be a 'use client' component`);

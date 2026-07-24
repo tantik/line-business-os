@@ -233,6 +233,7 @@ export function PreviewStaffView({
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock in / 出勤</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock out / 退勤</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Break / 休憩</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
@@ -247,6 +248,7 @@ export function PreviewStaffView({
                     <td style={tableCell}>{a.workDate}</td>
                     <td style={tableCell}>{clockIn}</td>
                     <td style={tableCell}>{clockOut}</td>
+                    <td style={tableCell}>{a.actualBreakMinutes} min</td>
                     <td style={tableCell}>{a.transportationCost ?? '-'}</td>
                     <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
                     <td style={tableCell}>{a.status}</td>

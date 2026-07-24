@@ -23,6 +23,7 @@ import { linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewShiftPreferenceForm } from '@/lib/preview/preview-shift-preference-form';
 import { PreviewWorkReportForm } from '@/lib/preview/preview-work-report-form';
+import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewCorrectionRequestForm } from '@/lib/preview/preview-correction-request-form';
 
 // Authenticated, session-dependent page: render per request, never prerender.
@@ -109,6 +110,16 @@ export default async function MameToChaPreviewStaffPage({
     assignmentsResult.status === 'success'
       ? assignmentsResult.data.filter((a) => a.published && a.employeeId === profile.staffId)
       : null;
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: location.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const todayAttendance =
+    attendanceResult.status === 'success'
+      ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
+      : null;
 
   return (
     <main style={pageStyle(1000)}>
@@ -139,12 +150,14 @@ export default async function MameToChaPreviewStaffPage({
         basePath={PREVIEW_BASE_PATH}
       />
 
+      <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
+
       <PreviewShiftPreferenceForm
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
         defaultWorkDate={periodStart}
       />
 
-      <PreviewWorkReportForm defaultWorkDate={periodStart} />
+      <PreviewWorkReportForm defaultWorkDate={todayIso} />
 
       <PreviewCorrectionRequestForm
         attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}

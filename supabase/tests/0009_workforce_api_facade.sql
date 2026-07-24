@@ -577,7 +577,55 @@ select is(
 );
 
 -- ============================================================================
--- Section 14: behavioral -- anon / no-JWT denial (fail-closed) on all 7 views
+-- Section 14: narrow recipe/instruction classification write (0033)
+-- ============================================================================
+
+select ok(
+  has_column_privilege('authenticated', 'api.workforce_recipes', 'content_kind', 'UPDATE'),
+  'authenticated receives UPDATE only for api.workforce_recipes.content_kind'
+);
+select ok(
+  not has_column_privilege('authenticated', 'api.workforce_recipes', 'title_ja', 'UPDATE'),
+  'authenticated cannot UPDATE api.workforce_recipes.title_ja'
+);
+select ok(
+  not has_column_privilege('authenticated', 'api.workforce_recipes', 'tenant_id', 'UPDATE'),
+  'authenticated cannot UPDATE api.workforce_recipes.tenant_id'
+);
+
+select is(
+  pg_temp.as_auth_count('9a900000-0000-0000-0000-000000000003',
+    $q$ with changed as (
+          update api.workforce_recipes set content_kind = 'instruction'
+           where recipe_id = '9a500000-0000-0000-0000-000000000002'
+          returning 1
+        ) select count(*)::int from changed $q$),
+  1,
+  'recipe.manage holder can classify a visible tenant recipe as instruction'
+);
+select is(
+  pg_temp.as_auth_count('9a900000-0000-0000-0000-000000000004',
+    $q$ with changed as (
+          update api.workforce_recipes set content_kind = 'instruction'
+           where recipe_id = '9a500000-0000-0000-0000-000000000001'
+          returning 1
+        ) select count(*)::int from changed $q$),
+  0,
+  'recipe.read-only holder cannot classify a recipe'
+);
+select is(
+  pg_temp.as_auth_count('9b900000-0000-0000-0000-000000000001',
+    $q$ with changed as (
+          update api.workforce_recipes set content_kind = 'instruction'
+           where recipe_id = '9a500000-0000-0000-0000-000000000002'
+          returning 1
+        ) select count(*)::int from changed $q$),
+  0,
+  'another tenant owner cannot classify tenant A recipe'
+);
+
+-- ============================================================================
+-- Section 15: behavioral -- anon / no-JWT denial (fail-closed) on all 7 views
 -- ============================================================================
 
 select is(

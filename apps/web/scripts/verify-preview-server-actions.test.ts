@@ -115,8 +115,8 @@ test('collectActionEntries fails closed (throws) when an entry is missing export
 // evaluateManifestEntries - allowlist / zero-action / forbidden-module / positive-control rules
 // ---------------------------------------------------------------------------
 
-test('manager preview route accepts exactly the seven allowlisted actions and nothing else', () => {
-  const sevenAllowed = [
+test('manager preview route accepts exactly the eight allowlisted actions and nothing else', () => {
+  const eightAllowed = [
     'previewUpsertEmployee',
     'previewSetEmployeeActive',
     'previewCreateShiftAssignment',
@@ -124,8 +124,9 @@ test('manager preview route accepts exactly the seven allowlisted actions and no
     'previewRunAutoDistribution',
     'previewPublishSchedule',
     'previewDecideCorrectionRequest',
+    'previewSetRecipeContentKind',
   ];
-  const entries = sevenAllowed.map((exportedName) =>
+  const entries = eightAllowed.map((exportedName) =>
     actionEntry({
       exportedName,
       filename: 'src/lib/preview/actions/staff-actions.ts',
@@ -138,7 +139,7 @@ test('manager preview route accepts exactly the seven allowlisted actions and no
   assert.deepEqual(result.unknownRouteViolations, []);
 });
 
-test('manager preview route rejects an eighth, non-allowlisted action name', () => {
+test('manager preview route rejects a ninth, non-allowlisted action name', () => {
   const entries = [
     actionEntry({
       exportedName: 'previewSomethingElse',
@@ -163,9 +164,15 @@ test('root/recipes preview routes reject any registered action (zero-allowed)', 
   }
 });
 
-test('staff preview route accepts exactly the three allowlisted B2b actions and nothing else', () => {
-  const threeAllowed = ['previewSubmitShiftPreference', 'previewSubmitWorkReport', 'previewSubmitCorrectionRequest'];
-  const entries = threeAllowed.map((exportedName) =>
+test('staff preview route accepts exactly the five allowlisted B2b actions and nothing else', () => {
+  const fiveAllowed = [
+    'previewSubmitShiftPreference',
+    'previewSubmitWorkReport',
+    'previewClockIn',
+    'previewClockOut',
+    'previewSubmitCorrectionRequest',
+  ];
+  const entries = fiveAllowed.map((exportedName) =>
     actionEntry({
       exportedName,
       filename: 'src/lib/preview/actions/schedule-actions.ts',
@@ -178,11 +185,11 @@ test('staff preview route accepts exactly the three allowlisted B2b actions and 
   assert.deepEqual(result.unknownRouteViolations, []);
 });
 
-test('staff preview route rejects the set when one of the three B2b actions is missing (each allowed action independently passes, but the exact triple is not itself enforced by evaluateManifestEntries - covered instead by the static import checks in preview-action-free.test.ts)', () => {
-  const twoOfThree = ['previewSubmitShiftPreference', 'previewSubmitWorkReport'].map((exportedName) =>
+test('staff preview route permits a partial allowed set (exact completeness is covered by static import checks)', () => {
+  const partialAllowed = ['previewSubmitShiftPreference', 'previewSubmitWorkReport'].map((exportedName) =>
     actionEntry({ exportedName, workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } }),
   );
-  const result = evaluateManifestEntries(twoOfThree);
+  const result = evaluateManifestEntries(partialAllowed);
   assert.deepEqual(result.allowlistViolations, []);
 });
 
