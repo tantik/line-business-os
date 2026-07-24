@@ -1,5 +1,5 @@
 import type { Recipe } from '@/lib/demo/cafe/types';
-import { card, demoColors, RECIPE_BADGE_ICON, recipeBadgeIconStyle } from '@/lib/demo/cafe/theme';
+import { card, demoColors, INSTRUCTION_ICON, RECIPE_BADGE_ICON, recipeBadgeIconStyle } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tRecipes, tRecipeCategory } from '@/lib/demo/cafe/i18n.recipes';
 import { DemoHelpButton } from './DemoHelpButton';
@@ -20,12 +20,21 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const memo = isEn ? recipe.memoEn ?? recipe.memo : recipe.memo;
   const memoTitle = isEn ? recipe.memoTitleEn ?? recipe.memoTitle : recipe.memoTitle;
   const isPopular = recipe.badges.includes('人気');
+  const isInstruction = recipe.contentKind === 'instruction';
 
   return (
     <section style={{ ...card, marginTop: 14 }}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{name}</h2>
+          {isInstruction ? (
+            <span
+              title={isEn ? 'Instruction' : 'インストラクション'}
+              style={recipeBadgeIconStyle(INSTRUCTION_ICON.background, INSTRUCTION_ICON.color)}
+            >
+              {INSTRUCTION_ICON.icon}
+            </span>
+          ) : null}
           {isPopular ? (
             <span
               title="人気"
@@ -40,7 +49,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
 
       <p style={{ margin: '14px 0 0', fontSize: 13.5, lineHeight: 1.7, color: demoColors.textPrimary }}>{description}</p>
 
-      <div style={{ marginTop: 16 }}>
+      {ingredients.length > 0 ? <div style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>{tRecipes(lang, 'ingredients')}</div>
           <DemoHelpButton content={HELP_RECIPES_INGREDIENTS} />
@@ -61,11 +70,13 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
             </span>
           ))}
         </div>
-      </div>
+      </div> : null}
 
       <div style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>{tRecipes(lang, 'steps')}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>
+            {isInstruction ? (isEn ? 'Check steps' : '確認手順') : tRecipes(lang, 'steps')}
+          </div>
           <DemoHelpButton content={HELP_RECIPES_STEPS} />
         </div>
         <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 8 }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ClockPanel } from '@/components/demo/cafe/ClockPanel';
+import { ClockOutModal, type DemoClockOutBreakMinutes } from '@/components/demo/cafe/ClockOutModal';
 import { WeekCarousel } from '@/components/demo/cafe/WeekCarousel';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { WorkReportModal } from '@/components/demo/cafe/WorkReportModal';
@@ -76,6 +77,8 @@ export function StaffView() {
   const [correctionDefaults, setCorrectionDefaults] = useState<CorrectionRequestPayload>(
     emptyCorrectionDefaults(todayIso ?? ''),
   );
+  const [clockOutModalOpen, setClockOutModalOpen] = useState(false);
+  const [pendingClockOutTime, setPendingClockOutTime] = useState('');
 
   useEffect(() => {
     if (!todayIso) return;
@@ -129,19 +132,25 @@ export function StaffView() {
   const clockState = todayReport?.clockState ?? 'idle';
   const clockInLabel = todayReport?.actualClockIn ?? null;
 
-  function handleClockToggle() {
+  function handleClockIn() {
     if (!todayIso) return;
-    const isWorking = clockState === 'clocked_in' || clockState === 'on_break';
-    if (!isWorking) {
-      recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: 'clocked_in', actualClockIn: formatClockLabel(new Date()) }, scope);
-    } else {
-      recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: 'clocked_out', actualClockOut: formatClockLabel(new Date()) }, scope);
-    }
+    recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: 'clocked_in', actualClockIn: formatClockLabel(new Date()) }, scope);
   }
 
-  function handleBreakToggle() {
+  function requestClockOut() {
+    setPendingClockOutTime(formatClockLabel(new Date()));
+    setClockOutModalOpen(true);
+  }
+
+  function confirmClockOut(breakMinutes: DemoClockOutBreakMinutes) {
     if (!todayIso) return;
-    recordClockEvent(CURRENT_STAFF_ID, todayIso, { clockState: clockState === 'on_break' ? 'clocked_in' : 'on_break' }, scope);
+    recordClockEvent(
+      CURRENT_STAFF_ID,
+      todayIso,
+      { clockState: 'clocked_out', actualClockOut: pendingClockOutTime, breakMinutes },
+      scope,
+    );
+    setClockOutModalOpen(false);
   }
 
   if (!todayIso) {
@@ -189,10 +198,17 @@ export function StaffView() {
         <ClockPanel
           state={clockState}
           clockInLabel={clockInLabel}
-          onClockToggle={handleClockToggle}
-          onBreakToggle={handleBreakToggle}
+          onClockIn={handleClockIn}
+          onClockOutRequest={requestClockOut}
         />
       </div>
+
+      <ClockOutModal
+        open={clockOutModalOpen}
+        clockOutTime={pendingClockOutTime}
+        onClose={() => setClockOutModalOpen(false)}
+        onConfirm={confirmClockOut}
+      />
 
       <section style={{ ...card, padding: '14px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '0 8px' }}>

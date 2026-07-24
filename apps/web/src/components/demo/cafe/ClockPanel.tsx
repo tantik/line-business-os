@@ -43,17 +43,16 @@ interface ClockPanelProps {
   state: ClockState;
   /** Clock-in time label to show alongside the status pill (e.g. "09:05〜"), or null before clocking in. */
   clockInLabel: string | null;
-  onClockToggle: () => void;
-  onBreakToggle: () => void;
+  onClockIn: () => void;
+  onClockOutRequest: () => void;
 }
 
 /** 出勤/退勤 + 休憩開始/休憩終了 as exactly 2 state-changing buttons. Controlled by the caller — see `StaffView` for the shared-store wiring. Demo only — no real time-tracking backend. */
-export function ClockPanel({ state, clockInLabel, onClockToggle, onBreakToggle }: ClockPanelProps) {
+export function ClockPanel({ state, clockInLabel, onClockIn, onClockOutRequest }: ClockPanelProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
 
   const isWorking = state === 'clocked_in' || state === 'on_break';
-  const onBreak = state === 'on_break';
   const clockedOut = state === 'clocked_out';
 
   return (
@@ -85,22 +84,14 @@ export function ClockPanel({ state, clockInLabel, onClockToggle, onBreakToggle }
         </span>
       </div>
 
-      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div style={{ marginTop: 14 }}>
         <button
           type="button"
           disabled={clockedOut}
-          onClick={onClockToggle}
+          onClick={isWorking ? onClockOutRequest : onClockIn}
           style={actionButtonStyle(isWorking, clockedOut)}
         >
           {isWorking ? t('clockOut') : t('clockIn')}
-        </button>
-        <button
-          type="button"
-          disabled={!isWorking}
-          onClick={onBreakToggle}
-          style={actionButtonStyle(onBreak, !isWorking)}
-        >
-          {onBreak ? t('breakEnd') : t('breakStart')}
         </button>
       </div>
     </section>

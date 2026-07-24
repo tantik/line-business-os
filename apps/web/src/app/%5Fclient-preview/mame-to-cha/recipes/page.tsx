@@ -92,6 +92,9 @@ export default async function MameToChaPreviewRecipesPage() {
                     >
                       {recipe.titleJa || recipe.titleEn || recipe.recipeId}
                     </Link>
+                    {recipe.contentKind === 'instruction' ? (
+                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>ⓘ インストラクション</span>
+                    ) : null}
                   </li>
                 ))}
               </ul>

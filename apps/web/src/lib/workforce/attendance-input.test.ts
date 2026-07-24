@@ -21,6 +21,7 @@ test('parseSubmitWorkReportInput accepts clock in/out local times and optional f
       workDate: '2026-08-03',
       clockInLocal: '09:00',
       clockOutLocal: '17:00',
+      actualBreakMinutes: '60',
       transportationCost: '300',
       dailyMessage: 'Busy morning',
     }),
@@ -29,13 +30,18 @@ test('parseSubmitWorkReportInput accepts clock in/out local times and optional f
     workDate: '2026-08-03',
     clockInLocal: '09:00',
     clockOutLocal: '17:00',
+    actualBreakMinutes: 60,
     transportationCost: 300,
     dailyMessage: 'Busy morning',
   });
 });
 test('parseSubmitWorkReportInput allows omitting clock times entirely', () => {
   const result = parseSubmitWorkReportInput(formData({ workDate: '2026-08-03' }));
-  assert.deepEqual(result, { workDate: '2026-08-03', clockInLocal: undefined, clockOutLocal: undefined, transportationCost: null, dailyMessage: null });
+  assert.deepEqual(result, { workDate: '2026-08-03', clockInLocal: undefined, clockOutLocal: undefined, actualBreakMinutes: null, transportationCost: null, dailyMessage: null });
+});
+test('parseSubmitWorkReportInput accepts bounded correction break minutes and rejects values over 480', () => {
+  assert.equal(parseSubmitWorkReportInput(formData({ workDate: '2026-08-03', actualBreakMinutes: '30' }))?.actualBreakMinutes, 30);
+  assert.equal(parseSubmitWorkReportInput(formData({ workDate: '2026-08-03', actualBreakMinutes: '481' })), null);
 });
 test('parseSubmitWorkReportInput rejects clockOutLocal <= clockInLocal', () => {
   assert.equal(

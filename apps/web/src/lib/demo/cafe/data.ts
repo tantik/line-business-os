@@ -346,6 +346,29 @@ export function computeManagerAlerts(
 
 export const RECIPES: Recipe[] = [
   {
+    id: 'instruction-espresso-machine',
+    contentKind: 'instruction',
+    name: 'エスプレッソマシン：抽出できない時',
+    category: '業務マニュアル',
+    badges: [],
+    icon: '🛠️',
+    description: '抽出が始まらない時に、スタッフが安全に確認できる基本手順です。',
+    ingredients: [],
+    steps: [
+      '電源ランプと給水タンクを確認する',
+      'ポルタフィルターを外し、抽出口に詰まりがないか確認する',
+      '改善しない場合は使用を中止し、店長へ連絡する',
+    ],
+    nameEn: 'Espresso machine: no extraction',
+    descriptionEn: 'Safe first checks for staff when the espresso machine does not begin extraction.',
+    ingredientsEn: [],
+    stepsEn: [
+      'Check the power indicator and water tank',
+      'Remove the portafilter and check the outlet for blockage',
+      'If the issue remains, stop using the machine and contact the manager',
+    ],
+  },
+  {
     id: 'r1',
     name: 'カフェラテ',
     category: 'ドリンク',

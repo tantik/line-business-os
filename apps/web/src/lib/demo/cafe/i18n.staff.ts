@@ -5,6 +5,13 @@ interface StaffDict {
   clockOut: string;
   breakStart: string;
   breakEnd: string;
+  clockOutBreakTitle: string;
+  clockOutBreakBody: string;
+  clockOutConfirmTitle: string;
+  clockOutConfirmTime: string;
+  clockOutConfirmBreak: string;
+  clockOutConfirmAction: string;
+  clockOutCancel: string;
   workStatus: string;
   statusIdle: string;
   statusClockedIn: string;
@@ -79,6 +86,13 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     clockOut: '退勤',
     breakStart: '休憩開始',
     breakEnd: '休憩終了',
+    clockOutBreakTitle: '休憩時間を選択',
+    clockOutBreakBody: '本日の休憩時間を選んでください。',
+    clockOutConfirmTitle: '退勤を確認',
+    clockOutConfirmTime: '退勤時刻',
+    clockOutConfirmBreak: '休憩時間',
+    clockOutConfirmAction: '退勤を確定',
+    clockOutCancel: 'キャンセル',
     workStatus: '勤務状況',
     statusIdle: '未出勤',
     statusClockedIn: '勤務中',
@@ -153,6 +167,13 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     clockOut: 'Clock out',
     breakStart: 'Start break',
     breakEnd: 'End break',
+    clockOutBreakTitle: 'Select break time',
+    clockOutBreakBody: 'Choose today’s total break time.',
+    clockOutConfirmTitle: 'Confirm clock-out',
+    clockOutConfirmTime: 'Clock-out time',
+    clockOutConfirmBreak: 'Break time',
+    clockOutConfirmAction: 'Confirm clock-out',
+    clockOutCancel: 'Cancel',
     workStatus: 'Work status',
     statusIdle: 'Not clocked in',
     statusClockedIn: 'Working',

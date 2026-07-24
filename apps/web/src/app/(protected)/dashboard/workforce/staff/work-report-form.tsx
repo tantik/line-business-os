@@ -11,7 +11,7 @@ export interface WorkReportFormProps {
   onSuccess: () => void;
 }
 
-/** Submit (create or edit) a work report for a date -- clock in/out, transportation cost, and a daily message are all optional. No break-minutes field in this slice (see `SubmitWorkReportInput`). */
+/** Submit (create or edit) a work report for a date, including the actual break selected at clock-out. */
 export function WorkReportForm({ defaultWorkDate, onSuccess }: WorkReportFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +48,14 @@ export function WorkReportForm({ defaultWorkDate, onSuccess }: WorkReportFormPro
           <input style={input} type="time" name="clockOutLocal" />
         </label>
       </div>
+      <label>
+        <span style={{ ...mutedText, fontSize: 13 }}>Actual break</span>
+        <select style={input} name="actualBreakMinutes" defaultValue="0">
+          <option value="0">0 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+      </label>
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>Transportation cost</span>
         <input style={input} type="number" name="transportationCost" min={0} />

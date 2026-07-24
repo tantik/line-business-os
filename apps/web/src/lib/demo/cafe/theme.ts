@@ -45,6 +45,8 @@ export const demoColors = {
   badgeNewBg: 'rgba(63, 122, 92, 0.12)',
   badgeSeasonal: '#8A5FA8',
   badgeSeasonalBg: 'rgba(138, 95, 168, 0.12)',
+  badgeInstruction: '#2F6690',
+  badgeInstructionBg: 'rgba(47, 102, 144, 0.14)',
 
   alertWarningBg: 'rgba(184, 134, 59, 0.10)',
   alertDangerBg: 'rgba(193, 80, 63, 0.10)',
@@ -164,6 +166,12 @@ export const RECIPE_BADGE_ICON: Record<'人気' | 'New' | '季節限定', { icon
   New: { icon: 'N', background: demoColors.badgeNewBg, color: demoColors.badgeNew },
   季節限定: { icon: 'S', background: demoColors.badgeSeasonalBg, color: demoColors.badgeSeasonal },
 };
+
+export const INSTRUCTION_ICON = {
+  icon: 'i',
+  background: demoColors.badgeInstructionBg,
+  color: demoColors.badgeInstruction,
+} as const;
 
 export function recipeBadgeIconStyle(background: string, color: string): CSSProperties {
   return {

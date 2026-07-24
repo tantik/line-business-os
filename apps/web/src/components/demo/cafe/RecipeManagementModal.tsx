@@ -11,9 +11,11 @@ interface RecipeManagementModalProps {
 }
 
 type RecipeStatus = 'published' | 'draft';
+type RecipeContentKind = 'recipe' | 'instruction';
 
 interface ManagedRecipe {
   id: string;
+  contentKind: RecipeContentKind;
   name: string;
   description: string;
   image: string;
@@ -29,6 +31,7 @@ interface ManagedRecipe {
 }
 
 interface RecipeForm {
+  contentKind: RecipeContentKind;
   name: string;
   description: string;
   image: string;
@@ -44,6 +47,7 @@ interface RecipeForm {
 type ViewMode = 'list' | 'add' | 'edit';
 
 const emptyForm: RecipeForm = {
+  contentKind: 'recipe',
   name: '',
   description: '',
   image: '',
@@ -60,6 +64,7 @@ const fieldLabel = { fontSize: 12, color: demoColors.textMuted };
 function seedRecipes(): ManagedRecipe[] {
   return RECIPES.map((recipe) => ({
     id: recipe.id,
+    contentKind: recipe.contentKind ?? 'recipe',
     name: recipe.name,
     description: recipe.description,
     image: recipe.image ?? '',
@@ -82,6 +87,7 @@ function linesToList(text: string): string[] {
 
 function recipeToForm(recipe: ManagedRecipe): RecipeForm {
   return {
+    contentKind: recipe.contentKind,
     name: recipe.name,
     description: recipe.description,
     image: recipe.image,
@@ -97,6 +103,7 @@ function recipeToForm(recipe: ManagedRecipe): RecipeForm {
 
 function formToRecipe(form: RecipeForm): Omit<ManagedRecipe, 'id'> {
   return {
+    contentKind: form.contentKind,
     name: form.name,
     description: form.description,
     image: form.image,
@@ -236,6 +243,9 @@ export function RecipeManagementModal({ open, onClose }: RecipeManagementModalPr
                     >
                       {recipe.name}
                     </span>
+                    {recipe.contentKind === 'instruction' ? (
+                      <span style={{ ...statusBadgeStyle('published'), flexShrink: 0 }}>インストラクション</span>
+                    ) : null}
                     <span style={{ ...statusBadgeStyle(recipe.status), flexShrink: 0 }}>
                       {recipe.status === 'published' ? '公開' : '下書き'}
                     </span>
@@ -267,6 +277,17 @@ export function RecipeManagementModal({ open, onClose }: RecipeManagementModalPr
         </>
       ) : (
         <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+          <div>
+            <label style={fieldLabel}>コンテンツ種別</label>
+            <select
+              value={form.contentKind}
+              onChange={(e) => setForm((f) => ({ ...f, contentKind: e.target.value as RecipeContentKind }))}
+              style={input}
+            >
+              <option value="recipe">レシピ</option>
+              <option value="instruction">インストラクション</option>
+            </select>
+          </div>
           <div>
             <label style={fieldLabel}>レシピ名</label>
             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} style={input} />

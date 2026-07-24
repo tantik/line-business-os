@@ -65,6 +65,8 @@ export interface WorkReport {
 
 export interface Recipe {
   id: string;
+  /** Operational instructions share the catalog but are always shown before recipes. */
+  contentKind?: 'recipe' | 'instruction';
   name: string;
   category: string;
   badges: Array<'人気' | 'New' | '季節限定'>;

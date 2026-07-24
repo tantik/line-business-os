@@ -15,6 +15,7 @@ const attendanceRow = {
   work_date: '2026-08-03',
   clock_in: '2026-08-03T00:00:00.000Z',
   clock_out: null,
+  actual_break_minutes: 0,
   status: 'present',
   transportation_cost: 300,
   daily_message: null,
@@ -26,7 +27,10 @@ test('listMyAttendance maps rows', async () => {
   const { client } = recordingClient({ data: [attendanceRow], error: null });
   const result = await listMyAttendance(client, TENANT_ID);
   assert.equal(result.status, 'success');
-  if (result.status === 'success') assert.equal(result.data[0]!.attendanceId, 'att-1');
+  if (result.status === 'success') {
+    assert.equal(result.data[0]!.attendanceId, 'att-1');
+    assert.equal(result.data[0]!.actualBreakMinutes, 0);
+  }
 });
 
 test('listAttendanceForManager maps rows', async () => {
@@ -44,10 +48,12 @@ test('submitWorkReport inserts when no existing row is found for (employee, work
     employeeId: EMPLOYEE_ID,
     locationId: 'loc-1',
     workDate: '2026-08-03',
+    actualBreakMinutes: 60,
     transportationCost: 300,
   });
   assert.equal(result.status, 'success');
   assert.ok(calls.some((c) => c.method === 'insert'));
+  assert.ok(calls.some((c) => c.method === 'insert' && (c.args[0] as Record<string, unknown>).actual_break_minutes === 60));
   assert.ok(!calls.some((c) => c.method === 'update'));
 });
 
