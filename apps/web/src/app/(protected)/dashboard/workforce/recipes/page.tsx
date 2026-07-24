@@ -105,6 +105,9 @@ export default async function WorkforceRecipesPage() {
                         >
                           {recipe.titleJa || recipe.titleEn || recipe.recipeId}
                         </Link>
+                        {recipe.contentKind === 'instruction' ? (
+                          <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>ⓘ Instruction</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

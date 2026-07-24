@@ -1,7 +1,7 @@
 'use client';
 
 import type { Recipe } from '@/lib/demo/cafe/types';
-import { demoColors, RECIPE_BADGE_ICON, recipeBadgeIconStyle } from '@/lib/demo/cafe/theme';
+import { demoColors, INSTRUCTION_ICON, RECIPE_BADGE_ICON, recipeBadgeIconStyle } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 
 interface RecipeCardProps {
@@ -13,6 +13,9 @@ interface RecipeCardProps {
 /** Popular (人気) shows as a single star on the card — New/Seasonal badges are intentionally not shown here (kept only on the detail view) to keep the card UI simple. */
 function cardBadgeIcons(recipe: Recipe): Array<{ key: string; icon: string; background: string; color: string }> {
   const icons: Array<{ key: string; icon: string; background: string; color: string }> = [];
+  if (recipe.contentKind === 'instruction') {
+    icons.push({ key: 'インストラクション', ...INSTRUCTION_ICON });
+  }
   if (recipe.badges.includes('人気')) {
     icons.push({ key: '人気', ...RECIPE_BADGE_ICON['人気'] });
   }

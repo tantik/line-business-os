@@ -12,6 +12,7 @@ interface ApiWorkforceRecipeRow {
   title_en: string | null;
   description_ja: string | null;
   description_en: string | null;
+  content_kind: 'recipe' | 'instruction';
   is_popular: boolean;
   status: string;
   created_at: string;
@@ -27,6 +28,7 @@ export interface WorkforceRecipe {
   titleEn: string | null;
   descriptionJa: string | null;
   descriptionEn: string | null;
+  contentKind: 'recipe' | 'instruction';
   isPopular: boolean;
   status: string;
   createdAt: string;
@@ -105,7 +107,7 @@ export interface WorkforceRecipeGroup {
 }
 
 const RECIPE_SELECT =
-  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, is_popular, status, created_at, updated_at';
+  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at';
 const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
@@ -128,6 +130,7 @@ function mapRecipeRow(row: ApiWorkforceRecipeRow): WorkforceRecipe {
     titleEn: row.title_en,
     descriptionJa: row.description_ja,
     descriptionEn: row.description_en,
+    contentKind: row.content_kind,
     isPopular: row.is_popular,
     status: row.status,
     createdAt: row.created_at,
@@ -136,7 +139,11 @@ function mapRecipeRow(row: ApiWorkforceRecipeRow): WorkforceRecipe {
 }
 
 function compareRecipes(a: WorkforceRecipe, b: WorkforceRecipe): number {
-  return a.titleJa.localeCompare(b.titleJa);
+  const kindPriority = Number(b.contentKind === 'instruction') - Number(a.contentKind === 'instruction');
+  if (kindPriority !== 0) return kindPriority;
+  const popularPriority = Number(b.isPopular) - Number(a.isPopular);
+  if (popularPriority !== 0) return popularPriority;
+  return a.titleJa.localeCompare(b.titleJa) || a.recipeId.localeCompare(b.recipeId);
 }
 
 /**
@@ -279,7 +286,9 @@ export async function getWorkforceRecipeDetail(
 }
 
 /**
- * Group recipes by category, in category `sortOrder`. Recipes with no
+ * Group recipes by category. A category containing an instruction is promoted
+ * so operational guidance is visible before ordinary recipe categories;
+ * remaining groups retain category `sortOrder`. Recipes with no
  * category or whose category is not in the (RLS-filtered) `categories` list
  * are collected into one trailing `{ category: null, ... }` bucket, included
  * only when non-empty. Categories with zero matching recipes are still
@@ -316,5 +325,13 @@ export function groupRecipesByCategory(
     groups.push({ category: null, recipes: uncategorized });
   }
 
-  return groups;
+  return groups
+    .map((group, index) => ({ group, index }))
+    .sort((a, b) => {
+      const instructionPriority =
+        Number(b.group.recipes.some((recipe) => recipe.contentKind === 'instruction')) -
+        Number(a.group.recipes.some((recipe) => recipe.contentKind === 'instruction'));
+      return instructionPriority || a.index - b.index;
+    })
+    .map(({ group }) => group);
 }

@@ -165,7 +165,7 @@ select is(
   array[
     'attendance_id', 'tenant_id', 'location_id', 'employee_id', 'shift_id',
     'work_date', 'clock_in', 'clock_out', 'status', 'transportation_cost',
-    'daily_message', 'created_at', 'updated_at'
+    'daily_message', 'created_at', 'updated_at', 'actual_break_minutes'
   ]::text[],
   'api.workforce_attendance exposes only approved columns'
 );
@@ -277,6 +277,12 @@ select is(
     $q$ select transportation_cost::int from api.workforce_attendance
           where attendance_id = 'ce700000-0000-0000-0000-000000000001' $q$),
   300, 'transportation_cost is exposed correctly via api.workforce_attendance'
+);
+select is(
+  pg_temp.as_auth_count('ce900000-0000-0000-0000-000000000001',
+    $q$ select actual_break_minutes::int from api.workforce_attendance
+          where attendance_id = 'ce700000-0000-0000-0000-000000000001' $q$),
+  0, 'actual_break_minutes is exposed with a safe zero default'
 );
 
 -- --- anon / no-JWT denial on all 4 views --------------------------------------

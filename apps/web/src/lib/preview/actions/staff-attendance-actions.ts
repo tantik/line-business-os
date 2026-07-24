@@ -44,6 +44,7 @@ export async function previewSubmitWorkReport(formData: FormData): Promise<Previ
     workDate: input.workDate,
     clockIn,
     clockOut,
+    actualBreakMinutes: input.actualBreakMinutes ?? undefined,
     transportationCost: input.transportationCost,
     dailyMessage: input.dailyMessage,
   });

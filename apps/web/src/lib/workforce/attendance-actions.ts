@@ -59,6 +59,7 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
     workDate: input.workDate,
     clockIn,
     clockOut,
+    actualBreakMinutes: input.actualBreakMinutes ?? undefined,
     transportationCost: input.transportationCost,
     dailyMessage: input.dailyMessage,
   });

@@ -12,7 +12,7 @@ import {
   PreviewNotFoundState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -60,13 +60,18 @@ export default async function MameToChaPreviewRecipeDetailPage({
         レシピ一覧に戻る
       </Link>
       <header style={{ marginTop: 12 }}>
-        <h1 style={{ margin: 0 }}>{recipe.titleJa || recipe.titleEn || recipe.recipeId}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ margin: 0 }}>{recipe.titleJa || recipe.titleEn || recipe.recipeId}</h1>
+          {recipe.contentKind === 'instruction' ? (
+            <span style={badgeStyle('neutral')}>ⓘ インストラクション</span>
+          ) : null}
+        </div>
         {recipe.descriptionJa || recipe.descriptionEn ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{recipe.descriptionJa || recipe.descriptionEn}</p>
         ) : null}
       </header>
 
-      <section style={card}>
+      {recipe.contentKind === 'recipe' ? <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>材料</h2>
         {ingredients.length === 0 ? (
           <EmptyStateText>材料の記載はありません。</EmptyStateText>
@@ -77,7 +82,7 @@ export default async function MameToChaPreviewRecipeDetailPage({
             ))}
           </ul>
         )}
-      </section>
+      </section> : null}
 
       <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>手順</h2>

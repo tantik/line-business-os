@@ -5,6 +5,8 @@ const DAILY_MESSAGE_MAX_LENGTH = 500;
 const CORRECTION_DETAILS_MAX_LENGTH = 500;
 /** Sanity cap on transportation cost (tenant's local currency minor-unit-free integer, e.g. yen) -- not a business limit. */
 const MAX_TRANSPORTATION_COST = 1_000_000;
+export const CLOCK_OUT_BREAK_MINUTE_OPTIONS = [0, 30, 60] as const;
+export type ClockOutBreakMinutes = (typeof CLOCK_OUT_BREAK_MINUTE_OPTIONS)[number];
 
 // ============================================================================
 // submitWorkReport (FormData)
@@ -15,6 +17,7 @@ export interface SubmitWorkReportFormInput {
   /** Local `HH:MM` on `workDate`; the action layer resolves the tenant/location time zone to convert to a UTC instant. `undefined` = not reported (leave/clear on the DB side is the action's call). */
   clockInLocal: string | undefined;
   clockOutLocal: string | undefined;
+  actualBreakMinutes: number | null;
   transportationCost: number | null;
   dailyMessage: string | null;
 }
@@ -49,7 +52,15 @@ export function parseSubmitWorkReportInput(formData: FormData): SubmitWorkReport
   const dailyMessage = parseOptionalTrimmedString(formData.get('dailyMessage'), DAILY_MESSAGE_MAX_LENGTH);
   if (!dailyMessage.ok) return null;
 
-  return { workDate, clockInLocal, clockOutLocal, transportationCost, dailyMessage: dailyMessage.value };
+  const rawActualBreakMinutes = formData.get('actualBreakMinutes');
+  let actualBreakMinutes: number | null = null;
+  if (typeof rawActualBreakMinutes === 'string' && rawActualBreakMinutes.trim().length > 0) {
+    const parsed = parseNonNegativeInt(rawActualBreakMinutes, 480);
+    if (parsed === null) return null;
+    actualBreakMinutes = parsed;
+  }
+
+  return { workDate, clockInLocal, clockOutLocal, actualBreakMinutes, transportationCost, dailyMessage: dailyMessage.value };
 }
 
 // ============================================================================

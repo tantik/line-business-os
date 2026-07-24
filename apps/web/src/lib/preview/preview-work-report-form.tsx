@@ -57,6 +57,14 @@ export function PreviewWorkReportForm({ defaultWorkDate }: PreviewWorkReportForm
           </label>
         </div>
         <label>
+          <span style={{ ...mutedText, fontSize: 13 }}>休憩時間</span>
+          <select style={inputStyle} name="actualBreakMinutes" defaultValue="0">
+            <option value="0">0分</option>
+            <option value="30">30分</option>
+            <option value="60">60分</option>
+          </select>
+        </label>
+        <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
           <input style={inputStyle} type="number" name="transportationCost" min={0} />
         </label>

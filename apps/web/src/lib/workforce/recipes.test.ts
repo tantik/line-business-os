@@ -83,6 +83,7 @@ const recipeRow = {
   title_en: 'Nikujaga',
   description_ja: null,
   description_en: null,
+  content_kind: 'recipe',
   is_popular: true,
   status: 'published',
   created_at: '2026-01-01T00:00:00Z',
@@ -98,6 +99,7 @@ const baseRecipe: WorkforceRecipe = {
   titleEn: 'Nikujaga',
   descriptionJa: null,
   descriptionEn: null,
+  contentKind: 'recipe',
   isPopular: true,
   status: 'published',
   createdAt: '2026-01-01T00:00:00Z',
@@ -105,7 +107,7 @@ const baseRecipe: WorkforceRecipe = {
 };
 
 const RECIPE_SELECT =
-  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, is_popular, status, created_at, updated_at';
+  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at';
 const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
@@ -144,6 +146,26 @@ test('listWorkforceRecipes returns recipes in deterministic sorted order', async
     assert.deepEqual(
       result.data.map((recipe) => recipe.recipeId),
       ['r-1', 'r-2', 'r-3'],
+    );
+  }
+});
+
+test('listWorkforceRecipes sorts instructions first, then popular recipes, then ordinary recipes', async () => {
+  const { client } = recordingClient({
+    data: [
+      { ...recipeRow, recipe_id: 'ordinary', title_ja: 'A', is_popular: false },
+      { ...recipeRow, recipe_id: 'popular', title_ja: 'Z', is_popular: true },
+      { ...recipeRow, recipe_id: 'instruction', title_ja: 'Z', content_kind: 'instruction', is_popular: false },
+    ],
+    error: null,
+  });
+  const result = await listWorkforceRecipes(client, TENANT_ID);
+
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.deepEqual(
+      result.data.map((recipe) => recipe.recipeId),
+      ['instruction', 'popular', 'ordinary'],
     );
   }
 });
@@ -370,6 +392,24 @@ test('groupRecipesByCategory includes empty categories', () => {
 
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0]?.recipes, []);
+});
+
+test('groupRecipesByCategory promotes a category containing an instruction', () => {
+  const categories = [
+    makeCategory({ categoryId: 'cat-1', sortOrder: 1 }),
+    makeCategory({ categoryId: 'cat-2', sortOrder: 2 }),
+  ];
+  const recipes = [
+    { ...baseRecipe, recipeId: 'r-1', recipeCategoryId: 'cat-1' },
+    { ...baseRecipe, recipeId: 'i-1', recipeCategoryId: 'cat-2', contentKind: 'instruction' as const },
+  ];
+
+  const groups = groupRecipesByCategory(categories, recipes);
+
+  assert.deepEqual(
+    groups.map((group) => group.category?.categoryId),
+    ['cat-2', 'cat-1'],
+  );
 });
 
 test('groupRecipesByCategory buckets uncategorized/unmatched recipes only when present', () => {

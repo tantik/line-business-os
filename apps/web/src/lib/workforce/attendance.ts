@@ -13,6 +13,7 @@ interface ApiWorkforceAttendanceRow {
   work_date: string;
   clock_in: string | null;
   clock_out: string | null;
+  actual_break_minutes: number;
   status: string;
   transportation_cost: number | null;
   daily_message: string | null;
@@ -29,6 +30,7 @@ export interface WorkforceAttendance {
   workDate: string;
   clockIn: string | null;
   clockOut: string | null;
+  actualBreakMinutes: number;
   status: string;
   transportationCost: number | null;
   dailyMessage: string | null;
@@ -37,7 +39,7 @@ export interface WorkforceAttendance {
 }
 
 const ATTENDANCE_SELECT =
-  'attendance_id, tenant_id, location_id, employee_id, shift_id, work_date, clock_in, clock_out, status, transportation_cost, daily_message, created_at, updated_at';
+  'attendance_id, tenant_id, location_id, employee_id, shift_id, work_date, clock_in, clock_out, actual_break_minutes, status, transportation_cost, daily_message, created_at, updated_at';
 
 function mapAttendanceRow(row: ApiWorkforceAttendanceRow): WorkforceAttendance {
   return {
@@ -49,6 +51,7 @@ function mapAttendanceRow(row: ApiWorkforceAttendanceRow): WorkforceAttendance {
     workDate: row.work_date,
     clockIn: row.clock_in,
     clockOut: row.clock_out,
+    actualBreakMinutes: row.actual_break_minutes,
     status: row.status,
     transportationCost: row.transportation_cost,
     dailyMessage: row.daily_message,
@@ -105,6 +108,7 @@ export interface SubmitWorkReportInput {
   workDate: string;
   clockIn?: string | null;
   clockOut?: string | null;
+  actualBreakMinutes?: number;
   status?: string;
   transportationCost?: number | null;
   dailyMessage?: string | null;
@@ -114,6 +118,7 @@ function buildAttendancePayload(input: SubmitWorkReportInput): Record<string, un
   const payload: Record<string, unknown> = { location_id: input.locationId };
   if (input.clockIn !== undefined) payload.clock_in = input.clockIn;
   if (input.clockOut !== undefined) payload.clock_out = input.clockOut;
+  if (input.actualBreakMinutes !== undefined) payload.actual_break_minutes = input.actualBreakMinutes;
   if (input.status !== undefined) payload.status = input.status;
   if (input.transportationCost !== undefined) payload.transportation_cost = input.transportationCost;
   if (input.dailyMessage !== undefined) payload.daily_message = input.dailyMessage;

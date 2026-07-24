@@ -15,9 +15,16 @@ import { demoColors, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import type { Recipe } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
 
-const SORTED_RECIPES: Recipe[] = [...RECIPES].sort(
-  (a, b) => Number(b.badges.includes('人気')) - Number(a.badges.includes('人気')),
-);
+const SORTED_RECIPES: Recipe[] = [...RECIPES].sort((a, b) => {
+  const instructionOrder =
+    Number(b.contentKind === 'instruction') - Number(a.contentKind === 'instruction');
+  if (instructionOrder !== 0) return instructionOrder;
+
+  const popularOrder = Number(b.badges.includes('人気')) - Number(a.badges.includes('人気'));
+  if (popularOrder !== 0) return popularOrder;
+
+  return a.name.localeCompare(b.name, 'ja');
+});
 
 /** Recipe/manual card browser. Shared by `/demo/cafe/recipes` and `/mame-to-cha/recipes`. */
 export function RecipeView() {
