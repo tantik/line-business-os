@@ -247,6 +247,52 @@ Approval for one gate never carries forward to another gate. Apply,
 auth-provision, repair, cleanup, migration, and production commands remain
 forbidden unless the corresponding gate is explicitly approved.
 
+### 6a. Version-controlled gate contract
+
+The pure safety contract lives in
+`packages/db/scripts/mame-to-cha-cloud-gates.ts`. It binds every operation to
+exactly one gate, the reviewed `line-business-os-dev` acceptance target, and
+the `mame-to-cha` tenant slug. Write gates require a distinct exact
+confirmation phrase; D7 is explicitly read-only.
+
+The companion command is intentionally plan-only and performs no I/O:
+
+```text
+pnpm --filter @line-os/db mame-to-cha-cloud-gate-plan -- \
+  --gate D1 \
+  --project-ref <reviewed-acceptance-project-ref> \
+  --target-environment acceptance
+```
+
+It rejects unknown flags, a different project ref, production, and combined
+gate values. It cannot execute a write. A future executor must reuse this
+contract, remain one-gate-per-process, and receive separate review and
+approval before its first Cloud connection.
+
+### 6b. D1 executor implementation boundary
+
+`packages/db/scripts/mame-to-cha-cloud-d1.ts` implements only the D1
+tenant/location transaction. Its CLI requires the exact D1 confirmation,
+accepts only the reviewed project ref and `acceptance` environment, then
+validates the secret database URL against that same project before creating a
+client. Direct and Supabase pooler URLs must target the `postgres` database
+over required TLS.
+
+Inside one transaction it takes a tenant-slug advisory lock, fails closed on
+duplicate or conflicting tenant/location state, writes changed-only audit
+rows, commits only when tenant or location was created, and rolls back an
+all-reuse run as a no-op. It has no module, Auth, membership, role, employee,
+PII, or fixture-content operation.
+
+Implementation and fake-client tests do not authorize execution. Before the
+first real invocation, the operator must separately:
+
+1. re-run the read-only D1 plan and target check;
+2. load the database URL from a local, untracked environment source;
+3. obtain explicit D1 Cloud DB write approval;
+4. run only D1 and immediately inspect its redacted result;
+5. stop before D2 regardless of the D1 outcome.
+
 ## 7. Stop conditions
 
 Stop and report before any write when:
