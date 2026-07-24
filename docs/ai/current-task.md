@@ -2,241 +2,88 @@
 
 ## 1. Current stage
 
-Phase 1H Stage 5B - AI handoff context docs.
+Phase 1N-4C Slice D preparation - Mame To Cha Cloud acceptance onboarding
+preflight.
 
-This is a documentation-only stage.
+The current task is documentation and read-only preparation only. It does
+not authorize a Cloud write.
 
-## 2. Current branch
+## 2. Current baseline
 
-Expected branch:
+- Base branch: `dev`
+- Slice C2 merged by PR #110.
+- Merge commit: `f24385a`
+- Local authenticated browser smoke completed for manager and staff.
+- Negative `staff -> manager` access check passed.
+- Full local quality gate passed: 30/30 tasks.
+- Supabase Cloud was not changed during Slice C2.
 
-```text
-feature/phase-1h-stage-5b-ai-handoff-context-docs
-```
+## 3. Current goal
 
-Base branch:
+Prepare Slice D so Cloud acceptance onboarding can later be executed as a
+sequence of narrow, independently approved operations.
 
-```text
-dev
-```
+Current deliverables:
 
-Latest known dev baseline before this stage:
+- update the Phase 1N-4C roadmap after Slice C2;
+- document the Slice D read-only preflight;
+- reconcile the architecture plan with the implemented typed fixture
+  manifest;
+- create an intake/classification register for the client's new requests.
 
-```text
-0975b9f Merge pull request #46 from tantik/feature/phase-1h-stage-5a-real-customer-onboarding-design
-```
+## 4. Source of truth
 
-## 3. Goal
-
-Create AI handoff documentation so ChatGPT, VS Code, Codex, future Cursor Agent, and other AI tools can understand the project faster and work with lower risk.
-
-Files expected in this stage:
-
-```text
-docs/ai/project-context.md
-docs/ai/current-task.md
-```
-
-## 4. Scope
-
-Documentation only.
-
-Allowed:
-
-- create docs/ai/project-context.md;
-- create docs/ai/current-task.md;
-- document current architecture, workflow, safety rules, and current stage.
-
-Forbidden:
-
-- code changes;
-- migrations;
-- Supabase config changes;
-- app changes;
-- Cloud access;
-- production/customer onboarding;
-- service_role usage;
-- secrets;
-- real customer data;
-- destructive SQL;
-- billing changes;
-- LINE broadcast;
-- autonomous agent workflow implementation.
-
-## 5. Current completed stages
-
-Completed onboarding stages:
-
-- Stage 4A: pure preflight aggregator;
-- Stage 4B: report-only preflight CLI;
-- Stage 4C: preflight before local dry-run;
-- Stage 4D: preflight before local commit;
-- Stage 4E: final operator report and cleanup UX;
-- Stage 5A: real customer onboarding design/review document.
-
-Current local dry-run chain:
+The tracked, non-secret acceptance manifest is the typed fixture:
 
 ```text
-preflight
--> local transaction
--> rollback
--> final operator report
+packages/db/scripts/mame-to-cha-fixture.ts
 ```
 
-Current local commit chain:
+Slice C1 deliberately selected this implementation instead of a YAML file.
+It contains no real email, password, token, UUID, or customer PII.
+
+The Slice D preparation plan is:
 
 ```text
-commit gates
--> preflight
--> backup artifact gate
--> local commit transaction
--> final operator report
+docs/phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md
 ```
 
-## 6. Current manual workflow
+## 5. Safety boundaries
 
-Cursor Agent is paused because the monthly usage limit has been reached.
+Allowed in the current preparation task:
 
-Current workflow:
+- repository and documentation inspection;
+- local Git inspection;
+- read-only Cloud/Vercel/DNS diagnostics after the target is identified;
+- recording decisions, risks, stop conditions, and approval requests.
 
-```text
-ChatGPT = CTO / Architect / Reviewer
-VS Code = editor
-PowerShell = execution
-GitHub PR = control point
-Cursor Agent = paused
-Codex in VS Code = rare emergency tool only
-```
+Not authorized:
 
-Codex should not be used for this stage.
+- Supabase Cloud database writes;
+- Auth user creation or password changes;
+- `supabase link`, `supabase db push`, migrations, reset, or cleanup;
+- Vercel environment or domain changes;
+- DNS changes;
+- production work;
+- real customer PII in Git;
+- secrets in commands, logs, documents, commits, or chat output.
 
-## 7. Validation commands for this stage
+## 6. Client additions
 
-Run from repository root:
+Client additions must not be mixed silently into onboarding. Each request is
+first recorded in the Slice D request register and classified under ADR 0010
+as configuration, branding/content, reusable Workforce capability, reusable
+module, or exceptional tenant-specific behavior.
 
-```text
-git status --short
-git --no-pager diff --check
-```
+No implementation starts until the business problem, reusable architecture,
+security impact, acceptance test, and now/later/reject recommendation are
+recorded.
 
-Expected result:
+## 7. Next expected action
 
-```text
-Only docs/ai/project-context.md and docs/ai/current-task.md should be new or modified.
-diff check should print no errors.
-```
+Collect the client's additions in plain business language, complete the
+request register, and run the Slice D read-only environment preflight.
 
-Hidden/bidi Unicode scan:
-
-```text
-Run the current project-approved hidden/bidi Unicode scan from the active ChatGPT review instructions.
-Expected result: NO_HIDDEN_OR_BIDI_UNICODE_FOUND.
-```
-
-Secret-like value scan:
-
-```text
-Run the current project-approved secret-like value scan from the active ChatGPT review instructions.
-Expected result: NO_SECRET_LIKE_VALUES_FOUND.
-Do not store suspicious token patterns directly in this handoff document.
-```
-
-Email/UUID scan:
-
-```text
-Run the current project-approved email/UUID scan from the active ChatGPT review instructions.
-Expected result: NO_EMAIL_OR_UUID_FOUND.
-```
-
-Non-ASCII scan:
-
-```text
-Run the current project-approved non-ASCII scan from the active ChatGPT review instructions.
-Expected result: NO_NON_ASCII_FOUND.
-```
-
-## 8. Commit commands
-
-After validation passes:
-
-```text
-git add docs/ai/project-context.md docs/ai/current-task.md
-git --no-pager diff --cached --stat
-git --no-pager diff --cached --check
-git commit -m "docs: add AI handoff context"
-git push -u origin feature/phase-1h-stage-5b-ai-handoff-context-docs
-```
-
-## 9. PR
-
-Open PR into:
-
-```text
-dev
-```
-
-PR title:
-
-```text
-docs: add AI handoff context
-```
-
-PR body:
-
-```text
-Summary:
-This PR adds AI handoff context documents for LINE Business OS.
-
-Scope:
-Documentation only.
-
-No code changes.
-No migrations.
-No Supabase config changes.
-No app changes.
-No Cloud access.
-No production/customer onboarding.
-No service_role usage.
-No secrets.
-
-Safety:
-The documents define project context, current workflow, current stage, AI tool usage boundaries, and validation expectations.
-
-Validation:
-- git diff check passed
-- hidden/bidi scan passed
-- secret-like value scan passed
-- email/UUID scan passed
-- non-ASCII scan passed
-```
-
-## 10. Merge policy
-
-Do not merge until reviewed.
-
-After merge:
-
-```text
-git checkout dev
-git pull origin dev
-git log -1 --oneline
-git status --short
-git branch -d feature/phase-1h-stage-5b-ai-handoff-context-docs
-git push origin --delete feature/phase-1h-stage-5b-ai-handoff-context-docs
-```
-
-## 11. Next expected stage
-
-Recommended next stage:
-
-```text
-Phase 1H Stage 5C - AI agent roles and review modes
-```
-
-Expected file:
-
-```text
-docs/ai/agent-roles.md
-```
-
-That stage should define role-based review modes, not a fully autonomous multi-agent system.
+After the preflight report is reviewed, request a separate explicit approval
+for the first Cloud write. Approval for one operation never authorizes the
+next operation.
