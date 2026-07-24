@@ -72,8 +72,8 @@ requests in one row.
 
 | ID | Business problem / requested outcome | Affected users and location | Classification | Reusable platform result | Security/RLS/PII impact | Acceptance test | Recommendation |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| MTC-ADD-01 | Owner input required | Owner input required | Pending | Pending | Pending | Pending | Pending |
-| MTC-ADD-02 | Owner input required | Owner input required | Pending | Pending | Pending | Pending | Pending |
+| MTC-ADD-01 | Replace live break start/end with a lunch-duration choice during clock-out, followed by confirmation | Staff at the active cafe location | Reusable capability inside Workforce | Shared safe clock-out flow with actual break duration | Self-scoped attendance write; actual break duration is operational employee data; audit required | 0/30/60 selection, cancel at either modal makes no write, confirm records clock-out and selected break once | **Now, before Slice D Cloud writes** |
+| MTC-ADD-02 | Add an instruction marker to the recipe/knowledge catalog and show instruction content first to staff | Staff and managers at enabled locations | Reusable capability inside Workforce | Shared operational knowledge library for recipes, rules, equipment procedures, and troubleshooting | Tenant/location-scoped managed content; manager write permission and audit required; avoid sensitive data in instruction bodies | Manager marks/unmarks instruction, staff sees icon and deterministic instruction-first ordering, tenant isolation holds | **Now, before Slice D Cloud writes** |
 
 Allowed classifications (ADR 0010):
 
@@ -87,6 +87,146 @@ Allowed classifications (ADR 0010):
 For each significant request, also record data model, permissions, module
 entitlement, UI, migration, cost, risks, rollout, and a now/later/reject
 decision before implementation.
+
+### MTC-ADD-01 analysis - safe clock-out with lunch duration
+
+**Business outcome:** make end-of-shift recording fast while preventing an
+accidental clock-out. The client does not want staff to run a live
+start-break/end-break timer.
+
+**Required interaction:**
+
+1. While clocked in, show one primary `退勤` action. Remove `休憩開始` and the
+   `on_break` interaction from this surface.
+2. First modal: large, one-tap choices `0分`, `30分`, and `60分`, plus
+   `キャンセル`. Choosing cancel closes the modal and changes nothing.
+3. After a duration is selected, show a compact confirmation modal containing
+   the current clock-out time and selected lunch duration.
+4. Confirmation performs one clock-out operation using the selected duration.
+   Cancel returns without writing and leaves the user clocked in.
+5. Disable repeated submission while the operation is pending. A retry must
+   not create a second attendance row or apply clock-out twice.
+
+**UX recommendation:** use a bottom sheet on narrow/mobile layouts, with three
+equal large duration buttons in the thumb zone. Keep `60分` visually neutral
+rather than preselected so the interface does not silently bias payroll data.
+The final destructive-looking action should say `退勤を確定`, while cancel is
+always visible and never represented only by a small close icon. Preserve
+JA/EN labels and keyboard/focus behavior.
+
+**Data model impact:** the demo `WorkReport` already has `breakMinutes`, but
+the DB-backed `workforce.attendance` record currently stores clock-in/out and
+work-report fields without an actual break-duration column. Planned
+`workforce.shifts.break_minutes` is not a substitute: planned break and actual
+break are different facts. Implement this as an additive, tenant-scoped
+attendance extension with a non-negative bounded actual-break value, exposed
+through the existing narrow `api.workforce_attendance` facade.
+
+**Security and audit:** derive tenant, location, employee, and work date from
+the authenticated/self-scoped context. The client may submit only the allowed
+duration value, never an employee or tenant identifier. Existing attendance
+RLS remains the boundary. The clock-out mutation must be audited and must not
+log unnecessary PII.
+
+**Implementation scope:** shared demo UI, DB-backed staff UI, input parser,
+staff action/service, attendance facade, additive migration, correction/report
+display, manager display, JA/EN copy, help/guide copy, and focused regression
+tests. The public demo and authenticated preview must not drift into two
+different clock-out contracts.
+
+**Acceptance tests:**
+
+- `0`, `30`, and `60` minutes are each recorded exactly as selected;
+- cancel on the selection modal writes nothing;
+- cancel on the confirmation modal writes nothing;
+- confirmed clock-out records the current time and selected duration once;
+- double-click/retry cannot duplicate or overwrite a completed clock-out;
+- staff cannot write another employee's attendance;
+- manager sees the actual lunch duration and net worked time;
+- correction flow can request a changed lunch duration;
+- mobile layout is usable with one hand in JA and EN.
+
+**Recommendation:** implement before Slice D Cloud writes. This request changes
+the acceptance data contract and requires an additive migration/facade update;
+onboarding first would force immediate Cloud schema change and a repeated
+acceptance smoke.
+
+### MTC-ADD-02 analysis - instruction-first operational knowledge
+
+**Business outcome:** let managers publish operational rules, equipment
+procedures, and troubleshooting guidance in the same quick-access catalog
+employees already use for recipes. Instruction content must be immediately
+recognizable and appear before ordinary recipe content.
+
+**Product classification:** reusable capability inside Workforce. This is not
+a Mame To Cha-only fork and does not justify a separate top-level module. It
+evolves the existing recipe catalog into a small operational knowledge
+library while preserving recipe-specific detail where applicable.
+
+**Recommended content model:** add an explicit managed content kind such as
+`recipe` or `instruction`; do not infer the kind from title/category text.
+Keep `is_popular` as an independent flag, because popularity and instruction
+are different facts. An instruction may also be popular, but its instruction
+priority wins in employee ordering.
+
+**Required interaction:**
+
+1. Manager create/edit UI exposes a clear `インストラクション` /
+   `Instruction` content-kind choice beside the existing popularity control.
+2. Employee cards and details show a distinct instruction icon with accessible
+   text/tooltip; do not rely on icon or color alone.
+3. Employee ordering is deterministic:
+   instructions first, then popular ordinary recipes, then remaining content;
+   use the existing stable title/id tie-break inside each group.
+4. Removing the instruction designation returns the item to normal ordering
+   without deleting its content.
+5. Instruction detail supports rules, ordered procedures, safety notes, and
+   troubleshooting text without requiring fake ingredients.
+
+**UX recommendation:** use a simple book/manual or information-document icon,
+visually distinct from the popularity star. Add a compact first group or
+label such as `重要なインストラクション` when one or more instructions
+exist, rather than relying only on reordered cards. Preserve the current fast
+horizontal scan and JA/EN behavior.
+
+**Data model impact:** the current DB recipe row has `is_popular` but no
+instruction/content-kind field, and the read layer sorts by Japanese title.
+Use an additive constrained content-kind column (default `recipe`) and expose
+it through `api.workforce_recipes`. Existing ingredient/step/note children can
+remain optional for instructions; the UI must render only applicable
+sections. If a future knowledge system needs attachments, revisions, search,
+or acknowledgement tracking, that is a later separately designed capability,
+not part of this request.
+
+**Security and audit:** reuse recipe read RLS and manager recipe-management
+permission boundaries. All writes remain tenant/location scoped, go through
+the existing app-facing write path, and are audited. Instruction bodies must
+not be treated as a place for secrets, credentials, personal data, or
+unreviewed safety-critical claims.
+
+**Implementation scope:** additive migration and facade update, shared recipe
+types/read ordering, manager create/edit control, employee card/detail icon
+and grouping, public demo parity, preview/DB-backed rendering, JA/EN copy,
+help/guide updates, fixture content, and tenant-isolation/order regression
+tests.
+
+**Acceptance tests:**
+
+- a manager can mark and unmark an item as instruction;
+- employees see an accessible instruction marker;
+- all instructions appear before popular and ordinary recipes;
+- popular ordinary recipes remain ahead of other ordinary recipes;
+- order is stable when multiple items share the same kind/popularity;
+- instructions render correctly without ingredients;
+- another tenant's instructions are never visible or editable;
+- unauthorized staff cannot change content kind;
+- unmarking does not delete or corrupt the item;
+- demo and authenticated preview use the same visible ordering contract.
+
+**Recommendation:** implement before Slice D Cloud writes. The request changes
+the catalog schema, facade projection, acceptance fixture, and employee
+ordering contract. Applying it first avoids onboarding Cloud data into a
+schema that would immediately need migration and repeated acceptance smoke.
 
 ## 6. Approval-gated execution map
 
