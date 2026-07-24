@@ -247,6 +247,22 @@ test('the exact seven B2a manager actions are each imported by at least one mana
   }
 });
 
+test('manager preview page authorizes manager access before any tenant-wide Workforce read', () => {
+  const source = read('../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx');
+  const authorizationIndex = source.indexOf('authorizePreviewManagerPage()');
+  assert.ok(authorizationIndex >= 0, 'manager page must require the manager permission before rendering');
+
+  for (const managerRead of [
+    'listWorkforceStaffForManager(',
+    'listEmployeeLineLinks(',
+    'listShiftRequestsForManager(',
+    'listAttendanceForManager(',
+  ]) {
+    const readIndex = source.indexOf(managerRead, authorizationIndex);
+    assert.ok(readIndex > authorizationIndex, `${managerRead} must run only after manager authorization`);
+  }
+});
+
 test('manager-view.tsx and staff-view.tsx are not client components (no client bundle => no possible action-reference registration)', () => {
   for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
     const source = read(file);

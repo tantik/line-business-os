@@ -31,8 +31,8 @@ class FakeRunner implements QueryRunner {
   }
 }
 
-function fullPassResponses(): Record<string, Response> {
-  const shiftDate = resolveIsoDate(NOW, MAME_TO_CHA_FIXTURE.acceptanceData.shiftAssignmentDayOffset);
+function fullPassResponses(anchorNow: Date = NOW): Record<string, Response> {
+  const shiftDate = resolveIsoDate(anchorNow, MAME_TO_CHA_FIXTURE.acceptanceData.shiftAssignmentDayOffset);
   const startsAtIso = localDateTimeToUtcIso(
     shiftDate,
     MAME_TO_CHA_FIXTURE.shiftTypes[0]!.startsAtLocal,
@@ -64,6 +64,24 @@ test('a fully-correct fixture reports ok with no failures', async () => {
     staffUserId: STAFF_USER_ID,
   }, NOW);
   assert.equal(report.ok, true, `expected ok, got failures: ${report.failures.join('; ')}`);
+});
+
+test('verification keeps acceptance dates pinned to tenant creation time on a later day', async () => {
+  const createdAt = new Date('2026-07-18T07:33:20.000Z');
+  const laterNow = new Date('2026-07-24T00:00:00.000Z');
+  const responses = fullPassResponses(createdAt);
+  responses[MAME_TO_CHA_VERIFY_SQL.tenantCount] = [{
+    count: 1,
+    id: TENANT_ID,
+    kind: 'client',
+    created_at: createdAt,
+  }];
+  const runner = new FakeRunner(responses);
+  const report = await runMameToChaVerifyChecks(runner, MAME_TO_CHA_FIXTURE, {
+    managerUserId: MANAGER_USER_ID,
+    staffUserId: STAFF_USER_ID,
+  }, laterNow);
+  assert.equal(report.ok, true, `expected stable verify, got: ${report.failures.join('; ')}`);
 });
 
 test('refuses to verify a wrong or protected tenant slug', async () => {

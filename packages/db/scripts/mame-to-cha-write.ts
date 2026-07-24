@@ -618,7 +618,7 @@ export async function runMameToChaApplyDryRunTransactionFromEnv(
       const plan = buildMameToChaFixturePlan(fixture, loaded.state);
       validateMameToChaWritePlanOrThrow(fixture, plan);
       return executeMameToChaFixtureWritePlan(runner, fixture, identity, plan, loaded.ids, {
-        now: options.now,
+        now: loaded.anchorNow,
         piiEnv: options.piiEnv,
       });
     },
@@ -672,7 +672,7 @@ export async function runMameToChaApplyCommitTransactionFromEnv(
       const plan = buildMameToChaFixturePlan(fixture, loaded.state);
       validateMameToChaWritePlanOrThrow(fixture, plan);
       const summary = await executeMameToChaFixtureWritePlan(runner, fixture, identity, plan, loaded.ids, {
-        now: options.now,
+        now: loaded.anchorNow,
         piiEnv: options.piiEnv,
         auditMode: 'changed-only',
       });

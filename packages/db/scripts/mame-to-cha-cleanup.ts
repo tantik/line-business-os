@@ -331,7 +331,7 @@ export async function runMameToChaCleanupDryRunFromEnv(
     databaseUrl,
     async (runner) => {
       const loaded = await loadExistingMameToChaFixtureState(runner, fixture, identity, now);
-      const summary = await executeMameToChaCleanupPlan(runner, fixture, identity, loaded, now);
+      const summary = await executeMameToChaCleanupPlan(runner, fixture, identity, loaded, loaded.anchorNow);
       return summary.operations;
     },
     deps,
@@ -380,7 +380,7 @@ export async function runMameToChaCleanupCommitFromEnv(
     databaseUrl,
     async (runner): Promise<CommitDecision<ExecutedMameToChaCleanupSummary>> => {
       const loaded = await loadExistingMameToChaFixtureState(runner, fixture, identity, now);
-      const result = await executeMameToChaCleanupPlan(runner, fixture, identity, loaded, now);
+      const result = await executeMameToChaCleanupPlan(runner, fixture, identity, loaded, loaded.anchorNow);
       return { outcome: result.removedCount > 0 ? 'commit' : 'rollback', value: result };
     },
     deps,

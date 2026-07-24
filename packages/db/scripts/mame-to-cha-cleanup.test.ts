@@ -36,6 +36,7 @@ class FakeRunner implements QueryRunner {
 
 function fullyPresentLoadedState(): LoadedMameToChaFixtureState {
   return {
+    anchorNow: NOW,
     ids: {
       tenantId: TENANT_ID,
       locationId: LOCATION_ID,
@@ -64,6 +65,7 @@ function fullyPresentLoadedState(): LoadedMameToChaFixtureState {
 
 function nothingPresentLoadedState(): LoadedMameToChaFixtureState {
   return {
+    anchorNow: NOW,
     ids: { tenantId: TENANT_ID, locationId: LOCATION_ID, roleIdByKey: {}, staffEmployeeId: null },
     state: {},
   };
@@ -141,7 +143,11 @@ test('nothing present -> zero deletes issued (idempotent no-op)', async () => {
 
 test('when the tenant does not exist at all, no query runs and the result is a clean no-op', async () => {
   const runner = new FakeRunner();
-  const loaded: LoadedMameToChaFixtureState = { ids: { tenantId: null, locationId: null, roleIdByKey: {}, staffEmployeeId: null }, state: {} };
+  const loaded: LoadedMameToChaFixtureState = {
+    anchorNow: NOW,
+    ids: { tenantId: null, locationId: null, roleIdByKey: {}, staffEmployeeId: null },
+    state: {},
+  };
   const summary = await executeMameToChaCleanupPlan(runner, MAME_TO_CHA_FIXTURE, IDENTITY, loaded, NOW);
   assert.equal(summary.removedCount, 0);
   assert.equal(runner.calls.length, 0);

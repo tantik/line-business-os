@@ -22,6 +22,20 @@ export function resolveIsoDate(now: Date, dayOffset: number): string {
 }
 
 /**
+ * Keep an applied fixture's relative dates stable across later CLI runs.
+ * The tenant is created in the same transaction as a from-scratch fixture,
+ * so its immutable `created_at` is the durable anchor once it exists.
+ */
+export function resolveFixtureAnchorNow(
+  tenantCreatedAt: Date | string | null | undefined,
+  fallbackNow: Date,
+): Date {
+  if (tenantCreatedAt === null || tenantCreatedAt === undefined) return fallbackNow;
+  const anchor = tenantCreatedAt instanceof Date ? tenantCreatedAt : new Date(tenantCreatedAt);
+  return Number.isNaN(anchor.getTime()) ? fallbackNow : anchor;
+}
+
+/**
  * Convert a local wall-clock date + time in `timeZone` to a UTC ISO instant.
  * Correct for both fixed-offset zones (e.g. Asia/Tokyo) and DST-observing
  * zones, via the standard "guess as UTC, measure the zone's actual offset at

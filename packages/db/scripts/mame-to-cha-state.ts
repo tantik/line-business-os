@@ -12,11 +12,11 @@
 import type { QueryRunner } from './onboard-db.js';
 import type { FixtureRoleKey, MameToChaFixtureManifest } from './mame-to-cha-fixture.js';
 import type { ExistingMameToChaFixtureState } from './mame-to-cha-plan.js';
-import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
+import { localDateTimeToUtcIso, resolveFixtureAnchorNow, resolveIsoDate } from './mame-to-cha-dates.js';
 
 /** SELECT-only query catalog for the fixture's read-only state. */
 export const MAME_TO_CHA_STATE_SQL = {
-  tenantBySlug: 'select id, name, kind from core.tenants where slug = $1',
+  tenantBySlug: 'select id, name, kind, created_at from core.tenants where slug = $1',
   locationsByTenant: 'select id, name, is_active from core.locations where tenant_id = $1',
   enabledModules: 'select module from core.tenant_modules where tenant_id = $1 and is_enabled = true',
   roleByKey: 'select id from core.roles where tenant_id is null and key = $1',
@@ -52,6 +52,7 @@ interface TenantRow {
   id: string;
   name: string;
   kind: string;
+  created_at?: Date | string;
 }
 interface LocationRow {
   id: string;
@@ -117,6 +118,8 @@ export function validateMameToChaIdentityOrThrow(identity: MameToChaFixtureIdent
 export interface LoadedMameToChaFixtureState {
   ids: ResolvedMameToChaFixtureIds;
   state: ExistingMameToChaFixtureState;
+  /** Stable date anchor for acceptance rows; tenant creation time once present. */
+  anchorNow: Date;
 }
 
 /**
@@ -140,6 +143,7 @@ export async function loadExistingMameToChaFixtureState(
   ]);
   const tenantRow = tenantResult.rows[0];
   const tenantId = tenantRow?.id ?? null;
+  const anchorNow = resolveFixtureAnchorNow(tenantRow?.created_at, now);
 
   let locationId: string | null = null;
   const enabledModules: string[] = [];
@@ -240,7 +244,7 @@ export async function loadExistingMameToChaFixtureState(
     recipeTitlesPresent = recipesResult.rows.map((r) => r.title_ja);
 
     if (staffEmployeeId !== null) {
-      const shiftDate = resolveIsoDate(now, fixture.acceptanceData.shiftAssignmentDayOffset);
+      const shiftDate = resolveIsoDate(anchorNow, fixture.acceptanceData.shiftAssignmentDayOffset);
       const shiftType = fixture.shiftTypes[0];
       if (shiftType !== undefined) {
         const startsAtIso = localDateTimeToUtcIso(shiftDate, shiftType.startsAtLocal, fixture.location.timezone);
@@ -252,7 +256,7 @@ export async function loadExistingMameToChaFixtureState(
         acceptanceDataPresent.shiftAssignment = shiftResult.rows[0]?.exists === true;
       }
 
-      const preferenceDate = resolveIsoDate(now, fixture.acceptanceData.shiftPreferenceDayOffset);
+      const preferenceDate = resolveIsoDate(anchorNow, fixture.acceptanceData.shiftPreferenceDayOffset);
       const preferenceResult = await runner.query<ExistsRow>(MAME_TO_CHA_STATE_SQL.shiftPreferenceExists, [
         tenantId,
         staffEmployeeId,
@@ -260,7 +264,7 @@ export async function loadExistingMameToChaFixtureState(
       ]);
       acceptanceDataPresent.shiftPreferenceRequest = preferenceResult.rows[0]?.exists === true;
 
-      const workReportDate = resolveIsoDate(now, fixture.acceptanceData.workReportDayOffset);
+      const workReportDate = resolveIsoDate(anchorNow, fixture.acceptanceData.workReportDayOffset);
       const workReportResult = await runner.query<ExistsRow>(MAME_TO_CHA_STATE_SQL.workReportExists, [
         tenantId,
         staffEmployeeId,
@@ -268,7 +272,7 @@ export async function loadExistingMameToChaFixtureState(
       ]);
       acceptanceDataPresent.workReport = workReportResult.rows[0]?.exists === true;
 
-      const correctionDate = resolveIsoDate(now, fixture.acceptanceData.correctionRequestDayOffset);
+      const correctionDate = resolveIsoDate(anchorNow, fixture.acceptanceData.correctionRequestDayOffset);
       const correctionResult = await runner.query<ExistsRow>(MAME_TO_CHA_STATE_SQL.correctionRequestExists, [
         tenantId,
         staffEmployeeId,
@@ -279,6 +283,7 @@ export async function loadExistingMameToChaFixtureState(
   }
 
   return {
+    anchorNow,
     ids: {
       tenantId,
       locationId,

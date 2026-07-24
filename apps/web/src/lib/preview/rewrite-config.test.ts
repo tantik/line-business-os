@@ -1,17 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPreviewRewrites, PREVIEW_DESTINATION_BASE, PREVIEW_HOST, PREVIEW_SOURCE_BASE } from './rewrite-config.mjs';
+import {
+  buildPreviewRewrites,
+  PREVIEW_DESTINATION_BASE,
+  PREVIEW_HOST,
+  PREVIEW_HOST_PATTERN,
+  PREVIEW_SOURCE_BASE,
+} from './rewrite-config.mjs';
 
 test('buildPreviewRewrites returns exactly two rules (root + wildcard)', () => {
   const rules = buildPreviewRewrites();
   assert.equal(rules.length, 2);
 });
 
-test('every rule matches only the preview.oruwa.jp host', () => {
+test('every rule matches only preview.oruwa.jp, with an optional local dev port', () => {
   for (const rule of buildPreviewRewrites()) {
-    assert.deepEqual(rule.has, [{ type: 'host', value: PREVIEW_HOST }]);
+    assert.deepEqual(rule.has, [{ type: 'host', value: PREVIEW_HOST_PATTERN }]);
   }
   assert.equal(PREVIEW_HOST, 'preview.oruwa.jp');
+  const hostPattern = new RegExp(PREVIEW_HOST_PATTERN);
+  assert.equal(hostPattern.test('preview.oruwa.jp'), true);
+  assert.equal(hostPattern.test('preview.oruwa.jp:3000'), true);
+  assert.equal(hostPattern.test('evil-preview.oruwa.jp'), false);
+  assert.equal(hostPattern.test('preview.oruwa.jp.evil.test'), false);
 });
 
 test('root rule rewrites the exact public path to the internal destination', () => {

@@ -1,12 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { localDateTimeToUtcIso, resolveIsoDate } from './mame-to-cha-dates.js';
+import { localDateTimeToUtcIso, resolveFixtureAnchorNow, resolveIsoDate } from './mame-to-cha-dates.js';
 
 test('resolveIsoDate offsets by UTC calendar days, including month rollover', () => {
   const now = new Date('2026-01-31T23:00:00Z');
   assert.equal(resolveIsoDate(now, 0), '2026-01-31');
   assert.equal(resolveIsoDate(now, 1), '2026-02-01');
   assert.equal(resolveIsoDate(now, -31), '2025-12-31');
+});
+
+test('resolveFixtureAnchorNow keeps an existing fixture pinned to tenant creation time', () => {
+  const fallback = new Date('2026-07-24T00:00:00Z');
+  assert.equal(
+    resolveFixtureAnchorNow('2026-07-18T07:33:20.000Z', fallback).toISOString(),
+    '2026-07-18T07:33:20.000Z',
+  );
+  assert.equal(resolveFixtureAnchorNow(undefined, fallback), fallback);
 });
 
 test('localDateTimeToUtcIso converts Asia/Tokyo (UTC+9, no DST) correctly', () => {
