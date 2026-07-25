@@ -87,11 +87,20 @@ export async function executeMameToChaCloudD4(
   const states: D4State[] = [];
   for (const role of fixture.roles) {
     const userId = role.role === 'manager' ? identity.managerUserId : identity.staffUserId;
-    const [mirror, membership, platformRole] = await Promise.all([
-      runner.query<{ id: string }>(MAME_TO_CHA_CLOUD_D4_SQL.selectUserMirror, [userId]),
-      runner.query<{ status: string }>(MAME_TO_CHA_CLOUD_D4_SQL.selectMembership, [tenantRow.id, userId]),
-      runner.query<{ id: string }>(MAME_TO_CHA_CLOUD_D4_SQL.selectRole, [role.role]),
-    ]);
+    // A single pg.Client backs the runner. Keep these reads sequential:
+    // concurrent query calls are deprecated in pg 8 and rejected by pg 9.
+    const mirror = await runner.query<{ id: string }>(
+      MAME_TO_CHA_CLOUD_D4_SQL.selectUserMirror,
+      [userId],
+    );
+    const membership = await runner.query<{ status: string }>(
+      MAME_TO_CHA_CLOUD_D4_SQL.selectMembership,
+      [tenantRow.id, userId],
+    );
+    const platformRole = await runner.query<{ id: string }>(
+      MAME_TO_CHA_CLOUD_D4_SQL.selectRole,
+      [role.role],
+    );
     if (mirror.rows.length > 1 || membership.rows.length > 1 || platformRole.rows.length !== 1) {
       throw new Error('D4 found ambiguous prerequisite rows; refusing to write.');
     }
