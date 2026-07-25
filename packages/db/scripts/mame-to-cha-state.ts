@@ -23,7 +23,7 @@ export const MAME_TO_CHA_STATE_SQL = {
   membershipStatus:
     'select status from core.tenant_memberships where tenant_id = $1 and user_id = $2',
   roleAssignmentExists:
-    'select 1 as exists from core.role_assignments where tenant_id = $1 and user_id = $2 and role_id = $3 and location_id is null',
+    'select exists (select 1 from core.role_assignments where tenant_id = $1 and user_id = $2 and role_id = $3 and location_id is null) as exists',
   employeeByUser:
     'select id, location_id, is_active from workforce.employees where tenant_id = $1 and user_id = $2',
   /**
@@ -31,18 +31,18 @@ export const MAME_TO_CHA_STATE_SQL = {
    * Deliberately NOT tenant-scoped: `core.users` mirrors an `auth.users`
    * identity platform-wide, independent of any tenant membership.
    */
-  userMirrorExists: 'select 1 as exists from core.users where id = $1',
+  userMirrorExists: 'select exists (select 1 from core.users where id = $1) as exists',
   shiftTypeCodes: 'select code from workforce.shift_types where tenant_id = $1 and location_id = $2',
   recipeCategoryLabels: 'select label_ja from workforce.recipe_categories where tenant_id = $1',
   recipeTitles: 'select title_ja from workforce.recipes where tenant_id = $1',
   shiftAssignmentExists:
-    'select 1 as exists from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3',
+    'select exists (select 1 from workforce.shifts where tenant_id = $1 and employee_id = $2 and starts_at = $3) as exists',
   shiftPreferenceExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'preference' and work_date = $3) as exists",
   workReportExists:
-    'select 1 as exists from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3',
+    'select exists (select 1 from workforce.attendance where tenant_id = $1 and employee_id = $2 and work_date = $3) as exists',
   correctionRequestExists:
-    "select 1 as exists from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3",
+    "select exists (select 1 from workforce.shift_requests where tenant_id = $1 and employee_id = $2 and kind = 'correction' and work_date = $3) as exists",
 } as const;
 
 interface IdRow {
