@@ -199,3 +199,18 @@ test('this file issues only SELECT statements (read-only)', async () => {
     assert.ok(/^select/i.test(text.trim()), `expected a read-only SELECT: ${text}`);
   }
 });
+
+test('existence queries return PostgreSQL booleans instead of integer sentinel rows', () => {
+  const existenceQueries = [
+    MAME_TO_CHA_STATE_SQL.userMirrorExists,
+    MAME_TO_CHA_STATE_SQL.roleAssignmentExists,
+    MAME_TO_CHA_STATE_SQL.shiftAssignmentExists,
+    MAME_TO_CHA_STATE_SQL.shiftPreferenceExists,
+    MAME_TO_CHA_STATE_SQL.workReportExists,
+    MAME_TO_CHA_STATE_SQL.correctionRequestExists,
+  ];
+  for (const text of existenceQueries) {
+    assert.match(text, /^select exists \(/i);
+    assert.doesNotMatch(text, /^select 1 as exists/i);
+  }
+});
