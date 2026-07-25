@@ -82,6 +82,7 @@ test('D3 creates only the two fixed synthetic identities and is idempotent', asy
   assert.equal(second.noop, true);
   assert.equal(second.managerUserId, first.managerUserId);
   assert.equal(second.staffUserId, first.staffUserId);
+  assert.equal(client.creates.length, 2, 'the no-op run must not call createUser again');
 });
 
 test('D3 validates gate, target, and all secrets before constructing a client', async () => {
