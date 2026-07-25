@@ -6,8 +6,8 @@
  */
 import {
   defaultBuildSupabaseAdminClient,
-  findOrCreateLocalAuthUser,
   type SupabaseAdminClient,
+  type SupabaseAdminUser,
 } from './mame-to-cha-auth.js';
 import {
   type MameToChaCloudGateInput,
@@ -70,6 +70,48 @@ export interface CloudD3Deps {
   buildClient?: (supabaseUrl: string, serviceRoleKey: string) => Promise<SupabaseAdminClient>;
 }
 
+const AUTH_LIST_PAGE_SIZE = 200;
+const AUTH_LIST_MAX_PAGES = 50;
+
+async function findCloudAuthUser(
+  client: SupabaseAdminClient,
+  email: string,
+): Promise<SupabaseAdminUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  for (let page = 1; page <= AUTH_LIST_MAX_PAGES; page += 1) {
+    const listed = await client.listUsers({ page, perPage: AUTH_LIST_PAGE_SIZE });
+    if (listed.error !== null) {
+      throw new Error('Cloud D3 could not list Auth users.');
+    }
+    const match = listed.users.find(
+      (user) => (user.email ?? '').trim().toLowerCase() === normalizedEmail,
+    );
+    if (match !== undefined) return match;
+    if (listed.users.length < AUTH_LIST_PAGE_SIZE) return null;
+  }
+  throw new Error('Cloud D3 Auth user lookup exceeded the safe page limit.');
+}
+
+async function findOrCreateCloudAuthUser(
+  client: SupabaseAdminClient,
+  email: string,
+  password: string,
+): Promise<{ userId: string; created: boolean }> {
+  const existing = await findCloudAuthUser(client, email);
+  if (existing !== null) return { userId: existing.id, created: false };
+
+  const created = await client.createUser({ email, password, emailConfirm: true });
+  if (created.error === null && created.user !== null) {
+    return { userId: created.user.id, created: true };
+  }
+
+  // A concurrent operator may have created the same fixed identity after our
+  // list. Resolve that race by reading once more before failing safely.
+  const raced = await findCloudAuthUser(client, email);
+  if (raced !== null) return { userId: raced.id, created: false };
+  throw new Error('Cloud D3 could not create the missing Auth user.');
+}
+
 export async function runMameToChaCloudD3FromEnv(
   gateInput: MameToChaCloudGateInput,
   env: MameToChaCloudD3Env = process.env,
@@ -89,12 +131,12 @@ export async function runMameToChaCloudD3FromEnv(
   let manager;
   let staff;
   try {
-    manager = await findOrCreateLocalAuthUser(
+    manager = await findOrCreateCloudAuthUser(
       client,
       MAME_TO_CHA_CLOUD_D3_IDENTITIES.managerEmail,
       managerPassword,
     );
-    staff = await findOrCreateLocalAuthUser(
+    staff = await findOrCreateCloudAuthUser(
       client,
       MAME_TO_CHA_CLOUD_D3_IDENTITIES.staffEmail,
       staffPassword,
