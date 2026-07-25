@@ -68,7 +68,14 @@ function actionFor(operations: readonly PlanOperation[], entity: PlanEntity, key
 }
 
 function validateD1ThroughD5Reuse(operations: readonly PlanOperation[]): void {
-  const prerequisites = operations.filter((operation) => !D6_ENTITIES.has(operation.entity));
+  const prerequisites = operations.filter(
+    (operation) =>
+      !D6_ENTITIES.has(operation.entity) &&
+      // D2 deliberately enables Workforce only. The generic local fixture
+      // plan force-includes a plan-only `core` module row, but no Cloud gate
+      // creates it and D6 must neither require nor write it.
+      !(operation.entity === 'tenant_module' && operation.key === 'core'),
+  );
   if (prerequisites.length === 0 || prerequisites.some((operation) => operation.action !== 'reuse')) {
     throw new Error('D6 requires exact completed D1-D5 prerequisites; refusing to write.');
   }

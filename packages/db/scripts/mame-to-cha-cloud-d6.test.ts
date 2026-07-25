@@ -61,7 +61,7 @@ class FakeRunner implements QueryRunner {
       return { rows: [{ id: LOCATION_ID, name: MAME_TO_CHA_FIXTURE.location.name, is_active: true }] as R[] };
     }
     if (text === MAME_TO_CHA_STATE_SQL.enabledModules) {
-      return { rows: [{ module: 'core' }, { module: 'workforce' }] as R[] };
+      return { rows: [{ module: 'workforce' }] as R[] };
     }
     if (text === MAME_TO_CHA_STATE_SQL.membershipStatus) {
       return { rows: (this.missingPrerequisite ? [] : [{ status: 'active' }]) as R[] };
@@ -137,6 +137,15 @@ test('D6 rejects an incomplete D1-D5 prerequisite before any write', async () =>
   runner.missingPrerequisite = true;
   await assert.rejects(() => executeMameToChaCloudD6(runner, IDENTITY, NOW), /D1-D5 prerequisites/);
   assert.equal(runner.calls.some((call) => call.text.startsWith('insert ')), false);
+});
+
+test('D6 accepts the real Cloud prerequisite shape without a separate core module row', async () => {
+  const runner = new FakeRunner();
+  await executeMameToChaCloudD6(runner, IDENTITY, NOW);
+  assert.equal(
+    runner.calls.some((call) => call.text === MAME_TO_CHA_WRITE_SQL.upsertTenantModule),
+    false,
+  );
 });
 
 test('D6 write surface excludes identity, PII, module, and schema changes', () => {
