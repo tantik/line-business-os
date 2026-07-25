@@ -58,3 +58,20 @@ test('D4 SQL surface excludes Auth, employee, PII, and business content', () => 
     assert.equal(sql.includes(forbidden), false);
   }
 });
+
+test('D4 preflight never runs concurrent queries on its single pg client', async () => {
+  const runner = new FakeRunner();
+  let active = 0;
+  const query = runner.query.bind(runner);
+  runner.query = async <R = unknown>(text: string, values?: readonly unknown[]) => {
+    active += 1;
+    assert.equal(active, 1, 'D4 issued concurrent queries through one runner');
+    await Promise.resolve();
+    try {
+      return await query<R>(text, values);
+    } finally {
+      active -= 1;
+    }
+  };
+  await executeMameToChaCloudD4(runner, IDENTITY);
+});
