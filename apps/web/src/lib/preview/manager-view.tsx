@@ -8,7 +8,6 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
-import { ManagerAlerts } from '@/components/demo/cafe/ManagerAlerts';
 import {
   badgeStyle,
   buttonDisabled,
@@ -21,7 +20,7 @@ import {
   tableCell,
   tableHeaderCell,
 } from '@/lib/demo/cafe/theme';
-import { toManagerViewAlerts, toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
+import { toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff, UNKNOWN_STAFF_NAME_JA } from './manager-view-model';
 
 /**
  * Phase 1N-4C Slice B1 - action-free, read-only manager display for the Mame
@@ -35,10 +34,13 @@ import { toManagerViewAlerts, toManagerViewAssignments, toManagerViewShiftTypes,
  * `.next/server/server-reference-manifest.json` inspection - see
  * `scripts/verify-preview-no-server-actions.mjs`).
  *
- * Cafe manager UI unification: renders the weekly schedule and 要確認 block
- * through the same `ShiftTable`/`ShiftLegend`/`ManagerAlerts` presentation
- * components as `/demo/cafe/manager` (via `manager-view-model.ts` adapters),
- * so the DB-backed preview and the polished demo share one visual system.
+ * Cafe manager UI unification: renders its section cards through the same
+ * `ShiftTable`/`ShiftLegend` presentation components as `/demo/cafe/manager`
+ * (via `manager-view-model.ts` adapters) and is itself rendered as a child of
+ * the shared `CafeManagerScreen` shell (see
+ * `_client-preview/mame-to-cha/manager/page.tsx`), which owns the page
+ * background/container/header/要確認 block - so the DB-backed preview and the
+ * polished demo share one visual system, not two glued-together shells.
  * `ShiftTable` is rendered here with no `onCellClick` - its own
  * `isCellClickable()` then always returns false, so the grid is read-only
  * with no behavior change, not a second reimplementation of "read-only mode".
@@ -91,16 +93,8 @@ export function PreviewManagerView({
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 10);
 
-  const managerAlerts = correctionRequests === null ? [] : toManagerViewAlerts(pendingCorrections, staffById);
-
   return (
     <>
-      {correctionRequests !== null && managerAlerts.length > 0 ? (
-        <div style={{ marginBottom: 4 }}>
-          <ManagerAlerts alerts={managerAlerts} />
-        </div>
-      ) : null}
-
       <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>スタッフ一覧</h2>
         {staff === null ? (
@@ -253,7 +247,7 @@ export function PreviewManagerView({
                 <tbody>
                   {inPeriod.map((r) => (
                     <tr key={r.requestId}>
-                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA}</td>
                       <td style={tableCell}>{r.workDate}</td>
                       <td style={tableCell}>
                         {r.isUnavailable ? '出勤不可' : shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
@@ -296,7 +290,7 @@ export function PreviewManagerView({
                     const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
                     return (
                       <tr key={r.requestId}>
-                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA}</td>
                         <td style={tableCell}>{r.workDate}</td>
                         <td style={tableCell}>{message}</td>
                         <td style={tableCell}>
@@ -328,7 +322,7 @@ export function PreviewManagerView({
                   <tbody>
                     {decidedCorrections.map((r) => (
                       <tr key={r.requestId}>
-                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
+                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA}</td>
                         <td style={tableCell}>{r.workDate}</td>
                         <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
                         <td style={tableCell}>
