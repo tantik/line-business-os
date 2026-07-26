@@ -163,13 +163,19 @@ Manager/staff Auth, fixture verification, authenticated browser smoke, and
 the negative `staff -> manager` authorization check passed. PR #110 merged
 the final C2 fixes into `dev`. No Supabase Cloud write was part of Slice C.
 
-## Phase 1N-4C Remaining Slices
+## Phase 1N-4C Cloud acceptance status
 
-- **D (next)** — Cloud acceptance onboarding and Auth user creation, with a
-  read-only preflight first and each write step separately approved. See
-  [`../phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md`](../phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md).
-- **E** — browser/RLS/module-entitlement smoke testing against the live
-  acceptance environment.
+- **D complete** — the Mame To Cha Cloud acceptance tenant, Auth users,
+  encrypted employee PII, Preview environment configuration, and deployment
+  are in place.
+- **E complete** — authenticated Manager/Staff/Recipes read smoke, negative
+  staff-to-manager authorization smoke, and reversible Preview write smoke
+  passed. The exact write-smoke baseline was restored after verification.
+- Cafe Package v2.0 is now a **Preview Release Candidate**. See
+  [`cafe-package-v2-acceptance-report.md`](cafe-package-v2-acceptance-report.md).
+
+## Phase 1N-4C Remaining Slice
+
 - **F** — production pre-staging and Phase 1N-4D planning.
 
 ## Phase 1N-4D and Beyond
@@ -183,11 +189,10 @@ the final C2 fixes into `dev`. No Supabase Cloud write was part of Slice C.
 
 ## Next Recommended Step
 
-**Phase 1N-4C Slice D preparation**: classify the client's additions, confirm
-the acceptance manifest and environment targets, and produce a read-only
-preflight report. Only after that report is reviewed may the first narrow
-Cloud operation be proposed for separate approval.
-Production sync remains gated behind a separate production readiness review.
+**Cafe Package v2.0 Product Review**: freeze the accepted Preview scope and
+produce a prioritized product/sales/onboarding roadmap. Production remains
+gated behind a separate production readiness review and separate
+infrastructure; acceptance data is never promoted directly.
 A plan-only design for a separate internal platform/operator admin area
 (`/platform` or `/ops`) is a later, independent step — see
 [`../phase-1j-1h-completion-report.md`](../phase-1j-1h-completion-report.md).
