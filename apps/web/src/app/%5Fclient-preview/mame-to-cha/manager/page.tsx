@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
+import { ManagerHeader } from '@/components/demo/cafe/ManagerHeader';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
@@ -21,7 +23,7 @@ import {
   PreviewNoAccessState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { linkAccent, pageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
 import { PreviewStaffForm } from '@/lib/preview/preview-staff-form';
 import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
@@ -111,57 +113,60 @@ export default async function MameToChaPreviewManagerPage({
   ]);
 
   return (
-    <main style={pageStyle(1180)}>
-      <header>
-        <h1 style={{ margin: 0 }}>Mame To Cha プレビュー - マネージャー</h1>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {activeTenant.tenantName} - {location.locationName}
-        </p>
-        <Link
-          href={PREVIEW_BASE_PATH}
-          style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-        >
-          プレビュートップへ戻る
-        </Link>
-      </header>
+    <BrandProvider brand={MAME_TO_CHA_BRAND}>
+      <main style={pageStyle(1180)}>
+        <ManagerHeader
+          subtitle={`${activeTenant.tenantName} - ${location.locationName}`}
+          rightSlot={
+            <Link
+              href={PREVIEW_BASE_PATH}
+              style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}
+            >
+              プレビュートップへ戻る
+            </Link>
+          }
+        />
 
-      <PreviewManagerView
-        timeZone={location.timezone}
-        periodStart={periodStart}
-        periodEnd={periodEnd}
-        weekOffset={weekOffset}
-        staff={staffResult.status === 'success' ? staffResult.data : null}
-        lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
-        shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        requests={requestsResult.status === 'success' ? requestsResult.data : null}
-        assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
-        correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
-        attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
-        basePath={PREVIEW_BASE_PATH}
-      />
+        <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
+          <PreviewManagerView
+            timeZone={location.timezone}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            weekOffset={weekOffset}
+            staff={staffResult.status === 'success' ? staffResult.data : null}
+            lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
+            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
+            requests={requestsResult.status === 'success' ? requestsResult.data : null}
+            assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
+            correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
+            attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
+            basePath={PREVIEW_BASE_PATH}
+          />
 
-      <PreviewStaffForm staff={staffResult.status === 'success' ? staffResult.data : null} />
+          <PreviewStaffForm staff={staffResult.status === 'success' ? staffResult.data : null} />
 
-      <PreviewShiftEditor
-        timeZone={location.timezone}
-        staff={staffResult.status === 'success' ? staffResult.data : null}
-        shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
-        defaultWorkDate={periodStart}
-      />
+          <PreviewShiftEditor
+            timeZone={location.timezone}
+            staff={staffResult.status === 'success' ? staffResult.data : null}
+            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
+            assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
+            defaultWorkDate={periodStart}
+          />
 
-      <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
+          <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
 
-      <PreviewCorrectionActions
-        pendingRequests={
-          correctionRequestsResult.status === 'success'
-            ? correctionRequestsResult.data.filter((r) => r.status === 'pending')
-            : []
-        }
-        staff={staffResult.status === 'success' ? staffResult.data : null}
-      />
+          <PreviewCorrectionActions
+            pendingRequests={
+              correctionRequestsResult.status === 'success'
+                ? correctionRequestsResult.data.filter((r) => r.status === 'pending')
+                : []
+            }
+            staff={staffResult.status === 'success' ? staffResult.data : null}
+          />
 
-      <PreviewRecipeKindManager recipes={recipesResult.status === 'success' ? recipesResult.data : null} />
-    </main>
+          <PreviewRecipeKindManager recipes={recipesResult.status === 'success' ? recipesResult.data : null} />
+        </div>
+      </main>
+    </BrandProvider>
   );
 }

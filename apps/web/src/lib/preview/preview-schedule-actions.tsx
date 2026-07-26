@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { previewPublishSchedule, previewRunAutoDistribution } from './actions/schedule-actions';
 import { buildStaffingRequirements, hasPositiveHeadcount, type StaffingRequirementRowInput } from './auto-distribution-requirements';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for

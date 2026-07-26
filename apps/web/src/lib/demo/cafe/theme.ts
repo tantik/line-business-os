@@ -82,6 +82,8 @@ export const card: CSSProperties = {
 
 export const mutedText: CSSProperties = { color: demoColors.textMuted };
 
+export const linkAccent: CSSProperties = { color: demoColors.accent, textDecoration: 'none' };
+
 export const buttonPrimary: CSSProperties = {
   padding: '12px 18px',
   background: demoColors.accent,
@@ -138,6 +140,28 @@ export const tableCell: CSSProperties = {
   borderBottom: `1px solid ${demoColors.border}`,
   padding: '10px',
 };
+
+export type BadgeTone = 'active' | 'inactive' | 'neutral';
+
+/** Same tone vocabulary/shape as `@/lib/ui/theme`'s `badgeStyle` (active/inactive/neutral), rendered in the light cafe palette — a drop-in swap for any caller that already uses the dark app theme's badge helper. */
+export function badgeStyle(tone: BadgeTone): CSSProperties {
+  const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
+    active: { background: demoColors.successMuted, color: demoColors.success, border: demoColors.success },
+    inactive: { background: demoColors.surfaceElevated, color: demoColors.textMuted, border: demoColors.border },
+    neutral: { background: demoColors.accentMuted, color: demoColors.accent, border: demoColors.accent },
+  };
+  const t = tones[tone];
+  return {
+    display: 'inline-block',
+    padding: '2px 8px',
+    border: `1px solid ${t.border}`,
+    borderRadius: 999,
+    background: t.background,
+    color: t.color,
+    fontSize: 12,
+    lineHeight: 1.5,
+  };
+}
 
 export const shiftChipStyle = (background: string, color: string, compact = false): CSSProperties => ({
   display: 'inline-flex',

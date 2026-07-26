@@ -8,7 +8,8 @@ import type { Lang } from '@/lib/demo/cafe/i18n';
 interface ShiftTableProps {
   dates: string[];
   todayIso: string;
-  staffList: StaffMember[];
+  /** Only `id`/`name`/`role` are actually read — narrowed (rather than the full `StaffMember`) so a non-demo caller with real staff records (no wage/transport/preference fields) can pass its own staff shape directly. */
+  staffList: Pick<StaffMember, 'id' | 'name' | 'role'>[];
   assignments: ShiftAssignment[];
   shiftTypes: ShiftTypeDef[];
   mode: 'staff' | 'manager';

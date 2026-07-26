@@ -11,7 +11,7 @@ import { LaborCostSummary } from '@/components/demo/cafe/LaborCostSummary';
 import { SettingsPanel } from '@/components/demo/cafe/SettingsPanel';
 import { StaffManagementModal } from '@/components/demo/cafe/StaffManagementModal';
 import { RecipeManagementModal } from '@/components/demo/cafe/RecipeManagementModal';
-import { BrandMark } from '@/components/demo/cafe/BrandMark';
+import { ManagerHeader } from '@/components/demo/cafe/ManagerHeader';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { DemoResetButton } from '@/components/demo/cafe/DemoResetButton';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
@@ -130,24 +130,20 @@ export function ManagerView() {
 
   return (
     <main style={pageStyle(1180)}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <BrandMark size={52} />
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24 }}>店長ダッシュボード</h1>
-            <p style={{ margin: '2px 0 0', ...mutedText }}>{brand.nameJa}（デモ環境）</p>
-          </div>
-        </div>
-        <DemoResetButton
-          scope={scope}
-          label="デモをリセット"
-          doneLabel="リセットしました"
-          confirmTitle="デモをリセットしますか？"
-          confirmBody="このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。"
-          confirmLabel="リセットする"
-          cancelLabel="キャンセル"
-        />
-      </header>
+      <ManagerHeader
+        subtitle={`${brand.nameJa}（デモ環境）`}
+        rightSlot={
+          <DemoResetButton
+            scope={scope}
+            label="デモをリセット"
+            doneLabel="リセットしました"
+            confirmTitle="デモをリセットしますか？"
+            confirmBody="このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。"
+            confirmLabel="リセットする"
+            cancelLabel="キャンセル"
+          />
+        }
+      />
 
       <div style={{ marginTop: 20 }}>
         <ManagerAlerts alerts={alerts} />
