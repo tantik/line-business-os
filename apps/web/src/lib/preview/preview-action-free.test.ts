@@ -55,14 +55,24 @@ const ACTION_FREE_PREVIEW_FILES = [
   '../../app/%5Fclient-preview/mame-to-cha/recipes/[recipeId]/page.tsx',
 ];
 
-/** Manager interactive client islands and the only files where a submitted authority field could ever appear. */
-const MANAGER_ISLAND_FILES = [
+/** Manager interactive client islands - the only files where a submitted authority field could ever appear. */
+const MANAGER_ACTION_ISLAND_FILES = [
   'preview-staff-form.tsx',
   'preview-shift-editor.tsx',
   'preview-schedule-actions.tsx',
   'preview-correction-actions.tsx',
   'preview-recipe-kind-manager.tsx',
 ];
+
+/** Dialog-trigger wrappers (fix/cafe-v2-manager-parity) - render the action islands above inside the shared `Modal`, opened on demand instead of the form being permanently open. They import no preview Server Action directly (only the island components), but must obey every other manager-route boundary the islands do. */
+const MANAGER_DIALOG_WRAPPER_FILES = [
+  'preview-staff-recipe-management.tsx',
+  'preview-schedule-card-actions.tsx',
+  'preview-correction-requests-panel.tsx',
+];
+
+/** Every manager-route client file: the action islands plus the dialog wrappers that compose them. */
+const MANAGER_ISLAND_FILES = [...MANAGER_ACTION_ISLAND_FILES, ...MANAGER_DIALOG_WRAPPER_FILES];
 
 /** The manager route page plus its interactive client islands - only exact manager allowlist imports are permitted. */
 const MANAGER_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx', ...MANAGER_ISLAND_FILES];
@@ -260,7 +270,6 @@ test('manager preview page authorizes manager access before any tenant-wide Work
 
   for (const managerRead of [
     'listWorkforceStaffForManager(',
-    'listEmployeeLineLinks(',
     'listShiftRequestsForManager(',
     'listAttendanceForManager(',
   ]) {

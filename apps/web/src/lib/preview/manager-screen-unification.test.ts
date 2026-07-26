@@ -84,3 +84,55 @@ test('the preview manager page never hardcodes the internal _client-preview rout
   const source = read(PREVIEW_MANAGER_PAGE);
   assert.ok(!/href=\{?["'`][^"'`]*client-preview/.test(source), 'must not hardcode the internal route segment into an href');
 });
+
+/**
+ * fix/cafe-v2-manager-parity: the preview manager route must match the
+ * demo's product-like composition - staff/recipe/shift/correction CRUD opens
+ * in a dialog on demand, never as a permanently-open form taking up the main
+ * dashboard. These guards prove the mutation-form islands are reachable only
+ * through the dialog wrapper components, never rendered directly by the
+ * action-free display component or the page itself.
+ */
+const MUTATION_ISLAND_COMPONENT_NAMES = [
+  'PreviewStaffForm',
+  'PreviewShiftEditor',
+  'PreviewScheduleActions',
+  'PreviewCorrectionActions',
+  'PreviewRecipeKindManager',
+];
+
+const DIALOG_WRAPPER_FILES = [
+  'preview-staff-recipe-management.tsx',
+  'preview-schedule-card-actions.tsx',
+  'preview-correction-requests-panel.tsx',
+];
+
+test('the action-free preview manager display component never renders a mutation-form island directly (they only ever open inside a dialog wrapper)', () => {
+  const source = read(PREVIEW_MANAGER_VIEW);
+  for (const name of MUTATION_ISLAND_COMPONENT_NAMES) {
+    assert.ok(!source.includes(name), `${PREVIEW_MANAGER_VIEW} must not reference ${name} - mutation forms must open via a dialog wrapper, never render inline`);
+  }
+});
+
+test('the preview manager page renders mutation-form islands only through their dialog wrapper components, never directly', () => {
+  const source = read(PREVIEW_MANAGER_PAGE);
+  for (const name of MUTATION_ISLAND_COMPONENT_NAMES) {
+    assert.ok(!source.includes(name), `${PREVIEW_MANAGER_PAGE} must not reference ${name} directly - render it through its dialog wrapper component instead`);
+  }
+});
+
+test('every manager dialog wrapper renders the shared Modal shell and imports no demo store/mock data', () => {
+  for (const file of DIALOG_WRAPPER_FILES) {
+    const source = read(file);
+    assert.match(source, /@\/components\/demo\/cafe\/Modal/, `${file} must render the shared Modal shell`);
+    assert.ok(!/['"]@\/lib\/demo\/cafe\/store['"]/.test(source), `${file} must not import the demo store`);
+    assert.ok(!/['"]@\/lib\/demo\/cafe\/data['"]/.test(source), `${file} must not import demo mock data`);
+  }
+});
+
+test('the manager dialog wrappers that render a staff/requester name never fall back to the raw employeeId', () => {
+  for (const file of ['preview-schedule-card-actions.tsx', 'preview-correction-requests-panel.tsx']) {
+    const source = read(file);
+    assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${file} must not fall back to the raw employeeId in any rendered label`);
+  }
+});
