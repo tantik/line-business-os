@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
-import { ManagerHeader } from '@/components/demo/cafe/ManagerHeader';
+import { CafeManagerScreen } from '@/components/demo/cafe/CafeManagerScreen';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
@@ -23,7 +23,8 @@ import {
   PreviewNoAccessState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { linkAccent, pageStyle } from '@/lib/demo/cafe/theme';
+import { linkAccent } from '@/lib/demo/cafe/theme';
+import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
 import { PreviewStaffForm } from '@/lib/preview/preview-staff-form';
 import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
@@ -65,17 +66,17 @@ export default async function MameToChaPreviewManagerPage({
   // Page-level authorization must run before any tenant-wide manager loader
   // or manager action form is rendered. Server Actions repeat their own
   // permission checks, but that does not protect the page's read surface.
-  if (!(await authorizePreviewManagerPage())) return <PreviewNoAccessState />;
+  if (!(await authorizePreviewManagerPage())) return <PreviewNoAccessState variant="light" />;
 
   const tenantResult = await resolvePreviewTenantContext();
-  if (tenantResult.status !== 'success') return <PreviewNoAccessState />;
+  if (tenantResult.status !== 'success') return <PreviewNoAccessState variant="light" />;
 
   const { activeTenant } = tenantResult.data;
   const supabase = await createClient();
 
   const moduleResult = await resolvePreviewWorkforceModule(supabase, activeTenant.tenantId);
-  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState />;
-  if (moduleResult.status !== 'enabled') return <PreviewErrorState />;
+  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState variant="light" />;
+  if (moduleResult.status !== 'enabled') return <PreviewErrorState variant="light" />;
 
   const locationsResult = await listTenantLocations(supabase);
   const tenantLocations =
@@ -83,7 +84,7 @@ export default async function MameToChaPreviewManagerPage({
       ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
       : [];
   const locationResult = resolveManagerLocation(tenantLocations);
-  if (locationResult.kind !== 'ok') return <PreviewLocationBlockedState reason={locationResult.kind} />;
+  if (locationResult.kind !== 'ok') return <PreviewLocationBlockedState reason={locationResult.kind} variant="light" />;
   const location = locationResult.location;
 
   const { weekOffset: rawWeekOffset } = await searchParams;
@@ -112,28 +113,44 @@ export default async function MameToChaPreviewManagerPage({
     listWorkforceRecipes(supabase, activeTenant.tenantId),
   ]);
 
+  // The staff loader's specific failure reason (missing PII env, RLS denial,
+  // or an unexpected Postgres/decrypt error - see `listWorkforceStaffForManager`)
+  // must never reach the client, but silently collapsing it to `null` with no
+  // trace at all makes a real misconfiguration undiagnosable. Log the status
+  // (and, for `unexpected_error`, the underlying Postgres message - never PII,
+  // since decrypted names are never included in that message) server-side only.
+  if (staffResult.status !== 'success') {
+    const message = 'message' in staffResult ? staffResult.message : '';
+    console.error(`[preview:mame-to-cha:manager] staff load failed: status=${staffResult.status} message=${message}`);
+  }
+
+  const staff = staffResult.status === 'success' ? staffResult.data : null;
+  const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
+  const pendingCorrections =
+    correctionRequestsResult.status === 'success' ? correctionRequestsResult.data.filter((r) => r.status === 'pending') : [];
+  const managerAlerts = correctionRequestsResult.status === 'success' ? toManagerViewAlerts(pendingCorrections, staffById) : [];
+
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
-      <main style={pageStyle(1180)}>
-        <ManagerHeader
-          subtitle={`${activeTenant.tenantName} - ${location.locationName}`}
-          rightSlot={
-            <Link
-              href={PREVIEW_BASE_PATH}
-              style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}
-            >
-              プレビュートップへ戻る
-            </Link>
-          }
-        />
-
-        <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
+      <CafeManagerScreen
+        subtitle={`${activeTenant.tenantName} - ${location.locationName}`}
+        rightSlot={
+          <Link
+            href={PREVIEW_BASE_PATH}
+            style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}
+          >
+            プレビュートップへ戻る
+          </Link>
+        }
+        alerts={managerAlerts}
+      >
+        <div style={{ display: 'grid', gap: 16 }}>
           <PreviewManagerView
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}
             weekOffset={weekOffset}
-            staff={staffResult.status === 'success' ? staffResult.data : null}
+            staff={staff}
             lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
@@ -143,11 +160,11 @@ export default async function MameToChaPreviewManagerPage({
             basePath={PREVIEW_BASE_PATH}
           />
 
-          <PreviewStaffForm staff={staffResult.status === 'success' ? staffResult.data : null} />
+          <PreviewStaffForm staff={staff} />
 
           <PreviewShiftEditor
             timeZone={location.timezone}
-            staff={staffResult.status === 'success' ? staffResult.data : null}
+            staff={staff}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
             defaultWorkDate={periodStart}
@@ -155,18 +172,11 @@ export default async function MameToChaPreviewManagerPage({
 
           <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
 
-          <PreviewCorrectionActions
-            pendingRequests={
-              correctionRequestsResult.status === 'success'
-                ? correctionRequestsResult.data.filter((r) => r.status === 'pending')
-                : []
-            }
-            staff={staffResult.status === 'success' ? staffResult.data : null}
-          />
+          <PreviewCorrectionActions pendingRequests={pendingCorrections} staff={staff} />
 
           <PreviewRecipeKindManager recipes={recipesResult.status === 'success' ? recipesResult.data : null} />
         </div>
-      </main>
+      </CafeManagerScreen>
     </BrandProvider>
   );
 }

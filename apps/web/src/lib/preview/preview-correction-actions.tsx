@@ -6,7 +6,7 @@ import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewDecideCorrectionRequest } from './actions/attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, buttonSecondary, card, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, card, demoColors, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -88,7 +88,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorr
           ))}
         </tbody>
       </table>
-      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}
+      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
     </section>
   );
 }

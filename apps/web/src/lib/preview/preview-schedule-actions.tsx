@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { previewPublishSchedule, previewRunAutoDistribution } from './actions/schedule-actions';
 import { buildStaffingRequirements, hasPositiveHeadcount, type StaffingRequirementRowInput } from './auto-distribution-requirements';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, card, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -156,7 +156,7 @@ export function PreviewScheduleActions({ periodStart, periodEnd }: PreviewSchedu
       <p style={{ marginTop: 8, ...mutedText, fontSize: 12 }}>
         スタッフの提出済み希望シフトをもとに、指定した人数の範囲で自動で割り当てます。公開すると下書きが確定シフトになります。
       </p>
-      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}
+      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
     </section>
   );
 }

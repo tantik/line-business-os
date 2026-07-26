@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { badgeStyle, buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { badgeStyle, buttonPrimary, buttonSecondary, card, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -90,7 +90,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
         </div>
       </form>
 
-      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}
+      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
 
       {staff === null ? (
         <p style={{ marginTop: 12, ...mutedText }}>スタッフ一覧を読み込めませんでした。</p>
