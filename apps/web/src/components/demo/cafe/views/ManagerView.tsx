@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
-import { ManagerAlerts } from '@/components/demo/cafe/ManagerAlerts';
+import { CafeManagerScreen } from '@/components/demo/cafe/CafeManagerScreen';
 import { ShiftEditModal } from '@/components/demo/cafe/ShiftEditModal';
 import { ManagerReportModal } from '@/components/demo/cafe/ManagerReportModal';
 import { MonthlyReportModal } from '@/components/demo/cafe/MonthlyReportModal';
@@ -11,7 +11,6 @@ import { LaborCostSummary } from '@/components/demo/cafe/LaborCostSummary';
 import { SettingsPanel } from '@/components/demo/cafe/SettingsPanel';
 import { StaffManagementModal } from '@/components/demo/cafe/StaffManagementModal';
 import { RecipeManagementModal } from '@/components/demo/cafe/RecipeManagementModal';
-import { ManagerHeader } from '@/components/demo/cafe/ManagerHeader';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { DemoResetButton } from '@/components/demo/cafe/DemoResetButton';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
@@ -129,26 +128,21 @@ export function ManagerView() {
     : null;
 
   return (
-    <main style={pageStyle(1180)}>
-      <ManagerHeader
-        subtitle={`${brand.nameJa}（デモ環境）`}
-        rightSlot={
-          <DemoResetButton
-            scope={scope}
-            label="デモをリセット"
-            doneLabel="リセットしました"
-            confirmTitle="デモをリセットしますか？"
-            confirmBody="このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。"
-            confirmLabel="リセットする"
-            cancelLabel="キャンセル"
-          />
-        }
-      />
-
-      <div style={{ marginTop: 20 }}>
-        <ManagerAlerts alerts={alerts} />
-      </div>
-
+    <CafeManagerScreen
+      subtitle={`${brand.nameJa}（デモ環境）`}
+      rightSlot={
+        <DemoResetButton
+          scope={scope}
+          label="デモをリセット"
+          doneLabel="リセットしました"
+          confirmTitle="デモをリセットしますか？"
+          confirmBody="このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。"
+          confirmLabel="リセットする"
+          cancelLabel="キャンセル"
+        />
+      }
+      alerts={alerts}
+    >
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -313,6 +307,6 @@ export function ManagerView() {
       <StaffManagementModal open={staffModalOpen} onClose={() => setStaffModalOpen(false)} />
       <RecipeManagementModal open={recipeModalOpen} onClose={() => setRecipeModalOpen(false)} />
       <MonthlyReportModal open={monthlyReportModalOpen} onClose={() => setMonthlyReportModalOpen(false)} staffList={STAFF} todayIso={todayIso} />
-    </main>
+    </CafeManagerScreen>
   );
 }
