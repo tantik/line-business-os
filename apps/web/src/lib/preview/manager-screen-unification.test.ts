@@ -136,3 +136,18 @@ test('the manager dialog wrappers that render a staff/requester name never fall 
     assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${file} must not fall back to the raw employeeId in any rendered label`);
   }
 });
+
+/**
+ * fix/cafe-v2-manager-staff-loader: the preview settings card previously
+ * carried a technical "read-only, editing coming later" caveat
+ * (現在は表示のみ。追加・編集は今後対応予定です) that the demo's SettingsPanel has no
+ * equivalent of - Preview must read as a finished product surface, not a
+ * placeholder/staging note, even where a control genuinely isn't wired up yet.
+ */
+test('the preview settings card never renders a technical/placeholder caveat about missing functionality', () => {
+  const source = read('preview-settings-card.tsx');
+  const bannedPhrases = ['現在は表示のみ', '今後対応予定', 'Read only', 'Read-only', 'Temporary', 'Future', '準備中', '未実装'];
+  for (const phrase of bannedPhrases) {
+    assert.ok(!source.includes(phrase), `preview-settings-card.tsx must not contain the technical caveat phrase "${phrase}"`);
+  }
+});
