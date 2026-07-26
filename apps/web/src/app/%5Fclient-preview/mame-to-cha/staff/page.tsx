@@ -19,12 +19,10 @@ import {
   PreviewNoProfileState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { demoColors, linkAccent, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
-import { PreviewShiftPreferenceForm } from '@/lib/preview/preview-shift-preference-form';
-import { PreviewWorkReportForm } from '@/lib/preview/preview-work-report-form';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
-import { PreviewCorrectionRequestForm } from '@/lib/preview/preview-correction-request-form';
+import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -122,19 +120,42 @@ export default async function MameToChaPreviewStaffPage({
       : null;
 
   return (
-    <main style={pageStyle(1000)}>
-      <header>
-        <h1 style={{ margin: 0 }}>Mame To Cha プレビュー - スタッフ</h1>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {activeTenant.tenantName} - {location.locationName}
-        </p>
+    <main style={mobilePageStyle(760)}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 42,
+              height: 42,
+              flexShrink: 0,
+              borderRadius: 12,
+              background: demoColors.accent,
+              color: '#FFFFFF',
+              fontSize: 20,
+              fontWeight: 800,
+            }}
+          >
+            M
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 20 }}>スタッフページ</h1>
+            <p style={{ margin: '3px 0 0', ...mutedText, fontSize: 13 }}>
+              {activeTenant.tenantName} ・ {location.locationName}
+            </p>
+          </div>
+        </div>
         <Link
           href={PREVIEW_BASE_PATH}
-          style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+          style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}
         >
-          プレビュートップへ戻る
+          トップへ戻る
         </Link>
       </header>
+
+      <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
 
       <PreviewStaffView
         timeZone={location.timezone}
@@ -150,18 +171,11 @@ export default async function MameToChaPreviewStaffPage({
         basePath={PREVIEW_BASE_PATH}
       />
 
-      <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
-
-      <PreviewShiftPreferenceForm
+      <PreviewStaffActions
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        defaultWorkDate={periodStart}
-      />
-
-      <PreviewWorkReportForm defaultWorkDate={todayIso} />
-
-      <PreviewCorrectionRequestForm
         attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}
-        defaultWorkDate={periodStart}
+        defaultPreferenceDate={periodStart}
+        defaultReportDate={todayIso}
       />
     </main>
   );
