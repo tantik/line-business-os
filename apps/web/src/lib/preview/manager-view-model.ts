@@ -47,13 +47,16 @@ export function toManagerViewAssignments(assignments: WorkforceShiftAssignment[]
     }));
 }
 
+/** Client-facing fallback for a staff member whose decrypted name isn't available (loader failure or unknown id) - never the raw employee UUID. */
+export const UNKNOWN_STAFF_NAME_JA = 'スタッフ';
+
 /** 要確認 alerts from pending correction requests only - Preview has no staffing-requirements data to derive a shortage alert from (unlike the demo, which hardcodes `STAFFING_REQUIREMENTS`), so no shortage alert is fabricated here. */
 export function toManagerViewAlerts(
   pendingCorrectionRequests: WorkforceShiftRequest[],
   staffById: Map<string, WorkforceStaffManageEntry>,
 ): ManagerAlert[] {
   return pendingCorrectionRequests.map((r) => {
-    const staffName = staffById.get(r.employeeId)?.name ?? r.employeeId;
+    const staffName = staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA;
     const message = typeof r.details.message === 'string' && r.details.message ? r.details.message : '勤務時間の修正を依頼しています。';
     return { id: r.requestId, label: `${staffName}（${r.workDate}）: ${message}`, tone: 'danger' as const };
   });
