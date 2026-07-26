@@ -8,7 +8,7 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewCreateShiftAssignment, previewUpdateShiftAssignment } from './actions/schedule-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for shift

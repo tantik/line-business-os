@@ -6,7 +6,7 @@ import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewDecideCorrectionRequest } from './actions/attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, buttonSecondary, card, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
+import { buttonPrimary, buttonSecondary, card, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for

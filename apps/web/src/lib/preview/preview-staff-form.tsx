@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { badgeStyle, buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { badgeStyle, buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import { previewSetRecipeContentKind } from './actions/recipe-actions';
 import { previewWriteMessageJa } from './write-result';
-import { buttonPrimary, card, input, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, card, input, mutedText } from '@/lib/demo/cafe/theme';
 
 export function PreviewRecipeKindManager({ recipes }: { recipes: WorkforceRecipe[] | null }) {
   const router = useRouter();
