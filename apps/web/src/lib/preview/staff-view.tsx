@@ -10,18 +10,17 @@ import {
   buttonDisabled,
   buttonSecondary,
   card,
+  demoColors,
   mutedText,
   tableCell,
   tableHeaderCell,
-} from '@/lib/ui/theme';
+} from '@/lib/demo/cafe/theme';
 import {
   correctionStatusBadgeStyle,
   correctionStatusLabel,
-  primaryCard,
   shiftChipColors,
   shiftChipStyle,
   todayIsoInTimeZone,
-  todayRowStyle,
 } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 
 /**
@@ -52,7 +51,7 @@ export interface PreviewStaffViewProps {
 }
 
 function formatWeekday(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('ja-JP', { weekday: 'short', timeZone: 'UTC' });
 }
 
 /** Display-only hours between two `HH:MM` local times, for the weekly-hours summary. Does not account for breaks. */
@@ -103,24 +102,26 @@ export function PreviewStaffView({
   const todayIso = todayIsoInTimeZone(timeZone);
 
   const weeklyHours = myScheduleThisWeek.reduce((sum, entry) => sum + hoursBetween(entry.startsAtLocal, entry.endsAtLocal), 0);
+  const primaryCard = { ...card, borderLeft: `3px solid ${demoColors.accent}` };
+  const todayRowStyle = { background: demoColors.todayBg };
 
   return (
     <>
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My staff profile</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>プロフィール</h2>
         <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Position</dt>
-            <dd style={{ margin: 0 }}>{profile.positionLabel ?? 'Not set'}</dd>
+            <dt style={{ ...mutedText, fontSize: 13 }}>役職</dt>
+            <dd style={{ margin: 0 }}>{profile.positionLabel ?? '未設定'}</dd>
           </div>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Employment type</dt>
+            <dt style={{ ...mutedText, fontSize: 13 }}>雇用形態</dt>
             <dd style={{ margin: 0 }}>{profile.employmentType}</dd>
           </div>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Status</dt>
+            <dt style={{ ...mutedText, fontSize: 13 }}>ステータス</dt>
             <dd style={{ margin: 0 }}>
-              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? 'Active' : 'Inactive'}</span>
+              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? '在籍中' : '停止中'}</span>
             </dd>
           </div>
         </dl>
@@ -129,39 +130,39 @@ export function PreviewStaffView({
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>
-            My published schedule / 公開シフト ({periodStart} - {periodEnd})
+            公開シフト（{periodStart} 〜 {periodEnd}）
           </h2>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href={`${basePath}/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-              Prev week / 前週
+              ← 前の週
             </Link>
             <Link
               href={`${basePath}/staff`}
               style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
               aria-disabled={weekOffset === 0}
             >
-              This week / 今週
+              今週
             </Link>
             <Link href={`${basePath}/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-              Next week / 次週
+              次の週 →
             </Link>
           </div>
         </div>
         {assignments === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your schedule is temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>シフトを読み込めませんでした。時間をおいて再度お試しください。</p>
         ) : myScheduleThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No published shifts for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の公開シフトはまだありません。</p>
         ) : (
           <>
             <p style={{ margin: '12px 0 0', fontSize: 14, fontWeight: 600 }}>
-              Scheduled this week / 今週の予定時間: {weeklyHours.toFixed(1)}h
+              今週の予定時間: {weeklyHours.toFixed(1)}時間
             </p>
             <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Shift / シフト</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Time / 時間</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>シフト</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>時間</th>
                 </tr>
               </thead>
               <tbody>
@@ -172,7 +173,7 @@ export function PreviewStaffView({
                     </td>
                     <td style={tableCell}>
                       <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>
-                        {entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId)?.code ?? 'Custom' : 'Custom'}
+                        {entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId)?.code ?? '個別' : '個別'}
                       </span>
                     </td>
                     <td style={tableCell}>
@@ -187,17 +188,17 @@ export function PreviewStaffView({
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My submitted shift preferences / シフト希望</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>提出済みのシフト希望</h2>
         {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your shift preferences are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>シフト希望を読み込めませんでした。</p>
         ) : myRequestsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No shift preferences submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>今週のシフト希望はまだ提出されていません。</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Preference / 希望</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>希望</th>
               </tr>
             </thead>
             <tbody>
@@ -206,7 +207,7 @@ export function PreviewStaffView({
                   <td style={tableCell}>{r.workDate}</td>
                   <td style={tableCell}>
                     {r.isUnavailable ? (
-                      'Unavailable'
+                      '勤務不可'
                     ) : (
                       <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
                         {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
@@ -221,22 +222,22 @@ export function PreviewStaffView({
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My work reports this week / 勤務報告</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>今週の勤務報告</h2>
         {attendance === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your work reports are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>勤務報告を読み込めませんでした。</p>
         ) : myAttendanceThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No work reports submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の勤務報告はまだありません。</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock in / 出勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock out / 退勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Break / 休憩</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>出勤</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>退勤</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>休憩</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>交通費</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>メッセージ</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>状態</th>
               </tr>
             </thead>
             <tbody>
@@ -248,7 +249,7 @@ export function PreviewStaffView({
                     <td style={tableCell}>{a.workDate}</td>
                     <td style={tableCell}>{clockIn}</td>
                     <td style={tableCell}>{clockOut}</td>
-                    <td style={tableCell}>{a.actualBreakMinutes} min</td>
+                    <td style={tableCell}>{a.actualBreakMinutes}分</td>
                     <td style={tableCell}>{a.transportationCost ?? '-'}</td>
                     <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
                     <td style={tableCell}>{a.status}</td>
@@ -261,18 +262,18 @@ export function PreviewStaffView({
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My correction requests this week</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>今週の修正依頼</h2>
         {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your correction requests are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>修正依頼を読み込めませんでした。</p>
         ) : myCorrectionsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No correction requests submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の修正依頼はありません。</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>内容</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>状態</th>
               </tr>
             </thead>
             <tbody>

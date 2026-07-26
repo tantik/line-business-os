@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { previewSubmitCorrectionRequest } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for
@@ -21,6 +21,7 @@ export interface PreviewCorrectionRequestFormProps {
   /** The caller's own work-report rows, offered as an optional link target - a correction can also be filed with no `attendanceId` at all. */
   attendanceOptions: WorkforceAttendance[] | null;
   defaultWorkDate: string;
+  embedded?: boolean;
 }
 
 function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -28,7 +29,11 @@ function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: s
   return { ok: false, text: previewWriteMessageJa(result.status) };
 }
 
-export function PreviewCorrectionRequestForm({ attendanceOptions, defaultWorkDate }: PreviewCorrectionRequestFormProps) {
+export function PreviewCorrectionRequestForm({
+  attendanceOptions,
+  defaultWorkDate,
+  embedded = false,
+}: PreviewCorrectionRequestFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
@@ -45,9 +50,9 @@ export function PreviewCorrectionRequestForm({ attendanceOptions, defaultWorkDat
   }
 
   return (
-    <section style={card}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>修正依頼の提出</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+    <section style={embedded ? undefined : card}>
+      {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>修正依頼の提出</h2> : null}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: embedded ? 0 : 12 }}>
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
           <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />

@@ -79,6 +79,7 @@ const MANAGER_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/manager/
 
 /** The B2b staff interactive client islands - 'use client' components that call preview staff Server Actions. */
 const STAFF_ISLAND_FILES = [
+  'preview-staff-actions.tsx',
   'preview-shift-preference-form.tsx',
   'preview-work-report-form.tsx',
   'preview-clock-panel.tsx',

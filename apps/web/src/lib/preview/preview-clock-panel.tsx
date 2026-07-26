@@ -6,7 +6,7 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewClockIn, previewClockOut } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa } from './write-result';
-import { buttonPrimary, buttonSecondary, card, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 
 const BREAK_OPTIONS = [0, 30, 60] as const;
 type BreakMinutes = (typeof BREAK_OPTIONS)[number];
@@ -77,7 +77,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
           {isPending ? '処理中…' : isWorking ? '退勤' : '出勤'}
         </button>
       ) : null}
-      {feedback ? <p style={{ margin: '10px 0 0', color: '#F87171' }}>{feedback}</p> : null}
+      {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
 
       {clockOutOpen ? (
         <div
