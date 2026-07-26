@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toManagerViewAlerts, toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
+import {
+  toManagerViewAlerts,
+  toManagerViewAssignments,
+  toManagerViewShiftTypes,
+  toManagerViewStaff,
+  UNKNOWN_STAFF_NAME_JA,
+} from './manager-view-model';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -59,6 +65,17 @@ test('toManagerViewAlerts labels each pending correction request with the staff 
   const result = toManagerViewAlerts(requests, staffById);
   assert.equal(result[0]?.label, 'Hanako（2026-07-20）: 休憩時間の修正をお願いします');
   assert.equal(result[0]?.tone, 'danger');
-  // Unknown staffId falls back to the raw id rather than throwing or showing blank.
-  assert.equal(result[1]?.label, 'staff-2（2026-07-21）: 勤務時間の修正を依頼しています。');
+  // Unknown staffId falls back to a safe Japanese label, never the raw id.
+  assert.equal(result[1]?.label, `${UNKNOWN_STAFF_NAME_JA}（2026-07-21）: 勤務時間の修正を依頼しています。`);
+});
+
+test('toManagerViewAlerts never leaks a raw employee UUID into the client-facing alert label when the staff dataset failed to load (empty staffById)', () => {
+  const employeeUuid = 'a3f1c2d4-5678-4abc-9def-0123456789ab';
+  const requests = [
+    { requestId: 'r1', employeeId: employeeUuid, workDate: '2026-07-20', details: {} },
+  ] as unknown as WorkforceShiftRequest[];
+
+  const result = toManagerViewAlerts(requests, new Map());
+  assert.ok(!result[0]?.label.includes(employeeUuid), 'alert label must not contain the raw employee UUID');
+  assert.ok(result[0]?.label.startsWith(UNKNOWN_STAFF_NAME_JA), 'alert label must use the safe Japanese fallback name');
 });

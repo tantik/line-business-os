@@ -49,6 +49,7 @@ function importLines(source: string): string {
 const ACTION_FREE_PREVIEW_FILES = [
   'manager-view.tsx',
   'staff-view.tsx',
+  '../../components/demo/cafe/CafeManagerScreen.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/page.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/recipes/[recipeId]/page.tsx',
