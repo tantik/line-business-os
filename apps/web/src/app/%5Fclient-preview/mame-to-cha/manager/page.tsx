@@ -8,7 +8,6 @@ import { resolvePreviewWorkforceModule } from '@/lib/preview/module-guard';
 import { resolveManagerLocation } from '@/lib/preview/location';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
-import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
@@ -26,12 +25,11 @@ import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { linkAccent } from '@/lib/demo/cafe/theme';
 import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
-import { PreviewStaffForm } from '@/lib/preview/preview-staff-form';
-import { PreviewShiftEditor } from '@/lib/preview/preview-shift-editor';
-import { PreviewScheduleActions } from '@/lib/preview/preview-schedule-actions';
-import { PreviewCorrectionActions } from '@/lib/preview/preview-correction-actions';
+import { PreviewScheduleCardActions } from '@/lib/preview/preview-schedule-card-actions';
+import { PreviewStaffRecipeManagement } from '@/lib/preview/preview-staff-recipe-management';
+import { PreviewSettingsCard } from '@/lib/preview/preview-settings-card';
+import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
-import { PreviewRecipeKindManager } from '@/lib/preview/preview-recipe-kind-manager';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -95,7 +93,6 @@ export default async function MameToChaPreviewManagerPage({
 
   const [
     staffResult,
-    lineLinksResult,
     shiftTypesResult,
     requestsResult,
     assignmentsResult,
@@ -104,7 +101,6 @@ export default async function MameToChaPreviewManagerPage({
     recipesResult,
   ] = await Promise.all([
     listWorkforceStaffForManager(supabase, activeTenant.tenantId),
-    listEmployeeLineLinks(supabase, activeTenant.tenantId),
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
     listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference' }),
     listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
@@ -126,8 +122,18 @@ export default async function MameToChaPreviewManagerPage({
 
   const staff = staffResult.status === 'success' ? staffResult.data : null;
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
-  const pendingCorrections =
-    correctionRequestsResult.status === 'success' ? correctionRequestsResult.data.filter((r) => r.status === 'pending') : [];
+  const shiftTypes = shiftTypesResult.status === 'success' ? shiftTypesResult.data : null;
+  const requests = requestsResult.status === 'success' ? requestsResult.data : null;
+  const assignments = assignmentsResult.status === 'success' ? assignmentsResult.data : null;
+  const correctionRequests = correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null;
+  const attendance = attendanceResult.status === 'success' ? attendanceResult.data : null;
+  const recipes = recipesResult.status === 'success' ? recipesResult.data : null;
+
+  const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
+  const decidedCorrections = (correctionRequests ?? [])
+    .filter((r) => r.status !== 'pending')
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 10);
   const managerAlerts = correctionRequestsResult.status === 'success' ? toManagerViewAlerts(pendingCorrections, staffById) : [];
 
   return (
@@ -144,38 +150,40 @@ export default async function MameToChaPreviewManagerPage({
         }
         alerts={managerAlerts}
       >
-        <div style={{ display: 'grid', gap: 16 }}>
-          <PreviewManagerView
-            timeZone={location.timezone}
-            periodStart={periodStart}
-            periodEnd={periodEnd}
-            weekOffset={weekOffset}
-            staff={staff}
-            lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
-            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-            requests={requestsResult.status === 'success' ? requestsResult.data : null}
-            assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
-            correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
-            attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
-            basePath={PREVIEW_BASE_PATH}
-          />
+        <PreviewManagerView
+          timeZone={location.timezone}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+          weekOffset={weekOffset}
+          staff={staff}
+          shiftTypes={shiftTypes}
+          assignments={assignments}
+          basePath={PREVIEW_BASE_PATH}
+          actionsSlot={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <PreviewScheduleCardActions
+                timeZone={location.timezone}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+                staff={staff}
+                shiftTypes={shiftTypes}
+                assignments={assignments}
+                requests={requests}
+              />
+              <PreviewCorrectionRequestsPanel
+                timeZone={location.timezone}
+                pendingRequests={pendingCorrections}
+                decidedRequests={decidedCorrections}
+                staff={staff}
+                attendance={attendance}
+              />
+            </div>
+          }
+        />
 
-          <PreviewStaffForm staff={staff} />
+        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
 
-          <PreviewShiftEditor
-            timeZone={location.timezone}
-            staff={staff}
-            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-            assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
-            defaultWorkDate={periodStart}
-          />
-
-          <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
-
-          <PreviewCorrectionActions pendingRequests={pendingCorrections} staff={staff} />
-
-          <PreviewRecipeKindManager recipes={recipesResult.status === 'success' ? recipesResult.data : null} />
-        </div>
+        <PreviewSettingsCard shiftTypes={shiftTypes} />
       </CafeManagerScreen>
     </BrandProvider>
   );
