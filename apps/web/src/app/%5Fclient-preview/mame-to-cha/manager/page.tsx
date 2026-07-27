@@ -13,6 +13,7 @@ import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -94,19 +95,19 @@ export default async function MameToChaPreviewManagerPage({
   const [
     staffResult,
     shiftTypesResult,
-    requestsResult,
     assignmentsResult,
     correctionRequestsResult,
     attendanceResult,
     recipesResult,
+    settingsResult,
   ] = await Promise.all([
     listWorkforceStaffForManager(supabase, activeTenant.tenantId),
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-    listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference' }),
     listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
     listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
     listAttendanceForManager(supabase, activeTenant.tenantId),
     listWorkforceRecipes(supabase, activeTenant.tenantId),
+    getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
   ]);
 
   // The staff loader's specific failure reason (missing PII env, RLS denial,
@@ -123,11 +124,11 @@ export default async function MameToChaPreviewManagerPage({
   const staff = staffResult.status === 'success' ? staffResult.data : null;
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const shiftTypes = shiftTypesResult.status === 'success' ? shiftTypesResult.data : null;
-  const requests = requestsResult.status === 'success' ? requestsResult.data : null;
   const assignments = assignmentsResult.status === 'success' ? assignmentsResult.data : null;
   const correctionRequests = correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null;
   const attendance = attendanceResult.status === 'success' ? attendanceResult.data : null;
   const recipes = recipesResult.status === 'success' ? recipesResult.data : null;
+  const settings = settingsResult.status === 'success' ? settingsResult.data : null;
 
   const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
   const decidedCorrections = (correctionRequests ?? [])
@@ -149,6 +150,15 @@ export default async function MameToChaPreviewManagerPage({
           </Link>
         }
         alerts={managerAlerts}
+        alertActions={
+          <PreviewCorrectionRequestsPanel
+            timeZone={location.timezone}
+            pendingRequests={pendingCorrections}
+            decidedRequests={decidedCorrections}
+            staff={staff}
+            attendance={attendance}
+          />
+        }
       >
         <PreviewManagerView
           timeZone={location.timezone}
@@ -160,30 +170,16 @@ export default async function MameToChaPreviewManagerPage({
           assignments={assignments}
           basePath={PREVIEW_BASE_PATH}
           actionsSlot={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <PreviewScheduleCardActions
-                timeZone={location.timezone}
-                periodStart={periodStart}
-                periodEnd={periodEnd}
-                staff={staff}
-                shiftTypes={shiftTypes}
-                assignments={assignments}
-                requests={requests}
-              />
-              <PreviewCorrectionRequestsPanel
-                timeZone={location.timezone}
-                pendingRequests={pendingCorrections}
-                decidedRequests={decidedCorrections}
-                staff={staff}
-                attendance={attendance}
-              />
-            </div>
+            <PreviewScheduleCardActions
+              periodStart={periodStart}
+              periodEnd={periodEnd}
+            />
           }
         />
 
         <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
 
-        <PreviewSettingsCard shiftTypes={shiftTypes} />
+        <PreviewSettingsCard shiftTypes={shiftTypes} settings={settings} />
       </CafeManagerScreen>
     </BrandProvider>
   );

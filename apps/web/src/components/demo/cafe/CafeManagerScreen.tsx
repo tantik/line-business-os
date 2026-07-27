@@ -10,6 +10,7 @@ export interface CafeManagerScreenProps {
   /** Optional right-aligned header slot (e.g. the demo's reset button, or the preview's "back to top" link). */
   rightSlot?: ReactNode;
   alerts: ManagerAlert[];
+  alertActions?: ReactNode;
   children: ReactNode;
 }
 
@@ -20,12 +21,12 @@ export interface CafeManagerScreenProps {
  * once, so the two routes render as one product and differ only in the data
  * source/actions/states their section children supply.
  */
-export function CafeManagerScreen({ subtitle, rightSlot, alerts, children }: CafeManagerScreenProps) {
+export function CafeManagerScreen({ subtitle, rightSlot, alerts, alertActions, children }: CafeManagerScreenProps) {
   return (
     <main style={pageStyle(1180)}>
       <ManagerHeader subtitle={subtitle} rightSlot={rightSlot} />
       <div style={{ marginTop: 20 }}>
-        <ManagerAlerts alerts={alerts} />
+        <ManagerAlerts alerts={alerts} actionsSlot={alertActions} />
       </div>
       {children}
     </main>

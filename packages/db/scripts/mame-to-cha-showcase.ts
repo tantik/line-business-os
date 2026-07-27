@@ -3,13 +3,13 @@ import { blindIndex, encryptPII } from '../src/crypto.js';
 
 const MARKER = 'cafe-v2-showcase-v1';
 const TENANT_SLUG = 'mame-to-cha';
-const WEEK_START = '2026-07-27';
+const WEEK_STARTS = ['2026-07-27', '2026-08-03'] as const;
 const STAFF_NAMES = ['田中 愛', '佐藤 健', '鈴木 舞', '高橋 大輝', '伊藤 さくら'];
 const SHIFT_TYPES = [
-  { code: 'SHOWCASE_1', label: '1', start: '07:00', end: '15:00', breakMinutes: 60, order: 11 },
-  { code: 'SHOWCASE_2', label: '2', start: '10:00', end: '18:00', breakMinutes: 60, order: 12 },
+  { code: 'AM', label: '1', start: '07:00', end: '15:00', breakMinutes: 60, order: 1 },
+  { code: 'PM', label: '2', start: '10:00', end: '18:00', breakMinutes: 60, order: 2 },
   { code: 'SHOWCASE_3', label: '3', start: '13:00', end: '21:00', breakMinutes: 60, order: 13 },
-  { code: 'SHOWCASE_ALL', label: '通', start: '07:00', end: '21:00', breakMinutes: 90, order: 14 },
+  { code: 'ALL', label: '通', start: '07:00', end: '21:00', breakMinutes: 90, order: 14 },
 ] as const;
 const CONTENT = [
   { kind: 'instruction', title: '開店・閉店チェックリスト', category: '業務マニュアル', description: '毎日の開店準備と閉店作業を同じ品質で行うための手順です。' },
@@ -67,13 +67,20 @@ async function main() {
     const employeeIds: string[] = [];
     const existing = await client.query<{ id: string }>(
       `select id from workforce.employees
-        where tenant_id = $1 and location_id = $2 and is_active
+        where tenant_id = $1 and location_id = $2
         order by created_at
         limit 1`,
       [tenantId, locationId],
     );
     if (existing.rowCount !== 1) throw new Error('The existing acceptance employee was not found.');
-    employeeIds.push(existing.rows[0]!.id);
+    const acceptanceEmployeeId = existing.rows[0]!.id;
+    await client.query(
+      `update workforce.employees
+          set is_active = true
+        where tenant_id = $1 and location_id = $2 and id = $3`,
+      [tenantId, locationId, acceptanceEmployeeId],
+    );
+    employeeIds.push(acceptanceEmployeeId);
 
     for (const name of STAFF_NAMES) {
       const inserted = await client.query<{ id: string }>(
@@ -92,11 +99,28 @@ async function main() {
         `insert into workforce.shift_types
           (tenant_id, location_id, code, label_ja, starts_at_local, ends_at_local, break_minutes, sort_order, is_active)
          values ($1, $2, $3, $4, $5::time, $6::time, $7, $8, true)
+         on conflict (tenant_id, location_id, code) do update set
+           label_ja = excluded.label_ja,
+           starts_at_local = excluded.starts_at_local,
+           ends_at_local = excluded.ends_at_local,
+           break_minutes = excluded.break_minutes,
+           sort_order = excluded.sort_order,
+           is_active = true
          returning id`,
         [tenantId, locationId, shiftType.code, shiftType.label, shiftType.start, shiftType.end, shiftType.breakMinutes, shiftType.order],
       );
       shiftTypeIds.push(inserted.rows[0]!.id);
     }
+
+    await client.query(
+      `insert into workforce.schedule_settings
+        (tenant_id, location_id, required_headcount_by_weekday, max_monthly_hours)
+       values ($1, $2, '[3,3,3,3,3,2,4]'::jsonb, 160)
+       on conflict (tenant_id, location_id) do update set
+         required_headcount_by_weekday = excluded.required_headcount_by_weekday,
+         max_monthly_hours = excluded.max_monthly_hours`,
+      [tenantId, locationId],
+    );
 
     const pattern = [
       [3, 3, 3, 3, 3, 3, null],
@@ -107,21 +131,23 @@ async function main() {
       [0, 1, 2, 3, 0, 1, null],
     ] as const;
 
-    for (let staffIndex = 0; staffIndex < employeeIds.length; staffIndex += 1) {
-      const employeeId = employeeIds[staffIndex];
-      if (!employeeId) throw new Error(`Missing showcase employee at index ${staffIndex}.`);
-      for (let day = 0; day < 7; day += 1) {
-        const typeIndex = pattern[staffIndex]![day];
-        if (typeIndex === null || typeIndex === undefined) continue;
-        const shiftType = SHIFT_TYPES[typeIndex]!;
-        const workDate = addDays(WEEK_START, day);
-        await client.query(
-          `insert into workforce.shifts
-            (tenant_id, location_id, employee_id, shift_type_id, starts_at, ends_at, break_minutes, role, notes, published)
-           values ($1, $2, $3, $4, ($5 || ' ' || $6 || ':00+09')::timestamptz,
-                   ($5 || ' ' || $7 || ':00+09')::timestamptz, $8, 'staff', $9, true)`,
-          [tenantId, locationId, employeeId, shiftTypeIds[typeIndex], workDate, shiftType.start, shiftType.end, shiftType.breakMinutes, MARKER],
-        );
+    for (const weekStart of WEEK_STARTS) {
+      for (let staffIndex = 0; staffIndex < employeeIds.length; staffIndex += 1) {
+        const employeeId = employeeIds[staffIndex];
+        if (!employeeId) throw new Error(`Missing showcase employee at index ${staffIndex}.`);
+        for (let day = 0; day < 7; day += 1) {
+          const typeIndex = pattern[staffIndex]![day];
+          if (typeIndex === null || typeIndex === undefined) continue;
+          const shiftType = SHIFT_TYPES[typeIndex]!;
+          const workDate = addDays(weekStart, day);
+          await client.query(
+            `insert into workforce.shifts
+              (tenant_id, location_id, employee_id, shift_type_id, starts_at, ends_at, break_minutes, role, notes, published)
+             values ($1, $2, $3, $4, ($5 || ' ' || $6 || ':00+09')::timestamptz,
+                     ($5 || ' ' || $7 || ':00+09')::timestamptz, $8, 'staff', $9, true)`,
+            [tenantId, locationId, employeeId, shiftTypeIds[typeIndex], workDate, shiftType.start, shiftType.end, shiftType.breakMinutes, MARKER],
+          );
+        }
       }
     }
 
@@ -185,12 +211,12 @@ async function main() {
       [tenantId, MARKER],
     );
     const counts = verification.rows[0]!;
-    if (counts.showcase_staff !== 5 || counts.showcase_shifts < 30 || counts.showcase_recipes !== 5 || counts.showcase_instructions !== 1) {
+    if (counts.showcase_staff !== 5 || counts.showcase_shifts !== 72 || counts.showcase_recipes !== 5 || counts.showcase_instructions !== 1) {
       throw new Error(`Showcase verification failed: ${JSON.stringify(counts)}`);
     }
 
     await client.query('commit');
-    console.log(JSON.stringify({ tenant: TENANT_SLUG, weekStart: WEEK_START, ...counts }));
+    console.log(JSON.stringify({ tenant: TENANT_SLUG, weekStarts: WEEK_STARTS, ...counts }));
   } catch (error) {
     await client.query('rollback');
     throw error;

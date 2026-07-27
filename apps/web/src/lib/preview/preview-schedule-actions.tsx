@@ -29,6 +29,7 @@ import { buttonPrimary, buttonSecondary, card, demoColors, input as inputStyle, 
 export interface PreviewScheduleActionsProps {
   periodStart: string;
   periodEnd: string;
+  showPublish?: boolean;
 }
 
 const WINDOW_CODE_OPTIONS = ['ALL', 'AM', 'PM', 'A-P', 'SHORT_AM'] as const;
@@ -42,7 +43,7 @@ function emptyRow(defaultWorkDate: string): StaffingRequirementRowInput {
   return { workDate: defaultWorkDate, windowCode: '', requiredHeadcount: '' };
 }
 
-export function PreviewScheduleActions({ periodStart, periodEnd }: PreviewScheduleActionsProps) {
+export function PreviewScheduleActions({ periodStart, periodEnd, showPublish = true }: PreviewScheduleActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [overwriteExisting, setOverwriteExisting] = useState(false);
@@ -149,12 +150,15 @@ export function PreviewScheduleActions({ periodStart, periodEnd }: PreviewSchedu
         <button type="button" style={buttonSecondary} onClick={handleAutoDistribute} disabled={isPending}>
           自動割り当てを実行
         </button>
-        <button type="button" style={buttonPrimary} onClick={handlePublish} disabled={isPending}>
-          今週のシフトを公開
-        </button>
+        {showPublish ? (
+          <button type="button" style={buttonPrimary} onClick={handlePublish} disabled={isPending}>
+            今週のシフトを公開
+          </button>
+        ) : null}
       </div>
       <p style={{ marginTop: 8, ...mutedText, fontSize: 12 }}>
-        スタッフの提出済み希望シフトをもとに、指定した人数の範囲で自動で割り当てます。公開すると下書きが確定シフトになります。
+        スタッフの提出済み希望シフトをもとに、指定した人数の範囲で自動で割り当てます。
+        {showPublish ? '公開すると下書きが確定シフトになります。' : ''}
       </p>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
     </section>
