@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { reportNeedsManagerAttention } from '@/lib/demo/cafe/report-indicator';
+import { toPreviewRecipeViewModel } from '@/lib/preview/recipe-view-model';
 
 /**
  * Static source-text regression guards for the Cafe Manager screen
@@ -54,6 +55,59 @@ test('a decided correction request no longer keeps the schedule-cell attention m
     reportNeedsManagerAttention({ ...base, correctionRequest: { reason: '修正', status: 'rejected' } }),
     false,
   );
+});
+
+test('the Preview recipe adapter maps real detail data without demo fixtures', () => {
+  const recipe = toPreviewRecipeViewModel(
+    {
+      recipe: {
+        recipeId: 'recipe-1',
+        tenantId: 'tenant-1',
+        locationId: null,
+        recipeCategoryId: 'category-1',
+        titleJa: '抹茶ラテ',
+        titleEn: 'Matcha Latte',
+        descriptionJa: '説明',
+        descriptionEn: 'Description',
+        contentKind: 'recipe',
+        isPopular: true,
+        status: 'published',
+        createdAt: '',
+        updatedAt: '',
+      },
+      ingredients: [
+        { ingredientId: 'i-1', tenantId: 'tenant-1', recipeId: 'recipe-1', labelJa: '抹茶', labelEn: 'Matcha', sortOrder: 1 },
+      ],
+      steps: [
+        { stepId: 's-1', tenantId: 'tenant-1', recipeId: 'recipe-1', stepNumber: 1, instructionJa: '混ぜる', instructionEn: 'Mix' },
+      ],
+      notes: [
+        { noteId: 'n-1', tenantId: 'tenant-1', recipeId: 'recipe-1', titleJa: 'ポイント', titleEn: 'Tip', bodyJa: '確認', bodyEn: 'Check' },
+      ],
+    },
+    [
+      {
+        categoryId: 'category-1',
+        tenantId: 'tenant-1',
+        labelJa: 'ドリンク',
+        labelEn: 'Drinks',
+        sortOrder: 1,
+        isActive: true,
+      },
+    ],
+  );
+
+  assert.equal(recipe.name, '抹茶ラテ');
+  assert.deepEqual(recipe.badges, ['人気']);
+  assert.deepEqual(recipe.ingredients, ['抹茶']);
+  assert.deepEqual(recipe.steps, ['混ぜる']);
+  assert.equal(recipe.memo, '確認');
+});
+
+test('the DB-backed Preview recipes page reuses the shared recipe browser and never imports demo fixtures', () => {
+  const source = read('../../app/%5Fclient-preview/mame-to-cha/recipes/page.tsx');
+  assert.match(source, /RecipeBrowser/);
+  assert.ok(!source.includes('@/lib/demo/cafe/data'));
 });
 
 test('the demo manager screen and the DB-backed preview manager page both render through the shared CafeManagerScreen shell', () => {
