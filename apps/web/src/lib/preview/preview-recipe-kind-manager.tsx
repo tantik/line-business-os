@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import { previewSetRecipeContentKind } from './actions/recipe-actions';
 import { previewWriteMessageJa } from './write-result';
-import { buttonPrimary, card, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
+import { demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 
 export function PreviewRecipeKindManager({ recipes }: { recipes: WorkforceRecipe[] | null }) {
   const router = useRouter();
@@ -25,18 +25,35 @@ export function PreviewRecipeKindManager({ recipes }: { recipes: WorkforceRecipe
   }
 
   return (
-    <section style={card}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>レシピ・インストラクション管理</h2>
-      <p style={{ margin: '8px 0 12px', ...mutedText }}>
-        インストラクションに設定した項目は、スタッフ画面で先頭に表示されます。
+    <div>
+      <p style={{ margin: '0 0 14px', ...mutedText }}>
+        店舗のレシピと業務手順を管理します。インストラクションはスタッフ画面の先頭に表示されます。
       </p>
       {recipes === null ? (
         <p style={mutedText}>一覧を取得できません。</p>
+      ) : recipes.length === 0 ? (
+        <p style={mutedText}>レシピがまだ登録されていません。</p>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {recipes.map((recipe) => (
-            <div key={recipe.recipeId} style={{ display: 'grid', gridTemplateColumns: '1fr minmax(170px, auto)', gap: 10, alignItems: 'center' }}>
-              <span>{recipe.titleJa || recipe.titleEn || recipe.recipeId}</span>
+            <div
+              key={recipe.recipeId}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr minmax(190px, auto)',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: demoColors.surfaceElevated,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>{recipe.titleJa || recipe.titleEn || '名称未設定'}</div>
+                <div style={{ marginTop: 3, fontSize: 11.5, color: demoColors.textMuted }}>
+                  {recipe.status === 'published' ? '公開中' : recipe.status === 'draft' ? '下書き' : 'アーカイブ'}
+                </div>
+              </div>
               <select
                 style={{ ...input, margin: 0 }}
                 value={recipe.contentKind}
@@ -51,7 +68,7 @@ export function PreviewRecipeKindManager({ recipes }: { recipes: WorkforceRecipe
         </div>
       )}
       {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
-      {isPending ? <button type="button" style={{ ...buttonPrimary, marginTop: 10 }} disabled>保存中…</button> : null}
-    </section>
+      {isPending ? <p style={{ margin: '10px 0 0', ...mutedText }}>保存中…</p> : null}
+    </div>
   );
 }

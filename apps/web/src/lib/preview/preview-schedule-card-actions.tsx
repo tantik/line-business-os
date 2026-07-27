@@ -1,17 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
-import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
-import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/demo/cafe/Modal';
-import { PreviewShiftEditor } from './preview-shift-editor';
 import { PreviewScheduleActions } from './preview-schedule-actions';
-import { UNKNOWN_STAFF_NAME_JA } from './manager-view-model';
-import { buttonPrimary, buttonSecondary, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
+import { buttonPrimary } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
+import { previewPublishSchedule } from './actions/schedule-actions';
+import { previewWriteMessageJa } from './write-result';
 
 /**
  * Demo/Preview manager UX parity: the demo's シフト表 card keeps its
@@ -24,30 +21,33 @@ import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
  * that is exactly the moment a manager needs them.
  */
 export interface PreviewScheduleCardActionsProps {
-  timeZone: string;
   periodStart: string;
   periodEnd: string;
-  staff: WorkforceStaffManageEntry[] | null;
-  shiftTypes: WorkforceShiftType[] | null;
-  assignments: WorkforceShiftAssignment[] | null;
-  requests: WorkforceShiftRequest[] | null;
 }
 
 export function PreviewScheduleCardActions({
-  timeZone,
   periodStart,
   periodEnd,
-  staff,
-  shiftTypes,
-  assignments,
-  requests,
 }: PreviewScheduleCardActionsProps) {
-  const [shiftEditorOpen, setShiftEditorOpen] = useState(false);
   const [scheduleActionsOpen, setScheduleActionsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [publishFeedback, setPublishFeedback] = useState<string | null>(null);
+  const router = useRouter();
 
-  const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
-  const shiftTypeById = new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st]));
-  const requestsInPeriod = (requests ?? []).filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd);
+  function publishSchedule() {
+    const formData = new FormData();
+    formData.set('periodStart', periodStart);
+    formData.set('periodEnd', periodEnd);
+    setPublishFeedback(null);
+    startTransition(async () => {
+      const result = await previewPublishSchedule(formData);
+      if (result.status === 'success') {
+        router.refresh();
+      } else {
+        setPublishFeedback(previewWriteMessageJa(result.status));
+      }
+    });
+  }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -55,40 +55,14 @@ export function PreviewScheduleCardActions({
         自動シフト作成
       </button>
       <DemoHelpButton content={HELP_MANAGER_AUTO_SCHEDULE} />
-      <button type="button" style={buttonSecondary} onClick={() => setShiftEditorOpen(true)}>
-        シフトの追加・編集
+      <button type="button" style={buttonPrimary} onClick={publishSchedule} disabled={isPending}>
+        スケジュールを公開
       </button>
 
-      <Modal open={shiftEditorOpen} onClose={() => setShiftEditorOpen(false)} title="シフトの追加・編集" maxWidth={720}>
-        {requestsInPeriod.length > 0 ? (
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 13, ...mutedText }}>提出済みの希望シフト（{periodStart} 〜 {periodEnd}）</h3>
-            <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>スタッフ</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>希望</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requestsInPeriod.map((r) => (
-                  <tr key={r.requestId}>
-                    <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA}</td>
-                    <td style={tableCell}>{r.workDate}</td>
-                    <td style={tableCell}>{r.isUnavailable ? '出勤不可' : shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        <PreviewShiftEditor timeZone={timeZone} staff={staff} shiftTypes={shiftTypes} assignments={assignments} defaultWorkDate={periodStart} />
+      <Modal open={scheduleActionsOpen} onClose={() => setScheduleActionsOpen(false)} title="自動シフト作成" maxWidth={640}>
+        <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} showPublish={false} />
       </Modal>
-
-      <Modal open={scheduleActionsOpen} onClose={() => setScheduleActionsOpen(false)} title="自動割り当て・公開" maxWidth={640}>
-        <PreviewScheduleActions periodStart={periodStart} periodEnd={periodEnd} />
-      </Modal>
+      {publishFeedback ? <span style={{ fontSize: 12, color: '#B42318' }}>{publishFeedback}</span> : null}
     </div>
   );
 }

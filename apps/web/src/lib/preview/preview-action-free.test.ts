@@ -62,6 +62,8 @@ const MANAGER_ACTION_ISLAND_FILES = [
   'preview-schedule-actions.tsx',
   'preview-correction-actions.tsx',
   'preview-recipe-kind-manager.tsx',
+  'preview-settings-card.tsx',
+  'preview-shift-grid.tsx',
 ];
 
 /** Dialog-trigger wrappers (fix/cafe-v2-manager-parity) - render the action islands above inside the shared `Modal`, opened on demand instead of the form being permanently open. They import no preview Server Action directly (only the island components), but must obey every other manager-route boundary the islands do. */
@@ -100,6 +102,7 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewPublishSchedule',
   'previewDecideCorrectionRequest',
   'previewSetRecipeContentKind',
+  'previewSaveScheduleSettings',
 ];
 
 const B2B_STAFF_ACTION_EXPORTS = [

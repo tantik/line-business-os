@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import './settings-actions.test.ts';
 
 const SOURCE = readFileSync(new URL('./recipe-actions.ts', import.meta.url), 'utf8');
 

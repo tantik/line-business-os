@@ -5,12 +5,12 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { addIsoDays } from '@/lib/workforce/timezone';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
-import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
+import { PreviewShiftGrid } from './preview-shift-grid';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_MONTHLY_REPORT, HELP_MANAGER_SHIFT_TABLE } from '@/lib/demo/cafe/helpContent';
 import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonSecondary, card, demoColors, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
-import { toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
+import { toManagerViewShiftTypes } from './manager-view-model';
 
 /**
  * Phase 1N-4C Slice B1 - action-free, read-only manager display for the Mame
@@ -113,13 +113,13 @@ export function PreviewManagerView({
         <p style={{ margin: '12px 0 0', ...mutedText }}>スタッフを追加すると週間シフト表が表示されます。</p>
       ) : (
         <div style={{ marginTop: 12 }}>
-          <ShiftTable
+          <PreviewShiftGrid
             dates={dates}
             todayIso={todayIso}
-            staffList={toManagerViewStaff(staff)}
-            assignments={assignments === null ? [] : toManagerViewAssignments(assignments, timeZone)}
-            shiftTypes={shiftTypes === null ? [] : toManagerViewShiftTypes(shiftTypes)}
-            mode="manager"
+            timeZone={timeZone}
+            staff={staff}
+            assignments={assignments === null ? [] : assignments}
+            shiftTypes={shiftTypes === null ? [] : shiftTypes}
           />
         </div>
       )}

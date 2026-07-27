@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { badgeStyle, buttonPrimary, buttonSecondary, card, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { badgeStyle, buttonPrimary, buttonSecondary, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -28,6 +28,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   const editingEntry = editingId ? (staff ?? []).find((s) => s.staffId === editingId) ?? null : null;
@@ -38,6 +39,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       setFeedback(toFeedback(result));
       if (result.status === 'success') {
         setEditingId(null);
+        setMode('list');
         router.refresh();
       }
     });
@@ -55,81 +57,90 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
   }
 
   return (
-    <section style={card}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>スタッフの追加・編集</h2>
-
-      <form action={handleUpsert} style={{ marginTop: 12, display: 'grid', gap: 8, maxWidth: 420 }}>
-        {editingEntry ? <input type="hidden" name="id" value={editingEntry.staffId} /> : null}
-        <label>
-          氏名
-          <input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} />
-        </label>
-        <label>
-          役職
-          <input style={inputStyle} name="positionLabel" defaultValue={editingEntry?.positionLabel ?? ''} maxLength={60} key={`pos-${editingEntry?.staffId ?? 'new'}`} />
-        </label>
-        <label>
-          雇用形態
-          <input
-            style={inputStyle}
-            name="employmentType"
-            defaultValue={editingEntry?.employmentType ?? ''}
-            maxLength={40}
-            key={`emp-${editingEntry?.staffId ?? 'new'}`}
-          />
-        </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" style={buttonPrimary} disabled={isPending}>
-            {editingEntry ? '更新する' : '追加する'}
-          </button>
-          {editingEntry ? (
-            <button type="button" style={buttonSecondary} onClick={() => setEditingId(null)} disabled={isPending}>
-              キャンセル
+    <div>
+      {mode === 'list' ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <p style={{ margin: 0, fontSize: 12, ...mutedText }}>在籍状況と店舗での役割を管理します。</p>
+            <button
+              type="button"
+              style={{ ...buttonPrimary, padding: '8px 14px', fontSize: 13 }}
+              onClick={() => {
+                setEditingId(null);
+                setMode('add');
+              }}
+            >
+              スタッフを追加
             </button>
-          ) : null}
-        </div>
-      </form>
-
-      {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
-
-      {staff === null ? (
-        <p style={{ marginTop: 12, ...mutedText }}>スタッフ一覧を読み込めませんでした。</p>
-      ) : staff.length === 0 ? (
-        <p style={{ marginTop: 12, ...mutedText }}>スタッフがまだ登録されていません。</p>
+          </div>
+          {staff === null ? (
+            <p style={mutedText}>スタッフ一覧を読み込めませんでした。</p>
+          ) : staff.length === 0 ? (
+            <p style={mutedText}>スタッフがまだ登録されていません。</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {staff.map((s) => (
+                <div
+                  key={s.staffId}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: demoColors.surfaceElevated }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{s.name}</div>
+                    <div style={{ marginTop: 3, fontSize: 11.5, color: demoColors.textMuted }}>
+                      {s.positionLabel || 'スタッフ'} ・ {s.employmentType || '雇用形態未設定'} ・{' '}
+                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? '在籍中' : '休止中'}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      style={buttonSecondary}
+                      onClick={() => {
+                        setEditingId(s.staffId);
+                        setMode('edit');
+                      }}
+                      disabled={isPending}
+                    >
+                      編集
+                    </button>
+                    <button type="button" style={buttonSecondary} onClick={() => handleSetActive(s.staffId, !s.isActive)} disabled={isPending}>
+                      {s.isActive ? '休止' : '再開'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       ) : (
-        <table style={{ width: '100%', marginTop: 16, borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>氏名</th>
-              <th style={{ textAlign: 'left' }}>状態</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {staff.map((s) => (
-              <tr key={s.staffId}>
-                <td style={{ padding: '6px 0' }}>{s.name}</td>
-                <td style={{ padding: '6px 0' }}>
-                  <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? '在籍中' : '休止中'}</span>
-                </td>
-                <td style={{ padding: '6px 0', display: 'flex', gap: 8 }}>
-                  <button type="button" style={buttonSecondary} onClick={() => setEditingId(s.staffId)} disabled={isPending}>
-                    編集
-                  </button>
-                  <button
-                    type="button"
-                    style={buttonSecondary}
-                    onClick={() => handleSetActive(s.staffId, !s.isActive)}
-                    disabled={isPending}
-                  >
-                    {s.isActive ? '休止にする' : '再開する'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{mode === 'edit' ? 'スタッフを編集' : 'スタッフを追加'}</h3>
+          <form action={handleUpsert} style={{ display: 'grid', gap: 12, maxWidth: 440 }}>
+            {editingEntry ? <input type="hidden" name="id" value={editingEntry.staffId} /> : null}
+            <label>
+              表示名
+              <input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} />
+            </label>
+            <label>
+              役職
+              <input style={inputStyle} name="positionLabel" defaultValue={editingEntry?.positionLabel ?? ''} maxLength={60} key={`pos-${editingEntry?.staffId ?? 'new'}`} />
+            </label>
+            <label>
+              雇用形態
+              <input style={inputStyle} name="employmentType" defaultValue={editingEntry?.employmentType ?? ''} maxLength={40} key={`emp-${editingEntry?.staffId ?? 'new'}`} />
+            </label>
+            {feedback ? <p style={{ margin: 0, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" style={buttonSecondary} onClick={() => setMode('list')} disabled={isPending}>
+                キャンセル
+              </button>
+              <button type="submit" style={buttonPrimary} disabled={isPending}>
+                保存
+              </button>
+            </div>
+          </form>
+        </>
       )}
-    </section>
+    </div>
   );
 }
