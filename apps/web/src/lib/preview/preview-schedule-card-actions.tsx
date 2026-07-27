@@ -10,6 +10,8 @@ import { PreviewShiftEditor } from './preview-shift-editor';
 import { PreviewScheduleActions } from './preview-schedule-actions';
 import { UNKNOWN_STAFF_NAME_JA } from './manager-view-model';
 import { buttonPrimary, buttonSecondary, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
 
 /**
  * Demo/Preview manager UX parity: the demo's シフト表 card keeps its
@@ -50,8 +52,9 @@ export function PreviewScheduleCardActions({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <button type="button" style={buttonPrimary} onClick={() => setScheduleActionsOpen(true)}>
-        自動割り当て・公開
+        自動シフト作成
       </button>
+      <DemoHelpButton content={HELP_MANAGER_AUTO_SCHEDULE} />
       <button type="button" style={buttonSecondary} onClick={() => setShiftEditorOpen(true)}>
         シフトの追加・編集
       </button>

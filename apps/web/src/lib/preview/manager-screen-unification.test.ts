@@ -151,3 +151,24 @@ test('the preview settings card never renders a technical/placeholder caveat abo
     assert.ok(!source.includes(phrase), `preview-settings-card.tsx must not contain the technical caveat phrase "${phrase}"`);
   }
 });
+
+test('the preview manager restores the same customer guidance affordances as the demo manager', () => {
+  const schedule = read(PREVIEW_MANAGER_VIEW);
+  const management = read('preview-staff-recipe-management.tsx');
+  const settings = read('preview-settings-card.tsx');
+  const scheduleActions = read('preview-schedule-card-actions.tsx');
+
+  assert.match(schedule, /HELP_MANAGER_SHIFT_TABLE/);
+  assert.match(schedule, /セルをクリックして手動でシフトを編集できます/);
+  assert.match(schedule, /HELP_MANAGER_MONTHLY_REPORT/);
+  assert.match(scheduleActions, /HELP_MANAGER_AUTO_SCHEDULE/);
+  assert.match(management, /HELP_MANAGER_STAFF_RECIPE_MANAGEMENT/);
+  assert.match(settings, /HELP_MANAGER_SETTINGS/);
+});
+
+test('the preview settings summary keeps the demo manager operational fields visible', () => {
+  const source = read('preview-settings-card.tsx');
+  assert.match(source, /必要人数（曜日ごと）/);
+  assert.match(source, /スタッフ最大勤務時間 \/ 月/);
+  assert.match(source, /シフト種別/);
+});

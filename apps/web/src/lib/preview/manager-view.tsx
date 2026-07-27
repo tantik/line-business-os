@@ -6,6 +6,9 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import { addIsoDays } from '@/lib/workforce/timezone';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_MANAGER_MONTHLY_REPORT, HELP_MANAGER_SHIFT_TABLE } from '@/lib/demo/cafe/helpContent';
+import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonSecondary, card, demoColors, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import { toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
 
@@ -72,26 +75,36 @@ export function PreviewManagerView({
   return (
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <strong style={{ fontSize: 16 }}>
-          シフト表（{periodStart} 〜 {periodEnd}）
-        </strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <strong style={{ fontSize: 16 }}>シフト表</strong>
+          <DemoHelpButton content={HELP_MANAGER_SHIFT_TABLE} />
+        </div>
         {actionsSlot}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-        <Link href={`${basePath}/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-          ← 前の週
-        </Link>
-        <Link
-          href={`${basePath}/manager`}
-          style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
-          aria-disabled={weekOffset === 0}
-        >
-          今日
-        </Link>
-        <Link href={`${basePath}/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-          次の週 →
-        </Link>
+      <p style={{ margin: '8px 0 4px', fontSize: 12.5, ...mutedText }}>
+        セルをクリックして手動でシフトを編集できます。列見出しの「!」は必要人数に対して人員が不足している日を示します。
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: demoColors.textPrimary }}>
+          {formatMonthDay(new Date(`${periodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${periodEnd}T00:00:00`))}
+        </span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href={`${basePath}/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+            ← 前の週
+          </Link>
+          <Link
+            href={`${basePath}/manager`}
+            style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
+            aria-disabled={weekOffset === 0}
+          >
+            今日
+          </Link>
+          <Link href={`${basePath}/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+            次の週 →
+          </Link>
+        </div>
       </div>
 
       {staff === null ? (
@@ -126,6 +139,13 @@ export function PreviewManagerView({
           })}
         </div>
       ) : null}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}>
+        <button type="button" style={buttonSecondary} disabled title="月間レポートは次のリリースで有効になります">
+          月間レポートCSV
+        </button>
+        <DemoHelpButton content={HELP_MANAGER_MONTHLY_REPORT} />
+      </div>
     </section>
   );
 }

@@ -25,6 +25,7 @@
     "mame-to-cha-cloud-d5": "tsx scripts/mame-to-cha-cloud-d5-cli.ts",
     "mame-to-cha-cloud-d6": "tsx scripts/mame-to-cha-cloud-d6-cli.ts",
     "mame-to-cha-cloud-d7": "tsx scripts/mame-to-cha-cloud-d7-cli.ts",
+    "mame-to-cha-showcase": "tsx scripts/mame-to-cha-showcase.ts",
     "gen:types": "supabase gen types typescript --local --schema core,audit,workforce,booking,ai > src/types.generated.ts"
   },
   "dependencies": {

@@ -22,7 +22,7 @@ import {
   PreviewNoAccessState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { linkAccent } from '@/lib/demo/cafe/theme';
+import { buttonSecondary } from '@/lib/demo/cafe/theme';
 import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
 import { PreviewScheduleCardActions } from '@/lib/preview/preview-schedule-card-actions';
@@ -139,11 +139,11 @@ export default async function MameToChaPreviewManagerPage({
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
       <CafeManagerScreen
-        subtitle={`${activeTenant.tenantName} - ${location.locationName}`}
+        subtitle={location.locationName.startsWith(activeTenant.tenantName) ? location.locationName : `${activeTenant.tenantName} — ${location.locationName}`}
         rightSlot={
           <Link
             href={PREVIEW_BASE_PATH}
-            style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}
+            style={{ ...buttonSecondary, display: 'inline-block', fontSize: 14 }}
           >
             プレビュートップへ戻る
           </Link>

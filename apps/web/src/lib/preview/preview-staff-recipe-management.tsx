@@ -7,6 +7,8 @@ import { Modal } from '@/components/demo/cafe/Modal';
 import { PreviewStaffForm } from './preview-staff-form';
 import { PreviewRecipeKindManager } from './preview-recipe-kind-manager';
 import { buttonSecondary, card } from '@/lib/demo/cafe/theme';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_MANAGER_STAFF_RECIPE_MANAGEMENT } from '@/lib/demo/cafe/helpContent';
 
 /**
  * Demo/Preview manager UX parity: the demo's スタッフ・レシピ管理 card only ever
@@ -27,7 +29,10 @@ export function PreviewStaffRecipeManagement({ staff, recipes }: PreviewStaffRec
 
   return (
     <section style={card}>
-      <strong style={{ fontSize: 16 }}>スタッフ・レシピ管理</strong>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <strong style={{ fontSize: 16 }}>スタッフ・レシピ管理</strong>
+        <DemoHelpButton content={HELP_MANAGER_STAFF_RECIPE_MANAGEMENT} />
+      </div>
       <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" style={buttonSecondary} onClick={() => setStaffOpen(true)}>
           スタッフ管理
