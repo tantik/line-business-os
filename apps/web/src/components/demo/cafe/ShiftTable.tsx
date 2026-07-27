@@ -4,6 +4,7 @@ import type { ShiftAssignment, ShiftTypeDef, StaffMember, WorkReport } from '@/l
 import { formatMonthDay, weekdayLabel } from '@/lib/demo/cafe/format';
 import { demoColors, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { reportNeedsManagerAttention } from '@/lib/demo/cafe/report-indicator';
 
 interface ShiftTableProps {
   dates: string[];
@@ -183,7 +184,7 @@ export function ShiftTable({
                   const report = reportMap.get(`${staff.id}:${date}`);
                   const clickable = isCellClickable(staff.id, date);
                   const showIndicator =
-                    (report?.hasCorrectionRequest || report?.message) && (mode === 'manager' || isSelfRow);
+                    reportNeedsManagerAttention(report) && (mode === 'manager' || isSelfRow);
 
                   return (
                     <td

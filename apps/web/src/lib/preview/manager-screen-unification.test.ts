@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { reportNeedsManagerAttention } from '@/lib/demo/cafe/report-indicator';
 
 /**
  * Static source-text regression guards for the Cafe Manager screen
@@ -34,6 +35,26 @@ const DEMO_MANAGER_VIEW = '../../components/demo/cafe/views/ManagerView.tsx';
 const PREVIEW_MANAGER_PAGE = '../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx';
 const PREVIEW_MANAGER_VIEW = 'manager-view.tsx';
 const CAFE_MANAGER_SCREEN = '../../components/demo/cafe/CafeManagerScreen.tsx';
+
+test('a decided correction request no longer keeps the schedule-cell attention marker', () => {
+  const base = {
+    hasCorrectionRequest: true,
+    message: '勤務時間の修正を依頼しています。',
+  };
+
+  assert.equal(
+    reportNeedsManagerAttention({ ...base, correctionRequest: { reason: '修正', status: 'pending' } }),
+    true,
+  );
+  assert.equal(
+    reportNeedsManagerAttention({ ...base, correctionRequest: { reason: '修正', status: 'approved' } }),
+    false,
+  );
+  assert.equal(
+    reportNeedsManagerAttention({ ...base, correctionRequest: { reason: '修正', status: 'rejected' } }),
+    false,
+  );
+});
 
 test('the demo manager screen and the DB-backed preview manager page both render through the shared CafeManagerScreen shell', () => {
   const demoImports = importLines(read(DEMO_MANAGER_VIEW));
