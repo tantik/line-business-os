@@ -67,13 +67,20 @@ async function main() {
     const employeeIds: string[] = [];
     const existing = await client.query<{ id: string }>(
       `select id from workforce.employees
-        where tenant_id = $1 and location_id = $2 and is_active
+        where tenant_id = $1 and location_id = $2
         order by created_at
         limit 1`,
       [tenantId, locationId],
     );
     if (existing.rowCount !== 1) throw new Error('The existing acceptance employee was not found.');
-    employeeIds.push(existing.rows[0]!.id);
+    const acceptanceEmployeeId = existing.rows[0]!.id;
+    await client.query(
+      `update workforce.employees
+          set is_active = true
+        where tenant_id = $1 and location_id = $2 and id = $3`,
+      [tenantId, locationId, acceptanceEmployeeId],
+    );
+    employeeIds.push(acceptanceEmployeeId);
 
     for (const name of STAFF_NAMES) {
       const inserted = await client.query<{ id: string }>(
