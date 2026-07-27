@@ -115,8 +115,8 @@ test('collectActionEntries fails closed (throws) when an entry is missing export
 // evaluateManifestEntries - allowlist / zero-action / forbidden-module / positive-control rules
 // ---------------------------------------------------------------------------
 
-test('manager preview route accepts exactly the nine allowlisted actions and nothing else', () => {
-  const nineAllowed = [
+test('manager preview route accepts exactly the eleven allowlisted actions and nothing else', () => {
+  const elevenAllowed = [
     'previewUpsertEmployee',
     'previewSetEmployeeActive',
     'previewCreateShiftAssignment',
@@ -126,8 +126,10 @@ test('manager preview route accepts exactly the nine allowlisted actions and not
     'previewDecideCorrectionRequest',
     'previewSetRecipeContentKind',
     'previewSaveScheduleSettings',
+    'previewUpsertShiftType',
+    'previewSetShiftTypeActive',
   ];
-  const entries = nineAllowed.map((exportedName) =>
+  const entries = elevenAllowed.map((exportedName) =>
     actionEntry({
       exportedName,
       filename: 'src/lib/preview/actions/staff-actions.ts',
@@ -140,7 +142,7 @@ test('manager preview route accepts exactly the nine allowlisted actions and not
   assert.deepEqual(result.unknownRouteViolations, []);
 });
 
-test('manager preview route rejects a tenth, non-allowlisted action name', () => {
+test('manager preview route rejects a twelfth, non-allowlisted action name', () => {
   const entries = [
     actionEntry({
       exportedName: 'previewSomethingElse',

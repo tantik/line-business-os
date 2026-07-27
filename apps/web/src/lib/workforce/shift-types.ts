@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { mapWorkforceReadError } from './pg-error';
+import { mapWorkforceWriteError } from './pg-error';
+import type { WorkforceWriteResult } from './result-types';
 
 /** Flat row shape returned by `api.workforce_shift_types`. */
 interface ApiWorkforceShiftTypeRow {
@@ -80,4 +82,57 @@ export async function listWorkforceShiftTypes(
       message: err instanceof Error ? err.message : 'Unexpected error reading shift types.',
     };
   }
+}
+
+export interface UpsertWorkforceShiftTypeInput {
+  shiftTypeId?: string;
+  tenantId: string;
+  locationId: string;
+  labelJa: string;
+  startsAtLocal: string;
+  endsAtLocal: string;
+}
+
+export async function upsertWorkforceShiftType(
+  supabase: SupabaseClient,
+  input: UpsertWorkforceShiftTypeInput,
+): Promise<WorkforceWriteResult<WorkforceShiftType>> {
+  const values = {
+    tenant_id: input.tenantId,
+    location_id: input.locationId,
+    code: input.shiftTypeId ? undefined : `CUSTOM_${Date.now()}`,
+    label_ja: input.labelJa,
+    starts_at_local: input.startsAtLocal,
+    ends_at_local: input.endsAtLocal,
+    break_minutes: 0,
+    is_custom: true,
+    is_active: true,
+  };
+  const query = input.shiftTypeId
+    ? supabase.schema('api').from('workforce_shift_types').update(values).eq('shift_type_id', input.shiftTypeId)
+    : supabase.schema('api').from('workforce_shift_types').insert(values);
+  const { data, error } = await query.select(SHIFT_TYPE_SELECT).single();
+  if (error) return mapWorkforceWriteError(error, 'save shift type');
+  return { status: 'success', data: mapShiftTypeRow(data as ApiWorkforceShiftTypeRow) };
+}
+
+export async function setWorkforceShiftTypeActive(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  shiftTypeId: string,
+  isActive: boolean,
+): Promise<WorkforceWriteResult<{ shiftTypeId: string; isActive: boolean }>> {
+  const { data, error } = await supabase
+    .schema('api')
+    .from('workforce_shift_types')
+    .update({ is_active: isActive })
+    .eq('tenant_id', tenantId)
+    .eq('location_id', locationId)
+    .eq('shift_type_id', shiftTypeId)
+    .select('shift_type_id, is_active')
+    .maybeSingle();
+  if (error) return mapWorkforceWriteError(error, 'update shift type');
+  if (!data) return { status: 'not_found' };
+  return { status: 'success', data: { shiftTypeId: data.shift_type_id as string, isActive: data.is_active as boolean } };
 }

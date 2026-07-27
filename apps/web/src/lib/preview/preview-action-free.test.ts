@@ -103,6 +103,8 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewDecideCorrectionRequest',
   'previewSetRecipeContentKind',
   'previewSaveScheduleSettings',
+  'previewUpsertShiftType',
+  'previewSetShiftTypeActive',
 ];
 
 const B2B_STAFF_ACTION_EXPORTS = [

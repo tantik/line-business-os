@@ -64,6 +64,8 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewDecideCorrectionRequest',
       'previewSetRecipeContentKind',
       'previewSaveScheduleSettings',
+      'previewUpsertShiftType',
+      'previewSetShiftTypeActive',
     ]),
   ],
   [

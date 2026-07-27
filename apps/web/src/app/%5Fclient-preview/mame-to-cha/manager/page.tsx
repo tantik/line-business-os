@@ -173,13 +173,15 @@ export default async function MameToChaPreviewManagerPage({
             <PreviewScheduleCardActions
               periodStart={periodStart}
               periodEnd={periodEnd}
+              requiredHeadcountByWeekday={settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]}
+              hasUnpublishedChanges={(assignments ?? []).some((assignment) => !assignment.published)}
             />
           }
         />
 
         <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
 
-        <PreviewSettingsCard shiftTypes={shiftTypes} settings={settings} />
+        <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
       </CafeManagerScreen>
     </BrandProvider>
   );

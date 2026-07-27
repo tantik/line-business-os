@@ -7,14 +7,27 @@ interface AutoScheduleModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }
 
-export function AutoScheduleModal({ open, onClose, onConfirm }: AutoScheduleModalProps) {
+const DEFAULT_DESCRIPTION =
+  '来月分のシフトを、スタッフの希望と設定内容にもとづいてすべて再作成します。すでに来月分に加えた手動変更は上書きされる場合があります。続けますか？';
+
+export function AutoScheduleModal({
+  open,
+  onClose,
+  onConfirm,
+  title = '自動シフト作成',
+  description = DEFAULT_DESCRIPTION,
+  confirmLabel = '自動作成する',
+}: AutoScheduleModalProps) {
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="自動シフト作成"
+      title={title}
       footer={
         <>
           <button type="button" style={buttonSecondary} onClick={onClose}>
@@ -28,13 +41,13 @@ export function AutoScheduleModal({ open, onClose, onConfirm }: AutoScheduleModa
               onClose();
             }}
           >
-            自動作成する
+            {confirmLabel}
           </button>
         </>
       }
     >
       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: demoColors.textPrimary }}>
-        来月分のシフトを、スタッフの希望と設定内容にもとづいてすべて再作成します。すでに来月分に加えた手動変更は上書きされる場合があります。続けますか？
+        {description}
       </p>
     </Modal>
   );
