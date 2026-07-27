@@ -93,6 +93,9 @@ export const buttonPrimary: CSSProperties = {
   fontSize: 14,
   fontWeight: 700,
   cursor: 'pointer',
+  textDecoration: 'none',
+  lineHeight: 1.35,
+  appearance: 'none',
 };
 
 export const buttonSecondary: CSSProperties = {
@@ -104,6 +107,9 @@ export const buttonSecondary: CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
+  textDecoration: 'none',
+  lineHeight: 1.35,
+  appearance: 'none',
 };
 
 export const buttonDisabled: CSSProperties = {
@@ -114,6 +120,9 @@ export const buttonDisabled: CSSProperties = {
   borderRadius: RADIUS,
   fontSize: 14,
   cursor: 'not-allowed',
+  textDecoration: 'none',
+  lineHeight: 1.35,
+  appearance: 'none',
 };
 
 export const input: CSSProperties = {
@@ -228,6 +237,16 @@ export function shiftChipColors(shiftTypeId: string | null): { background: strin
     case null:
       return { background: 'transparent', color: demoColors.textMuted };
     default:
-      return { background: demoColors.goldMuted, color: demoColors.goldDark };
+      {
+        const palettes = [
+          { background: 'rgba(199, 118, 51, 0.16)', color: '#9B5A26' },
+          { background: 'rgba(69, 123, 157, 0.16)', color: '#2F6690' },
+          { background: demoColors.badgeSeasonalBg, color: demoColors.badgeSeasonal },
+          { background: demoColors.accentMuted, color: demoColors.accentStrong },
+        ];
+        let hash = 0;
+        for (const char of shiftTypeId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+        return palettes[hash % palettes.length]!;
+      }
   }
 }

@@ -121,10 +121,14 @@ test('the preview manager page renders mutation-form islands only through their 
   }
 });
 
-test('every manager dialog wrapper renders the shared Modal shell and imports no demo store/mock data', () => {
+test('every manager dialog wrapper renders a shared Demo modal and imports no demo store/mock data', () => {
   for (const file of DIALOG_WRAPPER_FILES) {
     const source = read(file);
-    assert.match(source, /@\/components\/demo\/cafe\/Modal/, `${file} must render the shared Modal shell`);
+    assert.match(
+      source,
+      /@\/components\/demo\/cafe\/(?:Modal|AutoScheduleModal)/,
+      `${file} must render a shared Demo modal`,
+    );
     assert.ok(!/['"]@\/lib\/demo\/cafe\/store['"]/.test(source), `${file} must not import the demo store`);
     assert.ok(!/['"]@\/lib\/demo\/cafe\/data['"]/.test(source), `${file} must not import demo mock data`);
   }

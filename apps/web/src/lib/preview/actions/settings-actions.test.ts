@@ -7,7 +7,7 @@ const SOURCE = readFileSync(new URL('./settings-actions.ts', import.meta.url), '
 test('exports exactly the manager schedule-settings action', () => {
   assert.deepEqual(
     [...SOURCE.matchAll(/export async function (preview[A-Za-z]+)\(/g)].map((match) => match[1]),
-    ['previewSaveScheduleSettings'],
+    ['previewSaveScheduleSettings', 'previewUpsertShiftType', 'previewSetShiftTypeActive'],
   );
 });
 
@@ -25,4 +25,11 @@ test('uses shift.write and only server-resolved tenant and location authority', 
   assert.ok(!SOURCE.includes("formData.get('tenantId')"));
   assert.ok(!SOURCE.includes("formData.get('locationId')"));
   assert.ok(!/service_role|createServiceClient/i.test(SOURCE));
+});
+
+test('shift-type mutations validate input and use only the server-resolved location', () => {
+  assert.ok(SOURCE.includes('previewUpsertShiftType'));
+  assert.ok(SOURCE.includes('previewSetShiftTypeActive'));
+  assert.ok(SOURCE.includes("resolvePreviewManagerContext('workforce.shift.write')"));
+  assert.ok(!SOURCE.includes("formData.get('shiftTypeId')"));
 });
