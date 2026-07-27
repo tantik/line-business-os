@@ -15,7 +15,8 @@ import { demoColors, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import type { Recipe } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
 
-const SORTED_RECIPES: Recipe[] = [...RECIPES].sort((a, b) => {
+function sortRecipes(recipes: Recipe[]): Recipe[] {
+  return [...recipes].sort((a, b) => {
   const instructionOrder =
     Number(b.contentKind === 'instruction') - Number(a.contentKind === 'instruction');
   if (instructionOrder !== 0) return instructionOrder;
@@ -24,14 +25,20 @@ const SORTED_RECIPES: Recipe[] = [...RECIPES].sort((a, b) => {
   if (popularOrder !== 0) return popularOrder;
 
   return a.name.localeCompare(b.name, 'ja');
-});
+  });
+}
 
-/** Recipe/manual card browser. Shared by `/demo/cafe/recipes` and `/mame-to-cha/recipes`. */
-export function RecipeView() {
+export interface RecipeBrowserProps {
+  recipes: Recipe[];
+}
+
+/** Shared recipe/manual card browser. Its caller owns only the data source. */
+export function RecipeBrowser({ recipes }: RecipeBrowserProps) {
   const brand = useBrand();
   const { lang } = useLang();
-  const [selectedId, setSelectedId] = useState(SORTED_RECIPES[0]!.id);
-  const selectedRecipe = SORTED_RECIPES.find((recipe) => recipe.id === selectedId) ?? SORTED_RECIPES[0]!;
+  const sortedRecipes = sortRecipes(recipes);
+  const [selectedId, setSelectedId] = useState(sortedRecipes[0]?.id ?? '');
+  const selectedRecipe = sortedRecipes.find((recipe) => recipe.id === selectedId) ?? sortedRecipes[0] ?? null;
 
   return (
     <main style={mobilePageStyle(720)}>
@@ -59,12 +66,19 @@ export function RecipeView() {
           padding: '2px 2px 8px',
         }}
       >
-        {SORTED_RECIPES.map((recipe) => (
+        {sortedRecipes.map((recipe) => (
           <RecipeCard key={recipe.id} recipe={recipe} selected={recipe.id === selectedId} onOpen={(r) => setSelectedId(r.id)} />
         ))}
       </div>
 
-      <RecipeDetail recipe={selectedRecipe} />
+      {selectedRecipe ? <RecipeDetail recipe={selectedRecipe} /> : (
+        <p style={{ marginTop: 14, color: demoColors.textMuted }}>公開中のレシピはありません。</p>
+      )}
     </main>
   );
+}
+
+/** Demo adapter: shared presentation with mock/local demo data. */
+export function RecipeView() {
+  return <RecipeBrowser recipes={RECIPES} />;
 }

@@ -4,7 +4,7 @@ import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
 import { resolvePreviewWorkforceModule } from '@/lib/preview/module-guard';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { PreviewErrorState, PreviewModuleUnavailableState, PreviewNoAccessState, PreviewReadOnlyNotice } from '@/lib/preview/states';
+import { PreviewErrorState, PreviewModuleUnavailableState, PreviewNoAccessState } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { card, mutedText, pageStyle } from '@/lib/ui/theme';
 
@@ -37,10 +37,9 @@ export default async function MameToChaPreviewRootPage() {
 
   return (
     <main style={pageStyle(720)}>
-      <PreviewReadOnlyNotice />
       <header>
         <h1 style={{ margin: 0 }}>Mame To Cha プレビュー</h1>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>ワークフォース機能の閲覧専用プレビューです。</p>
+        <p style={{ margin: '8px 0 0', ...mutedText }}>カフェ運営に必要なスタッフ、シフト、勤務報告、レシピを確認できます。</p>
       </header>
 
       {profileResult.status === 'success' && profileResult.data ? (
