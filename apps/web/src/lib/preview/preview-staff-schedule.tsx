@@ -8,11 +8,12 @@ import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { CafeStaffScheduleCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import { HELP_STAFF_SHIFT_TABLE } from '@/lib/demo/cafe/helpContent';
-import type { ShiftAssignment, ShiftTypeDef } from '@/lib/demo/cafe/types';
+import type { ShiftAssignment, ShiftTypeDef, WorkReport } from '@/lib/demo/cafe/types';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
@@ -27,6 +28,7 @@ export interface PreviewStaffScheduleProps {
   shiftTypes: WorkforceShiftType[] | null;
   assignments: WorkforceShiftAssignment[] | null;
   attendance: WorkforceAttendance[] | null;
+  requests: WorkforceShiftRequest[] | null;
   basePath: string;
 }
 
@@ -61,6 +63,7 @@ export function PreviewStaffSchedule({
   shiftTypes,
   assignments,
   attendance,
+  requests,
   basePath,
 }: PreviewStaffScheduleProps) {
   const [onlyMe, setOnlyMe] = useState(false);
@@ -71,7 +74,7 @@ export function PreviewStaffSchedule({
 
   const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({
     id: shiftType.shiftTypeId,
-    label: shiftType.code,
+    label: shiftType.labelJa,
     startTime: shiftType.startsAtLocal.slice(0, 5),
     endTime: shiftType.endsAtLocal.slice(0, 5),
     isCustom: shiftType.isCustom,
@@ -113,6 +116,35 @@ export function PreviewStaffSchedule({
     return utcIsoToLocalDateTime(entry.startsAt, timeZone).workDate === selectedDate;
   });
   const selectedShift = displayShiftTypes.find((entry) => entry.id === selectedAssignment?.shiftTypeId);
+  const correctionByDate = new Map(
+    (requests ?? [])
+      .filter((request) => request.kind === 'correction')
+      .map((request) => [request.workDate, request] as const),
+  );
+  const workReports: WorkReport[] = (attendance ?? []).map((entry) => {
+    const correction = correctionByDate.get(entry.workDate);
+    return {
+      staffId: profile.staffId,
+      date: entry.workDate,
+      plannedLabel: '',
+      actualClockIn: entry.clockIn ? reportTime(entry.clockIn, timeZone) : null,
+      breakMinutes: entry.actualBreakMinutes ?? 0,
+      actualClockOut: entry.clockOut ? reportTime(entry.clockOut, timeZone) : null,
+      actualWorkedHours: null,
+      transportYen: entry.transportationCost ?? 0,
+      message: entry.dailyMessage ?? '',
+      hasCorrectionRequest: Boolean(correction),
+      correctionRequest: correction
+        ? {
+            requestedClockIn: typeof correction.details.clockInLocal === 'string' ? correction.details.clockInLocal : undefined,
+            requestedClockOut: typeof correction.details.clockOutLocal === 'string' ? correction.details.clockOutLocal : undefined,
+            requestedBreakMinutes: typeof correction.details.actualBreakMinutes === 'number' ? correction.details.actualBreakMinutes : undefined,
+            reason: typeof correction.details.message === 'string' ? correction.details.message : '',
+            status: correction.status === 'approved' || correction.status === 'rejected' ? correction.status : 'pending',
+          }
+        : undefined,
+    };
+  });
 
   return (
     <>
@@ -151,6 +183,7 @@ export function PreviewStaffSchedule({
                 shiftTypes={displayShiftTypes}
                 mode="staff"
                 currentStaffId={profile.staffId}
+                workReports={workReports}
                 onlyCurrentStaff={onlyMe}
                 compact
                 lang="ja"
@@ -184,7 +217,12 @@ export function PreviewStaffSchedule({
       </Modal>
 
       <Modal open={correctionDate !== null} onClose={() => setCorrectionDate(null)} title="勤務時間の修正を依頼">
-        <PreviewCorrectionRequestForm attendanceOptions={attendance} defaultWorkDate={correctionDate ?? todayIso} embedded />
+        <PreviewCorrectionRequestForm
+          defaultWorkDate={correctionDate ?? todayIso}
+          defaultAttendance={(attendance ?? []).find((entry) => entry.workDate === correctionDate) ?? null}
+          timeZone={timeZone}
+          embedded
+        />
       </Modal>
     </>
   );

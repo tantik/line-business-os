@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
+import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewSubmitCorrectionRequest } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
@@ -18,9 +19,9 @@ import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/
  * field is ever submitted or controllable from this form.
  */
 export interface PreviewCorrectionRequestFormProps {
-  /** The caller's own work-report rows, offered as an optional link target - a correction can also be filed with no `attendanceId` at all. */
-  attendanceOptions: WorkforceAttendance[] | null;
   defaultWorkDate: string;
+  defaultAttendance?: WorkforceAttendance | null;
+  timeZone: string;
   embedded?: boolean;
 }
 
@@ -30,17 +31,25 @@ function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: s
 }
 
 export function PreviewCorrectionRequestForm({
-  attendanceOptions,
   defaultWorkDate,
+  defaultAttendance = null,
+  timeZone,
   embedded = false,
 }: PreviewCorrectionRequestFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const defaultClockIn = defaultAttendance?.clockIn
+    ? utcIsoToLocalDateTime(defaultAttendance.clockIn, timeZone).localTime
+    : '';
+  const defaultClockOut = defaultAttendance?.clockOut
+    ? utcIsoToLocalDateTime(defaultAttendance.clockOut, timeZone).localTime
+    : '';
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (defaultAttendance?.attendanceId) formData.set('attendanceId', defaultAttendance.attendanceId);
 
     startTransition(async () => {
       const result = await previewSubmitCorrectionRequest(formData);
@@ -57,20 +66,23 @@ export function PreviewCorrectionRequestForm({
           <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
           <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
         </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>実際の出勤時間</span>
+            <input style={inputStyle} type="time" name="clockInLocal" defaultValue={defaultClockIn} />
+          </label>
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>実際の退勤時間</span>
+            <input style={inputStyle} type="time" name="clockOutLocal" defaultValue={defaultClockOut} />
+          </label>
+        </div>
         <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>関連する勤務報告（任意）</span>
-          <select style={inputStyle} name="attendanceId" defaultValue="">
-            <option value="">なし</option>
-            {(attendanceOptions ?? []).map((a) => (
-              <option key={a.attendanceId} value={a.attendanceId}>
-                {a.workDate} ({a.status})
-              </option>
-            ))}
-          </select>
+          <span style={{ ...mutedText, fontSize: 13 }}>休憩時間（分）</span>
+          <input style={inputStyle} type="number" name="actualBreakMinutes" min={0} max={480} defaultValue={defaultAttendance?.actualBreakMinutes ?? ''} />
         </label>
         <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>メッセージ</span>
-          <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} name="message" maxLength={500} />
+          <span style={{ ...mutedText, fontSize: 13 }}>理由・メッセージ</span>
+          <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} name="message" maxLength={500} placeholder="例：開店準備で出勤が12分遅れました。" />
         </label>
         <button type="submit" style={buttonPrimary} disabled={isPending}>
           {isPending ? '送信中...' : '提出する'}

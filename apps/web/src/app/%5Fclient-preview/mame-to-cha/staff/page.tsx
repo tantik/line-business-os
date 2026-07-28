@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { CafeStaffHeader } from '@/components/demo/cafe/CafeStaffPresentation';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
@@ -12,7 +11,6 @@ import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { getWeekPeriod } from '@/lib/workforce/period';
-import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   PreviewErrorState,
   PreviewModuleUnavailableState,
@@ -20,7 +18,7 @@ import {
   PreviewNoProfileState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { demoColors, linkAccent, mobilePageStyle } from '@/lib/demo/cafe/theme';
+import { demoColors, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
@@ -104,14 +102,13 @@ export default async function MameToChaPreviewStaffPage({
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
   const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
-  const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
-  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
-
   const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-      listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
-      listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
+      listMyShiftRequests(supabase, activeTenant.tenantId),
+      // Keep the published roster stable while browsing weeks with no shifts.
+      // The client component still renders only the requested seven-day period.
+      listShiftAssignments(supabase, activeTenant.tenantId),
       listMyAttendance(supabase, activeTenant.tenantId),
     ]);
 
@@ -156,14 +153,7 @@ export default async function MameToChaPreviewStaffPage({
         }
         title={activeTenant.tenantName}
         subtitle={location.locationName}
-        actions={
-          <>
-            <Link href={PREVIEW_BASE_PATH} style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}>
-              トップへ戻る
-            </Link>
-            <PreviewLanguageToggle />
-          </>
-        }
+        actions={<PreviewLanguageToggle />}
       />
 
       <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
@@ -177,6 +167,7 @@ export default async function MameToChaPreviewStaffPage({
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
         assignments={publishedAssignments}
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
+        requests={requestsResult.status === 'success' ? requestsResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 
@@ -186,7 +177,7 @@ export default async function MameToChaPreviewStaffPage({
         todayAttendance={todayAttendance}
         preferenceSubmitted={
           requestsResult.status === 'success' &&
-          requestsResult.data.some((request) => request.workDate >= todayIso)
+          requestsResult.data.some((request) => request.kind === 'preference' && request.workDate >= todayIso)
         }
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}

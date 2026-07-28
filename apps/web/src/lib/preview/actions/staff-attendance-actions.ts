@@ -147,7 +147,12 @@ export async function previewSubmitCorrectionRequest(
     locationId,
     workDate: input.workDate,
     attendanceId: input.attendanceId,
-    details: input.message ? { message: input.message } : {},
+    details: {
+      ...(input.clockInLocal ? { clockInLocal: input.clockInLocal } : {}),
+      ...(input.clockOutLocal ? { clockOutLocal: input.clockOutLocal } : {}),
+      ...(input.actualBreakMinutes !== null ? { actualBreakMinutes: input.actualBreakMinutes } : {}),
+      ...(input.message ? { message: input.message } : {}),
+    },
   });
   return mapWorkforceWriteResult(result);
 }
