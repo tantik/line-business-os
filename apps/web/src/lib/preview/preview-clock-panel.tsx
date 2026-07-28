@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { previewClockIn, previewClockOut } from './actions/staff-attendance-actions';
+import { previewClockIn, previewClockOut, previewResetTodayClock } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa } from './write-result';
 import { CafeStaffStatusCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
@@ -63,6 +63,18 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
     });
   }
 
+  function resetTodayClock() {
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await previewResetTodayClock();
+      if (result.status === 'success') {
+        router.refresh();
+      } else {
+        setFeedback(previewWriteMessageJa(result.status));
+      }
+    });
+  }
+
   return (
     <CafeStaffStatusCard
       title={<>勤務状況 <DemoHelpButton content={HELP_STAFF_WORK_STATUS} /></>}
@@ -103,6 +115,18 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
           {isPending ? '処理中…' : isFinished ? '退勤済み' : isWorking ? '退勤' : '出勤'}
         </button>
       </div>
+      {isFinished ? (
+        <div style={{ marginTop: 10, textAlign: 'center' }}>
+          <button
+            type="button"
+            style={{ ...buttonSecondary, padding: '7px 12px', fontSize: 12 }}
+            disabled={isPending}
+            onClick={resetTodayClock}
+          >
+            テスト用：本日の勤務をリセット
+          </button>
+        </div>
+      ) : null}
       {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
 
       {clockOutOpen ? (

@@ -117,6 +117,40 @@ export async function previewClockOut(formData: FormData): Promise<PreviewWriteR
 }
 
 /**
+ * Preview-only replay helper. It clears only today's clock state for the
+ * authenticated employee/location so acceptance testing can repeat the
+ * clock-in/out flow without privileged credentials or direct Cloud edits.
+ */
+export async function previewResetTodayClock(): Promise<PreviewWriteResult<WorkforceAttendance>> {
+  const contextResult = await resolvePreviewStaffContext();
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = contextResult.context;
+  const { workDate } = utcIsoToLocalDateTime(new Date().toISOString(), timeZone);
+
+  const attendanceResult = await listMyAttendance(supabase, tenantId);
+  if (attendanceResult.status !== 'success') return mapWorkforceWriteResult(attendanceResult);
+  const existing = attendanceResult.data.find(
+    (entry) =>
+      entry.workDate === workDate &&
+      entry.employeeId === employeeId &&
+      entry.locationId === locationId,
+  );
+  if (!existing) return { status: 'not_found' };
+
+  return mapWorkforceWriteResult(
+    await submitWorkReportWrite(supabase, tenantId, {
+      employeeId,
+      locationId,
+      workDate,
+      clockIn: null,
+      clockOut: null,
+      actualBreakMinutes: 0,
+      status: 'present',
+    }),
+  );
+}
+
+/**
  * A submitted `attendanceId` is a legitimate optional target reference, never
  * trusted merely because it parses as a UUID (B2b plan Section 6): it is
  * independently re-verified against the caller's own self-scoped attendance

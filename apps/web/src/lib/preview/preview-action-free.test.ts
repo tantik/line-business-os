@@ -112,6 +112,7 @@ const B2B_STAFF_ACTION_EXPORTS = [
   'previewSubmitWorkReport',
   'previewClockIn',
   'previewClockOut',
+  'previewResetTodayClock',
   'previewSubmitCorrectionRequest',
 ];
 
