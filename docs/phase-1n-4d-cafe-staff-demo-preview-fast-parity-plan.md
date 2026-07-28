@@ -90,7 +90,7 @@ files, security, migration, tenant-isolation, and rollback notes.
 
 ### Stage 4 — Authenticated Preview visual acceptance
 
-Status: in progress
+Status: complete
 
 - Wait for the Vercel Preview deployment for the latest PR commit.
 - Test a real Staff account and a Manager account separately.
@@ -104,7 +104,7 @@ correctly receives no-profile behavior on the Staff route; Staff actions work.
 
 #### Stage 4A — Preserve the Manager settings contract
 
-Status: in progress
+Status: complete (UI/read-only acceptance; Cloud writes remain gated)
 
 The bottom Manager `設定` card is part of acceptance, not optional follow-up.
 It must retain the approved Demo layout and real Preview behavior:
@@ -122,7 +122,7 @@ checks mutate Supabase Cloud and therefore remain an explicit Cloud-write gate.
 
 ### Stage 5 — PR acceptance
 
-Status: pending
+Status: in progress
 
 - Confirm CI and Vercel checks on the final SHA.
 - Confirm no unresolved review comments.
