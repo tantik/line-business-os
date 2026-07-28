@@ -75,6 +75,8 @@ test('preview staff reuses the Demo compact schedule and removes the Preview-onl
   assert.ok(!source.includes('プロフィール'));
   assert.ok(!source.includes('employmentType'));
   assert.ok(!source.includes('positionLabel'));
+  assert.match(source, /startsAtLocal\.slice\(0,\s*5\)/);
+  assert.match(source, /endsAtLocal\.slice\(0,\s*5\)/);
 });
 
 test('Demo and Preview compose the same Staff presentation sections', () => {

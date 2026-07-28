@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewSubmitWorkReport } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for work
@@ -79,8 +79,12 @@ export function PreviewWorkReportForm({
             defaultValue={defaultDailyMessage ?? ''}
           />
         </label>
-        <button type="submit" style={buttonPrimary} disabled={isPending}>
-          {isPending ? '送信中...' : '提出する'}
+        <button
+          type="submit"
+          style={hideWorkDate ? { ...buttonSecondary, alignSelf: 'flex-start' } : buttonPrimary}
+          disabled={isPending}
+        >
+          {isPending ? '送信中...' : hideWorkDate ? '保存' : '提出する'}
         </button>
       </form>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}

@@ -59,8 +59,8 @@ export function PreviewStaffView({
   const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({
     id: shiftType.shiftTypeId,
     label: shiftType.code,
-    startTime: shiftType.startsAtLocal,
-    endTime: shiftType.endsAtLocal,
+    startTime: shiftType.startsAtLocal.slice(0, 5),
+    endTime: shiftType.endsAtLocal.slice(0, 5),
     isCustom: shiftType.isCustom,
   }));
 
