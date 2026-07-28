@@ -7,6 +7,8 @@ import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewClockIn, previewClockOut } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa } from './write-result';
 import { CafeStaffStatusCard } from '@/components/demo/cafe/CafeStaffPresentation';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_STAFF_WORK_STATUS } from '@/lib/demo/cafe/helpContent';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 
 const BREAK_OPTIONS = [0, 30, 60] as const;
@@ -60,7 +62,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
 
   return (
     <CafeStaffStatusCard
-      title="勤務状況"
+      title={<>勤務状況 <DemoHelpButton content={HELP_STAFF_WORK_STATUS} /></>}
       status={
       <span
         style={{
@@ -83,7 +85,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
       {!isFinished ? (
         <button
           type="button"
-          style={{ ...buttonPrimary, width: '100%', minHeight: 52 }}
+          style={{ ...buttonPrimary, width: isWorking ? 104 : '100%', minHeight: 52, boxShadow: isWorking ? '0 5px 14px rgba(79, 122, 82, 0.28)' : undefined }}
           disabled={isPending}
           onClick={isWorking ? () => setClockOutOpen(true) : clockIn}
         >

@@ -24,6 +24,7 @@ import { demoColors, linkAccent, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
+import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import {
   diagnoseStaffProfileFailure,
   logStaffProfileFailure,
@@ -114,12 +115,9 @@ export default async function MameToChaPreviewStaffPage({
       listMyAttendance(supabase, activeTenant.tenantId),
     ]);
 
-  // Narrow server-side to the caller's own published shifts, same as the
-  // dashboard staff page - `listShiftAssignments` is shared and returns every
-  // employee's rows at this location.
-  const myPublishedAssignments =
+  const publishedAssignments =
     assignmentsResult.status === 'success'
-      ? assignmentsResult.data.filter((a) => a.published && a.employeeId === profile.staffId)
+      ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
       : null;
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: location.timezone,
@@ -159,12 +157,12 @@ export default async function MameToChaPreviewStaffPage({
         title={activeTenant.tenantName}
         subtitle={location.locationName}
         actions={
-        <Link
-          href={PREVIEW_BASE_PATH}
-          style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}
-        >
-          トップへ戻る
-        </Link>
+          <>
+            <Link href={PREVIEW_BASE_PATH} style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}>
+              トップへ戻る
+            </Link>
+            <PreviewLanguageToggle />
+          </>
         }
       />
 
@@ -177,7 +175,8 @@ export default async function MameToChaPreviewStaffPage({
         weekOffset={weekOffset}
         profile={profile}
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        assignments={myPublishedAssignments}
+        assignments={publishedAssignments}
+        attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 
