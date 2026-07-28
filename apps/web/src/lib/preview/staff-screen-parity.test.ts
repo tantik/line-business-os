@@ -15,6 +15,7 @@ const DEMO_STAFF_VIEW = '../../components/demo/cafe/views/StaffView.tsx';
 const SHARED_STAFF_PRESENTATION = '../../components/demo/cafe/CafeStaffPresentation.tsx';
 const DEMO_CLOCK_PANEL = '../../components/demo/cafe/ClockPanel.tsx';
 const PREVIEW_CLOCK_PANEL = 'preview-clock-panel.tsx';
+const PREVIEW_SHIFT_PREFERENCE_FORM = 'preview-shift-preference-form.tsx';
 
 test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
@@ -114,4 +115,12 @@ test('preview staff client-facing summary has no mixed English section labels', 
   ]) {
     assert.ok(!source.includes(phrase), `staff-view.tsx must not contain "${phrase}"`);
   }
+});
+
+test('next-month preference UI uses compact HH:MM labels and a next-month default date', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  const form = read(PREVIEW_SHIFT_PREFERENCE_FORM);
+  assert.match(page, /Date\.UTC\(todayYear!,\s*todayMonth!,\s*1\)/);
+  assert.match(form, /startsAtLocal\.slice\(0,\s*5\)/);
+  assert.match(form, /endsAtLocal\.slice\(0,\s*5\)/);
 });

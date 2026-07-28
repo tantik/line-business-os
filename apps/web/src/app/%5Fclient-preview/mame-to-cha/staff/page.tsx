@@ -131,6 +131,8 @@ export default async function MameToChaPreviewStaffPage({
     attendanceResult.status === 'success'
       ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
       : null;
+  const [todayYear, todayMonth] = todayIso.split('-').map(Number);
+  const defaultPreferenceDate = new Date(Date.UTC(todayYear!, todayMonth!, 1)).toISOString().slice(0, 10);
 
   return (
     <main style={mobilePageStyle(760)}>
@@ -187,7 +189,7 @@ export default async function MameToChaPreviewStaffPage({
           requestsResult.status === 'success' &&
           requestsResult.data.some((request) => request.workDate >= todayIso)
         }
-        defaultPreferenceDate={periodStart}
+        defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
       />
     </main>
