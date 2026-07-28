@@ -46,8 +46,8 @@ test('normalizeRouteKey is a no-op for a key that is already in the decoded form
 
 test('isPreviewRoute recognizes the actual manifest format (plain underscore, confirmed against a real build)', () => {
   assert.ok(isPreviewRoute('app/_client-preview/mame-to-cha/manager/page'));
-  assert.ok(isPreviewRoute('app/_client-preview/mame-to-cha/staff/page'));
   assert.ok(isPreviewRoute('app/_client-preview/mame-to-cha/page'));
+  assert.ok(isPreviewRoute('app/_client-preview/mame-to-cha/staff/page'));
 });
 
 test('isPreviewRoute also recognizes the percent-encoded form, defensively, in case a different Next.js version emits it', () => {
@@ -155,9 +155,9 @@ test('manager preview route rejects a twelfth, non-allowlisted action name', () 
   assert.equal(result.allowlistViolations[0]?.exportedName, 'previewSomethingElse');
 });
 
-test('root/recipes preview routes reject any registered action (zero-allowed)', () => {
+test('legacy staff/recipes preview routes reject any registered action (zero-allowed)', () => {
   for (const route of [
-    'app/_client-preview/mame-to-cha/page',
+    'app/_client-preview/mame-to-cha/staff/page',
     'app/_client-preview/mame-to-cha/recipes/page',
     'app/_client-preview/mame-to-cha/recipes/[recipeId]/page',
   ]) {
@@ -168,18 +168,19 @@ test('root/recipes preview routes reject any registered action (zero-allowed)', 
 });
 
 test('staff preview route accepts exactly the six allowlisted B2b actions and nothing else', () => {
-  const fiveAllowed = [
+  const sixAllowed = [
     'previewSubmitShiftPreference',
     'previewSubmitWorkReport',
     'previewClockIn',
     'previewClockOut',
+    'previewResetTodayClock',
     'previewSubmitCorrectionRequest',
   ];
-  const entries = fiveAllowed.map((exportedName) =>
+  const entries = sixAllowed.map((exportedName) =>
     actionEntry({
       exportedName,
       filename: 'src/lib/preview/actions/schedule-actions.ts',
-      workers: { 'app/_client-preview/mame-to-cha/staff/page': {} },
+      workers: { 'app/_client-preview/mame-to-cha/page': {} },
     }),
   );
   const result = evaluateManifestEntries(entries);
@@ -190,7 +191,7 @@ test('staff preview route accepts exactly the six allowlisted B2b actions and no
 
 test('staff preview route permits a partial allowed set (exact completeness is covered by static import checks)', () => {
   const partialAllowed = ['previewSubmitShiftPreference', 'previewSubmitWorkReport'].map((exportedName) =>
-    actionEntry({ exportedName, workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } }),
+    actionEntry({ exportedName, workers: { 'app/_client-preview/mame-to-cha/page': {} } }),
   );
   const result = evaluateManifestEntries(partialAllowed);
   assert.deepEqual(result.allowlistViolations, []);
@@ -198,7 +199,7 @@ test('staff preview route permits a partial allowed set (exact completeness is c
 
 test('staff preview route rejects a fourth, unknown B2b-shaped action name', () => {
   const entries = [
-    actionEntry({ exportedName: 'previewSubmitSomethingElse', workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } }),
+    actionEntry({ exportedName: 'previewSubmitSomethingElse', workers: { 'app/_client-preview/mame-to-cha/page': {} } }),
   ];
   const result = evaluateManifestEntries(entries);
   assert.equal(result.allowlistViolations.length, 1);
@@ -206,7 +207,7 @@ test('staff preview route rejects a fourth, unknown B2b-shaped action name', () 
 });
 
 test('a B2a manager action registered as a worker for the staff route is an allowlist violation (roles are not interchangeable)', () => {
-  const entries = [actionEntry({ exportedName: 'previewUpsertEmployee', workers: { 'app/_client-preview/mame-to-cha/staff/page': {} } })];
+  const entries = [actionEntry({ exportedName: 'previewUpsertEmployee', workers: { 'app/_client-preview/mame-to-cha/page': {} } })];
   const result = evaluateManifestEntries(entries);
   assert.equal(result.allowlistViolations.length, 1);
 });

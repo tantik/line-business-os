@@ -39,8 +39,8 @@ const MANIFEST_PATH = path.join(APPS_WEB_DIR, '.next', 'server', 'server-referen
 
 /** Canonical (already-decoded) route-key prefixes/keys used everywhere below - `normalizeRouteKey` maps any manifest key onto this form before comparison. */
 const MANAGER_ROUTE = 'app/_client-preview/mame-to-cha/manager/page';
-const STAFF_ROUTE = 'app/_client-preview/mame-to-cha/staff/page';
-const ROOT_ROUTE = 'app/_client-preview/mame-to-cha/page';
+const STAFF_ROUTE = 'app/_client-preview/mame-to-cha/page';
+const LEGACY_STAFF_ROUTE = 'app/_client-preview/mame-to-cha/staff/page';
 const RECIPES_ROUTE = 'app/_client-preview/mame-to-cha/recipes/page';
 const RECIPE_DETAIL_ROUTE = 'app/_client-preview/mame-to-cha/recipes/[recipeId]/page';
 const PREVIEW_ROUTE_PREFIX = 'app/_client-preview/mame-to-cha';
@@ -79,7 +79,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewSubmitCorrectionRequest',
     ]),
   ],
-  [ROOT_ROUTE, new Set()],
+  [LEGACY_STAFF_ROUTE, new Set()],
   [RECIPES_ROUTE, new Set()],
   [RECIPE_DETAIL_ROUTE, new Set()],
 ]);

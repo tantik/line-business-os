@@ -89,7 +89,7 @@ const STAFF_ISLAND_FILES = [
 ];
 
 /** The staff route page plus its B2b interactive client islands - the only preview files permitted to import a preview Server Action from the staff allowlist, and only the exact three B2b exports. The page itself is a server component that legitimately resolves `tenantId`/`locationId` internally (unchanged from B1) to load read-only data - only the islands below are checked for authority-field leakage into a submittable form. */
-const STAFF_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx', ...STAFF_ISLAND_FILES];
+const STAFF_PREVIEW_FILES = ['../../app/%5Fclient-preview/mame-to-cha/page.tsx', ...STAFF_ISLAND_FILES];
 
 const ALL_PREVIEW_FILES = [...ACTION_FREE_PREVIEW_FILES, ...MANAGER_PREVIEW_FILES, ...STAFF_PREVIEW_FILES];
 
