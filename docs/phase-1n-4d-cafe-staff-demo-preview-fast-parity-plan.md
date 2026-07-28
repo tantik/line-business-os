@@ -3,6 +3,130 @@
 Status: implementation plan
 Target: `/demo/cafe/staff` → DB-backed `/mame-to-cha/staff`
 Branch: `fix/cafe-v2-staff-exact-parity`
+PR: `#136` (draft, target `dev`)
+
+## Execution model
+
+Work proceeds in bounded, reviewable stages. Each stage contains one coherent
+product result, its automated checks, and evidence. A passing stage
+automatically unlocks the next stage; routine local work, commits, branch
+pushes, PR updates, CI inspection, and Preview visual checks do not require a
+new approval.
+
+The following remain explicit stop gates because they change production,
+cloud data, access policy, or recovery risk:
+
+- merge to `dev` when it triggers a shared deployment;
+- Production deployment or promotion;
+- Supabase Cloud DB/Auth writes, migrations, or seed changes;
+- Vercel Protection, domains, environment variables, or secret changes;
+- widening Staff access from self-only data to coworkers' data.
+
+Stages are deliberately neither micro-tasks nor one large batch: implementation
+and verification stay close enough that a failure is attributable to one
+change set.
+
+## Current execution roadmap
+
+### Stage 0 — Baseline and publication
+
+Status: complete
+
+- Branch from current `dev`.
+- Record the root cause and fast-parity design.
+- Implement and validate the first Preview schedule convergence.
+- Push the branch and open draft PR `#136`.
+
+Evidence: parity tests, typecheck, lint, and Preview Server Action allowlist
+verification pass.
+
+### Stage 1 — One shared Staff presentation
+
+Status: complete
+
+- Extract the approved Staff page geometry into presentation components:
+  header, work-status card, schedule card, report card, and preference CTA.
+- Keep Demo state in its adapter and Preview Supabase data/actions in its
+  adapter.
+- Remove composition-level differences rather than compensating with CSS.
+- Preserve existing Demo behavior while making Preview use the same structure.
+
+Exit check:
+
+- both routes import the shared presentation;
+- Preview imports no Demo data/store/localStorage;
+- Demo imports no Preview loader/action;
+- the Profile card and old Preview-only summary tables cannot return.
+
+### Stage 2 — Real-data view model and action parity
+
+Status: in progress
+
+- Map real published shifts and active shift types to the shared grid.
+- Map current attendance to the shared clock-status presentation.
+- Map transportation and daily message to the shared report card.
+- Keep preference, report, clock, and correction writes on the existing
+  allowlisted Preview Server Actions.
+- Display only data actually available; do not invent a decrypted staff name.
+
+Exit check:
+
+- loading, empty, and error states are safe and understandable;
+- all successful actions refresh and display the saved state;
+- invalid or mismatched staff/location identity fails closed;
+- no tenant, location, or employee authority comes from form fields.
+
+### Stage 3 — Local regression gate
+
+Status: pending
+
+- Run focused unit and boundary tests after each implementation slice.
+- At the completed stage run web typecheck, lint, test, build, and Preview
+  Server Action verification.
+- Review the complete diff for accidental unrelated files and security drift.
+
+Exit check: every relevant check is green and the PR report includes scope,
+files, security, migration, tenant-isolation, and rollback notes.
+
+### Stage 4 — Authenticated Preview visual acceptance
+
+Status: pending
+
+- Wait for the Vercel Preview deployment for the latest PR commit.
+- Test a real Staff account and a Manager account separately.
+- Capture Demo and Preview at desktop `1440×900` and mobile `390×844`.
+- Compare header, status, grid, legend, report card, preference flow, modals,
+  overflow, wrapping, and touch targets.
+- Fix mismatches in bounded commits and repeat the automated gate.
+
+Exit check: side-by-side evidence is accepted for both viewport sizes; Manager
+correctly receives no-profile behavior on the Staff route; Staff actions work.
+
+### Stage 5 — PR acceptance
+
+Status: pending
+
+- Confirm CI and Vercel checks on the final SHA.
+- Confirm no unresolved review comments.
+- Update the PR body with final evidence and rollback instructions.
+- Mark PR ready for review.
+
+Exit check: PR is Ready, green, visually accepted, and contains no Production
+or Cloud-write changes.
+
+### Stage 6 — Integration and production readiness
+
+Status: blocked by explicit approval gate
+
+- After approval, merge PR to `dev`.
+- Smoke-test the resulting shared Preview deployment.
+- Prepare the Production preflight: environment parity, rollback target,
+  manager/staff accounts, routes, and action checklist.
+- After separate Production approval, promote the exact accepted build and run
+  the smoke checklist.
+
+Exit check: Production behavior matches the accepted Preview and rollback
+remains available.
 
 ## Goal
 

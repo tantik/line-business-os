@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
+import { CafeStaffScheduleCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import type { ShiftAssignment, ShiftTypeDef } from '@/lib/demo/cafe/types';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { buttonDisabled, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonDisabled, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 
 export interface PreviewStaffViewProps {
@@ -81,18 +82,9 @@ export function PreviewStaffView({
   const todayIso = todayIsoInTimeZone(timeZone);
 
   return (
-    <section style={{ ...card, padding: '14px 8px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 8,
-          padding: '0 8px',
-        }}
-      >
-        <strong style={{ fontSize: 15 }}>シフト表</strong>
+    <CafeStaffScheduleCard
+      title="シフト表"
+      headerActions={
         <span
           title="Previewでは本人の公開シフトだけを表示します"
           style={{
@@ -106,9 +98,9 @@ export function PreviewStaffView({
         >
           自分だけ
         </span>
-      </div>
-
-      <div style={{ marginTop: 12, padding: '0 4px' }}>
+      }
+      schedule={
+        <>
         <div
           style={{
             display: 'flex',
@@ -165,15 +157,10 @@ export function PreviewStaffView({
             lang="ja"
           />
         )}
-      </div>
-
-      <div style={{ marginTop: 12, padding: '0 8px' }}>
-        <ShiftLegend shiftTypes={displayShiftTypes} lang="ja" />
-      </div>
-
-      <p style={{ margin: '12px 8px 0', fontSize: 14, fontWeight: 700 }}>
-        実働時間: {weeklyHours.toFixed(1)}h
-      </p>
-    </section>
+        </>
+      }
+      legend={<ShiftLegend shiftTypes={displayShiftTypes} lang="ja" />}
+      hoursLabel={`実働時間: ${weeklyHours.toFixed(1)}h`}
+    />
   );
 }

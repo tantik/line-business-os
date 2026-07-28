@@ -14,6 +14,12 @@ import { LangToggle } from '@/components/demo/cafe/LangToggle';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { DemoResetButton } from '@/components/demo/cafe/DemoResetButton';
 import {
+  CafeStaffHeader,
+  CafeStaffPreferenceCard,
+  CafeStaffReportCard,
+  CafeStaffScheduleCard,
+} from '@/components/demo/cafe/CafeStaffPresentation';
+import {
   HELP_STAFF_NEXT_MONTH_PREFERENCE,
   HELP_STAFF_SHIFT_TABLE,
   HELP_STAFF_TRANSPORT_MESSAGE,
@@ -23,7 +29,7 @@ import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { useTodayIso } from '@/lib/demo/cafe/useTodayIso';
 import { CURRENT_STAFF_DEMO_WORKED_HOURS, CURRENT_STAFF_ID, SHIFT_TYPES, STAFF } from '@/lib/demo/cafe/data';
 import { formatClockLabel, formatYen } from '@/lib/demo/cafe/format';
-import { buttonPrimary, buttonSecondary, card, demoColors, input, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, demoColors, input, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
 import type { WorkReport } from '@/lib/demo/cafe/types';
 import { useBrand } from '@/lib/demo/brand';
 import {
@@ -166,21 +172,22 @@ export function StaffView() {
 
   return (
     <main style={mobilePageStyle(720)}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          <BrandMark />
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 20 }}>
+      <CafeStaffHeader
+        mark={<BrandMark />}
+        title={
+          <>
               {lang === 'ja' ? brand.nameJa : brand.name}
               <span style={{ fontSize: 12, fontWeight: 500, color: demoColors.textMuted }}>{t('demoEnvironmentSuffix')}</span>
-            </h1>
-            <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: demoColors.textPrimary }}>
-              {currentStaff.name}
-              {lang === 'ja' ? ' さん' : ''}
-            </p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          </>
+        }
+        subtitle={
+          <>
+            {currentStaff.name}
+            {lang === 'ja' ? ' さん' : ''}
+          </>
+        }
+        actions={
+          <>
           <DemoResetButton
             scope={scope}
             label={t('resetDemo')}
@@ -191,8 +198,9 @@ export function StaffView() {
             cancelLabel={t('resetCancelButton')}
           />
           <LangToggle />
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div style={{ marginTop: 16 }}>
         <ClockPanel
@@ -210,12 +218,14 @@ export function StaffView() {
         onConfirm={confirmClockOut}
       />
 
-      <section style={{ ...card, padding: '14px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '0 8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <strong style={{ fontSize: 15 }}>{t('shiftTable')}</strong>
+      <CafeStaffScheduleCard
+        title={
+          <>
+            {t('shiftTable')}
             <DemoHelpButton content={HELP_STAFF_SHIFT_TABLE} />
-          </div>
+          </>
+        }
+        headerActions={
           <div style={{ display: 'inline-flex', border: `1px solid ${demoColors.border}`, borderRadius: 999, overflow: 'hidden' }}>
             {[
               { key: false, label: t('all') },
@@ -231,9 +241,8 @@ export function StaffView() {
               </button>
             ))}
           </div>
-        </div>
-
-        <div style={{ marginTop: 12, padding: '0 4px' }}>
+        }
+        schedule={
           <WeekCarousel
             weekOffset={weekOffset}
             onWeekOffsetChange={setWeekOffset}
@@ -247,18 +256,12 @@ export function StaffView() {
             onCellClick={(_staffId, date) => setSelectedReportDate(date)}
             lang={lang}
           />
-        </div>
+        }
+        legend={<ShiftLegend shiftTypes={SHIFT_TYPES} lang={lang} />}
+        hoursLabel={`${t('workedHours')}: ${CURRENT_STAFF_DEMO_WORKED_HOURS.toFixed(1)}h`}
+      />
 
-        <div style={{ marginTop: 12, padding: '0 8px' }}>
-          <ShiftLegend shiftTypes={SHIFT_TYPES} lang={lang} />
-        </div>
-
-        <p style={{ margin: '12px 8px 0', fontSize: 14, fontWeight: 700 }}>
-          {t('workedHours')}: {CURRENT_STAFF_DEMO_WORKED_HOURS.toFixed(1)}h
-        </p>
-      </section>
-
-      <section style={{ ...card }}>
+      <CafeStaffReportCard>
         <div style={{ marginTop: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <label style={{ fontSize: 13, ...mutedText }}>{t('transport')}</label>
@@ -294,9 +297,9 @@ export function StaffView() {
             {messageSaved ? t('saved') : t('save')}
           </button>
         </div>
-      </section>
+      </CafeStaffReportCard>
 
-      <section style={{ ...card }}>
+      <CafeStaffPreferenceCard>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button type="button" style={{ ...buttonPrimary, flex: 1 }} onClick={() => setPreferenceModalOpen(true)}>
             {t('submitNextMonthPreference')}
@@ -304,7 +307,7 @@ export function StaffView() {
           </button>
           <DemoHelpButton content={HELP_STAFF_NEXT_MONTH_PREFERENCE} />
         </div>
-      </section>
+      </CafeStaffPreferenceCard>
 
       <WorkReportModal
         open={selectedReportDate !== null}

@@ -4,7 +4,11 @@ import { useState } from 'react';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import { Modal } from '@/components/demo/cafe/Modal';
-import { buttonPrimary, buttonSecondary, card } from '@/lib/demo/cafe/theme';
+import {
+  CafeStaffPreferenceCard,
+  CafeStaffReportCard,
+} from '@/components/demo/cafe/CafeStaffPresentation';
+import { buttonPrimary, buttonSecondary } from '@/lib/demo/cafe/theme';
 import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
 import { PreviewShiftPreferenceForm } from './preview-shift-preference-form';
 import { PreviewWorkReportForm } from './preview-work-report-form';
@@ -29,20 +33,20 @@ export function PreviewStaffActions({
 
   return (
     <>
-      <section style={card}>
+      <CafeStaffReportCard>
         <PreviewWorkReportForm defaultWorkDate={defaultReportDate} embedded hideWorkDate />
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
         <button type="button" style={buttonSecondary} onClick={() => setDialog('correction')}>
           修正を依頼
         </button>
         </div>
-      </section>
+      </CafeStaffReportCard>
 
-      <section style={card}>
+      <CafeStaffPreferenceCard>
         <button type="button" style={{ ...buttonPrimary, width: '100%' }} onClick={() => setDialog('preference')}>
           来月のシフト希望を提出
         </button>
-      </section>
+      </CafeStaffPreferenceCard>
 
       <Modal open={dialog === 'preference'} onClose={() => setDialog(null)} title="シフト希望の提出">
         <PreviewShiftPreferenceForm shiftTypes={shiftTypes} defaultWorkDate={defaultPreferenceDate} embedded />

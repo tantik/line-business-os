@@ -11,6 +11,8 @@ const PREVIEW_STAFF_PAGE = '../../app/%5Fclient-preview/mame-to-cha/staff/page.t
 const PREVIEW_STAFF_VIEW = 'staff-view.tsx';
 const PREVIEW_STAFF_ACTIONS = 'preview-staff-actions.tsx';
 const PREVIEW_CAFE_LAYOUT = '../../app/%5Fclient-preview/mame-to-cha/layout.tsx';
+const DEMO_STAFF_VIEW = '../../components/demo/cafe/views/StaffView.tsx';
+const SHARED_STAFF_PRESENTATION = '../../components/demo/cafe/CafeStaffPresentation.tsx';
 
 test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
@@ -71,6 +73,25 @@ test('preview staff reuses the Demo compact schedule and removes the Preview-onl
   assert.ok(!source.includes('プロフィール'));
   assert.ok(!source.includes('employmentType'));
   assert.ok(!source.includes('positionLabel'));
+});
+
+test('Demo and Preview compose the same Staff presentation sections', () => {
+  const demo = read(DEMO_STAFF_VIEW);
+  const page = read(PREVIEW_STAFF_PAGE);
+  const view = read(PREVIEW_STAFF_VIEW);
+  const actions = read(PREVIEW_STAFF_ACTIONS);
+  const shared = read(SHARED_STAFF_PRESENTATION);
+
+  assert.match(demo, /CafeStaffHeader/);
+  assert.match(page, /CafeStaffHeader/);
+  assert.match(demo, /CafeStaffScheduleCard/);
+  assert.match(view, /CafeStaffScheduleCard/);
+  assert.match(demo, /CafeStaffReportCard/);
+  assert.match(actions, /CafeStaffReportCard/);
+  assert.match(demo, /CafeStaffPreferenceCard/);
+  assert.match(actions, /CafeStaffPreferenceCard/);
+  assert.ok(!shared.includes('@/lib/demo/cafe/store'));
+  assert.ok(!shared.includes('@/lib/preview/'));
 });
 
 test('preview staff client-facing summary has no mixed English section labels', () => {

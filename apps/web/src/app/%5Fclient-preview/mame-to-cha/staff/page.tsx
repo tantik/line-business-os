@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CafeStaffHeader } from '@/components/demo/cafe/CafeStaffPresentation';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
@@ -18,7 +19,7 @@ import {
   PreviewNoProfileState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { demoColors, linkAccent, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { demoColors, linkAccent, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
@@ -131,8 +132,8 @@ export default async function MameToChaPreviewStaffPage({
 
   return (
     <main style={mobilePageStyle(760)}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+      <CafeStaffHeader
+        mark={
           <span
             aria-hidden="true"
             style={{
@@ -150,20 +151,18 @@ export default async function MameToChaPreviewStaffPage({
           >
             M
           </span>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 20 }}>スタッフページ</h1>
-            <p style={{ margin: '3px 0 0', ...mutedText, fontSize: 13 }}>
-              {activeTenant.tenantName} ・ {location.locationName}
-            </p>
-          </div>
-        </div>
+        }
+        title={activeTenant.tenantName}
+        subtitle={location.locationName}
+        actions={
         <Link
           href={PREVIEW_BASE_PATH}
           style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}
         >
           トップへ戻る
         </Link>
-      </header>
+        }
+      />
 
       <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
 
