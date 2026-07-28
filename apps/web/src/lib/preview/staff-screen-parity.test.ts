@@ -64,6 +64,15 @@ test('preview staff adapter never imports demo mock data or localStorage state',
   }
 });
 
+test('preview staff reuses the Demo compact schedule and removes the Preview-only profile card', () => {
+  const source = read(PREVIEW_STAFF_VIEW);
+  assert.match(source, /@\/components\/demo\/cafe\/ShiftTable/);
+  assert.match(source, /@\/components\/demo\/cafe\/ShiftLegend/);
+  assert.ok(!source.includes('プロフィール'));
+  assert.ok(!source.includes('employmentType'));
+  assert.ok(!source.includes('positionLabel'));
+});
+
 test('preview staff client-facing summary has no mixed English section labels', () => {
   const source = read(PREVIEW_STAFF_VIEW);
   for (const phrase of [

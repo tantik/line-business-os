@@ -1,36 +1,14 @@
 import Link from 'next/link';
+import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
+import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
+import type { ShiftAssignment, ShiftTypeDef } from '@/lib/demo/cafe/types';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
-import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
-import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import {
-  badgeStyle,
-  buttonDisabled,
-  buttonSecondary,
-  card,
-  demoColors,
-  mutedText,
-  tableCell,
-  tableHeaderCell,
-} from '@/lib/demo/cafe/theme';
-import {
-  correctionStatusBadgeStyle,
-  correctionStatusLabel,
-  shiftChipColors,
-  shiftChipStyle,
-  todayIsoInTimeZone,
-} from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
+import { buttonDisabled, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
+import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 
-/**
- * Phase 1N-4C Slice B1 - action-free, read-only staff display for the Mame
- * To Cha preview. Same rationale as `manager-view.tsx`: a plain (non-`'use
- * client'`) server component that imports no Server Action and no
- * mutation-form component (`ShiftPreferenceForm`/`WorkReportForm`/
- * `CorrectionRequestForm`), so it cannot register a Server Action reference
- * in the client bundle at all.
- */
 export interface PreviewStaffViewProps {
   timeZone: string;
   periodStart: string;
@@ -38,29 +16,34 @@ export interface PreviewStaffViewProps {
   weekOffset: number;
   profile: WorkforceMyStaffProfile;
   shiftTypes: WorkforceShiftType[] | null;
-  /** The caller's own `kind: 'preference'` shift requests (self-scoped by RLS), not date-filtered by the caller. */
-  requests: WorkforceShiftRequest[] | null;
-  /** Already narrowed server-side to this caller's own published assignments in the selected week's date range. */
+  /** Already narrowed server-side to this caller's own published assignments. */
   assignments: WorkforceShiftAssignment[] | null;
-  /** The caller's own attendance rows (self-scoped by RLS), not date-filtered by the caller. */
-  attendance: WorkforceAttendance[] | null;
-  /** The caller's own `kind: 'correction'` shift requests (self-scoped by RLS), not date-filtered by the caller. */
-  correctionRequests: WorkforceShiftRequest[] | null;
-  /** Public preview route base, e.g. `/mame-to-cha` - used for week-navigation links only. */
+  /** Public preview route base, used for week navigation only. */
   basePath: string;
 }
 
-function formatWeekday(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('ja-JP', { weekday: 'short', timeZone: 'UTC' });
+function dateRange(periodStart: string, periodEnd: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${periodStart}T00:00:00.000Z`);
+  const end = new Date(`${periodEnd}T00:00:00.000Z`);
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }
 
-/** Display-only hours between two `HH:MM` local times, for the weekly-hours summary. Does not account for breaks. */
 function hoursBetween(startsAtLocal: string, endsAtLocal: string): number {
   const [startH = 0, startM = 0] = startsAtLocal.split(':').map(Number);
   const [endH = 0, endM = 0] = endsAtLocal.split(':').map(Number);
   return (endH * 60 + endM - (startH * 60 + startM)) / 60;
 }
 
+/**
+ * Real-data adapter for the same compact schedule presentation used by Demo.
+ * It intentionally supplies one staff row only: visual parity never widens
+ * the authenticated staff member's RLS-scoped data access.
+ */
 export function PreviewStaffView({
   timeZone,
   periodStart,
@@ -68,231 +51,129 @@ export function PreviewStaffView({
   weekOffset,
   profile,
   shiftTypes,
-  requests,
   assignments,
-  attendance,
-  correctionRequests,
   basePath,
 }: PreviewStaffViewProps) {
-  const shiftTypeById = new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st]));
+  const dates = dateRange(periodStart, periodEnd);
+  const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({
+    id: shiftType.shiftTypeId,
+    label: shiftType.code,
+    startTime: shiftType.startsAtLocal,
+    endTime: shiftType.endsAtLocal,
+    isCustom: shiftType.isCustom,
+  }));
 
-  const myRequestsThisWeek = (requests ?? [])
-    .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
-    .sort((a, b) => a.workDate.localeCompare(b.workDate));
-
-  // Staff must only ever see their own, published shifts here -- never a co-worker's row, never a manager's unpublished draft.
-  const myScheduleThisWeek = (assignments ?? [])
-    .filter((a) => a.published && a.employeeId === profile.staffId)
-    .map((a) => {
-      const start = utcIsoToLocalDateTime(a.startsAt, timeZone);
-      const end = utcIsoToLocalDateTime(a.endsAt, timeZone);
-      return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
-    })
-    .filter((entry) => entry.workDate >= periodStart && entry.workDate <= periodEnd)
-    .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.startsAtLocal.localeCompare(b.startsAtLocal));
-
-  const myAttendanceThisWeek = (attendance ?? [])
-    .filter((a) => a.workDate >= periodStart && a.workDate <= periodEnd)
-    .sort((a, b) => a.workDate.localeCompare(b.workDate));
-
-  const myCorrectionsThisWeek = (correctionRequests ?? [])
-    .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
-    .sort((a, b) => a.workDate.localeCompare(b.workDate));
+  const displayAssignments: ShiftAssignment[] = [];
+  let weeklyHours = 0;
+  for (const assignment of assignments ?? []) {
+    if (!assignment.published || assignment.employeeId !== profile.staffId) continue;
+    const start = utcIsoToLocalDateTime(assignment.startsAt, timeZone);
+    const end = utcIsoToLocalDateTime(assignment.endsAt, timeZone);
+    if (!dates.includes(start.workDate)) continue;
+    displayAssignments.push({
+      staffId: profile.staffId,
+      date: start.workDate,
+      shiftTypeId: assignment.shiftTypeId,
+    });
+    weeklyHours += hoursBetween(start.localTime, end.localTime);
+  }
 
   const todayIso = todayIsoInTimeZone(timeZone);
 
-  const weeklyHours = myScheduleThisWeek.reduce((sum, entry) => sum + hoursBetween(entry.startsAtLocal, entry.endsAtLocal), 0);
-  const primaryCard = { ...card, borderLeft: `3px solid ${demoColors.accent}` };
-  const todayRowStyle = { background: demoColors.todayBg };
-
   return (
-    <>
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>プロフィール</h2>
-        <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>役職</dt>
-            <dd style={{ margin: 0 }}>{profile.positionLabel ?? '未設定'}</dd>
-          </div>
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>雇用形態</dt>
-            <dd style={{ margin: 0 }}>{profile.employmentType}</dd>
-          </div>
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>ステータス</dt>
-            <dd style={{ margin: 0 }}>
-              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? '在籍中' : '停止中'}</span>
-            </dd>
-          </div>
-        </dl>
-      </section>
+    <section style={{ ...card, padding: '14px 8px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 8,
+          padding: '0 8px',
+        }}
+      >
+        <strong style={{ fontSize: 15 }}>シフト表</strong>
+        <span
+          title="Previewでは本人の公開シフトだけを表示します"
+          style={{
+            padding: '6px 14px',
+            borderRadius: 999,
+            background: demoColors.accent,
+            color: '#FFFFFF',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          自分だけ
+        </span>
+      </div>
 
-      <section style={primaryCard}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>
-            公開シフト（{periodStart} 〜 {periodEnd}）
-          </h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`${basePath}/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+      <div style={{ marginTop: 12, padding: '0 4px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 6,
+            marginBottom: 8,
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>
+            {periodStart.slice(5).replace('-', '/')} ～ {periodEnd.slice(5).replace('-', '/')}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <Link
+              href={`${basePath}/staff?weekOffset=${weekOffset - 1}`}
+              style={{ ...buttonSecondary, padding: '5px 9px', fontSize: 11 }}
+            >
               ← 前の週
             </Link>
             <Link
               href={`${basePath}/staff`}
-              style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
               aria-disabled={weekOffset === 0}
+              style={{
+                ...(weekOffset === 0 ? buttonDisabled : buttonSecondary),
+                padding: '5px 9px',
+                fontSize: 11,
+              }}
             >
-              今週
+              今日
             </Link>
-            <Link href={`${basePath}/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+            <Link
+              href={`${basePath}/staff?weekOffset=${weekOffset + 1}`}
+              style={{ ...buttonSecondary, padding: '5px 9px', fontSize: 11 }}
+            >
               次の週 →
             </Link>
           </div>
         </div>
+
         {assignments === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>シフトを読み込めませんでした。時間をおいて再度お試しください。</p>
-        ) : myScheduleThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の公開シフトはまだありません。</p>
+          <p style={{ margin: '8px 4px', ...mutedText }}>シフトを読み込めませんでした。時間をおいて再度お試しください。</p>
         ) : (
-          <>
-            <p style={{ margin: '12px 0 0', fontSize: 14, fontWeight: 600 }}>
-              今週の予定時間: {weeklyHours.toFixed(1)}時間
-            </p>
-            <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>シフト</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>時間</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myScheduleThisWeek.map((entry) => (
-                  <tr key={entry.assignment.assignmentId} style={entry.workDate === todayIso ? todayRowStyle : undefined}>
-                    <td style={tableCell}>
-                      {formatWeekday(entry.workDate)} {entry.workDate.slice(5)}
-                    </td>
-                    <td style={tableCell}>
-                      <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>
-                        {entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId)?.code ?? '個別' : '個別'}
-                      </span>
-                    </td>
-                    <td style={tableCell}>
-                      {entry.startsAtLocal} - {entry.endsAtLocal}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
+          <ShiftTable
+            dates={dates}
+            todayIso={todayIso}
+            staffList={[{ id: profile.staffId, name: '自分', role: 'staff' }]}
+            assignments={displayAssignments}
+            shiftTypes={displayShiftTypes}
+            mode="staff"
+            currentStaffId={profile.staffId}
+            onlyCurrentStaff
+            compact
+            lang="ja"
+          />
         )}
-      </section>
+      </div>
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>提出済みのシフト希望</h2>
-        {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>シフト希望を読み込めませんでした。</p>
-        ) : myRequestsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>今週のシフト希望はまだ提出されていません。</p>
-        ) : (
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>希望</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myRequestsThisWeek.map((r) => (
-                <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
-                  <td style={tableCell}>{r.workDate}</td>
-                  <td style={tableCell}>
-                    {r.isUnavailable ? (
-                      '勤務不可'
-                    ) : (
-                      <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
-                        {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <div style={{ marginTop: 12, padding: '0 8px' }}>
+        <ShiftLegend shiftTypes={displayShiftTypes} lang="ja" />
+      </div>
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>今週の勤務報告</h2>
-        {attendance === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>勤務報告を読み込めませんでした。</p>
-        ) : myAttendanceThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の勤務報告はまだありません。</p>
-        ) : (
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>出勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>退勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>休憩</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>交通費</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>メッセージ</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>状態</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myAttendanceThisWeek.map((a) => {
-                const clockIn = a.clockIn ? utcIsoToLocalDateTime(a.clockIn, timeZone).localTime : '-';
-                const clockOut = a.clockOut ? utcIsoToLocalDateTime(a.clockOut, timeZone).localTime : '-';
-                return (
-                  <tr key={a.attendanceId} style={a.workDate === todayIso ? todayRowStyle : undefined}>
-                    <td style={tableCell}>{a.workDate}</td>
-                    <td style={tableCell}>{clockIn}</td>
-                    <td style={tableCell}>{clockOut}</td>
-                    <td style={tableCell}>{a.actualBreakMinutes}分</td>
-                    <td style={tableCell}>{a.transportationCost ?? '-'}</td>
-                    <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
-                    <td style={tableCell}>{a.status}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>今週の修正依頼</h2>
-        {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>修正依頼を読み込めませんでした。</p>
-        ) : myCorrectionsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>今週の修正依頼はありません。</p>
-        ) : (
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>内容</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>状態</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myCorrectionsThisWeek.map((r) => {
-                const message = typeof r.details.message === 'string' ? r.details.message : '-';
-                return (
-                  <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
-                    <td style={tableCell}>{r.workDate}</td>
-                    <td style={tableCell}>{message}</td>
-                    <td style={tableCell}>
-                      <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status)}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </>
+      <p style={{ margin: '12px 8px 0', fontSize: 14, fontWeight: 700 }}>
+        実働時間: {weeklyHours.toFixed(1)}h
+      </p>
+    </section>
   );
 }

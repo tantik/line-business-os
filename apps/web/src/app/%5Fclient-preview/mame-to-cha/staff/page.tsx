@@ -7,7 +7,6 @@ import { resolveStaffLocation } from '@/lib/preview/location';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
-import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { getWeekPeriod } from '@/lib/workforce/period';
@@ -105,13 +104,11 @@ export default async function MameToChaPreviewStaffPage({
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, correctionRequestsResult] =
+  const [shiftTypesResult, assignmentsResult, attendanceResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-      listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
       listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
       listMyAttendance(supabase, activeTenant.tenantId),
-      listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
     ]);
 
   // Narrow server-side to the caller's own published shifts, same as the
@@ -177,10 +174,7 @@ export default async function MameToChaPreviewStaffPage({
         weekOffset={weekOffset}
         profile={profile}
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        requests={requestsResult.status === 'success' ? requestsResult.data : null}
         assignments={myPublishedAssignments}
-        attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
-        correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 

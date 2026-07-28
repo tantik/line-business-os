@@ -17,6 +17,7 @@ import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/
 export interface PreviewWorkReportFormProps {
   defaultWorkDate: string;
   embedded?: boolean;
+  hideWorkDate?: boolean;
 }
 
 function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -24,7 +25,11 @@ function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: s
   return { ok: false, text: previewWriteMessageJa(result.status) };
 }
 
-export function PreviewWorkReportForm({ defaultWorkDate, embedded = false }: PreviewWorkReportFormProps) {
+export function PreviewWorkReportForm({
+  defaultWorkDate,
+  embedded = false,
+  hideWorkDate = false,
+}: PreviewWorkReportFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
@@ -44,10 +49,14 @@ export function PreviewWorkReportForm({ defaultWorkDate, embedded = false }: Pre
     <section style={embedded ? undefined : card}>
       {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>勤務報告の提出</h2> : null}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: embedded ? 0 : 12 }}>
-        <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
-          <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
-        </label>
+        {hideWorkDate ? (
+          <input type="hidden" name="workDate" value={defaultWorkDate} />
+        ) : (
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
+            <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
+          </label>
+        )}
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
           <input style={inputStyle} type="number" name="transportationCost" min={0} />
