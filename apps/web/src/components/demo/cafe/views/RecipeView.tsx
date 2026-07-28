@@ -21,6 +21,12 @@ function sortRecipes(recipes: Recipe[]): Recipe[] {
     Number(b.contentKind === 'instruction') - Number(a.contentKind === 'instruction');
   if (instructionOrder !== 0) return instructionOrder;
 
+  // Printer setup is the opening operational slide for the client package.
+  // Other instructions remain ahead of ordinary recipes.
+  const printerSetupOrder =
+    Number(b.name.includes('プリンター')) - Number(a.name.includes('プリンター'));
+  if (printerSetupOrder !== 0) return printerSetupOrder;
+
   const popularOrder = Number(b.badges.includes('人気')) - Number(a.badges.includes('人気'));
   if (popularOrder !== 0) return popularOrder;
 
