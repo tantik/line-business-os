@@ -18,6 +18,7 @@ import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
+import { PreviewWorkReportForm } from './preview-work-report-form';
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -145,6 +146,8 @@ export function PreviewStaffSchedule({
         : undefined,
     };
   });
+  const selectedCorrection = selectedDate ? correctionByDate.get(selectedDate) : undefined;
+  const messageLocked = selectedCorrection?.status === 'approved';
 
   return (
     <>
@@ -187,7 +190,12 @@ export function PreviewStaffSchedule({
                 onlyCurrentStaff={onlyMe}
                 compact
                 lang="ja"
-                onCellClick={(_staffId, date) => setSelectedDate(date)}
+                onCellClick={(staffId, date) => {
+                  if (staffId !== profile.staffId) return;
+                  const report = (attendance ?? []).find((entry) => entry.workDate === date);
+                  if (date === todayIso && !report?.clockOut) return;
+                  setSelectedDate(date);
+                }}
               />
             )}
           </>
@@ -209,7 +217,36 @@ export function PreviewStaffSchedule({
               <span style={mutedText}>{label}</span><strong>{value}</strong>
             </div>
           ))}
-          <div style={{ padding: '10px 0' }}><div style={mutedText}>メッセージ</div><div>{selectedAttendance?.dailyMessage || 'なし'}</div></div>
+          <section
+            style={{
+              marginTop: 16,
+              padding: 14,
+              border: `1px solid ${demoColors.border}`,
+              borderLeft: `4px solid ${demoColors.accent}`,
+              borderRadius: 10,
+              background: demoColors.surfaceElevated,
+            }}
+          >
+            <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 800 }}>メッセージ</div>
+            {selectedAttendance ? (
+              <>
+                <PreviewWorkReportForm
+                  defaultWorkDate={selectedAttendance.workDate}
+                  defaultTransportationCost={selectedAttendance.transportationCost}
+                  defaultDailyMessage={selectedAttendance.dailyMessage}
+                  embedded
+                  hideWorkDate
+                  messageOnly
+                  locked={messageLocked}
+                />
+                <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12 }}>
+                  {messageLocked ? '店長が確認済みのため変更できません。' : '店長が確認するまでは内容を変更できます。'}
+                </p>
+              </>
+            ) : (
+              <div style={mutedText}>なし</div>
+            )}
+          </section>
         </div>
         {selectedDate && selectedDate <= todayIso ? (
           <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>勤務時間の修正を依頼</button>

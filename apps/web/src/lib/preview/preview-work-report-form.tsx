@@ -22,6 +22,8 @@ export interface PreviewWorkReportFormProps {
   defaultDailyMessage?: string | null;
   embedded?: boolean;
   hideWorkDate?: boolean;
+  messageOnly?: boolean;
+  locked?: boolean;
 }
 
 function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -35,6 +37,8 @@ export function PreviewWorkReportForm({
   defaultDailyMessage = null,
   embedded = false,
   hideWorkDate = false,
+  messageOnly = false,
+  locked = false,
 }: PreviewWorkReportFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -44,6 +48,9 @@ export function PreviewWorkReportForm({
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     if (hideWorkDate) formData.set('workDate', defaultWorkDate);
+    if (messageOnly && defaultTransportationCost != null) {
+      formData.set('transportationCost', String(defaultTransportationCost));
+    }
 
     startTransition(async () => {
       const result = await previewSubmitWorkReport(formData);
@@ -62,7 +69,7 @@ export function PreviewWorkReportForm({
             <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
           </label>
         ) : null}
-        <label>
+        {!messageOnly ? <label>
           <span style={{ ...mutedText, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             交通費 <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
           </span>
@@ -74,7 +81,7 @@ export function PreviewWorkReportForm({
             placeholder="前回入力値を記憶"
             defaultValue={defaultTransportationCost ?? ''}
           />
-        </label>
+        </label> : null}
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>メッセージ</span>
           <textarea
@@ -83,14 +90,15 @@ export function PreviewWorkReportForm({
             maxLength={500}
             placeholder="店長への連絡事項があれば入力してください"
             defaultValue={defaultDailyMessage ?? ''}
+            disabled={locked}
           />
         </label>
         <button
           type="submit"
           style={hideWorkDate ? { ...buttonSecondary, alignSelf: 'flex-start' } : buttonPrimary}
-          disabled={isPending}
+          disabled={isPending || locked}
         >
-          {isPending ? '送信中...' : hideWorkDate ? '保存' : '提出する'}
+          {isPending ? '送信中...' : locked ? '確認済み' : messageOnly ? 'メッセージを更新' : hideWorkDate ? '保存' : '提出する'}
         </button>
       </form>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}

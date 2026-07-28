@@ -30,6 +30,9 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
   const clockInTime = todayAttendance?.clockIn
     ? utcIsoToLocalDateTime(todayAttendance.clockIn, timeZone).localTime
     : null;
+  const clockOutTime = todayAttendance?.clockOut
+    ? utcIsoToLocalDateTime(todayAttendance.clockOut, timeZone).localTime
+    : null;
 
   function clockIn() {
     setFeedback(null);
@@ -75,21 +78,31 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
         }}
       >
         {isFinished
-          ? `退勤済み・休憩 ${todayAttendance?.actualBreakMinutes ?? 0}分`
+          ? `${clockInTime}〜${clockOutTime}・休憩 ${todayAttendance?.actualBreakMinutes ?? 0}分`
           : isWorking
             ? `勤務中・${clockInTime}〜`
             : '未出勤'}
       </span>
       }
     >
-      <button
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <button
           type="button"
-          style={{ ...(isFinished ? buttonDisabled : buttonPrimary), width: isWorking || isFinished ? 104 : '100%', minHeight: 52, boxShadow: isWorking ? '0 5px 14px rgba(79, 122, 82, 0.28)' : undefined }}
+          style={{
+            ...(isFinished ? buttonDisabled : isWorking ? buttonPrimary : buttonSecondary),
+            width: 'min(100%, 360px)',
+            minHeight: 64,
+            borderRadius: 14,
+            fontSize: 18,
+            fontWeight: 800,
+            boxShadow: isWorking ? '0 8px 22px rgba(79, 122, 82, 0.3)' : '0 4px 14px rgba(54, 43, 31, 0.08)',
+          }}
           disabled={isPending || isFinished}
           onClick={isWorking ? () => setClockOutOpen(true) : clockIn}
         >
           {isPending ? '処理中…' : isFinished ? '退勤済み' : isWorking ? '退勤' : '出勤'}
         </button>
+      </div>
       {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
 
       {clockOutOpen ? (
