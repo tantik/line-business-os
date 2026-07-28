@@ -60,7 +60,7 @@ Exit check:
 
 ### Stage 2 — Real-data view model and action parity
 
-Status: in progress
+Status: complete
 
 - Map real published shifts and active shift types to the shared grid.
 - Map current attendance to the shared clock-status presentation.
@@ -78,7 +78,7 @@ Exit check:
 
 ### Stage 3 — Local regression gate
 
-Status: pending
+Status: in progress
 
 - Run focused unit and boundary tests after each implementation slice.
 - At the completed stage run web typecheck, lint, test, build, and Preview

@@ -8,6 +8,7 @@ import { resolveStaffLocation } from '@/lib/preview/location';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
+import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { getWeekPeriod } from '@/lib/workforce/period';
@@ -105,9 +106,10 @@ export default async function MameToChaPreviewStaffPage({
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-  const [shiftTypesResult, assignmentsResult, attendanceResult] =
+  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
+      listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
       listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
       listMyAttendance(supabase, activeTenant.tenantId),
     ]);
@@ -180,6 +182,11 @@ export default async function MameToChaPreviewStaffPage({
       <PreviewStaffActions
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
         attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}
+        todayAttendance={todayAttendance}
+        preferenceSubmitted={
+          requestsResult.status === 'success' &&
+          requestsResult.data.some((request) => request.workDate >= todayIso)
+        }
         defaultPreferenceDate={periodStart}
         defaultReportDate={todayIso}
       />

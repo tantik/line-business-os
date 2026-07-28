@@ -16,6 +16,8 @@ import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/
  */
 export interface PreviewWorkReportFormProps {
   defaultWorkDate: string;
+  defaultTransportationCost?: number | null;
+  defaultDailyMessage?: string | null;
   embedded?: boolean;
   hideWorkDate?: boolean;
 }
@@ -27,6 +29,8 @@ function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: s
 
 export function PreviewWorkReportForm({
   defaultWorkDate,
+  defaultTransportationCost = null,
+  defaultDailyMessage = null,
   embedded = false,
   hideWorkDate = false,
 }: PreviewWorkReportFormProps) {
@@ -59,11 +63,22 @@ export function PreviewWorkReportForm({
         )}
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
-          <input style={inputStyle} type="number" name="transportationCost" min={0} />
+          <input
+            style={inputStyle}
+            type="number"
+            name="transportationCost"
+            min={0}
+            defaultValue={defaultTransportationCost ?? ''}
+          />
         </label>
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>メッセージ</span>
-          <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} name="dailyMessage" maxLength={500} />
+          <textarea
+            style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
+            name="dailyMessage"
+            maxLength={500}
+            defaultValue={defaultDailyMessage ?? ''}
+          />
         </label>
         <button type="submit" style={buttonPrimary} disabled={isPending}>
           {isPending ? '送信中...' : '提出する'}

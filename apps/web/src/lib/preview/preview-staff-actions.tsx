@@ -18,6 +18,8 @@ type StaffDialog = 'preference' | 'correction' | null;
 export interface PreviewStaffActionsProps {
   shiftTypes: WorkforceShiftType[] | null;
   attendanceOptions: WorkforceAttendance[] | null;
+  todayAttendance: WorkforceAttendance | null;
+  preferenceSubmitted: boolean;
   defaultPreferenceDate: string;
   defaultReportDate: string;
 }
@@ -26,6 +28,8 @@ export interface PreviewStaffActionsProps {
 export function PreviewStaffActions({
   shiftTypes,
   attendanceOptions,
+  todayAttendance,
+  preferenceSubmitted,
   defaultPreferenceDate,
   defaultReportDate,
 }: PreviewStaffActionsProps) {
@@ -34,7 +38,13 @@ export function PreviewStaffActions({
   return (
     <>
       <CafeStaffReportCard>
-        <PreviewWorkReportForm defaultWorkDate={defaultReportDate} embedded hideWorkDate />
+        <PreviewWorkReportForm
+          defaultWorkDate={defaultReportDate}
+          defaultTransportationCost={todayAttendance?.transportationCost}
+          defaultDailyMessage={todayAttendance?.dailyMessage}
+          embedded
+          hideWorkDate
+        />
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
         <button type="button" style={buttonSecondary} onClick={() => setDialog('correction')}>
           修正を依頼
@@ -44,7 +54,7 @@ export function PreviewStaffActions({
 
       <CafeStaffPreferenceCard>
         <button type="button" style={{ ...buttonPrimary, width: '100%' }} onClick={() => setDialog('preference')}>
-          来月のシフト希望を提出
+          来月のシフト希望を提出{preferenceSubmitted ? '済み' : ''}
         </button>
       </CafeStaffPreferenceCard>
 

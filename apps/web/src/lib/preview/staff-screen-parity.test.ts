@@ -13,6 +13,8 @@ const PREVIEW_STAFF_ACTIONS = 'preview-staff-actions.tsx';
 const PREVIEW_CAFE_LAYOUT = '../../app/%5Fclient-preview/mame-to-cha/layout.tsx';
 const DEMO_STAFF_VIEW = '../../components/demo/cafe/views/StaffView.tsx';
 const SHARED_STAFF_PRESENTATION = '../../components/demo/cafe/CafeStaffPresentation.tsx';
+const DEMO_CLOCK_PANEL = '../../components/demo/cafe/ClockPanel.tsx';
+const PREVIEW_CLOCK_PANEL = 'preview-clock-panel.tsx';
 
 test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
@@ -81,9 +83,13 @@ test('Demo and Preview compose the same Staff presentation sections', () => {
   const view = read(PREVIEW_STAFF_VIEW);
   const actions = read(PREVIEW_STAFF_ACTIONS);
   const shared = read(SHARED_STAFF_PRESENTATION);
+  const demoClock = read(DEMO_CLOCK_PANEL);
+  const previewClock = read(PREVIEW_CLOCK_PANEL);
 
   assert.match(demo, /CafeStaffHeader/);
   assert.match(page, /CafeStaffHeader/);
+  assert.match(demoClock, /CafeStaffStatusCard/);
+  assert.match(previewClock, /CafeStaffStatusCard/);
   assert.match(demo, /CafeStaffScheduleCard/);
   assert.match(view, /CafeStaffScheduleCard/);
   assert.match(demo, /CafeStaffReportCard/);

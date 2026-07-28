@@ -6,6 +6,7 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewClockIn, previewClockOut } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa } from './write-result';
+import { CafeStaffStatusCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 
 const BREAK_OPTIONS = [0, 30, 60] as const;
@@ -58,15 +59,27 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
   }
 
   return (
-    <section style={card}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>勤務状況</h2>
-      <p style={{ margin: '8px 0 12px', ...mutedText }}>
+    <CafeStaffStatusCard
+      title="勤務状況"
+      status={
+      <span
+        style={{
+          padding: '3px 10px',
+          borderRadius: 999,
+          background: isWorking ? demoColors.accentMuted : demoColors.surfaceElevated,
+          color: isWorking ? demoColors.accent : demoColors.textMuted,
+          fontSize: 12,
+          fontWeight: 600,
+        }}
+      >
         {isFinished
           ? `退勤済み・休憩 ${todayAttendance?.actualBreakMinutes ?? 0}分`
           : isWorking
             ? `勤務中・${clockInTime}〜`
             : '未出勤'}
-      </p>
+      </span>
+      }
+    >
       {!isFinished ? (
         <button
           type="button"
@@ -135,6 +148,6 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
           </section>
         </div>
       ) : null}
-    </section>
+    </CafeStaffStatusCard>
   );
 }

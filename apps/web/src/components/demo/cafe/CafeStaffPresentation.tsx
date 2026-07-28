@@ -27,6 +27,34 @@ export function CafeStaffHeader({ mark, title, subtitle, actions }: CafeStaffHea
   );
 }
 
+interface CafeStaffStatusCardProps {
+  title: ReactNode;
+  status: ReactNode;
+  children?: ReactNode;
+}
+
+export function CafeStaffStatusCard({ title, status, children }: CafeStaffStatusCardProps) {
+  return (
+    <section
+      style={{
+        border: `1px solid ${demoColors.border}`,
+        borderRadius: 8,
+        padding: 18,
+        background: demoColors.surface,
+        boxShadow: '0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <strong style={{ fontSize: 15 }}>{title}</strong>
+        </div>
+        {status}
+      </div>
+      {children ? <div style={{ marginTop: 14 }}>{children}</div> : null}
+    </section>
+  );
+}
+
 interface CafeStaffScheduleCardProps {
   title: ReactNode;
   headerActions?: ReactNode;
