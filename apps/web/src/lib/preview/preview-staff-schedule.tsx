@@ -80,7 +80,7 @@ export function PreviewStaffSchedule({
     const bounded = Math.max(-8, Math.min(8, nextOffset));
     setActiveWeekOffset(bounded);
     const suffix = bounded === 0 ? '' : `?weekOffset=${bounded}`;
-    window.history.replaceState(null, '', `${basePath}/staff${suffix}`);
+    window.history.replaceState(null, '', `${basePath}${suffix}`);
   }
 
   const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({

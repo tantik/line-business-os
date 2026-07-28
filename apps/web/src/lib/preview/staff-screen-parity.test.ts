@@ -7,7 +7,7 @@ import path from 'node:path';
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const read = (relativePath: string) => readFileSync(path.join(THIS_DIR, relativePath), 'utf8');
 
-const PREVIEW_STAFF_PAGE = '../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx';
+const PREVIEW_STAFF_PAGE = '../../app/%5Fclient-preview/mame-to-cha/page.tsx';
 const PREVIEW_STAFF_VIEW = 'staff-view.tsx';
 const PREVIEW_STAFF_SCHEDULE = 'preview-staff-schedule.tsx';
 const PREVIEW_STAFF_ACTIONS = 'preview-staff-actions.tsx';
