@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
@@ -14,7 +13,7 @@ import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
-import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
@@ -68,10 +67,21 @@ export function PreviewStaffSchedule({
   basePath,
 }: PreviewStaffScheduleProps) {
   const [onlyMe, setOnlyMe] = useState(false);
+  const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [correctionDate, setCorrectionDate] = useState<string | null>(null);
-  const dates = useMemo(() => dateRange(periodStart, periodEnd), [periodStart, periodEnd]);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const activePeriodStart = addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7);
+  const activePeriodEnd = addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7);
+  const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
   const todayIso = todayIsoInTimeZone(timeZone);
+
+  function goToWeek(nextOffset: number) {
+    const bounded = Math.max(-8, Math.min(8, nextOffset));
+    setActiveWeekOffset(bounded);
+    const suffix = bounded === 0 ? '' : `?weekOffset=${bounded}`;
+    window.history.replaceState(null, '', `${basePath}/staff${suffix}`);
+  }
 
   const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({
     id: shiftType.shiftTypeId,
@@ -122,7 +132,7 @@ export function PreviewStaffSchedule({
       .filter((request) => request.kind === 'correction')
       .map((request) => [request.workDate, request] as const),
   );
-  const workReports: WorkReport[] = (attendance ?? []).map((entry) => {
+  const workReports: WorkReport[] = (attendance ?? []).filter((entry) => Boolean(entry.clockOut)).map((entry) => {
     const correction = correctionByDate.get(entry.workDate);
     return {
       staffId: profile.staffId,
@@ -151,6 +161,22 @@ export function PreviewStaffSchedule({
 
   return (
     <>
+      <div
+        onTouchStart={(event) => {
+          const touch = event.changedTouches[0];
+          if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+        }}
+        onTouchEnd={(event) => {
+          const start = touchStart.current;
+          const touch = event.changedTouches[0];
+          touchStart.current = null;
+          if (!start || !touch) return;
+          const deltaX = touch.clientX - start.x;
+          const deltaY = touch.clientY - start.y;
+          if (Math.abs(deltaX) < 55 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+          goToWeek(activeWeekOffset + (deltaX < 0 ? 1 : -1));
+        }}
+      >
       <CafeStaffScheduleCard
         title={
           <>
@@ -167,12 +193,12 @@ export function PreviewStaffSchedule({
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>
-                {periodStart.slice(5).replace('-', '/')} ～ {periodEnd.slice(5).replace('-', '/')}
+                {activePeriodStart.slice(5).replace('-', '/')} ～ {activePeriodEnd.slice(5).replace('-', '/')}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <Link href={`${basePath}/staff?weekOffset=${weekOffset - 1}`} style={{ ...buttonSecondary, padding: '5px 9px', fontSize: 11 }}>← 前の週</Link>
-                <Link href={`${basePath}/staff`} aria-disabled={weekOffset === 0} style={{ ...(weekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>今日</Link>
-                <Link href={`${basePath}/staff?weekOffset=${weekOffset + 1}`} style={{ ...buttonSecondary, padding: '5px 9px', fontSize: 11 }}>次の週 →</Link>
+                <button type="button" onClick={() => goToWeek(activeWeekOffset - 1)} disabled={activeWeekOffset <= -8} style={{ ...(activeWeekOffset <= -8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>← 前の週</button>
+                <button type="button" onClick={() => goToWeek(0)} disabled={activeWeekOffset === 0} style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>今日</button>
+                <button type="button" onClick={() => goToWeek(activeWeekOffset + 1)} disabled={activeWeekOffset >= 8} style={{ ...(activeWeekOffset >= 8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>次の週 →</button>
               </div>
             </div>
             {assignments === null ? (
@@ -203,6 +229,7 @@ export function PreviewStaffSchedule({
         legend={<ShiftLegend shiftTypes={displayShiftTypes} lang="ja" />}
         hoursLabel={`実働時間: ${weeklyHours.toFixed(1)}h`}
       />
+      </div>
 
       <Modal open={selectedDate !== null} onClose={() => setSelectedDate(null)} title={`勤務記録 ${selectedDate ?? ''}`}>
         <div style={{ display: 'grid', gap: 0 }}>
@@ -217,7 +244,7 @@ export function PreviewStaffSchedule({
               <span style={mutedText}>{label}</span><strong>{value}</strong>
             </div>
           ))}
-          <section
+          {selectedAttendance?.dailyMessage ? <section
             style={{
               marginTop: 16,
               padding: 14,
@@ -228,7 +255,6 @@ export function PreviewStaffSchedule({
             }}
           >
             <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 800 }}>メッセージ</div>
-            {selectedAttendance ? (
               <>
                 <PreviewWorkReportForm
                   defaultWorkDate={selectedAttendance.workDate}
@@ -243,10 +269,7 @@ export function PreviewStaffSchedule({
                   {messageLocked ? '店長が確認済みのため変更できません。' : '店長が確認するまでは内容を変更できます。'}
                 </p>
               </>
-            ) : (
-              <div style={mutedText}>なし</div>
-            )}
-          </section>
+          </section> : null}
         </div>
         {selectedDate && selectedDate <= todayIso ? (
           <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>勤務時間の修正を依頼</button>

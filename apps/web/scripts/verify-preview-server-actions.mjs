@@ -73,8 +73,9 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
     new Set([
       'previewSubmitShiftPreference',
       'previewSubmitWorkReport',
-      'previewClockIn',
-      'previewClockOut',
+        'previewClockIn',
+        'previewClockOut',
+        'previewResetTodayClock',
       'previewSubmitCorrectionRequest',
     ]),
   ],

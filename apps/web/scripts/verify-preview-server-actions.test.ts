@@ -167,7 +167,7 @@ test('root/recipes preview routes reject any registered action (zero-allowed)', 
   }
 });
 
-test('staff preview route accepts exactly the five allowlisted B2b actions and nothing else', () => {
+test('staff preview route accepts exactly the six allowlisted B2b actions and nothing else', () => {
   const fiveAllowed = [
     'previewSubmitShiftPreference',
     'previewSubmitWorkReport',
