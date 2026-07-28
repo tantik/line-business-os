@@ -6,7 +6,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { CafeStaffPreferenceCard, CafeStaffReportCard } from '@/components/demo/cafe/CafeStaffPresentation';
-import { HELP_STAFF_NEXT_MONTH_PREFERENCE, HELP_STAFF_TRANSPORT_MESSAGE } from '@/lib/demo/cafe/helpContent';
+import { HELP_STAFF_NEXT_MONTH_PREFERENCE } from '@/lib/demo/cafe/helpContent';
 import { buttonPrimary } from '@/lib/demo/cafe/theme';
 import { PreviewShiftPreferenceCalendar } from './preview-shift-preference-calendar';
 import { PreviewWorkReportForm } from './preview-work-report-form';
@@ -25,9 +25,6 @@ export function PreviewStaffActions({ shiftTypes, todayAttendance, preferenceSub
   return (
     <>
       <CafeStaffReportCard>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-          <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
-        </div>
         <PreviewWorkReportForm defaultWorkDate={defaultReportDate} defaultTransportationCost={todayAttendance?.transportationCost} defaultDailyMessage={todayAttendance?.dailyMessage} embedded hideWorkDate />
       </CafeStaffReportCard>
       <CafeStaffPreferenceCard>

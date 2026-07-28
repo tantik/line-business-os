@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { previewSubmitWorkReport } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_STAFF_TRANSPORT_MESSAGE } from '@/lib/demo/cafe/helpContent';
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for work
@@ -61,12 +63,15 @@ export function PreviewWorkReportForm({
           </label>
         ) : null}
         <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
+          <span style={{ ...mutedText, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            交通費 <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
+          </span>
           <input
             style={inputStyle}
             type="number"
             name="transportationCost"
             min={0}
+            placeholder="前回入力値を記憶"
             defaultValue={defaultTransportationCost ?? ''}
           />
         </label>
@@ -76,6 +81,7 @@ export function PreviewWorkReportForm({
             style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
             name="dailyMessage"
             maxLength={500}
+            placeholder="店長への連絡事項があれば入力してください"
             defaultValue={defaultDailyMessage ?? ''}
           />
         </label>

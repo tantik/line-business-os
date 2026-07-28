@@ -56,12 +56,33 @@ test('parseSubmitWorkReportInput rejects a missing workDate', () => {
 test('parseSubmitCorrectionRequestInput accepts workDate + attendanceId + message', () => {
   assert.deepEqual(
     parseSubmitCorrectionRequestInput(formData({ workDate: '2026-08-03', attendanceId: ATTENDANCE_ID, message: 'Forgot to clock out' })),
-    { workDate: '2026-08-03', attendanceId: ATTENDANCE_ID, message: 'Forgot to clock out' },
+    { workDate: '2026-08-03', attendanceId: ATTENDANCE_ID, clockInLocal: undefined, clockOutLocal: undefined, actualBreakMinutes: null, message: 'Forgot to clock out' },
   );
 });
 test('parseSubmitCorrectionRequestInput allows a null attendanceId (not yet clocked)', () => {
   const result = parseSubmitCorrectionRequestInput(formData({ workDate: '2026-08-03' }));
-  assert.deepEqual(result, { workDate: '2026-08-03', attendanceId: null, message: null });
+  assert.deepEqual(result, { workDate: '2026-08-03', attendanceId: null, clockInLocal: undefined, clockOutLocal: undefined, actualBreakMinutes: null, message: null });
+});
+
+test('parseSubmitCorrectionRequestInput accepts independently editable attendance fields', () => {
+  assert.deepEqual(
+    parseSubmitCorrectionRequestInput(formData({
+      workDate: '2026-08-03',
+      attendanceId: ATTENDANCE_ID,
+      clockInLocal: '09:05',
+      clockOutLocal: '17:45',
+      actualBreakMinutes: '30',
+      message: 'Opening preparation ran late.',
+    })),
+    {
+      workDate: '2026-08-03',
+      attendanceId: ATTENDANCE_ID,
+      clockInLocal: '09:05',
+      clockOutLocal: '17:45',
+      actualBreakMinutes: 30,
+      message: 'Opening preparation ran late.',
+    },
+  );
 });
 test('parseSubmitCorrectionRequestInput rejects a malformed attendanceId', () => {
   assert.equal(parseSubmitCorrectionRequestInput(formData({ workDate: '2026-08-03', attendanceId: 'bad' })), null);

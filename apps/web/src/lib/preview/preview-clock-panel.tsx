@@ -9,7 +9,7 @@ import { previewWriteMessageJa } from './write-result';
 import { CafeStaffStatusCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_STAFF_WORK_STATUS } from '@/lib/demo/cafe/helpContent';
-import { buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonDisabled, buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 
 const BREAK_OPTIONS = [0, 30, 60] as const;
 type BreakMinutes = (typeof BREAK_OPTIONS)[number];
@@ -82,16 +82,14 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
       </span>
       }
     >
-      {!isFinished ? (
-        <button
+      <button
           type="button"
-          style={{ ...buttonPrimary, width: isWorking ? 104 : '100%', minHeight: 52, boxShadow: isWorking ? '0 5px 14px rgba(79, 122, 82, 0.28)' : undefined }}
-          disabled={isPending}
+          style={{ ...(isFinished ? buttonDisabled : buttonPrimary), width: isWorking || isFinished ? 104 : '100%', minHeight: 52, boxShadow: isWorking ? '0 5px 14px rgba(79, 122, 82, 0.28)' : undefined }}
+          disabled={isPending || isFinished}
           onClick={isWorking ? () => setClockOutOpen(true) : clockIn}
         >
-          {isPending ? '処理中…' : isWorking ? '退勤' : '出勤'}
+          {isPending ? '処理中…' : isFinished ? '退勤済み' : isWorking ? '退勤' : '出勤'}
         </button>
-      ) : null}
       {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
 
       {clockOutOpen ? (

@@ -13,7 +13,7 @@ const SHIFT_TYPES = [
 ] as const;
 const CONTENT = [
   { kind: 'instruction', title: 'レシートプリンターの設定', category: '業務マニュアル', description: '開店前のプリンター接続、用紙、テスト印刷を確認するための手順です。' },
-  { kind: 'recipe', title: '抹茶ラテ', category: 'カクテル・ドリンク', description: '抹茶の香りを活かした定番ラテです。' },
+  { kind: 'recipe', title: '抹茶ラテ', category: 'ドリンク', description: '当店自慢のラテは、ミルクの甘さと抹茶の香りを合わせた一杯です。' },
   { kind: 'recipe', title: 'ほうじ茶ラテ', category: 'カクテル・ドリンク', description: '香ばしいほうじ茶とミルクのドリンクです。' },
   { kind: 'recipe', title: '柚子スパークリング', category: 'カクテル・ドリンク', description: '柚子の酸味を活かした爽やかな一杯です。' },
   { kind: 'recipe', title: '黒糖エスプレッソ', category: 'カクテル・ドリンク', description: '黒糖のコクを加えたエスプレッソドリンクです。' },
@@ -60,7 +60,12 @@ async function main() {
     const { tenant_id: tenantId, location_id: locationId } = scope.rows[0]!;
 
     await client.query(`delete from workforce.shifts where tenant_id = $1 and notes = $2`, [tenantId, MARKER]);
-    await client.query(`delete from workforce.recipes where tenant_id = $1 and description_en = $2`, [tenantId, MARKER]);
+    await client.query(
+      `delete from workforce.recipes
+        where tenant_id = $1
+          and (description_en = $2 or title_ja = any($3::text[]))`,
+      [tenantId, MARKER, CONTENT.map((item) => item.title)],
+    );
     await client.query(`delete from workforce.shift_types where tenant_id = $1 and code like 'SHOWCASE_%'`, [tenantId]);
     await client.query(`delete from workforce.employees where tenant_id = $1 and employment_type = $2`, [tenantId, MARKER]);
 
@@ -183,31 +188,60 @@ async function main() {
       const recipe = await client.query<{ id: string }>(
         `insert into workforce.recipes
           (tenant_id, location_id, recipe_category_id, title_ja, description_ja, description_en, content_kind, is_popular, status)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, 'published')
+         values ($1, $2, $3, $4, $5, null, $6, $7, 'published')
          returning id`,
-        [tenantId, locationId, categoryIds.get(item.category), item.title, item.description, MARKER, item.kind, index === 1],
+        [tenantId, locationId, categoryIds.get(item.category), item.title, item.description, item.kind, index === 1],
       );
       const recipeId = recipe.rows[0]!.id;
-      await client.query(
-        `insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, sort_order)
-         values ($1, $2, $3, 1), ($1, $2, $4, 2)`,
-        [tenantId, recipeId, item.kind === 'instruction' ? '電源・接続ケーブル' : 'ベース材料', item.kind === 'instruction' ? 'レシートロール紙' : '仕上げ材料'],
-      );
-      await client.query(
-        `insert into workforce.recipe_steps (tenant_id, recipe_id, step_number, instruction_ja)
-         values ($1, $2, 1, $3), ($1, $2, 2, $4)`,
-        [
-          tenantId,
-          recipeId,
-          item.kind === 'instruction' ? '電源とLANまたはBluetooth接続を確認し、レシートロール紙を正しい向きでセットします。' : '必要な材料と道具を確認します。',
-          item.kind === 'instruction' ? 'POSからテスト印刷を行い、文字切れと自動カットを確認します。' : '手順に沿って仕上げ、提供前に品質を確認します。',
-        ],
-      );
-      await client.query(
-        `insert into workforce.recipe_notes (tenant_id, recipe_id, title_ja, body_ja)
-         values ($1, $2, 'ポイント', '品質を揃えるため、分量と手順を毎回確認してください。')`,
-        [tenantId, recipeId],
-      );
+      if (item.title === '抹茶ラテ') {
+        const ingredients = ['抹茶液 50g', 'ミルク 160g', 'シロップ 10g', '氷'];
+        for (const [ingredientIndex, label] of ingredients.entries()) {
+          await client.query(
+            `insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, sort_order) values ($1, $2, $3, $4)`,
+            [tenantId, recipeId, label, ingredientIndex + 1],
+          );
+        }
+        const steps = [
+          '提供用カップを準備する。',
+          'シロップとミルクを入れて軽く混ぜる。',
+          '氷を入れる。',
+          '抹茶液を作る（Standard または Ceremonia）。',
+          '抹茶液をゆっくり注ぎ、美しい抹茶の層を作る。',
+          '提供前にフタ、ストロー、カップの汚れを確認する。',
+        ];
+        for (const [stepIndex, instruction] of steps.entries()) {
+          await client.query(
+            `insert into workforce.recipe_steps (tenant_id, recipe_id, step_number, instruction_ja) values ($1, $2, $3, $4)`,
+            [tenantId, recipeId, stepIndex + 1, instruction],
+          );
+        }
+        await client.query(
+          `insert into workforce.recipe_notes (tenant_id, recipe_id, title_ja, body_ja)
+           values ($1, $2, '抹茶液の作り方', $3)`,
+          [tenantId, recipeId, '小さなカップに抹茶パウダー7gを入れ、80℃のお湯30gを加えてダマがなくなるまで混ぜる。冷水20gを加え、色と泡が整うまでしっかり混ぜる。'],
+        );
+      } else {
+        await client.query(
+          `insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, sort_order)
+           values ($1, $2, $3, 1), ($1, $2, $4, 2)`,
+          [tenantId, recipeId, item.kind === 'instruction' ? '電源・接続ケーブル' : 'ベース材料', item.kind === 'instruction' ? 'レシートロール紙' : '仕上げ材料'],
+        );
+        await client.query(
+          `insert into workforce.recipe_steps (tenant_id, recipe_id, step_number, instruction_ja)
+           values ($1, $2, 1, $3), ($1, $2, 2, $4)`,
+          [
+            tenantId,
+            recipeId,
+            item.kind === 'instruction' ? '電源とLANまたはBluetooth接続を確認し、レシートロール紙を正しい向きでセットします。' : '必要な材料と道具を確認します。',
+            item.kind === 'instruction' ? 'POSからテスト印刷を行い、文字切れと自動カットを確認します。' : '手順に沿って仕上げ、提供前に品質を確認します。',
+          ],
+        );
+        await client.query(
+          `insert into workforce.recipe_notes (tenant_id, recipe_id, title_ja, body_ja)
+           values ($1, $2, 'ポイント', '品質を揃えるため、分量と手順を毎回確認してください。')`,
+          [tenantId, recipeId],
+        );
+      }
     }
 
     const verification = await client.query<{
@@ -219,9 +253,9 @@ async function main() {
       `select
         (select count(*)::int from workforce.employees where tenant_id = $1 and employment_type = $2) showcase_staff,
         (select count(*)::int from workforce.shifts where tenant_id = $1 and notes = $2) showcase_shifts,
-        (select count(*)::int from workforce.recipes where tenant_id = $1 and description_en = $2 and content_kind = 'recipe') showcase_recipes,
-        (select count(*)::int from workforce.recipes where tenant_id = $1 and description_en = $2 and content_kind = 'instruction') showcase_instructions`,
-      [tenantId, MARKER],
+        (select count(*)::int from workforce.recipes where tenant_id = $1 and title_ja = any($3::text[]) and content_kind = 'recipe') showcase_recipes,
+        (select count(*)::int from workforce.recipes where tenant_id = $1 and title_ja = any($3::text[]) and content_kind = 'instruction') showcase_instructions`,
+      [tenantId, MARKER, CONTENT.map((item) => item.title)],
     );
     const counts = verification.rows[0]!;
     if (counts.showcase_staff !== 5 || counts.showcase_shifts !== 72 || counts.showcase_recipes !== 5 || counts.showcase_instructions !== 1) {

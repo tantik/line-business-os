@@ -70,6 +70,9 @@ export function parseSubmitWorkReportInput(formData: FormData): SubmitWorkReport
 export interface SubmitCorrectionRequestFormInput {
   workDate: string;
   attendanceId: string | null;
+  clockInLocal: string | undefined;
+  clockOutLocal: string | undefined;
+  actualBreakMinutes: number | null;
   message: string | null;
 }
 
@@ -87,7 +90,22 @@ export function parseSubmitCorrectionRequestInput(formData: FormData): SubmitCor
   const message = parseOptionalTrimmedString(formData.get('message'), CORRECTION_DETAILS_MAX_LENGTH);
   if (!message.ok) return null;
 
-  return { workDate, attendanceId, message: message.value };
+  const rawClockIn = formData.get('clockInLocal');
+  const clockInLocal = typeof rawClockIn === 'string' && rawClockIn.trim() ? parseLocalTime(rawClockIn) ?? undefined : undefined;
+  if (typeof rawClockIn === 'string' && rawClockIn.trim() && !clockInLocal) return null;
+  const rawClockOut = formData.get('clockOutLocal');
+  const clockOutLocal = typeof rawClockOut === 'string' && rawClockOut.trim() ? parseLocalTime(rawClockOut) ?? undefined : undefined;
+  if (typeof rawClockOut === 'string' && rawClockOut.trim() && !clockOutLocal) return null;
+  if (clockInLocal && clockOutLocal && clockOutLocal <= clockInLocal) return null;
+
+  const rawBreak = formData.get('actualBreakMinutes');
+  let actualBreakMinutes: number | null = null;
+  if (typeof rawBreak === 'string' && rawBreak.trim()) {
+    actualBreakMinutes = parseNonNegativeInt(rawBreak, 480);
+    if (actualBreakMinutes === null) return null;
+  }
+
+  return { workDate, attendanceId, clockInLocal, clockOutLocal, actualBreakMinutes, message: message.value };
 }
 
 // ============================================================================
