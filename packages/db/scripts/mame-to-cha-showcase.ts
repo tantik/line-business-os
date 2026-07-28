@@ -12,7 +12,7 @@ const SHIFT_TYPES = [
   { code: 'ALL', label: '通', start: '07:00', end: '21:00', breakMinutes: 90, order: 14 },
 ] as const;
 const CONTENT = [
-  { kind: 'instruction', title: '開店・閉店チェックリスト', category: '業務マニュアル', description: '毎日の開店準備と閉店作業を同じ品質で行うための手順です。' },
+  { kind: 'instruction', title: 'レシートプリンターの設定', category: '業務マニュアル', description: '開店前のプリンター接続、用紙、テスト印刷を確認するための手順です。' },
   { kind: 'recipe', title: '抹茶ラテ', category: 'カクテル・ドリンク', description: '抹茶の香りを活かした定番ラテです。' },
   { kind: 'recipe', title: 'ほうじ茶ラテ', category: 'カクテル・ドリンク', description: '香ばしいほうじ茶とミルクのドリンクです。' },
   { kind: 'recipe', title: '柚子スパークリング', category: 'カクテル・ドリンク', description: '柚子の酸味を活かした爽やかな一杯です。' },
@@ -169,6 +169,14 @@ async function main() {
         );
       }
       categoryIds.set(label, category.rows[0]!.id);
+      if (label === '業務マニュアル') {
+        await client.query(
+          `update workforce.recipe_categories
+              set sort_order = -100
+            where tenant_id = $1 and id = $2`,
+          [tenantId, category.rows[0]!.id],
+        );
+      }
     }
 
     for (const [index, item] of CONTENT.entries()) {
@@ -183,12 +191,17 @@ async function main() {
       await client.query(
         `insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, sort_order)
          values ($1, $2, $3, 1), ($1, $2, $4, 2)`,
-        [tenantId, recipeId, item.kind === 'instruction' ? 'チェックリスト' : 'ベース材料', item.kind === 'instruction' ? '担当者確認' : '仕上げ材料'],
+        [tenantId, recipeId, item.kind === 'instruction' ? '電源・接続ケーブル' : 'ベース材料', item.kind === 'instruction' ? 'レシートロール紙' : '仕上げ材料'],
       );
       await client.query(
         `insert into workforce.recipe_steps (tenant_id, recipe_id, step_number, instruction_ja)
          values ($1, $2, 1, $3), ($1, $2, 2, $4)`,
-        [tenantId, recipeId, '必要な材料と道具を確認します。', '手順に沿って仕上げ、提供前に品質を確認します。'],
+        [
+          tenantId,
+          recipeId,
+          item.kind === 'instruction' ? '電源とLANまたはBluetooth接続を確認し、レシートロール紙を正しい向きでセットします。' : '必要な材料と道具を確認します。',
+          item.kind === 'instruction' ? 'POSからテスト印刷を行い、文字切れと自動カットを確認します。' : '手順に沿って仕上げ、提供前に品質を確認します。',
+        ],
       );
       await client.query(
         `insert into workforce.recipe_notes (tenant_id, recipe_id, title_ja, body_ja)

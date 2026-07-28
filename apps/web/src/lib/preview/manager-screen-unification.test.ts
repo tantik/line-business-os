@@ -250,4 +250,6 @@ test('the preview settings summary keeps the demo manager operational fields vis
   assert.match(source, /必要人数（曜日ごと）/);
   assert.match(source, /スタッフ最大勤務時間 \/ 月/);
   assert.match(source, /シフト種別/);
+  assert.match(source, /setEditStart\(st\.startsAtLocal\.slice\(0,\s*5\)\)/);
+  assert.match(source, /setEditEnd\(st\.endsAtLocal\.slice\(0,\s*5\)\)/);
 });

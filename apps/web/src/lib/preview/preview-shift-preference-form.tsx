@@ -70,7 +70,7 @@ export function PreviewShiftPreferenceForm({ shiftTypes, defaultWorkDate, embedd
               </option>
               {activeShiftTypes.map((st) => (
                 <option key={st.shiftTypeId} value={st.shiftTypeId}>
-                  {st.code} ({st.startsAtLocal}-{st.endsAtLocal})
+                  {st.code} ({st.startsAtLocal.slice(0, 5)}-{st.endsAtLocal.slice(0, 5)})
                 </option>
               ))}
             </select>

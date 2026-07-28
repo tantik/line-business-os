@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CafeStaffHeader } from '@/components/demo/cafe/CafeStaffPresentation';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
@@ -19,10 +20,11 @@ import {
   PreviewNoProfileState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { demoColors, linkAccent, mobilePageStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { demoColors, linkAccent, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
+import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import {
   diagnoseStaffProfileFailure,
   logStaffProfileFailure,
@@ -105,21 +107,17 @@ export default async function MameToChaPreviewStaffPage({
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, correctionRequestsResult] =
+  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
       listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
       listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
       listMyAttendance(supabase, activeTenant.tenantId),
-      listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
     ]);
 
-  // Narrow server-side to the caller's own published shifts, same as the
-  // dashboard staff page - `listShiftAssignments` is shared and returns every
-  // employee's rows at this location.
-  const myPublishedAssignments =
+  const publishedAssignments =
     assignmentsResult.status === 'success'
-      ? assignmentsResult.data.filter((a) => a.published && a.employeeId === profile.staffId)
+      ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
       : null;
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: location.timezone,
@@ -131,11 +129,13 @@ export default async function MameToChaPreviewStaffPage({
     attendanceResult.status === 'success'
       ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
       : null;
+  const [todayYear, todayMonth] = todayIso.split('-').map(Number);
+  const defaultPreferenceDate = new Date(Date.UTC(todayYear!, todayMonth!, 1)).toISOString().slice(0, 10);
 
   return (
     <main style={mobilePageStyle(760)}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+      <CafeStaffHeader
+        mark={
           <span
             aria-hidden="true"
             style={{
@@ -153,20 +153,18 @@ export default async function MameToChaPreviewStaffPage({
           >
             M
           </span>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 20 }}>スタッフページ</h1>
-            <p style={{ margin: '3px 0 0', ...mutedText, fontSize: 13 }}>
-              {activeTenant.tenantName} ・ {location.locationName}
-            </p>
-          </div>
-        </div>
-        <Link
-          href={PREVIEW_BASE_PATH}
-          style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}
-        >
-          トップへ戻る
-        </Link>
-      </header>
+        }
+        title={activeTenant.tenantName}
+        subtitle={location.locationName}
+        actions={
+          <>
+            <Link href={PREVIEW_BASE_PATH} style={{ ...linkAccent, flexShrink: 0, fontSize: 13, fontWeight: 700 }}>
+              トップへ戻る
+            </Link>
+            <PreviewLanguageToggle />
+          </>
+        }
+      />
 
       <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
 
@@ -177,17 +175,20 @@ export default async function MameToChaPreviewStaffPage({
         weekOffset={weekOffset}
         profile={profile}
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        requests={requestsResult.status === 'success' ? requestsResult.data : null}
-        assignments={myPublishedAssignments}
+        assignments={publishedAssignments}
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
-        correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 
       <PreviewStaffActions
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
         attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}
-        defaultPreferenceDate={periodStart}
+        todayAttendance={todayAttendance}
+        preferenceSubmitted={
+          requestsResult.status === 'success' &&
+          requestsResult.data.some((request) => request.workDate >= todayIso)
+        }
+        defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
       />
     </main>

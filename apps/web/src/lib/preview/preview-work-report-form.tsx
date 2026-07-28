@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewSubmitWorkReport } from './actions/staff-attendance-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
-import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for work
@@ -16,7 +16,10 @@ import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/
  */
 export interface PreviewWorkReportFormProps {
   defaultWorkDate: string;
+  defaultTransportationCost?: number | null;
+  defaultDailyMessage?: string | null;
   embedded?: boolean;
+  hideWorkDate?: boolean;
 }
 
 function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -24,7 +27,13 @@ function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: s
   return { ok: false, text: previewWriteMessageJa(result.status) };
 }
 
-export function PreviewWorkReportForm({ defaultWorkDate, embedded = false }: PreviewWorkReportFormProps) {
+export function PreviewWorkReportForm({
+  defaultWorkDate,
+  defaultTransportationCost = null,
+  defaultDailyMessage = null,
+  embedded = false,
+  hideWorkDate = false,
+}: PreviewWorkReportFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
@@ -32,6 +41,7 @@ export function PreviewWorkReportForm({ defaultWorkDate, embedded = false }: Pre
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (hideWorkDate) formData.set('workDate', defaultWorkDate);
 
     startTransition(async () => {
       const result = await previewSubmitWorkReport(formData);
@@ -44,20 +54,37 @@ export function PreviewWorkReportForm({ defaultWorkDate, embedded = false }: Pre
     <section style={embedded ? undefined : card}>
       {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>勤務報告の提出</h2> : null}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: embedded ? 0 : 12 }}>
-        <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
-          <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
-        </label>
+        {!hideWorkDate ? (
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
+            <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
+          </label>
+        ) : null}
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
-          <input style={inputStyle} type="number" name="transportationCost" min={0} />
+          <input
+            style={inputStyle}
+            type="number"
+            name="transportationCost"
+            min={0}
+            defaultValue={defaultTransportationCost ?? ''}
+          />
         </label>
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>メッセージ</span>
-          <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} name="dailyMessage" maxLength={500} />
+          <textarea
+            style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
+            name="dailyMessage"
+            maxLength={500}
+            defaultValue={defaultDailyMessage ?? ''}
+          />
         </label>
-        <button type="submit" style={buttonPrimary} disabled={isPending}>
-          {isPending ? '送信中...' : '提出する'}
+        <button
+          type="submit"
+          style={hideWorkDate ? { ...buttonSecondary, alignSelf: 'flex-start' } : buttonPrimary}
+          disabled={isPending}
+        >
+          {isPending ? '送信中...' : hideWorkDate ? '保存' : '提出する'}
         </button>
       </form>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}

@@ -7,6 +7,7 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { DemoHelpButton } from './DemoHelpButton';
 import { HELP_STAFF_WORK_STATUS } from '@/lib/demo/cafe/helpContent';
+import { CafeStaffStatusCard } from './CafeStaffPresentation';
 
 const STATUS_LABEL_KEY: Record<ClockState, Parameters<typeof tStaff>[1]> = {
   idle: 'statusIdle',
@@ -56,20 +57,14 @@ export function ClockPanel({ state, clockInLabel, onClockIn, onClockOutRequest }
   const clockedOut = state === 'clocked_out';
 
   return (
-    <section
-      style={{
-        border: `1px solid ${demoColors.border}`,
-        borderRadius: 8,
-        padding: 18,
-        background: demoColors.surface,
-        boxShadow: '0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <strong style={{ fontSize: 15 }}>{t('workStatus')}</strong>
+    <CafeStaffStatusCard
+      title={
+        <>
+          {t('workStatus')}
           <DemoHelpButton content={HELP_STAFF_WORK_STATUS} />
-        </div>
+        </>
+      }
+      status={
         <span
           style={{
             ...STATUS_TONE[state],
@@ -82,9 +77,8 @@ export function ClockPanel({ state, clockInLabel, onClockIn, onClockOutRequest }
           {t(STATUS_LABEL_KEY[state])}
           {clockInLabel && state !== 'idle' ? ` ・ ${clockInLabel}〜` : ''}
         </span>
-      </div>
-
-      <div style={{ marginTop: 14 }}>
+      }
+    >
         <button
           type="button"
           disabled={clockedOut}
@@ -93,7 +87,6 @@ export function ClockPanel({ state, clockInLabel, onClockIn, onClockOutRequest }
         >
           {isWorking ? t('clockOut') : t('clockIn')}
         </button>
-      </div>
-    </section>
+    </CafeStaffStatusCard>
   );
 }
