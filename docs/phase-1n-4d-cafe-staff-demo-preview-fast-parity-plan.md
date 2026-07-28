@@ -122,7 +122,7 @@ checks mutate Supabase Cloud and therefore remain an explicit Cloud-write gate.
 
 ### Stage 5 — PR acceptance
 
-Status: in progress
+Status: complete
 
 - Confirm CI and Vercel checks on the final SHA.
 - Confirm no unresolved review comments.
