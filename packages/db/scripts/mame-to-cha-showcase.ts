@@ -169,6 +169,14 @@ async function main() {
         );
       }
       categoryIds.set(label, category.rows[0]!.id);
+      if (label === '業務マニュアル') {
+        await client.query(
+          `update workforce.recipe_categories
+              set sort_order = -100
+            where tenant_id = $1 and id = $2`,
+          [tenantId, category.rows[0]!.id],
+        );
+      }
     }
 
     for (const [index, item] of CONTENT.entries()) {
