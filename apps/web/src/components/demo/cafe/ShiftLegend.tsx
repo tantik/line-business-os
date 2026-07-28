@@ -1,3 +1,5 @@
+'use client';
+
 import type { ShiftTypeDef } from '@/lib/demo/cafe/types';
 import { demoColors, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import type { Lang } from '@/lib/demo/cafe/i18n';

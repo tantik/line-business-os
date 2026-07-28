@@ -78,7 +78,7 @@ Exit check:
 
 ### Stage 3 — Local regression gate
 
-Status: in progress
+Status: complete
 
 - Run focused unit and boundary tests after each implementation slice.
 - At the completed stage run web typecheck, lint, test, build, and Preview
@@ -90,7 +90,7 @@ files, security, migration, tenant-isolation, and rollback notes.
 
 ### Stage 4 — Authenticated Preview visual acceptance
 
-Status: pending
+Status: in progress
 
 - Wait for the Vercel Preview deployment for the latest PR commit.
 - Test a real Staff account and a Manager account separately.

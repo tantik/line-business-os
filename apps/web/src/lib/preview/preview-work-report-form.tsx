@@ -41,6 +41,7 @@ export function PreviewWorkReportForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (hideWorkDate) formData.set('workDate', defaultWorkDate);
 
     startTransition(async () => {
       const result = await previewSubmitWorkReport(formData);
@@ -53,14 +54,12 @@ export function PreviewWorkReportForm({
     <section style={embedded ? undefined : card}>
       {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>勤務報告の提出</h2> : null}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: embedded ? 0 : 12 }}>
-        {hideWorkDate ? (
-          <input type="hidden" name="workDate" value={defaultWorkDate} />
-        ) : (
+        {!hideWorkDate ? (
           <label>
             <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
             <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
           </label>
-        )}
+        ) : null}
         <label>
           <span style={{ ...mutedText, fontSize: 13 }}>交通費</span>
           <input
