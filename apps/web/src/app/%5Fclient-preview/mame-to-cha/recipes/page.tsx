@@ -19,24 +19,24 @@ export default async function MameToChaPreviewRecipesPage() {
   await requirePreviewUser(RECIPES_PUBLIC_PATH);
 
   const tenantResult = await resolvePreviewTenantContext();
-  if (tenantResult.status !== 'success') return <PreviewNoAccessState />;
+  if (tenantResult.status !== 'success') return <PreviewNoAccessState variant="light" />;
 
   const { activeTenant } = tenantResult.data;
   const supabase = await createClient();
   const moduleResult = await resolvePreviewWorkforceModule(supabase, activeTenant.tenantId);
-  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState />;
-  if (moduleResult.status !== 'enabled') return <PreviewErrorState />;
+  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState variant="light" />;
+  if (moduleResult.status !== 'enabled') return <PreviewErrorState variant="light" />;
 
   const [categoriesResult, recipesResult] = await Promise.all([
     listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
     listWorkforceRecipes(supabase, activeTenant.tenantId),
   ]);
-  if (categoriesResult.status !== 'success' || recipesResult.status !== 'success') return <PreviewErrorState />;
+  if (categoriesResult.status !== 'success' || recipesResult.status !== 'success') return <PreviewErrorState variant="light" />;
 
   const detailResults = await Promise.all(
     recipesResult.data.map((recipe) => getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipe.recipeId)),
   );
-  if (detailResults.some((result) => result.status !== 'success')) return <PreviewErrorState />;
+  if (detailResults.some((result) => result.status !== 'success')) return <PreviewErrorState variant="light" />;
 
   const recipes = detailResults.flatMap((result) =>
     result.status === 'success' && result.data
