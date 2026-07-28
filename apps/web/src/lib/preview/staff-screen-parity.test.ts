@@ -10,12 +10,35 @@ const read = (relativePath: string) => readFileSync(path.join(THIS_DIR, relative
 const PREVIEW_STAFF_PAGE = '../../app/%5Fclient-preview/mame-to-cha/staff/page.tsx';
 const PREVIEW_STAFF_VIEW = 'staff-view.tsx';
 const PREVIEW_STAFF_ACTIONS = 'preview-staff-actions.tsx';
+const PREVIEW_CAFE_LAYOUT = '../../app/%5Fclient-preview/mame-to-cha/layout.tsx';
 
 test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
     const source = read(file);
     assert.ok(!source.includes('@/lib/ui/theme'), `${file} must not import the legacy dark UI theme`);
   }
+});
+
+test('manager, staff, and recipes inherit one light Mame To Cha preview shell', () => {
+  const layout = read(PREVIEW_CAFE_LAYOUT);
+  assert.match(layout, /demoColors\.bg/);
+  assert.match(layout, /minHeight:\s*'100vh'/);
+
+  for (const route of ['manager', 'staff', 'recipes']) {
+    const nestedLayout = `../../app/%5Fclient-preview/mame-to-cha/${route}/layout.tsx`;
+    assert.throws(() => read(nestedLayout), `${route} must not duplicate the shared Cafe layout`);
+  }
+});
+
+test('staff no-profile diagnostics expose reason categories but no identifiers or error text', () => {
+  const source = read('staff-profile-diagnostic.ts');
+  assert.match(source, /profile_not_bound/);
+  assert.match(source, /profile_read_unauthorized/);
+  assert.match(source, /profile_location_mismatch/);
+  assert.ok(!source.includes('tenantId'));
+  assert.ok(!source.includes('staffId'));
+  assert.ok(!source.includes('userId'));
+  assert.ok(!source.includes('.message'));
 });
 
 test('preview staff mutation forms open through the shared Modal instead of rendering permanently on the page', () => {

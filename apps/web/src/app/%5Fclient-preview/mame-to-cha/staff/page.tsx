@@ -23,6 +23,10 @@ import { demoColors, linkAccent, mobilePageStyle, mutedText } from '@/lib/demo/c
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
+import {
+  diagnoseStaffProfileFailure,
+  logStaffProfileFailure,
+} from '@/lib/preview/staff-profile-diagnostic';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -65,17 +69,22 @@ export default async function MameToChaPreviewStaffPage({
   await requirePreviewUser(STAFF_PUBLIC_PATH);
 
   const tenantResult = await resolvePreviewTenantContext();
-  if (tenantResult.status !== 'success') return <PreviewNoAccessState />;
+  if (tenantResult.status !== 'success') return <PreviewNoAccessState variant="light" />;
 
   const { activeTenant } = tenantResult.data;
   const supabase = await createClient();
 
   const moduleResult = await resolvePreviewWorkforceModule(supabase, activeTenant.tenantId);
-  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState />;
-  if (moduleResult.status !== 'enabled') return <PreviewErrorState />;
+  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState variant="light" />;
+  if (moduleResult.status !== 'enabled') return <PreviewErrorState variant="light" />;
 
   const profileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
-  if (profileResult.status !== 'success' || !profileResult.data) return <PreviewNoProfileState />;
+  const profileDiagnostic = diagnoseStaffProfileFailure(profileResult);
+  if (profileDiagnostic) {
+    logStaffProfileFailure(profileDiagnostic);
+    return <PreviewNoProfileState variant="light" />;
+  }
+  if (profileResult.status !== 'success' || !profileResult.data) return <PreviewNoProfileState variant="light" />;
   const profile = profileResult.data;
 
   const locationsResult = await listTenantLocations(supabase);
@@ -84,7 +93,11 @@ export default async function MameToChaPreviewStaffPage({
       ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
       : [];
   const location = resolveStaffLocation(profile, tenantLocations);
-  if (!location) return <PreviewNoProfileState />;
+  if (!location) {
+    const locationDiagnostic = diagnoseStaffProfileFailure(profileResult, tenantLocations);
+    if (locationDiagnostic) logStaffProfileFailure(locationDiagnostic);
+    return <PreviewNoProfileState variant="light" />;
+  }
 
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);

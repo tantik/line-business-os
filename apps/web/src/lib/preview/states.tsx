@@ -74,18 +74,18 @@ export function PreviewLocationBlockedState({
   );
 }
 
-export function PreviewNoProfileState() {
+export function PreviewNoProfileState({ variant = 'dark' }: { variant?: PreviewStateVariant } = {}) {
   return (
-    <PreviewStateShell title="スタッフ情報が見つかりません">
-      <p style={darkMutedText}>このアカウントに紐づくスタッフ情報がありません。担当者にお問い合わせください。</p>
+    <PreviewStateShell title="スタッフ情報が見つかりません" variant={variant}>
+      <p style={stateMutedText(variant)}>このアカウントに紐づくスタッフ情報がありません。担当者にお問い合わせください。</p>
     </PreviewStateShell>
   );
 }
 
-export function PreviewNotFoundState() {
+export function PreviewNotFoundState({ variant = 'dark' }: { variant?: PreviewStateVariant } = {}) {
   return (
-    <PreviewStateShell title="見つかりません">
-      <p style={darkMutedText}>お探しの項目は存在しないか、閲覧できません。</p>
+    <PreviewStateShell title="見つかりません" variant={variant}>
+      <p style={stateMutedText(variant)}>お探しの項目は存在しないか、閲覧できません。</p>
     </PreviewStateShell>
   );
 }
