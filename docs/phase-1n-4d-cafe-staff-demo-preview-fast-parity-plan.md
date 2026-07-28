@@ -102,6 +102,24 @@ Status: in progress
 Exit check: side-by-side evidence is accepted for both viewport sizes; Manager
 correctly receives no-profile behavior on the Staff route; Staff actions work.
 
+#### Stage 4A — Preserve the Manager settings contract
+
+Status: in progress
+
+The bottom Manager `設定` card is part of acceptance, not optional follow-up.
+It must retain the approved Demo layout and real Preview behavior:
+
+- seven weekday staffing requirements;
+- maximum monthly staff hours;
+- visible shift-type rows;
+- edit and save an existing shift type;
+- prevent deactivation while a shift type is used by assignments;
+- add a new shift type;
+- save schedule settings through the allowlisted manager action.
+
+UI checks may open edit/add states without writing. Actual save/add/deactivate
+checks mutate Supabase Cloud and therefore remain an explicit Cloud-write gate.
+
 ### Stage 5 — PR acceptance
 
 Status: pending

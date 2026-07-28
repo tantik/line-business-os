@@ -171,7 +171,16 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
                 >
                   <span style={shiftChipStyle(chip.background, chip.color)}>{label} ({st.startsAtLocal}-{st.endsAtLocal})</span>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface }} onClick={() => { setEditingId(st.shiftTypeId); setEditLabel(label); setEditStart(st.startsAtLocal); setEditEnd(st.endsAtLocal); }}>
+                    <button
+                      type="button"
+                      style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface }}
+                      onClick={() => {
+                        setEditingId(st.shiftTypeId);
+                        setEditLabel(label);
+                        setEditStart(st.startsAtLocal.slice(0, 5));
+                        setEditEnd(st.endsAtLocal.slice(0, 5));
+                      }}
+                    >
                       編集
                     </button>
                     <button type="button" disabled={inUse} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.textMuted, cursor: inUse ? 'not-allowed' : 'pointer', opacity: inUse ? 0.6 : 1 }} onClick={() => deactivateShiftType(st.shiftTypeId)}>
