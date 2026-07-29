@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewDecideCorrectionRequest } from './actions/attendance-actions';
-import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
+import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
+import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -21,13 +23,15 @@ export interface PreviewCorrectionActionsProps {
   staff: WorkforceStaffManageEntry[] | null;
 }
 
-function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
-  if (result.status === 'success') return { ok: true, text: '対応しました。' };
-  return { ok: false, text: previewWriteMessageJa(result.status) };
+function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
+  if (result.status === 'success') return { ok: true, text: tManager(lang, 'respondedFeedback') };
+  return { ok: false, text: previewWriteMessage(lang, result.status) };
 }
 
 export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorrectionActionsProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -37,7 +41,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorr
       formData.set('requestId', requestId);
       formData.set('decision', decision);
       const result = await previewDecideCorrectionRequest(formData);
-      setFeedback(toFeedback(result));
+      setFeedback(toFeedback(lang, result));
       if (result.status === 'success') router.refresh();
     });
   }
@@ -47,33 +51,33 @@ export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorr
   if (pendingRequests.length === 0) {
     return (
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>修正申請への対応</h2>
-        <p style={{ marginTop: 8, ...mutedText }}>対応が必要な修正申請はありません。</p>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('correctionRequestsModalTitle')}</h2>
+        <p style={{ marginTop: 8, ...mutedText }}>{t('noPendingCorrections')}</p>
       </section>
     );
   }
 
   return (
     <section style={card}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>修正申請への対応</h2>
+      <h2 style={{ margin: 0, fontSize: 16 }}>{t('correctionRequestsModalTitle')}</h2>
       <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr>
-            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>スタッフ</th>
-            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>内容</th>
+            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffColumn')}</th>
+            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateColumnShort')}</th>
+            <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('contentColumn')}</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {pendingRequests.map((r) => (
             <tr key={r.requestId}>
-              <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? '-'}</td>
+              <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? t('dash')}</td>
               <td style={tableCell}>{r.workDate}</td>
-              <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
+              <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : t('dash')}</td>
               <td style={{ ...tableCell, display: 'flex', gap: 6 }}>
                 <button type="button" style={buttonPrimary} onClick={() => handleDecide(r.requestId, 'approved')} disabled={isPending}>
-                  承認
+                  {t('approve')}
                 </button>
                 <button
                   type="button"
@@ -81,7 +85,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorr
                   onClick={() => handleDecide(r.requestId, 'rejected')}
                   disabled={isPending}
                 >
-                  却下
+                  {t('reject')}
                 </button>
               </td>
             </tr>

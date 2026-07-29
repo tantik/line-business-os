@@ -1,6 +1,5 @@
 import { RecipeBrowser } from '@/components/demo/cafe/views/RecipeView';
 import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
-import { LangProvider } from '@/lib/demo/cafe/i18n';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
@@ -10,6 +9,8 @@ import { PreviewErrorState, PreviewModuleUnavailableState, PreviewNoAccessState 
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { getWorkforceRecipeDetail, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { listContentTranslationsForEntities } from '@/lib/content/translations';
+import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,17 +39,28 @@ export default async function MameToChaPreviewRecipesPage() {
   );
   if (detailResults.some((result) => result.status !== 'success')) return <PreviewErrorState variant="light" />;
 
-  const recipes = detailResults.flatMap((result) =>
-    result.status === 'success' && result.data
-      ? [toPreviewRecipeViewModel(result.data, categoriesResult.data)]
-      : [],
-  );
+  // Staff EN rendering must prefer a current content.translations row over
+  // the legacy *_en column (see recipe-display.ts) -- load each visible
+  // recipe's translations alongside its detail, same "load everything
+  // server-side before rendering" style as the rest of this preview shell.
+  const recipes = await Promise.all(
+    detailResults.map(async (result) => {
+      if (result.status !== 'success' || !result.data) return null;
+      const fieldsForLookup = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace(result.data, []));
+      const translationsResult = await listContentTranslationsForEntities(
+        supabase,
+        activeTenant.tenantId,
+        fieldsForLookup.map((f) => ({ sourceEntityType: f.sourceEntityType, sourceEntityId: f.sourceEntityId })),
+      );
+      const translations = translationsResult.status === 'success' ? translationsResult.data : [];
+      const workspace = buildRecipeTranslationWorkspace(result.data, translations);
+      return toPreviewRecipeViewModel(result.data, categoriesResult.data, workspace);
+    }),
+  ).then((results) => results.filter((r): r is NonNullable<typeof r> => r !== null));
 
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
-      <LangProvider>
-        <RecipeBrowser recipes={recipes} />
-      </LangProvider>
+      <RecipeBrowser recipes={recipes} />
     </BrandProvider>
   );
 }

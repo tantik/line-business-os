@@ -151,7 +151,16 @@ select is(
         'workforce_shift_requests', 'workforce_attendance',
         -- Workforce Cafe v0.1 Slice 1C (0031_workforce_cafe_write_facade.sql):
         -- 2 new views, added in a later, separate migration.
-        'workforce_employee_line_links', 'workforce_staff_manage'
+        'workforce_employee_line_links', 'workforce_staff_manage',
+        -- 0034_workforce_schedule_settings.sql: 1 new read-only view, added in
+        -- a later, separate migration.
+        'workforce_schedule_settings',
+        -- Inventory Daily Stock Check (0037_inventory_api_facade.sql): 3 new
+        -- read-only views for the new, separate `inventory` module.
+        'inventory_items', 'inventory_item_status', 'inventory_stock_counts',
+        -- Content translations foundation (0040_content_translations_facade.sql):
+        -- 1 new read-only view for the new, separate `content` module.
+        'content_translations'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

@@ -114,9 +114,16 @@ select is(
           table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (
+          -- 0034_workforce_schedule_settings.sql: a later, separate
+          -- migration than this file's own 0022, added SELECT+INSERT+UPDATE
+          -- on this table.
+          table_name = 'schedule_settings'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation, before this file''s own test-only grants'
+  'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation + 0034''s schedule_settings grant, before this file''s own test-only grants'
 );
 
 -- --- old employees policies are gone ----------------------------------------

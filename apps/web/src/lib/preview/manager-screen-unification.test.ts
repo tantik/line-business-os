@@ -35,6 +35,9 @@ function importLines(source: string): string {
 const DEMO_MANAGER_VIEW = '../../components/demo/cafe/views/ManagerView.tsx';
 const PREVIEW_MANAGER_PAGE = '../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx';
 const PREVIEW_MANAGER_VIEW = 'manager-view.tsx';
+/** The `'use client'` chrome `manager-view.tsx` delegates all rendering (including i18n) to -- see that file's header comment for why the split exists (the "manager-view.tsx must not be 'use client'" invariant in `preview-action-free.test.ts`). */
+const PREVIEW_MANAGER_VIEW_CHROME = 'preview-manager-view-chrome.tsx';
+const MANAGER_I18N_DICT = '../demo/cafe/i18n.manager.ts';
 const CAFE_MANAGER_SCREEN = '../../components/demo/cafe/CafeManagerScreen.tsx';
 
 test('a decided correction request no longer keeps the schedule-cell attention marker', () => {
@@ -145,14 +148,18 @@ test('the shared CafeManagerScreen shell is itself action-free and store-free (u
 });
 
 test('the preview manager display component never falls back to the raw employeeId when rendering a staff/requester name', () => {
-  const source = read(PREVIEW_MANAGER_VIEW);
-  assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${PREVIEW_MANAGER_VIEW} must not fall back to the raw employeeId in any rendered label`);
+  const source = read(PREVIEW_MANAGER_VIEW_CHROME);
+  assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${PREVIEW_MANAGER_VIEW_CHROME} must not fall back to the raw employeeId in any rendered label`);
 });
 
-test('the preview manager display component renders the exact Japanese safe error string for a failed staff load, with no interpolated raw error/message', () => {
-  const source = read(PREVIEW_MANAGER_VIEW);
-  assert.ok(source.includes('スタッフ一覧を読み込めませんでした。'), 'expected the safe Japanese staff-load error string');
-  assert.ok(!/\{.*(?:err|error)\.message.*\}/.test(source), `${PREVIEW_MANAGER_VIEW} must not interpolate a raw error/message into the UI`);
+test('the preview manager display component renders the safe staff-load error via translation, with no interpolated raw error/message', () => {
+  // i18n follow-up: the literal JA string moved to `../demo/cafe/i18n.manager.ts`
+  // (`staffListLoadError`); the chrome file references it via `t('staffListLoadError')`.
+  const source = read(PREVIEW_MANAGER_VIEW_CHROME);
+  const managerDict = read(MANAGER_I18N_DICT);
+  assert.match(source, /t\('staffListLoadError'\)/);
+  assert.ok(managerDict.includes('スタッフ一覧を読み込めませんでした。'), 'expected the safe Japanese staff-load error string in the dictionary');
+  assert.ok(!/\{.*(?:err|error)\.message.*\}/.test(source), `${PREVIEW_MANAGER_VIEW_CHROME} must not interpolate a raw error/message into the UI`);
 });
 
 test('the preview manager page never hardcodes the internal _client-preview route segment into a rendered href or message (always via PREVIEW_BASE_PATH)', () => {
@@ -232,13 +239,23 @@ test('the preview settings card never renders a technical/placeholder caveat abo
 });
 
 test('the preview manager restores the same customer guidance affordances as the demo manager', () => {
-  const schedule = read(PREVIEW_MANAGER_VIEW);
+  // i18n follow-up: the シフト表 card's help text now renders via
+  // `tManager(lang, 'shiftTableHelp')` (from `../demo/cafe/i18n.manager.ts`)
+  // instead of an inline literal, and the rendering itself moved from
+  // `manager-view.tsx` into `PREVIEW_MANAGER_VIEW_CHROME` (a `'use client'`
+  // sibling) so `manager-view.tsx` can stay a non-client pass-through (see
+  // `preview-action-free.test.ts`). This test now checks the chrome file for
+  // the HELP_* wiring and the translation key, and the dictionary file for
+  // the actual JA copy, rather than a literal string inside `manager-view.tsx`.
+  const schedule = read(PREVIEW_MANAGER_VIEW_CHROME);
+  const managerDict = read(MANAGER_I18N_DICT);
   const management = read('preview-staff-recipe-management.tsx');
   const settings = read('preview-settings-card.tsx');
   const scheduleActions = read('preview-schedule-card-actions.tsx');
 
   assert.match(schedule, /HELP_MANAGER_SHIFT_TABLE/);
-  assert.match(schedule, /セルをクリックして手動でシフトを編集できます/);
+  assert.match(schedule, /t\('shiftTableHelp'\)/);
+  assert.match(managerDict, /セルをクリックして手動でシフトを編集できます/);
   assert.match(schedule, /HELP_MANAGER_MONTHLY_REPORT/);
   assert.match(scheduleActions, /HELP_MANAGER_AUTO_SCHEDULE/);
   assert.match(management, /HELP_MANAGER_STAFF_RECIPE_MANAGEMENT/);
@@ -246,10 +263,17 @@ test('the preview manager restores the same customer guidance affordances as the
 });
 
 test('the preview settings summary keeps the demo manager operational fields visible', () => {
+  // Same i18n follow-up as above: these fields' JA copy now lives in
+  // `../demo/cafe/i18n.manager.ts`, referenced from `preview-settings-card.tsx`
+  // via translation keys rather than inline literals.
   const source = read('preview-settings-card.tsx');
-  assert.match(source, /必要人数（曜日ごと）/);
-  assert.match(source, /スタッフ最大勤務時間 \/ 月/);
-  assert.match(source, /シフト種別/);
+  const managerDict = read(MANAGER_I18N_DICT);
+  assert.match(managerDict, /必要人数（曜日ごと）/);
+  assert.match(managerDict, /スタッフ最大勤務時間 \/ 月/);
+  assert.match(managerDict, /シフト種別/);
+  assert.match(source, /t\('requiredHeadcountHeading'\)/);
+  assert.match(source, /t\('maxWorkHoursLabel'\)/);
+  assert.match(source, /t\('shiftTypesHeading'\)/);
   assert.match(source, /setEditStart\(st\.startsAtLocal\.slice\(0,\s*5\)\)/);
   assert.match(source, /setEditEnd\(st\.endsAtLocal\.slice\(0,\s*5\)\)/);
 });

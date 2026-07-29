@@ -408,7 +408,9 @@ select is(
       and table_name not in (
         'employees', 'recipe_categories', 'recipes',
         'recipe_ingredients', 'recipe_steps', 'recipe_notes',
-        'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links'
+        'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links',
+        -- 0034_workforce_schedule_settings.sql: a later, separate migration.
+        'schedule_settings'
       )),
   0,
   'authenticated has no grants on any other workforce table (e.g. leave_requests)'

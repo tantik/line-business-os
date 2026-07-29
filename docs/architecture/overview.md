@@ -6,9 +6,11 @@ LINE Business OS is one platform with many modules over a shared Core.
 
 1. **Core** (`packages/core`, `core` DB schema): tenants, locations, users,
    memberships, RBAC, LINE registry, audit. The foundation every module builds on.
-2. **Modules** (`workforce`, `booking`, ... each its own DB schema + package):
-   business features. Each is tenant-scoped and entitlement-gated via
-   `core.tenant_modules`.
+2. **Modules** (`workforce`, `booking`, `inventory`, ... each its own DB schema
+   + package): business features. Each is tenant-scoped and entitlement-gated
+   via `core.tenant_modules`. `inventory`'s first capability is Daily Stock
+   Check (see `docs/phase-1o-inventory-daily-stock-check-implementation-report.md`) —
+   a reusable module, not tied to any single tenant.
 3. **Apps**:
    - `apps/web` — Next.js UI. Talks to Supabase with the **anon key + RLS** and
      to `apps/api` for privileged operations. Never holds `service_role`.

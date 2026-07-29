@@ -4,10 +4,12 @@ import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewSubmitWorkReport } from './actions/staff-attendance-actions';
-import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
+import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, buttonSecondary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_STAFF_TRANSPORT_MESSAGE } from '@/lib/demo/cafe/helpContent';
+import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff client island for work
@@ -26,9 +28,9 @@ export interface PreviewWorkReportFormProps {
   locked?: boolean;
 }
 
-function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
-  if (result.status === 'success') return { ok: true, text: '勤務報告を提出しました。' };
-  return { ok: false, text: previewWriteMessageJa(result.status) };
+function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
+  if (result.status === 'success') return { ok: true, text: tStaff(lang, 'workReportSubmittedFeedback') };
+  return { ok: false, text: previewWriteMessage(lang, result.status) };
 }
 
 export function PreviewWorkReportForm({
@@ -41,6 +43,8 @@ export function PreviewWorkReportForm({
   locked = false,
 }: PreviewWorkReportFormProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -54,41 +58,41 @@ export function PreviewWorkReportForm({
 
     startTransition(async () => {
       const result = await previewSubmitWorkReport(formData);
-      setFeedback(toFeedback(result));
+      setFeedback(toFeedback(lang, result));
       if (result.status === 'success') router.refresh();
     });
   }
 
   return (
     <section style={embedded ? undefined : card}>
-      {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>勤務報告の提出</h2> : null}
+      {!embedded ? <h2 style={{ margin: 0, fontSize: 16 }}>{t('workReportFormTitle')}</h2> : null}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: embedded ? 0 : 12 }}>
         {!hideWorkDate ? (
           <label>
-            <span style={{ ...mutedText, fontSize: 13 }}>日付</span>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('workDate')}</span>
             <input style={inputStyle} type="date" name="workDate" defaultValue={defaultWorkDate} required />
           </label>
         ) : null}
         {!messageOnly ? <label>
           <span style={{ ...mutedText, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            交通費 <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
+            {t('transport')} <DemoHelpButton content={HELP_STAFF_TRANSPORT_MESSAGE} />
           </span>
           <input
             style={inputStyle}
             type="number"
             name="transportationCost"
             min={0}
-            placeholder="前回入力値を記憶"
+            placeholder={t('transportRemembered')}
             defaultValue={defaultTransportationCost ?? ''}
           />
         </label> : null}
         <label>
-          <span style={{ ...mutedText, fontSize: 13 }}>メッセージ</span>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('message')}</span>
           <textarea
             style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
             name="dailyMessage"
             maxLength={500}
-            placeholder="店長への連絡事項があれば入力してください"
+            placeholder={t('messagePlaceholder')}
             defaultValue={defaultDailyMessage ?? ''}
             disabled={locked}
           />
@@ -98,7 +102,7 @@ export function PreviewWorkReportForm({
           style={hideWorkDate ? { ...buttonSecondary, alignSelf: 'flex-start' } : buttonPrimary}
           disabled={isPending || locked}
         >
-          {isPending ? '送信中...' : locked ? '確認済み' : messageOnly ? 'メッセージを更新' : hideWorkDate ? '保存' : '提出する'}
+          {isPending ? t('submitting') : locked ? t('reportConfirmed') : messageOnly ? t('updateMessage') : hideWorkDate ? t('save') : t('submitPreference')}
         </button>
       </form>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : '#F87171' }}>{feedback.text}</p> : null}

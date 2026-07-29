@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
+import type { RecipeTranslationWorkspace } from '@/lib/content/recipe-translation-workspace';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { PreviewStaffForm } from './preview-staff-form';
 import { PreviewRecipeKindManager } from './preview-recipe-kind-manager';
 import { buttonSecondary, card } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_STAFF_RECIPE_MANAGEMENT } from '@/lib/demo/cafe/helpContent';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Demo/Preview manager UX parity: the demo's スタッフ・レシピ管理 card only ever
@@ -21,33 +24,36 @@ import { HELP_MANAGER_STAFF_RECIPE_MANAGEMENT } from '@/lib/demo/cafe/helpConten
 export interface PreviewStaffRecipeManagementProps {
   staff: WorkforceStaffManageEntry[] | null;
   recipes: WorkforceRecipe[] | null;
+  translationWorkspaces: Record<string, RecipeTranslationWorkspace>;
 }
 
-export function PreviewStaffRecipeManagement({ staff, recipes }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff, recipes, translationWorkspaces }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
   return (
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <strong style={{ fontSize: 16 }}>スタッフ・レシピ管理</strong>
+        <strong style={{ fontSize: 16 }}>{t('staffRecipeManagementTitle')}</strong>
         <DemoHelpButton content={HELP_MANAGER_STAFF_RECIPE_MANAGEMENT} />
       </div>
       <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" style={buttonSecondary} onClick={() => setStaffOpen(true)}>
-          スタッフ管理
+          {t('manageStaffButton')}
         </button>
         <button type="button" style={buttonSecondary} onClick={() => setRecipeOpen(true)}>
-          レシピ管理
+          {t('manageRecipesButton')}
         </button>
       </div>
 
-      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title="スタッフ管理" maxWidth={640}>
+      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={640}>
         <PreviewStaffForm staff={staff} />
       </Modal>
 
-      <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title="レシピ管理" maxWidth={640}>
-        <PreviewRecipeKindManager recipes={recipes} />
+      <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={640}>
+        <PreviewRecipeKindManager recipes={recipes} translationWorkspaces={translationWorkspaces} />
       </Modal>
     </section>
   );

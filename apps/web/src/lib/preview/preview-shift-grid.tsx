@@ -10,8 +10,10 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonPrimary, buttonSecondary, demoColors, input } from '@/lib/demo/cafe/theme';
 import { previewCreateShiftAssignment, previewUpdateShiftAssignment } from './actions/schedule-actions';
-import { previewWriteMessageJa } from './write-result';
+import { previewWriteMessage } from './write-result';
 import { toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 interface PreviewShiftGridProps {
   dates: string[];
@@ -24,6 +26,8 @@ interface PreviewShiftGridProps {
 
 export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments }: PreviewShiftGridProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<{ staffId: string; date: string } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -58,7 +62,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         setSelected(null);
         router.refresh();
       } else {
-        setFeedback(previewWriteMessageJa(result.status));
+        setFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -82,7 +86,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         setSelected(null);
         router.refresh();
       } else {
-        setFeedback(previewWriteMessageJa(result.status));
+        setFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -98,6 +102,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         assignments={toManagerViewAssignments(assignments, timeZone)}
         shiftTypes={toManagerViewShiftTypes(shiftTypes)}
         mode="manager"
+        lang={lang}
         onCellClick={(staffId, date) => {
           setFeedback(null);
           setSelected({ staffId, date });
@@ -107,13 +112,13 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
       <Modal
         open={selected !== null}
         onClose={() => setSelected(null)}
-        title={`${selectedStaff?.name ?? 'スタッフ'}・${selected?.date ?? ''} のシフト`}
+        title={`${selectedStaff?.name ?? t('shiftModalTitleFallback')}・${selected?.date ?? ''} のシフト`}
         maxWidth={480}
       >
         {selected ? (
           <form action={save} style={{ display: 'grid', gap: 12 }}>
             <label>
-              シフト種別
+              {t('shiftTypeLabel')}
               <select
                 style={input}
                 name="shiftTypeId"
@@ -137,16 +142,16 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <label>
-                開始
+                {t('startTimeLabel')}
                 <input style={input} type="time" name="startsAtLocal" required defaultValue={existingStart?.localTime ?? defaultType?.startsAtLocal ?? ''} />
               </label>
               <label>
-                終了
+                {t('endTimeLabel')}
                 <input style={input} type="time" name="endsAtLocal" required defaultValue={existingEnd?.localTime ?? defaultType?.endsAtLocal ?? ''} />
               </label>
             </div>
             <label>
-              休憩（分）
+              {t('breakMinutesLabel')}
               <input style={input} type="number" name="breakMinutes" min={0} max={480} defaultValue={assignment?.breakMinutes ?? defaultType?.breakMinutes ?? 0} />
             </label>
             <input type="hidden" name="role" value={assignment?.role ?? 'staff'} />
@@ -155,14 +160,14 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               {assignment ? (
                 <button type="button" style={buttonSecondary} onClick={clearAssignment} disabled={isPending}>
-                  シフトを解除
+                  {t('unassignShift')}
                 </button>
               ) : null}
               <button type="button" style={buttonSecondary} onClick={() => setSelected(null)} disabled={isPending}>
-                キャンセル
+                {t('cancel')}
               </button>
               <button type="submit" style={buttonPrimary} disabled={isPending || shiftTypes.length === 0}>
-                保存
+                {t('save')}
               </button>
             </div>
           </form>

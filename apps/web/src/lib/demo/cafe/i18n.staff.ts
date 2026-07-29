@@ -77,6 +77,22 @@ interface StaffDict {
   resetConfirmBody: string;
   resetConfirmButton: string;
   resetCancelButton: string;
+  processing: string;
+  resetTodayClockTest: string;
+  scheduleLoadError: string;
+  me: string;
+  staffNumberPrefix: string;
+  lockedAfterManagerConfirm: string;
+  editableBeforeManagerConfirm: string;
+  workReportSubmittedFeedback: string;
+  workReportFormTitle: string;
+  submitting: string;
+  reportConfirmed: string;
+  updateMessage: string;
+  correctionSubmittedFeedback: string;
+  correctionFormTitle: string;
+  monthSuffix: string;
+  weekdayInitials: string[];
 }
 
 /** UI-chrome dictionary for `/demo/cafe` (staff app) and the modals it opens. Static demo copy only. */
@@ -161,6 +177,22 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     resetConfirmBody: 'このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。',
     resetConfirmButton: 'リセットする',
     resetCancelButton: 'キャンセル',
+    processing: '処理中…',
+    resetTodayClockTest: 'テスト用：本日の勤務をリセット',
+    scheduleLoadError: 'シフトを読み込めませんでした。時間をおいて再度お試しください。',
+    me: '自分',
+    staffNumberPrefix: 'スタッフ',
+    lockedAfterManagerConfirm: '店長が確認済みのため変更できません。',
+    editableBeforeManagerConfirm: '店長が確認するまでは内容を変更できます。',
+    workReportSubmittedFeedback: '勤務報告を提出しました。',
+    workReportFormTitle: '勤務報告の提出',
+    submitting: '送信中...',
+    reportConfirmed: '確認済み',
+    updateMessage: 'メッセージを更新',
+    correctionSubmittedFeedback: '修正依頼を提出しました。',
+    correctionFormTitle: '修正依頼の提出',
+    monthSuffix: '月',
+    weekdayInitials: ['月', '火', '水', '木', '金', '土', '日'],
   },
   en: {
     clockIn: 'Clock in',
@@ -243,9 +275,30 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
       'This clears the schedule, messages, and correction requests in this demo environment back to their starting state. This cannot be undone.',
     resetConfirmButton: 'Reset',
     resetCancelButton: 'Cancel',
+    processing: 'Processing…',
+    resetTodayClockTest: 'Test: reset today’s clock',
+    scheduleLoadError: 'Could not load the schedule. Please try again later.',
+    me: 'Me',
+    staffNumberPrefix: 'Staff',
+    lockedAfterManagerConfirm: 'Locked — the manager has already confirmed this.',
+    editableBeforeManagerConfirm: 'You can still edit this until the manager confirms it.',
+    workReportSubmittedFeedback: 'Work report submitted.',
+    workReportFormTitle: 'Submit work report',
+    submitting: 'Submitting...',
+    reportConfirmed: 'Confirmed',
+    updateMessage: 'Update message',
+    correctionSubmittedFeedback: 'Correction request submitted.',
+    correctionFormTitle: 'Submit a correction request',
+    monthSuffix: '',
+    weekdayInitials: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
   },
 };
 
 export type StaffDictKey = keyof StaffDict;
 
 export const tStaff = makeTranslator(STAFF_DICT);
+
+/** `weekdayInitials` is a string[], not a plain string -- `tStaff` casts every value to `string`, so this reads the raw dictionary entry directly instead. */
+export function staffWeekdayInitials(lang: Lang): string[] {
+  return STAFF_DICT[lang].weekdayInitials;
+}

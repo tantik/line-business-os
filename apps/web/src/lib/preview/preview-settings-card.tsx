@@ -9,7 +9,9 @@ import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_SETTINGS } from '@/lib/demo/cafe/helpContent';
 import { WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { previewSaveScheduleSettings, previewSetShiftTypeActive, previewUpsertShiftType } from './actions/settings-actions';
-import { previewWriteMessageJa } from './write-result';
+import { previewWriteMessage } from './write-result';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Demo/Preview manager UX parity: 設定 is a single compact card, like the
@@ -30,6 +32,8 @@ export interface PreviewSettingsCardProps {
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
 export function PreviewSettingsCard({ shiftTypes, assignments, settings }: PreviewSettingsCardProps) {
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
   const [isPending, startTransition] = useTransition();
@@ -51,8 +55,8 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
       });
       setFeedback(
         result.status === 'success'
-          ? { ok: true, text: '設定を保存しました。' }
-          : { ok: false, text: previewWriteMessageJa(result.status) },
+          ? { ok: true, text: t('saved') }
+          : { ok: false, text: previewWriteMessage(lang, result.status) },
       );
     });
   }
@@ -64,10 +68,10 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
       if (result.status === 'success') {
         setEditingId(null);
         setNewLabel('');
-        setFeedback({ ok: true, text: 'シフト種別を保存しました。' });
+        setFeedback({ ok: true, text: t('saved') });
         window.location.reload();
       } else {
-        setFeedback({ ok: false, text: previewWriteMessageJa(result.status) });
+        setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
       }
     });
   }
@@ -77,24 +81,24 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
     startTransition(async () => {
       const result = await previewSetShiftTypeActive({ shiftTypeId, isActive: false });
       if (result.status === 'success') window.location.reload();
-      else setFeedback({ ok: false, text: previewWriteMessageJa(result.status) });
+      else setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
     });
   }
 
   return (
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <strong style={{ fontSize: 16 }}>設定</strong>
+        <strong style={{ fontSize: 16 }}>{t('settingsCardTitle')}</strong>
         <DemoHelpButton content={HELP_MANAGER_SETTINGS} />
       </div>
       <div style={{ marginTop: 18 }}>
-        <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>必要人数（曜日ごと）</div>
+        <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>{t('requiredHeadcountHeading')}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6 }}>
           {WEEKDAY_LABELS_MON_FIRST.map((label, weekday) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: demoColors.textMuted, marginBottom: 4 }}>{label}</div>
               <input
-                aria-label={`${label}曜日の必要人数`}
+                aria-label={`${label}${t('weekdayAriaSuffix')}`}
                 type="number"
                 min={0}
                 max={100}
@@ -109,9 +113,9 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
         </div>
       </div>
       <div style={{ marginTop: 18 }}>
-        <label style={{ fontSize: 13, color: demoColors.textMuted }}>スタッフ最大勤務時間 / 月</label>
+        <label style={{ fontSize: 13, color: demoColors.textMuted }}>{t('maxWorkHoursLabel')}</label>
         <input
-          aria-label="スタッフ最大勤務時間"
+          aria-label={t('maxWorkHoursLabel')}
           type="number"
           min={0}
           max={744}
@@ -121,11 +125,11 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
         />
       </div>
       <div style={{ marginTop: 18 }}>
-        <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>シフト種別</div>
+        <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>{t('shiftTypesHeading')}</div>
         {shiftTypes === null ? (
-          <p style={{ margin: 0, ...mutedText }}>シフト種別を読み込めませんでした。</p>
+          <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesLoadError')}</p>
         ) : shiftTypes.length === 0 ? (
-          <p style={{ margin: 0, ...mutedText }}>シフト種別がまだ設定されていません。</p>
+          <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesEmpty')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 6 }}>
             {shiftTypes.map((st) => {
@@ -136,22 +140,22 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
                 return (
                   <div key={st.shiftTypeId} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', padding: '8px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
                     <label style={{ fontSize: 11, color: demoColors.textMuted }}>
-                      名称
+                      {t('nameLabel')}
                       <input value={editLabel} onChange={(event) => setEditLabel(event.currentTarget.value)} style={{ ...input, width: 110 }} />
                     </label>
                     <label style={{ fontSize: 11, color: demoColors.textMuted }}>
-                      開始
+                      {t('startTimeLabel')}
                       <input type="time" value={editStart} onChange={(event) => setEditStart(event.currentTarget.value)} style={{ ...input, width: 100 }} />
                     </label>
                     <label style={{ fontSize: 11, color: demoColors.textMuted }}>
-                      終了
+                      {t('endTimeLabel')}
                       <input type="time" value={editEnd} onChange={(event) => setEditEnd(event.currentTarget.value)} style={{ ...input, width: 100 }} />
                     </label>
                     <button type="button" style={{ ...smallButton, border: 'none', background: demoColors.accent, color: '#fff' }} onClick={() => saveShiftType({ shiftTypeId: st.shiftTypeId, labelJa: editLabel, startsAtLocal: editStart, endsAtLocal: editEnd })}>
-                      保存
+                      {t('save')}
                     </button>
                     <button type="button" style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface }} onClick={() => setEditingId(null)}>
-                      キャンセル
+                      {t('cancel')}
                     </button>
                   </div>
                 );
@@ -181,10 +185,10 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
                         setEditEnd(st.endsAtLocal.slice(0, 5));
                       }}
                     >
-                      編集
+                      {t('edit')}
                     </button>
                     <button type="button" disabled={inUse} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.textMuted, cursor: inUse ? 'not-allowed' : 'pointer', opacity: inUse ? 0.6 : 1 }} onClick={() => deactivateShiftType(st.shiftTypeId)}>
-                      削除
+                      {t('deleteButton')}
                     </button>
                   </div>
                 </div>
@@ -194,25 +198,25 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
         )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14, alignItems: 'flex-end' }}>
           <label style={{ fontSize: 12, color: demoColors.textMuted }}>
-            名称（任意）
+            {t('optionalNameLabel')}
             <input value={newLabel} onChange={(event) => setNewLabel(event.currentTarget.value)} style={{ ...input, width: 120 }} />
           </label>
           <label style={{ fontSize: 12, color: demoColors.textMuted }}>
-            開始
+            {t('startTimeLabel')}
             <input type="time" value={newStart} onChange={(event) => setNewStart(event.currentTarget.value)} style={{ ...input, width: 110 }} />
           </label>
           <label style={{ fontSize: 12, color: demoColors.textMuted }}>
-            終了
+            {t('endTimeLabel')}
             <input type="time" value={newEnd} onChange={(event) => setNewEnd(event.currentTarget.value)} style={{ ...input, width: 110 }} />
           </label>
           <button type="button" style={buttonPrimary} onClick={() => saveShiftType({ labelJa: newLabel || `${newStart}-${newEnd}`, startsAtLocal: newStart, endsAtLocal: newEnd })} disabled={isPending}>
-            シフト種別を追加
+            {t('addShiftType')}
           </button>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
         <button type="button" style={buttonPrimary} onClick={saveSettings} disabled={isPending}>
-          設定を保存
+          {t('saveSettings')}
         </button>
         {feedback ? <span style={{ fontSize: 12, color: feedback.ok ? demoColors.accent : demoColors.dangerText }}>{feedback.text}</span> : null}
       </div>

@@ -4,8 +4,10 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
-import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
+import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { badgeStyle, buttonPrimary, buttonSecondary, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
+import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -19,13 +21,15 @@ export interface PreviewStaffFormProps {
   staff: WorkforceStaffManageEntry[] | null;
 }
 
-function toFeedback(result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
-  if (result.status === 'success') return { ok: true, text: '保存しました。' };
-  return { ok: false, text: previewWriteMessageJa(result.status) };
+function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
+  if (result.status === 'success') return { ok: true, text: tManager(lang, 'saved') };
+  return { ok: false, text: previewWriteMessage(lang, result.status) };
 }
 
 export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
@@ -36,7 +40,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
   function handleUpsert(formData: FormData) {
     startTransition(async () => {
       const result = await previewUpsertEmployee(formData);
-      setFeedback(toFeedback(result));
+      setFeedback(toFeedback(lang, result));
       if (result.status === 'success') {
         setEditingId(null);
         setMode('list');
@@ -51,7 +55,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       formData.set('staffId', staffId);
       formData.set('isActive', nextActive ? 'true' : 'false');
       const result = await previewSetEmployeeActive(formData);
-      setFeedback(toFeedback(result));
+      setFeedback(toFeedback(lang, result));
       if (result.status === 'success') router.refresh();
     });
   }
@@ -61,7 +65,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       {mode === 'list' ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <p style={{ margin: 0, fontSize: 12, ...mutedText }}>在籍状況と店舗での役割を管理します。</p>
+            <p style={{ margin: 0, fontSize: 12, ...mutedText }}>{t('staffManagementSubtitle')}</p>
             <button
               type="button"
               style={{ ...buttonPrimary, padding: '8px 14px', fontSize: 13 }}
@@ -70,13 +74,13 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                 setMode('add');
               }}
             >
-              スタッフを追加
+              {t('addStaff')}
             </button>
           </div>
           {staff === null ? (
-            <p style={mutedText}>スタッフ一覧を読み込めませんでした。</p>
+            <p style={mutedText}>{t('staffListErrorShort')}</p>
           ) : staff.length === 0 ? (
-            <p style={mutedText}>スタッフがまだ登録されていません。</p>
+            <p style={mutedText}>{t('staffListEmptyShort')}</p>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {staff.map((s) => (
@@ -87,8 +91,8 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                   <div>
                     <div style={{ fontWeight: 700 }}>{s.name}</div>
                     <div style={{ marginTop: 3, fontSize: 11.5, color: demoColors.textMuted }}>
-                      {s.positionLabel || 'スタッフ'} ・ {s.employmentType || '雇用形態未設定'} ・{' '}
-                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? '在籍中' : '休止中'}</span>
+                      {s.positionLabel || t('roleFallback')} ・ {s.employmentType || t('employmentTypeUnset')} ・{' '}
+                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('active') : t('inactive')}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -101,10 +105,10 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                       }}
                       disabled={isPending}
                     >
-                      編集
+                      {t('edit')}
                     </button>
                     <button type="button" style={buttonSecondary} onClick={() => handleSetActive(s.staffId, !s.isActive)} disabled={isPending}>
-                      {s.isActive ? '休止' : '再開'}
+                      {s.isActive ? t('deactivate') : t('reactivate')}
                     </button>
                   </div>
                 </div>
@@ -114,28 +118,28 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
         </>
       ) : (
         <>
-          <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{mode === 'edit' ? 'スタッフを編集' : 'スタッフを追加'}</h3>
+          <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{mode === 'edit' ? t('editStaffTitle') : t('addStaffTitle')}</h3>
           <form action={handleUpsert} style={{ display: 'grid', gap: 12, maxWidth: 440 }}>
             {editingEntry ? <input type="hidden" name="id" value={editingEntry.staffId} /> : null}
             <label>
-              表示名
+              {t('displayName')}
               <input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} />
             </label>
             <label>
-              役職
+              {t('position')}
               <input style={inputStyle} name="positionLabel" defaultValue={editingEntry?.positionLabel ?? ''} maxLength={60} key={`pos-${editingEntry?.staffId ?? 'new'}`} />
             </label>
             <label>
-              雇用形態
+              {t('employmentType')}
               <input style={inputStyle} name="employmentType" defaultValue={editingEntry?.employmentType ?? ''} maxLength={40} key={`emp-${editingEntry?.staffId ?? 'new'}`} />
             </label>
             {feedback ? <p style={{ margin: 0, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" style={buttonSecondary} onClick={() => setMode('list')} disabled={isPending}>
-                キャンセル
+                {t('cancel')}
               </button>
               <button type="submit" style={buttonPrimary} disabled={isPending}>
-                保存
+                {t('save')}
               </button>
             </div>
           </form>

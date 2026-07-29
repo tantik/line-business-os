@@ -90,6 +90,26 @@ function WorkforcePreview({ enabled }: { enabled: boolean }) {
   );
 }
 
+function InventoryPreview({ enabled }: { enabled: boolean }) {
+  return (
+    <DashboardCard>
+      <SectionHeader title="Inventory" description="Daily stock check for catalog items across your locations." />
+      {enabled ? (
+        <Link
+          href="/dashboard/inventory"
+          style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}
+        >
+          Open Inventory
+        </Link>
+      ) : (
+        <button type="button" disabled style={{ ...buttonDisabled, marginTop: 12 }}>
+          Inventory (not enabled)
+        </button>
+      )}
+    </DashboardCard>
+  );
+}
+
 function AdminActionsPreview() {
   const actions = ['Manage locations', 'Manage modules', 'Invite members', 'Billing'];
 
@@ -152,6 +172,9 @@ export default async function DashboardPage() {
       const workforceEnabled = activeModules.some(
         (module) => module.module === 'workforce' && module.isEnabled,
       );
+      const inventoryEnabled = activeModules.some(
+        (module) => module.module === 'inventory' && module.isEnabled,
+      );
 
       return (
         <main style={pageStyle(1040)}>
@@ -199,6 +222,7 @@ export default async function DashboardPage() {
           </DashboardCard>
           <AdminActionsPreview />
           <WorkforcePreview enabled={workforceEnabled} />
+          <InventoryPreview enabled={inventoryEnabled} />
           <DashboardCard>
             <SectionHeader title="Memberships" meta={`count: ${memberships.length}`} />
             <div style={{ overflowX: 'auto' }}>

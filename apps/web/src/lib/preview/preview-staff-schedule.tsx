@@ -18,6 +18,8 @@ import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText }
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
 import { PreviewWorkReportForm } from './preview-work-report-form';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -66,6 +68,8 @@ export function PreviewStaffSchedule({
   requests,
   basePath,
 }: PreviewStaffScheduleProps) {
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
   const [onlyMe, setOnlyMe] = useState(false);
   const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -102,7 +106,7 @@ export function PreviewStaffSchedule({
   let colleagueNumber = 0;
   const staffList = employeeIds.map((id) => ({
     id,
-    name: id === profile.staffId ? '自分' : `スタッフ ${++colleagueNumber}`,
+    name: id === profile.staffId ? t('me') : `${t('staffNumberPrefix')} ${++colleagueNumber}`,
     role: 'staff' as const,
   }));
 
@@ -180,13 +184,13 @@ export function PreviewStaffSchedule({
       <CafeStaffScheduleCard
         title={
           <>
-            シフト表 <DemoHelpButton content={HELP_STAFF_SHIFT_TABLE} />
+            {t('shiftTable')} <DemoHelpButton content={HELP_STAFF_SHIFT_TABLE} />
           </>
         }
         headerActions={
           <div style={{ display: 'inline-flex', border: `1px solid ${demoColors.border}`, borderRadius: 999, overflow: 'hidden' }}>
-            <button type="button" onClick={() => setOnlyMe(false)} style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: !onlyMe ? demoColors.accent : 'transparent', color: !onlyMe ? '#fff' : demoColors.textMuted, padding: '6px 14px' }}>全体</button>
-            <button type="button" onClick={() => setOnlyMe(true)} style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: onlyMe ? demoColors.accent : 'transparent', color: onlyMe ? '#fff' : demoColors.textMuted, padding: '6px 14px' }}>自分だけ</button>
+            <button type="button" onClick={() => setOnlyMe(false)} style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: !onlyMe ? demoColors.accent : 'transparent', color: !onlyMe ? '#fff' : demoColors.textMuted, padding: '6px 14px' }}>{t('all')}</button>
+            <button type="button" onClick={() => setOnlyMe(true)} style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: onlyMe ? demoColors.accent : 'transparent', color: onlyMe ? '#fff' : demoColors.textMuted, padding: '6px 14px' }}>{t('onlyMe')}</button>
           </div>
         }
         schedule={
@@ -196,13 +200,13 @@ export function PreviewStaffSchedule({
                 {activePeriodStart.slice(5).replace('-', '/')} ～ {activePeriodEnd.slice(5).replace('-', '/')}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button type="button" onClick={() => goToWeek(activeWeekOffset - 1)} disabled={activeWeekOffset <= -8} style={{ ...(activeWeekOffset <= -8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>← 前の週</button>
-                <button type="button" onClick={() => goToWeek(0)} disabled={activeWeekOffset === 0} style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>今日</button>
-                <button type="button" onClick={() => goToWeek(activeWeekOffset + 1)} disabled={activeWeekOffset >= 8} style={{ ...(activeWeekOffset >= 8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>次の週 →</button>
+                <button type="button" onClick={() => goToWeek(activeWeekOffset - 1)} disabled={activeWeekOffset <= -8} style={{ ...(activeWeekOffset <= -8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>← {t('prevWeek')}</button>
+                <button type="button" onClick={() => goToWeek(0)} disabled={activeWeekOffset === 0} style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>{t('today')}</button>
+                <button type="button" onClick={() => goToWeek(activeWeekOffset + 1)} disabled={activeWeekOffset >= 8} style={{ ...(activeWeekOffset >= 8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>{t('nextWeek')} →</button>
               </div>
             </div>
             {assignments === null ? (
-              <p style={{ margin: '8px 4px', ...mutedText }}>シフトを読み込めませんでした。時間をおいて再度お試しください。</p>
+              <p style={{ margin: '8px 4px', ...mutedText }}>{t('scheduleLoadError')}</p>
             ) : (
               <ShiftTable
                 dates={dates}
@@ -215,7 +219,7 @@ export function PreviewStaffSchedule({
                 workReports={workReports}
                 onlyCurrentStaff={onlyMe}
                 compact
-                lang="ja"
+                lang={lang}
                 onCellClick={(staffId, date) => {
                   if (staffId !== profile.staffId) return;
                   const report = (attendance ?? []).find((entry) => entry.workDate === date);
@@ -226,19 +230,19 @@ export function PreviewStaffSchedule({
             )}
           </>
         }
-        legend={<ShiftLegend shiftTypes={displayShiftTypes} lang="ja" />}
-        hoursLabel={`実働時間: ${weeklyHours.toFixed(1)}h`}
+        legend={<ShiftLegend shiftTypes={displayShiftTypes} lang={lang} />}
+        hoursLabel={`${t('workedHours')}: ${weeklyHours.toFixed(1)}h`}
       />
       </div>
 
-      <Modal open={selectedDate !== null} onClose={() => setSelectedDate(null)} title={`勤務記録 ${selectedDate ?? ''}`}>
+      <Modal open={selectedDate !== null} onClose={() => setSelectedDate(null)} title={`${t('workReportTitle')} ${selectedDate ?? ''}`}>
         <div style={{ display: 'grid', gap: 0 }}>
           {[
-            ['シフト予定', selectedShift ? `${selectedShift.label}（${selectedShift.startTime}-${selectedShift.endTime}）` : '－'],
-            ['出勤', reportTime(selectedAttendance?.clockIn ?? null, timeZone)],
-            ['休憩', `${selectedAttendance?.actualBreakMinutes ?? 0}分`],
-            ['退勤', reportTime(selectedAttendance?.clockOut ?? null, timeZone)],
-            ['交通費', selectedAttendance?.transportationCost == null ? '－' : `¥${selectedAttendance.transportationCost}`],
+            [t('plannedShift'), selectedShift ? `${selectedShift.label}（${selectedShift.startTime}-${selectedShift.endTime}）` : t('dash')],
+            [t('reportClockIn'), reportTime(selectedAttendance?.clockIn ?? null, timeZone)],
+            [t('breakMinutesLabel'), `${selectedAttendance?.actualBreakMinutes ?? 0}${t('minutesSuffix')}`],
+            [t('reportClockOut'), reportTime(selectedAttendance?.clockOut ?? null, timeZone)],
+            [t('transport'), selectedAttendance?.transportationCost == null ? t('dash') : `¥${selectedAttendance.transportationCost}`],
           ].map(([label, value]) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${demoColors.border}` }}>
               <span style={mutedText}>{label}</span><strong>{value}</strong>
@@ -254,7 +258,7 @@ export function PreviewStaffSchedule({
               background: demoColors.surfaceElevated,
             }}
           >
-            <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 800 }}>メッセージ</div>
+            <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 800 }}>{t('message')}</div>
               <>
                 <PreviewWorkReportForm
                   defaultWorkDate={selectedAttendance.workDate}
@@ -266,17 +270,17 @@ export function PreviewStaffSchedule({
                   locked={messageLocked}
                 />
                 <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12 }}>
-                  {messageLocked ? '店長が確認済みのため変更できません。' : '店長が確認するまでは内容を変更できます。'}
+                  {messageLocked ? t('lockedAfterManagerConfirm') : t('editableBeforeManagerConfirm')}
                 </p>
               </>
           </section> : null}
         </div>
         {selectedDate && selectedDate <= todayIso ? (
-          <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>勤務時間の修正を依頼</button>
+          <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>{t('requestCorrection')}</button>
         ) : null}
       </Modal>
 
-      <Modal open={correctionDate !== null} onClose={() => setCorrectionDate(null)} title="勤務時間の修正を依頼">
+      <Modal open={correctionDate !== null} onClose={() => setCorrectionDate(null)} title={t('correctionModalTitle')}>
         <PreviewCorrectionRequestForm
           defaultWorkDate={correctionDate ?? todayIso}
           defaultAttendance={(attendance ?? []).find((entry) => entry.workDate === correctionDate) ?? null}

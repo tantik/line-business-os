@@ -7,8 +7,9 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { PreviewCorrectionActions } from './preview-correction-actions';
-import { UNKNOWN_STAFF_NAME_JA } from './manager-view-model';
 import { badgeStyle, buttonSecondary, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Demo/Preview manager UX parity: correction requests surface as a 要確認
@@ -34,28 +35,30 @@ export function PreviewCorrectionRequestsPanel({
   attendance,
 }: PreviewCorrectionRequestsPanelProps) {
   const [open, setOpen] = useState(false);
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const attendanceById = new Map((attendance ?? []).map((a) => [a.attendanceId, a]));
 
   return (
     <>
       <button type="button" style={buttonSecondary} onClick={() => setOpen(true)}>
-        修正申請{pendingRequests.length > 0 ? `（${pendingRequests.length}件）` : ''}
+        {t('correctionRequestsTrigger')}{pendingRequests.length > 0 ? ` (${pendingRequests.length})` : ''}
       </button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="修正申請への対応" maxWidth={720}>
+      <Modal open={open} onClose={() => setOpen(false)} title={t('correctionRequestsModalTitle')} maxWidth={720}>
         <PreviewCorrectionActions pendingRequests={pendingRequests} staff={staff} />
 
         {decidedRequests.length > 0 ? (
           <div style={{ marginTop: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 13, ...mutedText }}>最近の対応履歴</h3>
+            <h3 style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('recentDecisionsHeading')}</h3>
             <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>スタッフ</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>日付</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>勤怠</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>状態</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffColumn')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateColumnShort')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('attendanceColumn')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('statusColumn')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -63,16 +66,16 @@ export function PreviewCorrectionRequestsPanel({
                   const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
                   return (
                     <tr key={r.requestId}>
-                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? UNKNOWN_STAFF_NAME_JA}</td>
+                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? t('roleFallback')}</td>
                       <td style={tableCell}>{r.workDate}</td>
                       <td style={tableCell}>
                         {relatedAttendance
-                          ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                          : '-'}
+                          ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : t('dash')} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : t('dash')}`
+                          : t('dash')}
                       </td>
                       <td style={tableCell}>
                         <span style={badgeStyle(r.status === 'approved' ? 'active' : 'inactive')}>
-                          {r.status === 'approved' ? '承認済み' : '却下'}
+                          {r.status === 'approved' ? t('statusApproved') : t('statusRejected')}
                         </span>
                       </td>
                     </tr>
