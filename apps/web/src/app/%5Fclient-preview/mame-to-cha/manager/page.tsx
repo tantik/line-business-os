@@ -1,6 +1,10 @@
-import Link from 'next/link';
 import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
 import { CafeManagerScreen } from '@/components/demo/cafe/CafeManagerScreen';
+import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { PreviewBackToTopLink } from '@/lib/preview/preview-back-to-top-link';
+import { listTenantModules } from '@/lib/tenant/modules';
+import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { PreviewInventoryManagerPanel } from '@/lib/preview/preview-inventory-manager-panel';
 import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
 import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
@@ -12,7 +16,13 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
-import { listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { getWorkforceRecipeDetail, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { listContentTranslationsForEntities } from '@/lib/content/translations';
+import {
+  buildRecipeTranslationWorkspace,
+  flattenRecipeTranslationFields,
+  type RecipeTranslationWorkspace,
+} from '@/lib/content/recipe-translation-workspace';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -23,7 +33,6 @@ import {
   PreviewNoAccessState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { buttonSecondary } from '@/lib/demo/cafe/theme';
 import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
 import { PreviewScheduleCardActions } from '@/lib/preview/preview-schedule-card-actions';
@@ -110,6 +119,14 @@ export default async function MameToChaPreviewManagerPage({
     getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
   ]);
 
+  const modulesResult = await listTenantModules(supabase);
+  const inventoryEnabled =
+    modulesResult.status === 'success' &&
+    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
+  const inventoryItemsResult = inventoryEnabled
+    ? await listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
+    : null;
+
   // The staff loader's specific failure reason (missing PII env, RLS denial,
   // or an unexpected Postgres/decrypt error - see `listWorkforceStaffForManager`)
   // must never reach the client, but silently collapsing it to `null` with no
@@ -130,6 +147,31 @@ export default async function MameToChaPreviewManagerPage({
   const recipes = recipesResult.status === 'success' ? recipesResult.data : null;
   const settings = settingsResult.status === 'success' ? settingsResult.data : null;
 
+  // Preloaded per-recipe translation workspace (Japanese original + legacy
+  // *_en columns + content.translations rows), server-side, same
+  // "everything loaded up front" style as every other section of this page
+  // -- the Manager translation panel (a client island) never fetches this
+  // itself.
+  const translationWorkspaces: Record<string, RecipeTranslationWorkspace> = {};
+  if (recipes) {
+    await Promise.all(
+      recipes.map(async (recipe) => {
+        const detailResult = await getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipe.recipeId);
+        if (detailResult.status !== 'success' || !detailResult.data) return;
+        const fieldsForLookup = flattenRecipeTranslationFields(
+          buildRecipeTranslationWorkspace(detailResult.data, []),
+        );
+        const translationsResult = await listContentTranslationsForEntities(
+          supabase,
+          activeTenant.tenantId,
+          fieldsForLookup.map((f) => ({ sourceEntityType: f.sourceEntityType, sourceEntityId: f.sourceEntityId })),
+        );
+        const translations = translationsResult.status === 'success' ? translationsResult.data : [];
+        translationWorkspaces[recipe.recipeId] = buildRecipeTranslationWorkspace(detailResult.data, translations);
+      }),
+    );
+  }
+
   const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
   const decidedCorrections = (correctionRequests ?? [])
     .filter((r) => r.status !== 'pending')
@@ -142,12 +184,10 @@ export default async function MameToChaPreviewManagerPage({
       <CafeManagerScreen
         subtitle={location.locationName.startsWith(activeTenant.tenantName) ? location.locationName : `${activeTenant.tenantName} — ${location.locationName}`}
         rightSlot={
-          <Link
-            href={PREVIEW_BASE_PATH}
-            style={{ ...buttonSecondary, display: 'inline-block', fontSize: 14 }}
-          >
-            プレビュートップへ戻る
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PreviewLanguageToggle />
+            <PreviewBackToTopLink href={PREVIEW_BASE_PATH} />
+          </div>
         }
         alerts={managerAlerts}
         alertActions={
@@ -179,9 +219,17 @@ export default async function MameToChaPreviewManagerPage({
           }
         />
 
-        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
+        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} translationWorkspaces={translationWorkspaces} />
 
         <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
+
+        {inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
+          <PreviewInventoryManagerPanel
+            locationId={location.locationId}
+            items={inventoryItemsResult.data}
+            staffNameById={Object.fromEntries((staff ?? []).map((s) => [s.staffId, s.name]))}
+          />
+        ) : null}
       </CafeManagerScreen>
     </BrandProvider>
   );

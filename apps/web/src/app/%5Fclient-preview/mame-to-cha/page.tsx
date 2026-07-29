@@ -27,6 +27,9 @@ import {
   diagnoseStaffProfileFailure,
   logStaffProfileFailure,
 } from '@/lib/preview/staff-profile-diagnostic';
+import { listTenantModules } from '@/lib/tenant/modules';
+import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { PreviewInventoryStaffPanel } from '@/lib/preview/preview-inventory-staff-panel';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -102,7 +105,7 @@ export default async function MameToChaPreviewStaffPage({
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
   const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
-  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult] =
+  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, modulesResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
       listMyShiftRequests(supabase, activeTenant.tenantId),
@@ -110,7 +113,15 @@ export default async function MameToChaPreviewStaffPage({
       // The client component still renders only the requested seven-day period.
       listShiftAssignments(supabase, activeTenant.tenantId),
       listMyAttendance(supabase, activeTenant.tenantId),
+      listTenantModules(supabase),
     ]);
+
+  const inventoryEnabled =
+    modulesResult.status === 'success' &&
+    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
+  const inventoryItemsResult = inventoryEnabled
+    ? await listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
+    : null;
 
   const publishedAssignments =
     assignmentsResult.status === 'success'
@@ -182,6 +193,10 @@ export default async function MameToChaPreviewStaffPage({
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
       />
+
+      {inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
+        <PreviewInventoryStaffPanel locationId={location.locationId} items={inventoryItemsResult.data} />
+      ) : null}
     </main>
   );
 }

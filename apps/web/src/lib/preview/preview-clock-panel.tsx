@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewClockIn, previewClockOut, previewResetTodayClock } from './actions/staff-attendance-actions';
-import { previewWriteMessageJa } from './write-result';
+import { previewWriteMessage } from './write-result';
 import { CafeStaffStatusCard } from '@/components/demo/cafe/CafeStaffPresentation';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_STAFF_WORK_STATUS } from '@/lib/demo/cafe/helpContent';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 
 const BREAK_OPTIONS = [0, 30, 60] as const;
 type BreakMinutes = (typeof BREAK_OPTIONS)[number];
@@ -21,6 +23,8 @@ export interface PreviewClockPanelProps {
 
 export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPanelProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
   const [isPending, startTransition] = useTransition();
   const [clockOutOpen, setClockOutOpen] = useState(false);
   const [selectedBreak, setSelectedBreak] = useState<BreakMinutes | null>(null);
@@ -41,7 +45,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
       if (result.status === 'success') {
         router.refresh();
       } else {
-        setFeedback(previewWriteMessageJa(result.status));
+        setFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -58,7 +62,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
         setClockOutOpen(false);
         router.refresh();
       } else {
-        setFeedback(previewWriteMessageJa(result.status));
+        setFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -70,14 +74,14 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
       if (result.status === 'success') {
         router.refresh();
       } else {
-        setFeedback(previewWriteMessageJa(result.status));
+        setFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
 
   return (
     <CafeStaffStatusCard
-      title={<>勤務状況 <DemoHelpButton content={HELP_STAFF_WORK_STATUS} /></>}
+      title={<>{t('workStatus')} <DemoHelpButton content={HELP_STAFF_WORK_STATUS} /></>}
       status={
       <span
         style={{
@@ -90,10 +94,10 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
         }}
       >
         {isFinished
-          ? `${clockInTime}〜${clockOutTime}・休憩 ${todayAttendance?.actualBreakMinutes ?? 0}分`
+          ? `${clockInTime}〜${clockOutTime}・${t('breakMinutesLabel')} ${todayAttendance?.actualBreakMinutes ?? 0}${t('minutesSuffix')}`
           : isWorking
-            ? `勤務中・${clockInTime}〜`
-            : '未出勤'}
+            ? `${t('statusClockedIn')}・${clockInTime}〜`
+            : t('statusIdle')}
       </span>
       }
     >
@@ -112,7 +116,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
           disabled={isPending || isFinished}
           onClick={isWorking ? () => setClockOutOpen(true) : clockIn}
         >
-          {isPending ? '処理中…' : isFinished ? '退勤済み' : isWorking ? '退勤' : '出勤'}
+          {isPending ? t('processing') : isFinished ? t('statusClockedOut') : isWorking ? t('clockOut') : t('clockIn')}
         </button>
       </div>
       {isFinished ? (
@@ -123,7 +127,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
             disabled={isPending}
             onClick={resetTodayClock}
           >
-            テスト用：本日の勤務をリセット
+            {t('resetTodayClockTest')}
           </button>
         </div>
       ) : null}
@@ -147,8 +151,8 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
           <section style={{ ...card, width: 'min(100%, 460px)', margin: 0 }}>
             {selectedBreak === null ? (
               <>
-                <h2 id="authenticated-clock-out-title" style={{ margin: 0, fontSize: 18 }}>休憩時間を選択</h2>
-                <p style={{ margin: '8px 0 14px', ...mutedText }}>本日の休憩時間を選んでください。</p>
+                <h2 id="authenticated-clock-out-title" style={{ margin: 0, fontSize: 18 }}>{t('clockOutBreakTitle')}</h2>
+                <p style={{ margin: '8px 0 14px', ...mutedText }}>{t('clockOutBreakBody')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {BREAK_OPTIONS.map((minutes) => (
                     <button
@@ -157,17 +161,17 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
                       style={{ ...buttonSecondary, minHeight: 56, fontSize: 17 }}
                       onClick={() => setSelectedBreak(minutes)}
                     >
-                      {minutes}分
+                      {minutes}{t('minutesSuffix')}
                     </button>
                   ))}
                 </div>
               </>
             ) : (
               <>
-                <h2 id="authenticated-clock-out-title" style={{ margin: 0, fontSize: 18 }}>退勤を確認</h2>
-                <p style={{ margin: '10px 0 16px' }}>休憩時間: <strong>{selectedBreak}分</strong></p>
+                <h2 id="authenticated-clock-out-title" style={{ margin: 0, fontSize: 18 }}>{t('clockOutConfirmTitle')}</h2>
+                <p style={{ margin: '10px 0 16px' }}>{t('clockOutConfirmBreak')}: <strong>{selectedBreak}{t('minutesSuffix')}</strong></p>
                 <button type="button" style={{ ...buttonPrimary, width: '100%', minHeight: 52 }} disabled={isPending} onClick={confirmClockOut}>
-                  {isPending ? '処理中…' : '退勤を確定'}
+                  {isPending ? t('processing') : t('clockOutConfirmAction')}
                 </button>
               </>
             )}
@@ -180,7 +184,7 @@ export function PreviewClockPanel({ todayAttendance, timeZone }: PreviewClockPan
                 setClockOutOpen(false);
               }}
             >
-              キャンセル
+              {t('clockOutCancel')}
             </button>
           </section>
         </div>

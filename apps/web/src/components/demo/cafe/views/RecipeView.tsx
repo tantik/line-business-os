@@ -78,7 +78,7 @@ export function RecipeBrowser({ recipes }: RecipeBrowserProps) {
       </div>
 
       {selectedRecipe ? <RecipeDetail recipe={selectedRecipe} /> : (
-        <p style={{ marginTop: 14, color: demoColors.textMuted }}>公開中のレシピはありません。</p>
+        <p style={{ marginTop: 14, color: demoColors.textMuted }}>{tRecipes(lang, 'noPublishedRecipes')}</p>
       )}
     </main>
   );

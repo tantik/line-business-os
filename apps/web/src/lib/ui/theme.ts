@@ -107,13 +107,14 @@ export const tableCell: CSSProperties = {
   padding: '10px',
 };
 
-export type BadgeTone = 'active' | 'inactive' | 'neutral';
+export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning';
 
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
     active: { background: colors.successMuted, color: colors.success, border: colors.success },
     inactive: { background: colors.surfaceElevated, color: colors.textMuted, border: colors.border },
     neutral: { background: colors.accentMuted, color: colors.accent, border: colors.accent },
+    warning: { background: colors.dangerMuted, color: colors.dangerText, border: colors.danger },
   };
   const t = tones[tone];
   return {

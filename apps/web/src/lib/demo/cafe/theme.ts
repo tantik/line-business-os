@@ -150,14 +150,15 @@ export const tableCell: CSSProperties = {
   padding: '10px',
 };
 
-export type BadgeTone = 'active' | 'inactive' | 'neutral';
+export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning';
 
-/** Same tone vocabulary/shape as `@/lib/ui/theme`'s `badgeStyle` (active/inactive/neutral), rendered in the light cafe palette — a drop-in swap for any caller that already uses the dark app theme's badge helper. */
+/** Same tone vocabulary/shape as `@/lib/ui/theme`'s `badgeStyle` (active/inactive/neutral/warning), rendered in the light cafe palette — a drop-in swap for any caller that already uses the dark app theme's badge helper. */
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
     active: { background: demoColors.successMuted, color: demoColors.success, border: demoColors.success },
     inactive: { background: demoColors.surfaceElevated, color: demoColors.textMuted, border: demoColors.border },
     neutral: { background: demoColors.accentMuted, color: demoColors.accent, border: demoColors.accent },
+    warning: { background: demoColors.dangerMuted, color: demoColors.dangerText, border: demoColors.danger },
   };
   const t = tones[tone];
   return {

@@ -7,8 +7,10 @@ import { buttonPrimary, demoColors } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
 import { previewPublishSchedule, previewRunAutoDistribution } from './actions/schedule-actions';
-import { previewWriteMessageJa } from './write-result';
+import { previewWriteMessage } from './write-result';
 import { addIsoDays } from '@/lib/workforce/timezone';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Demo/Preview manager UX parity: the demo's シフト表 card keeps its
@@ -32,6 +34,8 @@ export function PreviewScheduleCardActions({
   const [isPending, startTransition] = useTransition();
   const [publishFeedback, setPublishFeedback] = useState<string | null>(null);
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
   function createSchedule() {
     setPublishFeedback(null);
@@ -49,7 +53,7 @@ export function PreviewScheduleCardActions({
       if (result.status === 'success') {
         router.refresh();
       } else {
-        setPublishFeedback(previewWriteMessageJa(result.status));
+        setPublishFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -64,7 +68,7 @@ export function PreviewScheduleCardActions({
       if (result.status === 'success') {
         router.refresh();
       } else {
-        setPublishFeedback(previewWriteMessageJa(result.status));
+        setPublishFeedback(previewWriteMessage(lang, result.status));
       }
     });
   }
@@ -72,7 +76,7 @@ export function PreviewScheduleCardActions({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <button type="button" style={buttonPrimary} onClick={() => setScheduleActionsOpen(true)} disabled={isPending}>
-        自動シフト作成
+        {t('autoScheduleButton')}
       </button>
       <DemoHelpButton content={HELP_MANAGER_AUTO_SCHEDULE} />
       <button
@@ -81,14 +85,14 @@ export function PreviewScheduleCardActions({
         onClick={publishSchedule}
         disabled={isPending || !hasUnpublishedChanges}
       >
-        スケジュールを公開
+        {t('publishScheduleButton')}
       </button>
 
       <AutoScheduleModal
         open={scheduleActionsOpen}
         onClose={() => setScheduleActionsOpen(false)}
         onConfirm={createSchedule}
-        description={`${periodStart}〜${periodEnd} のシフトを、スタッフの希望と設定内容にもとづいて自動作成します。公開済みのシフトは上書きしません。続けますか？`}
+        description={`${periodStart}〜${periodEnd} ${t('autoScheduleConfirmBody')}`}
       />
       {publishFeedback ? <span style={{ fontSize: 12, color: '#B42318' }}>{publishFeedback}</span> : null}
     </div>

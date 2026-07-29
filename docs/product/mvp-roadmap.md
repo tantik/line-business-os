@@ -189,6 +189,34 @@ the final C2 fixes into `dev`. No Supabase Cloud write was part of Slice C.
 
 ## Next Recommended Step
 
+Complete the current Cafe Package v2.0 release-candidate branch under review
+control. The official sequence is:
+
+1. Finish review and approved fixes on
+   `feature/cafe-v2-inventory-and-i18n-fix`.
+2. Complete a manual browser smoke before commit.
+3. Commit, open a PR, review it, and merge to `dev`.
+4. Run the Cafe Package v2.0 Product Audit: product, UX, security,
+   architecture, competitors, sales value, and onboarding.
+5. Implement only the approved high-value Final Improvements.
+6. Declare Product Freeze; after that, accept bug fixes and release polish,
+   not open-ended feature expansion.
+7. Sync the public `/demo/cafe` experience from the frozen DB-backed Product
+   Preview.
+8. Make onboarding sales-ready and repeatable, with a target of no more than
+   two hours for a prepared new tenant.
+9. Build **ORUWA Platform Foundation**: Organization, Customer Portal
+   (`account.oruwa.jp`), Platform Billing, Product Entitlements, and a
+   separately bounded Merchant Payments architecture.
+10. Start Cleaning Package on that shared platform foundation.
+
+Platform Billing means payments from ORUWA customers to ORUWA. Merchant
+Payments means payments collected by an ORUWA customer from its own end
+customers. These money flows must remain architecturally separate.
+
+Production remains gated behind a separate production-readiness review and
+separate infrastructure; acceptance data is never promoted directly.
+
 **Cafe Package v2.0 Product Review**: freeze the accepted Preview scope and
 produce a prioritized product/sales/onboarding roadmap. Production remains
 gated behind a separate production readiness review and separate

@@ -182,9 +182,15 @@ select is(
           )
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (
+          -- 0034_workforce_schedule_settings.sql: a later, separate migration.
+          table_schema = 'workforce'
+          and table_name = 'schedule_settings'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'authenticated has no business-table grants beyond the intended read SELECTs and Slice 1A write-grant foundation'
+  'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
 );
 
 -- Product schemas (booking/ai) and audit expose no client grants at all.
@@ -285,9 +291,14 @@ select is(
           table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (
+          -- 0034_workforce_schedule_settings.sql: a later, separate migration.
+          table_name = 'schedule_settings'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
+        )
       )),
   0,
-  'authenticated has no workforce grants beyond the intended read SELECTs and Slice 1A write-grant foundation'
+  'authenticated has no workforce grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
 );
 
 select * from finish();

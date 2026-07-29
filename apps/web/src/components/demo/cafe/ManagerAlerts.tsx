@@ -1,8 +1,12 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import { demoColors } from '@/lib/demo/cafe/theme';
 import type { ManagerAlert } from '@/lib/demo/cafe/types';
 import { DemoHelpButton } from './DemoHelpButton';
 import { HELP_MANAGER_ALERTS } from '@/lib/demo/cafe/helpContent';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 interface ManagerAlertsProps {
   alerts: ManagerAlert[];
@@ -11,6 +15,7 @@ interface ManagerAlertsProps {
 
 /** 要確認 block — renders nothing when there is nothing to confirm. */
 export function ManagerAlerts({ alerts, actionsSlot }: ManagerAlertsProps) {
+  const { lang } = useLang();
   if (alerts.length === 0 && !actionsSlot) return null;
 
   return (
@@ -24,7 +29,7 @@ export function ManagerAlerts({ alerts, actionsSlot }: ManagerAlertsProps) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <strong style={{ fontSize: 14 }}>要確認</strong>
+          <strong style={{ fontSize: 14 }}>{tManager(lang, 'needsReview')}</strong>
           <DemoHelpButton content={HELP_MANAGER_ALERTS} />
         </div>
         {actionsSlot}

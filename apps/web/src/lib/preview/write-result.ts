@@ -2,6 +2,7 @@ import type { PreviewTenantResult } from './tenant';
 import type { PreviewModuleResult } from './module-guard';
 import type { ManagerLocationResult } from './location';
 import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
+import type { Lang } from '@/lib/demo/cafe/i18n';
 
 /**
  * Phase 1N-4C Slice B2a - shared, fixed, neutral result contract for every
@@ -44,6 +45,23 @@ const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
 
 export function previewWriteMessageJa(status: PreviewWriteFailureStatus): string {
   return PREVIEW_WRITE_MESSAGES_JA[status];
+}
+
+const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
+  not_authenticated: 'Please sign in again.',
+  no_access: 'You do not have permission to do this.',
+  module_disabled: 'The Workforce module is not enabled for this workspace.',
+  location_blocked: 'The store setup could not be resolved. Please contact your administrator.',
+  no_profile: 'No staff profile is linked to this account. Please contact your administrator.',
+  invalid_input: 'Please check your input.',
+  not_found: 'The requested item was not found.',
+  duplicate: 'This has already been submitted.',
+  unexpected_error: 'Something went wrong. Please try again in a moment.',
+};
+
+/** Lang-aware version of `previewWriteMessageJa` -- prefer this in any component that already calls `useLang()`. `previewWriteMessageJa` is kept for the handful of not-currently-reachable preview components (see `preview-action-free.test.ts`) so they are not touched unnecessarily. */
+export function previewWriteMessage(lang: Lang, status: PreviewWriteFailureStatus): string {
+  return lang === 'en' ? PREVIEW_WRITE_MESSAGES_EN[status] : PREVIEW_WRITE_MESSAGES_JA[status];
 }
 
 export const PREVIEW_INVALID_INPUT_RESULT: PreviewWriteResult<never> = { status: 'invalid_input' };
