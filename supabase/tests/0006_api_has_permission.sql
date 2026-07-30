@@ -160,7 +160,10 @@ select is(
         'inventory_items', 'inventory_item_status', 'inventory_stock_counts',
         -- Content translations foundation (0040_content_translations_facade.sql):
         -- 1 new read-only view for the new, separate `content` module.
-        'content_translations'
+        'content_translations',
+        -- Cafe v2 Final Improvements (0044/0045).
+        'workforce_shift_exchanges',
+        'inventory_check_sessions', 'inventory_check_session_items'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

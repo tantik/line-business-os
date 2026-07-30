@@ -410,7 +410,7 @@ select is(
         'recipe_ingredients', 'recipe_steps', 'recipe_notes',
         'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links',
         -- 0034_workforce_schedule_settings.sql: a later, separate migration.
-        'schedule_settings'
+        'schedule_settings', 'shift_exchanges'
       )),
   0,
   'authenticated has no grants on any other workforce table (e.g. leave_requests)'

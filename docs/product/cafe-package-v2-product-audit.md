@@ -351,19 +351,20 @@ Measure outcomes, not feature usage alone:
 
 ## 12. Official sequence after this audit
 
-1. Review and approve this audit.
-2. Implement the bounded Final Improvements slices.
-3. Run final automated and authenticated browser acceptance.
-4. Declare Cafe Package v2.0 Product Freeze.
-5. Sync the public `/demo/cafe` from the frozen DB-backed Product Preview.
-6. Complete sales-ready onboarding and prove the ≤2-hour KPI.
-7. Start **ORUWA Platform Foundation**:
+1. Complete Manager Today / 要確認.
+2. Complete manager-approved automated shift exchange.
+3. Complete Opening/Closing Inventory Sessions.
+4. Make sales-ready onboarding repeatable and measure the ≤2-hour KPI.
+5. Run final automated and authenticated browser acceptance.
+6. Declare Cafe Package v2.0 Product Freeze.
+7. Sync the public `/demo/cafe` from the frozen DB-backed Product Preview.
+8. Start **ORUWA Platform Foundation**:
    - Organization;
    - Customer Portal at `account.oruwa.jp`;
    - Platform Billing;
    - Product Entitlements;
    - separately bounded Merchant Payments architecture.
-8. Start Cleaning Package on the shared platform.
+9. Start Cleaning Package on the shared platform.
 
 Platform Billing is money paid by an ORUWA customer to ORUWA. Merchant
 Payments is money collected by an ORUWA customer from its own customers. They
@@ -382,12 +383,53 @@ permission boundaries.
 - POS, payroll, accounting, supplier, or automatic-ordering implementation;
 - broad AI features without a validated operational problem.
 
-## 14. Next implementation slice
+## 14. Final Improvements closeout
 
-The smallest high-value next slice is **Daily Operations Overview**, preceded
-by a short code-level plan that defines its server-derived status contract and
-reuses current correction, schedule, Inventory, and translation data.
+Status: implemented and locally accepted on
+`feature/cafe-v2-final-improvements`.
 
-It should not add a migration unless a required status cannot be derived from
-existing data. Inventory Check Sessions should follow as a separate reviewed
-slice because it requires a new data model and RLS.
+Completed:
+
+- Manager Today / 要確認 aggregates existing operational exceptions;
+- manager-approved shift exchange covers request, colleague acceptance,
+  approval/rejection, atomic schedule reassignment, overlap recheck, and
+  visible staff result history;
+- opening/closing Inventory sessions snapshot active items, require every
+  count, append stock history atomically, and surface shortages;
+- Cafe Package onboarding has a versioned, non-secret template contract and a
+  measured operator checklist with a target of no more than two hours for a
+  prepared customer;
+- JA/EN schedule weekday chrome follows the selected language;
+- Staff and Manager mobile layouts were manually checked at 390 x 844 with no
+  page-level horizontal overflow.
+
+Local acceptance evidence:
+
+- production build and Server Action route-boundary verification pass;
+- monorepo typecheck/lint/unit suite passes;
+- a clean local database reset applies all 45 migrations;
+- all 17 pgTAP files pass, including tenant/location/role isolation, immutable
+  exchange fields, conflict recheck, empty-session rejection, and atomic stock
+  append;
+- authenticated browser smoke completed the opening count and the full
+  Staff → colleague → Manager → updated schedule → Staff result workflow.
+
+No Cloud database, production deployment, billing, provider secret, or real
+customer data was changed. Cloud Preview acceptance remains a separately
+approved release operation after merge.
+
+## 15. Product Freeze decision
+
+After this branch passes PR CI and merges to `dev`, Cafe Package v2.0 enters
+**Product Freeze**:
+
+- permitted before sales: bug fixes, security fixes, accessibility,
+  localization corrections, and release/onboarding polish;
+- not permitted without a new product decision: open-ended features, POS,
+  suppliers/purchase orders, payroll, accounting, forecasting, broad AI, or
+  tenant-specific forks.
+
+The next product delivery step is **Demo Sync** from the frozen DB-backed
+Preview. After Demo Sync and a separately approved live onboarding rehearsal,
+work proceeds to ORUWA Platform Foundation and then Cleaning Package, following
+the sequence in section 12.

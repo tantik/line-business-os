@@ -133,6 +133,7 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
     'previewGenerateRecipeTranslation',
     'previewSaveManualRecipeTranslation',
     'previewMarkRecipeTranslationReviewed',
+    'previewDecideShiftExchange',
   ];
   const entries = allowed.map((exportedName) =>
     actionEntry({
@@ -172,16 +173,23 @@ test('legacy staff/recipes preview routes reject any registered action (zero-all
   }
 });
 
-test('staff preview route accepts exactly the six allowlisted B2b actions and nothing else', () => {
-  const sixAllowed = [
+test('staff preview route accepts exactly the currently allowlisted actions and nothing else', () => {
+  const allowed = [
     'previewSubmitShiftPreference',
     'previewSubmitWorkReport',
     'previewClockIn',
     'previewClockOut',
     'previewResetTodayClock',
     'previewSubmitCorrectionRequest',
+    'previewSubmitInventoryStockCount',
+    'previewRequestShiftExchange',
+    'previewAcceptShiftExchange',
+    'previewCancelShiftExchange',
+    'previewStartInventorySession',
+    'previewRecordInventorySessionItem',
+    'previewCompleteInventorySession',
   ];
-  const entries = sixAllowed.map((exportedName) =>
+  const entries = allowed.map((exportedName) =>
     actionEntry({
       exportedName,
       filename: 'src/lib/preview/actions/schedule-actions.ts',

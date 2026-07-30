@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { tStaff, staffWeekdayInitials } from './i18n.staff.js';
 import { tManager } from './i18n.manager.js';
 import { tRecipes } from './i18n.recipes.js';
+import { weekdayLabel } from './format.js';
 import { previewWriteMessage, previewWriteMessageJa } from '@/lib/preview/write-result';
 
 const LANGS = ['ja', 'en'] as const;
@@ -66,6 +67,12 @@ test('tManager ja/en copy differs for representative keys', () => {
   for (const key of keys) {
     assert.notEqual(tManager('ja', key), tManager('en', key), `tManager(ja/en, ${key}) should have distinct copy`);
   }
+});
+
+test('shared schedule weekday labels follow the selected UI language', () => {
+  const monday = new Date('2026-07-27T00:00:00');
+  assert.equal(weekdayLabel(monday, 'ja'), '月');
+  assert.equal(weekdayLabel(monday, 'en'), 'Mon');
 });
 
 test('tRecipes returns a non-empty string for every key in both languages', () => {

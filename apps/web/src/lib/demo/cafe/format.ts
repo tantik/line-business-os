@@ -1,6 +1,7 @@
 /** Date/number formatting helpers for the Mirawi Cafe Demo. Demo-only, no i18n library. */
 
 export const WEEKDAY_LABELS_MON_FIRST = ['月', '火', '水', '木', '金', '土', '日'] as const;
+export const WEEKDAY_LABELS_EN_MON_FIRST = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export function toISODate(date: Date): string {
   const y = date.getFullYear();
@@ -27,16 +28,17 @@ export function weekdayIndexMonFirst(date: Date): number {
   return (jsDay + 6) % 7;
 }
 
-export function weekdayLabel(date: Date): string {
-  return WEEKDAY_LABELS_MON_FIRST[weekdayIndexMonFirst(date)]!;
+export function weekdayLabel(date: Date, lang: 'ja' | 'en' = 'ja'): string {
+  const labels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
+  return labels[weekdayIndexMonFirst(date)]!;
 }
 
 export function formatMonthDay(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-export function formatMonthDayWeekday(date: Date): string {
-  return `${formatMonthDay(date)}(${weekdayLabel(date)})`;
+export function formatMonthDayWeekday(date: Date, lang: 'ja' | 'en' = 'ja'): string {
+  return `${formatMonthDay(date)}(${weekdayLabel(date, lang)})`;
 }
 
 export function formatYen(amount: number): string {

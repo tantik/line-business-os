@@ -72,6 +72,31 @@ correct, isolated access. A complete onboarding produces:
 8. An **audit log entry** for the onboarding action — written/verified once the
    audit implementation for onboarding exists (`writeAudit`).
 
+### Cafe Package v2 sales-ready preset (target: no more than two hours)
+
+The versioned, non-secret product contract lives in
+`packages/db/scripts/cafe-package-template.ts`. It contains no customer
+identity, credentials, or executable Cloud access. The existing local-only,
+fail-closed onboarding command remains the only write path.
+
+For a prepared Cafe customer, the operator must:
+
+1. Collect the approved tenant/location data and an existing owner Auth UUID.
+2. Run the existing dry-run onboarding with exactly
+   `core,workforce,inventory`.
+3. Review the redacted plan, then use the separately gated local commit flow.
+4. Configure at least one shift type, one published recipe, and one active
+   Inventory item from customer-approved data.
+5. Create/assign Manager and Staff access and verify role isolation.
+6. Verify Manager Today, shift exchange, opening/closing Inventory sessions,
+   JA/EN UI, and recipe-content translation.
+7. Save the redacted verification report and elapsed time.
+
+The two-hour KPI starts only when required customer inputs and owner identity
+are available. Auth signup, contract/legal review, data cleansing, external
+provider approval, DNS, LINE review, and production infrastructure are tracked
+separately and must not be hidden inside the onboarding measurement.
+
 ## 2. Required inputs
 
 Collect these before starting. Do not collect or store more PII than needed.

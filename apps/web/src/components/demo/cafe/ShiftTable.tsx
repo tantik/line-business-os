@@ -126,7 +126,7 @@ export function ShiftTable({
                     fontWeight: isToday ? 700 : 500,
                   }}
                 >
-                  <div>{weekdayLabel(new Date(`${date}T00:00:00`))}</div>
+                  <div>{weekdayLabel(new Date(`${date}T00:00:00`), lang)}</div>
                   <div style={{ fontSize: compact ? 9.5 : 12 }}>{formatMonthDay(new Date(`${date}T00:00:00`))}</div>
                   {/* Fixed-height slot reserved on every header cell (not just shortage days) so the header height never shifts week to week. */}
                   <div
