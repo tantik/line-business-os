@@ -1,6 +1,7 @@
 import { readTranslationEnv } from './translation-env';
 import { DeepLContentTranslationProvider } from './providers/deepl-provider';
 import { OpenAIContentTranslationProvider } from './providers/openai-provider';
+import { GoogleContentTranslationProvider } from './providers/google-provider';
 import type { ContentTranslationProvider } from './translation-provider';
 
 /**
@@ -12,8 +13,10 @@ import type { ContentTranslationProvider } from './translation-provider';
  *
  * Provider selection is EXPLICIT via `CONTENT_TRANSLATION_PROVIDER` --
  * deliberately never inferred from "whichever API key happens to be set",
- * so a stray leftover `DEEPL_API_KEY` in one environment can never silently
- * activate DeepL when the deployment intends OpenAI (or vice versa).
+ * so a stray leftover `DEEPL_API_KEY`/`OPENAI_API_KEY`/`GOOGLE_TRANSLATE_API_KEY`
+ * in one environment can never silently activate the wrong provider. An
+ * unset selector always means manual-only -- there is no code-level default
+ * provider.
  *
  * `CONTENT_TRANSLATION_PROVIDER` unset, `CONTENT_TRANSLATION_AUTO_ENABLED=
  * false`, an unsupported provider value, or the selected provider's required
@@ -37,7 +40,7 @@ export function resolveContentTranslationProvider(): ContentTranslationProvider 
   if (!env.providerSelector) {
     if (env.providerSelectorRaw) {
       console.error(
-        `content-translation: CONTENT_TRANSLATION_PROVIDER=${env.providerSelectorRaw} is not a supported provider (expected "deepl" or "openai") -- falling back to manual-only.`,
+        `content-translation: CONTENT_TRANSLATION_PROVIDER=${env.providerSelectorRaw} is not a supported provider (expected "deepl", "openai", or "google") -- falling back to manual-only.`,
       );
     }
     return null;
@@ -51,6 +54,16 @@ export function resolveContentTranslationProvider(): ContentTranslationProvider 
       return null;
     }
     return new OpenAIContentTranslationProvider({ apiKey: env.openaiApiKey, model: env.openaiModel });
+  }
+
+  if (env.providerSelector === 'google') {
+    if (!env.googleTranslateApiKey) {
+      console.error(
+        'content-translation: CONTENT_TRANSLATION_PROVIDER=google requires GOOGLE_TRANSLATE_API_KEY to be set -- falling back to manual-only.',
+      );
+      return null;
+    }
+    return new GoogleContentTranslationProvider({ apiKey: env.googleTranslateApiKey });
   }
 
   if (!env.deeplApiKey) {
