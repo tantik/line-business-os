@@ -61,6 +61,7 @@ export async function previewUpsertInventoryItem(formData: FormData): Promise<Pr
       name: input.name,
       unit: input.unit,
       requiredQuantity: input.requiredQuantity,
+      reorderPoint: input.reorderPoint,
       sortOrder: input.sortOrder,
       isActive: input.isActive,
     }),

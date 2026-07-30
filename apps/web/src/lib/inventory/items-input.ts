@@ -7,6 +7,7 @@ export interface UpsertInventoryItemFormInput {
   name: string;
   unit: InventoryUnit;
   requiredQuantity: number;
+  reorderPoint: number;
   sortOrder: number;
   /** `undefined` on create (defaults to active at the DB layer); on edit, `undefined` means "leave unchanged". */
   isActive: boolean | undefined;
@@ -30,6 +31,9 @@ export function parseUpsertInventoryItemInput(formData: FormData): UpsertInvento
   const requiredQuantity = parseQuantity(formData.get('requiredQuantity'));
   if (requiredQuantity === null) return null;
 
+  const reorderPoint = parseQuantity(formData.get('reorderPoint'));
+  if (reorderPoint === null || reorderPoint > requiredQuantity) return null;
+
   const sortOrder = formData.has('sortOrder') ? parseSortOrder(formData.get('sortOrder')) : 0;
   if (sortOrder === null) return null;
 
@@ -41,6 +45,7 @@ export function parseUpsertInventoryItemInput(formData: FormData): UpsertInvento
     name,
     unit,
     requiredQuantity,
+    reorderPoint,
     sortOrder,
     isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,
   };

@@ -258,9 +258,9 @@ reset role;
 -- progression below is unambiguous.
 -- ============================================================================
 
-insert into inventory.items (id, tenant_id, location_id, name, unit, required_quantity)
+insert into inventory.items (id, tenant_id, location_id, name, unit, required_quantity, reorder_point)
   values ('9a100000-0000-0000-0000-000000000002', '9a000000-0000-0000-0000-00000000000a',
-          '9a200000-0000-0000-0000-000000000001', 'Milk', 'L', 10);
+          '9a200000-0000-0000-0000-000000000001', 'Milk', 'L', 10, 10);
 
 select is(
   (select status from api.inventory_item_status where item_id = '9a100000-0000-0000-0000-000000000002'),
@@ -280,7 +280,7 @@ select is(
 select is(
   (select status from api.inventory_item_status where item_id = '9a100000-0000-0000-0000-000000000002'),
   'shortage',
-  'status = shortage when actual < required'
+  'status = shortage when actual is at or below the reorder point'
 );
 
 insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quantity, counted_by)
@@ -295,7 +295,7 @@ select is(
 select is(
   (select status from api.inventory_item_status where item_id = '9a100000-0000-0000-0000-000000000002'),
   'sufficient',
-  'status = sufficient once the latest count meets required'
+  'status = sufficient once the latest count is above the reorder point'
 );
 select is(
   (select actual_quantity from api.inventory_item_status where item_id = '9a100000-0000-0000-0000-000000000002'),

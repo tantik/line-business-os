@@ -12,6 +12,7 @@ interface ApiInventoryItemStatusRow {
   name: string;
   unit: InventoryUnit;
   required_quantity: string | number;
+  reorder_point: string | number;
   sort_order: number;
   is_active: boolean;
   actual_quantity: string | number | null;
@@ -28,6 +29,7 @@ export interface InventoryItemStatus {
   name: string;
   unit: InventoryUnit;
   requiredQuantity: number;
+  reorderPoint: number;
   sortOrder: number;
   isActive: boolean;
   actualQuantity: number | null;
@@ -45,6 +47,7 @@ function mapItemStatusRow(row: ApiInventoryItemStatusRow): InventoryItemStatus {
     name: row.name,
     unit: row.unit,
     requiredQuantity: Number(row.required_quantity),
+    reorderPoint: Number(row.reorder_point),
     sortOrder: row.sort_order,
     isActive: row.is_active,
     actualQuantity: row.actual_quantity === null ? null : Number(row.actual_quantity),
@@ -82,7 +85,7 @@ export async function listInventoryItemStatus(
       .schema('api')
       .from('inventory_item_status')
       .select(
-        'item_id, tenant_id, location_id, name, unit, required_quantity, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status',
+        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status',
       )
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
@@ -109,6 +112,7 @@ export interface UpsertInventoryItemInput {
   name: string;
   unit: InventoryUnit;
   requiredQuantity: number;
+  reorderPoint: number;
   sortOrder: number;
   isActive?: boolean;
 }
@@ -121,6 +125,7 @@ interface ApiInventoryItemRow {
   name: string;
   unit: InventoryUnit;
   required_quantity: string | number;
+  reorder_point: string | number;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -134,6 +139,7 @@ export interface InventoryItem {
   name: string;
   unit: InventoryUnit;
   requiredQuantity: number;
+  reorderPoint: number;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -148,6 +154,7 @@ function mapItemRow(row: ApiInventoryItemRow): InventoryItem {
     name: row.name,
     unit: row.unit,
     requiredQuantity: Number(row.required_quantity),
+    reorderPoint: Number(row.reorder_point),
     sortOrder: row.sort_order,
     isActive: row.is_active,
     createdAt: row.created_at,
@@ -172,6 +179,7 @@ export async function upsertInventoryItem(
       name: input.name,
       unit: input.unit,
       required_quantity: input.requiredQuantity,
+      reorder_point: input.reorderPoint,
       sort_order: input.sortOrder,
       ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
     };
@@ -186,7 +194,7 @@ export async function upsertInventoryItem(
       : supabase.schema('api').from('inventory_items').insert(row);
 
     const { data, error } = await query
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, sort_order, is_active, created_at, updated_at')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
       .maybeSingle();
 
     if (error) return mapInventoryWriteError(error, 'save this inventory item');
@@ -214,7 +222,7 @@ export async function setInventoryItemActive(
       .update({ is_active: isActive })
       .eq('tenant_id', tenantId)
       .eq('item_id', itemId)
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, sort_order, is_active, created_at, updated_at')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
       .maybeSingle();
 
     if (error) return mapInventoryWriteError(error, 'update this inventory item');

@@ -9,12 +9,14 @@ import { previewSetInventoryItemActive, previewUpsertInventoryItem } from './act
 import { previewWriteMessage } from './write-result';
 import { badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, card, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, makeTranslator } from '@/lib/demo/cafe/i18n';
+import { PreviewInventoryModal } from './preview-inventory-modal';
 
 interface InventoryManagerDict {
   title: string;
   subtitle: string;
   addItem: string;
   required: string;
+  reorderPoint: string;
   current: string;
   shortage: string;
   sufficient: string;
@@ -31,6 +33,9 @@ interface InventoryManagerDict {
   empty: string;
   allSufficient: string;
   unknownStaffFallback: string;
+  openInventory: string;
+  close: string;
+  purchaseRecommendation: string;
 }
 
 const shortageAlert: Record<'ja' | 'en', (n: number) => string> = {
@@ -44,6 +49,7 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     subtitle: '基準在庫と現在庫を管理します。',
     addItem: '+ 商品を追加',
     required: '基準在庫',
+    reorderPoint: '発注点',
     current: '現在庫',
     shortage: '不足',
     sufficient: '在庫十分',
@@ -60,12 +66,16 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     empty: '在庫アイテムはまだ登録されていません。',
     allSufficient: 'すべての在庫が十分です',
     unknownStaffFallback: '不明なスタッフ',
+    openInventory: '在庫を開く',
+    close: '閉じる',
+    purchaseRecommendation: '推奨発注数',
   },
   en: {
     title: 'Inventory',
     subtitle: 'Manage required and current stock levels.',
     addItem: '+ Add item',
     required: 'Required',
+    reorderPoint: 'Reorder point',
     current: 'Current',
     shortage: 'Shortage',
     sufficient: 'Sufficient',
@@ -82,6 +92,9 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     empty: 'No inventory items yet.',
     allSufficient: 'All items sufficient',
     unknownStaffFallback: 'Unknown staff',
+    openInventory: 'Open inventory',
+    close: 'Close',
+    purchaseRecommendation: 'Recommended purchase',
   },
 };
 
@@ -134,6 +147,20 @@ function ItemForm({
           <input style={input} name="requiredQuantity" type="number" min={0} step="0.001" defaultValue={item?.requiredQuantity ?? 0} required />
         </label>
         <label style={{ flex: 1 }}>
+          <span style={{ ...mutedText, fontSize: 12 }}>{tr('reorderPoint')}</span>
+          <input
+            style={input}
+            name="reorderPoint"
+            type="number"
+            min={0}
+            step="0.001"
+            defaultValue={item?.reorderPoint ?? 0}
+            required
+          />
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <label style={{ flex: 1 }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('unit')}</span>
           <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required>
             {INVENTORY_UNITS.map((u) => (
@@ -170,6 +197,7 @@ export function PreviewInventoryManagerPanel({
   const tr = (key: DictKey) => t(lang, key);
   const router = useRouter();
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
@@ -181,8 +209,8 @@ export function PreviewInventoryManagerPanel({
           <h2 style={{ margin: 0, fontSize: 16 }}>{tr('title')}</h2>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{tr('subtitle')}</p>
         </div>
-        <button type="button" style={buttonSecondary} onClick={() => setEditing('new')}>
-          {tr('addItem')}
+        <button type="button" style={buttonPrimary} onClick={() => setIsOpen(true)}>
+          {tr('openInventory')}
         </button>
       </div>
 
@@ -194,6 +222,13 @@ export function PreviewInventoryManagerPanel({
         )}
       </p>
 
+      {isOpen ? (
+        <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+            <button type="button" style={buttonSecondary} onClick={() => setEditing('new')}>
+              {tr('addItem')}
+            </button>
+          </div>
       {editing ? (
         <ItemForm
           locationId={locationId}
@@ -220,6 +255,9 @@ export function PreviewInventoryManagerPanel({
                   {tr('required')}: {item.requiredQuantity} {item.unit} / {tr('current')}:{' '}
                   {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
                 </p>
+                <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
+                  {tr('reorderPoint')}: {item.reorderPoint} {item.unit}
+                </p>
                 {item.countedAt ? (
                   <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
                     {new Date(item.countedAt).toLocaleString()}
@@ -234,7 +272,7 @@ export function PreviewInventoryManagerPanel({
                   <span style={badgeStyle('neutral')}>{tr('notCounted')}</span>
                 ) : item.status === 'shortage' ? (
                   <span style={badgeStyle('warning')}>
-                    ⚠ {tr('needsRestock')} ({item.shortageQuantity} {item.unit})
+                    ⚠ {tr('needsRestock')} · {tr('purchaseRecommendation')}: {item.shortageQuantity} {item.unit}
                   </span>
                 ) : (
                   <span style={badgeStyle('active')}>{tr('sufficient')}</span>
@@ -265,6 +303,8 @@ export function PreviewInventoryManagerPanel({
           </div>
         ))
       )}
+        </PreviewInventoryModal>
+      ) : null}
     </section>
   );
 }

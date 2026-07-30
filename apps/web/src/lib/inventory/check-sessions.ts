@@ -28,6 +28,7 @@ interface SessionItemRow {
   item_name: string;
   unit: string;
   required_quantity: number | string;
+  reorder_point: number | string;
   actual_quantity: number | string | null;
   shortage_quantity: number | string | null;
   counted_at: string | null;
@@ -53,6 +54,7 @@ export interface InventoryCheckSessionItem {
   itemName: string;
   unit: string;
   requiredQuantity: number;
+  reorderPoint: number;
   actualQuantity: number | null;
   shortageQuantity: number | null;
   countedAt: string | null;
@@ -104,7 +106,7 @@ export async function listInventoryCheckSessionItems(
     const { data, error } = await supabase
       .schema('api')
       .from('inventory_check_session_items')
-      .select('session_item_id, tenant_id, location_id, session_id, item_id, item_name, unit, required_quantity, actual_quantity, shortage_quantity, counted_at')
+      .select('session_item_id, tenant_id, location_id, session_id, item_id, item_name, unit, required_quantity, reorder_point, actual_quantity, shortage_quantity, counted_at')
       .eq('tenant_id', tenantId)
       .eq('session_id', sessionId)
       .order('item_name');
@@ -118,6 +120,7 @@ export async function listInventoryCheckSessionItems(
         itemName: row.item_name,
         unit: row.unit,
         requiredQuantity: Number(row.required_quantity),
+        reorderPoint: Number(row.reorder_point),
         actualQuantity: row.actual_quantity === null ? null : Number(row.actual_quantity),
         shortageQuantity: row.shortage_quantity === null ? null : Number(row.shortage_quantity),
         countedAt: row.counted_at,

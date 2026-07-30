@@ -55,7 +55,7 @@ function ItemRow({
         <div>
           <h3 style={{ margin: 0, fontSize: 16 }}>{item.name}</h3>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
-            Required: {item.requiredQuantity} {item.unit} · Current:{' '}
+            Target: {item.requiredQuantity} {item.unit} · Reorder at: {item.reorderPoint} {item.unit} · Current:{' '}
             {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
           </p>
           {item.countedAt ? (
@@ -116,6 +116,7 @@ export function InventoryDashboardClient({ locationId, items, canManage, staffNa
           name: editing.name,
           unit: editing.unit,
           requiredQuantity: editing.requiredQuantity,
+          reorderPoint: editing.reorderPoint,
           sortOrder: editing.sortOrder,
           isActive: editing.isActive,
           createdAt: '',

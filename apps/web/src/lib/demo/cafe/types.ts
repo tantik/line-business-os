@@ -86,6 +86,8 @@ export interface Recipe {
   stepsEn?: string[];
   memoTitleEn?: string;
   memoEn?: string;
+  /** Staff-facing provenance for dynamic user-authored English content. */
+  translationNotice?: 'original' | 'machine' | 'reviewed';
 }
 
 export interface StaffingRequirement {
