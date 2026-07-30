@@ -104,6 +104,10 @@ export function PreviewInventorySessionPanel({
                       >
                         <label style={{ flex: 1, fontSize: 12 }}>
                           {item.itemName} ({item.unit})
+                          <span style={{ display: 'block', ...mutedText, fontSize: 11 }}>
+                            {lang === 'ja' ? '目標' : 'Target'} {item.requiredQuantity} ·{' '}
+                            {lang === 'ja' ? '発注点' : 'Reorder at'} {item.reorderPoint}
+                          </span>
                           <input
                             name="actualQuantity"
                             type="number"

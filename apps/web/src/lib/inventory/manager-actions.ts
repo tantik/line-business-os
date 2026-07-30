@@ -31,6 +31,7 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
     name: input.name,
     unit: input.unit,
     requiredQuantity: input.requiredQuantity,
+    reorderPoint: input.reorderPoint,
     sortOrder: input.sortOrder,
     isActive: input.isActive,
   });

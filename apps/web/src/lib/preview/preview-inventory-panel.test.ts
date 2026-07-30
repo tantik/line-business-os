@@ -26,3 +26,17 @@ test('reachable Inventory panels use language-aware write errors', () => {
   }
 });
 
+test('Inventory exposes a reusable modal entry point and separate target/reorder levels', () => {
+  const staff = readFileSync(path.join(THIS_DIR, 'preview-inventory-staff-panel.tsx'), 'utf8');
+  const manager = readFileSync(path.join(THIS_DIR, 'preview-inventory-manager-panel.tsx'), 'utf8');
+  const modal = readFileSync(path.join(THIS_DIR, 'preview-inventory-modal.tsx'), 'utf8');
+
+  assert.match(staff, /PreviewInventoryModal/);
+  assert.match(manager, /PreviewInventoryModal/);
+  assert.match(manager, /name="requiredQuantity"/);
+  assert.match(manager, /name="reorderPoint"/);
+  assert.match(staff, /item\.reorderPoint/);
+  assert.match(modal, /role="dialog"/);
+  assert.match(modal, /aria-modal="true"/);
+});
+

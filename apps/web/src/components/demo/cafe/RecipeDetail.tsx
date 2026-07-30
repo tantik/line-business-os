@@ -24,6 +24,25 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
 
   return (
     <section style={{ ...card, marginTop: 14 }}>
+      {isEn && recipe.translationNotice === 'original' ? (
+        <div
+          role="status"
+          style={{
+            marginBottom: 12,
+            padding: '8px 10px',
+            borderRadius: 8,
+            background: demoColors.goldMuted,
+            color: demoColors.goldDark,
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          English translation is not available yet. Showing the Japanese original.
+        </div>
+      ) : null}
+      {isEn && recipe.translationNotice === 'machine' ? (
+        <div style={{ marginBottom: 10, color: demoColors.textMuted, fontSize: 11.5 }}>Machine translation</div>
+      ) : null}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{name}</h2>

@@ -16,7 +16,7 @@ export interface ItemFormProps {
   onCancel: () => void;
 }
 
-/** Manager-only create/edit form for an Inventory catalog item (name, required quantity, unit, sort order). */
+/** Manager-only create/edit form for an Inventory catalog item and its reorder policy. */
 export function ItemForm({ locationId, item, onSuccess, onCancel }: ItemFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function ItemForm({ locationId, item, onSuccess, onCancel }: ItemFormProp
       </label>
       <div style={{ display: 'flex', gap: 10 }}>
         <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 13 }}>Required quantity</span>
+          <span style={{ ...mutedText, fontSize: 13 }}>Target quantity</span>
           <input
             style={input}
             name="requiredQuantity"
@@ -58,6 +58,20 @@ export function ItemForm({ locationId, item, onSuccess, onCancel }: ItemFormProp
             required
           />
         </label>
+        <label style={{ flex: 1 }}>
+          <span style={{ ...mutedText, fontSize: 13 }}>Reorder point</span>
+          <input
+            style={input}
+            name="reorderPoint"
+            type="number"
+            min={0}
+            step="0.001"
+            defaultValue={item?.reorderPoint ?? 0}
+            required
+          />
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
         <label style={{ flex: 1 }}>
           <span style={{ ...mutedText, fontSize: 13 }}>Unit</span>
           <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required>

@@ -12,14 +12,15 @@ function formDataOf(fields: Record<string, string>): FormData {
 
 test('parseUpsertInventoryItemInput accepts a valid create payload with no id', () => {
   const input = parseUpsertInventoryItemInput(
-    formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'kg', requiredQuantity: '10' }),
+    formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'kg', requiredQuantity: '15', reorderPoint: '5' }),
   );
   assert.deepEqual(input, {
     id: null,
     locationId: VALID_UUID,
     name: 'Ice',
     unit: 'kg',
-    requiredQuantity: 10,
+    requiredQuantity: 15,
+    reorderPoint: 5,
     sortOrder: 0,
     isActive: undefined,
   });
@@ -27,16 +28,32 @@ test('parseUpsertInventoryItemInput accepts a valid create payload with no id', 
 
 test('parseUpsertInventoryItemInput rejects missing required fields', () => {
   assert.equal(parseUpsertInventoryItemInput(formDataOf({ locationId: VALID_UUID, name: 'Ice' })), null);
-  assert.equal(parseUpsertInventoryItemInput(formDataOf({ name: 'Ice', unit: 'kg', requiredQuantity: '10' })), null);
+  assert.equal(
+    parseUpsertInventoryItemInput(formDataOf({ name: 'Ice', unit: 'kg', requiredQuantity: '10', reorderPoint: '5' })),
+    null,
+  );
 });
 
 test('parseUpsertInventoryItemInput rejects an unsupported unit and a negative quantity', () => {
   assert.equal(
-    parseUpsertInventoryItemInput(formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'bags', requiredQuantity: '10' })),
+    parseUpsertInventoryItemInput(
+      formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'bags', requiredQuantity: '10', reorderPoint: '5' }),
+    ),
     null,
   );
   assert.equal(
-    parseUpsertInventoryItemInput(formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'kg', requiredQuantity: '-1' })),
+    parseUpsertInventoryItemInput(
+      formDataOf({ locationId: VALID_UUID, name: 'Ice', unit: 'kg', requiredQuantity: '-1', reorderPoint: '5' }),
+    ),
+    null,
+  );
+});
+
+test('parseUpsertInventoryItemInput rejects a reorder point above the target quantity', () => {
+  assert.equal(
+    parseUpsertInventoryItemInput(
+      formDataOf({ locationId: VALID_UUID, name: 'Lids', unit: 'pcs', requiredQuantity: '15', reorderPoint: '16' }),
+    ),
     null,
   );
 });

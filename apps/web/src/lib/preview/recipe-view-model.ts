@@ -38,6 +38,14 @@ export function toPreviewRecipeViewModel(
   const fieldByKey = new Map(
     workspace ? flattenRecipeTranslationFields(workspace).map((field) => [field.key, field]) : [],
   );
+  const englishMarkers = [...fieldByKey.values()].map((field) => resolveFieldDisplay(field, 'en').marker);
+  const translationNotice = englishMarkers.includes('original')
+    ? 'original'
+    : englishMarkers.includes('machine')
+      ? 'machine'
+      : englishMarkers.includes('reviewed')
+        ? 'reviewed'
+        : undefined;
 
   return {
     id: recipe.recipeId,
@@ -68,5 +76,6 @@ export function toPreviewRecipeViewModel(
       .map((item) => resolveEnText(fieldByKey, `workforce_recipe_note:${item.noteId}:note_body`, item.bodyEn) ?? '')
       .filter(Boolean)
       .join('\n'),
+    translationNotice,
   };
 }
