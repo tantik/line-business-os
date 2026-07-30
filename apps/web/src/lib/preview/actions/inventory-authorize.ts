@@ -25,7 +25,7 @@ import {
  * shell -- there is no Inventory-specific location concept.
  */
 
-export type InventoryManagerPermission = 'inventory.item.manage';
+export type InventoryManagerPermission = 'inventory.item.manage' | 'inventory.count.write';
 
 export interface PreviewInventoryManagerContext {
   supabase: SupabaseClient;

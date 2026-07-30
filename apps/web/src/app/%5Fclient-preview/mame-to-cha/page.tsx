@@ -30,6 +30,14 @@ import {
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { PreviewInventoryStaffPanel } from '@/lib/preview/preview-inventory-staff-panel';
+import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
+import { PreviewShiftExchangeStaffPanel } from '@/lib/preview/preview-shift-exchange-staff-panel';
+import {
+  listInventoryCheckSessionItems,
+  listInventoryCheckSessions,
+  type InventoryCheckSessionItem,
+} from '@/lib/inventory/check-sessions';
+import { PreviewInventorySessionPanel } from '@/lib/preview/preview-inventory-session-panel';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -105,7 +113,7 @@ export default async function MameToChaPreviewStaffPage({
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
   const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
-  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, modulesResult] =
+  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, modulesResult, exchangesResult] =
     await Promise.all([
       listWorkforceShiftTypes(supabase, activeTenant.tenantId),
       listMyShiftRequests(supabase, activeTenant.tenantId),
@@ -114,6 +122,7 @@ export default async function MameToChaPreviewStaffPage({
       listShiftAssignments(supabase, activeTenant.tenantId),
       listMyAttendance(supabase, activeTenant.tenantId),
       listTenantModules(supabase),
+      listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
     ]);
 
   const inventoryEnabled =
@@ -137,6 +146,18 @@ export default async function MameToChaPreviewStaffPage({
     attendanceResult.status === 'success'
       ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
       : null;
+  const inventorySessionsResult = inventoryEnabled
+    ? await listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
+    : null;
+  const inventorySessionItems: Record<string, InventoryCheckSessionItem[]> = {};
+  if (inventorySessionsResult?.status === 'success') {
+    await Promise.all(
+      inventorySessionsResult.data.map(async (session) => {
+        const result = await listInventoryCheckSessionItems(supabase, activeTenant.tenantId, session.sessionId);
+        inventorySessionItems[session.sessionId] = result.status === 'success' ? result.data : [];
+      }),
+    );
+  }
   const [todayYear, todayMonth] = todayIso.split('-').map(Number);
   const defaultPreferenceDate = new Date(Date.UTC(todayYear!, todayMonth!, 1)).toISOString().slice(0, 10);
 
@@ -193,6 +214,23 @@ export default async function MameToChaPreviewStaffPage({
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
       />
+
+      {assignmentsResult.status === 'success' && exchangesResult.status === 'success' ? (
+        <PreviewShiftExchangeStaffPanel
+          employeeId={profile.staffId}
+          timeZone={location.timezone}
+          assignments={publishedAssignments ?? []}
+          exchanges={exchangesResult.data}
+        />
+      ) : null}
+
+      {inventoryEnabled && inventorySessionsResult?.status === 'success' ? (
+        <PreviewInventorySessionPanel
+          businessDate={todayIso}
+          sessions={inventorySessionsResult.data}
+          itemsBySession={inventorySessionItems}
+        />
+      ) : null}
 
       {inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
         <PreviewInventoryStaffPanel locationId={location.locationId} items={inventoryItemsResult.data} />

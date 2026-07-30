@@ -40,6 +40,10 @@ import { PreviewStaffRecipeManagement } from '@/lib/preview/preview-staff-recipe
 import { PreviewSettingsCard } from '@/lib/preview/preview-settings-card';
 import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
+import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
+import { PreviewShiftExchangeManagerPanel } from '@/lib/preview/preview-shift-exchange-manager-panel';
+import { PreviewManagerToday } from '@/lib/preview/preview-manager-today';
+import { listInventoryCheckSessions } from '@/lib/inventory/check-sessions';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -126,7 +130,17 @@ export default async function MameToChaPreviewManagerPage({
   const inventoryItemsResult = inventoryEnabled
     ? await listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
     : null;
-
+  const exchangesResult = await listShiftExchanges(supabase, activeTenant.tenantId, location.locationId);
+  const allAssignmentsResult = await listShiftAssignments(supabase, activeTenant.tenantId);
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: location.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const inventorySessionsResult = inventoryEnabled
+    ? await listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
+    : null;
   // The staff loader's specific failure reason (missing PII env, RLS denial,
   // or an unexpected Postgres/decrypt error - see `listWorkforceStaffForManager`)
   // must never reach the client, but silently collapsing it to `null` with no
@@ -178,6 +192,28 @@ export default async function MameToChaPreviewManagerPage({
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 10);
   const managerAlerts = correctionRequestsResult.status === 'success' ? toManagerViewAlerts(pendingCorrections, staffById) : [];
+  const pendingExchanges =
+    exchangesResult.status === 'success'
+      ? exchangesResult.data.filter((exchange) => exchange.status === 'open' || exchange.status === 'accepted')
+      : [];
+  const staleRecipeFields = Object.values(translationWorkspaces)
+    .flatMap((workspace) => workspace.sections)
+    .flatMap((section) => section.fields)
+    .filter((field) => field.isStale || (!field.existing && !field.legacyEnText)).length;
+  const activeInventoryItems =
+    inventoryItemsResult?.status === 'success' ? inventoryItemsResult.data.filter((item) => item.isActive) : [];
+  const localHour = Number(
+    new Intl.DateTimeFormat('en-US', { timeZone: location.timezone, hour: '2-digit', hour12: false }).format(new Date()),
+  );
+  const openingSession =
+    inventorySessionsResult?.status === 'success'
+      ? inventorySessionsResult.data.find((session) => session.checkType === 'opening')
+      : undefined;
+  const closingSession =
+    inventorySessionsResult?.status === 'success'
+      ? inventorySessionsResult.data.find((session) => session.checkType === 'closing')
+      : undefined;
+  const staffNameById = Object.fromEntries((staff ?? []).map((entry) => [entry.staffId, entry.name]));
 
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
@@ -200,6 +236,17 @@ export default async function MameToChaPreviewManagerPage({
           />
         }
       >
+        <PreviewManagerToday
+          pendingCorrections={pendingCorrections.length}
+          pendingExchanges={pendingExchanges.length}
+          shortageItems={activeInventoryItems.filter((item) => item.status === 'shortage').length}
+          uncountedItems={activeInventoryItems.filter((item) => item.status === 'unknown').length}
+          unpublishedShifts={(assignments ?? []).filter((assignment) => !assignment.published).length}
+          staleRecipeFields={staleRecipeFields}
+          openingCheckComplete={!inventoryEnabled || localHour < 10 ? null : openingSession?.status === 'completed'}
+          closingCheckComplete={!inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'}
+        />
+
         <PreviewManagerView
           timeZone={location.timezone}
           periodStart={periodStart}
@@ -223,11 +270,20 @@ export default async function MameToChaPreviewManagerPage({
 
         <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
 
+        {exchangesResult.status === 'success' && allAssignmentsResult.status === 'success' ? (
+          <PreviewShiftExchangeManagerPanel
+            timeZone={location.timezone}
+            assignments={allAssignmentsResult.data}
+            exchanges={exchangesResult.data}
+            staffNameById={staffNameById}
+          />
+        ) : null}
+
         {inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
           <PreviewInventoryManagerPanel
             locationId={location.locationId}
             items={inventoryItemsResult.data}
-            staffNameById={Object.fromEntries((staff ?? []).map((s) => [s.staffId, s.name]))}
+            staffNameById={staffNameById}
           />
         ) : null}
       </CafeManagerScreen>

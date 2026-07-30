@@ -178,7 +178,8 @@ select is(
         or (
           table_schema = 'workforce'
           and table_name in (
-            'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links'
+            'shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links',
+            'shift_exchanges'
           )
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
@@ -288,7 +289,7 @@ select is(
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
         or (
-          table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links')
+          table_name in ('shift_types', 'shifts', 'shift_requests', 'attendance', 'employee_line_links', 'shift_exchanges')
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
         or (

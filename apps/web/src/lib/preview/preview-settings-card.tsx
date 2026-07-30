@@ -7,7 +7,7 @@ import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-setting
 import { buttonPrimary, card, demoColors, input, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_SETTINGS } from '@/lib/demo/cafe/helpContent';
-import { WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
+import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { previewSaveScheduleSettings, previewSetShiftTypeActive, previewUpsertShiftType } from './actions/settings-actions';
 import { previewWriteMessage } from './write-result';
 import { useLang } from '@/lib/demo/cafe/i18n';
@@ -34,6 +34,7 @@ const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, border
 export function PreviewSettingsCard({ shiftTypes, assignments, settings }: PreviewSettingsCardProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
+  const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
   const [isPending, startTransition] = useTransition();
@@ -94,7 +95,7 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
       <div style={{ marginTop: 18 }}>
         <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>{t('requiredHeadcountHeading')}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6 }}>
-          {WEEKDAY_LABELS_MON_FIRST.map((label, weekday) => (
+          {weekdayLabels.map((label, weekday) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: demoColors.textMuted, marginBottom: 4 }}>{label}</div>
               <input
