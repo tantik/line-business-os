@@ -162,10 +162,15 @@ function listFilesRecursive(dir: string): string[] {
   });
 }
 
-test('no "use client" file imports the DeepL provider, the provider factory, or the translation-env reader directly', () => {
+test('no "use client" file imports the DeepL provider, the OpenAI provider, the provider factory, or the translation-env reader directly', () => {
   const srcDir = new URL('../../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
   const files = listFilesRecursive(srcDir);
-  const forbiddenImportTargets = ['providers/deepl-provider', 'translation-provider-factory', 'content/translation-env'];
+  const forbiddenImportTargets = [
+    'providers/deepl-provider',
+    'providers/openai-provider',
+    'translation-provider-factory',
+    'content/translation-env',
+  ];
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8');

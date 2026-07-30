@@ -88,7 +88,8 @@ async function loadOwnedWorkspace(
 /**
  * "Generate English translation" -- Manager-only. Translates every missing
  * or stale, non-reviewed field of one recipe via the configured provider
- * (currently DeepL) and persists accepted results as `machine` translations.
+ * (selected explicitly by `CONTENT_TRANSLATION_PROVIDER` -- `deepl` or
+ * `openai`) and persists accepted results as `machine` translations.
  * Never accepts source text from the client -- everything is re-read from
  * the DB after re-validating the recipe belongs to this manager's tenant.
  */
@@ -136,6 +137,7 @@ export async function previewGenerateRecipeTranslation(
       translatedText: accepted.translatedText,
       sourceContentHash: accepted.sourceContentHash,
       replaceReviewed: replaceStaleReviewed,
+      translationProvider: provider.providerId,
     });
     if (writeResult.status === 'success') updatedCount += 1;
     else failedCount += 1;

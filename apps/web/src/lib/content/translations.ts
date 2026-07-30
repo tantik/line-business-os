@@ -198,6 +198,8 @@ export interface SetMachineContentTranslationInput {
   translatedText: string;
   sourceContentHash: string;
   replaceReviewed?: boolean;
+  /** The provider that produced `translatedText` (e.g. the resolved `ContentTranslationProvider.providerId`) -- stored as `content.translations.translation_provider`. Never inferred/hardcoded here; always supplied by the caller so this service stays provider-agnostic. */
+  translationProvider: string;
 }
 
 /**
@@ -224,6 +226,7 @@ export async function setMachineContentTranslation(
         p_translated_text: input.translatedText,
         p_source_content_hash: input.sourceContentHash,
         p_replace_reviewed: input.replaceReviewed ?? false,
+        p_translation_provider: input.translationProvider,
       })
       .maybeSingle();
 
