@@ -45,11 +45,25 @@ export type RecipesDictKey = keyof RecipesDict;
 
 export const tRecipes = makeTranslator(RECIPES_DICT);
 
-/** Static demo category labels — recipe.category is stored as JA text; EN mode maps the known values to simple English equivalents. */
+/**
+ * Static category labels — recipe.category is stored as JA text; EN mode maps
+ * known values to simple English equivalents. NOT machine-translated and NOT
+ * part of the `content.translations` Recipe Translation Workspace (recipe
+ * categories are a separate entity, `workforce_recipe_categories`, outside
+ * `ContentSourceEntityType`) — this is a deliberately small, hand-maintained
+ * lookup, same as the original demo categories below. Includes both the
+ * original demo set (`ドリンク`/`デザート`/`フード`) and the real Mame To Cha
+ * showcase/fixture categories (`packages/db/scripts/mame-to-cha-showcase.ts`,
+ * `mame-to-cha-fixture.ts`) so no known category falls through to Japanese in
+ * English mode. Add an entry here whenever a new category label is
+ * introduced anywhere in demo or fixture data.
+ */
 const CATEGORY_EN: Record<string, string> = {
   ドリンク: 'Drink',
   デザート: 'Dessert',
   フード: 'Food',
+  業務マニュアル: 'Business Manual',
+  'カクテル・ドリンク': 'Cocktails & Drinks',
 };
 
 export function tRecipeCategory(lang: Lang, category: string): string {

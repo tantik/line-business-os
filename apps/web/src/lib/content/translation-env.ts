@@ -1,5 +1,6 @@
 /**
- * DeepL / automatic-translation configuration for apps/web, read directly
+ * Automatic-translation configuration (DeepL / OpenAI / Google Cloud
+ * Translation) for apps/web, read directly
  * from `process.env` -- deliberately NOT routed through
  * `packages/config/src/env.ts`'s `serverEnv()`, which requires the FULL
  * cross-service server schema (including `SUPABASE_SERVICE_ROLE_KEY`) to be
@@ -21,9 +22,9 @@
  */
 
 /** Supported `CONTENT_TRANSLATION_PROVIDER` values -- kept in one place so the factory's switch and this reader's typing can't drift apart. */
-export type ContentTranslationProviderSelector = 'deepl' | 'openai';
+export type ContentTranslationProviderSelector = 'deepl' | 'openai' | 'google';
 
-const SUPPORTED_PROVIDER_SELECTORS: ContentTranslationProviderSelector[] = ['deepl', 'openai'];
+const SUPPORTED_PROVIDER_SELECTORS: ContentTranslationProviderSelector[] = ['deepl', 'openai', 'google'];
 
 function isSupportedProviderSelector(value: string): value is ContentTranslationProviderSelector {
   return (SUPPORTED_PROVIDER_SELECTORS as string[]).includes(value);
@@ -38,6 +39,7 @@ export interface TranslationEnvConfig {
   deeplApiUrl: string | null;
   openaiApiKey: string | null;
   openaiModel: string | null;
+  googleTranslateApiKey: string | null;
   autoTranslationEnabled: boolean;
 }
 
@@ -51,6 +53,7 @@ export function readTranslationEnv(): TranslationEnvConfig {
   const deeplApiUrl = process.env.DEEPL_API_URL?.trim() || null;
   const openaiApiKey = process.env.OPENAI_API_KEY?.trim() || null;
   const openaiModel = process.env.OPENAI_TRANSLATION_MODEL?.trim() || null;
+  const googleTranslateApiKey = process.env.GOOGLE_TRANSLATE_API_KEY?.trim() || null;
   // Default enabled; only an explicit "false"/"0" disables it.
   const rawFlag = process.env.CONTENT_TRANSLATION_AUTO_ENABLED?.trim().toLowerCase();
   const autoTranslationEnabled = rawFlag !== 'false' && rawFlag !== '0';
@@ -62,6 +65,7 @@ export function readTranslationEnv(): TranslationEnvConfig {
     deeplApiUrl,
     openaiApiKey,
     openaiModel,
+    googleTranslateApiKey,
     autoTranslationEnabled,
   };
 }

@@ -9,6 +9,7 @@ const PROVIDER_ENV_KEYS = [
   'DEEPL_API_URL',
   'OPENAI_API_KEY',
   'OPENAI_TRANSLATION_MODEL',
+  'GOOGLE_TRANSLATE_API_KEY',
 ];
 
 function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
@@ -71,6 +72,14 @@ test('resolveContentTranslationProvider selects OpenAI when CONTENT_TRANSLATION_
   });
 });
 
+test('resolveContentTranslationProvider selects Google when CONTENT_TRANSLATION_PROVIDER=google and GOOGLE_TRANSLATE_API_KEY is set', () => {
+  withCleanProviderEnv({ CONTENT_TRANSLATION_PROVIDER: 'google', GOOGLE_TRANSLATE_API_KEY: 'fake-google-key' }, () => {
+    const provider = resolveContentTranslationProvider();
+    assert.ok(provider !== null);
+    assert.equal(provider?.providerId, 'google');
+  });
+});
+
 test('resolveContentTranslationProvider is case-insensitive for the provider selector', () => {
   withCleanProviderEnv({ CONTENT_TRANSLATION_PROVIDER: 'OpenAI', OPENAI_API_KEY: 'fake-openai-key' }, () => {
     assert.equal(resolveContentTranslationProvider()?.providerId, 'openai');
@@ -108,6 +117,28 @@ test('resolveContentTranslationProvider returns null and logs when CONTENT_TRANS
     assert.equal(messages.length, 1);
     assert.ok(messages[0]!.includes('DEEPL_API_KEY'));
   });
+});
+
+test('resolveContentTranslationProvider returns null and logs when CONTENT_TRANSLATION_PROVIDER=google but GOOGLE_TRANSLATE_API_KEY is missing', () => {
+  withCleanProviderEnv({ CONTENT_TRANSLATION_PROVIDER: 'google' }, () => {
+    const messages = captureConsoleError(() => {
+      assert.equal(resolveContentTranslationProvider(), null);
+    });
+    assert.equal(messages.length, 1);
+    assert.ok(messages[0]!.includes('GOOGLE_TRANSLATE_API_KEY'));
+  });
+});
+
+test('resolveContentTranslationProvider never selects Google merely because GOOGLE_TRANSLATE_API_KEY exists, when CONTENT_TRANSLATION_PROVIDER=openai and OPENAI_API_KEY is missing', () => {
+  withCleanProviderEnv(
+    { CONTENT_TRANSLATION_PROVIDER: 'openai', GOOGLE_TRANSLATE_API_KEY: 'fake-google-key' },
+    () => {
+      const messages = captureConsoleError(() => {
+        assert.equal(resolveContentTranslationProvider(), null);
+      });
+      assert.ok(messages.some((m) => m.includes('OPENAI_API_KEY')));
+    },
+  );
 });
 
 test('resolveContentTranslationProvider returns null and logs a clear error for an unsupported CONTENT_TRANSLATION_PROVIDER value', () => {
