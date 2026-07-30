@@ -56,7 +56,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           ) : null}
           {isPopular ? (
             <span
-              title="人気"
+              title={isEn ? 'Popular' : '人気'}
               style={recipeBadgeIconStyle(RECIPE_BADGE_ICON['人気'].background, RECIPE_BADGE_ICON['人気'].color)}
             >
               {RECIPE_BADGE_ICON['人気'].icon}
@@ -71,7 +71,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
       {ingredients.length > 0 ? <div style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>{tRecipes(lang, 'ingredients')}</div>
-          <DemoHelpButton content={HELP_RECIPES_INGREDIENTS} />
+          <DemoHelpButton content={HELP_RECIPES_INGREDIENTS[lang]} />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {ingredients.map((ingredient) => (
@@ -96,7 +96,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           <div style={{ fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>
             {isInstruction ? (isEn ? 'Check steps' : '確認手順') : tRecipes(lang, 'steps')}
           </div>
-          <DemoHelpButton content={HELP_RECIPES_STEPS} />
+          <DemoHelpButton content={HELP_RECIPES_STEPS[lang]} />
         </div>
         <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 8 }}>
           {steps.map((step, index) => (
@@ -121,7 +121,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <div style={{ fontWeight: 700 }}>{memoTitle ?? (isEn ? 'Note' : 'メモ')}</div>
-            <DemoHelpButton content={HELP_RECIPES_MEMO} />
+            <DemoHelpButton content={HELP_RECIPES_MEMO[lang]} />
           </div>
           {memo}
         </div>

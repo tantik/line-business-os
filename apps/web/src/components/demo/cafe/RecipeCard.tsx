@@ -10,6 +10,12 @@ interface RecipeCardProps {
   onOpen: (recipe: Recipe) => void;
 }
 
+/** Badge tooltip label, JA/EN — same two badge keys the detail view (`RecipeDetail.tsx`) already localizes. */
+const BADGE_LABEL: Record<string, { ja: string; en: string }> = {
+  インストラクション: { ja: 'インストラクション', en: 'Instruction' },
+  人気: { ja: '人気', en: 'Popular' },
+};
+
 /** Popular (人気) shows as a single star on the card — New/Seasonal badges are intentionally not shown here (kept only on the detail view) to keep the card UI simple. */
 function cardBadgeIcons(recipe: Recipe): Array<{ key: string; icon: string; background: string; color: string }> {
   const icons: Array<{ key: string; icon: string; background: string; color: string }> = [];
@@ -74,7 +80,7 @@ export function RecipeCard({ recipe, selected, onOpen }: RecipeCardProps) {
             {badgeIcons.map((badge) => (
               <span
                 key={badge.key}
-                title={badge.key}
+                title={lang === 'en' ? BADGE_LABEL[badge.key]?.en ?? badge.key : badge.key}
                 style={{
                   ...recipeBadgeIconStyle(badge.background, badge.color),
                   boxShadow: '0 1px 2px rgba(54, 43, 31, 0.18)',
