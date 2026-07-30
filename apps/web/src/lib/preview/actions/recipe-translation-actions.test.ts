@@ -40,6 +40,15 @@ test('previewGenerateRecipeTranslation never calls the provider before resolveCo
   assert.ok(providerCallIndex >= 0 && notConfiguredIndex > providerCallIndex);
 });
 
+test('previewGenerateRecipeTranslation persists the resolved provider\'s own providerId, never a hardcoded literal', () => {
+  const start = SOURCE.indexOf('export async function previewGenerateRecipeTranslation(');
+  const end = SOURCE.indexOf('\nexport', start + 1);
+  const body = SOURCE.slice(start, end);
+  assert.ok(body.includes('translationProvider: provider.providerId'));
+  assert.ok(!/translationProvider:\s*['"]deepl['"]/.test(body));
+  assert.ok(!/translationProvider:\s*['"]openai['"]/.test(body));
+});
+
 test('uses no service-role client and never imports a dashboard-only action module', () => {
   assert.ok(!/service_role|createServiceClient|createServiceRoleClient/i.test(SOURCE));
   assert.ok(!SOURCE.includes('workforce/staff-actions'));

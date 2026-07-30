@@ -64,14 +64,21 @@
 > When deploying, set public (`NEXT_PUBLIC_*`) and secret variables in the Vercel
 > dashboard. Never commit them. Scope secrets to server runtimes only.
 
-## 4. OpenAI / AI (future)
+## 4. OpenAI / AI (future) and content translation (apps/web, now)
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
-| `OPENAI_API_KEY` | API key for the future AI module (proposals only; AI never writes business data directly). | Server secret store / provider dashboard | **secret** | future |
+| `OPENAI_API_KEY` | API key for `apps/web`'s recipe content-translation provider (`OpenAIContentTranslationProvider`) **and**, later, the separate future AI module (proposals only; AI never writes business data directly). Same variable name, two independent consumers in two different Vercel projects/deployments -- not a shared runtime value, just a shared name. Read only in `apps/web/src/lib/content/translation-env.ts`; **never** `NEXT_PUBLIC_`-prefixed, never reachable from a `'use client'` file (enforced by a repo-wide scan test). | Server secret store / Vercel project env (Preview, server-only) / provider dashboard | **secret** | now (translation) / future (AI module) |
+| `CONTENT_TRANSLATION_PROVIDER` | Explicit selector for `apps/web`'s recipe translation provider -- `deepl` or `openai`. No fallback based on "whichever key happens to be set"; unset or unsupported means auto-translation is off (Manager can still translate manually). | Vercel project env (Preview) | public-ish (not a secret, but server-read only) | now |
+| `OPENAI_TRANSLATION_MODEL` | Overrides the default OpenAI chat-completions model (`gpt-4o-mini`) used for recipe translation. Optional. | Vercel project env (Preview) | public-ish | now |
+| `DEEPL_API_KEY` | API key for `apps/web`'s recipe content-translation provider (`DeepLContentTranslationProvider`), when `CONTENT_TRANSLATION_PROVIDER=deepl`. Server-only, never `NEXT_PUBLIC_`. | Server secret store / Vercel project env (Preview, server-only) | **secret** | now |
+| `DEEPL_API_URL` | Optional override of the DeepL endpoint (defaults to the free/pro endpoint resolved from the key format). | Vercel project env (Preview) | public-ish | future |
+| `CONTENT_TRANSLATION_AUTO_ENABLED` | Kill switch for automatic translation regardless of provider config (`false`/`0` disables it). Defaults to enabled. | Vercel project env (Preview) | public-ish | now |
 
-> Exact AI provider variable names are finalized when the AI module is built.
-> Listed here so the backup/rebuild process accounts for it.
+> Exact AI-module provider variable names (beyond reusing `OPENAI_API_KEY`) are
+> finalized when that module is built. Listed here so the backup/rebuild
+> process accounts for it, and so the AI module's implementer knows this name
+> is already in use by `apps/web`'s translation feature.
 
 ## 5. LINE (future)
 
