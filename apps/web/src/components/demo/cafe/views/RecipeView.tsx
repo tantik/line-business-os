@@ -55,7 +55,7 @@ export function RecipeBrowser({ recipes }: RecipeBrowserProps) {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 700, color: demoColors.textMuted }}>{tRecipes(lang, 'recipeSharing')}</span>
-          <DemoHelpButton content={HELP_RECIPES_SHARING} />
+          <DemoHelpButton content={HELP_RECIPES_SHARING[lang]} />
           <LangToggle />
         </div>
       </header>

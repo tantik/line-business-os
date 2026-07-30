@@ -55,14 +55,17 @@ export const tRecipes = makeTranslator(RECIPES_DICT);
  * original demo set (`ドリンク`/`デザート`/`フード`) and the real Mame To Cha
  * showcase/fixture categories (`packages/db/scripts/mame-to-cha-showcase.ts`,
  * `mame-to-cha-fixture.ts`) so no known category falls through to Japanese in
- * English mode. Add an entry here whenever a new category label is
- * introduced anywhere in demo or fixture data.
+ * English mode. Also covers `recipe-view-model.ts`'s own hardcoded `'未分類'`
+ * fallback (shown when a recipe has no category at all), so the "no
+ * category" empty state is translated too. Add an entry here whenever a new
+ * category label is introduced anywhere in demo or fixture data.
  */
 const CATEGORY_EN: Record<string, string> = {
   ドリンク: 'Drink',
   デザート: 'Dessert',
   フード: 'Food',
   業務マニュアル: 'Business Manual',
+  未分類: 'Uncategorized',
   'カクテル・ドリンク': 'Cocktails & Drinks',
 };
 

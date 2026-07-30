@@ -1,3 +1,5 @@
+import type { Lang } from './i18n';
+
 export interface DemoHelpContent {
   title: string;
   ariaLabel: string;
@@ -7,6 +9,14 @@ export interface DemoHelpContent {
 /**
  * Static Japanese help copy for the cafe demo's `?` popovers.
  * Kept separate from i18n.*.ts because this help system is JA-only by design (demo sales-support copy, not a translated UI string).
+ *
+ * The Recipes-related items below (`HELP_RECIPES_*`) are the one exception:
+ * `RecipeDetail`/`RecipeView` are shared with the real Mame To Cha DB-backed
+ * Staff preview, which DOES support an EN/JA toggle for recipe content, so
+ * these four are lang-keyed (`Record<Lang, DemoHelpContent>`, same shape as
+ * `i18n.recipes.ts`'s `RECIPES_DICT`) instead of a single JA-only object.
+ * The Staff/Manager help items above stay untouched, single-language
+ * `DemoHelpContent` objects -- those screens have no EN/JA toggle.
  */
 
 export const HELP_STAFF_WORK_STATUS: DemoHelpContent = {
@@ -86,10 +96,11 @@ export const HELP_STAFF_NEXT_MONTH_PREFERENCE: DemoHelpContent = {
 スタッフが提出した希望をもとに、店長がシフト作成を行いやすくなります。`,
 };
 
-export const HELP_RECIPES_SHARING: DemoHelpContent = {
-  title: 'レシピ共有の使い方',
-  ariaLabel: 'レシピ共有の説明を開く',
-  body: `レシピ共有では、スタッフがスマートフォンから商品の作り方を確認できます。
+export const HELP_RECIPES_SHARING: Record<Lang, DemoHelpContent> = {
+  ja: {
+    title: 'レシピ共有の使い方',
+    ariaLabel: 'レシピ共有の説明を開く',
+    body: `レシピ共有では、スタッフがスマートフォンから商品の作り方を確認できます。
 
 使い方:
 1. 上部のレシピカードから確認したい商品を選びます。
@@ -99,34 +110,74 @@ export const HELP_RECIPES_SHARING: DemoHelpContent = {
 
 目的:
 新人スタッフや外国人スタッフでも、同じ手順を見ながら作業できるようにするための機能です。`,
+  },
+  en: {
+    title: 'How to use Recipe Sharing',
+    ariaLabel: 'Open the Recipe Sharing help',
+    body: `Recipe Sharing lets staff check how to make each item from their smartphone.
+
+How to use:
+1. Choose the item you want to check from the recipe cards at the top.
+2. Check the ingredients, steps, and any extra notes.
+3. Switch between Japanese and English as needed.
+4. In production, this is expected to open directly from a LINE rich menu.
+
+Purpose:
+So that new or non-Japanese-speaking staff can follow the same steps while working.`,
+  },
 };
 
-export const HELP_RECIPES_INGREDIENTS: DemoHelpContent = {
-  title: '材料の見方',
-  ariaLabel: '材料の説明を開く',
-  body: `材料欄には、商品を作るために必要な材料と分量を表示します。
+export const HELP_RECIPES_INGREDIENTS: Record<Lang, DemoHelpContent> = {
+  ja: {
+    title: '材料の見方',
+    ariaLabel: '材料の説明を開く',
+    body: `材料欄には、商品を作るために必要な材料と分量を表示します。
 
 使い方:
 1. 作業前に必要な材料を確認します。
 2. 分量を確認して、味や品質が毎回同じになるようにします。
 3. 本番導入時には店舗ごとのレシピ登録・編集に対応できます。`,
+  },
+  en: {
+    title: 'How to read Ingredients',
+    ariaLabel: 'Open the Ingredients help',
+    body: `The ingredients section shows what's needed to make the item, and how much of each.
+
+How to use:
+1. Check the ingredients you need before starting.
+2. Check the quantities so taste and quality stay consistent every time.
+3. In production, this can support per-location recipe registration/editing.`,
+  },
 };
 
-export const HELP_RECIPES_STEPS: DemoHelpContent = {
-  title: '作り方の見方',
-  ariaLabel: '作り方の説明を開く',
-  body: `作り方欄には、商品の調理手順を順番に表示します。
+export const HELP_RECIPES_STEPS: Record<Lang, DemoHelpContent> = {
+  ja: {
+    title: '作り方の見方',
+    ariaLabel: '作り方の説明を開く',
+    body: `作り方欄には、商品の調理手順を順番に表示します。
 
 使い方:
 1. 1番から順番に確認します。
 2. 慣れていないスタッフでも同じ手順で作業できます。
 3. 手順が変わった場合、本番導入時には店長側から更新できるようにします。`,
+  },
+  en: {
+    title: 'How to read Steps',
+    ariaLabel: 'Open the Steps help',
+    body: `The steps section shows the preparation steps in order.
+
+How to use:
+1. Follow the steps in order, starting from step 1.
+2. Even staff who aren't used to the recipe yet can work the same way.
+3. If a step changes, in production the manager will be able to update it.`,
+  },
 };
 
-export const HELP_RECIPES_MEMO: DemoHelpContent = {
-  title: '補足メモの使い方',
-  ariaLabel: '補足メモの説明を開く',
-  body: `補足メモには、通常の手順だけでは伝わりにくい注意点や追加説明を表示します。
+export const HELP_RECIPES_MEMO: Record<Lang, DemoHelpContent> = {
+  ja: {
+    title: '補足メモの使い方',
+    ariaLabel: '補足メモの説明を開く',
+    body: `補足メモには、通常の手順だけでは伝わりにくい注意点や追加説明を表示します。
 
 例:
 - 抹茶液の作り方
@@ -136,6 +187,21 @@ export const HELP_RECIPES_MEMO: DemoHelpContent = {
 
 目的:
 口頭説明に頼らず、スタッフ全員が同じ品質で提供できるようにするためです。`,
+  },
+  en: {
+    title: 'How to use Notes',
+    ariaLabel: 'Open the Notes help',
+    body: `Notes show extra points or explanations that the regular steps alone don't cover.
+
+Examples:
+- How to make the matcha liquid
+- Preparing the sauce in advance
+- Things to check before serving
+- Notes for seasonal menu items
+
+Purpose:
+So every staff member can provide the same quality without relying on verbal explanations.`,
+  },
 };
 
 export const HELP_MANAGER_ALERTS: DemoHelpContent = {
