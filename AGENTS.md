@@ -14,19 +14,21 @@ platform.
 
 Read these in order before changing anything:
 
-1. `PROJECT_BRIEF.md` — high-level project strategy and context.
-2. `README.md` — repository overview and getting started.
-3. `AGENTS.md` — operating rules (this file).
-4. `.cursor/rules/*` — machine-enforced guardrails.
-5. `docs/architecture/*` — architecture detail.
-6. `docs/security/*` — security requirements.
-7. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
+1. `AGENTS.md` — operating rules (this file).
+2. `docs/ai/oaes-project-profile.md` — how OAES is applied in this repository.
+3. `docs/ai/current-task.md` — the current verified stage and next gate.
+4. `PROJECT_BRIEF.md` — high-level project strategy and context.
+5. `README.md` — repository overview and getting started.
+6. `.cursor/rules/*` — machine-enforced guardrails.
+7. `docs/architecture/*` — architecture detail.
+8. `docs/security/*` — security requirements.
+9. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
    already contains, the scaffold-only module schemas, local-first flow, and
    cloud safety guardrails.
-8. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
+10. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
    prepares a separate Supabase Cloud dev project (placeholders only; Cloud
    writes are approval-gated).
-9. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
+11. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
    app-layer foundation for authenticated multi-tenant access (Supabase Auth,
    tenant context, protected routes, RLS). Planning only — no product features.
 
@@ -53,14 +55,16 @@ Read these in order before changing anything:
 
 ## Before implementing any module feature
 
-1. Check `docs/architecture`.
-2. Check the `tenant_id` requirement.
-3. Check RLS impact.
-4. Check RBAC permissions (`packages/core/src/permissions.ts`).
-5. Check audit log requirement.
-6. Check cross-module impact.
-7. Run lint/build/tests.
-8. Summarize risks before commit.
+1. Complete the OAES Product Review and Architecture Review gates in
+   `docs/ai/oaes-project-profile.md`.
+2. Check `docs/architecture`.
+3. Check the `tenant_id` requirement.
+4. Check RLS impact.
+5. Check RBAC permissions (`packages/core/src/permissions.ts`).
+6. Check audit log requirement.
+7. Check cross-module impact.
+8. Run the applicable local verification.
+9. Produce an OAES Acceptance Report before declaring the task done.
 
 ## Database phase (Phase 1)
 

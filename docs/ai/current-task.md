@@ -1,89 +1,74 @@
-# LINE Business OS - Current Task Handoff
+# LINE Business OS — Current Task Handoff
 
-## 1. Current stage
+## Current stage
 
-Phase 1N-4C Slice D preparation - Mame To Cha Cloud acceptance onboarding
-preflight.
+Controlled post-merge closeout of Cafe Package v2.0 under the OAES project
+profile.
 
-The current task is documentation and read-only preparation only. It does
-not authorize a Cloud write.
+## Verified baseline
 
-## 2. Current baseline
+- Base branch: `dev`.
+- Local `dev` and `origin/dev`: `7debba1` (PR #150 merge).
+- Inventory, Preview JA/EN, Recipe Translation, final UX polish, and Product
+  Acceptance fixes are merged.
+- Inventory migrations `0035`–`0047`, including `0036` and `0038`, are present.
+- The current canonical migration files `0036` and `0038` match their original
+  PR #141 versions.
+- Production is not enabled by this task.
 
-- Base branch: `dev`
-- Slice C2 merged by PR #110.
-- Merge commit: `f24385a`
-- Local authenticated browser smoke completed for manager and staff.
-- Negative `staff -> manager` access check passed.
-- Full local quality gate passed: 30/30 tasks.
-- Supabase Cloud was not changed during Slice C2.
+## Current goal
 
-## 3. Current goal
+1. Integrate OAES as the repository's working engineering process.
+2. Run relevant local verification on the merged Cafe v2.0 baseline.
+3. Perform authenticated visual acceptance for the three discoverable Preview
+   destinations: `/mame-to-cha`, `/mame-to-cha/recipes`, and
+   `/mame-to-cha/manager`.
+4. Produce the final Cafe Package v2.0 Acceptance Report and freeze decision.
 
-Prepare Slice D so Cloud acceptance onboarding can later be executed as a
-sequence of narrow, independently approved operations.
+## Current working branch
 
-Current deliverables:
+`chore/oaes-linebos-integration`
 
-- update the Phase 1N-4C roadmap after Slice C2;
-- document the Slice D read-only preflight;
-- reconcile the architecture plan with the implemented typed fixture
-  manifest;
-- create an intake/classification register for the client's new requests.
+## Safety boundaries
 
-## 4. Source of truth
+Allowed in the current scope:
 
-The tracked, non-secret acceptance manifest is the typed fixture:
+- repository inspection and OAES process documentation;
+- local reversible documentation/configuration changes;
+- relevant read-only tests, typecheck, lint, and build;
+- static security and tenant/RLS review.
 
-```text
-packages/db/scripts/mame-to-cha-fixture.ts
-```
+Separate explicit approval is required before:
 
-Slice C1 deliberately selected this implementation instead of a YAML file.
-It contains no real email, password, token, UUID, or customer PII.
+- local database reset or migration execution;
+- migration or RLS changes;
+- Cloud, Vercel, DNS, or production writes;
+- secrets, auth, PII, roles/permissions, or billing changes;
+- commit, push, PR creation, or merge.
 
-The Slice D preparation plan is:
+Recorded approval for this task (2026-07-31): commit, push, and PR creation are
+approved for the OAES integration and subsequent Cafe acceptance fix. Local
+Supabase reset and pgTAP are approved only against the loopback local stack.
+Cloud, production, migration/RLS changes, and merge remain prohibited.
 
-```text
-docs/phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md
-```
+## Next gate
 
-## 5. Safety boundaries
+The OAES integration passed local documentation checks and the merged baseline
+passed the full 30-task local code gate. Preview Staff and Recipes loaded with
+no new browser console errors, and Staff -> Manager remained denied.
 
-Allowed in the current preparation task:
+Product Acceptance found one blocker: the Staff Recipes UI exposes the label
+`Machine translation`. This leaks an internal mechanism contrary to
+`docs/development/product-acceptance-workflow.md`. Manager positive-path visual
+acceptance remains unverified because the available authenticated browser
+session is Staff-scoped.
 
-- repository and documentation inspection;
-- local Git inspection;
-- read-only Cloud/Vercel/DNS diagnostics after the target is identified;
-- recording decisions, risks, stop conditions, and approval requests.
+Next gates:
 
-Not authorized:
-
-- Supabase Cloud database writes;
-- Auth user creation or password changes;
-- `supabase link`, `supabase db push`, migrations, reset, or cleanup;
-- Vercel environment or domain changes;
-- DNS changes;
-- production work;
-- real customer PII in Git;
-- secrets in commands, logs, documents, commits, or chat output.
-
-## 6. Client additions
-
-Client additions must not be mixed silently into onboarding. Each request is
-first recorded in the Slice D request register and classified under ADR 0010
-as configuration, branding/content, reusable Workforce capability, reusable
-module, or exceptional tenant-specific behavior.
-
-No implementation starts until the business problem, reusable architecture,
-security impact, acceptance test, and now/later/reject recommendation are
-recorded.
-
-## 7. Next expected action
-
-Collect the client's additions in plain business language, complete the
-request register, and run the Slice D read-only environment preflight.
-
-After the preflight report is reviewed, request a separate explicit approval
-for the first Cloud write. Approval for one operation never authorizes the
-next operation.
+1. Commit/push/open the approved OAES integration PR.
+2. Create a separate Cafe acceptance-fix branch removing the operator-facing machine
+   translation mechanism label, followed by affected tests and visual QA.
+3. Human-provided Manager-authenticated browser session for positive Manager
+   acceptance.
+4. Explicit approval for local-only Supabase reset/pgTAP if database closeout
+   evidence needs refreshing.
