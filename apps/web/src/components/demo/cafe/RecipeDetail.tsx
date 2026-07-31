@@ -40,9 +40,6 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           English translation is not available yet. Showing the Japanese original.
         </div>
       ) : null}
-      {isEn && recipe.translationNotice === 'machine' ? (
-        <div style={{ marginBottom: 10, color: demoColors.textMuted, fontSize: 11.5 }}>Machine translation</div>
-      ) : null}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{name}</h2>

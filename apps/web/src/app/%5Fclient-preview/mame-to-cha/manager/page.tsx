@@ -233,6 +233,8 @@ export default async function MameToChaPreviewManagerPage({
           closingCheckComplete={
             !SHOW_OPENING_CLOSING_STOCK_CHECKS || !inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'
           }
+          correctionDetails={managerAlerts.slice(0, 3).map((alert) => alert.label)}
+          shortageDetails={activeInventoryItems.filter((item) => item.status === 'shortage').slice(0, 4).map((item) => item.name)}
         />
 
         <PreviewManagerView
@@ -269,7 +271,7 @@ export default async function MameToChaPreviewManagerPage({
           }
         />
 
-        <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
+        <PreviewSettingsCard shiftTypes={shiftTypes} settings={settings} />
 
         {exchangesResult.status === 'success' && allAssignmentsResult.status === 'success' ? (
           <PreviewShiftExchangeManagerPanel

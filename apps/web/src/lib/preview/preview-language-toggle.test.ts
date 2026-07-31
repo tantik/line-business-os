@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import * as helpContent from '../demo/cafe/helpContent.js';
 
 /**
  * Regression guard for the "language toggle doesn't translate anything"
@@ -44,4 +45,34 @@ test('preview pages do not each mount their own redundant LangProvider (centrali
 test('states.tsx safe-state components read the shared lang instead of hardcoding Japanese', () => {
   const source = read('states.tsx');
   assert.match(source, /useLang\(\)/, 'safe states must translate via the shared useLang() hook');
+});
+
+test('Staff Recipes shows translated content without exposing the translation mechanism', () => {
+  const source = read('../../components/demo/cafe/RecipeDetail.tsx');
+  assert.ok(
+    !source.includes('Machine translation'),
+    'operator-facing recipe detail must show the translation result, not the internal mechanism',
+  );
+});
+
+test('every shared Cafe help popup provides both Japanese and English copy', () => {
+  const definitions = Object.entries(helpContent).filter(([name]) => name.startsWith('HELP_'));
+  assert.ok(definitions.length > 0, 'expected shared Cafe help definitions');
+  for (const [name, value] of definitions) {
+    assert.ok(value.ja?.title && value.ja?.body, `${name} must provide Japanese copy`);
+    assert.ok(value.en?.title && value.en?.body, `${name} must provide English copy`);
+  }
+
+  const buttonSource = read('../../components/demo/cafe/DemoHelpButton.tsx');
+  assert.match(buttonSource, /content\[lang\]/, 'the help button must select copy from the active language');
+});
+
+test('Preview recipe management does not open a nested modal', () => {
+  const source = read('preview-recipe-kind-manager.tsx');
+  assert.ok(!source.includes('<Modal'), 'recipe editor must stay inside the single parent management modal');
+});
+
+test('an empty shift-exchange approval list is not rendered', () => {
+  const source = read('preview-shift-exchange-manager-panel.tsx');
+  assert.match(source, /if \(relevant\.length === 0\) return null/);
 });

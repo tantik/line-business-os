@@ -6,6 +6,12 @@ export interface DemoHelpContent {
   body: string;
 }
 
+export type DemoHelpContentByLang = Record<Lang, DemoHelpContent>;
+
+function bilingual(ja: DemoHelpContent, en: DemoHelpContent): DemoHelpContentByLang {
+  return { ja, en };
+}
+
 /**
  * Static Japanese help copy for the cafe demo's `?` popovers.
  * Kept separate from i18n.*.ts because this help system is JA-only by design (demo sales-support copy, not a translated UI string).
@@ -19,7 +25,7 @@ export interface DemoHelpContent {
  * `DemoHelpContent` objects -- those screens have no EN/JA toggle.
  */
 
-export const HELP_STAFF_WORK_STATUS: DemoHelpContent = {
+export const HELP_STAFF_WORK_STATUS = bilingual({
   title: '勤務状況の使い方',
   ariaLabel: '勤務状況の説明を開く',
   body: `勤務状況では、スタッフの出勤・退勤・休憩開始・休憩終了を記録します。
@@ -43,9 +49,23 @@ export const HELP_STAFF_WORK_STATUS: DemoHelpContent = {
 
 注意:
 このデモでは画面上の動作確認のみ行います。本番導入時には実際の勤務記録として保存します。`,
-};
+}, {
+  title: 'How Work status works',
+  ariaLabel: 'Open the Work status help',
+  body: `Use Work status to record clock-in, clock-out, and breaks.
 
-export const HELP_STAFF_SHIFT_TABLE: DemoHelpContent = {
+Clock in / out:
+1. Select Clock in when work begins.
+2. Select Clock out when work ends.
+3. Worked time is calculated from those records minus breaks.
+
+Breaks:
+1. Select Start break when the break begins.
+2. Select End break when work resumes.
+3. Break time is excluded from worked time.`,
+});
+
+export const HELP_STAFF_SHIFT_TABLE = bilingual({
   title: 'シフト表の見方',
   ariaLabel: 'シフト表の説明を開く',
   body: `シフト表では、今週の勤務予定を確認できます。
@@ -62,9 +82,19 @@ export const HELP_STAFF_SHIFT_TABLE: DemoHelpContent = {
 3. 「前の週」「今日」「次の週」で週を切り替えられます。
 4. 自分の過去日のセルを開くと、その日の勤務記録を確認できます。
 5. 必要がある場合は勤務時間の修正依頼を送れます。`,
-};
+}, {
+  title: 'How to read the Shift schedule',
+  ariaLabel: 'Open the Shift schedule help',
+  body: `The schedule shows the team's weekly shifts.
 
-export const HELP_STAFF_TRANSPORT_MESSAGE: DemoHelpContent = {
+- Shift codes identify working-time patterns.
+- A dash means no shift is assigned.
+- Use All or Only me to change the visible staff.
+- Use Previous week, Today, and Next week to move between weeks.
+- Open your past shift to review attendance or request a correction.`,
+});
+
+export const HELP_STAFF_TRANSPORT_MESSAGE = bilingual({
   title: '交通費と本日のメッセージ',
   ariaLabel: '交通費と本日のメッセージの説明を開く',
   body: `この欄では、その日の交通費と店長への連絡事項を入力できます。
@@ -78,9 +108,17 @@ export const HELP_STAFF_TRANSPORT_MESSAGE: DemoHelpContent = {
 1. 遅刻・早退・共有事項など、店長に伝えたい内容を入力します。
 2. 「保存」を押すと、店長側のダッシュボードで確認できる想定です。
 3. 英語で入力された場合、本番導入時には翻訳表示も検討できます。`,
-};
+}, {
+  title: 'Transport and daily message',
+  ariaLabel: 'Open the Transport and daily message help',
+  body: `Use this section to record today's transport cost and a message for the manager.
 
-export const HELP_STAFF_NEXT_MONTH_PREFERENCE: DemoHelpContent = {
+- Enter only the transport cost for this workday.
+- Use the message for lateness, early departure, or an operational note.
+- Select Save to update today's work report.`,
+});
+
+export const HELP_STAFF_NEXT_MONTH_PREFERENCE = bilingual({
   title: '来月のシフト希望の出し方',
   ariaLabel: '来月のシフト希望の説明を開く',
   body: `来月の勤務希望を提出するための画面です。
@@ -94,7 +132,16 @@ export const HELP_STAFF_NEXT_MONTH_PREFERENCE: DemoHelpContent = {
 
 本番導入時:
 スタッフが提出した希望をもとに、店長がシフト作成を行いやすくなります。`,
-};
+}, {
+  title: "How to submit next month's availability",
+  ariaLabel: "Open the next month's availability help",
+  body: `Submit the days and shift patterns you can work next month.
+
+1. Open the availability calendar.
+2. Choose a shift type for available days.
+3. Mark days when you cannot work as unavailable.
+4. Submit the completed preference to the manager.`,
+});
 
 export const HELP_RECIPES_SHARING: Record<Lang, DemoHelpContent> = {
   ja: {
@@ -204,7 +251,7 @@ So every staff member can provide the same quality without relying on verbal exp
   },
 };
 
-export const HELP_MANAGER_ALERTS: DemoHelpContent = {
+export const HELP_MANAGER_ALERTS = bilingual({
   title: '要確認の見方',
   ariaLabel: '要確認の説明を開く',
   body: `要確認には、店長が確認すべき内容をまとめて表示します。
@@ -220,9 +267,21 @@ export const HELP_MANAGER_ALERTS: DemoHelpContent = {
 2. シフト表の「!」が付いたセルを開きます。
 3. 勤務記録や修正依頼の詳細を確認します。
 4. 必要に応じて承認・後で確認などの対応を行います。`,
-};
+}, {
+  title: 'How to use Needs review',
+  ariaLabel: 'Open the Needs review help',
+  body: `Needs review lists specific items that require a manager decision.
 
-export const HELP_MANAGER_SHIFT_TABLE: DemoHelpContent = {
+Examples:
+- attendance correction requests;
+- missing shift preferences;
+- understaffed days;
+- staff messages.
+
+Open the related action to review the staff member, date, details, and available decision.`,
+});
+
+export const HELP_MANAGER_SHIFT_TABLE = bilingual({
   title: '店長用シフト表の使い方',
   ariaLabel: '店長用シフト表の説明を開く',
   body: `店長用シフト表では、スタッフごとの週間シフトを確認・編集できます。
@@ -236,9 +295,19 @@ export const HELP_MANAGER_SHIFT_TABLE: DemoHelpContent = {
 
 注意:
 このデモでは画面上の確認・編集のみです。本番導入時には実データとして保存します。`,
-};
+}, {
+  title: 'How to use the Manager shift schedule',
+  ariaLabel: 'Open the Manager shift schedule help',
+  body: `Use the weekly schedule to review and edit staff shifts.
 
-export const HELP_MANAGER_AUTO_SCHEDULE: DemoHelpContent = {
+1. Select a staff/date cell to open that shift.
+2. Future shifts can be created or edited.
+3. Past shifts open their recorded information.
+4. An exclamation mark identifies an understaffed day.
+5. Use Previous week, Today, and Next week to change the week.`,
+});
+
+export const HELP_MANAGER_AUTO_SCHEDULE = bilingual({
   title: '自動シフト作成の考え方',
   ariaLabel: '自動シフト作成の説明を開く',
   body: `自動シフト作成は、スタッフの希望や必要人数をもとにシフト案を作る機能のデモです。
@@ -252,9 +321,20 @@ export const HELP_MANAGER_AUTO_SCHEDULE: DemoHelpContent = {
 
 本番導入時:
 実店舗のルールに合わせて、シフト案を作成し、店長が最終確認できる形にします。`,
-};
+}, {
+  title: 'How automatic shift creation works',
+  ariaLabel: 'Open the automatic shift creation help',
+  body: `Automatic shift creation prepares a draft from:
 
-export const HELP_MANAGER_MONTHLY_REPORT: DemoHelpContent = {
+- required staffing by weekday;
+- submitted staff preferences;
+- unavailable days;
+- maximum monthly hours.
+
+The result remains a draft until a manager reviews and publishes it.`,
+});
+
+export const HELP_MANAGER_MONTHLY_REPORT = bilingual({
   title: '月間レポートCSVの見方',
   ariaLabel: '月間レポートCSVの説明を開く',
   body: `月間レポートでは、スタッフ別の実働時間、時給、交通費、概算支給額を確認できます。
@@ -266,9 +346,15 @@ export const HELP_MANAGER_MONTHLY_REPORT: DemoHelpContent = {
 
 注意:
 このデモの月間レポートは概算表示です。正式な給与計算ではありません。`,
-};
+}, {
+  title: 'How to use the monthly report',
+  ariaLabel: 'Open the monthly report help',
+  body: `The monthly report summarizes worked hours and operational records by staff member.
 
-export const HELP_MANAGER_STAFF_RECIPE_MANAGEMENT: DemoHelpContent = {
+Estimated earnings are an operational estimate only. They are not payroll and do not include taxes, overtime rules, insurance, or deductions.`,
+});
+
+export const HELP_MANAGER_STAFF_RECIPE_MANAGEMENT = bilingual({
   title: 'スタッフ・レシピ管理の使い方',
   ariaLabel: 'スタッフ・レシピ管理の説明を開く',
   body: `スタッフ管理では、スタッフ情報を確認・編集する想定です。
@@ -293,9 +379,23 @@ export const HELP_MANAGER_STAFF_RECIPE_MANAGEMENT: DemoHelpContent = {
 
 本番導入時:
 店舗ごとのスタッフ情報やレシピ情報として保存します。`,
-};
+}, {
+  title: 'Staff, Recipes, and Inventory',
+  ariaLabel: 'Open the Staff, Recipes, and Inventory help',
+  body: `Staff management:
+- add and edit staff profiles;
+- maintain position, employment type, and active status.
 
-export const HELP_MANAGER_SETTINGS: DemoHelpContent = {
+Recipe management:
+- review recipes and instructions;
+- change the content type supported by the current data model.
+
+Inventory:
+- maintain item targets and reorder points;
+- review current quantities and shortages.`,
+});
+
+export const HELP_MANAGER_SETTINGS = bilingual({
   title: '設定の使い方',
   ariaLabel: '設定の説明を開く',
   body: `設定では、店舗ごとのシフト作成ルールを管理する想定です。
@@ -308,4 +408,14 @@ export const HELP_MANAGER_SETTINGS: DemoHelpContent = {
 
 目的:
 店舗の運用ルールを登録して、シフト作成や月間集計をしやすくするためです。`,
-};
+}, {
+  title: 'How to use Settings',
+  ariaLabel: 'Open the Settings help',
+  body: `Settings controls the store's scheduling rules.
+
+- required staff by weekday;
+- maximum monthly hours;
+- reusable shift types and working times.
+
+Deactivate a shift type when it should no longer be offered. Existing historical shifts remain unchanged.`,
+});

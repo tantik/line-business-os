@@ -45,14 +45,14 @@ export function PreviewInventoryModal({
         aria-label={title}
         style={{
           ...card,
-          width: 'min(720px, 100%)',
+          width: 'min(640px, 100%)',
           maxHeight: 'calc(100vh - 32px)',
           overflowY: 'auto',
           background: demoColors.surface,
           boxShadow: '0 24px 64px rgba(15, 23, 42, 0.28)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'sticky', top: -16, zIndex: 2, margin: '-16px -16px 0', padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: demoColors.surface, borderBottom: `1px solid ${demoColors.border}` }}>
           <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
           <button type="button" style={buttonSecondary} onClick={onClose}>
             {closeLabel}

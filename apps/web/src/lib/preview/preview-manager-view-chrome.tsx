@@ -1,7 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { useTransition, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -57,6 +57,14 @@ export function PreviewManagerViewChrome({
   const todayIso = todayIsoInTimeZone(timeZone);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
+  const router = useRouter();
+  const [isNavigating, startNavigation] = useTransition();
+
+  function navigateToWeek(targetOffset: number) {
+    if (targetOffset === weekOffset) return;
+    const href = targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
+    startNavigation(() => router.push(href));
+  }
 
   return (
     <section style={card}>
@@ -77,21 +85,25 @@ export function PreviewManagerViewChrome({
           {formatMonthDay(new Date(`${periodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${periodEnd}T00:00:00`))}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link href={`${basePath}/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+          <button type="button" onClick={() => navigateToWeek(weekOffset - 1)} disabled={isNavigating} style={isNavigating ? buttonDisabled : buttonSecondary}>
             ← {t('prevWeek')}
-          </Link>
-          <Link
-            href={`${basePath}/manager`}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigateToWeek(0)}
+            disabled={weekOffset === 0 || isNavigating}
             style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
             aria-disabled={weekOffset === 0}
           >
             {t('today')}
-          </Link>
-          <Link href={`${basePath}/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+          </button>
+          <button type="button" onClick={() => navigateToWeek(weekOffset + 1)} disabled={isNavigating} style={isNavigating ? buttonDisabled : buttonSecondary}>
             {t('nextWeek')} →
-          </Link>
+          </button>
         </div>
       </div>
+
+      {isNavigating ? <p role="status" style={{ margin: '-6px 0 8px', ...mutedText }}>{lang === 'ja' ? '週を読み込み中…' : 'Loading week…'}</p> : null}
 
       {staff === null ? (
         <p style={{ margin: '12px 0 0', ...mutedText }}>{t('staffListLoadError')}</p>

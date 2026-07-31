@@ -11,6 +11,8 @@ export interface PreviewManagerTodayProps {
   unpublishedShifts: number;
   openingCheckComplete: boolean | null;
   closingCheckComplete: boolean | null;
+  correctionDetails?: string[];
+  shortageDetails?: string[];
 }
 
 export function PreviewManagerToday(props: PreviewManagerTodayProps) {
@@ -19,15 +21,17 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
     {
       key: 'corrections',
       active: props.pendingCorrections > 0,
-      label:
+      title: lang === 'ja' ? '勤怠修正' : 'Attendance corrections',
+      detail:
         lang === 'ja'
-          ? `勤怠修正の確認: ${props.pendingCorrections}件`
-          : `Attendance corrections: ${props.pendingCorrections}`,
+          ? props.correctionDetails?.join('、') || `${props.pendingCorrections}件の確認待ち`
+          : props.correctionDetails?.join(', ') || `${props.pendingCorrections} awaiting review`,
     },
     {
       key: 'exchanges',
       active: props.pendingExchanges > 0,
-      label:
+      title: lang === 'ja' ? 'シフト交換' : 'Shift exchanges',
+      detail:
         lang === 'ja'
           ? `シフト交換の確認: ${props.pendingExchanges}件`
           : `Shift exchanges awaiting review: ${props.pendingExchanges}`,
@@ -35,7 +39,8 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
     {
       key: 'schedule',
       active: props.unpublishedShifts > 0,
-      label:
+      title: lang === 'ja' ? '未公開シフト' : 'Unpublished shifts',
+      detail:
         lang === 'ja'
           ? `未公開のシフト変更: ${props.unpublishedShifts}件`
           : `Unpublished schedule changes: ${props.unpublishedShifts}`,
@@ -43,15 +48,17 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
     {
       key: 'shortage',
       active: props.shortageItems > 0,
-      label:
+      title: lang === 'ja' ? '在庫不足' : 'Inventory shortage',
+      detail:
         lang === 'ja'
-          ? `補充が必要な商品: ${props.shortageItems}件`
-          : `Items needing restock: ${props.shortageItems}`,
+          ? props.shortageDetails?.join('、') || `${props.shortageItems}件の商品が要補充`
+          : props.shortageDetails?.join(', ') || `${props.shortageItems} item(s) need restocking`,
     },
     {
       key: 'uncounted',
       active: props.uncountedItems > 0,
-      label:
+      title: lang === 'ja' ? '未確認在庫' : 'Uncounted inventory',
+      detail:
         lang === 'ja'
           ? `未確認の在庫: ${props.uncountedItems}件`
           : `Inventory items not yet counted: ${props.uncountedItems}`,
@@ -59,12 +66,14 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
     {
       key: 'opening',
       active: props.openingCheckComplete === false,
-      label: lang === 'ja' ? '本日の開始在庫確認が未完了です' : "Today's opening stock check is incomplete",
+      title: lang === 'ja' ? '開始在庫確認' : 'Opening stock check',
+      detail: lang === 'ja' ? '本日の確認が未完了です' : "Today's check is incomplete",
     },
     {
       key: 'closing',
       active: props.closingCheckComplete === false,
-      label: lang === 'ja' ? '本日の終了在庫確認が未完了です' : "Today's closing stock check is incomplete",
+      title: lang === 'ja' ? '終了在庫確認' : 'Closing stock check',
+      detail: lang === 'ja' ? '本日の確認が未完了です' : "Today's check is incomplete",
     },
   ].filter((row) => row.active);
 
@@ -88,11 +97,14 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
         </span>
       </div>
       {rows.length > 0 ? (
-        <ul style={{ margin: '12px 0 0', paddingLeft: 20, display: 'grid', gap: 7, fontSize: 13 }}>
+        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
           {rows.map((row) => (
-            <li key={row.key}>{row.label}</li>
+            <div key={row.key} style={{ padding: '10px 12px', borderRadius: 8, background: demoColors.alertWarningBg, border: `1px solid ${demoColors.warning}` }}>
+              <strong style={{ display: 'block', fontSize: 12.5 }}>{row.title}</strong>
+              <span style={{ display: 'block', marginTop: 3, fontSize: 12, color: demoColors.textMuted }}>{row.detail}</span>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : null}
     </section>
   );

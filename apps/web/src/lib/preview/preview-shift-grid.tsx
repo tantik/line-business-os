@@ -112,7 +112,11 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
       <Modal
         open={selected !== null}
         onClose={() => setSelected(null)}
-        title={`${selectedStaff?.name ?? t('shiftModalTitleFallback')}・${selected?.date ?? ''} のシフト`}
+        title={
+          lang === 'ja'
+            ? `${selectedStaff?.name ?? t('shiftModalTitleFallback')}・${selected?.date ?? ''} のシフト`
+            : `${selectedStaff?.name ?? t('shiftModalTitleFallback')} · Shift on ${selected?.date ?? ''}`
+        }
         maxWidth={480}
       >
         {selected ? (
