@@ -43,8 +43,12 @@ const CAFE_MANAGER_SCREEN = '../../components/demo/cafe/CafeManagerScreen.tsx';
 test('inactive shift types are hidden from new assignments while retained for existing assignments', () => {
   const source = read('preview-shift-grid.tsx');
   assert.match(source, /item\.isActive \|\| item\.shiftTypeId === assignment\?\.shiftTypeId/);
+  assert.match(source, /assignmentItem\.employeeId && assignmentItem\.shiftTypeId === item\.shiftTypeId/);
   assert.match(source, /shiftTypes=\{toManagerViewShiftTypes\(visibleShiftTypes\)\}/);
   assert.match(source, /\{selectableShiftTypes\.map\(\(item\) => \(/);
+
+  const chromeSource = read(PREVIEW_MANAGER_VIEW_CHROME);
+  assert.match(chromeSource, /toManagerViewShiftTypes\(managerLegendShiftTypes\)/);
 });
 
 test('a decided correction request no longer keeps the schedule-cell attention marker', () => {

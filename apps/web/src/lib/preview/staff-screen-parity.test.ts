@@ -18,6 +18,12 @@ const DEMO_CLOCK_PANEL = '../../components/demo/cafe/ClockPanel.tsx';
 const PREVIEW_CLOCK_PANEL = 'preview-clock-panel.tsx';
 const PREVIEW_SHIFT_PREFERENCE_FORM = 'preview-shift-preference-calendar.tsx';
 
+test('staff shift legend excludes inactive types unless the visible week references them', () => {
+  const source = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(source, /shiftType\.isActive \|\| referencedShiftTypeIds\.has\(shiftType\.shiftTypeId\)/);
+  assert.match(source, /dates\.includes\(workDate\)/);
+});
+
 test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
     const source = read(file);

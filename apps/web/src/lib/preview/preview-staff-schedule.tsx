@@ -89,13 +89,24 @@ export function PreviewStaffSchedule({
     window.history.replaceState(null, '', `${basePath}${suffix}`);
   }
 
-  const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? []).map((shiftType) => ({
+  const referencedShiftTypeIds = new Set(
+    (assignments ?? [])
+      .filter((item) => {
+        if (!item.published || !item.employeeId || !item.shiftTypeId) return false;
+        const workDate = utcIsoToLocalDateTime(item.startsAt, timeZone).workDate;
+        return dates.includes(workDate);
+      })
+      .map((item) => item.shiftTypeId as string),
+  );
+  const displayShiftTypes: ShiftTypeDef[] = (shiftTypes ?? [])
+    .filter((shiftType) => shiftType.isActive || referencedShiftTypeIds.has(shiftType.shiftTypeId))
+    .map((shiftType) => ({
     id: shiftType.shiftTypeId,
     label: shiftType.labelJa,
     startTime: shiftType.startsAtLocal.slice(0, 5),
     endTime: shiftType.endsAtLocal.slice(0, 5),
     isCustom: shiftType.isCustom,
-  }));
+    }));
 
   const employeeIds = Array.from(
     new Set((assignments ?? []).filter((item) => item.published && item.employeeId).map((item) => item.employeeId!)),

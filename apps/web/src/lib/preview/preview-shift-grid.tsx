@@ -50,7 +50,11 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const summaryStaff = summaryStaffId ? staff.find((item) => item.staffId === summaryStaffId) ?? null : null;
   const summary = summaryStaffId ? monthlySummaries[summaryStaffId] : null;
   const visibleShiftTypes = shiftTypes.filter(
-    (item) => item.isActive || assignments.some((assignmentItem) => assignmentItem.shiftTypeId === item.shiftTypeId),
+    (item) =>
+      item.isActive ||
+      assignments.some(
+        (assignmentItem) => assignmentItem.employeeId && assignmentItem.shiftTypeId === item.shiftTypeId,
+      ),
   );
   const selectableShiftTypes = shiftTypes.filter(
     (item) => item.isActive || item.shiftTypeId === assignment?.shiftTypeId,

@@ -69,6 +69,13 @@ export function PreviewManagerViewChrome({
     estimatedEarningsSummary((attendance ?? []).filter((row) => row.employeeId === entry.staffId), monthPrefix, entry.hourlyWageYen),
   ]));
   const estimatedLabourCost = Object.values(monthlySummaries).reduce((sum, item) => sum + (item.estimatedEarningsYen ?? 0), 0);
+  const managerLegendShiftTypes = (shiftTypes ?? []).filter(
+    (shiftType) =>
+      shiftType.isActive ||
+      (assignments ?? []).some(
+        (assignment) => assignment.employeeId && assignment.shiftTypeId === shiftType.shiftTypeId,
+      ),
+  );
 
   function navigateToWeek(targetOffset: number) {
     if (targetOffset === weekOffset) return;
@@ -133,10 +140,10 @@ export function PreviewManagerViewChrome({
         </div>
       )}
 
-      {shiftTypes !== null && shiftTypes.length > 0 ? (
+      {managerLegendShiftTypes.length > 0 ? (
         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
           {(() => {
-            const legendTypes = toManagerViewShiftTypes(shiftTypes);
+            const legendTypes = toManagerViewShiftTypes(managerLegendShiftTypes);
             const legendIds = legendTypes.map((t) => t.id);
             return legendTypes.map((type) => {
               const chip = shiftChipColors(type.id, legendIds);
