@@ -45,3 +45,11 @@ test('states.tsx safe-state components read the shared lang instead of hardcodin
   const source = read('states.tsx');
   assert.match(source, /useLang\(\)/, 'safe states must translate via the shared useLang() hook');
 });
+
+test('Staff Recipes shows translated content without exposing the translation mechanism', () => {
+  const source = read('../../components/demo/cafe/RecipeDetail.tsx');
+  assert.ok(
+    !source.includes('Machine translation'),
+    'operator-facing recipe detail must show the translation result, not the internal mechanism',
+  );
+});
