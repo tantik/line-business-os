@@ -49,6 +49,12 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const selectedStaff = selected ? staff.find((item) => item.staffId === selected.staffId) : null;
   const summaryStaff = summaryStaffId ? staff.find((item) => item.staffId === summaryStaffId) ?? null : null;
   const summary = summaryStaffId ? monthlySummaries[summaryStaffId] : null;
+  const visibleShiftTypes = shiftTypes.filter(
+    (item) => item.isActive || assignments.some((assignmentItem) => assignmentItem.shiftTypeId === item.shiftTypeId),
+  );
+  const selectableShiftTypes = shiftTypes.filter(
+    (item) => item.isActive || item.shiftTypeId === assignment?.shiftTypeId,
+  );
 
   function save(formData: FormData) {
     if (!selected) return;
@@ -96,7 +102,10 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
     });
   }
 
-  const defaultType = shiftTypes.find((item) => item.shiftTypeId === assignment?.shiftTypeId) ?? shiftTypes[0] ?? null;
+  const defaultType =
+    selectableShiftTypes.find((item) => item.shiftTypeId === assignment?.shiftTypeId) ??
+    selectableShiftTypes.find((item) => item.isActive) ??
+    null;
 
   return (
     <>
@@ -105,7 +114,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         todayIso={todayIso}
         staffList={toManagerViewStaff(staff)}
         assignments={toManagerViewAssignments(assignments, timeZone)}
-        shiftTypes={toManagerViewShiftTypes(shiftTypes)}
+        shiftTypes={toManagerViewShiftTypes(visibleShiftTypes)}
         mode="manager"
         lang={lang}
         onCellClick={(staffId, date) => {
@@ -150,7 +159,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
                 name="shiftTypeId"
                 defaultValue={assignment?.shiftTypeId ?? defaultType?.shiftTypeId ?? ''}
                 onChange={(event) => {
-                  const option = shiftTypes.find((item) => item.shiftTypeId === event.currentTarget.value);
+                  const option = selectableShiftTypes.find((item) => item.shiftTypeId === event.currentTarget.value);
                   const form = event.currentTarget.form;
                   if (option && form) {
                     (form.elements.namedItem('startsAtLocal') as HTMLInputElement).value = option.startsAtLocal;
@@ -159,7 +168,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
                   }
                 }}
               >
-                {shiftTypes.map((item) => (
+                {selectableShiftTypes.map((item) => (
                   <option key={item.shiftTypeId} value={item.shiftTypeId}>
                     {item.labelJa || item.labelEn || item.code}（{item.startsAtLocal}–{item.endsAtLocal}）
                   </option>

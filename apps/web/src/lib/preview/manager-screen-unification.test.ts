@@ -40,6 +40,13 @@ const PREVIEW_MANAGER_VIEW_CHROME = 'preview-manager-view-chrome.tsx';
 const MANAGER_I18N_DICT = '../demo/cafe/i18n.manager.ts';
 const CAFE_MANAGER_SCREEN = '../../components/demo/cafe/CafeManagerScreen.tsx';
 
+test('inactive shift types are hidden from new assignments while retained for existing assignments', () => {
+  const source = read('preview-shift-grid.tsx');
+  assert.match(source, /item\.isActive \|\| item\.shiftTypeId === assignment\?\.shiftTypeId/);
+  assert.match(source, /shiftTypes=\{toManagerViewShiftTypes\(visibleShiftTypes\)\}/);
+  assert.match(source, /\{selectableShiftTypes\.map\(\(item\) => \(/);
+});
+
 test('a decided correction request no longer keeps the schedule-cell attention marker', () => {
   const base = {
     hasCorrectionRequest: true,
