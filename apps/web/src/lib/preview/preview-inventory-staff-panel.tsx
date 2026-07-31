@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import type { FormEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { previewSubmitInventoryStockCount } from './actions/inventory-staff-actions';
@@ -27,6 +26,9 @@ interface InventoryStaffDict {
   openInventory: string;
   close: string;
   purchaseRecommendation: string;
+  needToOrder: string;
+  saved: string;
+  allSaved: string;
 }
 
 const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
@@ -47,6 +49,9 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     openInventory: '在庫を確認・入力',
     close: '閉じる',
     purchaseRecommendation: '推奨発注数',
+    needToOrder: '発注目安',
+    saved: '保存済み',
+    allSaved: 'すべて保存しました。',
   },
   en: {
     title: 'Inventory check',
@@ -65,7 +70,15 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     openInventory: 'Check / update inventory',
     close: 'Close',
     purchaseRecommendation: 'Recommended purchase',
+    needToOrder: 'Need to order',
+    saved: 'Saved',
+    allSaved: 'All items saved.',
   },
+};
+
+const filledCounterLabel: Record<'ja' | 'en', (filled: number, total: number) => string> = {
+  ja: (filled, total) => `${filled} / ${total} 入力済み`,
+  en: (filled, total) => `${filled} / ${total} entered`,
 };
 
 const t = makeTranslator(dictionary);
@@ -82,32 +95,32 @@ function StatusBadge({ item, tr }: { item: InventoryItemStatus; tr: (key: keyof 
   return <span style={badgeStyle('active')}>{tr('sufficient')}</span>;
 }
 
-function ItemRow({ item, locationId, tr }: { item: InventoryItemStatus; locationId: string; tr: (key: keyof InventoryStaffDict) => string }) {
-  const router = useRouter();
-  const { lang } = useLang();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+function parseQuantity(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    formData.set('locationId', locationId);
-    formData.set('itemId', item.itemId);
-    startTransition(async () => {
-      const result = await previewSubmitInventoryStockCount(formData);
-      if (result.status === 'success') {
-        form.reset();
-        router.refresh();
-      } else {
-        setError(previewWriteMessage(lang, result.status));
-      }
-    });
-  }
+function ItemCard({
+  item,
+  value,
+  isSaved,
+  disabled,
+  onChange,
+  tr,
+}: {
+  item: InventoryItemStatus;
+  value: string;
+  isSaved: boolean;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  tr: (key: keyof InventoryStaffDict) => string;
+}) {
+  const enteredQuantity = parseQuantity(value);
+  const needToOrder = enteredQuantity !== null ? Math.max(item.requiredQuantity - enteredQuantity, 0) : null;
 
   return (
-    <div style={{ ...card, marginTop: 10 }}>
+    <div style={{ ...card, marginTop: 10, opacity: isSaved ? 0.65 : 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <strong>{item.name}</strong>
@@ -119,20 +132,34 @@ function ItemRow({ item, locationId, tr }: { item: InventoryItemStatus; location
             {tr('reorderPoint')}: {item.reorderPoint} {item.unit}
           </p>
         </div>
-        <StatusBadge item={item} tr={tr} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+          {isSaved ? <span style={badgeStyle('active')}>✓ {tr('saved')}</span> : <StatusBadge item={item} tr={tr} />}
+        </div>
       </div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 8 }}>
-        {error ? <span style={{ color: demoColors.dangerText, fontSize: 12 }}>{error}</span> : null}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <label style={{ flex: 1, maxWidth: 140 }}>
           <span style={{ ...mutedText, fontSize: 12 }}>
             {tr('actualLabel')} ({item.unit})
           </span>
-          <input style={input} name="actualQuantity" type="number" min={0} step="0.001" required autoComplete="off" />
+          <input
+            style={input}
+            name="actualQuantity"
+            type="number"
+            min={0}
+            step="0.001"
+            inputMode="decimal"
+            autoComplete="off"
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+          />
         </label>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? tr('saving') : tr('save')}
-        </button>
-      </form>
+        {needToOrder !== null ? (
+          <p style={{ margin: 0, fontSize: 12.5, ...mutedText }}>
+            {tr('needToOrder')}: <strong>{needToOrder}</strong> {item.unit}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -140,8 +167,56 @@ function ItemRow({ item, locationId, tr }: { item: InventoryItemStatus; location
 export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: string; items: InventoryItemStatus[] }) {
   const { lang } = useLang();
   const tr = (key: keyof InventoryStaffDict) => t(lang, key);
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [savedValues, setSavedValues] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackIsError, setFeedbackIsError] = useState(false);
+
   const shortageCount = items.filter((item) => item.status === 'shortage').length;
+  const filledCount = Object.values(values).filter((raw) => raw.trim() !== '').length;
+  const pendingItems = items.filter((item) => {
+    const raw = values[item.itemId];
+    if (raw === undefined || raw.trim() === '') return false;
+    return savedValues[item.itemId] !== raw;
+  });
+
+  function handleChange(itemId: string, raw: string) {
+    setValues((prev) => ({ ...prev, [itemId]: raw }));
+    setFeedback(null);
+  }
+
+  async function handleSaveAll() {
+    if (isSaving || pendingItems.length === 0) return;
+    setIsSaving(true);
+    setFeedback(null);
+    setFeedbackIsError(false);
+
+    for (const item of pendingItems) {
+      const raw = values[item.itemId];
+      if (raw === undefined) continue;
+      const formData = new FormData();
+      formData.set('locationId', locationId);
+      formData.set('itemId', item.itemId);
+      formData.set('actualQuantity', raw);
+      const result = await previewSubmitInventoryStockCount(formData);
+      if (result.status !== 'success') {
+        setFeedbackIsError(true);
+        setFeedback(`${item.name}: ${previewWriteMessage(lang, result.status)}`);
+        setIsSaving(false);
+        router.refresh();
+        return;
+      }
+      setSavedValues((prev) => ({ ...prev, [item.itemId]: raw }));
+    }
+
+    setIsSaving(false);
+    setFeedbackIsError(false);
+    setFeedback(tr('allSaved'));
+    router.refresh();
+  }
 
   return (
     <section style={card}>
@@ -156,11 +231,50 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
       </div>
       {isOpen ? (
         <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
-      {items.length === 0 ? (
-        <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
-      ) : (
-        items.map((item) => <ItemRow key={item.itemId} item={item} locationId={locationId} tr={tr} />)
-      )}
+          {items.length === 0 ? (
+            <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
+          ) : (
+            <>
+              <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>
+                {filledCounterLabel[lang](filledCount, items.length)}
+              </p>
+              {items.map((item) => (
+                <ItemCard
+                  key={item.itemId}
+                  item={item}
+                  value={values[item.itemId] ?? ''}
+                  isSaved={values[item.itemId] !== undefined && savedValues[item.itemId] === values[item.itemId]}
+                  disabled={isSaving}
+                  onChange={(raw) => handleChange(item.itemId, raw)}
+                  tr={tr}
+                />
+              ))}
+              <div
+                style={{
+                  position: 'sticky',
+                  bottom: 0,
+                  marginTop: 14,
+                  paddingTop: 10,
+                  background: demoColors.surface,
+                  borderTop: `1px solid ${demoColors.border}`,
+                }}
+              >
+                {feedback ? (
+                  <p style={{ margin: '0 0 8px', fontSize: 12.5, color: feedbackIsError ? demoColors.dangerText : demoColors.accentStrong }}>
+                    {feedback}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  style={isSaving || pendingItems.length === 0 ? buttonDisabled : buttonPrimary}
+                  disabled={isSaving || pendingItems.length === 0}
+                  onClick={handleSaveAll}
+                >
+                  {isSaving ? tr('saving') : tr('save')}
+                </button>
+              </div>
+            </>
+          )}
         </PreviewInventoryModal>
       ) : null}
     </section>

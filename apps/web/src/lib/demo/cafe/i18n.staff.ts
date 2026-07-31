@@ -63,6 +63,8 @@ interface StaffDict {
   breakMinutesInput: string;
   reasonMessage: string;
   reasonPlaceholder: string;
+  reasonRequiredError: string;
+  close: string;
   preferenceModalTitle: string;
   alreadySubmittedNote: string;
   tapToSelectHelp: string;
@@ -93,6 +95,7 @@ interface StaffDict {
   correctionFormTitle: string;
   monthSuffix: string;
   weekdayInitials: string[];
+  backToHub: string;
 }
 
 /** UI-chrome dictionary for `/demo/cafe` (staff app) and the modals it opens. Static demo copy only. */
@@ -162,6 +165,8 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     breakMinutesInput: '休憩時間（分）',
     reasonMessage: '理由・メッセージ',
     reasonPlaceholder: '例: 開店準備で出勤が12分遅れました。',
+    reasonRequiredError: '理由を入力してください。',
+    close: '閉じる',
     // ShiftPreferenceModal
     preferenceModalTitle: '来月のシフト希望を提出',
     alreadySubmittedNote: '提出済みです。内容を変更して再提出することもできます。',
@@ -193,6 +198,7 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     correctionFormTitle: '修正依頼の提出',
     monthSuffix: '月',
     weekdayInitials: ['月', '火', '水', '木', '金', '土', '日'],
+    backToHub: 'ホームに戻る',
   },
   en: {
     clockIn: 'Clock in',
@@ -259,6 +265,8 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     breakMinutesInput: 'Break time (minutes)',
     reasonMessage: 'Reason / message',
     reasonPlaceholder: 'e.g. I clocked in 12 minutes late due to opening prep.',
+    reasonRequiredError: 'Please enter a reason.',
+    close: 'Close',
     // ShiftPreferenceModal
     preferenceModalTitle: "Submit next month's shift preference",
     alreadySubmittedNote: 'Already submitted. You can change your answers and resubmit.',
@@ -291,6 +299,7 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     correctionFormTitle: 'Submit a correction request',
     monthSuffix: '',
     weekdayInitials: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    backToHub: 'Back to hub',
   },
 };
 

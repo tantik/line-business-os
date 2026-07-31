@@ -130,6 +130,7 @@ export function ManagerView() {
   return (
     <CafeManagerScreen
       subtitle={`${brand.nameJa}（デモ環境）`}
+      homeHref={brand.homePath}
       rightSlot={
         <DemoResetButton
           scope={scope}

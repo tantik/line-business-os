@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 import { mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
@@ -11,6 +12,8 @@ interface ManagerHeaderProps {
   subtitle: string;
   /** Optional right-aligned slot (e.g. the demo's reset button, or the preview's "back to top" link). */
   rightSlot?: ReactNode;
+  /** When set, the brand mark links back to the Cafe hub (same pattern as `RecipeView`'s header logo). Omitted by callers that already provide their own back-to-hub affordance in `rightSlot`. */
+  homeHref?: string;
 }
 
 /**
@@ -20,12 +23,19 @@ interface ManagerHeaderProps {
  * so the two always show the same header regardless of where the data (or
  * the right-slot action) comes from.
  */
-export function ManagerHeader({ subtitle, rightSlot }: ManagerHeaderProps) {
+export function ManagerHeader({ subtitle, rightSlot, homeHref }: ManagerHeaderProps) {
   const { lang } = useLang();
+  const mark = homeHref ? (
+    <Link href={homeHref} aria-label={tManager(lang, 'backToHub')} style={{ display: 'flex' }}>
+      <BrandMark size={52} />
+    </Link>
+  ) : (
+    <BrandMark size={52} />
+  );
   return (
     <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <BrandMark size={52} />
+        {mark}
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>{tManager(lang, 'dashboardTitle')}</h1>
           <p style={{ margin: '2px 0 0', ...mutedText }}>{subtitle}</p>

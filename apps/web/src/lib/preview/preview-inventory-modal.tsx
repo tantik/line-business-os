@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { buttonSecondary, card, demoColors } from '@/lib/demo/cafe/theme';
 
@@ -14,6 +15,14 @@ export function PreviewInventoryModal({
   children: ReactNode;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
     <div
       role="presentation"

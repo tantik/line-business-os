@@ -2,6 +2,7 @@ import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
 import { CafeManagerScreen } from '@/components/demo/cafe/CafeManagerScreen';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { PreviewBackToTopLink } from '@/lib/preview/preview-back-to-top-link';
+import { PreviewLogoutButton } from '@/lib/preview/preview-logout-button';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { PreviewInventoryManagerPanel } from '@/lib/preview/preview-inventory-manager-panel';
@@ -223,6 +224,7 @@ export default async function MameToChaPreviewManagerPage({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <PreviewLanguageToggle />
             <PreviewBackToTopLink href={PREVIEW_BASE_PATH} />
+            <PreviewLogoutButton />
           </div>
         }
         alerts={managerAlerts}

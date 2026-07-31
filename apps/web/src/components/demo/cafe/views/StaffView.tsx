@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ClockPanel } from '@/components/demo/cafe/ClockPanel';
 import { ClockOutModal, type DemoClockOutBreakMinutes } from '@/components/demo/cafe/ClockOutModal';
 import { WeekCarousel } from '@/components/demo/cafe/WeekCarousel';
@@ -173,7 +174,11 @@ export function StaffView() {
   return (
     <main style={mobilePageStyle(720)}>
       <CafeStaffHeader
-        mark={<BrandMark />}
+        mark={
+          <Link href={brand.homePath} aria-label={t('backToHub')} style={{ display: 'flex' }}>
+            <BrandMark />
+          </Link>
+        }
         title={
           <>
               {lang === 'ja' ? brand.nameJa : brand.name}

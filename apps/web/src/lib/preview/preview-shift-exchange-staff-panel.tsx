@@ -6,6 +6,7 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { useLang } from '@/lib/demo/cafe/i18n';
+import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, input, mutedText } from '@/lib/demo/cafe/theme';
 import {
   previewAcceptShiftExchange,
@@ -52,12 +53,8 @@ export function PreviewShiftExchangeStaffPanel({
 
   return (
     <section style={{ ...card, marginTop: 18 }}>
-      <h2 style={{ margin: 0, fontSize: 16 }}>{lang === 'ja' ? 'シフト交換' : 'Shift exchange'}</h2>
-      <p style={{ ...mutedText, margin: '4px 0 10px', fontSize: 12 }}>
-        {lang === 'ja'
-          ? '出勤できないシフトを公開し、代わりのスタッフを募集できます。最終変更は店長が承認します。'
-          : 'Offer a shift you cannot work. A colleague may accept it; the manager makes the final approval.'}
-      </p>
+      <h2 style={{ margin: 0, fontSize: 16 }}>{tShiftExchange(lang, 'staffTitle')}</h2>
+      <p style={{ ...mutedText, margin: '4px 0 10px', fontSize: 12 }}>{tShiftExchange(lang, 'staffDescription')}</p>
 
       <form
         onSubmit={(event) => {
@@ -69,7 +66,7 @@ export function PreviewShiftExchangeStaffPanel({
       >
         <select name="shiftId" style={input} required defaultValue="">
           <option value="" disabled>
-            {lang === 'ja' ? '交換するシフトを選択' : 'Select a shift'}
+            {tShiftExchange(lang, 'selectShiftPlaceholder')}
           </option>
           {futureOwn.map((shift) => {
             const local = utcIsoToLocalDateTime(shift.startsAt, timeZone);
@@ -85,10 +82,10 @@ export function PreviewShiftExchangeStaffPanel({
           style={{ ...input, minHeight: 68 }}
           maxLength={500}
           required
-          placeholder={lang === 'ja' ? '理由（店長と候補スタッフに表示されます）' : 'Reason (visible to manager and candidates)'}
+          placeholder={tShiftExchange(lang, 'reasonPlaceholder')}
         />
         <button type="submit" style={pending ? buttonDisabled : buttonPrimary} disabled={pending || futureOwn.length === 0}>
-          {lang === 'ja' ? '交換を依頼' : 'Request exchange'}
+          {tShiftExchange(lang, 'requestButton')}
         </button>
       </form>
 
@@ -100,20 +97,14 @@ export function PreviewShiftExchangeStaffPanel({
           const own = exchange.requesterEmployeeId === employeeId;
           return (
             <div key={exchange.exchangeId} style={{ ...card, padding: 12 }}>
-              <strong>{local ? `${local.workDate} ${local.localTime}` : lang === 'ja' ? '対象シフト' : 'Shift'}</strong>
+              <strong>{local ? `${local.workDate} ${local.localTime}` : tShiftExchange(lang, 'shiftFallback')}</strong>
               <p style={{ margin: '4px 0', fontSize: 13 }}>{exchange.reason}</p>
               <p style={{ ...mutedText, margin: '4px 0', fontSize: 12 }}>
                 {exchange.status === 'accepted'
-                  ? lang === 'ja'
-                    ? '候補者が承諾済み・店長確認待ち'
-                    : 'Accepted by a colleague; awaiting manager'
+                  ? tShiftExchange(lang, 'statusAccepted')
                   : own
-                    ? lang === 'ja'
-                      ? '候補者を募集中'
-                      : 'Waiting for a colleague'
-                    : lang === 'ja'
-                      ? '交換可能'
-                      : 'Available to accept'}
+                    ? tShiftExchange(lang, 'statusWaitingOwn')
+                    : tShiftExchange(lang, 'statusAvailable')}
               </p>
               {own ? (
                 <button
@@ -126,7 +117,7 @@ export function PreviewShiftExchangeStaffPanel({
                     run(previewCancelShiftExchange, data);
                   }}
                 >
-                  {lang === 'ja' ? '依頼を取消' : 'Cancel request'}
+                  {tShiftExchange(lang, 'cancelRequest')}
                 </button>
               ) : exchange.status === 'open' ? (
                 <button
@@ -139,7 +130,7 @@ export function PreviewShiftExchangeStaffPanel({
                     run(previewAcceptShiftExchange, data);
                   }}
                 >
-                  {lang === 'ja' ? '代わりに出勤する' : 'Accept this shift'}
+                  {tShiftExchange(lang, 'acceptShift')}
                 </button>
               ) : null}
             </div>
@@ -148,30 +139,20 @@ export function PreviewShiftExchangeStaffPanel({
       </div>
       {recentResults.length > 0 ? (
         <div style={{ marginTop: 16 }}>
-          <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>
-            {lang === 'ja' ? '最近の結果' : 'Recent results'}
-          </h3>
+          <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{tShiftExchange(lang, 'recentResults')}</h3>
           <div style={{ display: 'grid', gap: 8 }}>
             {recentResults.map((exchange) => {
               const shift = assignments.find((item) => item.assignmentId === exchange.shiftId);
               const local = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
               const resultLabel =
                 exchange.status === 'approved'
-                  ? lang === 'ja'
-                    ? '承認済み — シフトを更新しました'
-                    : 'Approved — schedule updated'
+                  ? tShiftExchange(lang, 'resultApproved')
                   : exchange.status === 'rejected'
-                    ? lang === 'ja'
-                      ? '却下されました'
-                      : 'Rejected'
-                    : lang === 'ja'
-                      ? '取り消しました'
-                      : 'Cancelled';
+                    ? tShiftExchange(lang, 'resultRejected')
+                    : tShiftExchange(lang, 'resultCancelled');
               return (
                 <div key={exchange.exchangeId} style={{ ...card, padding: 12 }}>
-                  <strong>
-                    {local ? `${local.workDate} ${local.localTime}` : lang === 'ja' ? '対象シフト' : 'Shift'}
-                  </strong>
+                  <strong>{local ? `${local.workDate} ${local.localTime}` : tShiftExchange(lang, 'shiftFallback')}</strong>
                   <p style={{ margin: '4px 0', fontSize: 13 }}>{exchange.reason}</p>
                   <p style={{ ...mutedText, margin: 0, fontSize: 12 }}>{resultLabel}</p>
                 </div>
