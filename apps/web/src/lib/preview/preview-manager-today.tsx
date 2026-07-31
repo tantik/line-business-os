@@ -9,7 +9,6 @@ export interface PreviewManagerTodayProps {
   shortageItems: number;
   uncountedItems: number;
   unpublishedShifts: number;
-  staleRecipeFields: number;
   openingCheckComplete: boolean | null;
   closingCheckComplete: boolean | null;
 }
@@ -56,14 +55,6 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
         lang === 'ja'
           ? `未確認の在庫: ${props.uncountedItems}件`
           : `Inventory items not yet counted: ${props.uncountedItems}`,
-    },
-    {
-      key: 'translations',
-      active: props.staleRecipeFields > 0,
-      label:
-        lang === 'ja'
-          ? `更新が必要な英訳: ${props.staleRecipeFields}件`
-          : `Recipe translations needing update: ${props.staleRecipeFields}`,
     },
     {
       key: 'opening',

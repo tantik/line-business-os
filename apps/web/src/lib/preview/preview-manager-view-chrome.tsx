@@ -112,17 +112,21 @@ export function PreviewManagerViewChrome({
 
       {shiftTypes !== null && shiftTypes.length > 0 ? (
         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
-          {toManagerViewShiftTypes(shiftTypes).map((type) => {
-            const chip = shiftChipColors(type.id);
-            return (
-              <div key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={shiftChipStyle(chip.background, chip.color, true)}>{type.label}</span>
-                <span style={{ fontSize: 11, color: demoColors.textMuted }}>
-                  {type.startTime}-{type.endTime}
-                </span>
-              </div>
-            );
-          })}
+          {(() => {
+            const legendTypes = toManagerViewShiftTypes(shiftTypes);
+            const legendIds = legendTypes.map((t) => t.id);
+            return legendTypes.map((type) => {
+              const chip = shiftChipColors(type.id, legendIds);
+              return (
+                <div key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={shiftChipStyle(chip.background, chip.color, true)}>{type.label}</span>
+                  <span style={{ fontSize: 11, color: demoColors.textMuted }}>
+                    {type.startTime}-{type.endTime}
+                  </span>
+                </div>
+              );
+            });
+          })()}
         </div>
       ) : null}
 

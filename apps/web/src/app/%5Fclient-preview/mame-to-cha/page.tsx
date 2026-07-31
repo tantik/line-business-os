@@ -114,42 +114,52 @@ export default async function MameToChaPreviewStaffPage({
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
   const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
-  const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, modulesResult, exchangesResult] =
-    await Promise.all([
-      listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-      listMyShiftRequests(supabase, activeTenant.tenantId),
-      // Keep the published roster stable while browsing weeks with no shifts.
-      // The client component still renders only the requested seven-day period.
-      listShiftAssignments(supabase, activeTenant.tenantId),
-      listMyAttendance(supabase, activeTenant.tenantId),
-      listTenantModules(supabase),
-      listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-    ]);
-
-  const inventoryEnabled =
-    modulesResult.status === 'success' &&
-    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
-  const inventoryItemsResult = inventoryEnabled
-    ? await listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
-    : null;
-
-  const publishedAssignments =
-    assignmentsResult.status === 'success'
-      ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
-      : null;
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: location.timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+
+  // Resolved first (rather than inside the batch below) only because the two
+  // Inventory reads are conditional on it -- every other read here is
+  // independent and always runs in the same batch, never staged serially
+  // after this.
+  const modulesResult = await listTenantModules(supabase);
+  const inventoryEnabled =
+    modulesResult.status === 'success' &&
+    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
+
+  const [
+    shiftTypesResult,
+    requestsResult,
+    assignmentsResult,
+    attendanceResult,
+    exchangesResult,
+    inventoryItemsResult,
+    inventorySessionsResult,
+  ] = await Promise.all([
+    listWorkforceShiftTypes(supabase, activeTenant.tenantId),
+    listMyShiftRequests(supabase, activeTenant.tenantId),
+    // Keep the published roster stable while browsing weeks with no shifts.
+    // The client component still renders only the requested seven-day period.
+    listShiftAssignments(supabase, activeTenant.tenantId),
+    listMyAttendance(supabase, activeTenant.tenantId),
+    listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
+    inventoryEnabled ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId) : Promise.resolve(null),
+    inventoryEnabled
+      ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
+      : Promise.resolve(null),
+  ]);
+
+  const publishedAssignments =
+    assignmentsResult.status === 'success'
+      ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
+      : null;
   const todayAttendance =
     attendanceResult.status === 'success'
       ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
       : null;
-  const inventorySessionsResult = inventoryEnabled
-    ? await listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
-    : null;
   const inventorySessionItems: Record<string, InventoryCheckSessionItem[]> = {};
   if (inventorySessionsResult?.status === 'success') {
     await Promise.all(

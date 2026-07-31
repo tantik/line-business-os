@@ -134,7 +134,7 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
         ) : (
           <div style={{ display: 'grid', gap: 6 }}>
             {shiftTypes.map((st) => {
-              const chip = shiftChipColors(st.shiftTypeId);
+              const chip = shiftChipColors(st.shiftTypeId, shiftTypes.map((s) => s.shiftTypeId));
               const label = st.labelJa || st.labelEn || st.code;
               const inUse = (assignments ?? []).some((assignment) => assignment.shiftTypeId === st.shiftTypeId);
               if (editingId === st.shiftTypeId) {

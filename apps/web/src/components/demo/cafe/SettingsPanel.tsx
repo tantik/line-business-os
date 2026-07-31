@@ -125,7 +125,7 @@ export function SettingsPanel({
         <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>シフト種別</div>
         <div style={{ display: 'grid', gap: 6 }}>
           {shiftTypes.map((type) => {
-            const chip = shiftChipColors(type.id);
+            const chip = shiftChipColors(type.id, shiftTypes.map((t) => t.id));
             const inUse = isShiftTypeInUse(type.id);
 
             if (editingId === type.id) {

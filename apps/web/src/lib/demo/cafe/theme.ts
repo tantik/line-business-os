@@ -223,7 +223,34 @@ export function recipeBadgeIconStyle(background: string, color: string): CSSProp
   };
 }
 
-export function shiftChipColors(shiftTypeId: string | null): { background: string; color: string } {
+const BUILT_IN_SHIFT_TYPE_IDS = new Set(['shift1', 'shift2', 'shift3', 'full', 'dayoff']);
+
+/** Rotating palette for custom (non-built-in) shift types — assigned by position, never by hash, so no two custom shift types showing on screen together ever land on the same color until every slot is used. */
+const CUSTOM_SHIFT_TYPE_PALETTE: ReadonlyArray<{ background: string; color: string }> = [
+  { background: 'rgba(199, 118, 51, 0.16)', color: '#9B5A26' },
+  { background: 'rgba(69, 123, 157, 0.16)', color: '#2F6690' },
+  { background: 'rgba(106, 153, 78, 0.16)', color: '#3F6B2A' },
+  { background: 'rgba(155, 89, 182, 0.16)', color: '#6C3483' },
+  { background: 'rgba(230, 126, 34, 0.16)', color: '#A0522D' },
+  { background: 'rgba(52, 152, 219, 0.16)', color: '#1A5276' },
+  { background: 'rgba(199, 61, 99, 0.16)', color: '#9B2242' },
+  { background: 'rgba(90, 90, 90, 0.16)', color: '#4A4A4A' },
+];
+
+/**
+ * Chip color for one shift type. `allShiftTypeIds` (the full, stably-ordered
+ * list of shift type ids currently on screen -- e.g. `sortOrder`-sorted from
+ * the DB, or the demo's fixed option order) lets every *custom* id be given
+ * the next unused palette slot by position, so two custom shift types never
+ * share a color as long as there are more palette slots than custom types.
+ * Without it (a handful of call sites that only ever render one assignment in
+ * isolation), falls back to a deterministic hash -- same as before, kept only
+ * for backward compatibility at those sites.
+ */
+export function shiftChipColors(
+  shiftTypeId: string | null,
+  allShiftTypeIds?: readonly string[],
+): { background: string; color: string } {
   switch (shiftTypeId) {
     case 'shift1':
       return { background: 'rgba(199, 118, 51, 0.16)', color: '#9B5A26' };
@@ -237,17 +264,15 @@ export function shiftChipColors(shiftTypeId: string | null): { background: strin
       return { background: demoColors.surfaceElevated, color: demoColors.textMuted };
     case null:
       return { background: 'transparent', color: demoColors.textMuted };
-    default:
-      {
-        const palettes = [
-          { background: 'rgba(199, 118, 51, 0.16)', color: '#9B5A26' },
-          { background: 'rgba(69, 123, 157, 0.16)', color: '#2F6690' },
-          { background: demoColors.badgeSeasonalBg, color: demoColors.badgeSeasonal },
-          { background: demoColors.accentMuted, color: demoColors.accentStrong },
-        ];
-        let hash = 0;
-        for (const char of shiftTypeId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-        return palettes[hash % palettes.length]!;
+    default: {
+      if (allShiftTypeIds && allShiftTypeIds.length > 0) {
+        const customIds = allShiftTypeIds.filter((id) => !BUILT_IN_SHIFT_TYPE_IDS.has(id));
+        const index = customIds.indexOf(shiftTypeId);
+        if (index !== -1) return CUSTOM_SHIFT_TYPE_PALETTE[index % CUSTOM_SHIFT_TYPE_PALETTE.length]!;
       }
+      let hash = 0;
+      for (const char of shiftTypeId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+      return CUSTOM_SHIFT_TYPE_PALETTE[hash % CUSTOM_SHIFT_TYPE_PALETTE.length]!;
+    }
   }
 }

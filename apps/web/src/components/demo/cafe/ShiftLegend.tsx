@@ -15,7 +15,7 @@ export function ShiftLegend({ shiftTypes, lang }: ShiftLegendProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
       {shiftTypes.map((type) => {
-        const chip = shiftChipColors(type.id);
+        const chip = shiftChipColors(type.id, shiftTypes.map((t) => t.id));
         const hasOwnTimeRange = type.startTime && type.endTime && !type.label.includes(type.startTime);
         return (
           <div key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
