@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useLang } from '@/lib/demo/cafe/i18n';
 import { demoColors } from '@/lib/demo/cafe/theme';
 
 interface ModalProps {
@@ -15,6 +16,7 @@ interface ModalProps {
 
 /** Single shared modal shell for the cafe demo: X/overlay/Escape close, mobile-safe sizing. */
 export function Modal({ open, onClose, title, children, footer, maxWidth = 440 }: ModalProps) {
+  const { lang } = useLang();
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -66,7 +68,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 440 }
           <button
             type="button"
             onClick={onClose}
-            aria-label="閉じる"
+            aria-label={lang === 'ja' ? '閉じる' : 'Close'}
             style={{
               width: 32,
               height: 32,

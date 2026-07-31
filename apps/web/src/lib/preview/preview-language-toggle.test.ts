@@ -65,6 +65,10 @@ test('every shared Cafe help popup provides both Japanese and English copy', () 
 
   const buttonSource = read('../../components/demo/cafe/DemoHelpButton.tsx');
   assert.match(buttonSource, /content\[lang\]/, 'the help button must select copy from the active language');
+
+  const modalSource = read('../../components/demo/cafe/Modal.tsx');
+  assert.match(modalSource, /useLang\(\)/, 'the shared modal close control must read the active language');
+  assert.match(modalSource, /lang === 'ja' \? '閉じる' : 'Close'/, 'the shared modal close label must be bilingual');
 });
 
 test('Preview recipe management does not open a nested modal', () => {
