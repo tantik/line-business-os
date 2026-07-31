@@ -194,21 +194,20 @@ translation release-candidate branch and was merged to `dev`. The structured
 Cafe Package v2.0 Product Audit is now recorded in
 [`cafe-package-v2-product-audit.md`](cafe-package-v2-product-audit.md).
 
-The official sequence is:
+Cafe Package v2.0 completed final authenticated acceptance on 2026-07-31 and
+is now under **Product Freeze**. The completed evidence is recorded in
+[`cafe-package-v2-acceptance-report.md`](cafe-package-v2-acceptance-report.md).
 
-1. Review and approve the Cafe Package v2.0 Product Audit.
-2. Implement only its bounded, approved high-value Final Improvements.
-3. Run final automated and authenticated browser acceptance.
-4. Declare Product Freeze; after that, accept bug fixes and release polish,
-   not open-ended feature expansion.
-5. Sync the public `/demo/cafe` experience from the frozen DB-backed Product
+The remaining sequence is:
+
+1. Sync the public `/demo/cafe` experience from the frozen DB-backed Product
    Preview.
-6. Make onboarding sales-ready and repeatable, with a target of no more than
+2. Make onboarding sales-ready and repeatable, with a target of no more than
    two hours for a prepared new tenant.
-7. Build **ORUWA Platform Foundation**: Organization, Customer Portal
+3. Build **ORUWA Platform Foundation**: Organization, Customer Portal
    (`account.oruwa.jp`), Platform Billing, Product Entitlements, and a
    separately bounded Merchant Payments architecture.
-8. Start Cleaning Package on that shared platform foundation.
+4. Start Cleaning Package on that shared platform foundation.
 
 Platform Billing means payments from ORUWA customers to ORUWA. Merchant
 Payments means payments collected by an ORUWA customer from its own end

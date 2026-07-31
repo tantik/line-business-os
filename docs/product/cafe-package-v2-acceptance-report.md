@@ -104,3 +104,48 @@ product review:
 4. operational support and monitoring;
 5. prioritized Cafe v2.1 roadmap.
 
+## 2026-07-31 OAES controlled closeout
+
+Status: **Product Freeze approved for the DB-backed Preview scope**.
+
+The repository was recovered before implementation. Inventory, Preview i18n,
+Recipe Translation, and the Cafe Product Acceptance work were confirmed in
+`dev`. OAES was integrated through PR #151 and used as the working review and
+acceptance process for the closeout.
+
+Changes accepted during the closeout:
+
+- PR #152: complete Cafe help localization and final Manager UX corrections;
+- PR #153: advisory monthly worked hours, hourly wage, estimated earnings, and
+  Manager estimated labour cost;
+- PR #154: shared modal close-label localization;
+- PR #155: inactive Shift Types excluded from new scheduling;
+- PR #156: inactive Shift Type visibility aligned across Manager and Staff
+  legends using the OAES role/route regression matrix.
+
+Verification evidence:
+
+- web tests: **779/779 passed**;
+- typecheck, lint, production build, and Vercel checks: passed;
+- local Supabase reset through migration `0048`: passed;
+- local pgTAP: **591/591 passed**;
+- Preview Cloud migration history: local and remote `0000`-`0048` aligned;
+- authenticated Manager acceptance: passed;
+- authenticated Staff acceptance: passed with self-scoped wage and earnings;
+- authenticated Recipes acceptance: passed in English without exposing the
+  translation provider/mechanism;
+- JA/EN shared help and accessible close labels: passed;
+- temporary Shift Type fixture: deactivated and absent from active scheduling
+  and visible Staff legend;
+- checked Manager, Staff, and Recipes browser consoles: no new warnings or
+  errors.
+
+The Preview wage for `Acceptance Staff One` remains synthetic acceptance data
+(`JPY 1,250/hour`) so the advisory earnings scenario remains demonstrable. It
+must not be promoted to Production and can be cleared through Manager Staff
+Management when the acceptance tenant is retired.
+
+This freeze does not approve Production. Further Cafe work requires a new
+product decision unless it is a bug fix, security fix, accessibility or
+localization correction, or bounded release/onboarding polish.
+
