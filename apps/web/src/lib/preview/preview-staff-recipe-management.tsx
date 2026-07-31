@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import { Modal } from '@/components/demo/cafe/Modal';
@@ -23,9 +24,17 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
 export interface PreviewStaffRecipeManagementProps {
   staff: WorkforceStaffManageEntry[] | null;
   recipes: WorkforceRecipe[] | null;
+  /**
+   * Pre-built "Manage Inventory" trigger (an embedded inventory manager panel),
+   * assembled by the page -- which is where the active-location context is
+   * legitimately resolved server-side -- so this island never carries any
+   * location field itself. Rendered alongside Staff/Recipes so all three
+   * management entry points live in one block.
+   */
+  inventorySlot?: ReactNode;
 }
 
-export function PreviewStaffRecipeManagement({ staff, recipes }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff, recipes, inventorySlot }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const { lang } = useLang();
@@ -44,6 +53,7 @@ export function PreviewStaffRecipeManagement({ staff, recipes }: PreviewStaffRec
         <button type="button" style={buttonSecondary} onClick={() => setRecipeOpen(true)}>
           {t('manageRecipesButton')}
         </button>
+        {inventorySlot}
       </div>
 
       <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={640}>

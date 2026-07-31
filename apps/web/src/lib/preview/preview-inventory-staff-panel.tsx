@@ -120,29 +120,28 @@ function ItemCard({
   const needToOrder = enteredQuantity !== null ? Math.max(item.requiredQuantity - enteredQuantity, 0) : null;
 
   return (
-    <div style={{ ...card, marginTop: 10, opacity: isSaved ? 0.65 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+    <div style={{ ...card, padding: 10, marginTop: 6, opacity: isSaved ? 0.65 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
         <div>
-          <strong>{item.name}</strong>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
+          <strong style={{ fontSize: 13.5 }}>{item.name}</strong>
+          <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
             {tr('required')}: {item.requiredQuantity} {item.unit} / {tr('current')}:{' '}
             {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
-          </p>
-          <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
+            {' · '}
             {tr('reorderPoint')}: {item.reorderPoint} {item.unit}
           </p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
           {isSaved ? <span style={badgeStyle('active')}>✓ {tr('saved')}</span> : <StatusBadge item={item} tr={tr} />}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
         <label style={{ flex: 1, maxWidth: 140 }}>
-          <span style={{ ...mutedText, fontSize: 12 }}>
+          <span style={{ ...mutedText, fontSize: 11.5 }}>
             {tr('actualLabel')} ({item.unit})
           </span>
           <input
-            style={input}
+            style={{ ...input, marginTop: 2, padding: '7px 10px' }}
             name="actualQuantity"
             type="number"
             min={0}
@@ -155,7 +154,7 @@ function ItemCard({
           />
         </label>
         {needToOrder !== null ? (
-          <p style={{ margin: 0, fontSize: 12.5, ...mutedText }}>
+          <p style={{ margin: 0, fontSize: 12, ...mutedText }}>
             {tr('needToOrder')}: <strong>{needToOrder}</strong> {item.unit}
           </p>
         ) : null}
@@ -235,7 +234,7 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
             <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
           ) : (
             <>
-              <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 700, color: demoColors.textPrimary }}>
+              <p style={{ margin: '8px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>
                 {filledCounterLabel[lang](filledCount, items.length)}
               </p>
               {items.map((item) => (

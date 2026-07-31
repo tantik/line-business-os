@@ -22,6 +22,12 @@ interface ShiftExchangeDict {
   waitingForCandidate: string;
   approveButton: string;
   rejectButton: string;
+  viewExchanges: string;
+  noActiveExchanges: string;
+  requestExchangeButton: string;
+  requestExchangeModalTitle: string;
+  submitting: string;
+  close: string;
 }
 
 /** UI-chrome dictionary for the Shift Exchange staff/manager preview panels. Static system-chrome copy only. */
@@ -49,6 +55,12 @@ const SHIFT_EXCHANGE_DICT: Record<Lang, ShiftExchangeDict> = {
     waitingForCandidate: '候補者待ち',
     approveButton: '承認してシフトを変更',
     rejectButton: '却下',
+    viewExchanges: 'シフト交換を見る',
+    noActiveExchanges: '進行中の交換依頼はありません。',
+    requestExchangeButton: '交換を依頼する',
+    requestExchangeModalTitle: 'シフト交換を依頼',
+    submitting: '送信中...',
+    close: '閉じる',
   },
   en: {
     staffTitle: 'Shift exchange',
@@ -72,6 +84,12 @@ const SHIFT_EXCHANGE_DICT: Record<Lang, ShiftExchangeDict> = {
     waitingForCandidate: 'waiting for candidate',
     approveButton: 'Approve and update schedule',
     rejectButton: 'Reject',
+    viewExchanges: 'View shift exchanges',
+    noActiveExchanges: 'No exchanges in progress.',
+    requestExchangeButton: 'Request exchange',
+    requestExchangeModalTitle: 'Request a shift exchange',
+    submitting: 'Submitting...',
+    close: 'Close',
   },
 };
 

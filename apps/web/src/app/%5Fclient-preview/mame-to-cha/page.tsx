@@ -46,6 +46,14 @@ export const dynamic = 'force-dynamic';
 const MAX_WEEK_OFFSET = 8;
 const STAFF_PUBLIC_PATH = PREVIEW_BASE_PATH;
 
+/**
+ * Cafe Package v2 Product Acceptance (Round 3): hide the opening/closing
+ * stock-check screen from the UI -- not needed for this package. Data
+ * loading, the component, and its Server Actions are untouched so this can
+ * be flipped back on for a package that does want it.
+ */
+const SHOW_OPENING_CLOSING_STOCK_CHECKS = false;
+
 function parseWeekOffset(raw: string | undefined): number {
   if (!raw) return 0;
   const n = Number.parseInt(raw, 10);
@@ -216,6 +224,7 @@ export default async function MameToChaPreviewStaffPage({
         assignments={publishedAssignments}
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         requests={requestsResult.status === 'success' ? requestsResult.data : null}
+        exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 
@@ -240,7 +249,7 @@ export default async function MameToChaPreviewStaffPage({
         />
       ) : null}
 
-      {inventoryEnabled && inventorySessionsResult?.status === 'success' ? (
+      {SHOW_OPENING_CLOSING_STOCK_CHECKS && inventoryEnabled && inventorySessionsResult?.status === 'success' ? (
         <PreviewInventorySessionPanel
           businessDate={todayIso}
           sessions={inventorySessionsResult.data}

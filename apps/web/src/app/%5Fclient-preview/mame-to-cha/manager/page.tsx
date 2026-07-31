@@ -46,6 +46,15 @@ export const dynamic = 'force-dynamic';
 const MAX_WEEK_OFFSET = 8;
 const MANAGER_PUBLIC_PATH = `${PREVIEW_BASE_PATH}/manager`;
 
+/**
+ * Cafe Package v2 Product Acceptance (Round 3): hide the opening/closing
+ * stock-check screen (and its "Today" summary tiles) from the UI -- not
+ * needed for this package. Data loading, the component, and its Server
+ * Actions are untouched so this can be flipped back on for a package that
+ * does want it. Keep in sync with the same flag in `mame-to-cha/page.tsx`.
+ */
+const SHOW_OPENING_CLOSING_STOCK_CHECKS = false;
+
 function parseWeekOffset(raw: string | undefined): number {
   if (!raw) return 0;
   const n = Number.parseInt(raw, 10);
@@ -218,8 +227,12 @@ export default async function MameToChaPreviewManagerPage({
           shortageItems={activeInventoryItems.filter((item) => item.status === 'shortage').length}
           uncountedItems={activeInventoryItems.filter((item) => item.status === 'unknown').length}
           unpublishedShifts={(assignments ?? []).filter((assignment) => !assignment.published).length}
-          openingCheckComplete={!inventoryEnabled || localHour < 10 ? null : openingSession?.status === 'completed'}
-          closingCheckComplete={!inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'}
+          openingCheckComplete={
+            !SHOW_OPENING_CLOSING_STOCK_CHECKS || !inventoryEnabled || localHour < 10 ? null : openingSession?.status === 'completed'
+          }
+          closingCheckComplete={
+            !SHOW_OPENING_CLOSING_STOCK_CHECKS || !inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'
+          }
         />
 
         <PreviewManagerView
@@ -241,7 +254,20 @@ export default async function MameToChaPreviewManagerPage({
           }
         />
 
-        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
+        <PreviewStaffRecipeManagement
+          staff={staff}
+          recipes={recipes}
+          inventorySlot={
+            inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
+              <PreviewInventoryManagerPanel
+                locationId={location.locationId}
+                items={inventoryItemsResult.data}
+                staffNameById={staffNameById}
+                embedded
+              />
+            ) : null
+          }
+        />
 
         <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
 
@@ -250,14 +276,6 @@ export default async function MameToChaPreviewManagerPage({
             timeZone={location.timezone}
             assignments={allAssignmentsResult.data}
             exchanges={exchangesResult.data}
-            staffNameById={staffNameById}
-          />
-        ) : null}
-
-        {inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
-          <PreviewInventoryManagerPanel
-            locationId={location.locationId}
-            items={inventoryItemsResult.data}
             staffNameById={staffNameById}
           />
         ) : null}

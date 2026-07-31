@@ -166,18 +166,18 @@ function ItemForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, maxWidth: 320 }}>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
       {error ? <span style={{ color: demoColors.dangerText, fontSize: 12 }}>{error}</span> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 12 }}>{tr('name')}</span>
         <input style={input} name="name" defaultValue={item?.name ?? ''} maxLength={120} required />
       </label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <label style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('required')}</span>
           <input style={input} name="requiredQuantity" type="number" min={0} step="0.001" defaultValue={item?.requiredQuantity ?? 0} required />
         </label>
-        <label style={{ flex: 1 }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('reorderPoint')}</span>
           <input
             style={input}
@@ -190,8 +190,8 @@ function ItemForm({
           />
         </label>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <label style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('unit')}</span>
           <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required>
             {INVENTORY_UNITS.map((u) => (
@@ -251,11 +251,14 @@ export function PreviewInventoryManagerPanel({
   locationId,
   items,
   staffNameById,
+  /** When true, renders as a bare trigger button (no card/heading/subtitle) so it can sit inline inside another management block (e.g. next to "Manage Staff" / "Manage Recipes") instead of as its own section. All list/search/edit/modal functionality is unchanged. */
+  embedded = false,
 }: {
   locationId: string;
   items: InventoryItemStatus[];
   /** Manager-only decrypted staff-id -> display-name map, built by the page from the same `listWorkforceStaffForManager` directory the Staff-management dialog already uses -- never a new PII exposure surface. */
   staffNameById: Record<string, string>;
+  embedded?: boolean;
 }) {
   const { lang } = useLang();
   const tr = (key: DictKey) => t(lang, key);
@@ -267,16 +270,22 @@ export function PreviewInventoryManagerPanel({
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
   const filteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
 
-  return (
+  const trigger = (
+    <button type="button" style={embedded ? buttonSecondary : buttonPrimary} onClick={() => setIsOpen(true)}>
+      {tr('openInventory')} {shortageCount > 0 ? `(${shortageCount})` : ''}
+    </button>
+  );
+
+  const body = embedded ? (
+    trigger
+  ) : (
     <section style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 16 }}>{tr('title')}</h2>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{tr('subtitle')}</p>
         </div>
-        <button type="button" style={buttonPrimary} onClick={() => setIsOpen(true)}>
-          {tr('openInventory')}
-        </button>
+        {trigger}
       </div>
 
       <p style={{ margin: '10px 0 0' }}>
@@ -286,6 +295,12 @@ export function PreviewInventoryManagerPanel({
           <span style={badgeStyle('active')}>{tr('allSufficient')}</span>
         )}
       </p>
+    </section>
+  );
+
+  return (
+    <>
+      {body}
 
       {isOpen ? (
         <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
@@ -358,7 +373,7 @@ export function PreviewInventoryManagerPanel({
         open={editing !== null}
         onClose={() => setEditing(null)}
         title={editing === 'new' ? tr('addItem') : tr('editItem')}
-        maxWidth={420}
+        maxWidth={520}
       >
         {editing ? (
           <ItemForm
@@ -374,6 +389,6 @@ export function PreviewInventoryManagerPanel({
           />
         ) : null}
       </Modal>
-    </section>
+    </>
   );
 }

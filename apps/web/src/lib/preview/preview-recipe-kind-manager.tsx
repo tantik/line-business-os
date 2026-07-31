@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import { previewSetRecipeContentKind } from './actions/recipe-actions';
 import { previewWriteMessage } from './write-result';
-import { demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
+import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { Modal } from '@/components/demo/cafe/Modal';
 
 export interface PreviewRecipeKindManagerProps {
   recipes: WorkforceRecipe[] | null;
@@ -39,16 +40,29 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [editing, setEditing] = useState<WorkforceRecipe | null>(null);
+  const [pendingKind, setPendingKind] = useState<'recipe' | 'instruction'>('recipe');
 
-  function updateKind(recipeId: string, contentKind: 'recipe' | 'instruction') {
+  function openEdit(recipe: WorkforceRecipe) {
+    setFeedback(null);
+    setPendingKind(recipe.contentKind);
+    setEditing(recipe);
+  }
+
+  function saveKind() {
+    if (!editing) return;
     const formData = new FormData();
-    formData.set('recipeId', recipeId);
-    formData.set('contentKind', contentKind);
+    formData.set('recipeId', editing.recipeId);
+    formData.set('contentKind', pendingKind);
     setFeedback(null);
     startTransition(async () => {
       const result = await previewSetRecipeContentKind(formData);
-      if (result.status === 'success') router.refresh();
-      else setFeedback(previewWriteMessage(lang, result.status));
+      if (result.status === 'success') {
+        setEditing(null);
+        router.refresh();
+      } else {
+        setFeedback(previewWriteMessage(lang, result.status));
+      }
     });
   }
 
@@ -62,14 +76,20 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
       ) : (
         <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto', overflowX: 'hidden' }}>
           {recipes.map((recipe) => (
-            <div
+            <button
+              type="button"
               key={recipe.recipeId}
+              onClick={() => openEdit(recipe)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
                 minWidth: 0,
+                width: '100%',
+                textAlign: 'left',
+                cursor: 'pointer',
                 padding: '8px 10px',
+                border: 'none',
                 borderRadius: 8,
                 background: demoColors.surfaceElevated,
               }}
@@ -125,21 +145,46 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
                   </div>
                 ) : null}
               </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing?.titleJa || editing?.titleEn || t('recipeUntitled')}
+        maxWidth={420}
+      >
+        {editing ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {editing.descriptionJa || editing.descriptionEn ? (
+              <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{editing.descriptionJa || editing.descriptionEn}</p>
+            ) : null}
+            <label>
+              <span style={{ ...mutedText, fontSize: 12 }}>{t('recipeKindRecipe')} / {t('recipeKindInstruction')}</span>
               <select
-                style={{ ...input, margin: 0, width: 'auto', flexShrink: 0 }}
-                value={recipe.contentKind}
+                style={{ ...input, margin: 0, marginTop: 4 }}
+                value={pendingKind}
                 disabled={isPending}
-                onChange={(event) => updateKind(recipe.recipeId, event.target.value as 'recipe' | 'instruction')}
+                onChange={(event) => setPendingKind(event.target.value as 'recipe' | 'instruction')}
               >
                 <option value="recipe">{t('recipeKindRecipe')}</option>
                 <option value="instruction">{t('recipeKindInstruction')}</option>
               </select>
+            </label>
+            {feedback ? <p style={{ margin: 0, color: demoColors.dangerText, fontSize: 12.5 }}>{feedback}</p> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" style={buttonSecondary} onClick={() => setEditing(null)} disabled={isPending}>
+                {t('cancel')}
+              </button>
+              <button type="button" style={buttonPrimary} onClick={saveKind} disabled={isPending}>
+                {isPending ? t('savingEllipsis') : t('save')}
+              </button>
             </div>
-          ))}
-        </div>
-      )}
-      {feedback ? <p style={{ margin: '10px 0 0', color: demoColors.dangerText }}>{feedback}</p> : null}
-      {isPending ? <p style={{ margin: '10px 0 0', ...mutedText }}>{t('savingEllipsis')}</p> : null}
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
