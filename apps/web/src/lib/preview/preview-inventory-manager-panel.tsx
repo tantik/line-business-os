@@ -328,7 +328,18 @@ export function PreviewInventoryManagerPanel({
             type="button"
             key={item.itemId}
             onClick={() => setEditing(item)}
-            style={{ ...card, marginTop: 10, width: '100%', textAlign: 'left', cursor: 'pointer', opacity: item.isActive ? 1 : 0.6 }}
+            style={{
+              ...card,
+              marginTop: 8,
+              padding: '12px 14px',
+              width: '100%',
+              textAlign: 'left',
+              cursor: 'pointer',
+              opacity: item.isActive ? 1 : 0.6,
+              ...(item.status === 'shortage'
+                ? { borderColor: demoColors.warning, background: demoColors.alertWarningBg }
+                : {}),
+            }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
               <div>

@@ -56,11 +56,11 @@ export function PreviewStaffRecipeManagement({ staff, recipes, inventorySlot }: 
         {inventorySlot}
       </div>
 
-      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={640}>
+      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={760}>
         <PreviewStaffForm staff={staff} />
       </Modal>
 
-      <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={640}>
+      <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={760}>
         <PreviewRecipeKindManager recipes={recipes} />
       </Modal>
     </section>

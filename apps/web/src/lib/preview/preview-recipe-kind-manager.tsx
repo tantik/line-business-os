@@ -8,7 +8,6 @@ import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
-import { Modal } from '@/components/demo/cafe/Modal';
 
 export interface PreviewRecipeKindManagerProps {
   recipes: WorkforceRecipe[] | null;
@@ -150,14 +149,18 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
         </div>
       )}
 
-      <Modal
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing?.titleJa || editing?.titleEn || t('recipeUntitled')}
-        maxWidth={420}
-      >
-        {editing ? (
+      {editing ? (
+        <section
+          aria-label={editing.titleJa || editing.titleEn || t('recipeUntitled')}
+          style={{ marginTop: 14, padding: 14, border: `1px solid ${demoColors.border}`, borderRadius: 10, background: demoColors.surface }}
+        >
           <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+              <strong>{editing.titleJa || editing.titleEn || t('recipeUntitled')}</strong>
+              <button type="button" style={buttonSecondary} onClick={() => setEditing(null)} disabled={isPending}>
+                {t('cancel')}
+              </button>
+            </div>
             {editing.descriptionJa || editing.descriptionEn ? (
               <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{editing.descriptionJa || editing.descriptionEn}</p>
             ) : null}
@@ -183,8 +186,8 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
               </button>
             </div>
           </div>
-        ) : null}
-      </Modal>
+        </section>
+      ) : null}
     </div>
   );
 }

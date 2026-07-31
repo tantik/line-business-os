@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
-import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { buttonPrimary, card, demoColors, input, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
@@ -25,13 +24,12 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
  */
 export interface PreviewSettingsCardProps {
   shiftTypes: WorkforceShiftType[] | null;
-  assignments: WorkforceShiftAssignment[] | null;
   settings: WorkforceScheduleSettings | null;
 }
 
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
-export function PreviewSettingsCard({ shiftTypes, assignments, settings }: PreviewSettingsCardProps) {
+export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCardProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
@@ -46,6 +44,7 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
   const [newLabel, setNewLabel] = useState('');
   const [newStart, setNewStart] = useState('10:00');
   const [newEnd, setNewEnd] = useState('14:00');
+  const activeShiftTypes = shiftTypes?.filter((shiftType) => shiftType.isActive) ?? null;
 
   function saveSettings() {
     setFeedback(null);
@@ -127,16 +126,15 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
       </div>
       <div style={{ marginTop: 18 }}>
         <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>{t('shiftTypesHeading')}</div>
-        {shiftTypes === null ? (
+        {activeShiftTypes === null ? (
           <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesLoadError')}</p>
-        ) : shiftTypes.length === 0 ? (
+        ) : activeShiftTypes.length === 0 ? (
           <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesEmpty')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 6 }}>
-            {shiftTypes.map((st) => {
-              const chip = shiftChipColors(st.shiftTypeId, shiftTypes.map((s) => s.shiftTypeId));
+            {activeShiftTypes.map((st) => {
+              const chip = shiftChipColors(st.shiftTypeId, activeShiftTypes.map((s) => s.shiftTypeId));
               const label = st.labelJa || st.labelEn || st.code;
-              const inUse = (assignments ?? []).some((assignment) => assignment.shiftTypeId === st.shiftTypeId);
               if (editingId === st.shiftTypeId) {
                 return (
                   <div key={st.shiftTypeId} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', padding: '8px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
@@ -188,7 +186,7 @@ export function PreviewSettingsCard({ shiftTypes, assignments, settings }: Previ
                     >
                       {t('edit')}
                     </button>
-                    <button type="button" disabled={inUse} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.textMuted, cursor: inUse ? 'not-allowed' : 'pointer', opacity: inUse ? 0.6 : 1 }} onClick={() => deactivateShiftType(st.shiftTypeId)}>
+                    <button type="button" disabled={isPending} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.dangerText, cursor: isPending ? 'wait' : 'pointer' }} onClick={() => deactivateShiftType(st.shiftTypeId)}>
                       {t('deleteButton')}
                     </button>
                   </div>

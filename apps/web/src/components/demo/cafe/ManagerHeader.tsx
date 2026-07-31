@@ -27,18 +27,18 @@ export function ManagerHeader({ subtitle, rightSlot, homeHref }: ManagerHeaderPr
   const { lang } = useLang();
   const mark = homeHref ? (
     <Link href={homeHref} aria-label={tManager(lang, 'backToHub')} style={{ display: 'flex' }}>
-      <BrandMark size={52} />
+      <BrandMark size={44} />
     </Link>
   ) : (
-    <BrandMark size={52} />
+    <BrandMark size={44} />
   );
   return (
-    <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+    <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {mark}
         <div>
-          <h1 style={{ margin: 0, fontSize: 24 }}>{tManager(lang, 'dashboardTitle')}</h1>
-          <p style={{ margin: '2px 0 0', ...mutedText }}>{subtitle}</p>
+          <h1 style={{ margin: 0, fontSize: 21, lineHeight: 1.15 }}>{tManager(lang, 'dashboardTitle')}</h1>
+          <p style={{ margin: '1px 0 0', fontSize: 12.5, ...mutedText }}>{subtitle}</p>
         </div>
       </div>
       {rightSlot}

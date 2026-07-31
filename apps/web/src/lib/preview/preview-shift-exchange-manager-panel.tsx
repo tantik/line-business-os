@@ -40,17 +40,16 @@ export function PreviewShiftExchangeManagerPanel({
     });
   }
 
+  if (relevant.length === 0) return null;
+
   return (
     <section style={{ ...card, marginTop: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{tShiftExchange(lang, 'managerTitle')}</h2>
-        <span style={badgeStyle(relevant.length > 0 ? 'warning' : 'active')}>{relevant.length}</span>
+        <span style={badgeStyle('warning')}>{relevant.length}</span>
       </div>
       {feedback ? <p style={{ color: '#B42318', fontSize: 12 }}>{feedback}</p> : null}
-      {relevant.length === 0 ? (
-        <p style={{ ...mutedText, fontSize: 13 }}>{tShiftExchange(lang, 'noExchanges')}</p>
-      ) : (
-        relevant.map((exchange) => {
+      {relevant.map((exchange) => {
           const shift = assignments.find((item) => item.assignmentId === exchange.shiftId);
           const local = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
           const requester = staffNameById[exchange.requesterEmployeeId] ?? tShiftExchange(lang, 'unknownStaff');
@@ -84,8 +83,7 @@ export function PreviewShiftExchangeManagerPanel({
               </div>
             </div>
           );
-        })
-      )}
+        })}
     </section>
   );
 }
