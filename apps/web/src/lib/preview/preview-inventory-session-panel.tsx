@@ -53,13 +53,13 @@ export function PreviewInventorySessionPanel({
           : 'A check can be completed only after every required item is counted.'}
       </p>
       {feedback ? <p style={{ color: '#B42318', fontSize: 12 }}>{feedback}</p> : null}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 8 }}>
         {(['opening', 'closing'] as const).map((type) => {
           const session = sessions.find((entry) => entry.checkType === type);
           const items = session ? itemsBySession[session.sessionId] ?? [] : [];
           const complete = session?.status === 'completed';
           return (
-            <div key={type} style={{ ...card, padding: 12 }}>
+            <div key={type} style={{ ...card, marginTop: 0, padding: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                 <strong>
                   {type === 'opening'

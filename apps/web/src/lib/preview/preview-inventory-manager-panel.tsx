@@ -251,11 +251,14 @@ export function PreviewInventoryManagerPanel({
   locationId,
   items,
   staffNameById,
+  /** When true, renders as a bare trigger button (no card/heading/subtitle) so it can sit inline inside another management block (e.g. next to "Manage Staff" / "Manage Recipes") instead of as its own section. All list/search/edit/modal functionality is unchanged. */
+  embedded = false,
 }: {
   locationId: string;
   items: InventoryItemStatus[];
   /** Manager-only decrypted staff-id -> display-name map, built by the page from the same `listWorkforceStaffForManager` directory the Staff-management dialog already uses -- never a new PII exposure surface. */
   staffNameById: Record<string, string>;
+  embedded?: boolean;
 }) {
   const { lang } = useLang();
   const tr = (key: DictKey) => t(lang, key);
@@ -267,16 +270,22 @@ export function PreviewInventoryManagerPanel({
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
   const filteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
 
-  return (
+  const trigger = (
+    <button type="button" style={embedded ? buttonSecondary : buttonPrimary} onClick={() => setIsOpen(true)}>
+      {tr('openInventory')} {shortageCount > 0 ? `(${shortageCount})` : ''}
+    </button>
+  );
+
+  const body = embedded ? (
+    trigger
+  ) : (
     <section style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 16 }}>{tr('title')}</h2>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{tr('subtitle')}</p>
         </div>
-        <button type="button" style={buttonPrimary} onClick={() => setIsOpen(true)}>
-          {tr('openInventory')}
-        </button>
+        {trigger}
       </div>
 
       <p style={{ margin: '10px 0 0' }}>
@@ -286,6 +295,12 @@ export function PreviewInventoryManagerPanel({
           <span style={badgeStyle('active')}>{tr('allSufficient')}</span>
         )}
       </p>
+    </section>
+  );
+
+  return (
+    <>
+      {body}
 
       {isOpen ? (
         <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
@@ -374,6 +389,6 @@ export function PreviewInventoryManagerPanel({
           />
         ) : null}
       </Modal>
-    </section>
+    </>
   );
 }
