@@ -14,6 +14,7 @@ import { previewWriteMessage } from './write-result';
 import { toManagerViewAssignments, toManagerViewShiftTypes, toManagerViewStaff } from './manager-view-model';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import type { EstimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 
 interface PreviewShiftGridProps {
   dates: string[];
@@ -22,15 +23,17 @@ interface PreviewShiftGridProps {
   staff: WorkforceStaffManageEntry[];
   shiftTypes: WorkforceShiftType[];
   assignments: WorkforceShiftAssignment[];
+  monthlySummaries: Record<string, EstimatedEarningsSummary>;
 }
 
-export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments }: PreviewShiftGridProps) {
+export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments, monthlySummaries }: PreviewShiftGridProps) {
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<{ staffId: string; date: string } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [summaryStaffId, setSummaryStaffId] = useState<string | null>(null);
   const assignment = useMemo(
     () =>
       selected
@@ -44,6 +47,8 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const existingStart = assignment ? utcIsoToLocalDateTime(assignment.startsAt, timeZone) : null;
   const existingEnd = assignment ? utcIsoToLocalDateTime(assignment.endsAt, timeZone) : null;
   const selectedStaff = selected ? staff.find((item) => item.staffId === selected.staffId) : null;
+  const summaryStaff = summaryStaffId ? staff.find((item) => item.staffId === summaryStaffId) ?? null : null;
+  const summary = summaryStaffId ? monthlySummaries[summaryStaffId] : null;
 
   function save(formData: FormData) {
     if (!selected) return;
@@ -107,7 +112,24 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
           setFeedback(null);
           setSelected({ staffId, date });
         }}
+        onStaffClick={setSummaryStaffId}
       />
+
+      {summaryStaff && summary ? (
+        <div role="dialog" aria-label={summaryStaff.name} style={{ marginTop: 8, marginLeft: 8, maxWidth: 320, padding: 14, borderRadius: 10, border: `1px solid ${demoColors.border}`, background: demoColors.surface, boxShadow: '0 10px 28px rgba(54,43,31,.16)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <strong>{summaryStaff.name}</strong>
+            <button type="button" onClick={() => setSummaryStaffId(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer' }} aria-label={t('cancel')}>×</button>
+          </div>
+          <dl style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 14px', margin: '12px 0 0', fontSize: 13 }}>
+            <dt>{lang === 'ja' ? '実働時間' : 'Worked'}</dt><dd style={{ margin: 0, fontWeight: 700 }}>{summary.workedHours.toFixed(1)} h</dd>
+            <dt>{lang === 'ja' ? '時給' : 'Hourly'}</dt><dd style={{ margin: 0, fontWeight: 700 }}>{summary.hourlyWageYen === null ? '—' : `¥${summary.hourlyWageYen.toLocaleString('ja-JP')}`}</dd>
+            <dt>{lang === 'ja' ? '概算給与' : 'Estimated'}</dt><dd style={{ margin: 0, fontWeight: 700 }}>{summary.estimatedEarningsYen === null ? '—' : `¥${summary.estimatedEarningsYen.toLocaleString('ja-JP')}`}</dd>
+            <dt>{lang === 'ja' ? '役職' : 'Position'}</dt><dd style={{ margin: 0 }}>{summaryStaff.positionLabel || '—'}</dd>
+            <dt>{lang === 'ja' ? '状態' : 'Status'}</dt><dd style={{ margin: 0 }}>{summaryStaff.isActive ? (lang === 'ja' ? '有効' : 'Active') : (lang === 'ja' ? '無効' : 'Inactive')}</dd>
+          </dl>
+        </div>
+      ) : null}
 
       <Modal
         open={selected !== null}

@@ -14,6 +14,7 @@ export interface UpsertEmployeeFormInput {
   employmentType: string | null;
   /** `undefined` on create (defaults to active at the DB layer); on edit, `undefined` means "leave unchanged". */
   isActive: boolean | undefined;
+  hourlyWageYen: number | null;
 }
 
 /** `id` field absent/blank -> create; present -> edit that employee. */
@@ -35,6 +36,9 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
   if (!employmentType.ok) return null;
 
   const hasActiveField = formData.has('isActive');
+  const rawHourlyWage = formData.get('hourlyWageYen');
+  const hourlyWageYen = rawHourlyWage === null || rawHourlyWage === '' ? null : Number(rawHourlyWage);
+  if (hourlyWageYen !== null && (!Number.isInteger(hourlyWageYen) || hourlyWageYen < 0 || hourlyWageYen > 1_000_000)) return null;
 
   return {
     id,
@@ -43,6 +47,7 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
     positionLabel: positionLabel.value,
     employmentType: employmentType.value,
     isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,
+    hourlyWageYen,
   };
 }
 

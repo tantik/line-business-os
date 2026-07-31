@@ -19,6 +19,7 @@ interface ShiftTableProps {
   workReports?: WorkReport[];
   shortageDateSet?: Set<string>;
   onCellClick?: (staffId: string, date: string) => void;
+  onStaffClick?: (staffId: string) => void;
   /** Compact sizing so a full 7-day week fits an iPhone-width screen with no inner horizontal scroll. Staff screen only — manager table keeps its normal desktop sizing. */
   compact?: boolean;
   /** Shared with staff and manager. Only the staff screen ever passes 'en' — the manager dashboard stays Japanese-first, so this defaults to 'ja' and this component never reads `useLang()` itself (it is rendered from both a lang-aware and a lang-unaware parent). */
@@ -47,6 +48,7 @@ export function ShiftTable({
   workReports = [],
   shortageDateSet,
   onCellClick,
+  onStaffClick,
   compact = false,
   lang = 'ja',
 }: ShiftTableProps) {
@@ -170,7 +172,11 @@ export function ShiftTable({
                     textOverflow: compact ? 'ellipsis' : undefined,
                   }}
                 >
-                  {staff.name}
+                  {onStaffClick ? (
+                    <button type="button" onClick={() => onStaffClick(staff.id)} style={{ border: 0, padding: 0, background: 'transparent', color: 'inherit', font: 'inherit', fontWeight: 'inherit', textDecoration: 'underline', textDecorationStyle: 'dotted', cursor: 'pointer' }}>
+                      {staff.name}
+                    </button>
+                  ) : staff.name}
                   {staff.role === 'manager' && !compact ? (
                     <span style={{ marginLeft: 6, fontSize: 11, color: demoColors.textMuted }}>{labels.managerRole}</span>
                   ) : null}

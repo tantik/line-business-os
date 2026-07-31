@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import type { WorkforceAttendance } from '@/lib/workforce/attendance';
+import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { addIsoDays } from '@/lib/workforce/timezone';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewShiftGrid } from './preview-shift-grid';
@@ -34,6 +36,7 @@ export interface PreviewManagerViewChromeProps {
   staff: WorkforceStaffManageEntry[] | null;
   shiftTypes: WorkforceShiftType[] | null;
   assignments: WorkforceShiftAssignment[] | null;
+  attendance: WorkforceAttendance[] | null;
   basePath: string;
   actionsSlot?: ReactNode;
 }
@@ -50,6 +53,7 @@ export function PreviewManagerViewChrome({
   staff,
   shiftTypes,
   assignments,
+  attendance,
   basePath,
   actionsSlot,
 }: PreviewManagerViewChromeProps) {
@@ -59,6 +63,12 @@ export function PreviewManagerViewChrome({
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const router = useRouter();
   const [isNavigating, startNavigation] = useTransition();
+  const monthPrefix = todayIso.slice(0, 7);
+  const monthlySummaries = Object.fromEntries((staff ?? []).map((entry) => [
+    entry.staffId,
+    estimatedEarningsSummary((attendance ?? []).filter((row) => row.employeeId === entry.staffId), monthPrefix, entry.hourlyWageYen),
+  ]));
+  const estimatedLabourCost = Object.values(monthlySummaries).reduce((sum, item) => sum + (item.estimatedEarningsYen ?? 0), 0);
 
   function navigateToWeek(targetOffset: number) {
     if (targetOffset === weekOffset) return;
@@ -118,6 +128,7 @@ export function PreviewManagerViewChrome({
             staff={staff}
             assignments={assignments === null ? [] : assignments}
             shiftTypes={shiftTypes === null ? [] : shiftTypes}
+            monthlySummaries={monthlySummaries}
           />
         </div>
       )}
@@ -141,6 +152,14 @@ export function PreviewManagerViewChrome({
           })()}
         </div>
       ) : null}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <div style={{ padding: '8px 12px', borderRadius: 9, background: demoColors.surfaceElevated, textAlign: 'right' }}>
+          <span style={{ display: 'block', fontSize: 11.5, color: demoColors.textMuted }}>{lang === 'ja' ? '概算人件費' : 'Estimated labour cost'}</span>
+          <strong style={{ fontSize: 18 }}>¥{estimatedLabourCost.toLocaleString('ja-JP')}</strong>
+          <span style={{ display: 'block', fontSize: 10.5, color: demoColors.textMuted }}>{lang === 'ja' ? '給与計算ではありません' : 'Operational estimate, not payroll'}</span>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}>
         <button type="button" style={buttonSecondary} disabled title={t('monthlyReportComingSoon')}>
