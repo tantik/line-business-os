@@ -10,11 +10,13 @@ import { previewWriteMessage } from './write-result';
 import { badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, card, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, makeTranslator } from '@/lib/demo/cafe/i18n';
 import { PreviewInventoryModal } from './preview-inventory-modal';
+import { Modal } from '@/components/demo/cafe/Modal';
 
 interface InventoryManagerDict {
   title: string;
   subtitle: string;
   addItem: string;
+  editItem: string;
   required: string;
   reorderPoint: string;
   current: string;
@@ -52,6 +54,7 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     title: '在庫確認',
     subtitle: '基準在庫と現在庫を管理します。',
     addItem: '+ 商品を追加',
+    editItem: '商品を編集',
     required: '基準在庫',
     reorderPoint: '発注点',
     current: '現在庫',
@@ -82,6 +85,7 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     title: 'Inventory',
     subtitle: 'Manage required and current stock levels.',
     addItem: '+ Add item',
+    editItem: 'Edit item',
     required: 'Required',
     reorderPoint: 'Reorder point',
     current: 'Current',
@@ -298,19 +302,6 @@ export function PreviewInventoryManagerPanel({
               {tr('addItem')}
             </button>
           </div>
-      {editing ? (
-        <ItemForm
-          locationId={locationId}
-          item={editing === 'new' ? undefined : editing}
-          lang={lang}
-          tr={tr}
-          onSuccess={() => {
-            setEditing(null);
-            router.refresh();
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      ) : null}
 
       {items.length === 0 ? (
         <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
@@ -362,6 +353,27 @@ export function PreviewInventoryManagerPanel({
       )}
         </PreviewInventoryModal>
       ) : null}
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing === 'new' ? tr('addItem') : tr('editItem')}
+        maxWidth={420}
+      >
+        {editing ? (
+          <ItemForm
+            locationId={locationId}
+            item={editing === 'new' ? undefined : editing}
+            lang={lang}
+            tr={tr}
+            onSuccess={() => {
+              setEditing(null);
+              router.refresh();
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        ) : null}
+      </Modal>
     </section>
   );
 }

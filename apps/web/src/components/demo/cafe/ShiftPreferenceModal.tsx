@@ -76,7 +76,7 @@ export function ShiftPreferenceModal({ open, onClose, alreadySubmitted, onSubmit
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: 10 }}>
         {PREFERENCE_OPTION_IDS.map((id) => {
-          const chip = shiftChipColors(id);
+          const chip = shiftChipColors(id, PREFERENCE_OPTION_IDS.filter((optionId): optionId is string => optionId !== null));
           const type = SHIFT_TYPES.find((t) => t.id === id);
           const timeLabel = type?.isTimeOff
             ? lang === 'ja'
@@ -109,7 +109,7 @@ export function ShiftPreferenceModal({ open, onClose, alreadySubmitted, onSubmit
         ))}
         {dates.map((date) => {
           const value = selections[date] ?? null;
-          const chip = shiftChipColors(value);
+          const chip = shiftChipColors(value, PREFERENCE_OPTION_IDS.filter((optionId): optionId is string => optionId !== null));
           const dayNumber = Number(date.slice(-2));
           return (
             <button

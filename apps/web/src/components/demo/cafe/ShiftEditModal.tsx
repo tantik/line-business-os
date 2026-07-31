@@ -89,7 +89,10 @@ export function ShiftEditModal({
 
       <div style={{ display: 'grid', gap: 6 }}>
         {options.map((option) => {
-          const chip = shiftChipColors(option.id);
+          const chip = shiftChipColors(
+            option.id,
+            options.map((o) => o.id).filter((id): id is string => id !== null),
+          );
           const isSelected = selected === option.id;
           return (
             <button

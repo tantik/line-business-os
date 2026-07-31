@@ -178,7 +178,7 @@ export function ShiftTable({
                 {dates.map((date) => {
                   const assignment = assignmentMap.get(`${staff.id}:${date}`);
                   const shiftType = shiftTypeById.get(assignment?.shiftTypeId ?? '');
-                  const chip = shiftChipColors(assignment?.shiftTypeId ?? null);
+                  const chip = shiftChipColors(assignment?.shiftTypeId ?? null, shiftTypes.map((t) => t.id));
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
                   const report = reportMap.get(`${staff.id}:${date}`);

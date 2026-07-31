@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
-import type { RecipeTranslationWorkspace } from '@/lib/content/recipe-translation-workspace';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { PreviewStaffForm } from './preview-staff-form';
 import { PreviewRecipeKindManager } from './preview-recipe-kind-manager';
@@ -24,10 +23,9 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
 export interface PreviewStaffRecipeManagementProps {
   staff: WorkforceStaffManageEntry[] | null;
   recipes: WorkforceRecipe[] | null;
-  translationWorkspaces: Record<string, RecipeTranslationWorkspace>;
 }
 
-export function PreviewStaffRecipeManagement({ staff, recipes, translationWorkspaces }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff, recipes }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const { lang } = useLang();
@@ -53,7 +51,7 @@ export function PreviewStaffRecipeManagement({ staff, recipes, translationWorksp
       </Modal>
 
       <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={640}>
-        <PreviewRecipeKindManager recipes={recipes} translationWorkspaces={translationWorkspaces} />
+        <PreviewRecipeKindManager recipes={recipes} />
       </Modal>
     </section>
   );

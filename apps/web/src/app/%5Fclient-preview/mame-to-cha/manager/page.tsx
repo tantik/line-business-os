@@ -17,13 +17,7 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
-import { getWorkforceRecipeDetail, listWorkforceRecipes } from '@/lib/workforce/recipes';
-import { listContentTranslationsForEntities } from '@/lib/content/translations';
-import {
-  buildRecipeTranslationWorkspace,
-  flattenRecipeTranslationFields,
-  type RecipeTranslationWorkspace,
-} from '@/lib/content/recipe-translation-workspace';
+import { listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -105,6 +99,22 @@ export default async function MameToChaPreviewManagerPage({
   const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: location.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  // Resolved first (rather than inside the batch below) only because the two
+  // Inventory reads are conditional on it -- every other read here is
+  // independent and always runs in the same batch, never staged serially
+  // one-await-at-a-time (each extra round trip was a direct contributor to
+  // this page's slow load).
+  const modulesResult = await listTenantModules(supabase);
+  const inventoryEnabled =
+    modulesResult.status === 'success' &&
+    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
 
   const [
     staffResult,
@@ -114,6 +124,10 @@ export default async function MameToChaPreviewManagerPage({
     attendanceResult,
     recipesResult,
     settingsResult,
+    exchangesResult,
+    allAssignmentsResult,
+    inventoryItemsResult,
+    inventorySessionsResult,
   ] = await Promise.all([
     listWorkforceStaffForManager(supabase, activeTenant.tenantId),
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
@@ -122,26 +136,15 @@ export default async function MameToChaPreviewManagerPage({
     listAttendanceForManager(supabase, activeTenant.tenantId),
     listWorkforceRecipes(supabase, activeTenant.tenantId),
     getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
+    listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
+    listShiftAssignments(supabase, activeTenant.tenantId),
+    inventoryEnabled
+      ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
+      : Promise.resolve(null),
+    inventoryEnabled
+      ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
+      : Promise.resolve(null),
   ]);
-
-  const modulesResult = await listTenantModules(supabase);
-  const inventoryEnabled =
-    modulesResult.status === 'success' &&
-    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
-  const inventoryItemsResult = inventoryEnabled
-    ? await listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
-    : null;
-  const exchangesResult = await listShiftExchanges(supabase, activeTenant.tenantId, location.locationId);
-  const allAssignmentsResult = await listShiftAssignments(supabase, activeTenant.tenantId);
-  const todayIso = new Intl.DateTimeFormat('en-CA', {
-    timeZone: location.timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const inventorySessionsResult = inventoryEnabled
-    ? await listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
-    : null;
   // The staff loader's specific failure reason (missing PII env, RLS denial,
   // or an unexpected Postgres/decrypt error - see `listWorkforceStaffForManager`)
   // must never reach the client, but silently collapsing it to `null` with no
@@ -162,31 +165,6 @@ export default async function MameToChaPreviewManagerPage({
   const recipes = recipesResult.status === 'success' ? recipesResult.data : null;
   const settings = settingsResult.status === 'success' ? settingsResult.data : null;
 
-  // Preloaded per-recipe translation workspace (Japanese original + legacy
-  // *_en columns + content.translations rows), server-side, same
-  // "everything loaded up front" style as every other section of this page
-  // -- the Manager translation panel (a client island) never fetches this
-  // itself.
-  const translationWorkspaces: Record<string, RecipeTranslationWorkspace> = {};
-  if (recipes) {
-    await Promise.all(
-      recipes.map(async (recipe) => {
-        const detailResult = await getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipe.recipeId);
-        if (detailResult.status !== 'success' || !detailResult.data) return;
-        const fieldsForLookup = flattenRecipeTranslationFields(
-          buildRecipeTranslationWorkspace(detailResult.data, []),
-        );
-        const translationsResult = await listContentTranslationsForEntities(
-          supabase,
-          activeTenant.tenantId,
-          fieldsForLookup.map((f) => ({ sourceEntityType: f.sourceEntityType, sourceEntityId: f.sourceEntityId })),
-        );
-        const translations = translationsResult.status === 'success' ? translationsResult.data : [];
-        translationWorkspaces[recipe.recipeId] = buildRecipeTranslationWorkspace(detailResult.data, translations);
-      }),
-    );
-  }
-
   const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
   const decidedCorrections = (correctionRequests ?? [])
     .filter((r) => r.status !== 'pending')
@@ -197,10 +175,6 @@ export default async function MameToChaPreviewManagerPage({
     exchangesResult.status === 'success'
       ? exchangesResult.data.filter((exchange) => exchange.status === 'open' || exchange.status === 'accepted')
       : [];
-  const staleRecipeFields = Object.values(translationWorkspaces)
-    .flatMap((workspace) => workspace.sections)
-    .flatMap((section) => section.fields)
-    .filter((field) => field.isStale || (!field.existing && !field.legacyEnText)).length;
   const activeInventoryItems =
     inventoryItemsResult?.status === 'success' ? inventoryItemsResult.data.filter((item) => item.isActive) : [];
   const localHour = Number(
@@ -244,7 +218,6 @@ export default async function MameToChaPreviewManagerPage({
           shortageItems={activeInventoryItems.filter((item) => item.status === 'shortage').length}
           uncountedItems={activeInventoryItems.filter((item) => item.status === 'unknown').length}
           unpublishedShifts={(assignments ?? []).filter((assignment) => !assignment.published).length}
-          staleRecipeFields={staleRecipeFields}
           openingCheckComplete={!inventoryEnabled || localHour < 10 ? null : openingSession?.status === 'completed'}
           closingCheckComplete={!inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'}
         />
@@ -268,7 +241,7 @@ export default async function MameToChaPreviewManagerPage({
           }
         />
 
-        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} translationWorkspaces={translationWorkspaces} />
+        <PreviewStaffRecipeManagement staff={staff} recipes={recipes} />
 
         <PreviewSettingsCard shiftTypes={shiftTypes} assignments={assignments} settings={settings} />
 

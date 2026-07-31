@@ -130,9 +130,6 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
     'previewSetShiftTypeActive',
     'previewUpsertInventoryItem',
     'previewSetInventoryItemActive',
-    'previewGenerateRecipeTranslation',
-    'previewSaveManualRecipeTranslation',
-    'previewMarkRecipeTranslationReviewed',
     'previewDecideShiftExchange',
     'previewSignOut',
   ];
