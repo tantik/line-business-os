@@ -35,9 +35,10 @@ const row = {
   employment_type: 'part_time',
   is_active: true,
   created_at: '2026-01-01T00:00:00.000Z',
+  hourly_wage_yen: 1250,
 };
 
-const EXPECTED_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
+const EXPECTED_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at, hourly_wage_yen';
 
 test('getMyWorkforceStaffProfile maps a flat api row to a typed profile on success', async () => {
   const { client } = recordingClient({ data: row, error: null });
@@ -53,6 +54,7 @@ test('getMyWorkforceStaffProfile maps a flat api row to a typed profile on succe
       employmentType: 'part_time',
       isActive: true,
       createdAt: row.created_at,
+      hourlyWageYen: 1250,
     });
   }
 });

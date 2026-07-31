@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import './estimated-earnings.test.js';
 import assert from 'node:assert/strict';
 import { listAttendanceForManager, listMyAttendance, submitWorkReport } from './attendance.js';
 import { recordingClient } from './test-helpers.js';

@@ -143,7 +143,7 @@ select is(
     where table_schema = 'api' and table_name = 'workforce_staff_manage'),
   array[
     'staff_id', 'tenant_id', 'location_id', 'name_encrypted', 'name_hash',
-    'position_label', 'employment_type', 'is_active', 'created_at', 'updated_at'
+    'position_label', 'employment_type', 'is_active', 'created_at', 'updated_at', 'hourly_wage_yen'
   ]::text[],
   'api.workforce_staff_manage exposes no user_id/created_by/updated_by'
 );

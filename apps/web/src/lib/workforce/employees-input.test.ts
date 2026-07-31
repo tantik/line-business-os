@@ -25,6 +25,7 @@ test('parseUpsertEmployeeInput: create (no id) with required fields only', () =>
     positionLabel: null,
     employmentType: null,
     isActive: undefined,
+    hourlyWageYen: null,
   });
 });
 
@@ -45,6 +46,7 @@ test('parseUpsertEmployeeInput: edit (with id) and all optional fields', () => {
     positionLabel: 'Barista',
     employmentType: 'part_time',
     isActive: true,
+    hourlyWageYen: null,
   });
 });
 

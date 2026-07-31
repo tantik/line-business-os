@@ -57,6 +57,7 @@ export async function previewUpsertEmployee(formData: FormData): Promise<Preview
     name: input.name,
     positionLabel: input.positionLabel,
     employmentType: input.employmentType,
+    hourlyWageYen: input.hourlyWageYen,
     isActive: input.isActive,
   });
   return mapWorkforceWriteResult(result);

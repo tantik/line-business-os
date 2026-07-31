@@ -23,6 +23,7 @@ import { PreviewShiftExchangeRequestForm } from './preview-shift-exchange-reques
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
+import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -47,12 +48,6 @@ function dateRange(periodStart: string, periodEnd: string): string[] {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return dates;
-}
-
-function hoursBetween(startsAtLocal: string, endsAtLocal: string): number {
-  const [startH = 0, startM = 0] = startsAtLocal.split(':').map(Number);
-  const [endH = 0, endM = 0] = endsAtLocal.split(':').map(Number);
-  return (endH * 60 + endM - (startH * 60 + startM)) / 60;
 }
 
 function reportTime(value: string | null, timeZone: string): string {
@@ -85,6 +80,7 @@ export function PreviewStaffSchedule({
   const activePeriodEnd = addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7);
   const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
   const todayIso = todayIsoInTimeZone(timeZone);
+  const monthlySummary = estimatedEarningsSummary(attendance ?? [], todayIso.slice(0, 7), profile.hourlyWageYen);
 
   function goToWeek(nextOffset: number) {
     const bounded = Math.max(-8, Math.min(8, nextOffset));
@@ -117,18 +113,15 @@ export function PreviewStaffSchedule({
   }));
 
   const displayAssignments: ShiftAssignment[] = [];
-  let weeklyHours = 0;
   for (const assignment of assignments ?? []) {
     if (!assignment.published || !assignment.employeeId) continue;
     const start = utcIsoToLocalDateTime(assignment.startsAt, timeZone);
-    const end = utcIsoToLocalDateTime(assignment.endsAt, timeZone);
     if (!dates.includes(start.workDate)) continue;
     displayAssignments.push({
       staffId: assignment.employeeId,
       date: start.workDate,
       shiftTypeId: assignment.shiftTypeId,
     });
-    if (assignment.employeeId === profile.staffId) weeklyHours += hoursBetween(start.localTime, end.localTime);
   }
 
   const selectedAttendance = (attendance ?? []).find((entry) => entry.workDate === selectedDate) ?? null;
@@ -248,7 +241,13 @@ export function PreviewStaffSchedule({
           </>
         }
         legend={<ShiftLegend shiftTypes={displayShiftTypes} lang={lang} />}
-        hoursLabel={`${t('workedHours')}: ${weeklyHours.toFixed(1)}h`}
+        hoursLabel={
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+            <span>{lang === 'ja' ? '今月の実働' : 'Worked this month'}: {monthlySummary.workedHours.toFixed(1)} h</span>
+            <span>{lang === 'ja' ? '時給' : 'Hourly'}: {monthlySummary.hourlyWageYen === null ? '—' : `¥${monthlySummary.hourlyWageYen.toLocaleString('ja-JP')}`}</span>
+            <span>{lang === 'ja' ? '概算給与' : 'Estimated earnings'}: {monthlySummary.estimatedEarningsYen === null ? '—' : `¥${monthlySummary.estimatedEarningsYen.toLocaleString('ja-JP')}`}</span>
+          </span>
+        }
       />
       </div>
 

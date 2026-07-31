@@ -38,6 +38,7 @@ interface ApiWorkforceStaffManageRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  hourly_wage_yen: number | null;
 }
 
 /** Manager-facing staff entry with the name already decrypted server-side. Never re-serialize `nameEncrypted`/`nameHash` back to a client. */
@@ -51,11 +52,12 @@ export interface WorkforceStaffManageEntry {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  hourlyWageYen: number | null;
 }
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
 const MANAGE_SELECT =
-  'staff_id, tenant_id, location_id, name_encrypted, name_hash, position_label, employment_type, is_active, created_at, updated_at';
+  'staff_id, tenant_id, location_id, name_encrypted, name_hash, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen';
 
 function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDirectoryEntry {
   return {
@@ -80,6 +82,7 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    hourlyWageYen: row.hourly_wage_yen,
   };
 }
 
@@ -156,6 +159,7 @@ export interface UpsertWorkforceEmployeeInput {
   positionLabel?: string | null;
   employmentType?: string | null;
   isActive?: boolean;
+  hourlyWageYen?: number | null;
 }
 
 /**
@@ -186,6 +190,7 @@ export async function upsertWorkforceEmployee(
           name_hash: nameHash,
           position_label: input.positionLabel ?? null,
           employment_type: input.employmentType ?? null,
+          hourly_wage_yen: input.hourlyWageYen ?? null,
           ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
         })
         .eq('tenant_id', tenantId)
@@ -208,6 +213,7 @@ export async function upsertWorkforceEmployee(
         name_hash: nameHash,
         position_label: input.positionLabel ?? null,
         employment_type: input.employmentType ?? null,
+        hourly_wage_yen: input.hourlyWageYen ?? null,
         is_active: input.isActive ?? true,
       })
       .select(MANAGE_SELECT)

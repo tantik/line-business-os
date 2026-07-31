@@ -24,6 +24,7 @@ function profile(overrides: Partial<WorkforceMyStaffProfile> = {}): WorkforceMyS
     employmentType: 'full_time',
     isActive: true,
     createdAt: '2026-01-01T00:00:00.000Z',
+    hourlyWageYen: null,
     ...overrides,
   };
 }

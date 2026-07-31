@@ -245,6 +245,7 @@ export default async function MameToChaPreviewManagerPage({
           staff={staff}
           shiftTypes={shiftTypes}
           assignments={assignments}
+          attendance={attendance}
           basePath={PREVIEW_BASE_PATH}
           actionsSlot={
             <PreviewScheduleCardActions

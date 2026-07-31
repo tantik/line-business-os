@@ -10,6 +10,7 @@ interface ApiWorkforceMyStaffProfileRow {
   employment_type: string;
   is_active: boolean;
   created_at: string;
+  hourly_wage_yen: number | null;
 }
 
 export interface WorkforceMyStaffProfile {
@@ -20,10 +21,11 @@ export interface WorkforceMyStaffProfile {
   employmentType: string;
   isActive: boolean;
   createdAt: string;
+  hourlyWageYen: number | null;
 }
 
 const MY_STAFF_PROFILE_SELECT =
-  'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
+  'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at, hourly_wage_yen';
 
 function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
   // 42501 = insufficient_privilege; PostgREST also surfaces "permission denied".
@@ -42,6 +44,7 @@ function mapProfileRow(row: ApiWorkforceMyStaffProfileRow): WorkforceMyStaffProf
     employmentType: row.employment_type,
     isActive: row.is_active,
     createdAt: row.created_at,
+    hourlyWageYen: row.hourly_wage_yen,
   };
 }
 

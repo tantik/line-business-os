@@ -135,6 +135,19 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                 <input style={inputStyle} name="employmentType" defaultValue={editingEntry?.employmentType ?? ''} maxLength={40} key={`emp-${editingEntry?.staffId ?? 'new'}`} />
               </label>
             </div>
+            <label>
+              {lang === 'ja' ? '時給（円・概算用）' : 'Hourly wage (JPY, estimates only)'}
+              <input
+                style={inputStyle}
+                name="hourlyWageYen"
+                type="number"
+                min={0}
+                max={1000000}
+                step={1}
+                defaultValue={editingEntry?.hourlyWageYen ?? ''}
+                key={`wage-${editingEntry?.staffId ?? 'new'}`}
+              />
+            </label>
             {feedback ? <p style={{ margin: 0, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" style={buttonSecondary} onClick={() => setMode('list')} disabled={isPending}>

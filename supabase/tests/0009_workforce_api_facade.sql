@@ -157,7 +157,7 @@ select is(
   (select array_agg(column_name::text order by ordinal_position)
      from information_schema.columns
     where table_schema = 'api' and table_name = 'workforce_my_staff_profile'),
-  array['staff_id', 'tenant_id', 'location_id', 'position_label', 'employment_type', 'is_active', 'created_at']::text[],
+  array['staff_id', 'tenant_id', 'location_id', 'position_label', 'employment_type', 'is_active', 'created_at', 'hourly_wage_yen']::text[],
   'api.workforce_my_staff_profile exposes only approved columns'
 );
 select is(

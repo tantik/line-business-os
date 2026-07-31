@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { PreviewManagerViewChrome } from './preview-manager-view-chrome';
 
 /**
@@ -29,6 +30,7 @@ export interface PreviewManagerViewProps {
   staff: WorkforceStaffManageEntry[] | null;
   shiftTypes: WorkforceShiftType[] | null;
   assignments: WorkforceShiftAssignment[] | null;
+  attendance: WorkforceAttendance[] | null;
   /** Public preview route base, e.g. `/mame-to-cha` - used for week-navigation links only. */
   basePath: string;
   /** Dialog-trigger buttons (auto-distribute/publish, shift add/edit) rendered by the page - a Client Component, passed down as an already-resolved node. */
