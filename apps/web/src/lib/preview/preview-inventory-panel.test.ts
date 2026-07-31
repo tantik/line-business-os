@@ -6,16 +6,18 @@ import path from 'node:path';
 
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 
-test('the Staff Inventory form captures its form before awaiting the Server Action', () => {
+test('the Staff Inventory sticky Save builds FormData from tracked state, not a stale DOM event target', () => {
   const source = readFileSync(path.join(THIS_DIR, 'preview-inventory-staff-panel.tsx'), 'utf8');
 
-  assert.match(source, /const form = event\.currentTarget;/);
-  assert.match(source, /const formData = new FormData\(form\);/);
-  assert.match(source, /form\.reset\(\);/);
+  // The staff panel saves via one sticky "Save" button that submits every
+  // changed item sequentially, not a per-item <form onSubmit>. There is no
+  // DOM event to read across the async gap, so each item's FormData is
+  // built from component state (`values[item.itemId]`) instead.
   assert.ok(
-    !source.includes('(event.currentTarget as HTMLFormElement).reset()'),
-    'React clears currentTarget after the event handler yields; the async callback must use the captured form',
+    !source.includes('event.currentTarget'),
+    'the sticky Save flow must not depend on a DOM form event target across an async gap',
   );
+  assert.match(source, /new FormData\(\)/, 'each item save should build FormData from tracked component state');
 });
 
 test('reachable Inventory panels use language-aware write errors', () => {

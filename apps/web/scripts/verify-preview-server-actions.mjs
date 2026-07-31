@@ -72,6 +72,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewSaveManualRecipeTranslation',
       'previewMarkRecipeTranslationReviewed',
       'previewDecideShiftExchange',
+      'previewSignOut',
     ]),
   ],
   [
@@ -90,6 +91,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewStartInventorySession',
       'previewRecordInventorySessionItem',
       'previewCompleteInventorySession',
+      'previewSignOut',
     ]),
   ],
   [LEGACY_STAFF_ROUTE, new Set()],

@@ -32,6 +32,8 @@ export function CorrectionRequestModal({ open, onClose, defaultValues, onSubmit 
   const [clockOut, setClockOut] = useState(defaultValues.actualClockOut);
   const [breakMinutes, setBreakMinutes] = useState(defaultValues.breakMinutes);
   const [message, setMessage] = useState(defaultValues.message);
+  const [reasonError, setReasonError] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -40,61 +42,88 @@ export function CorrectionRequestModal({ open, onClose, defaultValues, onSubmit 
     setClockOut(defaultValues.actualClockOut);
     setBreakMinutes(defaultValues.breakMinutes);
     setMessage(defaultValues.message);
+    setReasonError(false);
+    setSubmitted(false);
   }, [open]);
 
   function handleSubmit() {
+    if (submitted) return;
+    if (message.trim().length === 0) {
+      setReasonError(true);
+      return;
+    }
     onSubmit({ date, actualClockIn: clockIn, actualClockOut: clockOut, breakMinutes, message });
-    onClose();
+    setSubmitted(true);
   }
 
   return (
     <Modal open={open} onClose={onClose} title={t('correctionModalTitle')}>
-      <div style={{ display: 'grid', gap: 12 }}>
-        <div>
-          <label style={labelStyle}>{t('workDate')}</label>
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} style={input} />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div>
-            <label style={labelStyle}>{t('actualClockIn')}</label>
-            <input type="time" value={clockIn} onChange={(event) => setClockIn(event.target.value)} style={input} />
+      {submitted ? (
+        <>
+          <p style={{ fontSize: 14 }}>{t('correctionSubmittedFeedback')}</p>
+          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" style={buttonPrimary} onClick={onClose}>
+              {t('close')}
+            </button>
           </div>
-          <div>
-            <label style={labelStyle}>{t('actualClockOut')}</label>
-            <input type="time" value={clockOut} onChange={(event) => setClockOut(event.target.value)} style={input} />
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>{t('workDate')}</label>
+              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} style={input} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={labelStyle}>{t('actualClockIn')}</label>
+                <input type="time" value={clockIn} onChange={(event) => setClockIn(event.target.value)} style={input} />
+              </div>
+              <div>
+                <label style={labelStyle}>{t('actualClockOut')}</label>
+                <input type="time" value={clockOut} onChange={(event) => setClockOut(event.target.value)} style={input} />
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>{t('breakMinutesInput')}</label>
+              <input
+                type="number"
+                min={0}
+                step={5}
+                value={breakMinutes}
+                onChange={(event) => setBreakMinutes(Number(event.target.value))}
+                style={input}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>{t('reasonMessage')}</label>
+              <textarea
+                value={message}
+                onChange={(event) => {
+                  setMessage(event.target.value);
+                  if (reasonError) setReasonError(false);
+                }}
+                rows={3}
+                placeholder={t('reasonPlaceholder')}
+                style={{ ...input, resize: 'vertical', ...(reasonError ? { border: `1px solid ${demoColors.danger}` } : null) }}
+                aria-invalid={reasonError}
+              />
+              {reasonError ? (
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: demoColors.dangerText }}>{t('reasonRequiredError')}</p>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <div>
-          <label style={labelStyle}>{t('breakMinutesInput')}</label>
-          <input
-            type="number"
-            min={0}
-            step={5}
-            value={breakMinutes}
-            onChange={(event) => setBreakMinutes(Number(event.target.value))}
-            style={input}
-          />
-        </div>
-        <div>
-          <label style={labelStyle}>{t('reasonMessage')}</label>
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            rows={3}
-            placeholder={t('reasonPlaceholder')}
-            style={{ ...input, resize: 'vertical' }}
-          />
-        </div>
-      </div>
 
-      <div style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button type="button" style={buttonSecondary} onClick={onClose}>
-          {t('cancel')}
-        </button>
-        <button type="button" style={buttonPrimary} onClick={handleSubmit}>
-          {t('submit')}
-        </button>
-      </div>
+          <div style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" style={buttonSecondary} onClick={onClose}>
+              {t('cancel')}
+            </button>
+            <button type="button" style={buttonPrimary} onClick={handleSubmit}>
+              {t('submit')}
+            </button>
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

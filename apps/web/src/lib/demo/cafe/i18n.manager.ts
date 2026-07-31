@@ -103,6 +103,7 @@ interface ManagerDict {
   deleteButton: string;
   weekdayAriaSuffix: string;
   unknownStaffFallback: string;
+  backToHub: string;
 }
 
 const MANAGER_DICT: Record<Lang, ManagerDict> = {
@@ -209,6 +210,7 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     deleteButton: '削除',
     weekdayAriaSuffix: '曜日の必要人数',
     unknownStaffFallback: '不明なスタッフ',
+    backToHub: 'ホームに戻る',
   },
   en: {
     dashboardTitle: 'Manager dashboard',
@@ -314,6 +316,7 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     deleteButton: 'Delete',
     weekdayAriaSuffix: ' required headcount',
     unknownStaffFallback: 'Unknown staff',
+    backToHub: 'Back to hub',
   },
 };
 

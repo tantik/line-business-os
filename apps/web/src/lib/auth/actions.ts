@@ -37,7 +37,13 @@ export async function signIn(formData: FormData): Promise<void> {
   const safeReturnTo = sanitizePreviewReturnTo(formData.get('returnTo')?.toString());
 
   const credentials = parseCredentials(formData);
-  if (!credentials) redirect(buildSignInErrorPath(safeReturnTo));
+  if (!credentials) {
+    // Same Router Cache staleness reasoning as the success path below applies
+    // here too: the destination is the same `/sign-in` route re-rendered with
+    // `?error=1`, which can otherwise serve a stale cached RSC payload.
+    revalidatePath('/', 'layout');
+    redirect(buildSignInErrorPath(safeReturnTo));
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
@@ -46,7 +52,10 @@ export async function signIn(formData: FormData): Promise<void> {
   });
 
   // Fail closed with a generic redirect; do not log or echo the auth error.
-  if (error) redirect(buildSignInErrorPath(safeReturnTo));
+  if (error) {
+    revalidatePath('/', 'layout');
+    redirect(buildSignInErrorPath(safeReturnTo));
+  }
 
   revalidatePath('/', 'layout');
   redirect(safeReturnTo ?? DASHBOARD_PATH);

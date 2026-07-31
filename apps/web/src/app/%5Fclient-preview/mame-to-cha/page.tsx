@@ -23,6 +23,7 @@ import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { PreviewLogoutButton } from '@/lib/preview/preview-logout-button';
 import {
   diagnoseStaffProfileFailure,
   logStaffProfileFailure,
@@ -185,7 +186,12 @@ export default async function MameToChaPreviewStaffPage({
         }
         title={activeTenant.tenantName}
         subtitle={location.locationName}
-        actions={<PreviewLanguageToggle />}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PreviewLanguageToggle />
+            <PreviewLogoutButton />
+          </div>
+        }
       />
 
       <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />

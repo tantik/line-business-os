@@ -27,7 +27,6 @@ interface InventoryManagerDict {
   save: string;
   saving: string;
   cancel: string;
-  edit: string;
   deactivate: string;
   reactivate: string;
   empty: string;
@@ -36,6 +35,11 @@ interface InventoryManagerDict {
   openInventory: string;
   close: string;
   purchaseRecommendation: string;
+  searchPlaceholder: string;
+  noSearchResults: string;
+  confirmDeactivateBody: string;
+  confirmDeactivateButton: string;
+  statusInactive: string;
 }
 
 const shortageAlert: Record<'ja' | 'en', (n: number) => string> = {
@@ -60,7 +64,6 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: '保存',
     saving: '保存中...',
     cancel: 'キャンセル',
-    edit: '編集',
     deactivate: '無効化',
     reactivate: '有効化',
     empty: '在庫アイテムはまだ登録されていません。',
@@ -69,6 +72,11 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     openInventory: '在庫を開く',
     close: '閉じる',
     purchaseRecommendation: '推奨発注数',
+    searchPlaceholder: '商品名で検索',
+    noSearchResults: '一致する商品はありません。',
+    confirmDeactivateBody: 'この商品を無効化しますか？過去の在庫記録は保持されます。',
+    confirmDeactivateButton: '無効化する',
+    statusInactive: '無効',
   },
   en: {
     title: 'Inventory',
@@ -86,7 +94,6 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: 'Save',
     saving: 'Saving...',
     cancel: 'Cancel',
-    edit: 'Edit',
     deactivate: 'Deactivate',
     reactivate: 'Reactivate',
     empty: 'No inventory items yet.',
@@ -95,6 +102,11 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     openInventory: 'Open inventory',
     close: 'Close',
     purchaseRecommendation: 'Recommended purchase',
+    searchPlaceholder: 'Search by name',
+    noSearchResults: 'No items match your search.',
+    confirmDeactivateBody: 'Deactivate this item? Past stock-count history is preserved.',
+    confirmDeactivateButton: 'Deactivate',
+    statusInactive: 'Inactive',
   },
 };
 
@@ -119,6 +131,7 @@ function ItemForm({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,6 +144,20 @@ function ItemForm({
       const result = await previewUpsertInventoryItem(formData);
       if (result.status === 'success') onSuccess();
       else setError(previewWriteMessage(lang, result.status));
+    });
+  }
+
+  function setActive(isActive: boolean) {
+    setError(null);
+    const formData = new FormData();
+    formData.set('itemId', item!.itemId);
+    formData.set('isActive', isActive ? 'true' : 'false');
+    startTransition(async () => {
+      const result = await previewSetInventoryItemActive(formData);
+      if (result.status === 'success') {
+        setConfirmingDeactivate(false);
+        onSuccess();
+      } else setError(previewWriteMessage(lang, result.status));
     });
   }
 
@@ -179,6 +206,39 @@ function ItemForm({
           {tr('cancel')}
         </button>
       </div>
+
+      {item ? (
+        <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${demoColors.border}` }}>
+          {item.isActive ? (
+            confirmingDeactivate ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 12.5, color: demoColors.textMuted }}>{tr('confirmDeactivateBody')}</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    style={isPending ? buttonDisabled : buttonPrimary}
+                    disabled={isPending}
+                    onClick={() => setActive(false)}
+                  >
+                    {tr('confirmDeactivateButton')}
+                  </button>
+                  <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmingDeactivate(false)}>
+                    {tr('cancel')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmingDeactivate(true)}>
+                {tr('deactivate')}
+              </button>
+            )
+          ) : (
+            <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setActive(true)}>
+              {tr('reactivate')}
+            </button>
+          )}
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -198,9 +258,10 @@ export function PreviewInventoryManagerPanel({
   const router = useRouter();
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [search, setSearch] = useState('');
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
+  const filteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
     <section style={card}>
@@ -224,7 +285,15 @@ export function PreviewInventoryManagerPanel({
 
       {isOpen ? (
         <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <input
+              type="search"
+              style={{ ...input, flex: 1, minWidth: 160 }}
+              placeholder={tr('searchPlaceholder')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              aria-label={tr('searchPlaceholder')}
+            />
             <button type="button" style={buttonSecondary} onClick={() => setEditing('new')}>
               {tr('addItem')}
             </button>
@@ -245,9 +314,16 @@ export function PreviewInventoryManagerPanel({
 
       {items.length === 0 ? (
         <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
+      ) : filteredItems.length === 0 ? (
+        <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('noSearchResults')}</p>
       ) : (
-        items.map((item) => (
-          <div key={item.itemId} style={{ ...card, marginTop: 10 }}>
+        filteredItems.map((item) => (
+          <button
+            type="button"
+            key={item.itemId}
+            onClick={() => setEditing(item)}
+            style={{ ...card, marginTop: 10, width: '100%', textAlign: 'left', cursor: 'pointer', opacity: item.isActive ? 1 : 0.6 }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <strong>{item.name}</strong>
@@ -268,7 +344,9 @@ export function PreviewInventoryManagerPanel({
                 ) : null}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                {item.status === 'unknown' ? (
+                {!item.isActive ? (
+                  <span style={badgeStyle('neutral')}>{tr('statusInactive')}</span>
+                ) : item.status === 'unknown' ? (
                   <span style={badgeStyle('neutral')}>{tr('notCounted')}</span>
                 ) : item.status === 'shortage' ? (
                   <span style={badgeStyle('warning')}>
@@ -277,30 +355,9 @@ export function PreviewInventoryManagerPanel({
                 ) : (
                   <span style={badgeStyle('active')}>{tr('sufficient')}</span>
                 )}
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button type="button" style={buttonSecondary} onClick={() => setEditing(item)}>
-                    {tr('edit')}
-                  </button>
-                  <button
-                    type="button"
-                    style={buttonSecondary}
-                    disabled={isPending}
-                    onClick={() => {
-                      const formData = new FormData();
-                      formData.set('itemId', item.itemId);
-                      formData.set('isActive', item.isActive ? 'false' : 'true');
-                      startTransition(async () => {
-                        await previewSetInventoryItemActive(formData);
-                        router.refresh();
-                      });
-                    }}
-                  >
-                    {item.isActive ? tr('deactivate') : tr('reactivate')}
-                  </button>
-                </div>
               </div>
             </div>
-          </div>
+          </button>
         ))
       )}
         </PreviewInventoryModal>

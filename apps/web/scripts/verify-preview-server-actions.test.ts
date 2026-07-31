@@ -134,6 +134,7 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
     'previewSaveManualRecipeTranslation',
     'previewMarkRecipeTranslationReviewed',
     'previewDecideShiftExchange',
+    'previewSignOut',
   ];
   const entries = allowed.map((exportedName) =>
     actionEntry({
@@ -188,6 +189,7 @@ test('staff preview route accepts exactly the currently allowlisted actions and 
     'previewStartInventorySession',
     'previewRecordInventorySessionItem',
     'previewCompleteInventorySession',
+    'previewSignOut',
   ];
   const entries = allowed.map((exportedName) =>
     actionEntry({
