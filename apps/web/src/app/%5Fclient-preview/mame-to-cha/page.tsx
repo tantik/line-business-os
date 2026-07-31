@@ -224,6 +224,7 @@ export default async function MameToChaPreviewStaffPage({
         assignments={publishedAssignments}
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         requests={requestsResult.status === 'success' ? requestsResult.data : null}
+        exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
         basePath={PREVIEW_BASE_PATH}
       />
 

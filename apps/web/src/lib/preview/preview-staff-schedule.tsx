@@ -13,13 +13,16 @@ import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
+import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
 import { PreviewWorkReportForm } from './preview-work-report-form';
+import { PreviewShiftExchangeRequestForm } from './preview-shift-exchange-request-form';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
+import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -31,6 +34,7 @@ export interface PreviewStaffScheduleProps {
   assignments: WorkforceShiftAssignment[] | null;
   attendance: WorkforceAttendance[] | null;
   requests: WorkforceShiftRequest[] | null;
+  exchanges: WorkforceShiftExchange[] | null;
   basePath: string;
 }
 
@@ -66,6 +70,7 @@ export function PreviewStaffSchedule({
   assignments,
   attendance,
   requests,
+  exchanges,
   basePath,
 }: PreviewStaffScheduleProps) {
   const { lang } = useLang();
@@ -74,6 +79,7 @@ export function PreviewStaffSchedule({
   const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [correctionDate, setCorrectionDate] = useState<string | null>(null);
+  const [exchangeFormOpen, setExchangeFormOpen] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const activePeriodStart = addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7);
   const activePeriodEnd = addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7);
@@ -131,6 +137,17 @@ export function PreviewStaffSchedule({
     return utcIsoToLocalDateTime(entry.startsAt, timeZone).workDate === selectedDate;
   });
   const selectedShift = displayShiftTypes.find((entry) => entry.id === selectedAssignment?.shiftTypeId);
+  const existingExchangeForSelected = selectedAssignment
+    ? (exchanges ?? []).find(
+        (exchange) => exchange.shiftId === selectedAssignment.assignmentId && exchange.status !== 'rejected' && exchange.status !== 'cancelled',
+      )
+    : undefined;
+  const canRequestExchange = Boolean(
+    selectedAssignment &&
+      selectedAssignment.published &&
+      new Date(selectedAssignment.startsAt).getTime() > Date.now() &&
+      !existingExchangeForSelected,
+  );
   const correctionByDate = new Map(
     (requests ?? [])
       .filter((request) => request.kind === 'correction')
@@ -235,7 +252,14 @@ export function PreviewStaffSchedule({
       />
       </div>
 
-      <Modal open={selectedDate !== null} onClose={() => setSelectedDate(null)} title={`${t('workReportTitle')} ${selectedDate ?? ''}`}>
+      <Modal
+        open={selectedDate !== null}
+        onClose={() => {
+          setSelectedDate(null);
+          setExchangeFormOpen(false);
+        }}
+        title={`${t('workReportTitle')} ${selectedDate ?? ''}`}
+      >
         <div style={{ display: 'grid', gap: 0 }}>
           {[
             [t('plannedShift'), selectedShift ? `${selectedShift.label}（${selectedShift.startTime}-${selectedShift.endTime}）` : t('dash')],
@@ -277,6 +301,23 @@ export function PreviewStaffSchedule({
         </div>
         {selectedDate && selectedDate <= todayIso ? (
           <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>{t('requestCorrection')}</button>
+        ) : null}
+        {canRequestExchange && selectedAssignment ? (
+          exchangeFormOpen ? (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${demoColors.border}` }}>
+              <PreviewShiftExchangeRequestForm
+                shiftId={selectedAssignment.assignmentId}
+                onSuccess={() => {
+                  setExchangeFormOpen(false);
+                  setSelectedDate(null);
+                }}
+              />
+            </div>
+          ) : (
+            <button type="button" style={{ ...buttonSecondary, marginTop: 8 }} onClick={() => setExchangeFormOpen(true)}>
+              {tShiftExchange(lang, 'requestExchangeButton')}
+            </button>
+          )
         ) : null}
       </Modal>
 

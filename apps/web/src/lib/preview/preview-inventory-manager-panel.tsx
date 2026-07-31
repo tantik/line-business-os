@@ -166,18 +166,18 @@ function ItemForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10, maxWidth: 320 }}>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
       {error ? <span style={{ color: demoColors.dangerText, fontSize: 12 }}>{error}</span> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 12 }}>{tr('name')}</span>
         <input style={input} name="name" defaultValue={item?.name ?? ''} maxLength={120} required />
       </label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <label style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('required')}</span>
           <input style={input} name="requiredQuantity" type="number" min={0} step="0.001" defaultValue={item?.requiredQuantity ?? 0} required />
         </label>
-        <label style={{ flex: 1 }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('reorderPoint')}</span>
           <input
             style={input}
@@ -190,8 +190,8 @@ function ItemForm({
           />
         </label>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <label style={{ flex: 1 }}>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <label style={{ flex: '1 1 140px' }}>
           <span style={{ ...mutedText, fontSize: 12 }}>{tr('unit')}</span>
           <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required>
             {INVENTORY_UNITS.map((u) => (
@@ -373,7 +373,7 @@ export function PreviewInventoryManagerPanel({
         open={editing !== null}
         onClose={() => setEditing(null)}
         title={editing === 'new' ? tr('addItem') : tr('editItem')}
-        maxWidth={420}
+        maxWidth={520}
       >
         {editing ? (
           <ItemForm
