@@ -59,7 +59,17 @@ test('previewUpdateShiftAssignment verifies the target assignment location indep
 test('previewUpdateShiftAssignment validates a non-null submitted employeeId/shiftTypeId before the service-layer call', () => {
   const body = fnBody('previewUpdateShiftAssignment', 'previewRunAutoDistribution');
   assert.ok(/if \(input\.employeeId\)/.test(body));
-  assert.ok(/if \(input\.shiftTypeId\)/.test(body));
+  assert.ok(/if \(!isUnassign && input\.shiftTypeId\)/.test(body));
+});
+
+test('single-cell writes use targeted staff/shift-type reads and unassign cannot leave a phantom unpublished row', () => {
+  const createBody = fnBody('previewCreateShiftAssignment', 'previewUpdateShiftAssignment');
+  const updateBody = fnBody('previewUpdateShiftAssignment', 'previewRunAutoDistribution');
+  assert.ok(createBody.includes('getWorkforceStaffDirectoryEntryById('));
+  assert.ok(createBody.includes('getWorkforceShiftTypeById('));
+  assert.ok(updateBody.includes('getWorkforceStaffDirectoryEntryById('));
+  assert.ok(updateBody.includes('getWorkforceShiftTypeById('));
+  assert.ok(/published:\s*isUnassign \? true : input\.published/.test(updateBody));
 });
 
 test('previewRunAutoDistribution injects the resolved location and never reads a client-supplied locationId', () => {

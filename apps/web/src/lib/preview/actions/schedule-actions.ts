@@ -1,7 +1,7 @@
 'use server';
 
-import { listWorkforceStaffDirectory } from '@/lib/workforce/employees';
-import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
+import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory } from '@/lib/workforce/employees';
+import { getWorkforceShiftTypeById, listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import {
   createShiftAssignment as createShiftAssignmentWrite,
@@ -63,16 +63,16 @@ export async function previewCreateShiftAssignment(
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
   const [staffResult, shiftTypesResult] = await Promise.all([
-    listWorkforceStaffDirectory(supabase, tenantId),
-    input.shiftTypeId ? listWorkforceShiftTypes(supabase, tenantId) : Promise.resolve(null),
+    getWorkforceStaffDirectoryEntryById(supabase, tenantId, input.employeeId),
+    input.shiftTypeId ? getWorkforceShiftTypeById(supabase, tenantId, input.shiftTypeId) : Promise.resolve(null),
   ]);
   if (staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult);
-  const employee = staffResult.data.find((s) => s.staffId === input.employeeId);
+  const employee = staffResult.data;
   if (!employee || employee.locationId !== locationId) return { status: 'not_found' };
 
   if (input.shiftTypeId) {
     if (!shiftTypesResult || shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult!);
-    const shiftType = shiftTypesResult.data.find((st) => st.shiftTypeId === input.shiftTypeId);
+    const shiftType = shiftTypesResult.data;
     if (!shiftType) return { status: 'not_found' };
   }
 
@@ -109,31 +109,35 @@ export async function previewUpdateShiftAssignment(
   const target = existingResult.data;
   if (!target || target.locationId !== locationId) return { status: 'not_found' };
 
+  const isUnassign = !input.employeeId;
   const [staffResult, shiftTypesResult] = await Promise.all([
-    input.employeeId ? listWorkforceStaffDirectory(supabase, tenantId) : Promise.resolve(null),
-    input.shiftTypeId ? listWorkforceShiftTypes(supabase, tenantId) : Promise.resolve(null),
+    input.employeeId ? getWorkforceStaffDirectoryEntryById(supabase, tenantId, input.employeeId) : Promise.resolve(null),
+    !isUnassign && input.shiftTypeId ? getWorkforceShiftTypeById(supabase, tenantId, input.shiftTypeId) : Promise.resolve(null),
   ]);
   if (input.employeeId) {
     if (!staffResult || staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult!);
-    const employee = staffResult.data.find((s) => s.staffId === input.employeeId);
+    const employee = staffResult.data;
     if (!employee || employee.locationId !== locationId) return { status: 'not_found' };
   }
 
-  if (input.shiftTypeId) {
+  if (!isUnassign && input.shiftTypeId) {
     if (!shiftTypesResult || shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult!);
-    const shiftType = shiftTypesResult.data.find((st) => st.shiftTypeId === input.shiftTypeId);
+    const shiftType = shiftTypesResult.data;
     if (!shiftType) return { status: 'not_found' };
   }
 
   const result = await updateShiftAssignmentWrite(supabase, tenantId, input.assignmentId, {
     employeeId: input.employeeId,
-    shiftTypeId: input.shiftTypeId,
-    startsAt: localDateTimeToUtcIso(input.workDate, input.startsAtLocal, timeZone),
-    endsAt: localDateTimeToUtcIso(input.workDate, input.endsAtLocal, timeZone),
-    breakMinutes: input.breakMinutes,
-    role: input.role,
-    notes: input.notes,
-    published: input.published,
+    shiftTypeId: isUnassign ? target.shiftTypeId : input.shiftTypeId,
+    startsAt: isUnassign ? target.startsAt : localDateTimeToUtcIso(input.workDate, input.startsAtLocal, timeZone),
+    endsAt: isUnassign ? target.endsAt : localDateTimeToUtcIso(input.workDate, input.endsAtLocal, timeZone),
+    breakMinutes: isUnassign ? target.breakMinutes : input.breakMinutes,
+    role: isUnassign ? target.role : input.role,
+    notes: isUnassign ? target.notes : input.notes,
+    // Unassign is the final visible removal state, not a draft schedule row.
+    // Mark the retained audit row published so it cannot create a phantom
+    // "unpublished shift" alert after the cell has already disappeared.
+    published: isUnassign ? true : input.published,
   });
   return mapWorkforceWriteResult(result);
 }

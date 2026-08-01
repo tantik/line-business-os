@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encryptPII, blindIndex, bufferToBytea } from '@line-os/db/crypto';
-import { listWorkforceStaffDirectory, listWorkforceStaffForManager, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
+import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
@@ -33,6 +33,19 @@ test('listWorkforceStaffDirectory maps a permission-denied error to unauthorized
   const { client } = recordingClient({ data: null, error: { code: '42501', message: 'permission denied' } });
   const result = await listWorkforceStaffDirectory(client, TENANT_ID);
   assert.equal(result.status, 'unauthorized');
+});
+
+test('getWorkforceStaffDirectoryEntryById narrows by tenant and staff id', async () => {
+  const { client, calls } = recordingClient({
+    data: { staff_id: 'staff-1', tenant_id: TENANT_ID, location_id: 'loc-1', position_label: 'Barista', employment_type: null, is_active: true, created_at: '2026-01-01' },
+    error: null,
+  });
+  const result = await getWorkforceStaffDirectoryEntryById(client, TENANT_ID, 'staff-1');
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data?.staffId, 'staff-1');
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'tenant_id' && call.args[1] === TENANT_ID));
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'staff_id' && call.args[1] === 'staff-1'));
+  assert.ok(calls.some((call) => call.method === 'maybeSingle'));
 });
 
 test('listWorkforceStaffForManager decrypts name_encrypted server-side', async () => {
