@@ -63,7 +63,13 @@ export async function signIn(formData: FormData): Promise<void> {
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // See previewSignOut's comment (lib/preview/actions/session-actions.ts):
+  // a failed remote token-revoke must not block the local sign-out redirect.
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Fall through to redirect regardless of the remote revoke outcome.
+  }
   revalidatePath('/', 'layout');
   redirect(SIGN_IN_PATH);
 }
