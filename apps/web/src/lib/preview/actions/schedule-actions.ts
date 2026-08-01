@@ -104,16 +104,22 @@ export async function previewUpdateShiftAssignment(
   // Assignment location is not inferable from "the tenant has one active
   // location" - a target row may sit at an inactive/historical location
   // (B2 plan Section 8.1). Verified independently via an unbounded read.
-  const existingResult = await getShiftAssignmentById(supabase, tenantId, input.assignmentId);
-  if (existingResult.status !== 'success') return mapWorkforceWriteResult(existingResult);
-  const target = existingResult.data;
-  if (!target || target.locationId !== locationId) return { status: 'not_found' };
-
+  //
+  // This read and the staff/shift-type reads below are independent of each
+  // other (none reads a value the others produce), so they run as one
+  // Promise.all instead of "read the assignment, then read staff/shift-type"
+  // -- collapsing what was a sequential extra round trip into the same
+  // parallel batch, on the same latency-sensitive Save path already fixed
+  // once for unassign in PR #162.
   const isUnassign = !input.employeeId;
-  const [staffResult, shiftTypesResult] = await Promise.all([
+  const [existingResult, staffResult, shiftTypesResult] = await Promise.all([
+    getShiftAssignmentById(supabase, tenantId, input.assignmentId),
     input.employeeId ? getWorkforceStaffDirectoryEntryById(supabase, tenantId, input.employeeId) : Promise.resolve(null),
     !isUnassign && input.shiftTypeId ? getWorkforceShiftTypeById(supabase, tenantId, input.shiftTypeId) : Promise.resolve(null),
   ]);
+  if (existingResult.status !== 'success') return mapWorkforceWriteResult(existingResult);
+  const target = existingResult.data;
+  if (!target || target.locationId !== locationId) return { status: 'not_found' };
   if (input.employeeId) {
     if (!staffResult || staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult!);
     const employee = staffResult.data;

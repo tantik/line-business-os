@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { ShiftAssignment, ShiftTypeDef, StaffMember, WorkReport } from '@/lib/demo/cafe/types';
 import { formatMonthDay, weekdayLabel } from '@/lib/demo/cafe/format';
 import { demoColors, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
@@ -38,7 +39,7 @@ const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; sh
  * highlight, own-past-cell click) and the manager screen (every cell
  * editable, with correction/shortage indicators).
  */
-export function ShiftTable({
+export const ShiftTable = memo(function ShiftTable({
   dates,
   todayIso,
   staffList,
@@ -67,6 +68,15 @@ export function ShiftTable({
   workReports.forEach((report) => reportMap.set(`${report.staffId}:${report.date}`, report));
 
   const shiftTypeById = new Map(shiftTypes.map((type) => [type.id, type]));
+
+  // Precomputed once per table render instead of once per staff x date cell --
+  // `shiftChipColors` used to be called with a freshly-allocated
+  // `shiftTypes.map(...)` id array (and filtered again internally) inside the
+  // per-cell loop below, which visibly showed up as scroll/paint jank on
+  // larger rosters.
+  const allShiftTypeIds = shiftTypes.map((type) => type.id);
+  const emptyChip = shiftChipColors(null);
+  const chipByShiftTypeId = new Map(shiftTypes.map((type) => [type.id, shiftChipColors(type.id, allShiftTypeIds)]));
 
   function isCellClickable(staffId: string, date: string): boolean {
     if (!onCellClick) return false;
@@ -189,7 +199,7 @@ export function ShiftTable({
                 {dates.map((date) => {
                   const assignment = assignmentMap.get(`${staff.id}:${date}`);
                   const shiftType = shiftTypeById.get(assignment?.shiftTypeId ?? '');
-                  const chip = shiftChipColors(assignment?.shiftTypeId ?? null, shiftTypes.map((t) => t.id));
+                  const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
                   const report = reportMap.get(`${staff.id}:${date}`);
@@ -243,4 +253,4 @@ export function ShiftTable({
       </table>
     </div>
   );
-}
+});

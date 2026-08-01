@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { Modal } from '@/components/demo/cafe/Modal';
@@ -55,16 +55,36 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const selectedStaff = selected ? staff.find((item) => item.staffId === selected.staffId) : null;
   const summaryStaff = summaryStaffId ? staff.find((item) => item.staffId === summaryStaffId) ?? null : null;
   const summary = summaryStaffId ? monthlySummaries[summaryStaffId] : null;
-  const visibleShiftTypes = shiftTypes.filter(
-    (item) =>
-      item.isActive ||
-      localAssignments.some(
-        (assignmentItem) => assignmentItem.employeeId && assignmentItem.shiftTypeId === item.shiftTypeId,
+  const visibleShiftTypes = useMemo(
+    () =>
+      shiftTypes.filter(
+        (item) =>
+          item.isActive ||
+          localAssignments.some(
+            (assignmentItem) => assignmentItem.employeeId && assignmentItem.shiftTypeId === item.shiftTypeId,
+          ),
       ),
+    [shiftTypes, localAssignments],
   );
   const selectableShiftTypes = shiftTypes.filter(
     (item) => item.isActive || item.shiftTypeId === assignment?.shiftTypeId,
   );
+
+  // Stable references so the memoized `ShiftTable` below actually skips
+  // re-rendering the whole grid when only unrelated state here changes
+  // (isSaving/feedback/selected/summaryStaffId) -- these three used to be
+  // freshly-mapped arrays on every render regardless of whether the
+  // underlying data changed.
+  const shiftTableStaff = useMemo(() => toManagerViewStaff(staff), [staff]);
+  const shiftTableAssignments = useMemo(
+    () => toManagerViewAssignments(localAssignments, timeZone),
+    [localAssignments, timeZone],
+  );
+  const shiftTableShiftTypes = useMemo(() => toManagerViewShiftTypes(visibleShiftTypes), [visibleShiftTypes]);
+  const handleCellClick = useCallback((staffId: string, date: string) => {
+    setFeedback(null);
+    setSelected({ staffId, date });
+  }, []);
 
   function save(formData: FormData) {
     if (!selected) return;
@@ -131,15 +151,12 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
       <ShiftTable
         dates={dates}
         todayIso={todayIso}
-        staffList={toManagerViewStaff(staff)}
-        assignments={toManagerViewAssignments(localAssignments, timeZone)}
-        shiftTypes={toManagerViewShiftTypes(visibleShiftTypes)}
+        staffList={shiftTableStaff}
+        assignments={shiftTableAssignments}
+        shiftTypes={shiftTableShiftTypes}
         mode="manager"
         lang={lang}
-        onCellClick={(staffId, date) => {
-          setFeedback(null);
-          setSelected({ staffId, date });
-        }}
+        onCellClick={handleCellClick}
         onStaffClick={setSummaryStaffId}
       />
       {isRefreshing ? (

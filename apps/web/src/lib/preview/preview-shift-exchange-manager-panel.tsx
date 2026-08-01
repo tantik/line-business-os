@@ -28,6 +28,7 @@ export function PreviewShiftExchangeManagerPanel({
   const { lang } = useLang();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [decidingExchange, setDecidingExchange] = useState<{ id: string; decision: 'approved' | 'rejected' } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const relevant = exchanges.filter((exchange) => exchange.status === 'open' || exchange.status === 'accepted');
 
@@ -36,10 +37,19 @@ export function PreviewShiftExchangeManagerPanel({
     data.set('exchangeId', exchangeId);
     data.set('decision', decision);
     setFeedback(null);
+    setDecidingExchange({ id: exchangeId, decision });
     startTransition(async () => {
       const result = await previewDecideShiftExchange(data);
-      if (result.status === 'success') router.refresh();
-      else setFeedback(previewWriteMessage(lang, result.status));
+      if (result.status === 'success') {
+        // `pending` (and this component's own "Updating..." message below)
+        // stays true through this refresh too -- the full-page reload that
+        // follows on this force-dynamic route was previously invisible, and
+        // silently waiting through it is exactly what read as "frozen".
+        router.refresh();
+      } else {
+        setFeedback(previewWriteMessage(lang, result.status));
+        setDecidingExchange(null);
+      }
     });
   }
 
@@ -52,6 +62,11 @@ export function PreviewShiftExchangeManagerPanel({
         <span style={badgeStyle('warning')}>{relevant.length}</span>
       </div>
       {feedback ? <p style={{ color: '#B42318', fontSize: 12 }}>{feedback}</p> : null}
+      {pending ? (
+        <p role="status" style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>
+          {lang === 'ja' ? '更新しています…' : 'Updating…'}
+        </p>
+      ) : null}
       {relevant.map((exchange) => {
           const shift = assignments.find((item) => item.assignmentId === exchange.shiftId);
           const local = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
@@ -82,7 +97,9 @@ export function PreviewShiftExchangeManagerPanel({
                   disabled={!canApprove || pending}
                   onClick={() => decide(exchange.exchangeId, 'approved')}
                 >
-                  {tShiftExchange(lang, 'approveButton')}
+                  {decidingExchange?.id === exchange.exchangeId && decidingExchange.decision === 'approved'
+                    ? (lang === 'ja' ? '承認中…' : 'Approving…')
+                    : tShiftExchange(lang, 'approveButton')}
                 </button>
                 <button
                   type="button"
@@ -90,7 +107,9 @@ export function PreviewShiftExchangeManagerPanel({
                   disabled={pending}
                   onClick={() => decide(exchange.exchangeId, 'rejected')}
                 >
-                  {tShiftExchange(lang, 'rejectButton')}
+                  {decidingExchange?.id === exchange.exchangeId && decidingExchange.decision === 'rejected'
+                    ? (lang === 'ja' ? '却下中…' : 'Rejecting…')
+                    : tShiftExchange(lang, 'rejectButton')}
                 </button>
               </div>
             </div>

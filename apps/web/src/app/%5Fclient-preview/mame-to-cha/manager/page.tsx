@@ -18,7 +18,7 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
-import { getWeekPeriod } from '@/lib/workforce/period';
+import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   PreviewErrorState,
@@ -104,9 +104,24 @@ export default async function MameToChaPreviewManagerPage({
 
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
-  const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
+  const nowIso = new Date().toISOString();
+  const { periodStart, periodEnd } = getWeekPeriod(nowIso, location.timezone, weekOffset);
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
+  // Shift Exchange approvals only ever reference a shift within the same
+  // -8..+8 week client navigation window the Staff/Manager schedule already
+  // supports (see MAX_WEEK_OFFSET) -- bounding this the same way the Staff
+  // page's assignment read is bounded (Phase 1N-4C latency fix) avoids
+  // re-fetching the tenant's entire shift-assignment history on every single
+  // page render/Save, which was a direct contributor to "everything feels
+  // slow" on this page.
+  const exchangeAssignmentWindow = getWeekOffsetWindow(nowIso, location.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
+  const exchangeAssignmentFromIso = localDateTimeToUtcIso(exchangeAssignmentWindow.periodStart, '00:00', location.timezone);
+  const exchangeAssignmentToIsoExclusive = localDateTimeToUtcIso(
+    addIsoDays(exchangeAssignmentWindow.periodEnd, 1),
+    '00:00',
+    location.timezone,
+  );
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: location.timezone,
     year: 'numeric',
@@ -145,7 +160,10 @@ export default async function MameToChaPreviewManagerPage({
     listWorkforceRecipes(supabase, activeTenant.tenantId),
     getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
     listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-    listShiftAssignments(supabase, activeTenant.tenantId),
+    listShiftAssignments(supabase, activeTenant.tenantId, {
+      fromIso: exchangeAssignmentFromIso,
+      toIsoExclusive: exchangeAssignmentToIsoExclusive,
+    }),
     inventoryEnabled
       ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
       : Promise.resolve(null),
