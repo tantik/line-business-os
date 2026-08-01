@@ -229,6 +229,19 @@ Observed live evidence:
 
 ## Next steps
 
+0. DEFERRED BY USER REQUEST on 2026-08-01 — do not start until asked: fix
+   page-to-page navigation latency in the Mame To Cha preview shell
+   (`_client-preview/mame-to-cha/*`). User explicitly chose to finish the
+   remaining page UI polish (Recipes/Manager "продаваемый вид") first and
+   come back to this. Full diagnosis is already written up above under
+   "Open question from the user" (search that phrase) — the short version:
+   `requirePreviewUser` -> `resolvePreviewTenantContext` ->
+   `resolvePreviewWorkforceModule` run as three sequential Supabase round
+   trips on every route before any page data loads, and
+   `.../mame-to-cha/recipes/page.tsx` additionally does a 2-3-deep sequential
+   round trip per recipe (translations lookup, then Storage
+   `createSignedUrl`) inside its `Promise.all`. Re-read that section before
+   starting so the fix isn't re-derived from scratch.
 1. Continue authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
