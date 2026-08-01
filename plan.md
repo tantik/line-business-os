@@ -18,8 +18,8 @@ Deliver a verified Cafe product on Preview:
 ## Current Git state
 
 - branch: `dev` (feature branches merged and can be deleted)
-- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`, `#164`, `#165`
-- latest confirmed `dev` merge commit: `887a330fafefcdc4b4d318e0490d0e4261ce86e4` (PR `#165`)
+- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`, `#164`, `#165`, `#166`
+- latest confirmed `dev` merge commit: `a4c11f660b7b96f57eaec11c8e22967a4fd76221` (PR `#166`)
 - base: `dev`
 - stage: OAES QA / Preview release gate — mobile UI polish round
 
@@ -192,15 +192,37 @@ Observed live evidence:
     - Local gate: typecheck PASS, lint PASS, web tests 793/793 PASS,
       production build PASS. PR `#165` passed GitHub CI/Vercel and was
       merged into `dev` as `887a330fafefcdc4b4d318e0490d0e4261ce86e4`.
+  - User live-checked `#165` on Preview (screenshot) and confirmed it looks
+    good overall, but the inactive JA/EN letter in the Language toggle was
+    nearly unreadable against the new green panel. Fixed in PR `#166`
+    (`fix/cafe-v2-1-menu-language-contrast`): `PreviewLanguageToggle` gained
+    an opt-in `variant="dark"` (translucent white text/border) passed only
+    from the nav menu; its other call site (Manager header, light
+    background) is untouched. Local gate: typecheck/lint/793 tests/build all
+    PASS. PR `#166` passed GitHub CI/Vercel and was merged into `dev` as
+    `a4c11f660b7b96f57eaec11c8e22967a4fd76221`.
   - Not yet done: live authenticated visual recheck on
-    `preview.oruwa.jp/mame-to-cha` (mobile width) covering both rounds: menu
-    open/close animation and legibility of Language/Log out on the green
-    background, and the Inventory modal open with a shortage item. Full local
-    screenshot verification was not possible in-session because the preview
-    routes require an authenticated Supabase session with no local dev-login
-    bypass; verification relies on the live Preview URL as in prior rounds —
-    ask the user to check and report back if anything still looks off before
-    closing this item.
+    `preview.oruwa.jp/mame-to-cha` (mobile width) covering: JA/EN contrast
+    fix, menu open/close animation, and the Inventory modal open with a
+    shortage item. Full local screenshot verification was not possible
+    in-session because the preview routes require an authenticated Supabase
+    session with no local dev-login bypass; verification relies on the live
+    Preview URL as in prior rounds — ask the user to check and report back if
+    anything still looks off before closing this item.
+  - Open question from the user, not yet investigated with a fix (diagnosis
+    only so far): page-to-page navigation inside this preview shell (e.g.
+    Staff -> Recipes via the nav menu) feels slow. Likely cause: every route
+    here is `export const dynamic = 'force-dynamic'`, so each navigation is a
+    fresh full server round trip with no caching -- `requirePreviewUser` ->
+    `resolvePreviewTenantContext` -> `resolvePreviewWorkforceModule` run as
+    three *sequential* Supabase round trips before any data query starts, and
+    `.../mame-to-cha/recipes/page.tsx` additionally does an N+1-shaped fetch:
+    for every recipe it sequentially awaits a translations lookup then (if it
+    has a photo) a Storage `createSignedUrl` call, all inside one
+    `Promise.all` across recipes but three round trips deep per recipe. No
+    fix attempted yet -- ask the user whether they want this perf work
+    scoped next, since it touches shared preview auth/tenant resolution used
+    by every route, not just Recipes.
   - Remaining known item from this same bug report, not yet started: other
     pages ("Recipes", "Manager") mentioned by the user as "доведём до финиша
     позже" — no scope defined yet, ask before starting.
