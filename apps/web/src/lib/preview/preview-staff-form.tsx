@@ -111,7 +111,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                     </button>
                     {s.isActive ? (
                       <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} onClick={() => setDeleteTarget(s)} disabled={isPending}>
-                        {lang === 'ja' ? '削除' : 'Delete'}
+                        {lang === 'ja' ? '無効化' : 'Deactivate'}
                       </button>
                     ) : (
                       <button type="button" style={buttonSecondary} onClick={() => handleSetActive(s.staffId, true)} disabled={isPending}>{t('reactivate')}</button>
@@ -180,8 +180,8 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       )}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={lang === 'ja' ? 'スタッフを削除しますか？' : 'Delete this staff member?'}
-        confirmLabel={lang === 'ja' ? '削除する' : 'Delete staff'}
+        title={lang === 'ja' ? 'スタッフを無効化しますか？' : 'Deactivate this staff member?'}
+        confirmLabel={lang === 'ja' ? '無効化する' : 'Deactivate staff'}
         cancelLabel={t('cancel')}
         pending={isPending}
         danger
