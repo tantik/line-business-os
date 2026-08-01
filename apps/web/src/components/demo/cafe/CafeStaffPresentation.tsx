@@ -10,7 +10,7 @@ interface CafeStaffHeaderProps {
 
 export function CafeStaffHeader({ mark, title, subtitle, actions }: CafeStaffHeaderProps) {
   return (
-    <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '4px 2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         {mark}
         <div style={{ minWidth: 0 }}>

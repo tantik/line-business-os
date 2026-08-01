@@ -8,6 +8,7 @@ import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { badgeStyle, buttonPrimary, buttonSecondary, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -34,6 +35,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WorkforceStaffManageEntry | null>(null);
 
   const editingEntry = editingId ? (staff ?? []).find((s) => s.staffId === editingId) ?? null : null;
 
@@ -107,9 +109,13 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                     >
                       {t('edit')}
                     </button>
-                    <button type="button" style={buttonSecondary} onClick={() => handleSetActive(s.staffId, !s.isActive)} disabled={isPending}>
-                      {s.isActive ? t('deactivate') : t('reactivate')}
-                    </button>
+                    {s.isActive ? (
+                      <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} onClick={() => setDeleteTarget(s)} disabled={isPending}>
+                        {lang === 'ja' ? '削除' : 'Delete'}
+                      </button>
+                    ) : (
+                      <button type="button" style={buttonSecondary} onClick={() => handleSetActive(s.staffId, true)} disabled={isPending}>{t('reactivate')}</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -133,10 +139,12 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
             {/* Cafe v2.1 does not use employment type in permissions, scheduling, or estimates.
                 Preserve an existing value during edits without exposing a redundant field. */}
             {editingEntry?.employmentType ? <input type="hidden" name="employmentType" value={editingEntry.employmentType} /> : null}
-            <label>
-              {lang === 'ja' ? '時給（円・概算用）' : 'Hourly wage (JPY, estimates only)'}
+            <label style={{ maxWidth: 280 }}>
+              {lang === 'ja' ? '時給（円・概算用）' : 'Hourly wage (JPY, estimate)'}
+              <div style={{ position: 'relative' }}>
+              <span aria-hidden style={{ position: 'absolute', left: 12, top: 14, fontWeight: 700, color: demoColors.textMuted }}>¥</span>
               <input
-                style={inputStyle}
+                style={{ ...inputStyle, paddingLeft: 30, fontVariantNumeric: 'tabular-nums' }}
                 name="hourlyWageYen"
                 type="number"
                 min={0}
@@ -145,6 +153,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                 defaultValue={editingEntry?.hourlyWageYen ?? ''}
                 key={`wage-${editingEntry?.staffId ?? 'new'}`}
               />
+              </div>
             </label>
             <label>{lang === 'ja' ? 'メールアドレス' : 'Email address'}<input style={inputStyle} name="email" type="email" defaultValue={editingEntry?.email ?? ''} required maxLength={254} autoComplete="off" /></label>
             <label>
@@ -169,6 +178,22 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
           </form>
         </>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={lang === 'ja' ? 'スタッフを削除しますか？' : 'Delete this staff member?'}
+        confirmLabel={lang === 'ja' ? '削除する' : 'Delete staff'}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          handleSetActive(deleteTarget.staffId, false);
+          setDeleteTarget(null);
+        }}
+      >
+        {lang === 'ja' ? '勤務履歴とレポートは保持したまま、アクティブなスタッフから外します。必要なら後で復元できます。' : 'They will be removed from active staff while shifts and reports are retained. You can restore them later.'}
+      </ConfirmDialog>
     </div>
   );
 }

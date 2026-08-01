@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-latency-and-acceptance`
-- merged PRs: `#158`, `#159`
-- latest `dev` merge commit: `cdc7d6348d9227e7b439f0a0ce728c81ff97481f`
+- branch: `fix/cafe-v2-1-acceptance-round-2`
+- merged PRs: `#158`, `#159`, `#160`
+- latest confirmed `dev` merge commit: `0eafdbd72d3fa502c805bcc3008270ec11612369`
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -87,10 +87,35 @@ Observed live evidence:
   field remains available for a future HR/employment-rules module.
 - Current local verification after these changes: typecheck PASS, lint PASS,
   web tests 783/783 PASS, production build PASS.
+- PR `#160` merged into `dev` as `0eafdbd72d3fa502c805bcc3008270ec11612369`;
+  GitHub CI and the Vercel deployment both passed. The recipe-media/Staff-form
+  correction is live on `preview.oruwa.jp` and awaits the final authenticated
+  visual interaction check (thumbnail, replace/remove, Employment type absent).
+- Acceptance round 2 fixes are implemented locally on
+  `fix/cafe-v2-1-acceptance-round-2`:
+  - normalized database shift times from `HH:MM:SS` to browser-safe `HH:MM`,
+    fixing the false `Please check your input` failure on create/update;
+  - targeted assignment lookup and parallel validation reads reduce shift
+    write latency; successful writes update the table immediately while the
+    heavier attention/summary refresh runs in the background;
+  - week navigation keeps the existing table stable with a small progress
+    indicator instead of replacing/jumping the schedule card;
+  - Manage Staff and Manage Recipes now have confirmation-based, reversible
+    Delete actions (staff deactivate / recipe archive), with restore paths;
+  - recipe thumbnail loading no longer blocks opening/editing the gallery;
+  - recipe images are limited to 2 MiB, 4096x4096 and 16 MP; the Server Action
+    envelope is 3 MiB so oversized images return validation feedback instead
+    of the observed server exception;
+  - Staff/Recipes menu, Staff header spacing, staff wage field, and Inventory
+    30/100-item responsive grid were polished.
+- Round 2 local verification: typecheck PASS, lint PASS, web tests 785/785
+  PASS, production build PASS, compiled Preview Server Action allowlist PASS,
+  `git diff --check` PASS. No migration or RLS change was needed.
 
 ## Next steps
 
-1. Run authenticated browser acceptance separately for Manager, Staff, and
+1. Commit/push/open PR for acceptance round 2, wait for CI/Vercel, then run
+   authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
    - week navigation and past/future shift behavior;
@@ -101,8 +126,8 @@ Observed live evidence:
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-2. Commit/push the recipe-photo + staff-form fix, open the acceptance PR, then
-   deploy and measure the Manager week-navigation latency fix without weakening
+2. Re-check the deployed recipe thumbnail/replace/remove controls and confirm
+   the Manager week-navigation latency improvement without weakening
    authorization or changing the period used by schedule mutations.
 3. Re-test recipe photo upload/replace/delete on Preview, Shift Types mutations, and
    Inventory with 30/100 temporary Preview items; remove temporary data after.

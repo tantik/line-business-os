@@ -120,7 +120,7 @@ function ItemCard({
   const needToOrder = enteredQuantity !== null ? Math.max(item.requiredQuantity - enteredQuantity, 0) : null;
 
   return (
-    <div style={{ ...card, padding: 10, marginTop: 6, opacity: isSaved ? 0.65 : 1 }}>
+    <div style={{ ...card, padding: 10, marginTop: 0, opacity: isSaved ? 0.65 : 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
         <div>
           <strong style={{ fontSize: 13.5 }}>{item.name}</strong>
@@ -247,17 +247,19 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
                 </div>
                 <p style={{ margin: '7px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>{filledCounterLabel[lang](filledCount, items.length)}</p>
               </div>
-              {visibleItems.map((item) => (
-                <ItemCard
-                  key={item.itemId}
-                  item={item}
-                  value={values[item.itemId] ?? ''}
-                  isSaved={values[item.itemId] !== undefined && savedValues[item.itemId] === values[item.itemId]}
-                  disabled={isSaving}
-                  onChange={(raw) => handleChange(item.itemId, raw)}
-                  tr={tr}
-                />
-              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 8, marginTop: 8 }}>
+                {visibleItems.map((item) => (
+                  <ItemCard
+                    key={item.itemId}
+                    item={item}
+                    value={values[item.itemId] ?? ''}
+                    isSaved={values[item.itemId] !== undefined && savedValues[item.itemId] === values[item.itemId]}
+                    disabled={isSaving}
+                    onChange={(raw) => handleChange(item.itemId, raw)}
+                    tr={tr}
+                  />
+                ))}
+              </div>
               <div
                 style={{
                   position: 'sticky',

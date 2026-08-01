@@ -132,14 +132,35 @@ export function PreviewManagerViewChrome({
         </div>
       </div>
 
-      {isNavigating ? <p role="status" style={{ margin: '-6px 0 8px', ...mutedText }}>{lang === 'ja' ? '週を読み込み中…' : 'Loading week…'}</p> : null}
+      <div
+        aria-hidden={!isNavigating}
+        style={{
+          height: 3,
+          margin: '-3px 0 7px',
+          borderRadius: 999,
+          overflow: 'hidden',
+          background: isNavigating ? demoColors.border : 'transparent',
+          opacity: isNavigating ? 1 : 0,
+          transition: 'opacity 140ms ease',
+        }}
+      >
+        <div style={{ width: '42%', height: '100%', borderRadius: 999, background: demoColors.accent }} />
+      </div>
 
       {staff === null ? (
         <p style={{ margin: '12px 0 0', ...mutedText }}>{t('staffListLoadError')}</p>
       ) : staff.length === 0 ? (
         <p style={{ margin: '12px 0 0', ...mutedText }}>{t('staffListEmpty')}</p>
       ) : (
-        <div style={{ marginTop: 12 }}>
+        <div
+          aria-busy={isNavigating}
+          style={{
+            marginTop: 12,
+            minHeight: 320,
+            opacity: isNavigating ? 0.72 : 1,
+            transition: 'opacity 140ms ease',
+          }}
+        >
           <PreviewShiftGrid
             dates={dates}
             todayIso={todayIso}

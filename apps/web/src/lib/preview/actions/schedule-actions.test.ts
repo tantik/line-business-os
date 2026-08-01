@@ -49,7 +49,7 @@ test('previewCreateShiftAssignment never trusts a submitted locationId and valid
 
 test('previewUpdateShiftAssignment verifies the target assignment location independently, not inferred from "one active location"', () => {
   const body = fnBody('previewUpdateShiftAssignment', 'previewRunAutoDistribution');
-  assert.ok(/listShiftAssignments\(supabase, tenantId, \{\}\)/.test(body), 'must read every assignment (unbounded), not assume from resolved location alone');
+  assert.ok(/getShiftAssignmentById\(supabase, tenantId, input\.assignmentId\)/.test(body), 'must read only the target assignment through the RLS facade');
   assert.ok(/target\.locationId !== locationId/.test(body), 'must reject a target assignment whose own locationId does not match the resolved location');
   const validationIdx = body.indexOf('target.locationId !== locationId');
   const updateIdx = body.indexOf('updateShiftAssignmentWrite(');

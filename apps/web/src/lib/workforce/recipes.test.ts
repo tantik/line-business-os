@@ -6,6 +6,7 @@ import {
   getWorkforceRecipeDetail,
   groupRecipesByCategory,
   listWorkforceRecipes,
+  setWorkforceRecipeArchived,
   updateWorkforceRecipeContentKind,
 } from './recipes.js';
 import type { WorkforceRecipe } from './recipes.js';
@@ -157,6 +158,18 @@ test('updateWorkforceRecipeContentKind returns not_found when RLS/filter exposes
   const { client } = recordingClient({ data: null, error: null });
   const result = await updateWorkforceRecipeContentKind(client, TENANT_ID, RECIPE_ID, 'instruction');
   assert.deepEqual(result, { status: 'not_found' });
+});
+
+test('setWorkforceRecipeArchived uses the reversible archived/draft lifecycle', async () => {
+  const archivedClient = recordingClient({ data: { ...recipeRow, status: 'archived' }, error: null });
+  const archived = await setWorkforceRecipeArchived(archivedClient.client, TENANT_ID, RECIPE_ID, true);
+  assert.equal(archived.status, 'success');
+  assert.deepEqual(archivedClient.calls.find((call) => call.method === 'update')?.args, [{ status: 'archived' }]);
+
+  const restoredClient = recordingClient({ data: { ...recipeRow, status: 'draft' }, error: null });
+  const restored = await setWorkforceRecipeArchived(restoredClient.client, TENANT_ID, RECIPE_ID, false);
+  assert.equal(restored.status, 'success');
+  assert.deepEqual(restoredClient.calls.find((call) => call.method === 'update')?.args, [{ status: 'draft' }]);
 });
 
 test('listWorkforceRecipes returns recipes in deterministic sorted order', async () => {

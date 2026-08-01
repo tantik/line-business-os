@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createShiftAssignment,
+  getShiftAssignmentById,
   insertDraftShiftAssignments,
   listShiftAssignments,
   mapDraftAssignmentToInsertRow,
@@ -89,6 +90,14 @@ test('listShiftAssignments applies fromIso/toIsoExclusive bounds when provided',
   await listShiftAssignments(client, TENANT_ID, { fromIso: '2026-08-01T00:00:00.000Z', toIsoExclusive: '2026-08-08T00:00:00.000Z' });
   assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'starts_at'));
   assert.ok(calls.some((c) => c.method === 'lt' && c.args[0] === 'starts_at'));
+});
+
+test('getShiftAssignmentById narrows by tenant and assignment id', async () => {
+  const { client, calls } = recordingClient({ data: null, error: null });
+  const result = await getShiftAssignmentById(client, TENANT_ID, 'assignment-a');
+  assert.deepEqual(result, { status: 'success', data: null });
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'tenant_id' && call.args[1] === TENANT_ID));
+  assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'assignment_id' && call.args[1] === 'assignment-a'));
 });
 
 test('insertDraftShiftAssignments skips the network call for an empty draft set', async () => {

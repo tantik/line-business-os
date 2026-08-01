@@ -8,7 +8,7 @@ const SOURCE = readFileSync(new URL('./recipe-actions.ts', import.meta.url), 'ut
 test('exports exactly the reviewed manager recipe actions', () => {
   assert.deepEqual(
     [...SOURCE.matchAll(/export async function (preview[A-Za-z]+)\(/g)].map((match) => match[1]),
-    ['previewListRecipeMediaUrls', 'previewGetRecipeForEdit', 'previewUpsertRecipe'],
+    ['previewListRecipeMediaUrls', 'previewGetRecipeForEdit', 'previewSetRecipeArchived', 'previewUpsertRecipe'],
   );
 });
 

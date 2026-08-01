@@ -3,6 +3,7 @@
 import {
   getWorkforceRecipeDetail,
   listWorkforceRecipes,
+  setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
   type WorkforceRecipeDetail,
 } from '@/lib/workforce/recipes';
@@ -11,6 +12,7 @@ import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 
 export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & { mediaUrl: string | null };
+const MAX_RECIPE_PHOTO_BYTES = 2 * 1024 * 1024;
 
 export async function previewListRecipeMediaUrls(
   recipeIds: string[],
@@ -54,12 +56,26 @@ export async function previewGetRecipeForEdit(recipeId: string): Promise<Preview
   return { status: 'success', data: { ...detail.data, mediaUrl: signed?.data?.signedUrl ?? null } };
 }
 
+export async function previewSetRecipeArchived(
+  recipeId: string,
+  archived: boolean,
+): Promise<PreviewWriteResult<{ recipeId: string; archived: boolean }>> {
+  const context = await resolvePreviewManagerContext('workforce.recipe.manage');
+  if (context.status !== 'ok') return context.result;
+  const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, recipeId);
+  if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
+  if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+  const result = await setWorkforceRecipeArchived(context.context.supabase, context.context.tenantId, recipeId, archived);
+  if (result.status !== 'success') return mapWorkforceWriteResult(result);
+  return { status: 'success', data: { recipeId, archived } };
+}
+
 export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWriteResult<{ recipeId: string }>> {
   const input = parseUpsertRecipeInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
   const photo = formData.get('photo');
   if (photo instanceof File && photo.size > 0 &&
-      (photo.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type))) {
+      (photo.size > MAX_RECIPE_PHOTO_BYTES || !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type))) {
     return PREVIEW_INVALID_INPUT_RESULT;
   }
   const context = await resolvePreviewManagerContext('workforce.recipe.manage');
