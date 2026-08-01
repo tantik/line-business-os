@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWeekPeriod } from './period.js';
+import { getWeekOffsetWindow, getWeekPeriod } from './period.js';
 
 const TZ = 'Asia/Tokyo';
 
@@ -57,4 +57,16 @@ test('getWeekPeriod: a late-UTC instant that rolls into the next JST calendar da
     periodStart: '2026-08-10',
     periodEnd: '2026-08-16',
   });
+});
+
+test('getWeekOffsetWindow covers exactly every week exposed by a bounded navigator', () => {
+  assert.deepEqual(getWeekOffsetWindow('2026-08-05T00:00:00.000Z', TZ, -8, 8), {
+    periodStart: '2026-06-08',
+    periodEnd: '2026-10-04',
+  });
+});
+
+test('getWeekOffsetWindow rejects a reversed or non-integer window', () => {
+  assert.throws(() => getWeekOffsetWindow('2026-08-05T00:00:00.000Z', TZ, 2, 1), RangeError);
+  assert.throws(() => getWeekOffsetWindow('2026-08-05T00:00:00.000Z', TZ, -0.5, 1), RangeError);
 });

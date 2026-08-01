@@ -233,31 +233,43 @@ export function PreviewStaffSchedule({
                 <button type="button" onClick={() => goToWeek(activeWeekOffset + 1)} disabled={activeWeekOffset >= 8} style={{ ...(activeWeekOffset >= 8 ? buttonDisabled : buttonSecondary), padding: '5px 9px', fontSize: 11 }}>{t('nextWeek')} →</button>
               </div>
             </div>
-            {assignments === null ? (
-              <p style={{ margin: '8px 4px', ...mutedText }}>{t('scheduleLoadError')}</p>
-            ) : (
-              <ShiftTable
-                dates={dates}
-                todayIso={todayIso}
-                staffList={staffList}
-                assignments={displayAssignments}
-                shiftTypes={displayShiftTypes}
-                mode="staff"
-                currentStaffId={profile.staffId}
-                workReports={workReports}
-                onlyCurrentStaff={onlyMe}
-                compact
-                lang={lang}
-                selectedCell={selectedDate ? { staffId: profile.staffId, date: selectedDate } : null}
-                attentionCellKeys={attentionCellKeys}
-                onCellClick={(staffId, date) => {
-                  if (staffId !== profile.staffId) return;
-                  const report = (attendance ?? []).find((entry) => entry.workDate === date);
-                  if (date === todayIso && !report?.clockOut) return;
-                  setSelectedDate(date);
-                }}
-              />
-            )}
+            <div key={activeWeekOffset} className="preview-staff-week-swap" style={{ minHeight: 150 }}>
+              {assignments === null ? (
+                <p style={{ margin: '8px 4px', ...mutedText }}>{t('scheduleLoadError')}</p>
+              ) : (
+                <ShiftTable
+                  dates={dates}
+                  todayIso={todayIso}
+                  staffList={staffList}
+                  assignments={displayAssignments}
+                  shiftTypes={displayShiftTypes}
+                  mode="staff"
+                  currentStaffId={profile.staffId}
+                  workReports={workReports}
+                  onlyCurrentStaff={onlyMe}
+                  compact
+                  lang={lang}
+                  selectedCell={selectedDate ? { staffId: profile.staffId, date: selectedDate } : null}
+                  attentionCellKeys={attentionCellKeys}
+                  onCellClick={(staffId, date) => {
+                    if (staffId !== profile.staffId) return;
+                    const report = (attendance ?? []).find((entry) => entry.workDate === date);
+                    if (date === todayIso && !report?.clockOut) return;
+                    setSelectedDate(date);
+                  }}
+                />
+              )}
+            </div>
+            <style>{`
+              @keyframes preview-staff-week-enter {
+                from { opacity: 0.72; transform: translateY(2px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+              .preview-staff-week-swap { animation: preview-staff-week-enter 130ms ease-out; }
+              @media (prefers-reduced-motion: reduce) {
+                .preview-staff-week-swap { animation: none; }
+              }
+            `}</style>
           </>
         }
         legend={<ShiftLegend shiftTypes={displayShiftTypes} lang={lang} />}

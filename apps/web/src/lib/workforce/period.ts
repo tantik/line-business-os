@@ -29,3 +29,23 @@ export function getWeekPeriod(
   const periodStart = addIsoDays(mondayOf(today), weekOffset * 7);
   return { periodStart, periodEnd: addIsoDays(periodStart, 6) };
 }
+
+/**
+ * Returns the inclusive calendar-date window covered by a bounded week
+ * navigator. This lets a client-side carousel preload exactly the weeks it
+ * can display without reading the tenant's complete assignment history.
+ */
+export function getWeekOffsetWindow(
+  nowIso: string,
+  timeZone: string,
+  minWeekOffset: number,
+  maxWeekOffset: number,
+): { periodStart: string; periodEnd: string } {
+  if (!Number.isInteger(minWeekOffset) || !Number.isInteger(maxWeekOffset) || minWeekOffset > maxWeekOffset) {
+    throw new RangeError('Invalid week offset window.');
+  }
+  return {
+    periodStart: getWeekPeriod(nowIso, timeZone, minWeekOffset).periodStart,
+    periodEnd: getWeekPeriod(nowIso, timeZone, maxWeekOffset).periodEnd,
+  };
+}
