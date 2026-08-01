@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolvePreviewManagerContext } from './authorize';
-import { decideShiftExchange, listShiftExchanges } from '@/lib/workforce/shift-exchanges';
+import { decideShiftExchange } from '@/lib/workforce/shift-exchanges';
 import { mapWorkforceWriteResult, type PreviewWriteResult } from '../write-result';
 
 function field(formData: FormData, key: string, max: number): string | null {
@@ -22,12 +22,13 @@ export async function previewDecideShiftExchange(
   }
   const auth = await resolvePreviewManagerContext('workforce.request.manage');
   if (auth.status === 'fail') return auth.result;
-  const { supabase, tenantId, locationId } = auth.context;
-  const exchanges = await listShiftExchanges(supabase, tenantId, locationId);
-  if (exchanges.status !== 'success') return mapWorkforceWriteResult(exchanges);
-  if (!exchanges.data.some((exchange) => exchange.exchangeId === exchangeId)) {
-    return { status: 'not_found' };
-  }
+  const { supabase } = auth.context;
+  // `decide_workforce_shift_exchange` (supabase/migrations/0050_workforce_shift_change_requests.sql)
+  // already re-checks `core.has_permission(tenant_id, 'workforce.request.manage', location_id)`
+  // and that the row is still open/accepted before deciding it, entirely
+  // inside the RPC's own transaction -- an extra `listShiftExchanges` read
+  // here to pre-validate the same thing was a redundant round trip on an
+  // already-slow approve action, not an additional security boundary.
   const result = await decideShiftExchange(supabase, exchangeId, decision);
   if (result.status === 'success') {
     revalidatePath('/mame-to-cha');

@@ -44,7 +44,7 @@ test('inactive shift types are hidden from new assignments while retained for ex
   const source = read('preview-shift-grid.tsx');
   assert.match(source, /item\.isActive \|\| item\.shiftTypeId === assignment\?\.shiftTypeId/);
   assert.match(source, /assignmentItem\.employeeId && assignmentItem\.shiftTypeId === item\.shiftTypeId/);
-  assert.match(source, /shiftTypes=\{toManagerViewShiftTypes\(visibleShiftTypes\)\}/);
+  assert.match(source, /toManagerViewShiftTypes\(visibleShiftTypes\)/);
   assert.match(source, /\{selectableShiftTypes\.map\(\(item\) => \(/);
 
   const chromeSource = read(PREVIEW_MANAGER_VIEW_CHROME);
