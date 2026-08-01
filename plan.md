@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-preview-acceptance`
-- merged PR: `#158` — `https://github.com/tantik/line-business-os/pull/158`
-- `dev` merge commit: `ad3ad27cd04dfb9f0723288229e96d81ffa4dfd1`
+- branch: `fix/cafe-v2-1-latency-and-acceptance`
+- merged PRs: `#158`, `#159`
+- latest `dev` merge commit: `cdc7d6348d9227e7b439f0a0ce728c81ff97481f`
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -53,9 +53,10 @@ Deliver a verified Cafe product on Preview:
 
 Merged `dev` deployment `ad3ad27` is live on `preview.oruwa.jp`. Authenticated
 browser acceptance is in progress. Manager, Staff, and Recipes load with their
-intended test roles. One observed defect is fixed locally: a future Staff shift
-now opens the complete change/cancel/exchange form immediately instead of an
-exchange-only intermediate button.
+intended test roles. The first observed defect was fixed and merged in PR
+`#159`: a future Staff shift now opens the complete change/cancel/exchange form
+immediately instead of an exchange-only intermediate button. Repeat that live
+flow once merge `cdc7d63` reaches Preview.
 
 Observed live evidence:
 
@@ -83,8 +84,7 @@ Observed live evidence:
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-2. Merge and deploy the direct future-shift request-form fix, then repeat the
-   live Staff request flow.
+2. Repeat the live Staff request flow after merge `cdc7d63` reaches Preview.
 3. Improve Manager week-navigation latency without weakening authorization or
    changing the period used by schedule mutations.
 4. Test recipe photo upload/replace/delete, Shift Types mutations, and
