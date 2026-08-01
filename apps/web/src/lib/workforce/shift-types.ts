@@ -86,6 +86,27 @@ export async function listWorkforceShiftTypes(
   }
 }
 
+/** Read one RLS-visible shift type without loading every template. */
+export async function getWorkforceShiftTypeById(
+  supabase: SupabaseClient,
+  tenantId: string,
+  shiftTypeId: string,
+): Promise<TenantAccessResult<WorkforceShiftType | null>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_types')
+      .select(SHIFT_TYPE_SELECT)
+      .eq('tenant_id', tenantId)
+      .eq('shift_type_id', shiftTypeId)
+      .maybeSingle();
+    if (error) return mapWorkforceReadError(error, 'read shift type');
+    return { status: 'success', data: data ? mapShiftTypeRow(data as ApiWorkforceShiftTypeRow) : null };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading shift type.' };
+  }
+}
+
 export interface UpsertWorkforceShiftTypeInput {
   shiftTypeId?: string;
   tenantId: string;

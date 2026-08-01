@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-acceptance-round-2`
+- branch: `fix/cafe-v2-1-shift-write-latency`
 - merged PRs: `#158`, `#159`, `#160`
-- latest confirmed `dev` merge commit: `0eafdbd72d3fa502c805bcc3008270ec11612369`
+- latest confirmed `dev` merge commit: `30dc74e040262e2471228d555568c2d1be93eb64` (PR `#161`)
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -111,11 +111,24 @@ Observed live evidence:
 - Round 2 local verification: typecheck PASS, lint PASS, web tests 785/785
   PASS, production build PASS, compiled Preview Server Action allowlist PASS,
   `git diff --check` PASS. No migration or RLS change was needed.
+- PR `#161` passed GitHub CI and Vercel, merged, and is live on Preview.
+  Authenticated Manager smoke confirmed the reported 2026-07-29 shift can now
+  be changed and restored, and a new 2026-07-28 shift can be created. Temporary
+  acceptance data was removed and the schedule was republished.
+- Live timing exposed a remaining Cloud latency issue: a one-cell write still
+  loaded whole staff/shift-type lists. Follow-up branch
+  `fix/cafe-v2-1-shift-write-latency` replaces those with tenant-scoped reads
+  by ID and makes unassign reuse the already-authorized assignment values.
+- Follow-up local gate: typecheck PASS, lint PASS, web tests 788/788 PASS,
+  production build PASS, compiled Preview Server Action allowlist PASS, and
+  `git diff --check` PASS. Final self-review also caught and fixed the
+  unassign-with-existing-shift-type branch before publication.
 
 ## Next steps
 
-1. Commit/push/open PR for acceptance round 2, wait for CI/Vercel, then run
-   authenticated browser acceptance separately for Manager, Staff, and
+1. Verify and publish the targeted shift-write latency follow-up, then repeat
+   Manager create/update/unassign timing on Preview.
+2. Continue authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
    - week navigation and past/future shift behavior;

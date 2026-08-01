@@ -127,6 +127,27 @@ export async function listWorkforceStaffDirectory(
   }
 }
 
+/** Read one RLS-visible directory entry without loading the tenant's full staff list. */
+export async function getWorkforceStaffDirectoryEntryById(
+  supabase: SupabaseClient,
+  tenantId: string,
+  staffId: string,
+): Promise<TenantAccessResult<WorkforceStaffDirectoryEntry | null>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_staff_directory')
+      .select(DIRECTORY_SELECT)
+      .eq('tenant_id', tenantId)
+      .eq('staff_id', staffId)
+      .maybeSingle();
+    if (error) return mapWorkforceReadError(error, 'read the staff directory entry');
+    return { status: 'success', data: data ? mapDirectoryRow(data as ApiWorkforceStaffDirectoryRow) : null };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading the staff directory entry.' };
+  }
+}
+
 /**
  * Manager-only staff list WITH decrypted names, through `api.workforce_staff_manage`
  * (0031). The view itself never exposes a decrypted name -- `name_encrypted`
