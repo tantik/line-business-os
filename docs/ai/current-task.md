@@ -3,7 +3,7 @@
 ## Current stage
 
 Cafe Package v2.0 remains frozen. Cafe Package v2.1 operator UX and reliability
-is in Product/Architecture Review, moving to implementation under OAES.
+is in local QA under OAES on `feature/cafe-v2-1-operator-ux` / PR #158.
 
 ## Verified baseline
 
@@ -32,3 +32,15 @@ subscription-lifecycle foundation.
 
 Apply the OAES regression-impact matrix whenever shared components, roles,
 routes, localization, or reusable data contracts are affected.
+
+## Verified v2.1 implementation evidence
+
+- header, attention centre, schedule/request UX, staff profiles, and recipe
+  management slices are committed or under active PR review;
+- local clean database reset applies migrations `0000`-`0052`;
+- pgTAP passes 628/628, including recipe RLS, transactional CRUD, private
+  media storage, and cross-tenant denial;
+- web tests, typecheck, lint, production build, and the compiled Preview Server
+  Action allowlist pass locally;
+- Preview Cloud migration/deploy and authenticated Manager/Staff/Recipes visual
+  acceptance remain the next release gate, so v2.1 is not yet accepted.

@@ -30,6 +30,7 @@ export function toPreviewRecipeViewModel(
   detail: WorkforceRecipeDetail,
   categories: WorkforceRecipeCategory[],
   workspace?: RecipeTranslationWorkspace,
+  image?: string,
 ): Recipe {
   const { recipe, ingredients, steps, notes } = detail;
   const category = categories.find((item) => item.categoryId === recipe.recipeCategoryId);
@@ -55,6 +56,7 @@ export function toPreviewRecipeViewModel(
     category: category?.labelJa || category?.labelEn || '未分類',
     badges: recipe.isPopular ? ['人気'] : [],
     icon: recipe.contentKind === 'instruction' ? '🛠️' : '☕',
+    image,
     description: recipe.descriptionJa || recipe.descriptionEn || '',
     descriptionEn: recipe.descriptionJa
       ? resolveEnText(fieldByKey, `workforce_recipe:${recipe.recipeId}:description`, recipe.descriptionEn)

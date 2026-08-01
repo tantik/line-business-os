@@ -55,7 +55,11 @@ export default async function MameToChaPreviewRecipesPage() {
       );
       const translations = translationsResult.status === 'success' ? translationsResult.data : [];
       const workspace = buildRecipeTranslationWorkspace(result.data, translations);
-      return toPreviewRecipeViewModel(result.data, categoriesResult.data, workspace);
+      const mediaPath = result.data.recipe.mediaPath;
+      const signed = mediaPath
+        ? await supabase.storage.from('recipe-media').createSignedUrl(mediaPath, 3600)
+        : null;
+      return toPreviewRecipeViewModel(result.data, categoriesResult.data, workspace, signed?.data?.signedUrl);
     }),
   ).then((results) => results.filter((r): r is NonNullable<typeof r> => r !== null));
 

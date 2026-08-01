@@ -124,7 +124,8 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
     'previewRunAutoDistribution',
     'previewPublishSchedule',
     'previewDecideCorrectionRequest',
-    'previewSetRecipeContentKind',
+    'previewGetRecipeForEdit',
+    'previewUpsertRecipe',
     'previewSaveScheduleSettings',
     'previewUpsertShiftType',
     'previewSetShiftTypeActive',
@@ -146,7 +147,7 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
   assert.deepEqual(result.unknownRouteViolations, []);
 });
 
-test('manager preview route rejects a twelfth, non-allowlisted action name', () => {
+test('manager preview route rejects a non-allowlisted action name', () => {
   const entries = [
     actionEntry({
       exportedName: 'previewSomethingElse',

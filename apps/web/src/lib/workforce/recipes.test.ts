@@ -94,6 +94,7 @@ const recipeRow = {
   status: 'published',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+  media_path: null,
 };
 
 const baseRecipe: WorkforceRecipe = {
@@ -110,10 +111,11 @@ const baseRecipe: WorkforceRecipe = {
   status: 'published',
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
+  mediaPath: null,
 };
 
 const RECIPE_SELECT =
-  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at';
+  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path';
 const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
