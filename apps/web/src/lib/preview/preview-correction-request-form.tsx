@@ -25,6 +25,7 @@ export interface PreviewCorrectionRequestFormProps {
   defaultAttendance?: WorkforceAttendance | null;
   timeZone: string;
   embedded?: boolean;
+  onSuccess?: () => void;
 }
 
 function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -37,6 +38,7 @@ export function PreviewCorrectionRequestForm({
   defaultAttendance = null,
   timeZone,
   embedded = false,
+  onSuccess,
 }: PreviewCorrectionRequestFormProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -58,7 +60,10 @@ export function PreviewCorrectionRequestForm({
     startTransition(async () => {
       const result = await previewSubmitCorrectionRequest(formData);
       setFeedback(toFeedback(lang, result));
-      if (result.status === 'success') router.refresh();
+      if (result.status === 'success') {
+        router.refresh();
+        onSuccess?.();
+      }
     });
   }
 

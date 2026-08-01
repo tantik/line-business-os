@@ -189,6 +189,8 @@ select is(
           and table_name = 'schedule_settings'
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (table_schema = 'workforce' and table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
+        or (table_schema = 'workforce' and table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
@@ -266,7 +268,7 @@ select is(
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'workforce'
-      and (privilege_type = 'DELETE' or table_name = 'leave_requests')),
+      and ((privilege_type = 'DELETE' and table_name not in ('recipe_ingredients', 'recipe_steps', 'recipe_notes')) or table_name = 'leave_requests')),
   0,
   'authenticated has no DELETE grant anywhere in workforce, and no grant at all on leave_requests'
 );
@@ -297,6 +299,8 @@ select is(
           table_name = 'schedule_settings'
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
+        or (table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
       )),
   0,
   'authenticated has no workforce grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
@@ -16,11 +17,13 @@ export function PreviewShiftExchangeManagerPanel({
   assignments,
   exchanges,
   staffNameById,
+  shiftTypes,
 }: {
   timeZone: string;
   assignments: WorkforceShiftAssignment[];
   exchanges: WorkforceShiftExchange[];
   staffNameById: Record<string, string>;
+  shiftTypes: WorkforceShiftType[];
 }) {
   const { lang } = useLang();
   const router = useRouter();
@@ -56,18 +59,27 @@ export function PreviewShiftExchangeManagerPanel({
           const replacement = exchange.replacementEmployeeId
             ? staffNameById[exchange.replacementEmployeeId] ?? tShiftExchange(lang, 'unknownStaff')
             : null;
+          const requestedType = shiftTypes.find((type) => type.shiftTypeId === exchange.requestedShiftTypeId);
+          const actionLabel = exchange.requestKind === 'cancel'
+            ? (lang === 'ja' ? 'キャンセル依頼' : 'Cancellation request')
+            : exchange.requestKind === 'change'
+              ? (lang === 'ja' ? '変更依頼' : 'Shift change request')
+              : (lang === 'ja' ? '交代依頼' : 'Exchange request');
+          const canApprove = exchange.requestKind !== 'exchange' || Boolean(replacement);
           return (
             <div key={exchange.exchangeId} style={{ ...card, padding: 12, marginTop: 8 }}>
               <strong>{local ? `${local.workDate} ${local.localTime}` : tShiftExchange(lang, 'shiftFallback')}</strong>
               <p style={{ margin: '5px 0', fontSize: 13 }}>
-                {requester} → {replacement ?? tShiftExchange(lang, 'waitingForCandidate')}
+                {actionLabel} · {requester}
+                {exchange.requestKind === 'exchange' ? ` → ${replacement ?? tShiftExchange(lang, 'waitingForCandidate')}` : ''}
+                {exchange.requestKind === 'change' && requestedType ? ` → ${requestedType.code} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})` : ''}
               </p>
               <p style={{ ...mutedText, margin: '5px 0 9px', fontSize: 12 }}>{exchange.reason}</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
-                  style={replacement && !pending ? buttonPrimary : buttonDisabled}
-                  disabled={!replacement || pending}
+                  style={canApprove && !pending ? buttonPrimary : buttonDisabled}
+                  disabled={!canApprove || pending}
                   onClick={() => decide(exchange.exchangeId, 'approved')}
                 >
                   {tShiftExchange(lang, 'approveButton')}

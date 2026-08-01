@@ -181,7 +181,7 @@ select is(
   array[
     'recipe_id', 'tenant_id', 'location_id', 'recipe_category_id',
     'title_ja', 'title_en', 'description_ja', 'description_en',
-    'is_popular', 'status', 'created_at', 'updated_at', 'content_kind'
+    'is_popular', 'status', 'created_at', 'updated_at', 'content_kind', 'media_path'
   ]::text[],
   'api.workforce_recipes exposes only approved columns'
 );
@@ -387,8 +387,8 @@ select is(
         'recipe_ingredients', 'recipe_steps', 'recipe_notes'
       )
       and privilege_type <> 'SELECT'),
-  0,
-  'authenticated has no INSERT/UPDATE/DELETE on the 5 recipe/category workforce base tables'
+  11,
+  'authenticated has exactly the 11 base-table privileges required by the 0051 SECURITY INVOKER recipe RPC'
 );
 select is(
   (select count(*)::int

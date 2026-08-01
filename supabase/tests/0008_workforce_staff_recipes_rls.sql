@@ -121,6 +121,8 @@ select is(
           table_name = 'schedule_settings'
           and privilege_type in ('SELECT', 'INSERT', 'UPDATE')
         )
+        or (table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
+        or (table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
       )),
   0,
   'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation + 0034''s schedule_settings grant, before this file''s own test-only grants'

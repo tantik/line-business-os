@@ -124,7 +124,8 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
     'previewRunAutoDistribution',
     'previewPublishSchedule',
     'previewDecideCorrectionRequest',
-    'previewSetRecipeContentKind',
+    'previewGetRecipeForEdit',
+    'previewUpsertRecipe',
     'previewSaveScheduleSettings',
     'previewUpsertShiftType',
     'previewSetShiftTypeActive',
@@ -146,7 +147,7 @@ test('manager preview route accepts exactly the currently-allowlisted actions an
   assert.deepEqual(result.unknownRouteViolations, []);
 });
 
-test('manager preview route rejects a twelfth, non-allowlisted action name', () => {
+test('manager preview route rejects a non-allowlisted action name', () => {
   const entries = [
     actionEntry({
       exportedName: 'previewSomethingElse',
@@ -159,16 +160,23 @@ test('manager preview route rejects a twelfth, non-allowlisted action name', () 
   assert.equal(result.allowlistViolations[0]?.exportedName, 'previewSomethingElse');
 });
 
-test('legacy staff/recipes preview routes reject any registered action (zero-allowed)', () => {
+test('legacy staff and recipe-detail routes reject actions while recipes allows sign-out only', () => {
   for (const route of [
     'app/_client-preview/mame-to-cha/staff/page',
-    'app/_client-preview/mame-to-cha/recipes/page',
     'app/_client-preview/mame-to-cha/recipes/[recipeId]/page',
   ]) {
     const entries = [actionEntry({ exportedName: 'previewSubmitShiftPreference', workers: { [route]: {} } })];
     const result = evaluateManifestEntries(entries);
     assert.equal(result.allowlistViolations.length, 1, `expected a violation for route ${route}`);
   }
+  const recipesResult = evaluateManifestEntries([
+    actionEntry({
+      exportedName: 'previewSignOut',
+      filename: '../src/lib/preview/actions/session-actions.ts',
+      workers: { 'app/_client-preview/mame-to-cha/recipes/page': {} },
+    }),
+  ]);
+  assert.deepEqual(recipesResult.allowlistViolations, []);
 });
 
 test('staff preview route accepts exactly the currently allowlisted actions and nothing else', () => {

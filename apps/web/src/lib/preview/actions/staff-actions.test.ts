@@ -49,7 +49,13 @@ test('previewSetEmployeeActive validates the target staffId against the strict t
 });
 
 test('never imports a raw dashboard action module', () => {
-  assert.ok(!/@\/lib\/workforce\/(staff-actions|schedule-actions|attendance-actions|employee-line-links)/.test(SOURCE));
+  assert.ok(!/@\/lib\/workforce\/(staff-actions|schedule-actions|attendance-actions)/.test(SOURCE));
+});
+
+test('LINE binding uses the server-only service helper after the employee upsert succeeds', () => {
+  const fnBody = SOURCE.slice(SOURCE.indexOf('export async function previewUpsertEmployee'), SOURCE.indexOf('export async function previewSetEmployeeActive'));
+  assert.ok(fnBody.indexOf("result.status === 'success'") < fnBody.indexOf('bindEmployeeLineUser('));
+  assert.ok(/bindEmployeeLineUser\(supabase, tenantId, result\.data\.staffId/.test(fnBody));
 });
 
 test('never references tenantSlug/moduleEnabled authority literals', () => {

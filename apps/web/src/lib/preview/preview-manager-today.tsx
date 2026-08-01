@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { badgeStyle, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 
@@ -13,6 +14,7 @@ export interface PreviewManagerTodayProps {
   closingCheckComplete: boolean | null;
   correctionDetails?: string[];
   shortageDetails?: string[];
+  actionSlot?: ReactNode;
 }
 
 export function PreviewManagerToday(props: PreviewManagerTodayProps) {
@@ -86,6 +88,7 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
             {lang === 'ja' ? '対応が必要な項目を一か所で確認できます。' : 'All operational exceptions in one place.'}
           </p>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <span style={badgeStyle(rows.length > 0 ? 'warning' : 'active')}>
           {rows.length > 0
             ? lang === 'ja'
@@ -95,6 +98,8 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
               ? '問題なし'
               : 'All clear'}
         </span>
+        {props.actionSlot}
+        </div>
       </div>
       {rows.length > 0 ? (
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>

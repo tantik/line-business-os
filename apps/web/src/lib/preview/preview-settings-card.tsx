@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { buttonPrimary, card, demoColors, input, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
@@ -30,6 +31,7 @@ export interface PreviewSettingsCardProps {
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
 export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCardProps) {
+  const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
@@ -69,7 +71,7 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
         setEditingId(null);
         setNewLabel('');
         setFeedback({ ok: true, text: t('saved') });
-        window.location.reload();
+        router.refresh();
       } else {
         setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
       }
@@ -80,7 +82,10 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
     setFeedback(null);
     startTransition(async () => {
       const result = await previewSetShiftTypeActive({ shiftTypeId, isActive: false });
-      if (result.status === 'success') window.location.reload();
+      if (result.status === 'success') {
+        setFeedback({ ok: true, text: t('saved') });
+        router.refresh();
+      }
       else setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
     });
   }

@@ -8,6 +8,7 @@ import {
   createShiftExchange,
 } from '@/lib/workforce/shift-exchanges';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
+import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { mapWorkforceWriteResult, type PreviewWriteResult } from '../write-result';
 
 const PREVIEW_BASE = '/mame-to-cha';
@@ -27,7 +28,10 @@ function refresh() {
 export async function previewRequestShiftExchange(formData: FormData): Promise<PreviewWriteResult<{ exchangeId: string }>> {
   const shiftId = field(formData, 'shiftId', 64);
   const reason = field(formData, 'reason');
-  if (!shiftId || !reason) return { status: 'invalid_input' };
+  const requestKind = field(formData, 'requestKind', 16);
+  const requestedShiftTypeId = field(formData, 'requestedShiftTypeId', 64);
+  if (!shiftId || !reason || !requestKind || !['exchange', 'change', 'cancel'].includes(requestKind)) return { status: 'invalid_input' };
+  if (requestKind === 'change' && !requestedShiftTypeId) return { status: 'invalid_input' };
 
   const auth = await resolvePreviewStaffContext();
   if (auth.status === 'fail') return auth.result;
@@ -45,12 +49,21 @@ export async function previewRequestShiftExchange(formData: FormData): Promise<P
   );
   if (!target) return { status: 'not_found' };
 
+  if (requestKind === 'change') {
+    const types = await listWorkforceShiftTypes(supabase, tenantId);
+    if (types.status !== 'success') return mapWorkforceWriteResult(types);
+    const requested = types.data.find((type) => type.shiftTypeId === requestedShiftTypeId && type.isActive);
+    if (!requested || (requested.locationId !== null && requested.locationId !== locationId)) return { status: 'not_found' };
+  }
+
   const result = await createShiftExchange(supabase, {
     tenantId,
     locationId,
     shiftId,
     requesterEmployeeId: employeeId,
     reason,
+    requestKind: requestKind as 'exchange' | 'change' | 'cancel',
+    requestedShiftTypeId,
   });
   if (result.status === 'success') refresh();
   return result.status === 'success'

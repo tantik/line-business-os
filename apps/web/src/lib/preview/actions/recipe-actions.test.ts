@@ -5,25 +5,17 @@ import './settings-actions.test.ts';
 
 const SOURCE = readFileSync(new URL('./recipe-actions.ts', import.meta.url), 'utf8');
 
-test('exports exactly the manager recipe classification action', () => {
+test('exports exactly the reviewed manager recipe actions', () => {
   assert.deepEqual(
     [...SOURCE.matchAll(/export async function (preview[A-Za-z]+)\(/g)].map((match) => match[1]),
-    ['previewSetRecipeContentKind'],
+    ['previewGetRecipeForEdit', 'previewUpsertRecipe'],
   );
 });
 
-test('validates recipe id and exact recipe/instruction kind before resolving manager context', () => {
-  const validationIndex = SOURCE.indexOf("rawContentKind !== 'recipe'");
-  const contextIndex = SOURCE.indexOf("resolvePreviewManagerContext('workforce.recipe.manage')");
-  assert.ok(validationIndex >= 0 && validationIndex < contextIndex);
-  assert.ok(SOURCE.includes("rawContentKind !== 'instruction'"));
-});
-
-test('uses recipe.manage and validates the visible target location before the narrow write', () => {
+test('uses recipe.manage and validates the visible target location before mutation', () => {
   assert.ok(SOURCE.includes("resolvePreviewManagerContext('workforce.recipe.manage')"));
-  assert.ok(SOURCE.includes('listWorkforceRecipes(supabase, tenantId)'));
-  assert.ok(SOURCE.includes('target.locationId !== null && target.locationId !== locationId'));
-  assert.ok(SOURCE.indexOf('target.locationId !== null') < SOURCE.indexOf('updateWorkforceRecipeContentKind('));
+  assert.ok(SOURCE.includes('detail.data.recipe.locationId !== context.context.locationId'));
+  assert.ok(SOURCE.indexOf('detail.data.recipe.locationId') < SOURCE.indexOf('upsertWorkforceRecipe('));
 });
 
 test('never reads client-supplied tenant or location authority fields and uses no service role', () => {

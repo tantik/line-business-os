@@ -173,6 +173,8 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [shortagesOnly, setShortagesOnly] = useState(false);
 
   const shortageCount = items.filter((item) => item.status === 'shortage').length;
   const filledCount = Object.values(values).filter((raw) => raw.trim() !== '').length;
@@ -181,6 +183,10 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
     if (raw === undefined || raw.trim() === '') return false;
     return savedValues[item.itemId] !== raw;
   });
+  const visibleItems = [...items]
+    .filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((item) => !shortagesOnly || item.status === 'shortage')
+    .sort((a, b) => Number(b.status === 'shortage') - Number(a.status === 'shortage') || a.name.localeCompare(b.name));
 
   function handleChange(itemId: string, raw: string) {
     setValues((prev) => ({ ...prev, [itemId]: raw }));
@@ -234,10 +240,14 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
             <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
           ) : (
             <>
-              <p style={{ margin: '8px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>
-                {filledCounterLabel[lang](filledCount, items.length)}
-              </p>
-              {items.map((item) => (
+              <div style={{ position: 'sticky', top: 51, zIndex: 2, margin: '0 -16px', padding: '10px 16px 8px', background: demoColors.surface, borderBottom: `1px solid ${demoColors.border}` }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={lang === 'ja' ? '商品を検索' : 'Search items'} aria-label={lang === 'ja' ? '商品を検索' : 'Search items'} style={{ ...input, flex: 1, padding: '7px 10px' }} />
+                  <button type="button" style={shortagesOnly ? buttonPrimary : buttonDisabled} onClick={() => setShortagesOnly((value) => !value)}>{shortagesOnly ? (lang === 'ja' ? '不足のみ' : 'Shortages') : (lang === 'ja' ? 'すべて' : 'All')}</button>
+                </div>
+                <p style={{ margin: '7px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>{filledCounterLabel[lang](filledCount, items.length)}</p>
+              </div>
+              {visibleItems.map((item) => (
                 <ItemCard
                   key={item.itemId}
                   item={item}

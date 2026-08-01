@@ -3,6 +3,7 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceWriteError } from './pg-error';
 import type { WorkforceRecipeCategory } from './recipe-categories';
+import type { UpsertRecipeInput } from './recipe-input';
 
 /** Flat row shape returned by `api.workforce_recipes`. */
 interface ApiWorkforceRecipeRow {
@@ -19,6 +20,7 @@ interface ApiWorkforceRecipeRow {
   status: string;
   created_at: string;
   updated_at: string;
+  media_path: string | null;
 }
 
 export interface WorkforceRecipe {
@@ -35,6 +37,7 @@ export interface WorkforceRecipe {
   status: string;
   createdAt: string;
   updatedAt: string;
+  mediaPath?: string | null;
 }
 
 /** Flat row shape returned by `api.workforce_recipe_ingredients`. */
@@ -109,7 +112,7 @@ export interface WorkforceRecipeGroup {
 }
 
 const RECIPE_SELECT =
-  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at';
+  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path';
 const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
@@ -137,7 +140,29 @@ function mapRecipeRow(row: ApiWorkforceRecipeRow): WorkforceRecipe {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    mediaPath: row.media_path,
   };
+}
+
+export async function upsertWorkforceRecipe(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  input: UpsertRecipeInput,
+): Promise<WorkforceWriteResult<{ recipeId: string }>> {
+  try {
+    const { data, error } = await supabase.schema('api').rpc('upsert_workforce_recipe', {
+      p_tenant_id: tenantId, p_location_id: locationId, p_recipe_id: input.recipeId,
+      p_content_kind: input.contentKind, p_title_ja: input.titleJa,
+      p_description_ja: input.descriptionJa ?? '', p_status: input.status,
+      p_ingredients: input.ingredients, p_steps: input.steps,
+      p_note_title: input.noteTitle ?? '', p_note_body: input.noteBody ?? '', p_media_path: input.mediaPath,
+    });
+    if (error) return mapWorkforceWriteError(error, 'save this recipe');
+    return { status: 'success', data: { recipeId: String(data) } };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error saving recipe.' };
+  }
 }
 
 function compareRecipes(a: WorkforceRecipe, b: WorkforceRecipe): number {

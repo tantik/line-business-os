@@ -43,8 +43,8 @@ export const CAFE_DEMO_BRAND: DemoBrand = {
 export const MAME_TO_CHA_BRAND: DemoBrand = {
   slug: 'mame-to-cha',
   homePath: '/mame-to-cha',
-  name: 'Mame To Cha Tokyo',
-  nameJa: 'Mame To Cha Tokyo',
+  name: 'MATCHA-tea',
+  nameJa: 'MATCHA-tea',
   taglineJa: 'カフェ向け勤務管理デモ',
   accent: '#9C6B3E',
   accentStrong: '#6F4A29',

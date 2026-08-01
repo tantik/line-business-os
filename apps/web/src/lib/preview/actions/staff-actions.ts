@@ -9,6 +9,7 @@ import {
   type WorkforceStaffManageEntry,
 } from '@/lib/workforce/employees';
 import { resolvePreviewManagerContext } from './authorize';
+import { bindEmployeeLineUser } from '@/lib/workforce/employee-line-links';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 
 /**
@@ -55,11 +56,22 @@ export async function previewUpsertEmployee(formData: FormData): Promise<Preview
     id: input.id ?? undefined,
     locationId,
     name: input.name,
+    familyName: input.familyName,
+    givenName: input.givenName,
+    email: input.email,
+    notes: input.notes,
     positionLabel: input.positionLabel,
     employmentType: input.employmentType,
     hourlyWageYen: input.hourlyWageYen,
     isActive: input.isActive,
   });
+  if (result.status === 'success') {
+    const rawLineUserId = formData.get('rawLineUserId');
+    if (typeof rawLineUserId === 'string' && rawLineUserId.trim()) {
+      const bindResult = await bindEmployeeLineUser(supabase, tenantId, result.data.staffId, rawLineUserId.trim());
+      if (bindResult.status !== 'success') return mapWorkforceWriteResult(bindResult);
+    }
+  }
   return mapWorkforceWriteResult(result);
 }
 

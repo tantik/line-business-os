@@ -128,12 +128,8 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         onStaffClick={setSummaryStaffId}
       />
 
-      {summaryStaff && summary ? (
-        <div role="dialog" aria-label={summaryStaff.name} style={{ marginTop: 8, marginLeft: 8, maxWidth: 320, padding: 14, borderRadius: 10, border: `1px solid ${demoColors.border}`, background: demoColors.surface, boxShadow: '0 10px 28px rgba(54,43,31,.16)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <strong>{summaryStaff.name}</strong>
-            <button type="button" onClick={() => setSummaryStaffId(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer' }} aria-label={t('cancel')}>×</button>
-          </div>
+      <Modal open={Boolean(summaryStaff && summary)} onClose={() => setSummaryStaffId(null)} title={summaryStaff?.name ?? ''} maxWidth={360}>
+        {summaryStaff && summary ? (
           <dl style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 14px', margin: '12px 0 0', fontSize: 13 }}>
             <dt>{lang === 'ja' ? '実働時間' : 'Worked'}</dt><dd style={{ margin: 0, fontWeight: 700 }}>{summary.workedHours.toFixed(1)} h</dd>
             <dt>{lang === 'ja' ? '時給' : 'Hourly'}</dt><dd style={{ margin: 0, fontWeight: 700 }}>{summary.hourlyWageYen === null ? '—' : `¥${summary.hourlyWageYen.toLocaleString('ja-JP')}`}</dd>
@@ -141,8 +137,8 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
             <dt>{lang === 'ja' ? '役職' : 'Position'}</dt><dd style={{ margin: 0 }}>{summaryStaff.positionLabel || '—'}</dd>
             <dt>{lang === 'ja' ? '状態' : 'Status'}</dt><dd style={{ margin: 0 }}>{summaryStaff.isActive ? (lang === 'ja' ? '有効' : 'Active') : (lang === 'ja' ? '無効' : 'Inactive')}</dd>
           </dl>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
       <Modal
         open={selected !== null}

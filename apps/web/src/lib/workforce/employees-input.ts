@@ -3,6 +3,9 @@ import { parseBooleanFlag, parseOptionalTrimmedString, parseTrimmedString, parse
 const NAME_MAX_LENGTH = 120;
 const POSITION_MAX_LENGTH = 60;
 const EMPLOYMENT_TYPE_MAX_LENGTH = 40;
+const PERSON_NAME_MAX_LENGTH = 80;
+const EMAIL_MAX_LENGTH = 254;
+const NOTES_MAX_LENGTH = 1000;
 /** Format-only bound. LINE user ids are ~33 chars ("U" + 32 hex), but this is never trusted as authentication -- only sized to reject obviously-wrong input. */
 const LINE_USER_ID_MAX_LENGTH = 128;
 
@@ -10,6 +13,10 @@ export interface UpsertEmployeeFormInput {
   id: string | null;
   locationId: string;
   name: string;
+  familyName: string;
+  givenName: string;
+  email: string;
+  notes: string | null;
   positionLabel: string | null;
   employmentType: string | null;
   /** `undefined` on create (defaults to active at the DB layer); on edit, `undefined` means "leave unchanged". */
@@ -28,6 +35,12 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
 
   const name = parseTrimmedString(formData.get('name'), NAME_MAX_LENGTH);
   if (!name) return null;
+  const familyName = parseTrimmedString(formData.get('familyName'), PERSON_NAME_MAX_LENGTH);
+  const givenName = parseTrimmedString(formData.get('givenName'), PERSON_NAME_MAX_LENGTH);
+  const email = parseTrimmedString(formData.get('email'), EMAIL_MAX_LENGTH)?.toLowerCase() ?? null;
+  if (!familyName || !givenName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  const notes = parseOptionalTrimmedString(formData.get('notes'), NOTES_MAX_LENGTH);
+  if (!notes.ok) return null;
 
   const positionLabel = parseOptionalTrimmedString(formData.get('positionLabel'), POSITION_MAX_LENGTH);
   if (!positionLabel.ok) return null;
@@ -44,6 +57,10 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
     id,
     locationId,
     name,
+    familyName,
+    givenName,
+    email,
+    notes: notes.value,
     positionLabel: positionLabel.value,
     employmentType: employmentType.value,
     isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,

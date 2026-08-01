@@ -31,7 +31,8 @@ export type ManagerPermission =
   | 'workforce.staff.manage'
   | 'workforce.shift.write'
   | 'workforce.request.manage'
-  | 'workforce.recipe.manage';
+  | 'workforce.recipe.manage'
+  | 'workforce.recipe.publish';
 
 export interface PreviewManagerContext {
   supabase: SupabaseClient;

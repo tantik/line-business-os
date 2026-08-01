@@ -74,9 +74,13 @@ select is(
         'recipe_categories', 'recipes', 'recipe_ingredients',
         'recipe_steps', 'recipe_notes'
       )
-      and not (privilege_type = 'SELECT')),
+      and not (
+        privilege_type = 'SELECT'
+        or (table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
+        or (table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
+      )),
   0,
-  'authenticated has no grant beyond SELECT on any new recipe table (Phase 1L-3''s 0023_workforce_api_facade.sql facade dependency grant)'
+  'authenticated recipe grants are limited to facade reads and the 0051 SECURITY INVOKER RPC dependencies'
 );
 
 -- --- Permission catalog: 5 new keys exist, correct module --------------------
