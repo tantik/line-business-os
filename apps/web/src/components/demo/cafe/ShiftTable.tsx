@@ -24,6 +24,8 @@ interface ShiftTableProps {
   compact?: boolean;
   /** Shared with staff and manager. Only the staff screen ever passes 'en' — the manager dashboard stays Japanese-first, so this defaults to 'ja' and this component never reads `useLang()` itself (it is rendered from both a lang-aware and a lang-unaware parent). */
   lang?: Lang;
+  selectedCell?: { staffId: string; date: string } | null;
+  attentionCellKeys?: Set<string>;
 }
 
 const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; shortageTooltip: string; correctionTooltip: string; messageTooltip: string }> = {
@@ -51,6 +53,8 @@ export function ShiftTable({
   onStaffClick,
   compact = false,
   lang = 'ja',
+  selectedCell = null,
+  attentionCellKeys,
 }: ShiftTableProps) {
   const labels = CHROME_LABELS[lang];
   const visibleStaff =
@@ -70,7 +74,8 @@ export function ShiftTable({
     if (staffId !== currentStaffId) return false;
     if (date < todayIso) return true;
     // Today's own cell only opens a report once one actually exists (e.g. after saving today's message) — otherwise there is nothing to show.
-    return date === todayIso && reportMap.has(`${staffId}:${date}`);
+    if (date === todayIso) return reportMap.has(`${staffId}:${date}`);
+    return assignmentMap.has(`${staffId}:${date}`);
   }
 
   const staffColWidth = compact ? '17%' : undefined;
@@ -190,7 +195,10 @@ export function ShiftTable({
                   const report = reportMap.get(`${staff.id}:${date}`);
                   const clickable = isCellClickable(staff.id, date);
                   const showIndicator =
-                    reportNeedsManagerAttention(report) && (mode === 'manager' || isSelfRow);
+                    (reportNeedsManagerAttention(report) && (mode === 'manager' || isSelfRow)) ||
+                    Boolean(attentionCellKeys?.has(`${staff.id}:${date}`));
+                  const isSelected = selectedCell?.staffId === staff.id && selectedCell.date === date;
+                  const isPastStaffCell = mode === 'staff' && date < todayIso;
 
                   return (
                     <td
@@ -202,21 +210,24 @@ export function ShiftTable({
                         borderRight: `1px solid ${demoColors.columnDivider}`,
                         padding: compact ? '4px 1px' : '10px 6px',
                         textAlign: 'center',
-                        background: strongest ? demoColors.selfTodayBg : isToday ? demoColors.todayBg : 'transparent',
+                        background: isSelected ? demoColors.alertWarningBg : strongest ? demoColors.selfTodayBg : isToday ? demoColors.todayBg : isPastStaffCell ? demoColors.surfaceElevated : 'transparent',
+                        outline: isSelected ? `2px solid ${demoColors.accent}` : undefined,
+                        outlineOffset: isSelected ? -2 : undefined,
+                        opacity: isPastStaffCell ? 0.72 : 1,
                         cursor: clickable ? 'pointer' : 'default',
                       }}
                     >
                       <span style={shiftChipStyle(chip.background, chip.color, compact)}>{shiftType?.label ?? '－'}</span>
                       {showIndicator ? (
                         <span
-                          title={report!.hasCorrectionRequest ? labels.correctionTooltip : labels.messageTooltip}
+                          title={report?.hasCorrectionRequest ? labels.correctionTooltip : labels.messageTooltip}
                           style={{
                             position: 'absolute',
                             top: 2,
                             right: 2,
                             fontSize: 11,
                             fontWeight: 700,
-                            color: report!.hasCorrectionRequest ? demoColors.danger : demoColors.warning,
+                            color: report?.hasCorrectionRequest ? demoColors.danger : demoColors.warning,
                           }}
                         >
                           !

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/demo/cafe/RecipeCard';
 import { RecipeDetail } from '@/components/demo/cafe/RecipeDetail';
@@ -36,10 +36,11 @@ function sortRecipes(recipes: Recipe[]): Recipe[] {
 
 export interface RecipeBrowserProps {
   recipes: Recipe[];
+  headerActions?: ReactNode;
 }
 
 /** Shared recipe/manual card browser. Its caller owns only the data source. */
-export function RecipeBrowser({ recipes }: RecipeBrowserProps) {
+export function RecipeBrowser({ recipes, headerActions }: RecipeBrowserProps) {
   const brand = useBrand();
   const { lang } = useLang();
   const sortedRecipes = sortRecipes(recipes);
@@ -53,11 +54,11 @@ export function RecipeBrowser({ recipes }: RecipeBrowserProps) {
           <BrandMark size={32} />
           <span style={{ fontSize: 14, fontWeight: 700 }}>{lang === 'ja' ? brand.nameJa : brand.name}</span>
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {headerActions ?? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 700, color: demoColors.textMuted }}>{tRecipes(lang, 'recipeSharing')}</span>
           <DemoHelpButton content={HELP_RECIPES_SHARING[lang]} />
           <LangToggle />
-        </div>
+        </div>}
       </header>
 
       <div

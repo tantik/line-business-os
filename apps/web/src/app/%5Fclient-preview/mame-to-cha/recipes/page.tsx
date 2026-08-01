@@ -11,6 +11,7 @@ import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories
 import { getWorkforceRecipeDetail, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForEntities } from '@/lib/content/translations';
 import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
+import { PreviewCafeMenu } from '@/lib/preview/preview-cafe-menu';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +61,7 @@ export default async function MameToChaPreviewRecipesPage() {
 
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
-      <RecipeBrowser recipes={recipes} />
+      <RecipeBrowser recipes={recipes} headerActions={<PreviewCafeMenu current="recipes" />} />
     </BrandProvider>
   );
 }

@@ -92,7 +92,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
     ]),
   ],
   [LEGACY_STAFF_ROUTE, new Set()],
-  [RECIPES_ROUTE, new Set()],
+  [RECIPES_ROUTE, new Set(['previewSignOut'])],
   [RECIPE_DETAIL_ROUTE, new Set()],
 ]);
 

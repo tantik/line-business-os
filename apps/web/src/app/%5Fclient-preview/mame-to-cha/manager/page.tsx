@@ -1,7 +1,6 @@
 import { BrandProvider, MAME_TO_CHA_BRAND } from '@/lib/demo/brand';
 import { CafeManagerScreen } from '@/components/demo/cafe/CafeManagerScreen';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { PreviewBackToTopLink } from '@/lib/preview/preview-back-to-top-link';
 import { PreviewLogoutButton } from '@/lib/preview/preview-logout-button';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
@@ -202,26 +201,24 @@ export default async function MameToChaPreviewManagerPage({
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>
       <CafeManagerScreen
-        subtitle={location.locationName.startsWith(activeTenant.tenantName) ? location.locationName : `${activeTenant.tenantName} — ${location.locationName}`}
+        subtitle={`MATCHA-tea — ${location.locationName}`}
         rightSlot={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <PreviewLanguageToggle />
-            <PreviewBackToTopLink href={PREVIEW_BASE_PATH} />
             <PreviewLogoutButton />
           </div>
         }
         alerts={managerAlerts}
-        alertActions={
-          <PreviewCorrectionRequestsPanel
+        showAlerts={false}
+      >
+        <PreviewManagerToday
+          actionSlot={<PreviewCorrectionRequestsPanel
             timeZone={location.timezone}
             pendingRequests={pendingCorrections}
             decidedRequests={decidedCorrections}
             staff={staff}
             attendance={attendance}
-          />
-        }
-      >
-        <PreviewManagerToday
+          />}
           pendingCorrections={pendingCorrections.length}
           pendingExchanges={pendingExchanges.length}
           shortageItems={activeInventoryItems.filter((item) => item.status === 'shortage').length}

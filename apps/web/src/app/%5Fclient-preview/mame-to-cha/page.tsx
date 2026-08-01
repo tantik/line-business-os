@@ -22,8 +22,7 @@ import { demoColors, mobilePageStyle } from '@/lib/demo/cafe/theme';
 import { PreviewStaffView } from '@/lib/preview/staff-view';
 import { PreviewClockPanel } from '@/lib/preview/preview-clock-panel';
 import { PreviewStaffActions } from '@/lib/preview/preview-staff-actions';
-import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { PreviewLogoutButton } from '@/lib/preview/preview-logout-button';
+import { PreviewCafeMenu } from '@/lib/preview/preview-cafe-menu';
 import {
   diagnoseStaffProfileFailure,
   logStaffProfileFailure,
@@ -32,13 +31,13 @@ import { listTenantModules } from '@/lib/tenant/modules';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { PreviewInventoryStaffPanel } from '@/lib/preview/preview-inventory-staff-panel';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { PreviewShiftExchangeStaffPanel } from '@/lib/preview/preview-shift-exchange-staff-panel';
 import {
   listInventoryCheckSessionItems,
   listInventoryCheckSessions,
   type InventoryCheckSessionItem,
 } from '@/lib/inventory/check-sessions';
 import { PreviewInventorySessionPanel } from '@/lib/preview/preview-inventory-session-panel';
+import Link from 'next/link';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -184,7 +183,7 @@ export default async function MameToChaPreviewStaffPage({
     <main style={mobilePageStyle(760)}>
       <CafeStaffHeader
         mark={
-          <span
+          <Link href={PREVIEW_BASE_PATH} aria-label="MATCHA-tea" style={{ textDecoration: 'none' }}><span
             aria-hidden="true"
             style={{
               display: 'grid',
@@ -200,16 +199,11 @@ export default async function MameToChaPreviewStaffPage({
             }}
           >
             M
-          </span>
+          </span></Link>
         }
-        title={activeTenant.tenantName}
-        subtitle={location.locationName}
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PreviewLanguageToggle />
-            <PreviewLogoutButton />
-          </div>
-        }
+        title="MATCHA-tea"
+        subtitle={null}
+        actions={<PreviewCafeMenu current="staff" />}
       />
 
       <PreviewClockPanel todayAttendance={todayAttendance} timeZone={location.timezone} />
@@ -239,15 +233,6 @@ export default async function MameToChaPreviewStaffPage({
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
       />
-
-      {assignmentsResult.status === 'success' && exchangesResult.status === 'success' ? (
-        <PreviewShiftExchangeStaffPanel
-          employeeId={profile.staffId}
-          timeZone={location.timezone}
-          assignments={publishedAssignments ?? []}
-          exchanges={exchangesResult.data}
-        />
-      ) : null}
 
       {SHOW_OPENING_CLOSING_STOCK_CHECKS && inventoryEnabled && inventorySessionsResult?.status === 'success' ? (
         <PreviewInventorySessionPanel

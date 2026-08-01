@@ -13,6 +13,7 @@ export interface CafeManagerScreenProps {
   homeHref?: string;
   alerts: ManagerAlert[];
   alertActions?: ReactNode;
+  showAlerts?: boolean;
   children: ReactNode;
 }
 
@@ -23,13 +24,11 @@ export interface CafeManagerScreenProps {
  * once, so the two routes render as one product and differ only in the data
  * source/actions/states their section children supply.
  */
-export function CafeManagerScreen({ subtitle, rightSlot, homeHref, alerts, alertActions, children }: CafeManagerScreenProps) {
+export function CafeManagerScreen({ subtitle, rightSlot, homeHref, alerts, alertActions, showAlerts = true, children }: CafeManagerScreenProps) {
   return (
     <main style={pageStyle(1180)}>
       <ManagerHeader subtitle={subtitle} rightSlot={rightSlot} homeHref={homeHref} />
-      <div style={{ marginTop: 20 }}>
-        <ManagerAlerts alerts={alerts} actionsSlot={alertActions} />
-      </div>
+      {showAlerts ? <div style={{ marginTop: 20 }}><ManagerAlerts alerts={alerts} actionsSlot={alertActions} /></div> : null}
       {children}
     </main>
   );

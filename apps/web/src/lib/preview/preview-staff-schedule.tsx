@@ -183,6 +183,15 @@ export function PreviewStaffSchedule({
   });
   const selectedCorrection = selectedDate ? correctionByDate.get(selectedDate) : undefined;
   const messageLocked = selectedCorrection?.status === 'approved';
+  const attentionCellKeys = new Set<string>();
+  for (const request of requests ?? []) {
+    if (request.status === 'pending' && request.kind === 'correction') attentionCellKeys.add(`${profile.staffId}:${request.workDate}`);
+  }
+  for (const exchange of exchanges ?? []) {
+    if (!['open', 'accepted'].includes(exchange.status)) continue;
+    const assignment = (assignments ?? []).find((item) => item.assignmentId === exchange.shiftId);
+    if (assignment) attentionCellKeys.add(`${profile.staffId}:${utcIsoToLocalDateTime(assignment.startsAt, timeZone).workDate}`);
+  }
 
   return (
     <>
@@ -241,6 +250,8 @@ export function PreviewStaffSchedule({
                 onlyCurrentStaff={onlyMe}
                 compact
                 lang={lang}
+                selectedCell={selectedDate ? { staffId: profile.staffId, date: selectedDate } : null}
+                attentionCellKeys={attentionCellKeys}
                 onCellClick={(staffId, date) => {
                   if (staffId !== profile.staffId) return;
                   const report = (attendance ?? []).find((entry) => entry.workDate === date);
@@ -268,7 +279,9 @@ export function PreviewStaffSchedule({
           setSelectedDate(null);
           setExchangeFormOpen(false);
         }}
-        title={`${t('workReportTitle')} ${selectedDate ?? ''}`}
+        title={selectedDate && selectedDate > todayIso
+          ? (lang === 'ja' ? `シフト変更・キャンセル申請 ${selectedDate}` : `Request a shift change or cancellation · ${selectedDate}`)
+          : `${t('workReportTitle')} ${selectedDate ?? ''}`}
       >
         <div style={{ display: 'grid', gap: 0 }}>
           {[
@@ -337,6 +350,7 @@ export function PreviewStaffSchedule({
           defaultAttendance={(attendance ?? []).find((entry) => entry.workDate === correctionDate) ?? null}
           timeZone={timeZone}
           embedded
+          onSuccess={() => setCorrectionDate(null)}
         />
       </Modal>
     </>

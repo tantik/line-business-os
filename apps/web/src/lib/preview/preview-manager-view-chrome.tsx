@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition, type ReactNode } from 'react';
+import { useEffect, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -82,6 +82,13 @@ export function PreviewManagerViewChrome({
     const href = targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
     startNavigation(() => router.push(href));
   }
+
+  useEffect(() => {
+    for (const offset of [weekOffset - 1, weekOffset + 1]) {
+      if (offset < -8 || offset > 8) continue;
+      router.prefetch(offset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${offset}`);
+    }
+  }, [basePath, router, weekOffset]);
 
   return (
     <section style={card}>
