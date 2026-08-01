@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { Modal } from '@/components/demo/cafe/Modal';
@@ -30,19 +30,25 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startRefresh] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [localAssignments, setLocalAssignments] = useState(assignments);
   const [selected, setSelected] = useState<{ staffId: string; date: string } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [summaryStaffId, setSummaryStaffId] = useState<string | null>(null);
+  useEffect(() => {
+    setLocalAssignments(assignments);
+  }, [assignments]);
+
   const assignment = useMemo(
     () =>
       selected
-        ? assignments.find((item) => {
+        ? localAssignments.find((item) => {
             if (item.employeeId !== selected.staffId) return false;
             return utcIsoToLocalDateTime(item.startsAt, timeZone).workDate === selected.date;
           }) ?? null
         : null,
-    [assignments, selected, timeZone],
+    [localAssignments, selected, timeZone],
   );
   const existingStart = assignment ? utcIsoToLocalDateTime(assignment.startsAt, timeZone) : null;
   const existingEnd = assignment ? utcIsoToLocalDateTime(assignment.endsAt, timeZone) : null;
@@ -52,7 +58,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const visibleShiftTypes = shiftTypes.filter(
     (item) =>
       item.isActive ||
-      assignments.some(
+      localAssignments.some(
         (assignmentItem) => assignmentItem.employeeId && assignmentItem.shiftTypeId === item.shiftTypeId,
       ),
   );
@@ -69,17 +75,23 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
       formData.set('published', assignment.published ? 'true' : 'false');
     }
     setFeedback(null);
-    startTransition(async () => {
+    setIsSaving(true);
+    void (async () => {
       const result = assignment
         ? await previewUpdateShiftAssignment(formData)
         : await previewCreateShiftAssignment(formData);
       if (result.status === 'success') {
+        setLocalAssignments((current) => [
+          ...current.filter((item) => item.assignmentId !== result.data.assignmentId),
+          result.data,
+        ]);
         setSelected(null);
-        router.refresh();
+        startRefresh(() => router.refresh());
       } else {
         setFeedback(previewWriteMessage(lang, result.status));
       }
-    });
+      setIsSaving(false);
+    })();
   }
 
   function clearAssignment() {
@@ -95,15 +107,18 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
     formData.set('role', assignment.role ?? '');
     formData.set('notes', assignment.notes ?? '');
     formData.set('published', assignment.published ? 'true' : 'false');
-    startTransition(async () => {
+    setIsSaving(true);
+    void (async () => {
       const result = await previewUpdateShiftAssignment(formData);
       if (result.status === 'success') {
+        setLocalAssignments((current) => current.filter((item) => item.assignmentId !== result.data.assignmentId));
         setSelected(null);
-        router.refresh();
+        startRefresh(() => router.refresh());
       } else {
         setFeedback(previewWriteMessage(lang, result.status));
       }
-    });
+      setIsSaving(false);
+    })();
   }
 
   const defaultType =
@@ -117,7 +132,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         dates={dates}
         todayIso={todayIso}
         staffList={toManagerViewStaff(staff)}
-        assignments={toManagerViewAssignments(assignments, timeZone)}
+        assignments={toManagerViewAssignments(localAssignments, timeZone)}
         shiftTypes={toManagerViewShiftTypes(visibleShiftTypes)}
         mode="manager"
         lang={lang}
@@ -127,6 +142,11 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         }}
         onStaffClick={setSummaryStaffId}
       />
+      {isRefreshing ? (
+        <p role="status" style={{ margin: '8px 0 0', fontSize: 12, color: demoColors.textMuted }}>
+          {lang === 'ja' ? '関連データを更新中…' : 'Updating related data…'}
+        </p>
+      ) : null}
 
       <Modal open={Boolean(summaryStaff && summary)} onClose={() => setSummaryStaffId(null)} title={summaryStaff?.name ?? ''} maxWidth={360}>
         {summaryStaff && summary ? (
@@ -194,15 +214,15 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
             {feedback ? <p style={{ margin: 0, color: demoColors.dangerText }}>{feedback}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               {assignment ? (
-                <button type="button" style={buttonSecondary} onClick={clearAssignment} disabled={isPending}>
+                <button type="button" style={buttonSecondary} onClick={clearAssignment} disabled={isSaving}>
                   {t('unassignShift')}
                 </button>
               ) : null}
-              <button type="button" style={buttonSecondary} onClick={() => setSelected(null)} disabled={isPending}>
+              <button type="button" style={buttonSecondary} onClick={() => setSelected(null)} disabled={isSaving}>
                 {t('cancel')}
               </button>
-              <button type="submit" style={buttonPrimary} disabled={isPending || shiftTypes.length === 0}>
-                {t('save')}
+              <button type="submit" style={buttonPrimary} disabled={isSaving || shiftTypes.length === 0}>
+                {isSaving ? (lang === 'ja' ? '保存中…' : 'Saving…') : t('save')}
               </button>
             </div>
           </form>

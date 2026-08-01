@@ -5,6 +5,7 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import {
   createShiftAssignment as createShiftAssignmentWrite,
+  getShiftAssignmentById,
   insertDraftShiftAssignments,
   listShiftAssignments,
   mapDraftAssignmentToInsertRow,
@@ -61,14 +62,16 @@ export async function previewCreateShiftAssignment(
   const input = parseCreateShiftAssignmentInput(withResolvedLocationId(formData, locationId));
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
-  const staffResult = await listWorkforceStaffDirectory(supabase, tenantId);
+  const [staffResult, shiftTypesResult] = await Promise.all([
+    listWorkforceStaffDirectory(supabase, tenantId),
+    input.shiftTypeId ? listWorkforceShiftTypes(supabase, tenantId) : Promise.resolve(null),
+  ]);
   if (staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult);
   const employee = staffResult.data.find((s) => s.staffId === input.employeeId);
   if (!employee || employee.locationId !== locationId) return { status: 'not_found' };
 
   if (input.shiftTypeId) {
-    const shiftTypesResult = await listWorkforceShiftTypes(supabase, tenantId);
-    if (shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult);
+    if (!shiftTypesResult || shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult!);
     const shiftType = shiftTypesResult.data.find((st) => st.shiftTypeId === input.shiftTypeId);
     if (!shiftType) return { status: 'not_found' };
   }
@@ -101,21 +104,23 @@ export async function previewUpdateShiftAssignment(
   // Assignment location is not inferable from "the tenant has one active
   // location" - a target row may sit at an inactive/historical location
   // (B2 plan Section 8.1). Verified independently via an unbounded read.
-  const existingResult = await listShiftAssignments(supabase, tenantId, {});
+  const existingResult = await getShiftAssignmentById(supabase, tenantId, input.assignmentId);
   if (existingResult.status !== 'success') return mapWorkforceWriteResult(existingResult);
-  const target = existingResult.data.find((a) => a.assignmentId === input.assignmentId);
+  const target = existingResult.data;
   if (!target || target.locationId !== locationId) return { status: 'not_found' };
 
+  const [staffResult, shiftTypesResult] = await Promise.all([
+    input.employeeId ? listWorkforceStaffDirectory(supabase, tenantId) : Promise.resolve(null),
+    input.shiftTypeId ? listWorkforceShiftTypes(supabase, tenantId) : Promise.resolve(null),
+  ]);
   if (input.employeeId) {
-    const staffResult = await listWorkforceStaffDirectory(supabase, tenantId);
-    if (staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult);
+    if (!staffResult || staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult!);
     const employee = staffResult.data.find((s) => s.staffId === input.employeeId);
     if (!employee || employee.locationId !== locationId) return { status: 'not_found' };
   }
 
   if (input.shiftTypeId) {
-    const shiftTypesResult = await listWorkforceShiftTypes(supabase, tenantId);
-    if (shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult);
+    if (!shiftTypesResult || shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult!);
     const shiftType = shiftTypesResult.data.find((st) => st.shiftTypeId === input.shiftTypeId);
     if (!shiftType) return { status: 'not_found' };
   }

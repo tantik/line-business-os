@@ -233,6 +233,29 @@ export async function updateWorkforceRecipeContentKind(
   }
 }
 
+export async function setWorkforceRecipeArchived(
+  supabase: SupabaseClient,
+  tenantId: string,
+  recipeId: string,
+  archived: boolean,
+): Promise<WorkforceWriteResult<WorkforceRecipe>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_recipes')
+      .update({ status: archived ? 'archived' : 'draft' })
+      .eq('tenant_id', tenantId)
+      .eq('recipe_id', recipeId)
+      .select(RECIPE_SELECT)
+      .maybeSingle();
+    if (error) return mapWorkforceWriteError(error, archived ? 'archive this recipe' : 'restore this recipe');
+    if (!data) return { status: 'not_found' };
+    return { status: 'success', data: mapRecipeRow(data as ApiWorkforceRecipeRow) };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error changing recipe status.' };
+  }
+}
+
 /**
  * Read a single recipe plus its ingredients, steps, and notes through the
  * app-facing API facade, narrowed to the active tenant and requested recipe.

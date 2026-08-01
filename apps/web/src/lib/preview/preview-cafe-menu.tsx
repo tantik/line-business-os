@@ -64,26 +64,36 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
       <div
         aria-hidden={!open}
         style={{
-          position: 'absolute', right: 0, top: 50, width: 210, padding: 10,
-          borderRadius: 14, border: `1px solid ${demoColors.border}`,
-          background: demoColors.surface, boxShadow: '0 16px 40px rgba(54,43,31,.18)',
+          position: 'fixed', right: 16, top: 72, width: 'min(272px, calc(100vw - 32px))', padding: 12,
+          borderRadius: 18, border: `1px solid ${demoColors.border}`,
+          background: 'rgba(255,255,255,.98)', boxShadow: '0 22px 60px rgba(54,43,31,.22)',
+          backdropFilter: 'blur(14px)',
           opacity: open ? 1 : 0, transform: open ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(.97)',
           transformOrigin: 'top right', transition: 'opacity 160ms ease, transform 180ms ease',
           pointerEvents: open ? 'auto' : 'none',
         }}
       >
         <div style={{ display: 'grid', gap: 6 }}>
-          {current !== 'staff' ? <MenuLink href="/mame-to-cha" label={lang === 'ja' ? 'スタッフ' : 'Staff'} /> : null}
-          {current !== 'recipes' ? <MenuLink href="/mame-to-cha/recipes" label={lang === 'ja' ? 'レシピ' : 'Recipes'} /> : null}
-          <div style={{ padding: '6px 4px 2px' }}><PreviewLanguageToggle /></div>
-          <div style={{ borderTop: `1px solid ${demoColors.border}`, paddingTop: 8, marginTop: 2 }}><PreviewLogoutButton /></div>
+          <div style={{ padding: '3px 6px 7px' }}>
+            <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
+            <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
+          </div>
+          <MenuLink href="/mame-to-cha" icon="▦" label={lang === 'ja' ? 'スタッフ' : 'Staff'} description={lang === 'ja' ? '勤務・シフト・在庫' : 'Work, shifts and inventory'} active={current === 'staff'} />
+          <MenuLink href="/mame-to-cha/recipes" icon="◫" label={lang === 'ja' ? 'レシピ' : 'Recipes'} description={lang === 'ja' ? 'レシピと手順書' : 'Recipes and manuals'} active={current === 'recipes'} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: `1px solid ${demoColors.border}`, padding: '10px 6px 2px', marginTop: 4 }}>
+            <span style={{ color: demoColors.textMuted, fontSize: 12 }}>{lang === 'ja' ? '言語' : 'Language'}</span><PreviewLanguageToggle />
+          </div>
+          <div style={{ padding: '6px 6px 2px' }}><PreviewLogoutButton /></div>
         </div>
       </div>
     </div>
   );
 }
 
-function MenuLink({ href, label }: { href: string; label: string }) {
-  return <Link href={href} style={{ padding: '10px 12px', borderRadius: 9, color: demoColors.textPrimary, textDecoration: 'none', fontWeight: 700 }}>{label}</Link>;
+function MenuLink({ href, icon, label, description, active }: { href: string; icon: string; label: string; description: string; active: boolean }) {
+  return <Link href={href} aria-current={active ? 'page' : undefined} style={{ display: 'grid', gridTemplateColumns: '34px 1fr auto', alignItems: 'center', gap: 10, padding: '10px 11px', borderRadius: 12, color: demoColors.textPrimary, textDecoration: 'none', background: active ? demoColors.accentMuted : 'transparent', border: `1px solid ${active ? demoColors.accent : 'transparent'}` }}>
+    <span aria-hidden style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', borderRadius: 10, background: active ? demoColors.accent : demoColors.surfaceElevated, color: active ? '#fff' : demoColors.textPrimary, fontSize: 17 }}>{icon}</span>
+    <span><strong style={{ display: 'block', fontSize: 13.5 }}>{label}</strong><span style={{ display: 'block', marginTop: 1, color: demoColors.textMuted, fontSize: 11.5 }}>{description}</span></span>
+    <span aria-hidden style={{ color: demoColors.textMuted }}>›</span>
+  </Link>;
 }
-

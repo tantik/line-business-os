@@ -46,8 +46,10 @@ function mapShiftTypeRow(row: ApiWorkforceShiftTypeRow): WorkforceShiftType {
     code: row.code,
     labelJa: row.label_ja,
     labelEn: row.label_en,
-    startsAtLocal: row.starts_at_local,
-    endsAtLocal: row.ends_at_local,
+    // PostgreSQL `time` values arrive as HH:MM:SS, while HTML time inputs and
+    // the shared schedule parser intentionally use minute precision (HH:MM).
+    startsAtLocal: row.starts_at_local.slice(0, 5),
+    endsAtLocal: row.ends_at_local.slice(0, 5),
     breakMinutes: row.break_minutes,
     isCustom: row.is_custom,
     sortOrder: row.sort_order,

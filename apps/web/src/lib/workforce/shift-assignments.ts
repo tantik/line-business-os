@@ -97,6 +97,30 @@ export async function listShiftAssignments(
   }
 }
 
+/** Read one assignment through the same RLS-protected app-facing facade. */
+export async function getShiftAssignmentById(
+  supabase: SupabaseClient,
+  tenantId: string,
+  assignmentId: string,
+): Promise<TenantAccessResult<WorkforceShiftAssignment | null>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_assignments')
+      .select(ASSIGNMENT_SELECT)
+      .eq('tenant_id', tenantId)
+      .eq('assignment_id', assignmentId)
+      .maybeSingle();
+    if (error) return mapWorkforceReadError(error, 'read this shift assignment');
+    return { status: 'success', data: data ? mapAssignmentRow(data as ApiWorkforceShiftAssignmentRow) : null };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading this shift assignment.',
+    };
+  }
+}
+
 /**
  * Converts a `runAutoDistribution` (Slice 1B) draft assignment into an insert
  * row for `api.workforce_shift_assignments`. Pure/no I/O -- unit-testable
