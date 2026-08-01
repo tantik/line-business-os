@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
-import { previewGetRecipeForEdit, previewUpsertRecipe, type PreviewEditableRecipeDetail } from './actions/recipe-actions';
+import { previewGetRecipeForEdit, previewListRecipeMediaUrls, previewUpsertRecipe, type PreviewEditableRecipeDetail } from './actions/recipe-actions';
 import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
@@ -25,10 +25,38 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [detail, setDetail] = useState<PreviewEditableRecipeDetail | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
+
+  const mediaSignature = (recipes ?? []).map((recipe) => `${recipe.recipeId}:${recipe.mediaPath ?? ''}`).join('|');
+  useEffect(() => {
+    const recipeIds = (recipes ?? []).filter((recipe) => recipe.mediaPath).map((recipe) => recipe.recipeId);
+    if (recipeIds.length === 0) {
+      setMediaUrls({});
+      return;
+    }
+    startTransition(async () => {
+      const result = await previewListRecipeMediaUrls(recipeIds);
+      if (result.status === 'success') setMediaUrls(result.data);
+    });
+  }, [mediaSignature]);
+
+  function resetPhotoState() {
+    setPhotoPreview(null);
+    setPhotoName(null);
+    setRemovePhoto(false);
+  }
 
   function edit(recipeId: string) {
     setFeedback(null);
+    resetPhotoState();
     startTransition(async () => {
       const result = await previewGetRecipeForEdit(recipeId);
       if (result.status === 'success') { setDetail(result.data); setMode('edit'); }
@@ -40,7 +68,7 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
     setFeedback(null);
     startTransition(async () => {
       const result = await previewUpsertRecipe(formData);
-      if (result.status === 'success') { setDetail(null); setPhotoPreview(null); setMode('list'); router.refresh(); }
+      if (result.status === 'success') { setDetail(null); resetPhotoState(); setMode('list'); router.refresh(); }
       else setFeedback(previewWriteMessage(lang, result.status));
     });
   }
@@ -62,16 +90,44 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
         <label><span style={mutedText}>{ja ? '短い説明' : 'Short description'}</span>
           <textarea name="descriptionJa" style={{ ...input, minHeight: 70 }} maxLength={1000} defaultValue={recipe?.descriptionJa ?? ''} />
         </label>
-        <div style={{ padding: 12, border: `1px dashed ${demoColors.border}`, borderRadius: 10, background: demoColors.surfaceElevated, display: 'grid', gap: 8 }}>
+        <div style={{ padding: 12, border: `1px solid ${demoColors.border}`, borderRadius: 10, background: demoColors.surfaceElevated, display: 'grid', gap: 8 }}>
           <strong style={{ fontSize: 13 }}>{ja ? '写真' : 'Photo'}</strong>
-          {(photoPreview || detail?.mediaUrl) ? <img src={photoPreview ?? detail?.mediaUrl ?? ''} alt="" style={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 8, border: `1px solid ${demoColors.border}` }} /> : null}
-          {recipe?.mediaPath ? <span style={{ ...mutedText, fontSize: 12 }}>{ja ? '登録済みの画像があります。新しい画像を選ぶと置き換えられます。' : 'An image is attached. Selecting a new one replaces it.'}</span> : null}
-          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" style={input} onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            setPhotoPreview(file ? URL.createObjectURL(file) : null);
-          }} />
-          <span style={{ ...mutedText, fontSize: 11 }}>{ja ? 'JPEG・PNG・WebP、最大5MB' : 'JPEG, PNG or WebP, up to 5 MB'}</span>
-          {recipe?.mediaPath ? <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}><input type="checkbox" name="removePhoto" value="true" />{ja ? '現在の画像を削除' : 'Remove current image'}</label> : null}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 84, height: 84, flexShrink: 0, borderRadius: 9, overflow: 'hidden', border: `1px solid ${demoColors.border}`, background: demoColors.surface, display: 'grid', placeItems: 'center' }}>
+              {!removePhoto && (photoPreview || detail?.mediaUrl) ? (
+                <img src={photoPreview ?? detail?.mediaUrl ?? ''} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : <span aria-hidden style={{ fontSize: 25 }}>{recipe?.contentKind === 'instruction' ? '🛠️' : '🍵'}</span>}
+            </div>
+            <div style={{ minWidth: 0, display: 'grid', gap: 7, flex: 1 }}>
+              <input
+                ref={photoInputRef}
+                name="photo"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  setPhotoPreview(file ? URL.createObjectURL(file) : null);
+                  setPhotoName(file?.name ?? null);
+                  if (file) setRemovePhoto(false);
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" style={{ ...buttonSecondary, padding: '7px 11px' }} onClick={() => photoInputRef.current?.click()}>
+                  {ja ? '画像を選択' : (recipe?.mediaPath ? 'Replace image' : 'Choose image')}
+                </button>
+                {recipe?.mediaPath && !photoPreview ? (
+                  <button type="button" style={{ ...buttonSecondary, padding: '7px 11px', color: demoColors.dangerText }} onClick={() => setRemovePhoto((value) => !value)}>
+                    {removePhoto ? (ja ? '削除を取り消す' : 'Undo remove') : (ja ? '画像を削除' : 'Remove image')}
+                  </button>
+                ) : null}
+              </div>
+              <span style={{ ...mutedText, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {photoName ?? (removePhoto ? (ja ? '保存時に削除されます' : 'Will be removed when saved') : (ja ? 'JPEG・PNG・WebP、最大5MB' : 'JPEG, PNG or WebP, up to 5 MB'))}
+              </span>
+            </div>
+          </div>
+          {removePhoto ? <input type="hidden" name="removePhoto" value="true" /> : null}
         </div>
         <label><span style={mutedText}>{ja ? '材料（1行に1つ）' : 'Ingredients (one per line)'}</span>
           <textarea name="ingredients" style={{ ...input, minHeight: 110 }} defaultValue={detail?.ingredients.map((item) => item.labelJa).join('\n') ?? ''} />
@@ -95,7 +151,7 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
         </label>
         {feedback ? <p style={{ margin: 0, color: demoColors.dangerText }}>{feedback}</p> : null}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" style={buttonSecondary} disabled={pending} onClick={() => { setDetail(null); setPhotoPreview(null); setMode('list'); }}>{t('cancel')}</button>
+          <button type="button" style={buttonSecondary} disabled={pending} onClick={() => { setDetail(null); resetPhotoState(); setMode('list'); }}>{t('cancel')}</button>
           <button type="submit" style={buttonPrimary} disabled={pending}>{pending ? t('savingEllipsis') : t('save')}</button>
         </div>
       </form>
@@ -106,7 +162,7 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <p style={{ margin: 0, ...mutedText }}>{t('recipeManagerHelp')}</p>
-        <button type="button" style={buttonPrimary} onClick={() => { setDetail(null); setPhotoPreview(null); setMode('add'); }}>
+        <button type="button" style={buttonPrimary} onClick={() => { setDetail(null); resetPhotoState(); setMode('add'); }}>
           {lang === 'ja' ? 'レシピを追加' : 'Add recipe'}
         </button>
       </div>
@@ -115,7 +171,9 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
         <div style={{ display: 'grid', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
           {recipes.map((recipe) => (
             <div key={recipe.recipeId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
-              <div style={{ width: 44, height: 44, borderRadius: 7, background: demoColors.surface, display: 'grid', placeItems: 'center', flexShrink: 0 }}>{recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 7, overflow: 'hidden', background: demoColors.surface, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                {mediaUrls[recipe.recipeId] ? <img src={mediaUrls[recipe.recipeId]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (recipe.contentKind === 'instruction' ? '🛠️' : '🍵')}
+              </div>
               <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.titleJa}</strong>
                 <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
               </div>

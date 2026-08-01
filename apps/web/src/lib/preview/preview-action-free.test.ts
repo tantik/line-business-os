@@ -102,6 +102,7 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewPublishSchedule',
   'previewDecideCorrectionRequest',
   'previewGetRecipeForEdit',
+  'previewListRecipeMediaUrls',
   'previewUpsertRecipe',
   'previewSaveScheduleSettings',
   'previewUpsertShiftType',

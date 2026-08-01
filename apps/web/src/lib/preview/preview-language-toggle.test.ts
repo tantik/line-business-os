@@ -74,6 +74,15 @@ test('every shared Cafe help popup provides both Japanese and English copy', () 
 test('Preview recipe management does not open a nested modal', () => {
   const source = read('preview-recipe-kind-manager.tsx');
   assert.ok(!source.includes('<Modal'), 'recipe editor must stay inside the single parent management modal');
+  assert.match(source, /previewListRecipeMediaUrls/, 'recipe list thumbnails must load from signed private-media URLs');
+  assert.match(source, /type="hidden" name="removePhoto"/, 'photo removal must use the compact button state, not a checkbox');
+  assert.ok(!source.includes('type="checkbox" name="removePhoto"'), 'photo removal must not regress to a checkbox');
+});
+
+test('Cafe staff management hides the unused employment-type field without destroying stored values', () => {
+  const source = read('preview-staff-form.tsx');
+  assert.ok(!source.includes("t('employmentType')"), 'Cafe staff form must not show the unused employment-type input');
+  assert.match(source, /type="hidden" name="employmentType"/, 'an existing employment type must survive unrelated profile edits');
 });
 
 test('an empty shift-exchange approval list is not rendered', () => {
