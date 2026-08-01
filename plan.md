@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `dev` (menu/inventory branch merged and can be deleted)
-- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`, `#164`
-- latest confirmed `dev` merge commit: `d8b7b7b7dbad12e4d86cf3d7200a1fba14135d4f` (PR `#164`)
+- branch: `dev` (feature branches merged and can be deleted)
+- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`, `#164`, `#165`
+- latest confirmed `dev` merge commit: `887a330fafefcdc4b4d318e0490d0e4261ce86e4` (PR `#165`)
 - base: `dev`
 - stage: OAES QA / Preview release gate — mobile UI polish round
 
@@ -172,13 +172,35 @@ Observed live evidence:
     PASS.
   - PR `#164` passed GitHub CI (typecheck/test/build/lint) and Vercel, and was
     merged into `dev` as `d8b7b7b7dbad12e4d86cf3d7200a1fba14135d4f`.
+  - User feedback after `#164`: two stacked close controls on the nav menu
+    (the hamburger-morphs-to-X trigger button, plus the "×" added inside the
+    panel) looked bad, and the user shared a reference screenshot (a
+    full-screen solid-color curtain-style mobile menu with a highlighted
+    square icon button) asking for the same treatment in our colors.
+    PR `#165` (`fix/cafe-v2-1-menu-single-close-control`,
+    `apps/web/src/lib/preview/preview-cafe-menu.tsx`):
+    - removed the inner "×" button — the trigger button is the only close
+      control now, filling solid `demoColors.accent` and turning its bars
+      into a white X when open (aria-label switches Menu/Close);
+    - replaced the floating dropdown card with a full-screen panel
+      (`demoColors.accentStrong` -> `demoColors.accent` gradient, white
+      text) that slides down from behind the header
+      (`translateY(-100%) -> 0`, 360ms) instead of a floating card;
+    - nav rows / language-toggle row / logout row fade + rise in with a
+      staggered delay (120/160/200/240/280ms) instead of appearing all at
+      once.
+    - Local gate: typecheck PASS, lint PASS, web tests 793/793 PASS,
+      production build PASS. PR `#165` passed GitHub CI/Vercel and was
+      merged into `dev` as `887a330fafefcdc4b4d318e0490d0e4261ce86e4`.
   - Not yet done: live authenticated visual recheck on
-    `preview.oruwa.jp/mame-to-cha` (mobile width, menu open, Inventory modal
-    open with a shortage item). Full local screenshot verification was not
-    possible in-session because the preview routes require an authenticated
-    Supabase session with no local dev-login bypass; verification relies on
-    the live Preview URL as in prior rounds — ask the user to check and report
-    back if anything still looks off before closing this item.
+    `preview.oruwa.jp/mame-to-cha` (mobile width) covering both rounds: menu
+    open/close animation and legibility of Language/Log out on the green
+    background, and the Inventory modal open with a shortage item. Full local
+    screenshot verification was not possible in-session because the preview
+    routes require an authenticated Supabase session with no local dev-login
+    bypass; verification relies on the live Preview URL as in prior rounds —
+    ask the user to check and report back if anything still looks off before
+    closing this item.
   - Remaining known item from this same bug report, not yet started: other
     pages ("Recipes", "Manager") mentioned by the user as "доведём до финиша
     позже" — no scope defined yet, ask before starting.
