@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `feature/cafe-v2-1-operator-ux`
-- PR: `#158` — `https://github.com/tantik/line-business-os/pull/158`
-- latest pushed commit: `348bd8e feat(workforce): add complete recipe management`
+- branch: `fix/cafe-v2-1-preview-acceptance`
+- merged PR: `#158` — `https://github.com/tantik/line-business-os/pull/158`
+- `dev` merge commit: `ad3ad27cd04dfb9f0723288229e96d81ffa4dfd1`
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -51,14 +51,28 @@ Deliver a verified Cafe product on Preview:
 
 ## Current step
 
-Wait for PR #158 CI and Vercel Preview deployment, then review the PR diff and
-merge to `dev` only if all checks remain green.
+Merged `dev` deployment `ad3ad27` is live on `preview.oruwa.jp`. Authenticated
+browser acceptance is in progress. Manager, Staff, and Recipes load with their
+intended test roles. One observed defect is fixed locally: a future Staff shift
+now opens the complete change/cancel/exchange form immediately instead of an
+exchange-only intermediate button.
+
+Observed live evidence:
+
+- Manager shift edit for 2026-07-30 saves and closes without the old input error;
+- Manage Staff exposes the full profile form;
+- Manage Recipes exposes add/edit and the complete recipe form;
+- Staff header/menu, pending markers, earnings summary, and removal of the
+  bottom Shift exchange block are live;
+- JA/EN Staff UI and Help popup switch together;
+- Recipes JA/EN content is live with no machine-translation label;
+- Staff Inventory has search/filter controls and a visible shortage state;
+- Manager week navigation still needs a focused latency improvement; the
+  authenticated page reloads tenant-wide datasets on each week change.
 
 ## Next steps
 
-1. Merge PR #158 to `dev` after green CI/release review.
-2. Confirm `preview.oruwa.jp` deploys the merged `dev` commit.
-3. Run authenticated browser acceptance separately for Manager, Staff, and
+1. Run authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
    - week navigation and past/future shift behavior;
@@ -69,7 +83,12 @@ merge to `dev` only if all checks remain green.
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-4. Fix only observed acceptance defects, repeating impacted tests.
+2. Merge and deploy the direct future-shift request-form fix, then repeat the
+   live Staff request flow.
+3. Improve Manager week-navigation latency without weakening authorization or
+   changing the period used by schedule mutations.
+4. Test recipe photo upload/replace/delete, Shift Types mutations, and
+   Inventory with 30/100 temporary Preview items; remove temporary data after.
 5. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
 6. Start the separately reviewed subscription lifecycle/payment foundation;
    production purge execution remains disabled.

@@ -22,7 +22,6 @@ import { PreviewWorkReportForm } from './preview-work-report-form';
 import { PreviewShiftExchangeRequestForm } from './preview-shift-exchange-request-form';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
-import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 
 export interface PreviewStaffScheduleProps {
@@ -74,7 +73,6 @@ export function PreviewStaffSchedule({
   const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [correctionDate, setCorrectionDate] = useState<string | null>(null);
-  const [exchangeFormOpen, setExchangeFormOpen] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const activePeriodStart = addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7);
   const activePeriodEnd = addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7);
@@ -277,7 +275,6 @@ export function PreviewStaffSchedule({
         open={selectedDate !== null}
         onClose={() => {
           setSelectedDate(null);
-          setExchangeFormOpen(false);
         }}
         title={selectedDate && selectedDate > todayIso
           ? (lang === 'ja' ? `シフト変更・キャンセル申請 ${selectedDate}` : `Request a shift change or cancellation · ${selectedDate}`)
@@ -326,22 +323,13 @@ export function PreviewStaffSchedule({
           <button type="button" style={{ ...buttonPrimary, marginTop: 12 }} onClick={() => { setCorrectionDate(selectedDate); setSelectedDate(null); }}>{t('requestCorrection')}</button>
         ) : null}
         {canRequestExchange && selectedAssignment ? (
-          exchangeFormOpen ? (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${demoColors.border}` }}>
-              <PreviewShiftExchangeRequestForm
-                shiftId={selectedAssignment.assignmentId}
-                shiftTypes={shiftTypes ?? []}
-                onSuccess={() => {
-                  setExchangeFormOpen(false);
-                  setSelectedDate(null);
-                }}
-              />
-            </div>
-          ) : (
-            <button type="button" style={{ ...buttonSecondary, marginTop: 8 }} onClick={() => setExchangeFormOpen(true)}>
-              {tShiftExchange(lang, 'requestExchangeButton')}
-            </button>
-          )
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${demoColors.border}` }}>
+            <PreviewShiftExchangeRequestForm
+              shiftId={selectedAssignment.assignmentId}
+              shiftTypes={shiftTypes ?? []}
+              onSuccess={() => setSelectedDate(null)}
+            />
+          </div>
         ) : null}
       </Modal>
 

@@ -63,6 +63,14 @@ test('preview staff mutation forms open through the shared Modal instead of rend
   assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
 });
 
+test('future own shifts expose the complete change or cancellation form without an exchange-only intermediate button', () => {
+  const source = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(source, /canRequestExchange && selectedAssignment/);
+  assert.match(source, /<PreviewShiftExchangeRequestForm/);
+  assert.ok(!source.includes('requestExchangeButton'));
+  assert.ok(!source.includes('exchangeFormOpen'));
+});
+
 test('preview staff adapter never imports demo mock data or localStorage state', () => {
   for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
     const source = read(file);
