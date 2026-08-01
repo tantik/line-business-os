@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `feature/cafe-v2-1-operator-ux`
-- PR: `#158` — `https://github.com/tantik/line-business-os/pull/158`
-- latest pushed commit: `348bd8e feat(workforce): add complete recipe management`
+- branch: `fix/cafe-v2-1-preview-acceptance`
+- merged PR: `#158` — `https://github.com/tantik/line-business-os/pull/158`
+- `dev` merge commit: `ad3ad27cd04dfb9f0723288229e96d81ffa4dfd1`
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -51,14 +51,15 @@ Deliver a verified Cafe product on Preview:
 
 ## Current step
 
-Wait for PR #158 CI and Vercel Preview deployment, then review the PR diff and
-merge to `dev` only if all checks remain green.
+Merged `dev` deployment `ad3ad27` is live on `preview.oruwa.jp`. Authenticated
+browser acceptance is in progress. Manager loads the new v2.1 UI. The current
+Chrome session is the Manager account, so the Staff route correctly fails
+closed with `No staff profile found`; use a separately authenticated Staff
+session before judging Staff behavior.
 
 ## Next steps
 
-1. Merge PR #158 to `dev` after green CI/release review.
-2. Confirm `preview.oruwa.jp` deploys the merged `dev` commit.
-3. Run authenticated browser acceptance separately for Manager, Staff, and
+1. Run authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
    - week navigation and past/future shift behavior;
@@ -69,9 +70,9 @@ merge to `dev` only if all checks remain green.
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-4. Fix only observed acceptance defects, repeating impacted tests.
-5. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
-6. Start the separately reviewed subscription lifecycle/payment foundation;
+2. Fix only observed acceptance defects, repeating impacted tests.
+3. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
+4. Start the separately reviewed subscription lifecycle/payment foundation;
    production purge execution remains disabled.
 
 ## Important boundaries
