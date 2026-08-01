@@ -16,9 +16,12 @@ interface ExchangeRow {
   decided_at: string | null;
   created_at: string;
   updated_at: string;
+  request_kind: ShiftRequestKind;
+  requested_shift_type_id: string | null;
 }
 
 export type ShiftExchangeStatus = 'open' | 'accepted' | 'approved' | 'rejected' | 'cancelled';
+export type ShiftRequestKind = 'exchange' | 'change' | 'cancel';
 
 export interface WorkforceShiftExchange {
   exchangeId: string;
@@ -33,10 +36,12 @@ export interface WorkforceShiftExchange {
   decidedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  requestKind: ShiftRequestKind;
+  requestedShiftTypeId: string | null;
 }
 
 const SELECT =
-  'exchange_id, tenant_id, location_id, shift_id, requester_employee_id, replacement_employee_id, reason, status, accepted_at, decided_at, created_at, updated_at';
+  'exchange_id, tenant_id, location_id, shift_id, requester_employee_id, replacement_employee_id, reason, status, accepted_at, decided_at, created_at, updated_at, request_kind, requested_shift_type_id';
 
 function mapRow(row: ExchangeRow): WorkforceShiftExchange {
   return {
@@ -52,6 +57,8 @@ function mapRow(row: ExchangeRow): WorkforceShiftExchange {
     decidedAt: row.decided_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    requestKind: row.request_kind,
+    requestedShiftTypeId: row.requested_shift_type_id,
   };
 }
 
@@ -77,7 +84,7 @@ export async function listShiftExchanges(
 
 export async function createShiftExchange(
   supabase: SupabaseClient,
-  input: { tenantId: string; locationId: string; shiftId: string; requesterEmployeeId: string; reason: string },
+  input: { tenantId: string; locationId: string; shiftId: string; requesterEmployeeId: string; reason: string; requestKind: ShiftRequestKind; requestedShiftTypeId?: string | null },
 ): Promise<WorkforceWriteResult<WorkforceShiftExchange>> {
   const reason = input.reason.trim();
   if (reason.length < 1 || reason.length > 500) {
@@ -93,6 +100,8 @@ export async function createShiftExchange(
         shift_id: input.shiftId,
         requester_employee_id: input.requesterEmployeeId,
         reason,
+        request_kind: input.requestKind,
+        requested_shift_type_id: input.requestKind === 'change' ? input.requestedShiftTypeId ?? null : null,
       })
       .select(SELECT)
       .single();

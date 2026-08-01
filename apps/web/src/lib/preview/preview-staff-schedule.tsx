@@ -330,6 +330,7 @@ export function PreviewStaffSchedule({
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${demoColors.border}` }}>
               <PreviewShiftExchangeRequestForm
                 shiftId={selectedAssignment.assignmentId}
+                shiftTypes={shiftTypes ?? []}
                 onSuccess={() => {
                   setExchangeFormOpen(false);
                   setSelectedDate(null);

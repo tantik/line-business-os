@@ -277,6 +277,7 @@ export default async function MameToChaPreviewManagerPage({
             assignments={allAssignmentsResult.data}
             exchanges={exchangesResult.data}
             staffNameById={staffNameById}
+            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : []}
           />
         ) : null}
       </CafeManagerScreen>
