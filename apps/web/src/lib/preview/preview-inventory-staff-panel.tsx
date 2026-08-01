@@ -119,22 +119,28 @@ function ItemCard({
   const enteredQuantity = parseQuantity(value);
   const needToOrder = enteredQuantity !== null ? Math.max(item.requiredQuantity - enteredQuantity, 0) : null;
 
+  const isShortage = item.status === 'shortage' && !isSaved;
+
   return (
-    <div style={{ ...card, padding: 10, marginTop: 0, opacity: isSaved ? 0.65 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-        <div>
-          <strong style={{ fontSize: 13.5 }}>{item.name}</strong>
-          <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
-            {tr('required')}: {item.requiredQuantity} {item.unit} / {tr('current')}:{' '}
-            {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
-            {' · '}
-            {tr('reorderPoint')}: {item.reorderPoint} {item.unit}
-          </p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-          {isSaved ? <span style={badgeStyle('active')}>✓ {tr('saved')}</span> : <StatusBadge item={item} tr={tr} />}
-        </div>
+    <div
+      style={{
+        ...card,
+        padding: 10,
+        marginTop: 0,
+        opacity: isSaved ? 0.65 : 1,
+        border: isShortage ? `1px solid ${demoColors.warning}` : card.border,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <strong style={{ fontSize: 13.5 }}>{item.name}</strong>
+        {isSaved ? <span style={badgeStyle('active')}>✓ {tr('saved')}</span> : <StatusBadge item={item} tr={tr} />}
       </div>
+      <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 12 }}>
+        {tr('required')}: {item.requiredQuantity} {item.unit} / {tr('current')}:{' '}
+        {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+        {' · '}
+        {tr('reorderPoint')}: {item.reorderPoint} {item.unit}
+      </p>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
         <label style={{ flex: 1, maxWidth: 140 }}>
           <span style={{ ...mutedText, fontSize: 11.5 }}>
@@ -153,9 +159,9 @@ function ItemCard({
             onChange={(event) => onChange(event.target.value)}
           />
         </label>
-        {needToOrder !== null ? (
-          <p style={{ margin: 0, fontSize: 12, ...mutedText }}>
-            {tr('needToOrder')}: <strong>{needToOrder}</strong> {item.unit}
+        {needToOrder !== null && needToOrder > 0 ? (
+          <p style={{ margin: 0, padding: '4px 8px', borderRadius: 6, background: demoColors.alertWarningBg, fontSize: 12, fontWeight: 700, color: demoColors.warning }}>
+            {tr('needToOrder')}: {needToOrder} {item.unit}
           </p>
         ) : null}
       </div>
