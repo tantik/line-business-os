@@ -42,6 +42,7 @@ interface InventoryManagerDict {
   confirmDeactivateBody: string;
   confirmDeactivateButton: string;
   statusInactive: string;
+  reorderPointExceedsRequired: string;
 }
 
 const shortageAlert: Record<'ja' | 'en', (n: number) => string> = {
@@ -80,6 +81,7 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     confirmDeactivateBody: 'この商品を無効化しますか？過去の在庫記録は保持されます。',
     confirmDeactivateButton: '無効化する',
     statusInactive: '無効',
+    reorderPointExceedsRequired: '発注点は基準在庫以下にしてください。',
   },
   en: {
     title: 'Inventory',
@@ -111,6 +113,7 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     confirmDeactivateBody: 'Deactivate this item? Past stock-count history is preserved.',
     confirmDeactivateButton: 'Deactivate',
     statusInactive: 'Inactive',
+    reorderPointExceedsRequired: 'Reorder point must be less than or equal to Required.',
   },
 };
 
@@ -143,6 +146,19 @@ function ItemForm({
     const formData = new FormData(event.currentTarget);
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', locationId);
+
+    // Same rule the server enforces (parseUpsertInventoryItemInput /
+    // the inventory_items_reorder_point_check DB constraint), checked here
+    // first so a Required/Reorder-point mismatch shows this specific message
+    // instantly instead of a round trip that comes back as the generic
+    // "Please check your input." -- which, with no obvious cause, previously
+    // read to the manager as a lost permission rather than a validation rule.
+    const requiredQuantity = Number(formData.get('requiredQuantity'));
+    const reorderPoint = Number(formData.get('reorderPoint'));
+    if (Number.isFinite(requiredQuantity) && Number.isFinite(reorderPoint) && reorderPoint > requiredQuantity) {
+      setError(tr('reorderPointExceedsRequired'));
+      return;
+    }
 
     startTransition(async () => {
       const result = await previewUpsertInventoryItem(formData);
