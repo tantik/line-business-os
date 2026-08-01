@@ -10,7 +10,8 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listMyAttendance } from '@/lib/workforce/attendance';
-import { getWeekPeriod } from '@/lib/workforce/period';
+import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
+import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   PreviewErrorState,
   PreviewModuleUnavailableState,
@@ -118,9 +119,13 @@ export default async function MameToChaPreviewStaffPage({
     return <PreviewNoProfileState variant="light" />;
   }
 
+  const nowIso = new Date().toISOString();
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
-  const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
+  const { periodStart, periodEnd } = getWeekPeriod(nowIso, location.timezone, weekOffset);
+  const assignmentWindow = getWeekOffsetWindow(nowIso, location.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
+  const assignmentFromIso = localDateTimeToUtcIso(assignmentWindow.periodStart, '00:00', location.timezone);
+  const assignmentToIsoExclusive = localDateTimeToUtcIso(addIsoDays(assignmentWindow.periodEnd, 1), '00:00', location.timezone);
   const todayIso = new Intl.DateTimeFormat('en-CA', {
     timeZone: location.timezone,
     year: 'numeric',
@@ -148,13 +153,16 @@ export default async function MameToChaPreviewStaffPage({
   ] = await Promise.all([
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
     listMyShiftRequests(supabase, activeTenant.tenantId),
-    // Keep the published roster stable while browsing weeks with no shifts.
-    // The client component still renders only the requested seven-day period.
-    listShiftAssignments(supabase, activeTenant.tenantId),
+    // Preload exactly the 17 weeks the client navigator can display. This
+    // keeps its roster stable without reading the tenant's lifetime history.
+    listShiftAssignments(supabase, activeTenant.tenantId, {
+      fromIso: assignmentFromIso,
+      toIsoExclusive: assignmentToIsoExclusive,
+    }),
     listMyAttendance(supabase, activeTenant.tenantId),
     listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
     inventoryEnabled ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId) : Promise.resolve(null),
-    inventoryEnabled
+    inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS
       ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
       : Promise.resolve(null),
   ]);
@@ -168,7 +176,7 @@ export default async function MameToChaPreviewStaffPage({
       ? attendanceResult.data.find((entry) => entry.workDate === todayIso) ?? null
       : null;
   const inventorySessionItems: Record<string, InventoryCheckSessionItem[]> = {};
-  if (inventorySessionsResult?.status === 'success') {
+  if (SHOW_OPENING_CLOSING_STOCK_CHECKS && inventorySessionsResult?.status === 'success') {
     await Promise.all(
       inventorySessionsResult.data.map(async (session) => {
         const result = await listInventoryCheckSessionItems(supabase, activeTenant.tenantId, session.sessionId);

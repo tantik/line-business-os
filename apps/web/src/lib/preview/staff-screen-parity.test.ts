@@ -136,3 +136,22 @@ test('next-month preference UI uses compact HH:MM labels and a next-month defaul
   assert.match(form, /startsAtLocal\.slice\(0,\s*5\)/);
   assert.match(form, /endsAtLocal\.slice\(0,\s*5\)/);
 });
+
+test('staff page bounds assignment history to the complete client navigation window', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  assert.match(page, /getWeekOffsetWindow\(nowIso, location\.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET\)/);
+  assert.match(page, /listShiftAssignments\(supabase, activeTenant\.tenantId, \{[\s\S]*?fromIso: assignmentFromIso,[\s\S]*?toIsoExclusive: assignmentToIsoExclusive/);
+});
+
+test('hidden opening and closing stock checks do not load sessions or their items', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  assert.match(page, /inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS[\s\S]*?listInventoryCheckSessions/);
+  assert.match(page, /if \(SHOW_OPENING_CLOSING_STOCK_CHECKS && inventorySessionsResult\?\.status === 'success'\)/);
+});
+
+test('staff week swap has a stable-height reduced-motion-safe transition', () => {
+  const schedule = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(schedule, /key=\{activeWeekOffset\} className="preview-staff-week-swap" style=\{\{ minHeight:/);
+  assert.match(schedule, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(schedule, /\.preview-staff-week-swap \{ animation: none; \}/);
+});

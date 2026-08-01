@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-shift-write-latency`
+- branch: `fix/cafe-v2-1-staff-initial-load`
 - merged PRs: `#158`, `#159`, `#160`
-- latest confirmed `dev` merge commit: `30dc74e040262e2471228d555568c2d1be93eb64` (PR `#161`)
+- latest confirmed `dev` merge commit: `26be96a628506c103aed7c38c7226258f4a6b27a` (PR `#162`)
 - base: `dev`
 - stage: OAES QA / Preview release gate
 
@@ -123,12 +123,29 @@ Observed live evidence:
   production build PASS, compiled Preview Server Action allowlist PASS, and
   `git diff --check` PASS. Final self-review also caught and fixed the
   unassign-with-existing-shift-type branch before publication.
+- PR `#162` passed GitHub CI and Vercel and was merged into `dev`. Live
+  authenticated Manager acceptance on `preview.oruwa.jp` confirmed: the shift
+  editor opens in about 0.3 s; a temporary 2026-07-28 assignment was created,
+  rendered in the correct cell, then unassigned in about 2.8 s; the cell
+  returned to empty and no phantom `Unpublished shifts` alert remained.
+- Live Staff/Recipes acceptance after `#162`: Manager account is correctly
+  denied the Staff route without a staff profile; the separate Staff account
+  loads the dashboard, advisory earnings, responsive navigation, Recipes, and
+  Inventory. A future assigned cell opens the correct change/cancel/exchange
+  request dialog with a mandatory reason. Recipes navigation/gallery and the
+  compact two-column desktop Inventory modal render correctly. Remaining
+  measured issue: Staff `Next week` still took about 3.4 s and visibly waited.
+  The follow-up found that week switching is already local; initial Staff RSC
+  still loaded all tenant assignments plus hidden Inventory session data. The
+  current branch bounds assignments to the visible `-8…+8` week window, skips
+  hidden session/session-item reads, and adds a reduced-motion-safe stable week
+  transition. Local gate: typecheck PASS, lint PASS, web tests 793/793 PASS,
+  production build PASS, compiled Preview Server Action allowlist PASS, and
+  `git diff --check` PASS. Live timing must be repeated after deployment.
 
 ## Next steps
 
-1. Verify and publish the targeted shift-write latency follow-up, then repeat
-   Manager create/update/unassign timing on Preview.
-2. Continue authenticated browser acceptance separately for Manager, Staff, and
+1. Continue authenticated browser acceptance separately for Manager, Staff, and
    Recipes:
    - header/menu/logout and route boundaries;
    - week navigation and past/future shift behavior;
