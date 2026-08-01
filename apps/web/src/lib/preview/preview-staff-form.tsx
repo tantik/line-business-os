@@ -121,10 +121,11 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
           <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{mode === 'edit' ? t('editStaffTitle') : t('addStaffTitle')}</h3>
           <form action={handleUpsert} style={{ display: 'grid', gap: 12 }}>
             {editingEntry ? <input type="hidden" name="id" value={editingEntry.staffId} /> : null}
-            <label>
-              {t('displayName')}
-              <input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} />
-            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label>{lang === 'ja' ? '姓' : 'Family name'}<input style={inputStyle} name="familyName" defaultValue={editingEntry?.familyName ?? ''} required maxLength={80} /></label>
+              <label>{lang === 'ja' ? '名' : 'Given name'}<input style={inputStyle} name="givenName" defaultValue={editingEntry?.givenName ?? ''} required maxLength={80} /></label>
+            </div>
+            <label>{t('displayName')}<input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} /></label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
               <label>
                 {t('position')}
@@ -147,6 +148,17 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                 defaultValue={editingEntry?.hourlyWageYen ?? ''}
                 key={`wage-${editingEntry?.staffId ?? 'new'}`}
               />
+            </label>
+            <label>{lang === 'ja' ? 'メールアドレス' : 'Email address'}<input style={inputStyle} name="email" type="email" defaultValue={editingEntry?.email ?? ''} required maxLength={254} autoComplete="off" /></label>
+            <label>
+              LINE User ID {editingEntry ? <span style={{ ...mutedText, fontSize: 11 }}>({lang === 'ja' ? '変更する場合のみ入力' : 'enter only to replace'})</span> : null}
+              <input style={inputStyle} name="rawLineUserId" required={!editingEntry} maxLength={128} autoComplete="off" />
+            </label>
+            <label>{lang === 'ja' ? 'メモ' : 'Notes'}<textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} name="notes" defaultValue={editingEntry?.notes ?? ''} maxLength={1000} /></label>
+            <label>{lang === 'ja' ? 'ステータス' : 'Status'}
+              <select style={inputStyle} name="isActive" defaultValue={editingEntry?.isActive === false ? 'false' : 'true'}>
+                <option value="true">{t('active')}</option><option value="false">{t('inactive')}</option>
+              </select>
             </label>
             {feedback ? <p style={{ margin: 0, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

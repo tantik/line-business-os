@@ -39,9 +39,14 @@ export async function upsertEmployee(formData: FormData): Promise<WorkforceWrite
     id: input.id ?? undefined,
     locationId: input.locationId,
     name: input.name,
+    familyName: input.familyName,
+    givenName: input.givenName,
+    email: input.email,
+    notes: input.notes,
     positionLabel: input.positionLabel,
     employmentType: input.employmentType,
     isActive: input.isActive,
+    hourlyWageYen: input.hourlyWageYen,
   });
 }
 

@@ -17,11 +17,21 @@ function formData(fields: Record<string, string>): FormData {
 }
 
 test('parseUpsertEmployeeInput: create (no id) with required fields only', () => {
-  const result = parseUpsertEmployeeInput(formData({ locationId: LOCATION_ID, name: 'Aiko Tanaka' }));
+  const result = parseUpsertEmployeeInput(formData({
+    locationId: LOCATION_ID,
+    name: 'Aiko Tanaka',
+    familyName: 'Tanaka',
+    givenName: 'Aiko',
+    email: 'AIKO@EXAMPLE.COM',
+  }));
   assert.deepEqual(result, {
     id: null,
     locationId: LOCATION_ID,
     name: 'Aiko Tanaka',
+    familyName: 'Tanaka',
+    givenName: 'Aiko',
+    email: 'aiko@example.com',
+    notes: null,
     positionLabel: null,
     employmentType: null,
     isActive: undefined,
@@ -34,6 +44,10 @@ test('parseUpsertEmployeeInput: edit (with id) and all optional fields', () => {
     id: STAFF_ID,
     locationId: LOCATION_ID,
     name: 'Kenji Sato',
+    familyName: 'Sato',
+    givenName: 'Kenji',
+    email: 'kenji@example.com',
+    notes: 'Weekends preferred',
     positionLabel: 'Barista',
     employmentType: 'part_time',
   });
@@ -43,6 +57,10 @@ test('parseUpsertEmployeeInput: edit (with id) and all optional fields', () => {
     id: STAFF_ID,
     locationId: LOCATION_ID,
     name: 'Kenji Sato',
+    familyName: 'Sato',
+    givenName: 'Kenji',
+    email: 'kenji@example.com',
+    notes: 'Weekends preferred',
     positionLabel: 'Barista',
     employmentType: 'part_time',
     isActive: true,
@@ -54,6 +72,12 @@ test('parseUpsertEmployeeInput rejects missing name/locationId and a malformed n
   assert.equal(parseUpsertEmployeeInput(formData({ locationId: LOCATION_ID })), null);
   assert.equal(parseUpsertEmployeeInput(formData({ name: 'Aiko' })), null);
   assert.equal(parseUpsertEmployeeInput(formData({ id: 'not-a-uuid', locationId: LOCATION_ID, name: 'Aiko' })), null);
+});
+
+test('parseUpsertEmployeeInput rejects missing required contact fields or malformed email', () => {
+  const base = { locationId: LOCATION_ID, name: 'Aiko', familyName: 'Tanaka', givenName: 'Aiko' };
+  assert.equal(parseUpsertEmployeeInput(formData(base)), null);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...base, email: 'not-an-email' })), null);
 });
 
 test('parseSetEmployeeActiveInput parses staffId + isActive', () => {

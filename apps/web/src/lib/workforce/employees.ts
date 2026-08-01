@@ -33,6 +33,11 @@ interface ApiWorkforceStaffManageRow {
   location_id: string | null;
   name_encrypted: string;
   name_hash: string;
+  family_name_encrypted: string | null;
+  given_name_encrypted: string | null;
+  email_encrypted: string | null;
+  email_hash: string | null;
+  notes_encrypted: string | null;
   position_label: string | null;
   employment_type: string | null;
   is_active: boolean;
@@ -47,6 +52,10 @@ export interface WorkforceStaffManageEntry {
   tenantId: string;
   locationId: string | null;
   name: string;
+  familyName: string | null;
+  givenName: string | null;
+  email: string | null;
+  notes: string | null;
   positionLabel: string | null;
   employmentType: string | null;
   isActive: boolean;
@@ -57,7 +66,7 @@ export interface WorkforceStaffManageEntry {
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
 const MANAGE_SELECT =
-  'staff_id, tenant_id, location_id, name_encrypted, name_hash, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen';
+  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen';
 
 function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDirectoryEntry {
   return {
@@ -77,6 +86,10 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     tenantId: row.tenant_id,
     locationId: row.location_id,
     name: decryptPII(byteaToBuffer(row.name_encrypted), encryptionKey),
+    familyName: row.family_name_encrypted ? decryptPII(byteaToBuffer(row.family_name_encrypted), encryptionKey) : null,
+    givenName: row.given_name_encrypted ? decryptPII(byteaToBuffer(row.given_name_encrypted), encryptionKey) : null,
+    email: row.email_encrypted ? decryptPII(byteaToBuffer(row.email_encrypted), encryptionKey) : null,
+    notes: row.notes_encrypted ? decryptPII(byteaToBuffer(row.notes_encrypted), encryptionKey) : null,
     positionLabel: row.position_label,
     employmentType: row.employment_type,
     isActive: row.is_active,
@@ -156,6 +169,10 @@ export interface UpsertWorkforceEmployeeInput {
   id?: string;
   locationId: string;
   name: string;
+  familyName: string;
+  givenName: string;
+  email: string;
+  notes?: string | null;
   positionLabel?: string | null;
   employmentType?: string | null;
   isActive?: boolean;
@@ -178,6 +195,11 @@ export async function upsertWorkforceEmployee(
 
   const nameEncrypted = bufferToBytea(encryptPII(input.name, pii.config.encryptionKey));
   const nameHash = blindIndex(input.name, pii.config.hashPepper);
+  const familyNameEncrypted = bufferToBytea(encryptPII(input.familyName, pii.config.encryptionKey));
+  const givenNameEncrypted = bufferToBytea(encryptPII(input.givenName, pii.config.encryptionKey));
+  const emailEncrypted = bufferToBytea(encryptPII(input.email, pii.config.encryptionKey));
+  const emailHash = blindIndex(input.email.toLowerCase(), pii.config.hashPepper);
+  const notesEncrypted = input.notes ? bufferToBytea(encryptPII(input.notes, pii.config.encryptionKey)) : null;
 
   try {
     if (input.id) {
@@ -188,6 +210,11 @@ export async function upsertWorkforceEmployee(
           location_id: input.locationId,
           name_encrypted: nameEncrypted,
           name_hash: nameHash,
+          family_name_encrypted: familyNameEncrypted,
+          given_name_encrypted: givenNameEncrypted,
+          email_encrypted: emailEncrypted,
+          email_hash: emailHash,
+          notes_encrypted: notesEncrypted,
           position_label: input.positionLabel ?? null,
           employment_type: input.employmentType ?? null,
           hourly_wage_yen: input.hourlyWageYen ?? null,
@@ -211,6 +238,11 @@ export async function upsertWorkforceEmployee(
         location_id: input.locationId,
         name_encrypted: nameEncrypted,
         name_hash: nameHash,
+        family_name_encrypted: familyNameEncrypted,
+        given_name_encrypted: givenNameEncrypted,
+        email_encrypted: emailEncrypted,
+        email_hash: emailHash,
+        notes_encrypted: notesEncrypted,
         position_label: input.positionLabel ?? null,
         employment_type: input.employmentType ?? null,
         hourly_wage_yen: input.hourlyWageYen ?? null,
