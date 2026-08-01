@@ -32,30 +32,33 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
     <div ref={rootRef} style={{ position: 'relative', zIndex: 30 }}>
       <button
         type="button"
-        aria-label={lang === 'ja' ? 'メニュー' : 'Menu'}
+        aria-label={open ? (lang === 'ja' ? '閉じる' : 'Close') : lang === 'ja' ? 'メニュー' : 'Menu'}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         style={{
+          position: 'relative',
+          zIndex: 42,
           width: 42,
           height: 42,
           borderRadius: 12,
-          border: `1px solid ${demoColors.border}`,
-          background: demoColors.surface,
+          border: `1px solid ${open ? demoColors.accent : demoColors.border}`,
+          background: open ? demoColors.accent : demoColors.surface,
           display: 'grid',
           placeItems: 'center',
           cursor: 'pointer',
           boxShadow: '0 5px 16px rgba(54,43,31,.08)',
+          transition: 'background 200ms ease, border-color 200ms ease',
         }}
       >
         <span style={{ position: 'relative', width: 20, height: 16 }}>
           {[0, 1, 2].map((index) => (
             <span key={index} style={{
               position: 'absolute', left: 0, width: 20, height: 2, borderRadius: 2,
-              background: demoColors.textPrimary,
+              background: open ? '#FFFFFF' : demoColors.textPrimary,
               top: index * 7,
-              transition: 'transform 180ms ease, opacity 140ms ease, top 180ms ease',
+              transition: 'transform 220ms cubic-bezier(.4,0,.2,1), opacity 160ms ease, top 220ms cubic-bezier(.4,0,.2,1), background 200ms ease',
               ...(open && index === 0 ? { top: 7, transform: 'rotate(45deg)' } : {}),
-              ...(open && index === 1 ? { opacity: 0 } : {}),
+              ...(open && index === 1 ? { opacity: 0, transform: 'scale(0)' } : {}),
               ...(open && index === 2 ? { top: 7, transform: 'rotate(-45deg)' } : {}),
             }} />
           ))}
@@ -63,66 +66,113 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
       </button>
       <div
         aria-hidden={!open}
-        onClick={() => setOpen(false)}
+        role="dialog"
+        aria-modal="true"
         style={{
-          position: 'fixed', inset: 0, zIndex: 40,
-          background: 'rgba(54,43,31,.32)',
-          opacity: open ? 1 : 0,
-          transition: 'opacity 160ms ease',
-          pointerEvents: open ? 'auto' : 'none',
-        }}
-      />
-      <div
-        aria-hidden={!open}
-        style={{
-          position: 'fixed', right: 4, top: 66, left: 4, zIndex: 41,
-          maxHeight: 'calc(100vh - 82px)', overflowY: 'auto',
-          borderRadius: 18, border: `1px solid ${demoColors.border}`,
-          background: 'rgba(255,255,255,.98)', boxShadow: '0 22px 60px rgba(54,43,31,.22)',
-          backdropFilter: 'blur(14px)',
-          opacity: open ? 1 : 0, transform: open ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(.97)',
-          transformOrigin: 'top right', transition: 'opacity 160ms ease, transform 180ms ease',
+          position: 'fixed', inset: 0, zIndex: 41,
+          background: `linear-gradient(165deg, ${demoColors.accentStrong}, ${demoColors.accent})`,
+          overflowY: 'auto',
+          transform: open ? 'translateY(0)' : 'translateY(-100%)',
+          transition: 'transform 360ms cubic-bezier(.16,1,.3,1)',
           pointerEvents: open ? 'auto' : 'none',
         }}
       >
-        <div style={{ display: 'grid', gap: 6, padding: 12 }}>
-          <div style={{
-            position: 'sticky', top: -12, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 8, padding: '3px 6px 7px', margin: '-12px -12px 0', background: 'inherit',
-          }}>
-            <div>
-              <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
-              <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
-            </div>
-            <button
-              type="button"
-              aria-label={lang === 'ja' ? '閉じる' : 'Close'}
-              onClick={() => setOpen(false)}
-              style={{
-                width: 30, height: 30, flexShrink: 0, borderRadius: 8,
-                border: `1px solid ${demoColors.border}`, background: demoColors.surfaceElevated,
-                color: demoColors.textPrimary, fontSize: 15, lineHeight: 1, cursor: 'pointer',
-              }}
-            >
-              ×
-            </button>
+        <div style={{ maxWidth: 420, margin: '0 auto', padding: '92px 20px 40px', display: 'grid', gap: 8 }}>
+          <div
+            style={{
+              padding: '2px 2px 14px',
+              opacity: open ? 1 : 0,
+              transform: open ? 'translateY(0)' : 'translateY(8px)',
+              transition: 'opacity 320ms ease 120ms, transform 320ms ease 120ms',
+            }}
+          >
+            <strong style={{ display: 'block', fontSize: 20, color: '#FFFFFF' }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
+            <span style={{ color: 'rgba(255,255,255,.72)', fontSize: 13 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
           </div>
-          <MenuLink href="/mame-to-cha" icon="▦" label={lang === 'ja' ? 'スタッフ' : 'Staff'} description={lang === 'ja' ? '勤務・シフト・在庫' : 'Work, shifts and inventory'} active={current === 'staff'} />
-          <MenuLink href="/mame-to-cha/recipes" icon="◫" label={lang === 'ja' ? 'レシピ' : 'Recipes'} description={lang === 'ja' ? 'レシピと手順書' : 'Recipes and manuals'} active={current === 'recipes'} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderTop: `1px solid ${demoColors.border}`, padding: '10px 6px 2px', marginTop: 4 }}>
-            <span style={{ color: demoColors.textMuted, fontSize: 12 }}>{lang === 'ja' ? '言語' : 'Language'}</span><PreviewLanguageToggle />
+          <MenuLink
+            href="/mame-to-cha"
+            icon="▦"
+            label={lang === 'ja' ? 'スタッフ' : 'Staff'}
+            description={lang === 'ja' ? '勤務・シフト・在庫' : 'Work, shifts and inventory'}
+            active={current === 'staff'}
+            open={open}
+            delayMs={160}
+          />
+          <MenuLink
+            href="/mame-to-cha/recipes"
+            icon="◫"
+            label={lang === 'ja' ? 'レシピ' : 'Recipes'}
+            description={lang === 'ja' ? 'レシピと手順書' : 'Recipes and manuals'}
+            active={current === 'recipes'}
+            open={open}
+            delayMs={200}
+          />
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              marginTop: 14, padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,.12)',
+              opacity: open ? 1 : 0, transform: open ? 'translateY(0)' : 'translateY(10px)',
+              transition: 'opacity 320ms ease 240ms, transform 320ms ease 240ms',
+            }}
+          >
+            <span style={{ color: 'rgba(255,255,255,.85)', fontSize: 13, fontWeight: 700 }}>{lang === 'ja' ? '言語' : 'Language'}</span>
+            <PreviewLanguageToggle />
           </div>
-          <div style={{ padding: '6px 6px 2px' }}><PreviewLogoutButton /></div>
+          <div
+            style={{
+              marginTop: 6, padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.12)',
+              opacity: open ? 1 : 0, transform: open ? 'translateY(0)' : 'translateY(10px)',
+              transition: 'opacity 320ms ease 280ms, transform 320ms ease 280ms',
+            }}
+          >
+            <PreviewLogoutButton />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function MenuLink({ href, icon, label, description, active }: { href: string; icon: string; label: string; description: string; active: boolean }) {
-  return <Link href={href} aria-current={active ? 'page' : undefined} style={{ display: 'grid', gridTemplateColumns: '34px 1fr auto', alignItems: 'center', gap: 10, padding: '10px 11px', borderRadius: 12, color: demoColors.textPrimary, textDecoration: 'none', background: active ? demoColors.accentMuted : 'transparent', border: `1px solid ${active ? demoColors.accent : 'transparent'}` }}>
-    <span aria-hidden style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', borderRadius: 10, background: active ? demoColors.accent : demoColors.surfaceElevated, color: active ? '#fff' : demoColors.textPrimary, fontSize: 17 }}>{icon}</span>
-    <span><strong style={{ display: 'block', fontSize: 13.5 }}>{label}</strong><span style={{ display: 'block', marginTop: 1, color: demoColors.textMuted, fontSize: 11.5 }}>{description}</span></span>
-    <span aria-hidden style={{ color: demoColors.textMuted }}>›</span>
-  </Link>;
+function MenuLink({
+  href,
+  icon,
+  label,
+  description,
+  active,
+  open,
+  delayMs,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  description: string;
+  active: boolean;
+  open: boolean;
+  delayMs: number;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '42px 1fr auto',
+        alignItems: 'center',
+        gap: 12,
+        padding: '13px 14px',
+        borderRadius: 14,
+        color: '#FFFFFF',
+        textDecoration: 'none',
+        background: active ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.08)',
+        border: `1px solid ${active ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.14)'}`,
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0)' : 'translateY(10px)',
+        transition: `opacity 320ms ease ${delayMs}ms, transform 320ms ease ${delayMs}ms, background 160ms ease`,
+      }}
+    >
+      <span aria-hidden style={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 12, background: active ? '#FFFFFF' : 'rgba(255,255,255,.16)', color: active ? demoColors.accentStrong : '#FFFFFF', fontSize: 19 }}>{icon}</span>
+      <span><strong style={{ display: 'block', fontSize: 15.5 }}>{label}</strong><span style={{ display: 'block', marginTop: 1, color: 'rgba(255,255,255,.72)', fontSize: 12.5 }}>{description}</span></span>
+      <span aria-hidden style={{ color: 'rgba(255,255,255,.7)' }}>›</span>
+    </Link>
+  );
 }
