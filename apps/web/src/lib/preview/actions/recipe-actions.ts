@@ -2,6 +2,7 @@
 
 import {
   getWorkforceRecipeDetail,
+  listWorkforceRecipes,
   upsertWorkforceRecipe,
   type WorkforceRecipeDetail,
 } from '@/lib/workforce/recipes';
@@ -10,6 +11,35 @@ import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 
 export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & { mediaUrl: string | null };
+
+export async function previewListRecipeMediaUrls(
+  recipeIds: string[],
+): Promise<PreviewWriteResult<Record<string, string>>> {
+  if (recipeIds.length > 200 || recipeIds.some((recipeId) => !/^[0-9a-f-]{36}$/i.test(recipeId))) {
+    return PREVIEW_INVALID_INPUT_RESULT;
+  }
+  const context = await resolvePreviewManagerContext('workforce.recipe.manage');
+  if (context.status !== 'ok') return context.result;
+  const recipes = await listWorkforceRecipes(context.context.supabase, context.context.tenantId);
+  if (recipes.status !== 'success') return mapWorkforceWriteResult(recipes);
+  const requested = new Set(recipeIds);
+  const media = recipes.data.filter((recipe) =>
+    requested.has(recipe.recipeId) && recipe.locationId === context.context.locationId && recipe.mediaPath,
+  );
+  const recipeIdByPath = new Map(media.map((recipe) => [recipe.mediaPath as string, recipe.recipeId]));
+  const signed = await context.context.supabase.storage
+    .from('recipe-media')
+    .createSignedUrls(media.map((recipe) => recipe.mediaPath as string), 3600);
+  if (signed.error) return { status: 'unexpected_error' };
+  return {
+    status: 'success',
+    data: Object.fromEntries(signed.data.flatMap((entry) => {
+      if (!entry.path || !entry.signedUrl) return [];
+      const recipeId = recipeIdByPath.get(entry.path);
+      return recipeId ? [[recipeId, entry.signedUrl]] : [];
+    })),
+  };
+}
 
 export async function previewGetRecipeForEdit(recipeId: string): Promise<PreviewWriteResult<PreviewEditableRecipeDetail>> {
   const context = await resolvePreviewManagerContext('workforce.recipe.manage');

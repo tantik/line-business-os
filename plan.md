@@ -76,6 +76,17 @@ Observed live evidence:
   loading of both adjacent heavy pages, prefetch only on pointer/focus intent,
   and disable navigation at the supported `-8/+8` bounds. URL/searchParams
   remain the single period source for schedule mutations.
+- Recipe photo acceptance defect is fixed locally: the private image is now
+  loaded as a signed thumbnail only when Manage Recipes opens (so week
+  navigation does not gain a Storage round trip), the editor uses a compact
+  84x84 preview with choose/replace/remove buttons, and a newly selected file
+  previews immediately. The recipe list now shows the saved image instead of
+  the generic icon.
+- Cafe Manage Staff no longer shows the unused Employment type field. Existing
+  stored values are preserved invisibly during unrelated edits; the database
+  field remains available for a future HR/employment-rules module.
+- Current local verification after these changes: typecheck PASS, lint PASS,
+  web tests 783/783 PASS, production build PASS.
 
 ## Next steps
 
@@ -90,9 +101,10 @@ Observed live evidence:
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-2. Deploy and measure the Manager week-navigation latency fix without weakening
+2. Commit/push the recipe-photo + staff-form fix, open the acceptance PR, then
+   deploy and measure the Manager week-navigation latency fix without weakening
    authorization or changing the period used by schedule mutations.
-3. Test recipe photo upload/replace/delete, Shift Types mutations, and
+3. Re-test recipe photo upload/replace/delete on Preview, Shift Types mutations, and
    Inventory with 30/100 temporary Preview items; remove temporary data after.
 4. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
 5. Start the separately reviewed subscription lifecycle/payment foundation;

@@ -91,7 +91,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
                   <div>
                     <div style={{ fontWeight: 700 }}>{s.name}</div>
                     <div style={{ marginTop: 3, fontSize: 11.5, color: demoColors.textMuted }}>
-                      {s.positionLabel || t('roleFallback')} ・ {s.employmentType || t('employmentTypeUnset')} ・{' '}
+                      {s.positionLabel || t('roleFallback')} ・{' '}
                       <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('active') : t('inactive')}</span>
                     </div>
                   </div>
@@ -126,16 +126,13 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
               <label>{lang === 'ja' ? '名' : 'Given name'}<input style={inputStyle} name="givenName" defaultValue={editingEntry?.givenName ?? ''} required maxLength={80} /></label>
             </div>
             <label>{t('displayName')}<input style={inputStyle} name="name" defaultValue={editingEntry?.name ?? ''} required maxLength={120} key={editingEntry?.staffId ?? 'new'} /></label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-              <label>
-                {t('position')}
-                <input style={inputStyle} name="positionLabel" defaultValue={editingEntry?.positionLabel ?? ''} maxLength={60} key={`pos-${editingEntry?.staffId ?? 'new'}`} />
-              </label>
-              <label>
-                {t('employmentType')}
-                <input style={inputStyle} name="employmentType" defaultValue={editingEntry?.employmentType ?? ''} maxLength={40} key={`emp-${editingEntry?.staffId ?? 'new'}`} />
-              </label>
-            </div>
+            <label>
+              {t('position')}
+              <input style={inputStyle} name="positionLabel" defaultValue={editingEntry?.positionLabel ?? ''} maxLength={60} key={`pos-${editingEntry?.staffId ?? 'new'}`} />
+            </label>
+            {/* Cafe v2.1 does not use employment type in permissions, scheduling, or estimates.
+                Preserve an existing value during edits without exposing a redundant field. */}
+            {editingEntry?.employmentType ? <input type="hidden" name="employmentType" value={editingEntry.employmentType} /> : null}
             <label>
               {lang === 'ja' ? '時給（円・概算用）' : 'Hourly wage (JPY, estimates only)'}
               <input
