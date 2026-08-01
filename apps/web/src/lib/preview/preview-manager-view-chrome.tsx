@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useTransition, type ReactNode } from 'react';
+import { useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -45,6 +45,9 @@ function weekDates(periodStart: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addIsoDays(periodStart, i));
 }
 
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
+
 export function PreviewManagerViewChrome({
   timeZone,
   periodStart,
@@ -78,17 +81,19 @@ export function PreviewManagerViewChrome({
   );
 
   function navigateToWeek(targetOffset: number) {
-    if (targetOffset === weekOffset) return;
-    const href = targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
+    if (targetOffset === weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    const href = weekHref(targetOffset);
     startNavigation(() => router.push(href));
   }
 
-  useEffect(() => {
-    for (const offset of [weekOffset - 1, weekOffset + 1]) {
-      if (offset < -8 || offset > 8) continue;
-      router.prefetch(offset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${offset}`);
-    }
-  }, [basePath, router, weekOffset]);
+  function weekHref(targetOffset: number) {
+    return targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
+  }
+
+  function prefetchWeek(targetOffset: number) {
+    if (targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    router.prefetch(weekHref(targetOffset));
+  }
 
   return (
     <section style={card}>
@@ -109,7 +114,7 @@ export function PreviewManagerViewChrome({
           {formatMonthDay(new Date(`${periodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${periodEnd}T00:00:00`))}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={() => navigateToWeek(weekOffset - 1)} disabled={isNavigating} style={isNavigating ? buttonDisabled : buttonSecondary}>
+          <button type="button" onClick={() => navigateToWeek(weekOffset - 1)} onPointerEnter={() => prefetchWeek(weekOffset - 1)} onFocus={() => prefetchWeek(weekOffset - 1)} disabled={isNavigating || weekOffset <= MIN_WEEK_OFFSET} style={isNavigating || weekOffset <= MIN_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
             ← {t('prevWeek')}
           </button>
           <button
@@ -121,7 +126,7 @@ export function PreviewManagerViewChrome({
           >
             {t('today')}
           </button>
-          <button type="button" onClick={() => navigateToWeek(weekOffset + 1)} disabled={isNavigating} style={isNavigating ? buttonDisabled : buttonSecondary}>
+          <button type="button" onClick={() => navigateToWeek(weekOffset + 1)} onPointerEnter={() => prefetchWeek(weekOffset + 1)} onFocus={() => prefetchWeek(weekOffset + 1)} disabled={isNavigating || weekOffset >= MAX_WEEK_OFFSET} style={isNavigating || weekOffset >= MAX_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
             {t('nextWeek')} →
           </button>
         </div>

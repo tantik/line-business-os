@@ -55,8 +55,12 @@ Merged `dev` deployment `ad3ad27` is live on `preview.oruwa.jp`. Authenticated
 browser acceptance is in progress. Manager, Staff, and Recipes load with their
 intended test roles. The first observed defect was fixed and merged in PR
 `#159`: a future Staff shift now opens the complete change/cancel/exchange form
-immediately instead of an exchange-only intermediate button. Repeat that live
-flow once merge `cdc7d63` reaches Preview.
+immediately instead of an exchange-only intermediate button.
+
+The repeated live Staff flow now passes: empty reason is blocked, a temporary
+cancellation request submits, the cell receives `!`, Manager sees the correct
+staff/date/reason, and rejecting the temporary request removes it from the
+approval queue.
 
 Observed live evidence:
 
@@ -68,8 +72,10 @@ Observed live evidence:
 - JA/EN Staff UI and Help popup switch together;
 - Recipes JA/EN content is live with no machine-translation label;
 - Staff Inventory has search/filter controls and a visible shortage state;
-- Manager week navigation still needs a focused latency improvement; the
-  authenticated page reloads tenant-wide datasets on each week change.
+- Manager week navigation latency fix is implemented locally: remove automatic
+  loading of both adjacent heavy pages, prefetch only on pointer/focus intent,
+  and disable navigation at the supported `-8/+8` bounds. URL/searchParams
+  remain the single period source for schedule mutations.
 
 ## Next steps
 
@@ -84,13 +90,12 @@ Observed live evidence:
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-2. Repeat the live Staff request flow after merge `cdc7d63` reaches Preview.
-3. Improve Manager week-navigation latency without weakening authorization or
-   changing the period used by schedule mutations.
-4. Test recipe photo upload/replace/delete, Shift Types mutations, and
+2. Deploy and measure the Manager week-navigation latency fix without weakening
+   authorization or changing the period used by schedule mutations.
+3. Test recipe photo upload/replace/delete, Shift Types mutations, and
    Inventory with 30/100 temporary Preview items; remove temporary data after.
-5. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
-6. Start the separately reviewed subscription lifecycle/payment foundation;
+4. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
+5. Start the separately reviewed subscription lifecycle/payment foundation;
    production purge execution remains disabled.
 
 ## Important boundaries
