@@ -52,10 +52,23 @@ Deliver a verified Cafe product on Preview:
 ## Current step
 
 Merged `dev` deployment `ad3ad27` is live on `preview.oruwa.jp`. Authenticated
-browser acceptance is in progress. Manager loads the new v2.1 UI. The current
-Chrome session is the Manager account, so the Staff route correctly fails
-closed with `No staff profile found`; use a separately authenticated Staff
-session before judging Staff behavior.
+browser acceptance is in progress. Manager, Staff, and Recipes load with their
+intended test roles. One observed defect is fixed locally: a future Staff shift
+now opens the complete change/cancel/exchange form immediately instead of an
+exchange-only intermediate button.
+
+Observed live evidence:
+
+- Manager shift edit for 2026-07-30 saves and closes without the old input error;
+- Manage Staff exposes the full profile form;
+- Manage Recipes exposes add/edit and the complete recipe form;
+- Staff header/menu, pending markers, earnings summary, and removal of the
+  bottom Shift exchange block are live;
+- JA/EN Staff UI and Help popup switch together;
+- Recipes JA/EN content is live with no machine-translation label;
+- Staff Inventory has search/filter controls and a visible shortage state;
+- Manager week navigation still needs a focused latency improvement; the
+  authenticated page reloads tenant-wide datasets on each week change.
 
 ## Next steps
 
@@ -70,9 +83,14 @@ session before judging Staff behavior.
    - Inventory at 30 and 100 items;
    - Shift Types and Settings mutation latency;
    - JA/EN help and console/network errors.
-2. Fix only observed acceptance defects, repeating impacted tests.
-3. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
-4. Start the separately reviewed subscription lifecycle/payment foundation;
+2. Merge and deploy the direct future-shift request-form fix, then repeat the
+   live Staff request flow.
+3. Improve Manager week-navigation latency without weakening authorization or
+   changing the period used by schedule mutations.
+4. Test recipe photo upload/replace/delete, Shift Types mutations, and
+   Inventory with 30/100 temporary Preview items; remove temporary data after.
+5. Write `docs/product/cafe-package-v2-1-acceptance-report.md` and freeze v2.1.
+6. Start the separately reviewed subscription lifecycle/payment foundation;
    production purge execution remains disabled.
 
 ## Important boundaries
