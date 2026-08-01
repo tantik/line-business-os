@@ -63,8 +63,20 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
       </button>
       <div
         aria-hidden={!open}
+        onClick={() => setOpen(false)}
         style={{
-          position: 'fixed', right: 16, top: 72, width: 'min(272px, calc(100vw - 32px))', padding: 12,
+          position: 'fixed', inset: 0, zIndex: 40,
+          background: 'rgba(54,43,31,.32)',
+          opacity: open ? 1 : 0,
+          transition: 'opacity 160ms ease',
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+      />
+      <div
+        aria-hidden={!open}
+        style={{
+          position: 'fixed', right: 4, top: 66, left: 4, zIndex: 41,
+          maxHeight: 'calc(100vh - 82px)', overflowY: 'auto',
           borderRadius: 18, border: `1px solid ${demoColors.border}`,
           background: 'rgba(255,255,255,.98)', boxShadow: '0 22px 60px rgba(54,43,31,.22)',
           backdropFilter: 'blur(14px)',
@@ -73,10 +85,27 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
           pointerEvents: open ? 'auto' : 'none',
         }}
       >
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ padding: '3px 6px 7px' }}>
-            <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
-            <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
+        <div style={{ display: 'grid', gap: 6, padding: 12 }}>
+          <div style={{
+            position: 'sticky', top: -12, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 8, padding: '3px 6px 7px', margin: '-12px -12px 0', background: 'inherit',
+          }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
+              <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
+            </div>
+            <button
+              type="button"
+              aria-label={lang === 'ja' ? '閉じる' : 'Close'}
+              onClick={() => setOpen(false)}
+              style={{
+                width: 30, height: 30, flexShrink: 0, borderRadius: 8,
+                border: `1px solid ${demoColors.border}`, background: demoColors.surfaceElevated,
+                color: demoColors.textPrimary, fontSize: 15, lineHeight: 1, cursor: 'pointer',
+              }}
+            >
+              ×
+            </button>
           </div>
           <MenuLink href="/mame-to-cha" icon="▦" label={lang === 'ja' ? 'スタッフ' : 'Staff'} description={lang === 'ja' ? '勤務・シフト・在庫' : 'Work, shifts and inventory'} active={current === 'staff'} />
           <MenuLink href="/mame-to-cha/recipes" icon="◫" label={lang === 'ja' ? 'レシピ' : 'Recipes'} description={lang === 'ja' ? 'レシピと手順書' : 'Recipes and manuals'} active={current === 'recipes'} />

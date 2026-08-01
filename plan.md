@@ -17,11 +17,11 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-staff-initial-load`
-- merged PRs: `#158`, `#159`, `#160`
-- latest confirmed `dev` merge commit: `26be96a628506c103aed7c38c7226258f4a6b27a` (PR `#162`)
+- branch: `fix/cafe-v2-1-menu-inventory-mobile-ui` (open PR, not yet merged)
+- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`
+- latest confirmed `dev` merge commit: `d22172c4a21cc77557c043a9a7f072beda1fd235` (PR `#163`)
 - base: `dev`
-- stage: OAES QA / Preview release gate
+- stage: OAES QA / Preview release gate — mobile UI polish round
 
 ## Completed and pushed
 
@@ -141,7 +141,44 @@ Observed live evidence:
   hidden session/session-item reads, and adds a reduced-motion-safe stable week
   transition. Local gate: typecheck PASS, lint PASS, web tests 793/793 PASS,
   production build PASS, compiled Preview Server Action allowlist PASS, and
-  `git diff --check` PASS. Live timing must be repeated after deployment.
+  `git diff --check` PASS. PR `#163` passed GitHub CI/Vercel and was merged.
+  Live deployment acceptance: cold Staff load measured about 6.0 s and a warm
+  repeat about 3.1 s; the correct week appeared and no server navigation is
+  performed by the button. Browser automation still waited about 2.7 s for the
+  button interaction, so perceived week-switch smoothness remains a manual
+  visual recheck item rather than being declared fully closed.
+- New round of user-reported mobile UI bugs on `preview.oruwa.jp/mame-to-cha`
+  (screenshots reviewed 2026-08-01), fixed on branch
+  `fix/cafe-v2-1-menu-inventory-mobile-ui`:
+  1. Nav dropdown (`PreviewCafeMenu`,
+     `apps/web/src/lib/preview/preview-cafe-menu.tsx`) was a narrow floating
+     box (`right:16, top:72, width:min(272px,...)`) with no backdrop and no
+     way to close it except tapping outside/Escape. Changed to edge-to-edge
+     (`right:4, left:4, top:66`, no fixed `width`), added a semi-transparent
+     fixed backdrop (`rgba(54,43,31,.32)`) behind the panel that closes on
+     tap, and added a sticky `×` close button inside the panel header so it
+     stays reachable if the menu's own content scrolls.
+  2. Inventory check item cards (`PreviewInventoryStaffPanel` /
+     `ItemCard`, `apps/web/src/lib/preview/preview-inventory-staff-panel.tsx`)
+     squeezed the "Required/Current/Reorder point" text into the same flex
+     row as the status badge, wrapping badly at mobile widths. Split into two
+     full-width rows: title+badge on row 1, the Required/Current/Reorder text
+     as its own row 2. Shortage cards now get a `demoColors.warning`
+     (amber) card border instead of the default neutral border, and
+     "Need to order: N unit" renders as a highlighted amber chip
+     (`demoColors.alertWarningBg` background) instead of plain muted text.
+  - Local gate on this branch: typecheck PASS, lint PASS, web tests 793/793
+    PASS, production build PASS, compiled Preview Server Action allowlist
+    PASS.
+  - Not yet done: opening the PR, CI, merge to `dev`, and live authenticated
+    visual recheck on `preview.oruwa.jp/mame-to-cha` (mobile width, menu open,
+    Inventory modal open with a shortage item). Full local screenshot
+    verification was not possible in-session because the preview routes
+    require an authenticated Supabase session with no local dev-login bypass;
+    verification relies on the live Preview URL as in prior rounds.
+  - Remaining known item from this same bug report, not yet started: other
+    pages ("Recipes", "Manager") mentioned by the user as "доведём до финиша
+    позже" — no scope defined yet, ask before starting.
 
 ## Next steps
 
