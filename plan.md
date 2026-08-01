@@ -17,9 +17,9 @@ Deliver a verified Cafe product on Preview:
 
 ## Current Git state
 
-- branch: `fix/cafe-v2-1-menu-inventory-mobile-ui` (open PR, not yet merged)
-- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`
-- latest confirmed `dev` merge commit: `d22172c4a21cc77557c043a9a7f072beda1fd235` (PR `#163`)
+- branch: `dev` (menu/inventory branch merged and can be deleted)
+- merged PRs: `#158`, `#159`, `#160`, `#161`, `#162`, `#163`, `#164`
+- latest confirmed `dev` merge commit: `d8b7b7b7dbad12e4d86cf3d7200a1fba14135d4f` (PR `#164`)
 - base: `dev`
 - stage: OAES QA / Preview release gate — mobile UI polish round
 
@@ -170,12 +170,15 @@ Observed live evidence:
   - Local gate on this branch: typecheck PASS, lint PASS, web tests 793/793
     PASS, production build PASS, compiled Preview Server Action allowlist
     PASS.
-  - Not yet done: opening the PR, CI, merge to `dev`, and live authenticated
-    visual recheck on `preview.oruwa.jp/mame-to-cha` (mobile width, menu open,
-    Inventory modal open with a shortage item). Full local screenshot
-    verification was not possible in-session because the preview routes
-    require an authenticated Supabase session with no local dev-login bypass;
-    verification relies on the live Preview URL as in prior rounds.
+  - PR `#164` passed GitHub CI (typecheck/test/build/lint) and Vercel, and was
+    merged into `dev` as `d8b7b7b7dbad12e4d86cf3d7200a1fba14135d4f`.
+  - Not yet done: live authenticated visual recheck on
+    `preview.oruwa.jp/mame-to-cha` (mobile width, menu open, Inventory modal
+    open with a shortage item). Full local screenshot verification was not
+    possible in-session because the preview routes require an authenticated
+    Supabase session with no local dev-login bypass; verification relies on
+    the live Preview URL as in prior rounds — ask the user to check and report
+    back if anything still looks off before closing this item.
   - Remaining known item from this same bug report, not yet started: other
     pages ("Recipes", "Manager") mentioned by the user as "доведём до финиша
     позже" — no scope defined yet, ask before starting.
