@@ -20,7 +20,20 @@ import { buildPreviewSignInRedirect, PREVIEW_BASE_PATH } from '@/lib/preview/ret
  */
 export async function previewSignOut(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // `signOut()` defaults to scope 'global', which round-trips to the Supabase
+  // Auth server to revoke the refresh token before local cookies are cleared.
+  // If that call fails or times out (e.g. an already-stale access token), the
+  // unguarded await used to throw here and skip the redirect below, leaving
+  // the user stuck on the page with no error UI (no error.tsx under this
+  // route tree) and no way to leave except retrying. A failed remote revoke
+  // must never block the local session from being cleared and the user from
+  // navigating away.
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Local cookies are cleared by the client regardless of the remote
+    // revoke outcome; fall through to redirect either way.
+  }
   revalidatePath('/', 'layout');
   redirect(buildPreviewSignInRedirect(PREVIEW_BASE_PATH));
 }

@@ -20,9 +20,9 @@ const LABEL_PENDING: Record<'ja' | 'en', string> = {
  * Preview screens. Submits via the native `<form action={previewSignOut}>`
  * mechanism (no client fetch, no manual redirect handling) - `onSubmit` only
  * flips a local pending flag for the disabled/loading button state, same
- * pattern as `SignInForm`. A successful sign-out always navigates away
- * (unmounting this component), so there is no case where the flag needs a
- * manual reset.
+ * pattern as `SignInForm`. `previewSignOut` always redirects away
+ * (unmounting this component) even if the remote token-revoke call fails, so
+ * there is no case where the flag needs a manual reset.
  */
 export function PreviewLogoutButton() {
   const { lang } = useLang();
