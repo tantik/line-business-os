@@ -116,7 +116,7 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
             }}
           >
             <span style={{ color: 'rgba(255,255,255,.85)', fontSize: 13, fontWeight: 700 }}>{lang === 'ja' ? '言語' : 'Language'}</span>
-            <PreviewLanguageToggle />
+            <PreviewLanguageToggle variant="dark" />
           </div>
           <div
             style={{

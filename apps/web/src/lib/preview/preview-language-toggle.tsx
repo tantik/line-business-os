@@ -19,13 +19,15 @@ import { useLang } from '@/lib/demo/cafe/i18n';
  * component that calls `useLang()`) now shares one persisted `lang` value
  * instead of each button/component guessing its own.
  */
-export function PreviewLanguageToggle() {
+export function PreviewLanguageToggle({ variant = 'light' }: { variant?: 'light' | 'dark' }) {
   const { lang, setLang } = useLang();
+  const inactiveColor = variant === 'dark' ? 'rgba(255,255,255,.72)' : demoColors.textMuted;
+  const borderColor = variant === 'dark' ? 'rgba(255,255,255,.4)' : demoColors.border;
   return (
-    <div aria-label="Language" style={{ display: 'inline-flex', border: `1px solid ${demoColors.border}`, borderRadius: 999, overflow: 'hidden' }}>
+    <div aria-label="Language" style={{ display: 'inline-flex', border: `1px solid ${borderColor}`, borderRadius: 999, overflow: 'hidden' }}>
       {(['ja', 'en'] as const).map((value) => (
         <button key={value} type="button" aria-pressed={lang === value} onClick={() => setLang(value)}
-          style={{ border: 0, padding: '7px 12px', background: lang === value ? demoColors.accent : 'transparent', color: lang === value ? '#fff' : demoColors.textMuted, fontWeight: 700, cursor: 'pointer' }}>
+          style={{ border: 0, padding: '7px 12px', background: lang === value ? demoColors.accent : 'transparent', color: lang === value ? '#fff' : inactiveColor, fontWeight: 700, cursor: 'pointer' }}>
           {value.toUpperCase()}
         </button>
       ))}
