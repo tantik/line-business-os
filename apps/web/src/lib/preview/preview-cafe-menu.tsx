@@ -32,10 +32,12 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
     <div ref={rootRef} style={{ position: 'relative', zIndex: 30 }}>
       <button
         type="button"
-        aria-label={lang === 'ja' ? 'メニュー' : 'Menu'}
+        aria-label={open ? (lang === 'ja' ? '閉じる' : 'Close') : lang === 'ja' ? 'メニュー' : 'Menu'}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         style={{
+          position: 'relative',
+          zIndex: 42,
           width: 42,
           height: 42,
           borderRadius: 12,
@@ -87,25 +89,11 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
       >
         <div style={{ display: 'grid', gap: 6, padding: 12 }}>
           <div style={{
-            position: 'sticky', top: -12, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 8, padding: '3px 6px 7px', margin: '-12px -12px 0', background: 'inherit',
+            position: 'sticky', top: -12, zIndex: 1,
+            padding: '3px 6px 7px', margin: '-12px -12px 0', background: 'inherit',
           }}>
-            <div>
-              <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
-              <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
-            </div>
-            <button
-              type="button"
-              aria-label={lang === 'ja' ? '閉じる' : 'Close'}
-              onClick={() => setOpen(false)}
-              style={{
-                width: 30, height: 30, flexShrink: 0, borderRadius: 8,
-                border: `1px solid ${demoColors.border}`, background: demoColors.surfaceElevated,
-                color: demoColors.textPrimary, fontSize: 15, lineHeight: 1, cursor: 'pointer',
-              }}
-            >
-              ×
-            </button>
+            <strong style={{ display: 'block', fontSize: 14 }}>{lang === 'ja' ? 'ナビゲーション' : 'Navigation'}</strong>
+            <span style={{ color: demoColors.textMuted, fontSize: 11.5 }}>{lang === 'ja' ? '移動先を選択' : 'Choose a destination'}</span>
           </div>
           <MenuLink href="/mame-to-cha" icon="▦" label={lang === 'ja' ? 'スタッフ' : 'Staff'} description={lang === 'ja' ? '勤務・シフト・在庫' : 'Work, shifts and inventory'} active={current === 'staff'} />
           <MenuLink href="/mame-to-cha/recipes" icon="◫" label={lang === 'ja' ? 'レシピ' : 'Recipes'} description={lang === 'ja' ? 'レシピと手順書' : 'Recipes and manuals'} active={current === 'recipes'} />
