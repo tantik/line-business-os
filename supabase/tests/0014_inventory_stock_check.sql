@@ -78,6 +78,21 @@ select ok(
   'authenticated has the base INSERT privilege required by the SECURITY INVOKER stock-count RPC'
 );
 
+-- Regression guard (0054): `api.inventory_items` (security_invoker, 0037/0038)
+-- rewrites its insert/update to the underlying `inventory.items` table, so the
+-- invoking role needs the base-table privilege too -- a grant on the view
+-- alone is not enough. Asserted here, before section 3's own `grant select,
+-- insert, update on inventory.items` below, so this would fail if a future
+-- migration ever dropped 0054's grant.
+select ok(
+  has_table_privilege('authenticated', 'inventory.items', 'INSERT'),
+  'authenticated has the base INSERT privilege on inventory.items required by the security_invoker api.inventory_items view (0054)'
+);
+select ok(
+  has_table_privilege('authenticated', 'inventory.items', 'UPDATE'),
+  'authenticated has the base UPDATE privilege on inventory.items required by the security_invoker api.inventory_items view (0054)'
+);
+
 -- ============================================================================
 -- Section 2: check constraints + composite FK guards (superuser fixtures)
 -- ============================================================================

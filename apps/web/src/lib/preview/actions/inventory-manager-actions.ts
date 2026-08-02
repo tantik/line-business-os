@@ -8,7 +8,6 @@ import {
 import type { InventoryWriteResult } from '@/lib/inventory/result-types';
 import { resolvePreviewInventoryManagerContext } from './inventory-authorize';
 import { PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
-import { invDiagLog } from './inventory-diagnostic-log';
 
 /**
  * Manager-only Inventory catalog write actions. Kept in their own module
@@ -23,26 +22,22 @@ import { invDiagLog } from './inventory-diagnostic-log';
  */
 
 function mapInventoryWriteResult<T>(result: InventoryWriteResult<T>): PreviewWriteResult<T> {
-  const mapped = ((): PreviewWriteResult<T> => {
-    switch (result.status) {
-      case 'success':
-        return { status: 'success', data: result.data };
-      case 'not_found':
-        return { status: 'not_found' };
-      case 'not_authenticated':
-        return { status: 'not_authenticated' };
-      case 'no_membership':
-      case 'unauthorized':
-        return { status: 'no_access' };
-      case 'config_error':
-      case 'unexpected_error':
-        return { status: 'unexpected_error' };
-      default:
-        return { status: 'unexpected_error' };
-    }
-  })();
-  invDiagLog('mapInventoryWriteResult', { fromStatus: result.status, toStatus: mapped.status });
-  return mapped;
+  switch (result.status) {
+    case 'success':
+      return { status: 'success', data: result.data };
+    case 'not_found':
+      return { status: 'not_found' };
+    case 'not_authenticated':
+      return { status: 'not_authenticated' };
+    case 'no_membership':
+    case 'unauthorized':
+      return { status: 'no_access' };
+    case 'config_error':
+    case 'unexpected_error':
+      return { status: 'unexpected_error' };
+    default:
+      return { status: 'unexpected_error' };
+  }
 }
 
 /**
@@ -56,10 +51,6 @@ export async function previewUpsertInventoryItem(formData: FormData): Promise<Pr
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
   const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
-  invDiagLog('previewUpsertInventoryItem:context', {
-    status: contextResult.status,
-    failResultStatus: contextResult.status === 'fail' ? contextResult.result.status : null,
-  });
   if (contextResult.status !== 'ok') return contextResult.result;
   const { supabase, tenantId, locationId } = contextResult.context;
 
@@ -82,10 +73,6 @@ export async function previewSetInventoryItemActive(formData: FormData): Promise
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
   const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
-  invDiagLog('previewSetInventoryItemActive:context', {
-    status: contextResult.status,
-    failResultStatus: contextResult.status === 'fail' ? contextResult.result.status : null,
-  });
   if (contextResult.status !== 'ok') return contextResult.result;
   const { supabase, tenantId } = contextResult.context;
 

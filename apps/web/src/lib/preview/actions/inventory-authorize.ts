@@ -11,7 +11,6 @@ import {
   mapManagerLocationFailure,
   type PreviewWriteResult,
 } from '../write-result';
-import { invDiagLog } from './inventory-diagnostic-log';
 
 /**
  * Inventory-specific preview authorize helpers. Deliberately separate from
@@ -44,26 +43,13 @@ async function checkPermission(
   permission: string,
   locationId: string,
 ): Promise<boolean> {
-  invDiagLog('checkPermission:call', { tenantId, permission, locationId });
   try {
-    const response = await supabase
+    const { data, error } = await supabase
       .schema('api')
       .rpc('has_permission', { p_tenant_id: tenantId, p_permission: permission, p_location_id: locationId });
-    const { data, error, status, statusText } = response;
-    invDiagLog('checkPermission:response', {
-      httpStatus: status,
-      httpStatusText: statusText,
-      data,
-      error: error
-        ? { code: error.code, message: error.message, details: error.details, hint: error.hint }
-        : null,
-    });
     if (error) return false;
     return data === true;
-  } catch (err) {
-    invDiagLog('checkPermission:exception', {
-      message: err instanceof Error ? err.message : String(err),
-    });
+  } catch {
     return false;
   }
 }
@@ -72,7 +58,6 @@ export async function resolvePreviewInventoryManagerContext(
   permission: InventoryManagerPermission,
 ): Promise<PreviewInventoryManagerContextResult> {
   const tenantResult = await resolvePreviewTenantContext();
-  invDiagLog('resolveContext:tenant', { status: tenantResult.status });
   if (tenantResult.status !== 'success') {
     return { status: 'fail', result: mapPreviewTenantFailure(tenantResult) };
   }
@@ -83,33 +68,20 @@ export async function resolvePreviewInventoryManagerContext(
   const inventoryEnabled =
     modulesResult.status === 'success' &&
     modulesResult.data.some((m) => m.tenantId === tenantId && m.module === 'inventory' && m.isEnabled);
-  invDiagLog('resolveContext:module', {
-    tenantId,
-    modulesResultStatus: modulesResult.status,
-    inventoryEnabled,
-  });
   if (!inventoryEnabled) return { status: 'fail', result: { status: 'module_disabled' } };
 
   const locationsResult = await listTenantLocations(supabase);
   if (locationsResult.status !== 'success') {
-    invDiagLog('resolveContext:locations_error', { tenantId, status: locationsResult.status });
     return { status: 'fail', result: { status: 'unexpected_error' } };
   }
   const tenantLocations = locationsResult.data.filter((l) => l.tenantId === tenantId);
   const locationResult = resolveManagerLocation(tenantLocations);
-  invDiagLog('resolveContext:location', {
-    tenantId,
-    activeLocationCount: tenantLocations.filter((l) => l.isActive).length,
-    locationResultKind: locationResult.kind,
-    resolvedLocationId: locationResult.kind === 'ok' ? locationResult.location.locationId : null,
-  });
   if (locationResult.kind !== 'ok') {
     return { status: 'fail', result: mapManagerLocationFailure(locationResult) };
   }
   const locationId = locationResult.location.locationId;
 
   const permitted = await checkPermission(supabase, tenantId, permission, locationId);
-  invDiagLog('resolveContext:permission', { tenantId, locationId, permission, permitted });
   if (!permitted) return { status: 'fail', result: { status: 'no_access' } };
 
   return { status: 'ok', context: { supabase, tenantId, locationId } };
