@@ -3,6 +3,7 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { InventoryWriteResult } from './result-types';
 import { mapInventoryReadError, mapInventoryWriteError } from './pg-error';
 import type { InventoryUnit } from './validation';
+import { invDiagLog } from '../preview/actions/inventory-diagnostic-log';
 
 /** Flat row shape returned by `api.inventory_item_status`. */
 interface ApiInventoryItemStatusRow {
@@ -193,14 +194,30 @@ export async function upsertInventoryItem(
           .eq('item_id', input.id)
       : supabase.schema('api').from('inventory_items').insert(row);
 
-    const { data, error } = await query
+    const response = await query
       .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
       .maybeSingle();
+    const { data, error, status, statusText } = response;
+    invDiagLog('upsertInventoryItem:response', {
+      mode: input.id ? 'update' : 'insert',
+      tenantId,
+      locationId: input.locationId,
+      httpStatus: status,
+      httpStatusText: statusText,
+      hasData: data != null,
+      error: error
+        ? { code: error.code, message: error.message, details: error.details, hint: error.hint }
+        : null,
+    });
 
     if (error) return mapInventoryWriteError(error, 'save this inventory item');
     if (!data) return { status: 'not_found' };
     return { status: 'success', data: mapItemRow(data as ApiInventoryItemRow) };
   } catch (err) {
+    invDiagLog('upsertInventoryItem:exception', {
+      tenantId,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error saving this inventory item.',
@@ -216,7 +233,7 @@ export async function setInventoryItemActive(
   isActive: boolean,
 ): Promise<InventoryWriteResult<InventoryItem>> {
   try {
-    const { data, error } = await supabase
+    const response = await supabase
       .schema('api')
       .from('inventory_items')
       .update({ is_active: isActive })
@@ -224,11 +241,26 @@ export async function setInventoryItemActive(
       .eq('item_id', itemId)
       .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
       .maybeSingle();
+    const { data, error, status, statusText } = response;
+    invDiagLog('setInventoryItemActive:response', {
+      tenantId,
+      itemId,
+      httpStatus: status,
+      httpStatusText: statusText,
+      hasData: data != null,
+      error: error
+        ? { code: error.code, message: error.message, details: error.details, hint: error.hint }
+        : null,
+    });
 
     if (error) return mapInventoryWriteError(error, 'update this inventory item');
     if (!data) return { status: 'not_found' };
     return { status: 'success', data: mapItemRow(data as ApiInventoryItemRow) };
   } catch (err) {
+    invDiagLog('setInventoryItemActive:exception', {
+      tenantId,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error updating this inventory item.',

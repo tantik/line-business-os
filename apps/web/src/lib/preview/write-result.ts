@@ -61,6 +61,12 @@ const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
 
 /** Lang-aware version of `previewWriteMessageJa` -- prefer this in any component that already calls `useLang()`. `previewWriteMessageJa` is kept for the handful of not-currently-reachable preview components (see `preview-action-free.test.ts`) so they are not touched unnecessarily. */
 export function previewWriteMessage(lang: Lang, status: PreviewWriteFailureStatus): string {
+  // TEMPORARY diagnostic logging (Preview Manager Inventory "no permission"
+  // investigation) -- runs client-side too, gated to non-production, no PII.
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.warn('[INV-DIAG]', 'previewWriteMessage:render', JSON.stringify({ status, lang }));
+  }
   return lang === 'en' ? PREVIEW_WRITE_MESSAGES_EN[status] : PREVIEW_WRITE_MESSAGES_JA[status];
 }
 
