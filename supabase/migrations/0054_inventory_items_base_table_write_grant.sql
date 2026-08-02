@@ -1,0 +1,25 @@
+-- ============================================================================
+-- 0054 Inventory: fix missing base-table write grant on inventory.items
+-- ============================================================================
+-- Bug: Manager catalog writes (upsertInventoryItem/setInventoryItemActive in
+-- apps/web/src/lib/inventory/items.ts) write directly against
+-- `api.inventory_items` (insert/update), which 0038 already granted
+-- insert/update on. That view is `security_invoker = true` (0037), so an
+-- auto-updatable write through it is rewritten by Postgres against the
+-- underlying `inventory.items` table and still requires the invoking role
+-- to hold the matching table-level privilege there -- a view-only grant is
+-- not enough. 0037 granted only `select` on `inventory.items` to
+-- `authenticated`; no migration ever added `insert, update`. Every manager
+-- catalog write therefore failed at the Postgres privilege check (42501
+-- insufficient_privilege) before `inv_items_insert`/`inv_items_update` RLS
+-- was ever evaluated, surfacing as "You do not have permission to do this."
+-- even though `core.has_permission(tenant_id, 'inventory.item.manage',
+-- location_id)` -- the RLS predicate itself -- correctly returns true.
+--
+-- Same bug class as 0053 (missing api.workforce_recipes view grant), just
+-- the opposite direction: this time the base-table grant was the missing
+-- half. RLS remains the real authorization boundary; this migration only
+-- adds the missing table grant, no policy or data change.
+-- ============================================================================
+
+grant insert, update on inventory.items to authenticated;
