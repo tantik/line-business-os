@@ -38,6 +38,7 @@ import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { PreviewShiftExchangeManagerPanel } from '@/lib/preview/preview-shift-exchange-manager-panel';
 import { PreviewManagerToday } from '@/lib/preview/preview-manager-today';
 import { listInventoryCheckSessions } from '@/lib/inventory/check-sessions';
+import { time, mark } from '@/lib/perf/timing';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -76,24 +77,29 @@ export default async function MameToChaPreviewManagerPage({
 }: {
   searchParams: Promise<{ weekOffset?: string }>;
 }) {
-  await requirePreviewUser(MANAGER_PUBLIC_PATH);
+  console.log('[perf-debug] PERF_TIMING_LOG env =', process.env.PERF_TIMING_LOG);
+  const __pageStart = performance.now();
+  await time('auth:requirePreviewUser', () => requirePreviewUser(MANAGER_PUBLIC_PATH));
 
   // Page-level authorization must run before any tenant-wide manager loader
   // or manager action form is rendered. Server Actions repeat their own
   // permission checks, but that does not protect the page's read surface.
-  if (!(await authorizePreviewManagerPage())) return <PreviewNoAccessState variant="light" />;
+  if (!(await time('auth:authorizePreviewManagerPage', () => authorizePreviewManagerPage())))
+    return <PreviewNoAccessState variant="light" />;
 
-  const tenantResult = await resolvePreviewTenantContext();
+  const tenantResult = await time('tenant:resolvePreviewTenantContext', () => resolvePreviewTenantContext());
   if (tenantResult.status !== 'success') return <PreviewNoAccessState variant="light" />;
 
   const { activeTenant } = tenantResult.data;
   const supabase = await createClient();
 
-  const moduleResult = await resolvePreviewWorkforceModule(supabase, activeTenant.tenantId);
+  const moduleResult = await time('module:resolvePreviewWorkforceModule', () =>
+    resolvePreviewWorkforceModule(supabase, activeTenant.tenantId),
+  );
   if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState variant="light" />;
   if (moduleResult.status !== 'enabled') return <PreviewErrorState variant="light" />;
 
-  const locationsResult = await listTenantLocations(supabase);
+  const locationsResult = await time('location:listTenantLocations', () => listTenantLocations(supabase));
   const tenantLocations =
     locationsResult.status === 'success'
       ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
@@ -134,11 +140,12 @@ export default async function MameToChaPreviewManagerPage({
   // independent and always runs in the same batch, never staged serially
   // one-await-at-a-time (each extra round trip was a direct contributor to
   // this page's slow load).
-  const modulesResult = await listTenantModules(supabase);
+  const modulesResult = await time('modules:listTenantModules', () => listTenantModules(supabase));
   const inventoryEnabled =
     modulesResult.status === 'success' &&
     modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
 
+  const __batchStart = performance.now();
   const [
     staffResult,
     shiftTypesResult,
@@ -152,25 +159,38 @@ export default async function MameToChaPreviewManagerPage({
     inventoryItemsResult,
     inventorySessionsResult,
   ] = await Promise.all([
-    listWorkforceStaffForManager(supabase, activeTenant.tenantId),
-    listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-    listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
-    listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
-    listAttendanceForManager(supabase, activeTenant.tenantId),
-    listWorkforceRecipes(supabase, activeTenant.tenantId),
-    getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
-    listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-    listShiftAssignments(supabase, activeTenant.tenantId, {
-      fromIso: exchangeAssignmentFromIso,
-      toIsoExclusive: exchangeAssignmentToIsoExclusive,
-    }),
+    time('batch:listWorkforceStaffForManager', () => listWorkforceStaffForManager(supabase, activeTenant.tenantId)),
+    time('batch:listWorkforceShiftTypes', () => listWorkforceShiftTypes(supabase, activeTenant.tenantId)),
+    time('batch:listShiftAssignments(week)', () =>
+      listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
+    ),
+    time('batch:listShiftRequestsForManager', () =>
+      listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
+    ),
+    time('batch:listAttendanceForManager', () => listAttendanceForManager(supabase, activeTenant.tenantId)),
+    time('batch:listWorkforceRecipes', () => listWorkforceRecipes(supabase, activeTenant.tenantId)),
+    time('batch:getWorkforceScheduleSettings', () =>
+      getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
+    ),
+    time('batch:listShiftExchanges', () => listShiftExchanges(supabase, activeTenant.tenantId, location.locationId)),
+    time('batch:listShiftAssignments(+-8wk, for exchanges)', () =>
+      listShiftAssignments(supabase, activeTenant.tenantId, {
+        fromIso: exchangeAssignmentFromIso,
+        toIsoExclusive: exchangeAssignmentToIsoExclusive,
+      }),
+    ),
     inventoryEnabled
-      ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
+      ? time('batch:listInventoryItemStatus', () =>
+          listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true }),
+        )
       : Promise.resolve(null),
     inventoryEnabled
-      ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
+      ? time('batch:listInventoryCheckSessions', () =>
+          listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso),
+        )
       : Promise.resolve(null),
   ]);
+  mark(`batch:TOTAL (parallel wall time ${(performance.now() - __batchStart).toFixed(1)}ms)`);
   // The staff loader's specific failure reason (missing PII env, RLS denial,
   // or an unexpected Postgres/decrypt error - see `listWorkforceStaffForManager`)
   // must never reach the client, but silently collapsing it to `null` with no
@@ -215,6 +235,7 @@ export default async function MameToChaPreviewManagerPage({
       ? inventorySessionsResult.data.find((session) => session.checkType === 'closing')
       : undefined;
   const staffNameById = Object.fromEntries((staff ?? []).map((entry) => [entry.staffId, entry.name]));
+  mark(`page:TOTAL server time before render ${(performance.now() - __pageStart).toFixed(1)}ms`);
 
   return (
     <BrandProvider brand={MAME_TO_CHA_BRAND}>

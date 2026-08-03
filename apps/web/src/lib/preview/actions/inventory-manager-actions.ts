@@ -9,6 +9,7 @@ import {
 import type { InventoryWriteResult } from '@/lib/inventory/result-types';
 import { resolvePreviewInventoryManagerContext } from './inventory-authorize';
 import { PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
+import { time } from '@/lib/perf/timing';
 
 /**
  * Manager-only Inventory catalog write actions. Kept in their own module
@@ -50,15 +51,18 @@ function mapInventoryWriteResult<T>(result: InventoryWriteResult<T>): PreviewWri
  * in the manager's own resolved location).
  */
 export async function previewUpsertInventoryItem(formData: FormData): Promise<PreviewWriteResult<InventoryItem>> {
+  const __actionStart = performance.now();
   const input = parseUpsertInventoryItemInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
-  const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
+  const contextResult = await time('inventory.upsert:permissionCheck', () =>
+    resolvePreviewInventoryManagerContext('inventory.item.manage'),
+  );
   if (contextResult.status !== 'ok') return contextResult.result;
   const { supabase, tenantId, locationId } = contextResult.context;
 
-  return mapInventoryWriteResult(
-    await upsertInventoryItem(supabase, tenantId, {
+  const result = await time('inventory.upsert:dbWrite', () =>
+    upsertInventoryItem(supabase, tenantId, {
       id: input.id ?? undefined,
       locationId,
       name: input.name,
@@ -69,17 +73,32 @@ export async function previewUpsertInventoryItem(formData: FormData): Promise<Pr
       isActive: input.isActive,
     }),
   );
+  const mapped = mapInventoryWriteResult(result);
+  if (process.env.PERF_TIMING_LOG === '1') {
+    console.log(`[perf] inventory.upsert:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
+  }
+  return mapped;
 }
 
 export async function previewSetInventoryItemActive(formData: FormData): Promise<PreviewWriteResult<InventoryItem>> {
+  const __actionStart = performance.now();
   const input = parseSetInventoryItemActiveInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
-  const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
+  const contextResult = await time('inventory.setActive:permissionCheck', () =>
+    resolvePreviewInventoryManagerContext('inventory.item.manage'),
+  );
   if (contextResult.status !== 'ok') return contextResult.result;
   const { supabase, tenantId } = contextResult.context;
 
-  return mapInventoryWriteResult(await setInventoryItemActive(supabase, tenantId, input.itemId, input.isActive));
+  const result = await time('inventory.setActive:dbWrite', () =>
+    setInventoryItemActive(supabase, tenantId, input.itemId, input.isActive),
+  );
+  const mapped = mapInventoryWriteResult(result);
+  if (process.env.PERF_TIMING_LOG === '1') {
+    console.log(`[perf] inventory.setActive:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
+  }
+  return mapped;
 }
 
 /**
@@ -90,12 +109,22 @@ export async function previewSetInventoryItemActive(formData: FormData): Promise
  * `api.permanently_delete_inventory_item` RPC (0055).
  */
 export async function previewPermanentlyDeleteInventoryItem(formData: FormData): Promise<PreviewWriteResult<{ itemId: string }>> {
+  const __actionStart = performance.now();
   const input = parseInventoryItemIdInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
-  const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
+  const contextResult = await time('inventory.permanentDelete:permissionCheck', () =>
+    resolvePreviewInventoryManagerContext('inventory.item.manage'),
+  );
   if (contextResult.status !== 'ok') return contextResult.result;
   const { supabase, tenantId } = contextResult.context;
 
-  return mapInventoryWriteResult(await permanentlyDeleteInventoryItem(supabase, tenantId, input.itemId));
+  const result = await time('inventory.permanentDelete:dbWrite', () =>
+    permanentlyDeleteInventoryItem(supabase, tenantId, input.itemId),
+  );
+  const mapped = mapInventoryWriteResult(result);
+  if (process.env.PERF_TIMING_LOG === '1') {
+    console.log(`[perf] inventory.permanentDelete:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
+  }
+  return mapped;
 }
