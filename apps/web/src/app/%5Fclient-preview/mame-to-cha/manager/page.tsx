@@ -29,7 +29,6 @@ import {
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
-import { PreviewScheduleCardActions } from '@/lib/preview/preview-schedule-card-actions';
 import { PreviewStaffRecipeManagement } from '@/lib/preview/preview-staff-recipe-management';
 import { PreviewSettingsCard } from '@/lib/preview/preview-settings-card';
 import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
@@ -283,14 +282,7 @@ export default async function MameToChaPreviewManagerPage({
           assignments={assignments}
           attendance={attendance}
           basePath={PREVIEW_BASE_PATH}
-          actionsSlot={
-            <PreviewScheduleCardActions
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              requiredHeadcountByWeekday={settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]}
-              hasUnpublishedChanges={(assignments ?? []).some((assignment) => !assignment.published)}
-            />
-          }
+          requiredHeadcountByWeekday={settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]}
         />
 
         <PreviewStaffRecipeManagement

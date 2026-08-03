@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { AutoScheduleModal } from '@/components/demo/cafe/AutoScheduleModal';
 import { buttonPrimary, demoColors } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
@@ -22,6 +21,14 @@ export interface PreviewScheduleCardActionsProps {
   periodEnd: string;
   requiredHeadcountByWeekday: number[];
   hasUnpublishedChanges: boolean;
+  /**
+   * Called after a successful auto-distribute/publish so the caller
+   * (`PreviewManagerViewChrome`) can re-fetch just the currently-displayed
+   * week (`previewGetScheduleWeek`) - never `router.refresh()`, which would
+   * re-run the whole Manager page. Preview Manager architecture, perf
+   * phase 2.
+   */
+  onScheduleChanged: () => Promise<void>;
 }
 
 export function PreviewScheduleCardActions({
@@ -29,11 +36,11 @@ export function PreviewScheduleCardActions({
   periodEnd,
   requiredHeadcountByWeekday,
   hasUnpublishedChanges,
+  onScheduleChanged,
 }: PreviewScheduleCardActionsProps) {
   const [scheduleActionsOpen, setScheduleActionsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [publishFeedback, setPublishFeedback] = useState<string | null>(null);
-  const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
@@ -51,7 +58,7 @@ export function PreviewScheduleCardActions({
         overwriteExisting: false,
       });
       if (result.status === 'success') {
-        router.refresh();
+        await onScheduleChanged();
       } else {
         setPublishFeedback(previewWriteMessage(lang, result.status));
       }
@@ -66,7 +73,7 @@ export function PreviewScheduleCardActions({
     startTransition(async () => {
       const result = await previewPublishSchedule(formData);
       if (result.status === 'success') {
-        router.refresh();
+        await onScheduleChanged();
       } else {
         setPublishFeedback(previewWriteMessage(lang, result.status));
       }

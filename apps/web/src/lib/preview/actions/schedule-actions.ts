@@ -26,6 +26,11 @@ import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-t
 import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 import { hasPositiveHeadcount, rawInputHasPositiveRequirement } from '../auto-distribution-requirements';
+import { getWeekPeriod } from '@/lib/workforce/period';
+
+/** Mirrors the same bound the Manager page and week-nav chrome enforce (`MAX_WEEK_OFFSET` in both `manager/page.tsx` and `preview-manager-view-chrome.tsx`) - never trust a client-supplied offset outside this range. */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager Server Actions for shift
@@ -260,4 +265,38 @@ export async function previewPublishSchedule(formData: FormData): Promise<Previe
 
   const result = await publishShiftAssignments(supabase, tenantId, locationId, fromIso, toIsoExclusive);
   return mapWorkforceWriteResult(result);
+}
+
+export interface PreviewScheduleWeek {
+  periodStart: string;
+  periodEnd: string;
+  weekOffset: number;
+  assignments: WorkforceShiftAssignment[];
+}
+
+/**
+ * Manager-only: re-read one week's shift assignments for the manager's own
+ * resolved location. Preview Manager architecture (perf phase 2) - the week
+ * prev/today/next control and the auto-distribute/publish actions call this
+ * instead of a full-page navigation/`router.refresh()`, so changing week (or
+ * a schedule write) refreshes only the schedule card's own data - no
+ * Inventory/Staff/Recipes re-fetch, no page navigation, no scroll reset.
+ */
+export async function previewGetScheduleWeek(weekOffset: number): Promise<PreviewWriteResult<PreviewScheduleWeek>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.shift.write');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, timeZone } = contextResult.context;
+
+  const rawOffset = Number.isInteger(weekOffset) ? weekOffset : 0;
+  const clampedOffset = Math.max(MIN_WEEK_OFFSET, Math.min(MAX_WEEK_OFFSET, rawOffset));
+
+  const nowIso = new Date().toISOString();
+  const { periodStart, periodEnd } = getWeekPeriod(nowIso, timeZone, clampedOffset);
+  const fromIso = localDateTimeToUtcIso(periodStart, '00:00', timeZone);
+  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', timeZone);
+
+  const result = await listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive });
+  if (result.status !== 'success') return mapWorkforceWriteResult(result);
+
+  return { status: 'success', data: { periodStart, periodEnd, weekOffset: clampedOffset, assignments: result.data } };
 }

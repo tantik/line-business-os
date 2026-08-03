@@ -16,9 +16,9 @@ test('exports exactly previewUpsertEmployee and previewSetEmployeeActive', () =>
   assert.ok(/export async function previewSetEmployeeActive\(/.test(SOURCE));
 });
 
-test('both wrappers request workforce.staff.manage per the B2a permission matrix', () => {
+test('every wrapper (including the read-only refresh helper) requests workforce.staff.manage per the B2a permission matrix', () => {
   const matches = [...SOURCE.matchAll(/resolvePreviewManagerContext\('([^']+)'\)/g)].map((m) => m[1]);
-  assert.deepEqual(matches, ['workforce.staff.manage', 'workforce.staff.manage']);
+  assert.deepEqual(matches, ['workforce.staff.manage', 'workforce.staff.manage', 'workforce.staff.manage']);
 });
 
 test('previewUpsertEmployee never parses the raw client FormData directly - it always substitutes the resolved location first', () => {

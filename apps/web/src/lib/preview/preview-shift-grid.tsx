@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { Modal } from '@/components/demo/cafe/Modal';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -24,13 +23,20 @@ interface PreviewShiftGridProps {
   shiftTypes: WorkforceShiftType[];
   assignments: WorkforceShiftAssignment[];
   monthlySummaries: Record<string, EstimatedEarningsSummary>;
+  /**
+   * Reports every local assignment-list change (single-cell save/unassign)
+   * back to the parent (`PreviewManagerViewChrome`), which owns the
+   * currently-displayed week's data - so its own `hasUnpublishedChanges`
+   * calculation (fed to `PreviewScheduleCardActions`) never drifts from what
+   * this grid is actually showing. Preview Manager architecture, perf
+   * phase 2 - no `router.refresh()` involved on either side.
+   */
+  onAssignmentsChanged?: (next: WorkforceShiftAssignment[]) => void;
 }
 
-export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments, monthlySummaries }: PreviewShiftGridProps) {
-  const router = useRouter();
+export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments, monthlySummaries, onAssignmentsChanged }: PreviewShiftGridProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
-  const [isRefreshing, startRefresh] = useTransition();
   const [isSaving, setIsSaving] = useState(false);
   const [localAssignments, setLocalAssignments] = useState(assignments);
   const [selected, setSelected] = useState<{ staffId: string; date: string } | null>(null);
@@ -101,12 +107,10 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         ? await previewUpdateShiftAssignment(formData)
         : await previewCreateShiftAssignment(formData);
       if (result.status === 'success') {
-        setLocalAssignments((current) => [
-          ...current.filter((item) => item.assignmentId !== result.data.assignmentId),
-          result.data,
-        ]);
+        const next = [...localAssignments.filter((item) => item.assignmentId !== result.data.assignmentId), result.data];
+        setLocalAssignments(next);
+        onAssignmentsChanged?.(next);
         setSelected(null);
-        startRefresh(() => router.refresh());
       } else {
         setFeedback(previewWriteMessage(lang, result.status));
       }
@@ -131,9 +135,10 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
     void (async () => {
       const result = await previewUpdateShiftAssignment(formData);
       if (result.status === 'success') {
-        setLocalAssignments((current) => current.filter((item) => item.assignmentId !== result.data.assignmentId));
+        const next = localAssignments.filter((item) => item.assignmentId !== result.data.assignmentId);
+        setLocalAssignments(next);
+        onAssignmentsChanged?.(next);
         setSelected(null);
-        startRefresh(() => router.refresh());
       } else {
         setFeedback(previewWriteMessage(lang, result.status));
       }
@@ -159,12 +164,6 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         onCellClick={handleCellClick}
         onStaffClick={setSummaryStaffId}
       />
-      {isRefreshing ? (
-        <p role="status" style={{ margin: '8px 0 0', fontSize: 12, color: demoColors.textMuted }}>
-          {lang === 'ja' ? '関連データを更新中…' : 'Updating related data…'}
-        </p>
-      ) : null}
-
       <Modal open={Boolean(summaryStaff && summary)} onClose={() => setSummaryStaffId(null)} title={summaryStaff?.name ?? ''} maxWidth={360}>
         {summaryStaff && summary ? (
           <dl style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 14px', margin: '12px 0 0', fontSize: 13 }}>
