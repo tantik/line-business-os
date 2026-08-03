@@ -5,12 +5,18 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
-import { previewSetInventoryItemActive, previewUpsertInventoryItem } from './actions/inventory-manager-actions';
+import {
+  previewSetInventoryItemActive,
+  previewUpsertInventoryItem,
+  previewPermanentlyDeleteInventoryItem,
+} from './actions/inventory-manager-actions';
 import { previewWriteMessage } from './write-result';
 import { badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, card, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, makeTranslator } from '@/lib/demo/cafe/i18n';
 import { PreviewInventoryModal } from './preview-inventory-modal';
 import { Modal } from '@/components/demo/cafe/Modal';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
+import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 
 interface InventoryManagerDict {
   title: string;
@@ -29,8 +35,12 @@ interface InventoryManagerDict {
   save: string;
   saving: string;
   cancel: string;
-  deactivate: string;
+  deleteItem: string;
+  deleting: string;
+  permanentDelete: string;
+  permanentDeleting: string;
   reactivate: string;
+  updating: string;
   empty: string;
   allSufficient: string;
   unknownStaffFallback: string;
@@ -39,8 +49,12 @@ interface InventoryManagerDict {
   purchaseRecommendation: string;
   searchPlaceholder: string;
   noSearchResults: string;
-  confirmDeactivateBody: string;
-  confirmDeactivateButton: string;
+  confirmDeleteTitle: string;
+  confirmDeleteBody: string;
+  confirmDeleteButton: string;
+  confirmPermanentDeleteTitle: string;
+  confirmPermanentDeleteBody: string;
+  confirmPermanentDeleteButton: string;
   statusInactive: string;
   reorderPointExceedsRequired: string;
 }
@@ -68,8 +82,12 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: '保存',
     saving: '保存中...',
     cancel: 'キャンセル',
-    deactivate: '無効化',
+    deleteItem: '削除',
+    deleting: '削除中...',
+    permanentDelete: '完全に削除',
+    permanentDeleting: '完全に削除中...',
     reactivate: '有効化',
+    updating: '更新中...',
     empty: '在庫アイテムはまだ登録されていません。',
     allSufficient: 'すべての在庫が十分です',
     unknownStaffFallback: '不明なスタッフ',
@@ -78,9 +96,13 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: '推奨発注数',
     searchPlaceholder: '商品名で検索',
     noSearchResults: '一致する商品はありません。',
-    confirmDeactivateBody: 'この商品を無効化しますか？過去の在庫記録は保持されます。',
-    confirmDeactivateButton: '無効化する',
-    statusInactive: '無効',
+    confirmDeleteTitle: 'この商品を削除しますか？',
+    confirmDeleteBody: 'この商品は非表示になりますが、過去の記録は保持されます。',
+    confirmDeleteButton: '削除する',
+    confirmPermanentDeleteTitle: 'この商品を完全に削除しますか？',
+    confirmPermanentDeleteBody: 'この操作はこの商品を完全に削除します。\nこの操作は取り消せません。',
+    confirmPermanentDeleteButton: '完全に削除する',
+    statusInactive: '削除済み',
     reorderPointExceedsRequired: '発注点は基準在庫以下にしてください。',
   },
   en: {
@@ -100,8 +122,12 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: 'Save',
     saving: 'Saving...',
     cancel: 'Cancel',
-    deactivate: 'Deactivate',
+    deleteItem: 'Delete',
+    deleting: 'Deleting...',
+    permanentDelete: 'Permanent Delete',
+    permanentDeleting: 'Permanently deleting...',
     reactivate: 'Reactivate',
+    updating: 'Updating...',
     empty: 'No inventory items yet.',
     allSufficient: 'All items sufficient',
     unknownStaffFallback: 'Unknown staff',
@@ -110,9 +136,13 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: 'Recommended purchase',
     searchPlaceholder: 'Search by name',
     noSearchResults: 'No items match your search.',
-    confirmDeactivateBody: 'Deactivate this item? Past stock-count history is preserved.',
-    confirmDeactivateButton: 'Deactivate',
-    statusInactive: 'Inactive',
+    confirmDeleteTitle: 'Delete this item?',
+    confirmDeleteBody: 'This item will be hidden but its history will be preserved.',
+    confirmDeleteButton: 'Delete',
+    confirmPermanentDeleteTitle: 'Permanently delete this item?',
+    confirmPermanentDeleteBody: 'This action permanently removes this item.\nThis cannot be undone.',
+    confirmPermanentDeleteButton: 'Permanently delete',
+    statusInactive: 'Deleted',
     reorderPointExceedsRequired: 'Reorder point must be less than or equal to Required.',
   },
 };
@@ -138,7 +168,8 @@ function ItemForm({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'delete' | 'permanentDelete' | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,6 +191,7 @@ function ItemForm({
       return;
     }
 
+    setPendingMessage(tr('saving'));
     startTransition(async () => {
       const result = await previewUpsertInventoryItem(formData);
       if (result.status === 'success') onSuccess();
@@ -172,17 +204,38 @@ function ItemForm({
     const formData = new FormData();
     formData.set('itemId', item!.itemId);
     formData.set('isActive', isActive ? 'true' : 'false');
+    setPendingMessage(isActive ? tr('updating') : tr('deleting'));
     startTransition(async () => {
       const result = await previewSetInventoryItemActive(formData);
       if (result.status === 'success') {
-        setConfirmingDeactivate(false);
+        setConfirmAction(null);
         onSuccess();
       } else setError(previewWriteMessage(lang, result.status));
     });
   }
 
+  function permanentlyDelete() {
+    setError(null);
+    const formData = new FormData();
+    formData.set('itemId', item!.itemId);
+    setPendingMessage(tr('permanentDeleting'));
+    startTransition(async () => {
+      const result = await previewPermanentlyDeleteInventoryItem(formData);
+      if (result.status === 'success') {
+        setConfirmAction(null);
+        onSuccess();
+      } else {
+        // Kept open (not `setConfirmAction(null)`) when blocked by history --
+        // the manager should see the "use Delete instead" message right next
+        // to the action they just tried, not after the dialog has vanished.
+        setError(previewWriteMessage(lang, result.status));
+      }
+    });
+  }
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+      <PendingOverlay visible={isPending} message={pendingMessage ?? undefined} />
       {error ? <span style={{ color: demoColors.dangerText, fontSize: 12 }}>{error}</span> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 12 }}>{tr('name')}</span>
@@ -219,46 +272,66 @@ function ItemForm({
         </label>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? tr('saving') : tr('save')}
-        </button>
+        <LoadingButton type="submit" pending={isPending} pendingLabel={tr('saving')} style={buttonPrimary} pendingStyle={buttonDisabled}>
+          {tr('save')}
+        </LoadingButton>
         <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {tr('cancel')}
         </button>
       </div>
 
       {item ? (
-        <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${demoColors.border}` }}>
+        <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${demoColors.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {item.isActive ? (
-            confirmingDeactivate ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ margin: 0, fontSize: 12.5, color: demoColors.textMuted }}>{tr('confirmDeactivateBody')}</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    type="button"
-                    style={isPending ? buttonDisabled : buttonPrimary}
-                    disabled={isPending}
-                    onClick={() => setActive(false)}
-                  >
-                    {tr('confirmDeactivateButton')}
-                  </button>
-                  <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmingDeactivate(false)}>
-                    {tr('cancel')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmingDeactivate(true)}>
-                {tr('deactivate')}
-              </button>
-            )
+            <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('delete')}>
+              {tr('deleteItem')}
+            </button>
           ) : (
             <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setActive(true)}>
               {tr('reactivate')}
             </button>
           )}
+          <button
+            type="button"
+            style={{ ...buttonSecondary, color: demoColors.dangerText }}
+            disabled={isPending}
+            onClick={() => setConfirmAction('permanentDelete')}
+          >
+            {tr('permanentDelete')}
+          </button>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmAction === 'delete'}
+        title={tr('confirmDeleteTitle')}
+        confirmLabel={tr('confirmDeleteButton')}
+        cancelLabel={tr('cancel')}
+        pending={isPending}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => setActive(false)}
+      >
+        {tr('confirmDeleteBody')}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmAction === 'permanentDelete'}
+        title={tr('confirmPermanentDeleteTitle')}
+        confirmLabel={tr('confirmPermanentDeleteButton')}
+        cancelLabel={tr('cancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={permanentlyDelete}
+      >
+        {tr('confirmPermanentDeleteBody')
+          .split('\n')
+          .map((line, index) => (
+            <span key={index} style={{ display: 'block' }}>
+              {line}
+            </span>
+          ))}
+      </ConfirmDialog>
     </form>
   );
 }

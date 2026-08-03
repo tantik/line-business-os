@@ -236,6 +236,46 @@ export async function setInventoryItemActive(
   }
 }
 
+/** Flat row shape returned by `api.permanently_delete_inventory_item` (0055). */
+interface ApiPermanentDeleteRow {
+  deleted: boolean;
+  blocked_by_history: boolean;
+}
+
+/**
+ * Hard-delete an item, but only when it has zero `inventory.stock_counts`
+ * history -- calls `api.permanently_delete_inventory_item` (0055), an
+ * invoker-only passthrough to the guarded `inventory.permanently_delete_item`
+ * SECURITY DEFINER helper, since `inventory.items` itself has no DELETE RLS
+ * policy by design (the DEFINER logic lives outside `api` per ADR 0008).
+ * Distinct from `setInventoryItemActive`, which remains the normal,
+ * always-available soft-delete/reactivate path and never touches this RPC.
+ */
+export async function permanentlyDeleteInventoryItem(
+  supabase: SupabaseClient,
+  tenantId: string,
+  itemId: string,
+): Promise<InventoryWriteResult<{ itemId: string }>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .rpc('permanently_delete_inventory_item', { p_tenant_id: tenantId, p_item_id: itemId });
+
+    if (error) return mapInventoryWriteError(error, 'permanently delete this inventory item');
+
+    const row = (Array.isArray(data) ? data[0] : data) as ApiPermanentDeleteRow | undefined;
+    if (!row) return { status: 'not_found' };
+    if (row.blocked_by_history) return { status: 'blocked_by_history' };
+    if (!row.deleted) return { status: 'unexpected_error', message: 'Unable to permanently delete this inventory item right now.' };
+    return { status: 'success', data: { itemId } };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error permanently deleting this inventory item.',
+    };
+  }
+}
+
 /**
  * Boolean permission check delegating to `api.has_permission` (0019), which
  * forwards to `core.has_permission`. Used to decide whether to render
