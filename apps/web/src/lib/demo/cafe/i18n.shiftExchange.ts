@@ -28,6 +28,13 @@ interface ShiftExchangeDict {
   requestExchangeModalTitle: string;
   submitting: string;
   close: string;
+  confirmApproveTitle: string;
+  confirmApproveBody: string;
+  confirmRejectTitle: string;
+  confirmRejectBody: string;
+  cancel: string;
+  approving: string;
+  rejecting: string;
 }
 
 /** UI-chrome dictionary for the Shift Exchange staff/manager preview panels. Static system-chrome copy only. */
@@ -61,6 +68,13 @@ const SHIFT_EXCHANGE_DICT: Record<Lang, ShiftExchangeDict> = {
     requestExchangeModalTitle: 'シフト交換を依頼',
     submitting: '送信中...',
     close: '閉じる',
+    confirmApproveTitle: 'この依頼を承認しますか？',
+    confirmApproveBody: 'シフトが更新されます。この操作は取り消せません。',
+    confirmRejectTitle: 'この依頼を却下しますか？',
+    confirmRejectBody: '依頼したスタッフに却下が通知されます。この操作は取り消せません。',
+    cancel: 'キャンセル',
+    approving: '承認中...',
+    rejecting: '却下中...',
   },
   en: {
     staffTitle: 'Shift exchange',
@@ -90,6 +104,13 @@ const SHIFT_EXCHANGE_DICT: Record<Lang, ShiftExchangeDict> = {
     requestExchangeModalTitle: 'Request a shift exchange',
     submitting: 'Submitting...',
     close: 'Close',
+    confirmApproveTitle: 'Approve this request?',
+    confirmApproveBody: 'The schedule will be updated. This cannot be undone.',
+    confirmRejectTitle: 'Reject this request?',
+    confirmRejectBody: 'The requesting staff member will be notified of the rejection. This cannot be undone.',
+    cancel: 'Cancel',
+    approving: 'Approving...',
+    rejecting: 'Rejecting...',
   },
 };
 
