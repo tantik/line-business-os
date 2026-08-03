@@ -11,14 +11,24 @@ import { readFileSync } from 'node:fs';
  */
 const SOURCE = readFileSync(new URL('./staff-actions.ts', import.meta.url), 'utf8');
 
-test('exports exactly previewUpsertEmployee and previewSetEmployeeActive', () => {
+test('exports exactly previewUpsertEmployee, previewSetEmployeeActive, and previewPermanentlyDeleteEmployee', () => {
   assert.ok(/export async function previewUpsertEmployee\(/.test(SOURCE));
   assert.ok(/export async function previewSetEmployeeActive\(/.test(SOURCE));
+  assert.ok(/export async function previewPermanentlyDeleteEmployee\(/.test(SOURCE));
 });
 
 test('every wrapper (including the read-only refresh helper) requests workforce.staff.manage per the B2a permission matrix', () => {
   const matches = [...SOURCE.matchAll(/resolvePreviewManagerContext\('([^']+)'\)/g)].map((m) => m[1]);
-  assert.deepEqual(matches, ['workforce.staff.manage', 'workforce.staff.manage', 'workforce.staff.manage']);
+  assert.deepEqual(matches, ['workforce.staff.manage', 'workforce.staff.manage', 'workforce.staff.manage', 'workforce.staff.manage']);
+});
+
+test('previewPermanentlyDeleteEmployee validates the target staffId against the strict tenant and resolved location before the RPC call', () => {
+  const fnBody = SOURCE.slice(SOURCE.indexOf('export async function previewPermanentlyDeleteEmployee'));
+  assert.ok(/listWorkforceStaffDirectory\(supabase, tenantId\)/.test(fnBody));
+  assert.ok(/target\.locationId !== locationId/.test(fnBody));
+  const deleteIdx = fnBody.indexOf('permanentlyDeleteEmployee(');
+  const validationIdx = fnBody.indexOf('target.locationId !== locationId');
+  assert.ok(validationIdx < deleteIdx, 'target validation must run before the RPC call');
 });
 
 test('previewUpsertEmployee never parses the raw client FormData directly - it always substitutes the resolved location first', () => {

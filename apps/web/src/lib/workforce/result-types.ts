@@ -13,8 +13,28 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *   - `duplicate`: a unique-constraint violation (Postgres `23505`), e.g.
  *     rebinding a LINE user id already bound elsewhere, or a second
  *     `preference`-kind shift request for the same employee/day.
+ *   - `blocked_by_history`: only ever returned by `permanentlyDeleteEmployee`
+ *     -- the employee has one or more historical references (shifts,
+ *     attendance, requests, exchanges) and the guarded
+ *     `api.permanently_delete_employee` RPC (0056) refused to delete it.
+ *   - `stale_reference`: only ever returned by `decideShiftExchange('approved', ...)`
+ *     -- `api.decide_workforce_shift_exchange` (0050) re-validates the
+ *     referenced shift/shift-type at decision time (still published and in
+ *     the future; requested shift type still active; schedule still
+ *     conflict-free) and raises one of five named exceptions
+ *     (`shift_exchange_shift_changed`/`shift_exchange_replacement_required`/
+ *     `shift_exchange_schedule_conflict`/`shift_change_type_unavailable`/
+ *     `shift_change_location_unavailable`) if any of that has changed since
+ *     the request was made -- confirmed by direct reproduction against a
+ *     realistic request whose target shift's `starts_at` had since passed.
+ *     All five collapse to this one status: the actionable guidance is
+ *     identical for each ("refresh - this request no longer matches the
+ *     current schedule"), never a distinct message per internal exception
+ *     name.
  */
 export type WorkforceWriteResult<T> =
   | TenantAccessResult<T>
   | { status: 'not_found' }
-  | { status: 'duplicate'; message: string };
+  | { status: 'duplicate'; message: string }
+  | { status: 'blocked_by_history' }
+  | { status: 'stale_reference' };

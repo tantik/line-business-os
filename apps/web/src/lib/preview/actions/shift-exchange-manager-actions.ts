@@ -70,6 +70,18 @@ export async function previewDecideShiftExchange(
   if (result.status === 'success') {
     revalidatePath('/mame-to-cha');
     revalidatePath('/mame-to-cha/manager');
+  } else if ('message' in result && result.message) {
+    // The RPC (0050) raises one of five distinct, named exceptions for
+    // "approved" (shift no longer published/future, replacement missing, a
+    // schedule conflict, the requested shift type deactivated, or its
+    // location's timezone unresolvable) -- all currently collapse to the
+    // same neutral `unexpected_error` status for the client (by design, see
+    // `write-result.ts`), which made this failure undiagnosable from the
+    // manager's own report alone. Log the untouched Postgres message
+    // server-side only (never sent to the client) so the exact one of the
+    // five is visible in server logs on the very next reproduction, instead
+    // of guessing at which one it is.
+    console.error(`[preview:shift-exchange:decide] decision=${decision} exchangeId=${exchangeId} status=${result.status} message=${result.message}`);
   }
   return mapWorkforceWriteResult(result);
 }

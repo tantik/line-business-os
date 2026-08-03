@@ -194,6 +194,15 @@ export async function resolvePreviewStaffContext(): Promise<PreviewStaffContextR
   }
   const profile = profileResult.data;
 
+  // A removed/deactivated employee (`is_active = false`) keeps their row (and
+  // their history) forever, but must never be able to use the staff session
+  // again -- no new shifts, no clock-in, no submissions. Fails closed to the
+  // same neutral `no_profile` state as a missing binding, never a distinct
+  // status that would tell the caller their account still exists.
+  if (!profile.isActive) {
+    return { status: 'fail', result: { status: 'no_profile' } };
+  }
+
   const locationsResult = await listTenantLocations(supabase);
   if (locationsResult.status !== 'success') {
     return { status: 'fail', result: { status: 'unexpected_error' } };

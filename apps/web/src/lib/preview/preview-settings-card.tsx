@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { buttonPrimary, card, demoColors, input, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
@@ -50,6 +50,7 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editStart, setEditStart] = useState('');
@@ -59,19 +60,69 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
   const [newEnd, setNewEnd] = useState('14:00');
   const activeShiftTypes = shiftTypes?.filter((shiftType) => shiftType.isActive) ?? null;
 
-  function saveSettings() {
-    setFeedback(null);
+  // Debounced, always-current-value autosave for the two numeric settings
+  // (headcount requirements + max monthly hours). `latestRef` always holds
+  // the most recently typed values -- read synchronously by every input's
+  // `onChange` -- so a save that fires mid-typing-burst still saves the
+  // latest value, never a stale snapshot captured when the debounce timer
+  // was armed. `lastConfirmedRef` holds the last value the server actually
+  // accepted, so a failed save can roll the visible inputs back to it
+  // instead of leaving a value on screen the server never persisted.
+  const latestRef = useRef({ requirements, maxHours });
+  const lastConfirmedRef = useRef({ requirements, maxHours });
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
+  const dirtyWhileSavingRef = useRef(false);
+  const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    latestRef.current = { requirements, maxHours };
+  }, [requirements, maxHours]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (savedResetTimerRef.current) clearTimeout(savedResetTimerRef.current);
+    };
+  }, []);
+
+  function runAutosave() {
+    if (savingRef.current) {
+      // A save is already in flight -- do not fire a second overlapping
+      // write. Flag that newer edits arrived so the in-flight save's own
+      // completion handler schedules exactly one follow-up save afterward.
+      dirtyWhileSavingRef.current = true;
+      return;
+    }
+    savingRef.current = true;
+    dirtyWhileSavingRef.current = false;
+    setAutosaveStatus('saving');
+    const toSave = latestRef.current;
     startTransition(async () => {
       const result = await previewSaveScheduleSettings({
-        requiredHeadcountByWeekday: requirements,
-        maxMonthlyHours: maxHours,
+        requiredHeadcountByWeekday: toSave.requirements,
+        maxMonthlyHours: toSave.maxHours,
       });
-      setFeedback(
-        result.status === 'success'
-          ? { ok: true, text: t('saved') }
-          : { ok: false, text: previewWriteMessage(lang, result.status) },
-      );
+      savingRef.current = false;
+      if (result.status === 'success') {
+        lastConfirmedRef.current = toSave;
+        setAutosaveStatus('saved');
+        if (savedResetTimerRef.current) clearTimeout(savedResetTimerRef.current);
+        savedResetTimerRef.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
+      } else {
+        // Roll the visible inputs back to the last value the server actually
+        // confirmed -- never leave an unsaved value on screen silently.
+        setRequirements(lastConfirmedRef.current.requirements);
+        setMaxHours(lastConfirmedRef.current.maxHours);
+        setAutosaveStatus('error');
+      }
+      if (dirtyWhileSavingRef.current) runAutosave();
     });
+  }
+
+  function scheduleAutosave() {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(runAutosave, 600);
   }
 
   async function refreshShiftTypes() {
@@ -134,6 +185,7 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
                   // route tree to contain it).
                   const parsed = Number(event.currentTarget.value);
                   setRequirements((current) => current.map((value, index) => (index === weekday ? parsed : value)));
+                  scheduleAutosave();
                 }}
                 style={{ ...input, textAlign: 'center', padding: '6px 4px' }}
               />
@@ -149,7 +201,10 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
           min={0}
           max={744}
           value={maxHours}
-          onChange={(event) => setMaxHours(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            setMaxHours(Number(event.currentTarget.value));
+            scheduleAutosave();
+          }}
           style={{ ...input, display: 'block', maxWidth: 140 }}
         />
       </div>
@@ -243,9 +298,13 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
-        <button type="button" style={buttonPrimary} onClick={saveSettings} disabled={isPending}>
-          {t('saveSettings')}
-        </button>
+        {autosaveStatus === 'saving' ? (
+          <span style={{ fontSize: 12, color: demoColors.textMuted }}>{t('savingStatus')}</span>
+        ) : autosaveStatus === 'saved' ? (
+          <span style={{ fontSize: 12, color: demoColors.accent }}>{t('savedStatus')}</span>
+        ) : autosaveStatus === 'error' ? (
+          <span style={{ fontSize: 12, color: demoColors.dangerText }}>{t('saveErrorStatus')}</span>
+        ) : null}
         {feedback ? <span style={{ fontSize: 12, color: feedback.ok ? demoColors.accent : demoColors.dangerText }}>{feedback.text}</span> : null}
       </div>
     </section>

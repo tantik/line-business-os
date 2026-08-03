@@ -4,6 +4,7 @@ import { parseSetEmployeeActiveInput, parseUpsertEmployeeInput } from '@/lib/wor
 import {
   listWorkforceStaffDirectory,
   listWorkforceStaffForManager,
+  permanentlyDeleteEmployee,
   setWorkforceEmployeeActive,
   upsertWorkforceEmployee,
   type WorkforceEmployeeActiveState,
@@ -107,5 +108,31 @@ export async function previewSetEmployeeActive(
   if (!target || target.locationId !== locationId) return { status: 'not_found' };
 
   const result = await setWorkforceEmployeeActive(supabase, tenantId, input.staffId, input.isActive);
+  return mapWorkforceWriteResult(result);
+}
+
+/**
+ * Manager-only: permanently (physically) remove a staff profile. Distinct
+ * from `previewSetEmployeeActive(..., false)` ("Remove staff", the normal
+ * path, which soft-deactivates and always preserves history) -- this refuses
+ * when the employee has any shift/attendance/request/exchange history, via
+ * the guarded `api.permanently_delete_employee` RPC (0056).
+ */
+export async function previewPermanentlyDeleteEmployee(
+  formData: FormData,
+): Promise<PreviewWriteResult<{ staffId: string }>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId } = contextResult.context;
+
+  const staffId = formData.get('staffId');
+  if (typeof staffId !== 'string' || !staffId) return PREVIEW_INVALID_INPUT_RESULT;
+
+  const directoryResult = await listWorkforceStaffDirectory(supabase, tenantId);
+  if (directoryResult.status !== 'success') return { status: 'unexpected_error' };
+  const target = directoryResult.data.find((s) => s.staffId === staffId);
+  if (!target || target.locationId !== locationId) return { status: 'not_found' };
+
+  const result = await permanentlyDeleteEmployee(supabase, tenantId, staffId);
   return mapWorkforceWriteResult(result);
 }

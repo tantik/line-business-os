@@ -202,6 +202,13 @@ export default async function MameToChaPreviewManagerPage({
   }
 
   const staff = staffResult.status === 'success' ? staffResult.data : null;
+  // A removed/deactivated staff member must never appear as a schedulable row
+  // or in an assignment selector by default (Staff lifecycle requirement) --
+  // `staff` itself stays the full (active + inactive) list for every other
+  // consumer below (Staff management's own Active/Inactive/All filter,
+  // historical name lookups in Correction Requests/Shift Exchange, which must
+  // keep resolving a removed employee's name against past records).
+  const activeStaff = staff === null ? null : staff.filter((s) => s.isActive);
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const shiftTypes = shiftTypesResult.status === 'success' ? shiftTypesResult.data : null;
   const assignments = assignmentsResult.status === 'success' ? assignmentsResult.data : null;
@@ -277,7 +284,7 @@ export default async function MameToChaPreviewManagerPage({
           periodStart={periodStart}
           periodEnd={periodEnd}
           weekOffset={weekOffset}
-          staff={staff}
+          staff={activeStaff}
           shiftTypes={shiftTypes}
           assignments={assignments}
           attendance={attendance}
