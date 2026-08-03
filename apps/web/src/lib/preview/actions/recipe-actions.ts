@@ -78,12 +78,11 @@ export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWr
       (photo.size > MAX_RECIPE_PHOTO_BYTES || !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type))) {
     return PREVIEW_INVALID_INPUT_RESULT;
   }
-  const context = await resolvePreviewManagerContext('workforce.recipe.manage');
+  const context = await resolvePreviewManagerContext(
+    'workforce.recipe.manage',
+    input.status === 'published' ? 'workforce.recipe.publish' : undefined,
+  );
   if (context.status !== 'ok') return context.result;
-  if (input.status === 'published') {
-    const publishContext = await resolvePreviewManagerContext('workforce.recipe.publish');
-    if (publishContext.status !== 'ok') return publishContext.result;
-  }
   let previousMediaPath: string | null = null;
   if (input.recipeId) {
     const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, input.recipeId);

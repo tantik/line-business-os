@@ -83,7 +83,10 @@ async function checkManagerPermission(
  * target-record validation (step 7) or service-layer call (step 8) ever
  * runs. Callers must not proceed past a `'fail'` result.
  */
-export async function resolvePreviewManagerContext(permission: ManagerPermission): Promise<PreviewManagerContextResult> {
+export async function resolvePreviewManagerContext(
+  permission: ManagerPermission,
+  additionalPermission?: ManagerPermission,
+): Promise<PreviewManagerContextResult> {
   const tenantResult = await resolvePreviewTenantContext();
   if (tenantResult.status !== 'success') {
     return { status: 'fail', result: mapPreviewTenantFailure(tenantResult) };
@@ -114,6 +117,19 @@ export async function resolvePreviewManagerContext(permission: ManagerPermission
   const permitted = await checkManagerPermission(supabase, tenantId, permission, locationId);
   if (!permitted) {
     return { status: 'fail', result: { status: 'no_access' } };
+  }
+
+  // Callers that need a second permission check against the same tenant/
+  // location (e.g. recipe manage + publish) pass it here instead of calling
+  // `resolvePreviewManagerContext` a second time, which previously re-ran the
+  // whole tenant/module/location resolution chain just to reach one more
+  // `has_permission` RPC. Both permissions are still independently checked -
+  // this only removes the duplicate resolution, not a security check.
+  if (additionalPermission) {
+    const additionallyPermitted = await checkManagerPermission(supabase, tenantId, additionalPermission, locationId);
+    if (!additionallyPermitted) {
+      return { status: 'fail', result: { status: 'no_access' } };
+    }
   }
 
   return { status: 'ok', context: { supabase, tenantId, locationId, timeZone } };

@@ -83,7 +83,14 @@ export function PreviewManagerViewChrome({
   function navigateToWeek(targetOffset: number) {
     if (targetOffset === weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
     const href = weekHref(targetOffset);
-    startNavigation(() => router.push(href));
+    // `scroll: false` is required here: this is a same-route `?weekOffset=`
+    // navigation from a control that lives mid-page (the シフト表 card), and
+    // Next's default post-navigation behavior is to reset window scroll to
+    // the top, which is the exact "page jumps to top" complaint on
+    // prev/today/next week. The whole Manager page still re-renders (this
+    // route has no per-tab segment boundary to scope the refresh to), but
+    // the user's scroll position is preserved.
+    startNavigation(() => router.push(href, { scroll: false }));
   }
 
   function weekHref(targetOffset: number) {
