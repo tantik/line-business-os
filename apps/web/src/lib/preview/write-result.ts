@@ -41,7 +41,7 @@ const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
   invalid_input: '入力内容を確認してください。',
   not_found: '対象の情報が見つかりません。',
   duplicate: 'すでに同じ内容が登録されています。',
-  blocked_by_history: 'この商品には過去の在庫記録があるため完全に削除できません。「削除」（無効化）をご利用ください。',
+  blocked_by_history: 'この商品には過去の在庫記録があるため完全に削除できません。「無効化」をご利用ください。',
   unexpected_error: '一時的な問題が発生しました。しばらくしてからもう一度お試しください。',
 };
 
@@ -58,7 +58,7 @@ const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
   invalid_input: 'Please check your input.',
   not_found: 'The requested item was not found.',
   duplicate: 'This has already been submitted.',
-  blocked_by_history: 'This item has past stock-count history, so it cannot be permanently deleted. Use Delete instead.',
+  blocked_by_history: 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.',
   unexpected_error: 'Something went wrong. Please try again in a moment.',
 };
 
