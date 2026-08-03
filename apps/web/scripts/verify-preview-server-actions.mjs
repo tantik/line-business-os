@@ -74,6 +74,10 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewPermanentlyDeleteInventoryItem',
       'previewDecideShiftExchange',
       'previewSignOut',
+      'previewGetInventoryManagerData',
+      'previewGetStaffManagerData',
+      'previewGetRecipesManagerData',
+      'previewGetScheduleWeek',
     ]),
   ],
   [

@@ -1,16 +1,33 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
-import { previewGetRecipeForEdit, previewListRecipeMediaUrls, previewSetRecipeArchived, previewUpsertRecipe, type PreviewEditableRecipeDetail } from './actions/recipe-actions';
+import {
+  previewGetRecipeForEdit,
+  previewGetRecipesManagerData,
+  previewListRecipeMediaUrls,
+  previewSetRecipeArchived,
+  previewUpsertRecipe,
+  type PreviewEditableRecipeDetail,
+} from './actions/recipe-actions';
 import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
-export interface PreviewRecipeKindManagerProps { recipes: WorkforceRecipe[] | null }
+export interface PreviewRecipeKindManagerProps {
+  recipes: WorkforceRecipe[] | null;
+  /**
+   * Called with the freshly-refetched recipe list after a successful save/
+   * archive (via `previewGetRecipesManagerData()`, never `router.refresh()`).
+   * Owned by `PreviewStaffRecipeManagement` (see its comment) rather than by
+   * this component, since the shared `Modal` unmounts this component on
+   * close and would silently discard any state owned here. Preview Manager
+   * architecture, perf phase 2.
+   */
+  onRecipesChanged: (next: WorkforceRecipe[]) => void;
+}
 
 function badge(status: string) {
   return { display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
@@ -18,8 +35,7 @@ function badge(status: string) {
     color: status === 'published' ? demoColors.accentStrong : demoColors.goldDark } as const;
 }
 
-export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerProps) {
-  const router = useRouter();
+export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewRecipeKindManagerProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [pending, startTransition] = useTransition();
@@ -72,12 +88,21 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
     });
   }
 
+  async function refreshRecipes() {
+    const result = await previewGetRecipesManagerData();
+    if (result.status === 'success') onRecipesChanged(result.data);
+  }
+
   function save(formData: FormData) {
     setFeedback(null);
     startTransition(async () => {
       const result = await previewUpsertRecipe(formData);
-      if (result.status === 'success') { setDetail(null); resetPhotoState(); setMode('list'); router.refresh(); }
-      else setFeedback(previewWriteMessage(lang, result.status));
+      if (result.status === 'success') {
+        setDetail(null);
+        resetPhotoState();
+        setMode('list');
+        await refreshRecipes();
+      } else setFeedback(previewWriteMessage(lang, result.status));
     });
   }
 
@@ -87,7 +112,7 @@ export function PreviewRecipeKindManager({ recipes }: PreviewRecipeKindManagerPr
       const result = await previewSetRecipeArchived(recipe.recipeId, archived);
       if (result.status === 'success') {
         setArchiveTarget(null);
-        router.refresh();
+        await refreshRecipes();
       } else setFeedback(previewWriteMessage(lang, result.status));
     });
   }

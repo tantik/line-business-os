@@ -163,13 +163,18 @@ test('the preview manager display component never falls back to the raw employee
   assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${PREVIEW_MANAGER_VIEW_CHROME} must not fall back to the raw employeeId in any rendered label`);
 });
 
-test('manager week navigation avoids eager adjacent-page loads and stops at the supported bounds', () => {
+test('manager week navigation avoids eager adjacent-week loads, never navigates, and stops at the supported bounds', () => {
+  // Preview Manager architecture (perf phase 2): week nav no longer navigates
+  // the page at all (previously `router.push`/`router.prefetch` against the
+  // same route's `?weekOffset=` search param) - it fetches only the exact
+  // clicked week's data via the scoped, read-only `previewGetScheduleWeek()`
+  // Server Action, so there is no adjacent-page prefetch concept left to
+  // assert on; asserting its absence is the stronger property.
   const source = read(PREVIEW_MANAGER_VIEW_CHROME);
-  assert.ok(!source.includes('useEffect('), 'week navigation must not eagerly load both adjacent manager pages');
-  assert.match(source, /onPointerEnter=\{\(\) => prefetchWeek\(weekOffset - 1\)\}/);
-  assert.match(source, /onPointerEnter=\{\(\) => prefetchWeek\(weekOffset \+ 1\)\}/);
-  assert.match(source, /weekOffset <= MIN_WEEK_OFFSET/);
-  assert.match(source, /weekOffset >= MAX_WEEK_OFFSET/);
+  assert.ok(!source.includes('useEffect('), 'week navigation must not eagerly load both adjacent weeks');
+  assert.ok(!/\brouter\.(push|replace|prefetch)\(/.test(source), 'week navigation must not use next/navigation - it must never re-run the whole Manager page or reset scroll');
+  assert.match(source, /schedule\.weekOffset <= MIN_WEEK_OFFSET/);
+  assert.match(source, /schedule\.weekOffset >= MAX_WEEK_OFFSET/);
 });
 
 test('the preview manager display component renders the safe staff-load error via translation, with no interpolated raw error/message', () => {

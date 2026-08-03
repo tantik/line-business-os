@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -33,8 +32,8 @@ export interface PreviewManagerViewProps {
   attendance: WorkforceAttendance[] | null;
   /** Public preview route base, e.g. `/mame-to-cha` - used for week-navigation links only. */
   basePath: string;
-  /** Dialog-trigger buttons (auto-distribute/publish, shift add/edit) rendered by the page - a Client Component, passed down as an already-resolved node. */
-  actionsSlot?: ReactNode;
+  /** Week-independent per-location schedule settings; `PreviewManagerViewChrome` renders the auto-distribute/publish dialog-trigger buttons itself (so they can react to a client-only week change) instead of receiving a server-prebuilt `actionsSlot`. */
+  requiredHeadcountByWeekday: number[];
 }
 
 export function PreviewManagerView(props: PreviewManagerViewProps) {

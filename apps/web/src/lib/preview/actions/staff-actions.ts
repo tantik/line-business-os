@@ -3,6 +3,7 @@
 import { parseSetEmployeeActiveInput, parseUpsertEmployeeInput } from '@/lib/workforce/employees-input';
 import {
   listWorkforceStaffDirectory,
+  listWorkforceStaffForManager,
   setWorkforceEmployeeActive,
   upsertWorkforceEmployee,
   type WorkforceEmployeeActiveState,
@@ -25,6 +26,21 @@ import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWrit
  * `redirect()`, no `revalidatePath` - the calling client island refreshes via
  * `router.refresh()`.
  */
+
+/**
+ * Manager-only: re-read the current staff directory for the manager's own
+ * resolved location's tenant. Preview Manager architecture (perf phase 2) -
+ * called by the Staff panel instead of `router.refresh()` after a successful
+ * write, so a Staff mutation refreshes only its own list, not the whole
+ * Manager page (Inventory/Recipes/Schedule/etc. never re-render).
+ */
+export async function previewGetStaffManagerData(): Promise<PreviewWriteResult<WorkforceStaffManageEntry[]>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId } = contextResult.context;
+  const result = await listWorkforceStaffForManager(supabase, tenantId);
+  return mapWorkforceWriteResult(result);
+}
 
 export async function previewUpsertEmployee(formData: FormData): Promise<PreviewWriteResult<WorkforceStaffManageEntry>> {
   const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
