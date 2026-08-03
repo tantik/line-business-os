@@ -108,9 +108,17 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
                 min={0}
                 max={100}
                 value={requirements[weekday] ?? 0}
-                onChange={(event) =>
-                  setRequirements((current) => current.map((value, index) => (index === weekday ? Number(event.currentTarget.value) : value)))
-                }
+                onChange={(event) => {
+                  // Read `.value` synchronously here -- `event.currentTarget` is
+                  // reset to `null` by the DOM once dispatch finishes, so
+                  // referencing it lazily inside the `setRequirements` updater
+                  // (which React invokes later, not inline) throws
+                  // "Cannot read properties of null (reading 'value')" on every
+                  // edit, crashing the whole page (no error boundary in this
+                  // route tree to contain it).
+                  const parsed = Number(event.currentTarget.value);
+                  setRequirements((current) => current.map((value, index) => (index === weekday ? parsed : value)));
+                }}
                 style={{ ...input, textAlign: 'center', padding: '6px 4px' }}
               />
             </div>

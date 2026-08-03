@@ -297,3 +297,40 @@ test('the preview settings summary keeps the demo manager operational fields vis
   assert.match(source, /setEditStart\(st\.startsAtLocal\.slice\(0,\s*5\)\)/);
   assert.match(source, /setEditEnd\(st\.endsAtLocal\.slice\(0,\s*5\)\)/);
 });
+
+test('editing the Required-headcount inputs reads event.currentTarget synchronously, never inside the setRequirements updater', () => {
+  // Regression guard for a confirmed page-crashing bug: the DOM resets a
+  // native event's `currentTarget` to `null` once dispatch finishes, so
+  // referencing `event.currentTarget` lazily inside a `setState` functional
+  // updater -- which React invokes later, not inline with the event handler
+  // -- threw `TypeError: Cannot read properties of null (reading 'value')`
+  // on every single edit to any Required-headcount weekday input, crashing
+  // the whole page (this preview route tree has no error boundary to contain
+  // it). Reproduced live with Playwright against a running dev server before
+  // the fix, and confirmed fixed after. `event` (and therefore
+  // `event.currentTarget`) must never appear inside the `current.map(...)`
+  // callback passed to `setRequirements` -- the parsed value must be read
+  // into a local const first, outside and before the `setRequirements` call.
+  const source = read('preview-settings-card.tsx');
+  const start = source.indexOf("aria-label={`${label}${t('weekdayAriaSuffix')}`}");
+  assert.ok(start !== -1, 'Required-headcount input not found in preview-settings-card.tsx');
+  const onChangeStart = source.indexOf('onChange={(event) => {', start);
+  assert.ok(onChangeStart !== -1, 'Required-headcount onChange handler not found');
+  const onChangeEnd = source.indexOf('}}', onChangeStart);
+  const onChangeBody = source.slice(onChangeStart, onChangeEnd);
+
+  assert.match(
+    onChangeBody,
+    /const parsed = Number\(event\.currentTarget\.value\);/,
+    'value must be read from event.currentTarget synchronously, before setRequirements is called',
+  );
+  const setRequirementsCallStart = onChangeBody.indexOf('setRequirements(');
+  assert.ok(setRequirementsCallStart !== -1, 'setRequirements call not found in onChange handler');
+  const setRequirementsCall = onChangeBody.slice(setRequirementsCallStart);
+  assert.doesNotMatch(
+    setRequirementsCall,
+    /event/,
+    'event must never be referenced inside the setRequirements updater -- currentTarget is null by the time React runs it',
+  );
+  assert.match(setRequirementsCall, /\? parsed : value/);
+});
