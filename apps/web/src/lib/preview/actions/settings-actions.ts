@@ -1,9 +1,28 @@
 'use server';
 
 import { upsertWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
-import { listWorkforceShiftTypes, setWorkforceShiftTypeActive, upsertWorkforceShiftType } from '@/lib/workforce/shift-types';
+import {
+  listWorkforceShiftTypes,
+  setWorkforceShiftTypeActive,
+  upsertWorkforceShiftType,
+  type WorkforceShiftType,
+} from '@/lib/workforce/shift-types';
 import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
+
+/**
+ * Manager-only: re-read the current shift-type list. Preview Manager
+ * architecture (perf phase 3) - the Settings card calls this instead of
+ * `router.refresh()` after a successful shift-type save/deactivate, so a
+ * Settings mutation refreshes only its own list, not the whole Manager page.
+ */
+export async function previewGetShiftTypesManagerData(): Promise<PreviewWriteResult<WorkforceShiftType[]>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.shift.write');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId } = contextResult.context;
+  const result = await listWorkforceShiftTypes(supabase, tenantId);
+  return mapWorkforceWriteResult(result);
+}
 
 export async function previewSaveScheduleSettings(
   input: unknown,

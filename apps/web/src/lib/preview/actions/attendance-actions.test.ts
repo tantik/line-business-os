@@ -13,9 +13,9 @@ test('exports exactly previewDecideCorrectionRequest', () => {
   assert.ok(/export async function previewDecideCorrectionRequest\(/.test(SOURCE));
 });
 
-test('requests workforce.request.manage per the B2a permission matrix', () => {
+test('requests workforce.request.manage per the B2a permission matrix (including the read-only refresh helper)', () => {
   const matches = [...SOURCE.matchAll(/resolvePreviewManagerContext\('([^']+)'\)/g)].map((m) => m[1]);
-  assert.deepEqual(matches, ['workforce.request.manage']);
+  assert.deepEqual(matches, ['workforce.request.manage', 'workforce.request.manage']);
 });
 
 test('validates the target correction request against the strict tenant + resolved location before the service-layer call, independent of the update filter', () => {

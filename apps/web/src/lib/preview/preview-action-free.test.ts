@@ -101,6 +101,8 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewRunAutoDistribution',
   'previewPublishSchedule',
   'previewDecideCorrectionRequest',
+  'previewGetCorrectionRequestsManagerData',
+  'previewGetShiftTypesManagerData',
   'previewGetRecipeForEdit',
   'previewListRecipeMediaUrls',
   'previewSetRecipeArchived',

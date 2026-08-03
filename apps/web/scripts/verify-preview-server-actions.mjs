@@ -78,6 +78,9 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewGetStaffManagerData',
       'previewGetRecipesManagerData',
       'previewGetScheduleWeek',
+      'previewGetShiftTypesManagerData',
+      'previewGetShiftExchangeManagerData',
+      'previewGetCorrectionRequestsManagerData',
     ]),
   ],
   [

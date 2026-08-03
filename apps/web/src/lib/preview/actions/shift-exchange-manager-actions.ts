@@ -2,8 +2,45 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolvePreviewManagerContext } from './authorize';
-import { decideShiftExchange } from '@/lib/workforce/shift-exchanges';
+import { decideShiftExchange, listShiftExchanges, type WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import { listShiftAssignments, type WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import { getWeekOffsetWindow } from '@/lib/workforce/period';
+import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import { mapWorkforceWriteResult, type PreviewWriteResult } from '../write-result';
+
+/** Mirrors the manager page's own -8..+8 week bound for the exchange-eligible assignment window (`manager/page.tsx`'s `MAX_WEEK_OFFSET`/`exchangeAssignmentWindow`) - never re-fetch the tenant's entire shift-assignment history for this panel. */
+const MAX_WEEK_OFFSET = 8;
+
+export interface PreviewShiftExchangeManagerData {
+  exchanges: WorkforceShiftExchange[];
+  assignments: WorkforceShiftAssignment[];
+}
+
+/**
+ * Manager-only: re-read the current exchange requests + their eligible
+ * assignment window. Preview Manager architecture (perf phase 3) - the Shift
+ * Exchange panel calls this instead of `router.refresh()` after a successful
+ * approve/reject, so a decision refreshes only this panel, not the whole
+ * Manager page.
+ */
+export async function previewGetShiftExchangeManagerData(): Promise<PreviewWriteResult<PreviewShiftExchangeManagerData>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.request.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId, timeZone } = contextResult.context;
+
+  const nowIso = new Date().toISOString();
+  const window = getWeekOffsetWindow(nowIso, timeZone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
+  const fromIso = localDateTimeToUtcIso(window.periodStart, '00:00', timeZone);
+  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(window.periodEnd, 1), '00:00', timeZone);
+
+  const [exchangesResult, assignmentsResult] = await Promise.all([
+    listShiftExchanges(supabase, tenantId, locationId),
+    listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
+  ]);
+  if (exchangesResult.status !== 'success') return mapWorkforceWriteResult(exchangesResult);
+  if (assignmentsResult.status !== 'success') return mapWorkforceWriteResult(assignmentsResult);
+  return { status: 'success', data: { exchanges: exchangesResult.data, assignments: assignmentsResult.data } };
+}
 
 function field(formData: FormData, key: string, max: number): string | null {
   const value = formData.get(key);

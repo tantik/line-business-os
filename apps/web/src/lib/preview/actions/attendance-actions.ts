@@ -22,6 +22,35 @@ import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWrit
  * server-resolved active location; `decideCorrectionRequestWrite`'s own
  * tenant filter alone is not relied on as if it also checked location.
  */
+export interface PreviewCorrectionRequestsManagerData {
+  pending: WorkforceShiftRequest[];
+  decided: WorkforceShiftRequest[];
+}
+
+/**
+ * Manager-only: re-read the current correction-request queue, applying the
+ * exact same pending/decided split the Manager page itself computes at load
+ * (pending first, then the 10 most-recently-decided). Preview Manager
+ * architecture (perf phase 3) - the Correction Requests panel calls this
+ * instead of `router.refresh()` after a successful approve/reject, so a
+ * decision refreshes only this panel, not the whole Manager page.
+ */
+export async function previewGetCorrectionRequestsManagerData(): Promise<PreviewWriteResult<PreviewCorrectionRequestsManagerData>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.request.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId } = contextResult.context;
+
+  const requestsResult = await listShiftRequestsForManager(supabase, tenantId, { kind: 'correction' });
+  if (requestsResult.status !== 'success') return mapWorkforceWriteResult(requestsResult);
+
+  const pending = requestsResult.data.filter((r) => r.status === 'pending');
+  const decided = requestsResult.data
+    .filter((r) => r.status !== 'pending')
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 10);
+  return { status: 'success', data: { pending, decided } };
+}
+
 export async function previewDecideCorrectionRequest(
   formData: FormData,
 ): Promise<PreviewWriteResult<WorkforceShiftRequest>> {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -9,15 +8,15 @@ import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
 import { badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, card, mutedText } from '@/lib/demo/cafe/theme';
-import { previewDecideShiftExchange } from './actions/shift-exchange-manager-actions';
+import { previewDecideShiftExchange, previewGetShiftExchangeManagerData } from './actions/shift-exchange-manager-actions';
 import { previewWriteMessage } from './write-result';
 import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 import { PendingOverlay } from '@/components/ui/loading';
 
 export function PreviewShiftExchangeManagerPanel({
   timeZone,
-  assignments,
-  exchanges,
+  assignments: initialAssignments,
+  exchanges: initialExchanges,
   staffNameById,
   shiftTypes,
 }: {
@@ -28,8 +27,15 @@ export function PreviewShiftExchangeManagerPanel({
   shiftTypes: WorkforceShiftType[];
 }) {
   const { lang } = useLang();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Owns its own copy of assignments/exchanges, seeded from the initial page
+  // load, and patches it via a scoped `previewGetShiftExchangeManagerData()`
+  // refetch after a successful approve/reject - never `router.refresh()`.
+  // This panel is never inside a Modal, so it stays mounted the whole time
+  // and can safely own this state directly. Preview Manager architecture,
+  // perf phase 3.
+  const [assignments, setAssignments] = useState(initialAssignments);
+  const [exchanges, setExchanges] = useState(initialExchanges);
   const [decidingExchange, setDecidingExchange] = useState<{ id: string; decision: 'approved' | 'rejected' } | null>(null);
   const [confirming, setConfirming] = useState<{ id: string; decision: 'approved' | 'rejected' } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -42,6 +48,14 @@ export function PreviewShiftExchangeManagerPanel({
   // synchronous so a second click inside that window is a no-op.
   const decidingRef = useRef(false);
   const relevant = exchanges.filter((exchange) => exchange.status === 'open' || exchange.status === 'accepted');
+
+  async function refresh() {
+    const result = await previewGetShiftExchangeManagerData();
+    if (result.status === 'success') {
+      setExchanges(result.data.exchanges);
+      setAssignments(result.data.assignments);
+    }
+  }
 
   function decide(exchangeId: string, decision: 'approved' | 'rejected') {
     if (decidingRef.current) return;
@@ -56,10 +70,12 @@ export function PreviewShiftExchangeManagerPanel({
       const result = await previewDecideShiftExchange(data);
       if (result.status === 'success') {
         // `pending` (and this component's own pending indicator below) stays
-        // true through this refresh too -- the full-page reload that follows
-        // on this force-dynamic route was previously invisible, and silently
-        // waiting through it is exactly what read as "frozen".
-        router.refresh();
+        // true through this scoped refetch too, same as it did through the
+        // old full-page reload - waiting silently through it is exactly what
+        // previously read as "frozen".
+        await refresh();
+        decidingRef.current = false;
+        setDecidingExchange(null);
       } else {
         decidingRef.current = false;
         setFeedback(previewWriteMessage(lang, result.status));

@@ -7,6 +7,7 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { PreviewCorrectionActions } from './preview-correction-actions';
+import { previewGetCorrectionRequestsManagerData } from './actions/attendance-actions';
 import { badgeStyle, buttonSecondary, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
@@ -29,16 +30,34 @@ export interface PreviewCorrectionRequestsPanelProps {
 
 export function PreviewCorrectionRequestsPanel({
   timeZone,
-  pendingRequests,
-  decidedRequests,
+  pendingRequests: initialPendingRequests,
+  decidedRequests: initialDecidedRequests,
   staff,
   attendance,
 }: PreviewCorrectionRequestsPanelProps) {
   const [open, setOpen] = useState(false);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
+  // Owned here (not inside `PreviewCorrectionActions`) because the shared
+  // `Modal` fully unmounts its children on close - state owned by the
+  // actions island itself would be silently discarded every time the dialog
+  // closes, reverting to this stale initial-load prop on next open. This
+  // component stays mounted across the dialog's open/close cycles, so it is
+  // the right place for the "live" copy the scoped
+  // `previewGetCorrectionRequestsManagerData()` refetch patches into.
+  // Preview Manager architecture, perf phase 3.
+  const [pendingRequests, setPendingRequests] = useState(initialPendingRequests);
+  const [decidedRequests, setDecidedRequests] = useState(initialDecidedRequests);
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const attendanceById = new Map((attendance ?? []).map((a) => [a.attendanceId, a]));
+
+  async function refreshRequests() {
+    const result = await previewGetCorrectionRequestsManagerData();
+    if (result.status === 'success') {
+      setPendingRequests(result.data.pending);
+      setDecidedRequests(result.data.decided);
+    }
+  }
 
   return (
     <>
@@ -47,7 +66,7 @@ export function PreviewCorrectionRequestsPanel({
       </button>
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('correctionRequestsModalTitle')} maxWidth={720}>
-        <PreviewCorrectionActions pendingRequests={pendingRequests} staff={staff} />
+        <PreviewCorrectionActions pendingRequests={pendingRequests} staff={staff} onDecided={refreshRequests} />
 
         {decidedRequests.length > 0 ? (
           <div style={{ marginTop: 16 }}>
