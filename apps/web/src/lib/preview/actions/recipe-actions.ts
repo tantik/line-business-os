@@ -5,6 +5,7 @@ import {
   listWorkforceRecipes,
   setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
+  type WorkforceRecipe,
   type WorkforceRecipeDetail,
 } from '@/lib/workforce/recipes';
 import { parseUpsertRecipeInput } from '@/lib/workforce/recipe-input';
@@ -41,6 +42,19 @@ export async function previewListRecipeMediaUrls(
       return recipeId ? [[recipeId, entry.signedUrl]] : [];
     })),
   };
+}
+
+/**
+ * Manager-only: re-read the current recipe list. Preview Manager
+ * architecture (perf phase 2) - called by the Recipes panel instead of
+ * `router.refresh()` after a successful save/archive, so a Recipes mutation
+ * refreshes only its own list, not the whole Manager page.
+ */
+export async function previewGetRecipesManagerData(): Promise<PreviewWriteResult<WorkforceRecipe[]>> {
+  const context = await resolvePreviewManagerContext('workforce.recipe.manage');
+  if (context.status !== 'ok') return context.result;
+  const result = await listWorkforceRecipes(context.context.supabase, context.context.tenantId);
+  return mapWorkforceWriteResult(result);
 }
 
 export async function previewGetRecipeForEdit(recipeId: string): Promise<PreviewWriteResult<PreviewEditableRecipeDetail>> {

@@ -34,9 +34,19 @@ export interface PreviewStaffRecipeManagementProps {
   inventorySlot?: ReactNode;
 }
 
-export function PreviewStaffRecipeManagement({ staff, recipes, inventorySlot }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, inventorySlot }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
+  // Owned here (not inside `PreviewStaffForm`/`PreviewRecipeKindManager`)
+  // because the shared `Modal` fully unmounts its children on close - state
+  // owned by the form/manager itself would be silently discarded every time
+  // its dialog closes, reverting to this stale initial-load prop on next
+  // open. This component stays mounted across both dialogs' open/close
+  // cycles, so it is the right place for the "live" copy each scoped
+  // `previewGetStaffManagerData()`/`previewGetRecipesManagerData()` refetch
+  // patches into. Preview Manager architecture, perf phase 2.
+  const [staff, setStaff] = useState(initialStaff);
+  const [recipes, setRecipes] = useState(initialRecipes);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
@@ -57,11 +67,11 @@ export function PreviewStaffRecipeManagement({ staff, recipes, inventorySlot }: 
       </div>
 
       <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={760}>
-        <PreviewStaffForm staff={staff} />
+        <PreviewStaffForm staff={staff} onStaffChanged={setStaff} />
       </Modal>
 
       <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={760}>
-        <PreviewRecipeKindManager recipes={recipes} />
+        <PreviewRecipeKindManager recipes={recipes} onRecipesChanged={setRecipes} />
       </Modal>
     </section>
   );

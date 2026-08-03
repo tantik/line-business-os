@@ -27,9 +27,10 @@ test('exports exactly the four B2a schedule wrappers', () => {
   }
 });
 
-test('all four wrappers request workforce.shift.write per the B2a permission matrix', () => {
+test('all wrappers, including the read-only week-refresh helper, request workforce.shift.write per the B2a permission matrix', () => {
   const matches = [...SOURCE.matchAll(/resolvePreviewManagerContext\('([^']+)'\)/g)].map((m) => m[1]);
   assert.deepEqual(matches, [
+    'workforce.shift.write',
     'workforce.shift.write',
     'workforce.shift.write',
     'workforce.shift.write',
