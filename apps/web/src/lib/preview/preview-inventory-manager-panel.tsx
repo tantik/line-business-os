@@ -82,12 +82,12 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: '保存',
     saving: '保存中...',
     cancel: 'キャンセル',
-    deleteItem: '削除',
-    deleting: '削除中...',
+    deleteItem: '無効化',
+    deleting: '無効化中...',
     permanentDelete: '完全に削除',
     permanentDeleting: '完全に削除中...',
-    reactivate: '有効化',
-    updating: '更新中...',
+    reactivate: '再度有効化',
+    updating: '有効化中...',
     empty: '在庫アイテムはまだ登録されていません。',
     allSufficient: 'すべての在庫が十分です',
     unknownStaffFallback: '不明なスタッフ',
@@ -96,13 +96,13 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: '推奨発注数',
     searchPlaceholder: '商品名で検索',
     noSearchResults: '一致する商品はありません。',
-    confirmDeleteTitle: 'この商品を削除しますか？',
-    confirmDeleteBody: 'この商品は非表示になりますが、過去の記録は保持されます。',
-    confirmDeleteButton: '削除する',
+    confirmDeleteTitle: 'この商品を無効化しますか？',
+    confirmDeleteBody: 'この商品は一時的に非表示になりますが、過去の記録は保持されます。いつでも再度有効化できます。',
+    confirmDeleteButton: '無効化する',
     confirmPermanentDeleteTitle: 'この商品を完全に削除しますか？',
-    confirmPermanentDeleteBody: 'この操作はこの商品を完全に削除します。\nこの操作は取り消せません。',
+    confirmPermanentDeleteBody: 'この操作は履歴のない商品のみ削除できます。この操作は取り消せません。',
     confirmPermanentDeleteButton: '完全に削除する',
-    statusInactive: '削除済み',
+    statusInactive: '無効化済み',
     reorderPointExceedsRequired: '発注点は基準在庫以下にしてください。',
   },
   en: {
@@ -122,12 +122,12 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     save: 'Save',
     saving: 'Saving...',
     cancel: 'Cancel',
-    deleteItem: 'Delete',
-    deleting: 'Deleting...',
-    permanentDelete: 'Permanent Delete',
-    permanentDeleting: 'Permanently deleting...',
-    reactivate: 'Reactivate',
-    updating: 'Updating...',
+    deleteItem: 'Deactivate item',
+    deleting: 'Deactivating...',
+    permanentDelete: 'Delete permanently',
+    permanentDeleting: 'Deleting permanently...',
+    reactivate: 'Reactivate item',
+    updating: 'Reactivating...',
     empty: 'No inventory items yet.',
     allSufficient: 'All items sufficient',
     unknownStaffFallback: 'Unknown staff',
@@ -136,13 +136,13 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: 'Recommended purchase',
     searchPlaceholder: 'Search by name',
     noSearchResults: 'No items match your search.',
-    confirmDeleteTitle: 'Delete this item?',
-    confirmDeleteBody: 'This item will be hidden but its history will be preserved.',
-    confirmDeleteButton: 'Delete',
-    confirmPermanentDeleteTitle: 'Permanently delete this item?',
-    confirmPermanentDeleteBody: 'This action permanently removes this item.\nThis cannot be undone.',
-    confirmPermanentDeleteButton: 'Permanently delete',
-    statusInactive: 'Deleted',
+    confirmDeleteTitle: 'Deactivate this item?',
+    confirmDeleteBody: 'This item will be temporarily hidden but its history will be preserved. You can reactivate it anytime.',
+    confirmDeleteButton: 'Deactivate',
+    confirmPermanentDeleteTitle: 'Delete this item permanently?',
+    confirmPermanentDeleteBody: 'This only works for an item with no history.\nThis cannot be undone.',
+    confirmPermanentDeleteButton: 'Delete permanently',
+    statusInactive: 'Deactivated',
     reorderPointExceedsRequired: 'Reorder point must be less than or equal to Required.',
   },
 };
@@ -283,7 +283,15 @@ function ItemForm({
       {item ? (
         <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${demoColors.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {item.isActive ? (
-            <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('delete')}>
+            <button
+              type="button"
+              style={buttonSecondary}
+              disabled={isPending}
+              onClick={() => {
+                setError(null);
+                setConfirmAction('delete');
+              }}
+            >
               {tr('deleteItem')}
             </button>
           ) : (
@@ -295,7 +303,10 @@ function ItemForm({
             type="button"
             style={{ ...buttonSecondary, color: demoColors.dangerText }}
             disabled={isPending}
-            onClick={() => setConfirmAction('permanentDelete')}
+            onClick={() => {
+              setError(null);
+              setConfirmAction('permanentDelete');
+            }}
           >
             {tr('permanentDelete')}
           </button>
@@ -312,6 +323,9 @@ function ItemForm({
         onConfirm={() => setActive(false)}
       >
         {tr('confirmDeleteBody')}
+        {error ? (
+          <span style={{ display: 'block', marginTop: 10, color: demoColors.dangerText, fontSize: 12 }}>{error}</span>
+        ) : null}
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -331,6 +345,9 @@ function ItemForm({
               {line}
             </span>
           ))}
+        {error ? (
+          <span style={{ display: 'block', marginTop: 10, color: demoColors.dangerText, fontSize: 12 }}>{error}</span>
+        ) : null}
       </ConfirmDialog>
     </form>
   );
