@@ -314,3 +314,41 @@ export async function setWorkforceEmployeeActive(
     };
   }
 }
+
+/** Flat row shape returned by `api.permanently_delete_employee` (0056). */
+interface ApiPermanentDeleteEmployeeRow {
+  deleted: boolean;
+  blocked_by_history: boolean;
+}
+
+/**
+ * Hard-delete an employee, but only when they have zero historical
+ * references (shifts, attendance, requests, exchanges) -- calls
+ * `api.permanently_delete_employee` (0056), never a raw DELETE. Distinct from
+ * `setWorkforceEmployeeActive`, which remains the normal, always-available
+ * soft-delete/reactivate ("Remove staff") path and never touches this RPC.
+ */
+export async function permanentlyDeleteEmployee(
+  supabase: SupabaseClient,
+  tenantId: string,
+  staffId: string,
+): Promise<WorkforceWriteResult<{ staffId: string }>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .rpc('permanently_delete_employee', { p_tenant_id: tenantId, p_employee_id: staffId });
+
+    if (error) return mapWorkforceWriteError(error, 'permanently delete this staff member');
+
+    const row = (Array.isArray(data) ? data[0] : data) as ApiPermanentDeleteEmployeeRow | undefined;
+    if (!row) return { status: 'not_found' };
+    if (row.blocked_by_history) return { status: 'blocked_by_history' };
+    if (!row.deleted) return { status: 'unexpected_error', message: 'Unable to permanently delete this staff member right now.' };
+    return { status: 'success', data: { staffId } };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error permanently deleting this staff member.',
+    };
+  }
+}

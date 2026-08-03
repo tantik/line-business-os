@@ -57,6 +57,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
     new Set([
       'previewUpsertEmployee',
       'previewSetEmployeeActive',
+      'previewPermanentlyDeleteEmployee',
       'previewCreateShiftAssignment',
       'previewUpdateShiftAssignment',
       'previewRunAutoDistribution',

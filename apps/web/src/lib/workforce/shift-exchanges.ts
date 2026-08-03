@@ -112,6 +112,24 @@ export async function createShiftExchange(
   }
 }
 
+/**
+ * Every one of `api.decide_workforce_shift_exchange`'s (0050) approve-path
+ * re-validation exceptions -- the target shift/shift-type/schedule no longer
+ * matches what the request assumed when it was created (most commonly: the
+ * shift's own `starts_at` has since passed, reproduced directly against this
+ * exact RPC/request shape -- see PR notes). Matched on the raised exception's
+ * own message text (there is no dedicated SQLSTATE per case, all five share
+ * generic `P0001`), the same convention `mapWorkforceWriteError`/`isPermissionError`
+ * already use for RLS/permission-denied text.
+ */
+const STALE_SHIFT_EXCHANGE_REFERENCE_MESSAGES = new Set([
+  'shift_exchange_shift_changed',
+  'shift_exchange_replacement_required',
+  'shift_exchange_schedule_conflict',
+  'shift_change_type_unavailable',
+  'shift_change_location_unavailable',
+]);
+
 async function exchangeRpc(
   supabase: SupabaseClient,
   name: 'accept_workforce_shift_exchange' | 'cancel_workforce_shift_exchange' | 'decide_workforce_shift_exchange',
@@ -119,7 +137,10 @@ async function exchangeRpc(
 ): Promise<WorkforceWriteResult<{ exchangeId: string }>> {
   try {
     const { data, error } = await supabase.schema('api').rpc(name, args);
-    if (error) return mapWorkforceWriteError(error, 'update this shift exchange');
+    if (error) {
+      if (STALE_SHIFT_EXCHANGE_REFERENCE_MESSAGES.has(error.message)) return { status: 'stale_reference' };
+      return mapWorkforceWriteError(error, 'update this shift exchange');
+    }
     const row = Array.isArray(data) ? data[0] : data;
     const exchangeId =
       row && typeof row === 'object' && 'exchange_id' in row ? String(row.exchange_id) : String(args.p_exchange_id ?? '');

@@ -104,6 +104,19 @@ interface ManagerDict {
   weekdayAriaSuffix: string;
   unknownStaffFallback: string;
   backToHub: string;
+  removeStaffButton: string;
+  confirmRemoveStaffTitle: string;
+  confirmRemoveStaffBody: string;
+  permanentDeleteStaffButton: string;
+  confirmPermanentDeleteStaffTitle: string;
+  confirmPermanentDeleteStaffBody: string;
+  confirmPermanentDeleteStaffButton: string;
+  staffFilterActive: string;
+  staffFilterInactive: string;
+  staffFilterAll: string;
+  savingStatus: string;
+  savedStatus: string;
+  saveErrorStatus: string;
 }
 
 const MANAGER_DICT: Record<Lang, ManagerDict> = {
@@ -162,8 +175,8 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     removeShift: '解除',
     shiftModalTitleFallback: 'スタッフ',
     unassignShift: 'シフトを解除',
-    correctionRequestsTrigger: '修正申請',
-    correctionRequestsModalTitle: '修正申請への対応',
+    correctionRequestsTrigger: '勤怠修正申請',
+    correctionRequestsModalTitle: '勤怠修正申請への対応',
     recentDecisionsHeading: '最近の対応履歴',
     staffColumn: 'スタッフ',
     dateColumnShort: '日付',
@@ -211,6 +224,21 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     weekdayAriaSuffix: '曜日の必要人数',
     unknownStaffFallback: '不明なスタッフ',
     backToHub: 'ホームに戻る',
+    removeStaffButton: 'スタッフを削除',
+    confirmRemoveStaffTitle: 'スタッフを削除しますか？',
+    confirmRemoveStaffBody:
+      '在籍中のスタッフ一覧・シフト割り当て・ログインからすぐに外れます。勤務履歴・勤怠・レポート・申請の記録はすべて保持され、後で「編集」から復帰できます。',
+    permanentDeleteStaffButton: '完全に削除する',
+    confirmPermanentDeleteStaffTitle: 'このスタッフを完全に削除しますか？',
+    confirmPermanentDeleteStaffBody:
+      'シフト・勤怠・申請などの履歴が一切ない場合のみ削除できます。この操作は取り消せません。',
+    confirmPermanentDeleteStaffButton: '完全に削除する',
+    staffFilterActive: '在籍中',
+    staffFilterInactive: '削除済み',
+    staffFilterAll: 'すべて',
+    savingStatus: '保存中…',
+    savedStatus: '保存しました',
+    saveErrorStatus: '保存できませんでした',
   },
   en: {
     dashboardTitle: 'Manager dashboard',
@@ -267,8 +295,8 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     removeShift: 'Remove',
     shiftModalTitleFallback: 'Staff',
     unassignShift: 'Unassign shift',
-    correctionRequestsTrigger: 'Correction requests',
-    correctionRequestsModalTitle: 'Respond to correction requests',
+    correctionRequestsTrigger: 'Attendance correction requests',
+    correctionRequestsModalTitle: 'Respond to attendance correction requests',
     recentDecisionsHeading: 'Recent decisions',
     staffColumn: 'Staff',
     dateColumnShort: 'Date',
@@ -317,6 +345,21 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     weekdayAriaSuffix: ' required headcount',
     unknownStaffFallback: 'Unknown staff',
     backToHub: 'Back to hub',
+    removeStaffButton: 'Remove staff',
+    confirmRemoveStaffTitle: 'Remove this staff member?',
+    confirmRemoveStaffBody:
+      'They will immediately disappear from the active staff list, scheduling, and login. Shifts, attendance, reports, and requests all stay on record, and you can restore them later from Edit.',
+    permanentDeleteStaffButton: 'Delete permanently',
+    confirmPermanentDeleteStaffTitle: 'Delete this staff member permanently?',
+    confirmPermanentDeleteStaffBody:
+      'This only works when they have zero shift/attendance/request history. This cannot be undone.',
+    confirmPermanentDeleteStaffButton: 'Delete permanently',
+    staffFilterActive: 'Active',
+    staffFilterInactive: 'Removed',
+    staffFilterAll: 'All',
+    savingStatus: 'Saving…',
+    savedStatus: 'Saved',
+    saveErrorStatus: 'Could not save',
   },
 };
 

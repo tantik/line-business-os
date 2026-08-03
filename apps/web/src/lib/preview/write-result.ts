@@ -26,6 +26,7 @@ export type PreviewWriteFailureStatus =
   | 'not_found'
   | 'duplicate'
   | 'blocked_by_history'
+  | 'stale_reference'
   | 'unexpected_error';
 
 export type PreviewWriteResult<T> =
@@ -42,6 +43,7 @@ const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
   not_found: '対象の情報が見つかりません。',
   duplicate: 'すでに同じ内容が登録されています。',
   blocked_by_history: 'この商品には過去の在庫記録があるため完全に削除できません。「無効化」をご利用ください。',
+  stale_reference: 'この依頼の対象シフトはすでに変更・終了しています。最新のスケジュールに更新しました。',
   unexpected_error: '一時的な問題が発生しました。しばらくしてからもう一度お試しください。',
 };
 
@@ -59,6 +61,7 @@ const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
   not_found: 'The requested item was not found.',
   duplicate: 'This has already been submitted.',
   blocked_by_history: 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.',
+  stale_reference: 'This request’s shift has since changed or ended. The schedule has been refreshed to the latest state.',
   unexpected_error: 'Something went wrong. Please try again in a moment.',
 };
 
@@ -102,6 +105,10 @@ export function mapWorkforceWriteResult<T>(result: WorkforceWriteResult<T>): Pre
       return { status: 'not_found' };
     case 'duplicate':
       return { status: 'duplicate' };
+    case 'blocked_by_history':
+      return { status: 'blocked_by_history' };
+    case 'stale_reference':
+      return { status: 'stale_reference' };
     case 'not_authenticated':
       return { status: 'not_authenticated' };
     case 'no_membership':

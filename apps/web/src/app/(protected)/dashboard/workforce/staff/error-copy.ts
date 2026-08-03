@@ -9,6 +9,10 @@ export function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>
       return 'Please sign in again.';
     case 'no_membership':
       return 'You are not a member of this workspace.';
+    case 'blocked_by_history':
+      return 'This has historical records and cannot be permanently deleted.';
+    case 'stale_reference':
+      return 'This request no longer matches the current schedule. Refresh to see the latest state.';
     default:
       return result.message;
   }

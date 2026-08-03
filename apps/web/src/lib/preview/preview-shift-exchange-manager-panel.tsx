@@ -68,7 +68,13 @@ export function PreviewShiftExchangeManagerPanel({
     setDecidingExchange({ id: exchangeId, decision });
     startTransition(async () => {
       const result = await previewDecideShiftExchange(data);
-      if (result.status === 'success') {
+      if (result.status === 'success' || result.status === 'stale_reference') {
+        // `stale_reference` means the RPC's own re-validation refused this
+        // approve because the target shift/shift-type has changed since the
+        // request was made (most commonly: its `starts_at` has since
+        // passed) - the request is no longer decidable as-is, so refresh
+        // the same way a success does rather than leaving a now-stale
+        // pending row on screen with nothing to retry.
         // `pending` (and this component's own pending indicator below) stays
         // true through this scoped refetch too, same as it did through the
         // old full-page reload - waiting silently through it is exactly what
@@ -76,6 +82,7 @@ export function PreviewShiftExchangeManagerPanel({
         await refresh();
         decidingRef.current = false;
         setDecidingExchange(null);
+        if (result.status === 'stale_reference') setFeedback(previewWriteMessage(lang, result.status));
       } else {
         decidingRef.current = false;
         setFeedback(previewWriteMessage(lang, result.status));
