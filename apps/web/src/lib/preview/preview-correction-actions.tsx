@@ -21,15 +21,17 @@ export interface PreviewCorrectionActionsProps {
   pendingRequests: WorkforceShiftRequest[];
   staff: WorkforceStaffManageEntry[] | null;
   /**
-   * Called after a successful approve/reject so the caller
-   * (`PreviewCorrectionRequestsPanel`) can re-fetch via
-   * `previewGetCorrectionRequestsManagerData()` - never `router.refresh()`.
-   * Owned by that parent (not by this component) because the shared `Modal`
-   * unmounts this component on close; state owned here would be silently
-   * discarded every time the dialog closes. Preview Manager architecture,
-   * perf phase 3.
+   * Called with the decided request itself right after a successful
+   * approve/reject, so the caller (`PreviewCorrectionRequestsPanel`) can move
+   * it from pending to decided immediately - no second full scoped refetch
+   * blocking the popup (Cafe v2.1 remediation PR B; the parent still runs a
+   * background refetch afterward to reconcile, it just never blocks this
+   * update). Owned by that parent (not by this component) because the shared
+   * `Modal` unmounts this component on close; state owned here would be
+   * silently discarded every time the dialog closes. Preview Manager
+   * architecture, perf phase 3.
    */
-  onDecided: () => Promise<void>;
+  onDecided: (decided: WorkforceShiftRequest) => void;
 }
 
 function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -50,7 +52,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
       formData.set('decision', decision);
       const result = await previewDecideCorrectionRequest(formData);
       setFeedback(toFeedback(lang, result));
-      if (result.status === 'success') await onDecided();
+      if (result.status === 'success') onDecided(result.data);
     });
   }
 
