@@ -59,6 +59,21 @@ export function PreviewCorrectionRequestsPanel({
     }
   }
 
+  /**
+   * Moves a just-decided request from pending to decided immediately - no
+   * second full scoped refetch blocking the popup (Cafe v2.1 remediation
+   * PR B; previously every decision waited on its own write, THEN a second
+   * full `previewGetCorrectionRequestsManagerData()` round trip before the
+   * popup updated at all). The background `refreshRequests()` still runs
+   * to reconcile the decided list's exact ordering/10-item cap against the
+   * server, it just never blocks this update.
+   */
+  function handleDecided(decided: WorkforceShiftRequest) {
+    setPendingRequests((prev) => prev.filter((r) => r.requestId !== decided.requestId));
+    setDecidedRequests((prev) => [decided, ...prev.filter((r) => r.requestId !== decided.requestId)].slice(0, 10));
+    void refreshRequests();
+  }
+
   return (
     <>
       <button type="button" style={buttonSecondary} onClick={() => setOpen(true)}>
@@ -66,7 +81,7 @@ export function PreviewCorrectionRequestsPanel({
       </button>
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('correctionRequestsModalTitle')} maxWidth={720}>
-        <PreviewCorrectionActions pendingRequests={pendingRequests} staff={staff} onDecided={refreshRequests} />
+        <PreviewCorrectionActions pendingRequests={pendingRequests} staff={staff} onDecided={handleDecided} />
 
         {decidedRequests.length > 0 ? (
           <div style={{ marginTop: 16 }}>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
-import type { InventoryItemStatus } from '@/lib/inventory/items';
+import type { InventoryItem, InventoryItemStatus } from '@/lib/inventory/items';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
 import {
   previewGetInventoryManagerData,
@@ -151,19 +151,76 @@ type DictKey = keyof InventoryManagerDict;
 
 const t = makeTranslator(dictionary);
 
+/**
+ * Mirrors `api.inventory_item_status`'s own `shortage_quantity`/`status`
+ * derivation (`greatest(required - actual, 0)` / unknown-until-counted) --
+ * see `supabase/migrations/0037_inventory_api_facade.sql` -- so an optimistic
+ * edit that changes `requiredQuantity` still shows the correct shortage/
+ * status immediately, without waiting on the background refetch to correct
+ * it.
+ */
+function deriveStatusFields(requiredQuantity: number, actualQuantity: number | null): Pick<InventoryItemStatus, 'shortageQuantity' | 'status'> {
+  if (actualQuantity === null) return { shortageQuantity: requiredQuantity, status: 'unknown' };
+  return {
+    shortageQuantity: Math.max(requiredQuantity - actualQuantity, 0),
+    status: actualQuantity >= requiredQuantity ? 'sufficient' : 'shortage',
+  };
+}
+
+/**
+ * Applies a successful `previewUpsertInventoryItem` result to the local list
+ * immediately -- no second full scoped refetch in the critical path (Cafe
+ * v2.1 remediation PR B). An edit patches the existing entry's editable
+ * fields while preserving its own last-known count (`actualQuantity`/
+ * `countedAt`/`countedByStaffId`, none of which the edit form can change); an
+ * add appends a new, never-yet-counted entry -- exactly the shape a fresh
+ * item has server-side.
+ */
+function applyUpsert(items: InventoryItemStatus[], upserted: InventoryItem): InventoryItemStatus[] {
+  const existing = items.find((item) => item.itemId === upserted.itemId);
+  const derived = deriveStatusFields(upserted.requiredQuantity, existing?.actualQuantity ?? null);
+  const patched: InventoryItemStatus = {
+    itemId: upserted.itemId,
+    tenantId: upserted.tenantId,
+    locationId: upserted.locationId,
+    name: upserted.name,
+    unit: upserted.unit,
+    requiredQuantity: upserted.requiredQuantity,
+    reorderPoint: upserted.reorderPoint,
+    sortOrder: upserted.sortOrder,
+    isActive: upserted.isActive,
+    actualQuantity: existing?.actualQuantity ?? null,
+    countedAt: existing?.countedAt ?? null,
+    countedByStaffId: existing?.countedByStaffId ?? null,
+    ...derived,
+  };
+  return existing ? items.map((item) => (item.itemId === upserted.itemId ? patched : item)) : [...items, patched];
+}
+
+/** Applies a successful Deactivate/Reactivate immediately -- only `isActive` changes, every computed/count field is untouched. */
+function applySetActive(items: InventoryItemStatus[], itemId: string, isActive: boolean): InventoryItemStatus[] {
+  return items.map((item) => (item.itemId === itemId ? { ...item, isActive } : item));
+}
+
 function ItemForm({
   locationId,
   item,
   lang,
   tr,
-  onSuccess,
+  onUpserted,
+  onSetActive,
+  onPermanentlyDeleted,
   onCancel,
 }: {
   locationId: string;
   item?: InventoryItemStatus;
   lang: 'ja' | 'en';
   tr: (key: DictKey) => string;
-  onSuccess: () => Promise<void>;
+  /** Applied to local state immediately, before the background reconciliation refetch -- see `applyUpsert`. */
+  onUpserted: (item: InventoryItem) => void;
+  /** Applied to local state immediately -- see `applySetActive`. */
+  onSetActive: (itemId: string, isActive: boolean) => void;
+  onPermanentlyDeleted: (itemId: string) => void;
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -194,7 +251,7 @@ function ItemForm({
     setPendingMessage(tr('saving'));
     startTransition(async () => {
       const result = await previewUpsertInventoryItem(formData);
-      if (result.status === 'success') await onSuccess();
+      if (result.status === 'success') onUpserted(result.data);
       else setError(previewWriteMessage(lang, result.status));
     });
   }
@@ -209,7 +266,7 @@ function ItemForm({
       const result = await previewSetInventoryItemActive(formData);
       if (result.status === 'success') {
         setConfirmAction(null);
-        await onSuccess();
+        onSetActive(item!.itemId, isActive);
       } else setError(previewWriteMessage(lang, result.status));
     });
   }
@@ -223,7 +280,7 @@ function ItemForm({
       const result = await previewPermanentlyDeleteInventoryItem(formData);
       if (result.status === 'success') {
         setConfirmAction(null);
-        await onSuccess();
+        onPermanentlyDeleted(item!.itemId);
       } else {
         // Kept open (not `setConfirmAction(null)`) when blocked by history --
         // the manager should see the "use Delete instead" message right next
@@ -510,9 +567,25 @@ export function PreviewInventoryManagerPanel({
             item={editing === 'new' ? undefined : editing}
             lang={lang}
             tr={tr}
-            onSuccess={async () => {
+            onUpserted={(upserted) => {
+              // Applied immediately -- no second full scoped refetch in the
+              // critical path (Cafe v2.1 remediation PR B). `refreshItems()`
+              // still runs, but in the background, only to reconcile
+              // anything this optimistic patch could not know (e.g. another
+              // manager's concurrent edit) -- it never blocks this update.
+              setItems((current) => applyUpsert(current, upserted));
               setEditing(null);
-              await refreshItems();
+              void refreshItems();
+            }}
+            onSetActive={(itemId, isActive) => {
+              setItems((current) => applySetActive(current, itemId, isActive));
+              setEditing(null);
+              void refreshItems();
+            }}
+            onPermanentlyDeleted={(itemId) => {
+              setItems((current) => current.filter((item) => item.itemId !== itemId));
+              setEditing(null);
+              void refreshItems();
             }}
             onCancel={() => setEditing(null)}
           />

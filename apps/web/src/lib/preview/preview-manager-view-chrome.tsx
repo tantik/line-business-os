@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -83,6 +83,40 @@ export function PreviewManagerViewChrome({
     assignments: assignments ?? [],
   });
 
+  // Client-side week cache (perf phase 4): once a week's data has been fetched
+  // (initial load or a prior navigation), switching back to it renders
+  // immediately from cache instead of waiting on a network round trip -- a
+  // background revalidate still runs so a cached week never goes stale
+  // forever, it just never blocks the switch. Seeded with the initial page
+  // load's own week so navigating away and back to it is instant even before
+  // any prefetch has landed.
+  type ScheduleWeek = typeof schedule;
+  const weekCacheRef = useRef(new Map<number, ScheduleWeek>([[weekOffset, { periodStart, periodEnd, weekOffset, assignments: assignments ?? [] }]]));
+  // The most recently requested week -- a slow prefetch/revalidate for a week
+  // the manager has since navigated away from must never overwrite whatever
+  // week is on screen now.
+  const currentOffsetRef = useRef(weekOffset);
+
+  async function fetchWeek(targetOffset: number): Promise<ScheduleWeek | null> {
+    const result = await previewGetScheduleWeek(targetOffset);
+    return result.status === 'success' ? result.data : null;
+  }
+
+  useEffect(() => {
+    // Prefetch the two adjacent weeks in the background after the current
+    // week has rendered, so a Prev/Next click right after landing on the
+    // page is already cached. Never prefetches out of the -8..+8 bound, and
+    // never re-fetches a week already in the cache (including one a prior
+    // prefetch already landed).
+    for (const adjacent of [currentOffsetRef.current - 1, currentOffsetRef.current + 1]) {
+      if (adjacent < MIN_WEEK_OFFSET || adjacent > MAX_WEEK_OFFSET) continue;
+      if (weekCacheRef.current.has(adjacent)) continue;
+      fetchWeek(adjacent).then((week) => {
+        if (week) weekCacheRef.current.set(adjacent, week);
+      });
+    }
+  }, [schedule.weekOffset]);
+
   const dates = weekDates(schedule.periodStart);
   const todayIso = todayIsoInTimeZone(timeZone);
   const monthPrefix = todayIso.slice(0, 7);
@@ -103,22 +137,37 @@ export function PreviewManagerViewChrome({
     return targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
   }
 
+  /** Always used for a schedule-write refresh (auto-distribute/publish/shift edit) - the current week's cache entry must reflect its own latest write, never a stale pre-write snapshot. */
   async function refreshWeek(targetOffset: number) {
-    const result = await previewGetScheduleWeek(targetOffset);
-    if (result.status === 'success') setSchedule(result.data);
+    const week = await fetchWeek(targetOffset);
+    if (week && currentOffsetRef.current === targetOffset) {
+      weekCacheRef.current.set(targetOffset, week);
+      setSchedule(week);
+    }
   }
 
   function navigateToWeek(targetOffset: number) {
     if (targetOffset === schedule.weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    currentOffsetRef.current = targetOffset;
+    window.history.replaceState(null, '', weekHref(targetOffset));
+
+    const cached = weekCacheRef.current.get(targetOffset);
+    if (cached) {
+      // Cached week: render immediately, no loader, no waiting on the
+      // network - then silently revalidate in the background in case the
+      // schedule changed since it was cached. A slower revalidate that
+      // resolves after the manager has already navigated elsewhere again is
+      // dropped by the `currentOffsetRef` check in `refreshWeek`, never
+      // overwriting whatever week is on screen by then.
+      setSchedule(cached);
+      refreshWeek(targetOffset);
+      return;
+    }
+
+    // Not cached: same loader-visible path as before while the fetch is
+    // in flight, but the result is now cached for next time.
     startNavigation(async () => {
       await refreshWeek(targetOffset);
-      // Keeps the URL bookmarkable/shareable without a Next navigation - a
-      // real `router.push`/`router.replace` would re-run the whole Manager
-      // page (see the module doc comment above) and reset window scroll,
-      // exactly the "page jumps to top" complaint this replaces. A direct
-      // back/forward browser navigation to this URL still works normally
-      // (full page load with the correct `weekOffset` from the query string).
-      window.history.replaceState(null, '', weekHref(targetOffset));
     });
   }
 
@@ -202,7 +251,17 @@ export function PreviewManagerViewChrome({
             assignments={schedule.assignments}
             shiftTypes={shiftTypes === null ? [] : shiftTypes}
             monthlySummaries={monthlySummaries}
-            onAssignmentsChanged={(next) => setSchedule((prev) => ({ ...prev, assignments: next }))}
+            onAssignmentsChanged={(next) => {
+              setSchedule((prev) => {
+                const updated = { ...prev, assignments: next };
+                // Keep the cache entry for the current week in sync with a
+                // direct per-shift edit, too -- otherwise navigating away and
+                // back would render the pre-edit cached snapshot instead of
+                // this just-made change.
+                weekCacheRef.current.set(prev.weekOffset, updated);
+                return updated;
+              });
+            }}
           />
         </div>
       )}

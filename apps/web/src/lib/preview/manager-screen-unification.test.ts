@@ -163,15 +163,18 @@ test('the preview manager display component never falls back to the raw employee
   assert.ok(!/\?\?\s*r\.employeeId/.test(source), `${PREVIEW_MANAGER_VIEW_CHROME} must not fall back to the raw employeeId in any rendered label`);
 });
 
-test('manager week navigation avoids eager adjacent-week loads, never navigates, and stops at the supported bounds', () => {
-  // Preview Manager architecture (perf phase 2): week nav no longer navigates
-  // the page at all (previously `router.push`/`router.prefetch` against the
-  // same route's `?weekOffset=` search param) - it fetches only the exact
-  // clicked week's data via the scoped, read-only `previewGetScheduleWeek()`
-  // Server Action, so there is no adjacent-page prefetch concept left to
-  // assert on; asserting its absence is the stronger property.
+test('manager week navigation caches fetched weeks, prefetches adjacent weeks in the background, never navigates, and stops at the supported bounds', () => {
+  // Preview Manager architecture (perf phase 4): week nav still never
+  // navigates the page (no `router.push`/`replace`/`prefetch` against
+  // next/navigation - that would re-run the whole Manager page and reset
+  // scroll). It now ALSO keeps a client-side cache of every week already
+  // fetched (so switching back to one renders immediately, no loader) and
+  // prefetches the two adjacent weeks in the background after each week
+  // renders, via the same scoped, read-only `previewGetScheduleWeek()`
+  // Server Action - never a distinct/heavier fetch path.
   const source = read(PREVIEW_MANAGER_VIEW_CHROME);
-  assert.ok(!source.includes('useEffect('), 'week navigation must not eagerly load both adjacent weeks');
+  assert.ok(source.includes('weekCacheRef'), 'week navigation must keep a client-side cache of fetched weeks');
+  assert.ok(source.includes('useEffect('), 'week navigation must prefetch adjacent weeks in the background after render');
   assert.ok(!/\brouter\.(push|replace|prefetch)\(/.test(source), 'week navigation must not use next/navigation - it must never re-run the whole Manager page or reset scroll');
   assert.match(source, /schedule\.weekOffset <= MIN_WEEK_OFFSET/);
   assert.match(source, /schedule\.weekOffset >= MAX_WEEK_OFFSET/);
