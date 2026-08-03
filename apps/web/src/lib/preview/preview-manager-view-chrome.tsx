@@ -1,7 +1,6 @@
 'use client';
 
-import { useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -10,6 +9,8 @@ import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { addIsoDays } from '@/lib/workforce/timezone';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
 import { PreviewShiftGrid } from './preview-shift-grid';
+import { PreviewScheduleCardActions } from './preview-schedule-card-actions';
+import { previewGetScheduleWeek } from './actions/schedule-actions';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_MONTHLY_REPORT, HELP_MANAGER_SHIFT_TABLE } from '@/lib/demo/cafe/helpContent';
 import { formatMonthDay } from '@/lib/demo/cafe/format';
@@ -27,6 +28,17 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
  * this file exists so that invariant can stay true while still supporting
  * i18n. `manager-view.tsx`'s `PreviewManagerView` is now a bare pass-through
  * to this component; all rendering logic lives here.
+ *
+ * Preview Manager architecture (perf phase 2): this component owns the
+ * currently-displayed week's data (`schedule` state below), seeded from the
+ * initial page load's props. Week prev/today/next and the auto-distribute/
+ * publish actions all refresh that state via the scoped, read-only
+ * `previewGetScheduleWeek()` Server Action - never `router.push`/
+ * `router.refresh()`. That means changing week (or a schedule write) never
+ * navigates, never resets scroll, and never re-runs the whole Manager page's
+ * auth chain + 11-query batch (which would also re-render Inventory/Staff/
+ * Recipes/Settings/Shift Exchange for no reason - none of their data
+ * changed).
  */
 export interface PreviewManagerViewChromeProps {
   timeZone: string;
@@ -38,7 +50,8 @@ export interface PreviewManagerViewChromeProps {
   assignments: WorkforceShiftAssignment[] | null;
   attendance: WorkforceAttendance[] | null;
   basePath: string;
-  actionsSlot?: ReactNode;
+  /** Week-independent (per-location schedule settings); passed straight to `PreviewScheduleCardActions`, rendered directly by this component instead of via a server-prebuilt `actionsSlot` (which could not react to a client-only week change). */
+  requiredHeadcountByWeekday: number[];
 }
 
 function weekDates(periodStart: string): string[] {
@@ -58,14 +71,20 @@ export function PreviewManagerViewChrome({
   assignments,
   attendance,
   basePath,
-  actionsSlot,
+  requiredHeadcountByWeekday,
 }: PreviewManagerViewChromeProps) {
-  const dates = weekDates(periodStart);
-  const todayIso = todayIsoInTimeZone(timeZone);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
-  const router = useRouter();
   const [isNavigating, startNavigation] = useTransition();
+  const [schedule, setSchedule] = useState({
+    periodStart,
+    periodEnd,
+    weekOffset,
+    assignments: assignments ?? [],
+  });
+
+  const dates = weekDates(schedule.periodStart);
+  const todayIso = todayIsoInTimeZone(timeZone);
   const monthPrefix = todayIso.slice(0, 7);
   const monthlySummaries = Object.fromEntries((staff ?? []).map((entry) => [
     entry.staffId,
@@ -75,31 +94,32 @@ export function PreviewManagerViewChrome({
   const managerLegendShiftTypes = (shiftTypes ?? []).filter(
     (shiftType) =>
       shiftType.isActive ||
-      (assignments ?? []).some(
+      schedule.assignments.some(
         (assignment) => assignment.employeeId && assignment.shiftTypeId === shiftType.shiftTypeId,
       ),
   );
-
-  function navigateToWeek(targetOffset: number) {
-    if (targetOffset === weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
-    const href = weekHref(targetOffset);
-    // `scroll: false` is required here: this is a same-route `?weekOffset=`
-    // navigation from a control that lives mid-page (the シフト表 card), and
-    // Next's default post-navigation behavior is to reset window scroll to
-    // the top, which is the exact "page jumps to top" complaint on
-    // prev/today/next week. The whole Manager page still re-renders (this
-    // route has no per-tab segment boundary to scope the refresh to), but
-    // the user's scroll position is preserved.
-    startNavigation(() => router.push(href, { scroll: false }));
-  }
 
   function weekHref(targetOffset: number) {
     return targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
   }
 
-  function prefetchWeek(targetOffset: number) {
-    if (targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
-    router.prefetch(weekHref(targetOffset));
+  async function refreshWeek(targetOffset: number) {
+    const result = await previewGetScheduleWeek(targetOffset);
+    if (result.status === 'success') setSchedule(result.data);
+  }
+
+  function navigateToWeek(targetOffset: number) {
+    if (targetOffset === schedule.weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    startNavigation(async () => {
+      await refreshWeek(targetOffset);
+      // Keeps the URL bookmarkable/shareable without a Next navigation - a
+      // real `router.push`/`router.replace` would re-run the whole Manager
+      // page (see the module doc comment above) and reset window scroll,
+      // exactly the "page jumps to top" complaint this replaces. A direct
+      // back/forward browser navigation to this URL still works normally
+      // (full page load with the correct `weekOffset` from the query string).
+      window.history.replaceState(null, '', weekHref(targetOffset));
+    });
   }
 
   return (
@@ -109,7 +129,13 @@ export function PreviewManagerViewChrome({
           <strong style={{ fontSize: 16 }}>{t('shiftTable')}</strong>
           <DemoHelpButton content={HELP_MANAGER_SHIFT_TABLE} />
         </div>
-        {actionsSlot}
+        <PreviewScheduleCardActions
+          periodStart={schedule.periodStart}
+          periodEnd={schedule.periodEnd}
+          requiredHeadcountByWeekday={requiredHeadcountByWeekday}
+          hasUnpublishedChanges={schedule.assignments.some((assignment) => !assignment.published)}
+          onScheduleChanged={() => refreshWeek(schedule.weekOffset)}
+        />
       </div>
 
       <p style={{ margin: '8px 0 4px', fontSize: 12.5, ...mutedText }}>
@@ -118,22 +144,22 @@ export function PreviewManagerViewChrome({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: demoColors.textPrimary }}>
-          {formatMonthDay(new Date(`${periodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${periodEnd}T00:00:00`))}
+          {formatMonthDay(new Date(`${schedule.periodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${schedule.periodEnd}T00:00:00`))}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={() => navigateToWeek(weekOffset - 1)} onPointerEnter={() => prefetchWeek(weekOffset - 1)} onFocus={() => prefetchWeek(weekOffset - 1)} disabled={isNavigating || weekOffset <= MIN_WEEK_OFFSET} style={isNavigating || weekOffset <= MIN_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
+          <button type="button" onClick={() => navigateToWeek(schedule.weekOffset - 1)} disabled={isNavigating || schedule.weekOffset <= MIN_WEEK_OFFSET} style={isNavigating || schedule.weekOffset <= MIN_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
             ← {t('prevWeek')}
           </button>
           <button
             type="button"
             onClick={() => navigateToWeek(0)}
-            disabled={weekOffset === 0 || isNavigating}
-            style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
-            aria-disabled={weekOffset === 0}
+            disabled={schedule.weekOffset === 0 || isNavigating}
+            style={schedule.weekOffset === 0 ? buttonDisabled : buttonSecondary}
+            aria-disabled={schedule.weekOffset === 0}
           >
             {t('today')}
           </button>
-          <button type="button" onClick={() => navigateToWeek(weekOffset + 1)} onPointerEnter={() => prefetchWeek(weekOffset + 1)} onFocus={() => prefetchWeek(weekOffset + 1)} disabled={isNavigating || weekOffset >= MAX_WEEK_OFFSET} style={isNavigating || weekOffset >= MAX_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
+          <button type="button" onClick={() => navigateToWeek(schedule.weekOffset + 1)} disabled={isNavigating || schedule.weekOffset >= MAX_WEEK_OFFSET} style={isNavigating || schedule.weekOffset >= MAX_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
             {t('nextWeek')} →
           </button>
         </div>
@@ -173,9 +199,10 @@ export function PreviewManagerViewChrome({
             todayIso={todayIso}
             timeZone={timeZone}
             staff={staff}
-            assignments={assignments === null ? [] : assignments}
+            assignments={schedule.assignments}
             shiftTypes={shiftTypes === null ? [] : shiftTypes}
             monthlySummaries={monthlySummaries}
+            onAssignmentsChanged={(next) => setSchedule((prev) => ({ ...prev, assignments: next }))}
           />
         </div>
       )}

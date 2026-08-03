@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
 import {
+  previewGetInventoryManagerData,
   previewSetInventoryItemActive,
   previewUpsertInventoryItem,
   previewPermanentlyDeleteInventoryItem,
@@ -163,7 +163,7 @@ function ItemForm({
   item?: InventoryItemStatus;
   lang: 'ja' | 'en';
   tr: (key: DictKey) => string;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void>;
   onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -194,7 +194,7 @@ function ItemForm({
     setPendingMessage(tr('saving'));
     startTransition(async () => {
       const result = await previewUpsertInventoryItem(formData);
-      if (result.status === 'success') onSuccess();
+      if (result.status === 'success') await onSuccess();
       else setError(previewWriteMessage(lang, result.status));
     });
   }
@@ -209,7 +209,7 @@ function ItemForm({
       const result = await previewSetInventoryItemActive(formData);
       if (result.status === 'success') {
         setConfirmAction(null);
-        onSuccess();
+        await onSuccess();
       } else setError(previewWriteMessage(lang, result.status));
     });
   }
@@ -223,7 +223,7 @@ function ItemForm({
       const result = await previewPermanentlyDeleteInventoryItem(formData);
       if (result.status === 'success') {
         setConfirmAction(null);
-        onSuccess();
+        await onSuccess();
       } else {
         // Kept open (not `setConfirmAction(null)`) when blocked by history --
         // the manager should see the "use Delete instead" message right next
@@ -355,7 +355,7 @@ function ItemForm({
 
 export function PreviewInventoryManagerPanel({
   locationId,
-  items,
+  items: initialItems,
   staffNameById,
   /** When true, renders as a bare trigger button (no card/heading/subtitle) so it can sit inline inside another management block (e.g. next to "Manage Staff" / "Manage Recipes") instead of as its own section. All list/search/edit/modal functionality is unchanged. */
   embedded = false,
@@ -368,10 +368,22 @@ export function PreviewInventoryManagerPanel({
 }) {
   const { lang } = useLang();
   const tr = (key: DictKey) => t(lang, key);
-  const router = useRouter();
+  // Owns its own copy of the list, seeded from the initial page load, and
+  // patches it via a scoped `previewGetInventoryManagerData()` refetch after
+  // a successful write -- never `router.refresh()`. That keeps an Inventory
+  // edit from re-running the whole Manager page's auth chain + 11-query
+  // batch and re-rendering Staff/Recipes/Settings/Schedule/Shift Exchange,
+  // which never received new data in the first place (Preview Manager
+  // architecture, perf phase 2).
+  const [items, setItems] = useState(initialItems);
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  async function refreshItems() {
+    const result = await previewGetInventoryManagerData();
+    if (result.status === 'success') setItems(result.data);
+  }
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
   const filteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -498,9 +510,9 @@ export function PreviewInventoryManagerPanel({
             item={editing === 'new' ? undefined : editing}
             lang={lang}
             tr={tr}
-            onSuccess={() => {
+            onSuccess={async () => {
               setEditing(null);
-              router.refresh();
+              await refreshItems();
             }}
             onCancel={() => setEditing(null)}
           />

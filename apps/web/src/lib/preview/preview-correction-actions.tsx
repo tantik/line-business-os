@@ -1,7 +1,6 @@
 'use client';
 
 import { useTransition, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { previewDecideCorrectionRequest } from './actions/attendance-actions';
@@ -21,6 +20,16 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
 export interface PreviewCorrectionActionsProps {
   pendingRequests: WorkforceShiftRequest[];
   staff: WorkforceStaffManageEntry[] | null;
+  /**
+   * Called after a successful approve/reject so the caller
+   * (`PreviewCorrectionRequestsPanel`) can re-fetch via
+   * `previewGetCorrectionRequestsManagerData()` - never `router.refresh()`.
+   * Owned by that parent (not by this component) because the shared `Modal`
+   * unmounts this component on close; state owned here would be silently
+   * discarded every time the dialog closes. Preview Manager architecture,
+   * perf phase 3.
+   */
+  onDecided: () => Promise<void>;
 }
 
 function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -28,8 +37,7 @@ function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: bool
   return { ok: false, text: previewWriteMessage(lang, result.status) };
 }
 
-export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorrectionActionsProps) {
-  const router = useRouter();
+export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: PreviewCorrectionActionsProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
@@ -42,7 +50,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff }: PreviewCorr
       formData.set('decision', decision);
       const result = await previewDecideCorrectionRequest(formData);
       setFeedback(toFeedback(lang, result));
-      if (result.status === 'success') router.refresh();
+      if (result.status === 'success') await onDecided();
     });
   }
 

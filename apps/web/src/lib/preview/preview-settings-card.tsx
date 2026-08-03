@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { buttonPrimary, card, demoColors, input, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_SETTINGS } from '@/lib/demo/cafe/helpContent';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
-import { previewSaveScheduleSettings, previewSetShiftTypeActive, previewUpsertShiftType } from './actions/settings-actions';
+import {
+  previewGetShiftTypesManagerData,
+  previewSaveScheduleSettings,
+  previewSetShiftTypeActive,
+  previewUpsertShiftType,
+} from './actions/settings-actions';
 import { previewWriteMessage } from './write-result';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
@@ -30,11 +34,18 @@ export interface PreviewSettingsCardProps {
 
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
-export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCardProps) {
-  const router = useRouter();
+export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }: PreviewSettingsCardProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
+  // Owns its own copy of the shift-type list, seeded from the initial page
+  // load, and patches it via a scoped `previewGetShiftTypesManagerData()`
+  // refetch after a successful save/deactivate - never `router.refresh()`,
+  // which would re-run the whole Manager page. This card is never inside a
+  // Modal (unlike Staff/Recipes/Correction Requests) so it stays mounted the
+  // whole time and can safely own this state directly. Preview Manager
+  // architecture, perf phase 3.
+  const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
   const [isPending, startTransition] = useTransition();
@@ -63,6 +74,11 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
     });
   }
 
+  async function refreshShiftTypes() {
+    const result = await previewGetShiftTypesManagerData();
+    if (result.status === 'success') setShiftTypes(result.data);
+  }
+
   function saveShiftType(input: { shiftTypeId?: string; labelJa: string; startsAtLocal: string; endsAtLocal: string }) {
     setFeedback(null);
     startTransition(async () => {
@@ -71,7 +87,7 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
         setEditingId(null);
         setNewLabel('');
         setFeedback({ ok: true, text: t('saved') });
-        router.refresh();
+        await refreshShiftTypes();
       } else {
         setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
       }
@@ -84,7 +100,7 @@ export function PreviewSettingsCard({ shiftTypes, settings }: PreviewSettingsCar
       const result = await previewSetShiftTypeActive({ shiftTypeId, isActive: false });
       if (result.status === 'success') {
         setFeedback({ ok: true, text: t('saved') });
-        router.refresh();
+        await refreshShiftTypes();
       }
       else setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
     });

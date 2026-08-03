@@ -7,13 +7,23 @@ const SOURCE = readFileSync(new URL('./settings-actions.ts', import.meta.url), '
 test('exports exactly the manager schedule-settings action', () => {
   assert.deepEqual(
     [...SOURCE.matchAll(/export async function (preview[A-Za-z]+)\(/g)].map((match) => match[1]),
-    ['previewSaveScheduleSettings', 'previewUpsertShiftType', 'previewSetShiftTypeActive'],
+    [
+      'previewGetShiftTypesManagerData',
+      'previewSaveScheduleSettings',
+      'previewUpsertShiftType',
+      'previewSetShiftTypeActive',
+    ],
   );
 });
 
 test('validates all seven weekday values and monthly hours before resolving manager context', () => {
   const validationIndex = SOURCE.indexOf('required.length !== 7');
-  const contextIndex = SOURCE.indexOf("resolvePreviewManagerContext('workforce.shift.write')");
+  // Scoped to the first `resolvePreviewManagerContext` call *after* the
+  // validation, not the file's first occurrence overall - the new read-only
+  // `previewGetShiftTypesManagerData` helper (perf phase 3) now calls
+  // `resolvePreviewManagerContext` earlier in the file than
+  // `previewSaveScheduleSettings` itself does.
+  const contextIndex = SOURCE.indexOf("resolvePreviewManagerContext('workforce.shift.write')", validationIndex);
   assert.ok(validationIndex >= 0 && validationIndex < contextIndex);
   assert.ok(SOURCE.includes('(item as number) > 100'));
   assert.ok(SOURCE.includes('(maxHours as number) > 744'));

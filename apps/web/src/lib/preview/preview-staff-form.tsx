@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import { previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
+import { previewGetStaffManagerData, previewSetEmployeeActive, previewUpsertEmployee } from './actions/staff-actions';
 import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { badgeStyle, buttonPrimary, buttonSecondary, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
@@ -20,6 +19,18 @@ import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
  */
 export interface PreviewStaffFormProps {
   staff: WorkforceStaffManageEntry[] | null;
+  /**
+   * Called with the freshly-refetched roster after a successful save/
+   * deactivate (via `previewGetStaffManagerData()`, never `router.refresh()`)
+   * so an Inventory/Recipes/Schedule re-render never happens as a side
+   * effect. Owned by `PreviewStaffRecipeManagement` (the parent that stays
+   * mounted across this form's own dialog open/close cycles) rather than by
+   * this component itself, since the shared `Modal` unmounts its children on
+   * close -- state owned here would be silently discarded on every close,
+   * reverting to the stale initial-load `staff` prop on next open. Preview
+   * Manager architecture, perf phase 2.
+   */
+  onStaffChanged: (next: WorkforceStaffManageEntry[]) => void;
 }
 
 function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: boolean; text: string } {
@@ -27,8 +38,7 @@ function toFeedback(lang: Lang, result: PreviewWriteResult<unknown>): { ok: bool
   return { ok: false, text: previewWriteMessage(lang, result.status) };
 }
 
-export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
-  const router = useRouter();
+export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
@@ -39,6 +49,11 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
 
   const editingEntry = editingId ? (staff ?? []).find((s) => s.staffId === editingId) ?? null : null;
 
+  async function refreshStaff() {
+    const result = await previewGetStaffManagerData();
+    if (result.status === 'success') onStaffChanged(result.data);
+  }
+
   function handleUpsert(formData: FormData) {
     startTransition(async () => {
       const result = await previewUpsertEmployee(formData);
@@ -46,7 +61,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       if (result.status === 'success') {
         setEditingId(null);
         setMode('list');
-        router.refresh();
+        await refreshStaff();
       }
     });
   }
@@ -58,7 +73,7 @@ export function PreviewStaffForm({ staff }: PreviewStaffFormProps) {
       formData.set('isActive', nextActive ? 'true' : 'false');
       const result = await previewSetEmployeeActive(formData);
       setFeedback(toFeedback(lang, result));
-      if (result.status === 'success') router.refresh();
+      if (result.status === 'success') await refreshStaff();
     });
   }
 

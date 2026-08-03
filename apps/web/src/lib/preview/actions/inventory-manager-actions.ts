@@ -1,6 +1,13 @@
 'use server';
 
-import { upsertInventoryItem, setInventoryItemActive, permanentlyDeleteInventoryItem, type InventoryItem } from '@/lib/inventory/items';
+import {
+  upsertInventoryItem,
+  setInventoryItemActive,
+  permanentlyDeleteInventoryItem,
+  listInventoryItemStatus,
+  type InventoryItem,
+  type InventoryItemStatus,
+} from '@/lib/inventory/items';
 import {
   parseSetInventoryItemActiveInput,
   parseUpsertInventoryItemInput,
@@ -42,6 +49,22 @@ function mapInventoryWriteResult<T>(result: InventoryWriteResult<T>): PreviewWri
     default:
       return { status: 'unexpected_error' };
   }
+}
+
+/**
+ * Manager-only: re-read the current catalog + status list for the manager's
+ * own resolved location. Preview Manager architecture (perf phase 2) - the
+ * Inventory panel calls this instead of `router.refresh()` after a
+ * successful write, so an Inventory mutation refreshes only its own list
+ * (one query) instead of the whole Manager page (auth chain + 11-query
+ * batch + a full React re-render of every other panel).
+ */
+export async function previewGetInventoryManagerData(): Promise<PreviewWriteResult<InventoryItemStatus[]>> {
+  const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId } = contextResult.context;
+  const result = await listInventoryItemStatus(supabase, tenantId, locationId, { includeInactive: true });
+  return mapInventoryWriteResult(result);
 }
 
 /**
