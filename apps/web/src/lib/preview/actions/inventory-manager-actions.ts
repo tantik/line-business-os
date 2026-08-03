@@ -1,9 +1,10 @@
 'use server';
 
-import { upsertInventoryItem, setInventoryItemActive, type InventoryItem } from '@/lib/inventory/items';
+import { upsertInventoryItem, setInventoryItemActive, permanentlyDeleteInventoryItem, type InventoryItem } from '@/lib/inventory/items';
 import {
   parseSetInventoryItemActiveInput,
   parseUpsertInventoryItemInput,
+  parseInventoryItemIdInput,
 } from '@/lib/inventory/items-input';
 import type { InventoryWriteResult } from '@/lib/inventory/result-types';
 import { resolvePreviewInventoryManagerContext } from './inventory-authorize';
@@ -27,6 +28,8 @@ function mapInventoryWriteResult<T>(result: InventoryWriteResult<T>): PreviewWri
       return { status: 'success', data: result.data };
     case 'not_found':
       return { status: 'not_found' };
+    case 'blocked_by_history':
+      return { status: 'blocked_by_history' };
     case 'not_authenticated':
       return { status: 'not_authenticated' };
     case 'no_membership':
@@ -77,4 +80,22 @@ export async function previewSetInventoryItemActive(formData: FormData): Promise
   const { supabase, tenantId } = contextResult.context;
 
   return mapInventoryWriteResult(await setInventoryItemActive(supabase, tenantId, input.itemId, input.isActive));
+}
+
+/**
+ * Manager-only: permanently (physically) remove a catalog item. Distinct
+ * from `previewSetInventoryItemActive(..., false)` (the normal "Delete",
+ * which soft-deletes and always preserves history) -- this refuses when the
+ * item has any `inventory.stock_counts` history, via the guarded
+ * `api.permanently_delete_inventory_item` RPC (0055).
+ */
+export async function previewPermanentlyDeleteInventoryItem(formData: FormData): Promise<PreviewWriteResult<{ itemId: string }>> {
+  const input = parseInventoryItemIdInput(formData);
+  if (!input) return PREVIEW_INVALID_INPUT_RESULT;
+
+  const contextResult = await resolvePreviewInventoryManagerContext('inventory.item.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId } = contextResult.context;
+
+  return mapInventoryWriteResult(await permanentlyDeleteInventoryItem(supabase, tenantId, input.itemId));
 }

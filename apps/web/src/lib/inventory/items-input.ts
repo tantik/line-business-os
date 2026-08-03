@@ -61,3 +61,10 @@ export function parseSetInventoryItemActiveInput(formData: FormData): SetInvento
   if (!itemId) return null;
   return { itemId, isActive: parseBooleanFlag(formData.get('isActive')) };
 }
+
+/** Shared by the Permanent Delete action -- just the target item id. */
+export function parseInventoryItemIdInput(formData: FormData): { itemId: string } | null {
+  const itemId = parseUuid(formData.get('itemId'));
+  if (!itemId) return null;
+  return { itemId };
+}

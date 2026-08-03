@@ -19,6 +19,7 @@ const ALL_FAILURE_STATUSES: PreviewWriteFailureStatus[] = [
   'invalid_input',
   'not_found',
   'duplicate',
+  'blocked_by_history',
   'unexpected_error',
 ];
 

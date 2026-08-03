@@ -71,6 +71,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewSetShiftTypeActive',
       'previewUpsertInventoryItem',
       'previewSetInventoryItemActive',
+      'previewPermanentlyDeleteInventoryItem',
       'previewDecideShiftExchange',
       'previewSignOut',
     ]),

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from './items-input.js';
+import { parseInventoryItemIdInput, parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from './items-input.js';
 
 const VALID_UUID = '11111111-1111-1111-1111-111111111111';
 
@@ -66,4 +66,12 @@ test('parseSetInventoryItemActiveInput parses itemId + isActive flag', () => {
 });
 test('parseSetInventoryItemActiveInput rejects a malformed itemId', () => {
   assert.equal(parseSetInventoryItemActiveInput(formDataOf({ itemId: 'not-a-uuid' })), null);
+});
+
+test('parseInventoryItemIdInput parses itemId', () => {
+  assert.deepEqual(parseInventoryItemIdInput(formDataOf({ itemId: VALID_UUID })), { itemId: VALID_UUID });
+});
+test('parseInventoryItemIdInput rejects a missing/malformed itemId', () => {
+  assert.equal(parseInventoryItemIdInput(formDataOf({})), null);
+  assert.equal(parseInventoryItemIdInput(formDataOf({ itemId: 'not-a-uuid' })), null);
 });
