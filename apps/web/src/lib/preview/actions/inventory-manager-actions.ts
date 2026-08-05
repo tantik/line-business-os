@@ -74,7 +74,6 @@ export async function previewGetInventoryManagerData(): Promise<PreviewWriteResu
  * in the manager's own resolved location).
  */
 export async function previewUpsertInventoryItem(formData: FormData): Promise<PreviewWriteResult<InventoryItem>> {
-  const __actionStart = performance.now();
   const input = parseUpsertInventoryItemInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
@@ -96,15 +95,10 @@ export async function previewUpsertInventoryItem(formData: FormData): Promise<Pr
       isActive: input.isActive,
     }),
   );
-  const mapped = mapInventoryWriteResult(result);
-  if (process.env.PERF_TIMING_LOG === '1') {
-    console.log(`[perf] inventory.upsert:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
-  }
-  return mapped;
+  return mapInventoryWriteResult(result);
 }
 
 export async function previewSetInventoryItemActive(formData: FormData): Promise<PreviewWriteResult<InventoryItem>> {
-  const __actionStart = performance.now();
   const input = parseSetInventoryItemActiveInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
@@ -117,11 +111,7 @@ export async function previewSetInventoryItemActive(formData: FormData): Promise
   const result = await time('inventory.setActive:dbWrite', () =>
     setInventoryItemActive(supabase, tenantId, input.itemId, input.isActive),
   );
-  const mapped = mapInventoryWriteResult(result);
-  if (process.env.PERF_TIMING_LOG === '1') {
-    console.log(`[perf] inventory.setActive:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
-  }
-  return mapped;
+  return mapInventoryWriteResult(result);
 }
 
 /**
@@ -132,7 +122,6 @@ export async function previewSetInventoryItemActive(formData: FormData): Promise
  * `api.permanently_delete_inventory_item` RPC (0055).
  */
 export async function previewPermanentlyDeleteInventoryItem(formData: FormData): Promise<PreviewWriteResult<{ itemId: string }>> {
-  const __actionStart = performance.now();
   const input = parseInventoryItemIdInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
@@ -145,9 +134,5 @@ export async function previewPermanentlyDeleteInventoryItem(formData: FormData):
   const result = await time('inventory.permanentDelete:dbWrite', () =>
     permanentlyDeleteInventoryItem(supabase, tenantId, input.itemId),
   );
-  const mapped = mapInventoryWriteResult(result);
-  if (process.env.PERF_TIMING_LOG === '1') {
-    console.log(`[perf] inventory.permanentDelete:TOTAL ${(performance.now() - __actionStart).toFixed(1)}ms`);
-  }
-  return mapped;
+  return mapInventoryWriteResult(result);
 }

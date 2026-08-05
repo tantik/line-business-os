@@ -2,25 +2,15 @@ import 'server-only';
 
 /**
  * TEMPORARY performance-measurement instrumentation for the Cafe v2.1 Manager
- * page/Server Action latency investigation. Not wired to any always-on
- * logging path -- gated by `PERF_TIMING_LOG=1` so it never fires in a normal
- * dev/Preview session. Remove this file (and its call sites) once the
- * measured optimization work lands.
+ * page/Server Action latency investigation. Logging has been removed (no
+ * `console.log` output regardless of env state); call sites elsewhere are
+ * kept working as no-op wrappers. Remove this file (and its call sites) once
+ * the measured optimization work lands.
  */
-const ENABLED = process.env.PERF_TIMING_LOG === '1';
-
-export async function time<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  if (!ENABLED) return fn();
-  const start = performance.now();
-  try {
-    return await fn();
-  } finally {
-    const ms = performance.now() - start;
-    console.log(`[perf] ${label}: ${ms.toFixed(1)}ms`);
-  }
+export async function time<T>(_label: string, fn: () => Promise<T>): Promise<T> {
+  return fn();
 }
 
-export function mark(label: string) {
-  if (!ENABLED) return;
-  console.log(`[perf] ${label}: ${performance.now().toFixed(1)}ms (mark)`);
+export function mark(_label: string) {
+  return;
 }
