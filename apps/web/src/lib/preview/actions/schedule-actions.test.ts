@@ -78,11 +78,11 @@ test('previewRunAutoDistribution injects the resolved location and never reads a
   assert.ok(/\{ \.\.\.\(input as Record<string, unknown>\), locationId \}/.test(body), 'must override any client-supplied locationId with the resolved one');
 });
 
-test('previewRunAutoDistribution runs the raw pre-check (rawInputHasPositiveRequirement) before resolving tenant context at all', () => {
+test('previewRunAutoDistribution runs the raw pre-check (classifyRawAutoDistributionInput) before resolving tenant context at all', () => {
   const body = fnBody('previewRunAutoDistribution', 'previewPublishSchedule');
-  const rawCheckIdx = body.indexOf('rawInputHasPositiveRequirement(input)');
+  const rawCheckIdx = body.indexOf('classifyRawAutoDistributionInput(input)');
   const resolveContextIdx = body.indexOf("resolvePreviewManagerContext('workforce.shift.write')");
-  assert.ok(rawCheckIdx >= 0, 'must call rawInputHasPositiveRequirement(input)');
+  assert.ok(rawCheckIdx >= 0, 'must call classifyRawAutoDistributionInput(input)');
   assert.ok(rawCheckIdx < resolveContextIdx, 'the raw pre-check must run before tenant/module/location resolution');
 });
 
@@ -105,6 +105,16 @@ test('previewRunAutoDistribution forwards the parsed staffingRequirements array 
     /staffingRequirements:\s*parsed\.staffingRequirements,/.test(body),
     'must pass parsed.staffingRequirements directly (the same array hasPositiveHeadcount validated) into the autoDistribute() call',
   );
+});
+
+test('previewRunAutoDistribution reports a distinct invalid_input reason for each rejection cause instead of one generic status', () => {
+  const body = fnBody('previewRunAutoDistribution', 'previewPublishSchedule');
+  assert.ok(/invalidAutoDistributionInput\('malformed_input'\)/.test(body), 'a request that fails to parse must report malformed_input');
+  assert.ok(
+    (body.match(/invalidAutoDistributionInput\('no_positive_headcount'\)/g) ?? []).length === 2,
+    'both the post-parse and the authoritative headcount guard must report no_positive_headcount',
+  );
+  assert.ok(/invalidAutoDistributionInput\('no_active_windows'\)/.test(body), 'zero active windows must report no_active_windows, not a generic status');
 });
 
 test('previewPublishSchedule injects the resolved location before parsing', () => {

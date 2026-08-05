@@ -111,3 +111,24 @@ export function rawInputHasPositiveRequirement(input: unknown): boolean {
     return typeof headcount === 'number' && headcount > 0;
   });
 }
+
+/**
+ * Why a raw auto-distribution request fails `rawInputHasPositiveRequirement`
+ * - distinguishes a request shaped wrong (no/invalid `staffingRequirements`
+ * array) from one that's shaped correctly but carries only non-positive
+ * headcounts, so the Server Action can report the real cause instead of
+ * collapsing every `invalid_input` into one generic message.
+ */
+export type AutoDistributionInvalidInputReason = 'no_active_windows' | 'no_positive_headcount' | 'malformed_input';
+
+export function classifyRawAutoDistributionInput(input: unknown): AutoDistributionInvalidInputReason | null {
+  if (typeof input !== 'object' || input === null) return 'malformed_input';
+  const staffingRequirements = (input as Record<string, unknown>).staffingRequirements;
+  if (!Array.isArray(staffingRequirements)) return 'malformed_input';
+  const hasPositive = staffingRequirements.some((item) => {
+    if (typeof item !== 'object' || item === null) return false;
+    const headcount = (item as Record<string, unknown>).requiredHeadcount;
+    return typeof headcount === 'number' && headcount > 0;
+  });
+  return hasPositive ? null : 'no_positive_headcount';
+}

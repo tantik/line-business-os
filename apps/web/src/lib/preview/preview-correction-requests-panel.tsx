@@ -14,7 +14,8 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
 
 /**
  * Demo/Preview manager UX parity: correction requests surface as a 要確認
- * alert (see `toManagerViewAlerts`) plus a single trigger button here, never
+ * alert (see `toManagerCorrectionSummaries`, rendered by `PreviewManagerToday`)
+ * plus a single trigger button here, never
  * a permanently-open admin table on the main dashboard. Wraps the existing
  * `PreviewCorrectionActions` island (unchanged, calls only
  * `previewDecideCorrectionRequest`) in a dialog, and shows the recently

@@ -290,7 +290,7 @@ export const HELP_MANAGER_SHIFT_TABLE = bilingual({
 1. 表のセルをクリックしてシフト内容を確認します。
 2. 過去日は勤務実績の確認画面が開きます。
 3. 今日以降の日付ではシフト編集画面が開きます。
-4. 「!」が付いたセルは、勤務時間修正依頼など確認が必要な項目です。
+4. 日付欄に付いた「!」は、必要人数に対して人員が不足している日を示します。
 5. 「前の週」「今日」「次の週」で週を切り替えられます。
 
 注意:
@@ -401,7 +401,7 @@ export const HELP_MANAGER_SETTINGS = bilingual({
   body: `設定では、店舗ごとのシフト作成ルールを管理する想定です。
 
 設定例:
-- 曜日ごとの必要人数
+- 曜日ごとの各シフト必要人数
 - スタッフ最大勤務時間
 - シフト種別
 - 勤務時間帯
@@ -413,7 +413,7 @@ export const HELP_MANAGER_SETTINGS = bilingual({
   ariaLabel: 'Open the Settings help',
   body: `Settings controls the store's scheduling rules.
 
-- required staff by weekday;
+- required staff per shift, by weekday;
 - maximum monthly hours;
 - reusable shift types and working times.
 

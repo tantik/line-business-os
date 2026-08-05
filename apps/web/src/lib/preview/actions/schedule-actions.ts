@@ -14,7 +14,14 @@ import {
   publishShiftAssignments,
   type WorkforceShiftAssignment,
 } from '@/lib/workforce/shift-assignments';
-import { autoDistribute, type AutoDistributeEmployee, type AutoDistributePreference } from '@/lib/workforce/auto-distribute';
+import {
+  autoDistribute,
+  deriveActiveScheduleWindowCodes,
+  type AutoDistributeEmployee,
+  type AutoDistributePreference,
+  type AutoDistributeStaffingRequirement,
+} from '@/lib/workforce/auto-distribute';
+import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   parseCreateShiftAssignmentInput,
@@ -24,8 +31,8 @@ import {
 } from '@/lib/workforce/schedule-input';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { resolvePreviewManagerContext } from './authorize';
-import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
-import { hasPositiveHeadcount, rawInputHasPositiveRequirement } from '../auto-distribution-requirements';
+import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteFailureStatus, type PreviewWriteResult } from '../write-result';
+import { classifyRawAutoDistributionInput, hasPositiveHeadcount, type AutoDistributionInvalidInputReason } from '../auto-distribution-requirements';
 import { getWeekPeriod } from '@/lib/workforce/period';
 
 /** Mirrors the same bound the Manager page and week-nav chrome enforce (`MAX_WEEK_OFFSET` in both `manager/page.tsx` and `preview-manager-view-chrome.tsx`) - never trust a client-supplied offset outside this range. */
@@ -153,9 +160,18 @@ export async function previewUpdateShiftAssignment(
   return mapWorkforceWriteResult(result);
 }
 
+export type PreviewRunAutoDistributionResult =
+  | { status: 'success'; data: RunAutoDistributionActionResult }
+  | { status: 'invalid_input'; reason?: AutoDistributionInvalidInputReason }
+  | { status: Exclude<PreviewWriteFailureStatus, 'invalid_input'> };
+
+function invalidAutoDistributionInput(reason: AutoDistributionInvalidInputReason): PreviewRunAutoDistributionResult {
+  return { status: 'invalid_input', reason };
+}
+
 export async function previewRunAutoDistribution(
   input: unknown,
-): Promise<PreviewWriteResult<RunAutoDistributionActionResult>> {
+): Promise<PreviewRunAutoDistributionResult> {
   // An empty staffingRequirements array - or one containing only
   // requiredHeadcount: 0 rows - can never produce a draft assignment for any
   // windowed shift type (AM/PM/ALL/A-P/SHORT_AM): autoDistribute() defaults
@@ -166,7 +182,11 @@ export async function previewRunAutoDistribution(
   // coarse check runs first - before tenant/module/location resolution or
   // any Supabase call - so a request that could not possibly do real work is
   // rejected before doing any work at all, not merely before the algorithm.
-  if (!rawInputHasPositiveRequirement(input)) return PREVIEW_INVALID_INPUT_RESULT;
+  // `classifyRawAutoDistributionInput` distinguishes a malformed payload from
+  // one that's shaped correctly but carries only non-positive headcounts, so
+  // the caller can report the real cause instead of a generic message.
+  const rawReason = classifyRawAutoDistributionInput(input);
+  if (rawReason) return invalidAutoDistributionInput(rawReason);
 
   const contextResult = await resolvePreviewManagerContext('workforce.shift.write');
   if (contextResult.status !== 'ok') return contextResult.result;
@@ -174,7 +194,7 @@ export async function previewRunAutoDistribution(
 
   const rawInput = typeof input === 'object' && input !== null ? { ...(input as Record<string, unknown>), locationId } : null;
   const parsed = parseRunAutoDistributionInput(rawInput);
-  if (!parsed) return PREVIEW_INVALID_INPUT_RESULT;
+  if (!parsed) return invalidAutoDistributionInput('malformed_input');
 
   // Authoritative re-check on the fully-parsed/validated requirements (the
   // raw pre-check above is a coarse `typeof === 'number'` scan, not a
@@ -182,21 +202,48 @@ export async function previewRunAutoDistribution(
   // own (it legitimately expresses "no one is needed for this window"), but
   // the overall request must still contain at least one requirement above
   // zero before the wrapper ever reports "success".
-  if (!hasPositiveHeadcount(parsed.staffingRequirements)) return PREVIEW_INVALID_INPUT_RESULT;
+  if (!hasPositiveHeadcount(parsed.staffingRequirements)) return invalidAutoDistributionInput('no_positive_headcount');
 
   const fromIso = localDateTimeToUtcIso(parsed.periodStart, '00:00', timeZone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(parsed.periodEnd, 1), '00:00', timeZone);
 
-  const [staffResult, shiftTypesResult, preferencesResult, existingResult] = await Promise.all([
+  const [staffResult, shiftTypesResult, preferencesResult, existingResult, scheduleSettingsResult] = await Promise.all([
     listWorkforceStaffDirectory(supabase, tenantId),
     listWorkforceShiftTypes(supabase, tenantId),
     listShiftRequestsForManager(supabase, tenantId, { kind: 'preference' }),
     listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
+    getWorkforceScheduleSettings(supabase, tenantId, locationId),
   ]);
   if (staffResult.status !== 'success') return mapWorkforceWriteResult(staffResult);
   if (shiftTypesResult.status !== 'success') return mapWorkforceWriteResult(shiftTypesResult);
   if (preferencesResult.status !== 'success') return mapWorkforceWriteResult(preferencesResult);
   if (existingResult.status !== 'success') return mapWorkforceWriteResult(existingResult);
+  if (scheduleSettingsResult.status !== 'success') return mapWorkforceWriteResult(scheduleSettingsResult);
+
+  // Authoritative override (post-review fix): the client-submitted
+  // `staffingRequirements` above only ever satisfies the input parser's
+  // shape validation - the actual windows and per-weekday headcount an
+  // auto-distribution run is allowed to fill are always re-derived here from
+  // the server-resolved tenant/location's own active shift types
+  // (`deriveActiveScheduleWindowCodes`) and schedule settings
+  // (`getWorkforceScheduleSettings`), never trusted from the request body. A
+  // stale or manipulated client cannot widen a window, inflate a headcount,
+  // or bypass the "no active windows configured" state this way.
+  //
+  // `listWorkforceShiftTypes` returns every shift type for the tenant, not
+  // just the resolved location's (it has no location filter of its own) -
+  // scope to the resolved `locationId` here so a shift type belonging to a
+  // different location in the same tenant can never widen the active windows
+  // or headcount this run is authoritative for.
+  const locationShiftTypes = shiftTypesResult.data.filter((st) => st.locationId === locationId);
+  const activeWindowCodes = deriveActiveScheduleWindowCodes(locationShiftTypes);
+  if (activeWindowCodes.length === 0) return invalidAutoDistributionInput('no_active_windows');
+  const requiredHeadcountByWeekday = scheduleSettingsResult.data?.requiredHeadcountByWeekday ?? [0, 0, 0, 0, 0, 0, 0];
+  const authoritativeStaffingRequirements: AutoDistributeStaffingRequirement[] = requiredHeadcountByWeekday.flatMap(
+    (requiredHeadcount, weekday) => activeWindowCodes.map((windowCode) => ({ weekday, windowCode, requiredHeadcount })),
+  );
+  if (!hasPositiveHeadcount(authoritativeStaffingRequirements)) return invalidAutoDistributionInput('no_positive_headcount');
+  parsed.staffingRequirements = authoritativeStaffingRequirements;
 
   const employees: AutoDistributeEmployee[] = staffResult.data
     .filter((s) => s.locationId === locationId)
@@ -217,7 +264,7 @@ export async function previewRunAutoDistribution(
 
   const result = autoDistribute({
     employees,
-    shiftTypes: shiftTypesResult.data.map((st) => ({
+    shiftTypes: locationShiftTypes.map((st) => ({
       shiftTypeId: st.shiftTypeId,
       code: st.code,
       startsAtLocal: st.startsAtLocal,

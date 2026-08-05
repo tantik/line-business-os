@@ -3,6 +3,12 @@
 import type { ReactNode } from 'react';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { badgeStyle, card, demoColors, mutedText } from '@/lib/demo/cafe/theme';
+import {
+  DEFAULT_CORRECTION_MESSAGE,
+  UNKNOWN_STAFF_NAME_EN,
+  UNKNOWN_STAFF_NAME_JA,
+  type ManagerCorrectionSummary,
+} from './manager-view-model';
 
 export interface PreviewManagerTodayProps {
   pendingCorrections: number;
@@ -12,13 +18,24 @@ export interface PreviewManagerTodayProps {
   unpublishedShifts: number;
   openingCheckComplete: boolean | null;
   closingCheckComplete: boolean | null;
-  correctionDetails?: string[];
+  correctionSummaries?: ManagerCorrectionSummary[];
   shortageDetails?: string[];
   actionSlot?: ReactNode;
 }
 
 export function PreviewManagerToday(props: PreviewManagerTodayProps) {
   const { lang } = useLang();
+  // Every fallback (staff name, message) is resolved here, in the one place
+  // that knows the real client-toggled `lang` -- `page.tsx` is a Server
+  // Component with no real client language state, so baking a JA fallback
+  // there could never track an EN-toggled client.
+  const correctionDetails = props.correctionSummaries
+    ?.slice(0, 3)
+    .map((summary) => {
+      const staffName = summary.staffName ?? (lang === 'ja' ? UNKNOWN_STAFF_NAME_JA : UNKNOWN_STAFF_NAME_EN);
+      const message = summary.message ?? DEFAULT_CORRECTION_MESSAGE[lang];
+      return lang === 'ja' ? `${staffName}（${summary.workDate}）: ${message}` : `${staffName} (${summary.workDate}): ${message}`;
+    });
   const rows = [
     {
       key: 'corrections',
@@ -26,8 +43,8 @@ export function PreviewManagerToday(props: PreviewManagerTodayProps) {
       title: lang === 'ja' ? '勤怠修正' : 'Attendance corrections',
       detail:
         lang === 'ja'
-          ? props.correctionDetails?.join('、') || `${props.pendingCorrections}件の確認待ち`
-          : props.correctionDetails?.join(', ') || `${props.pendingCorrections} awaiting review`,
+          ? correctionDetails?.join('、') || `${props.pendingCorrections}件の確認待ち`
+          : correctionDetails?.join(', ') || `${props.pendingCorrections} awaiting review`,
     },
     {
       key: 'exchanges',

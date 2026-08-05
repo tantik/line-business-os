@@ -23,6 +23,8 @@ interface PreviewShiftGridProps {
   shiftTypes: WorkforceShiftType[];
   assignments: WorkforceShiftAssignment[];
   monthlySummaries: Record<string, EstimatedEarningsSummary>;
+  /** Real computed staffing-shortage dates (`computeManagerShortageDateSet`), rendered as the shift table's "!" column indicator. */
+  shortageDateSet?: Set<string>;
   /**
    * Reports every local assignment-list change (single-cell save/unassign)
    * back to the parent (`PreviewManagerViewChrome`), which owns the
@@ -34,7 +36,7 @@ interface PreviewShiftGridProps {
   onAssignmentsChanged?: (next: WorkforceShiftAssignment[]) => void;
 }
 
-export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments, monthlySummaries, onAssignmentsChanged }: PreviewShiftGridProps) {
+export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes, assignments, monthlySummaries, shortageDateSet, onAssignmentsChanged }: PreviewShiftGridProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,6 +163,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
         shiftTypes={shiftTableShiftTypes}
         mode="manager"
         lang={lang}
+        shortageDateSet={shortageDateSet}
         onCellClick={handleCellClick}
         onStaffClick={setSummaryStaffId}
       />

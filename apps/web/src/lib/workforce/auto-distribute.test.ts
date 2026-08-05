@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { autoDistribute } from './auto-distribute.js';
+import { autoDistribute, deriveActiveScheduleWindowCodes } from './auto-distribute.js';
 import type {
   AutoDistributeEmployee,
   AutoDistributeExistingAssignment,
@@ -504,4 +504,37 @@ test('returns unplaced with reason inactive_shift_type for a preference referenc
   assert.deepEqual(result.shortages, [
     { workDate: '2026-08-03', windowCode: 'AM', requiredHeadcount: 1, assignedHeadcount: 0, shortage: 1 },
   ]);
+});
+
+// -- deriveActiveScheduleWindowCodes -----------------------------------------
+
+test('deriveActiveScheduleWindowCodes returns the deduped, KNOWN_WINDOW_CODES-ordered set of active windows', () => {
+  const result = deriveActiveScheduleWindowCodes([
+    { code: 'PM', isActive: true },
+    { code: 'am', isActive: true },
+    { code: 'AM', isActive: true },
+  ]);
+  assert.deepEqual(result, ['AM', 'PM']);
+});
+
+test('deriveActiveScheduleWindowCodes excludes inactive shift types', () => {
+  const result = deriveActiveScheduleWindowCodes([
+    { code: 'AM', isActive: true },
+    { code: 'PM', isActive: false },
+  ]);
+  assert.deepEqual(result, ['AM']);
+});
+
+test('deriveActiveScheduleWindowCodes excludes CUSTOM and other unresolved codes', () => {
+  const result = deriveActiveScheduleWindowCodes([
+    { code: 'CUSTOM', isActive: true },
+    { code: 'UNKNOWN', isActive: true },
+    { code: 'ALL', isActive: true },
+  ]);
+  assert.deepEqual(result, ['ALL']);
+});
+
+test('deriveActiveScheduleWindowCodes returns an empty array for zero active windows', () => {
+  assert.deepEqual(deriveActiveScheduleWindowCodes([]), []);
+  assert.deepEqual(deriveActiveScheduleWindowCodes([{ code: 'AM', isActive: false }]), []);
 });

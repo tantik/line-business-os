@@ -27,7 +27,7 @@ import {
   PreviewNoAccessState,
 } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
-import { toManagerViewAlerts } from '@/lib/preview/manager-view-model';
+import { toManagerCorrectionSummaries } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
 import { PreviewStaffRecipeManagement } from '@/lib/preview/preview-staff-recipe-management';
 import { PreviewSettingsCard } from '@/lib/preview/preview-settings-card';
@@ -221,7 +221,8 @@ export default async function MameToChaPreviewManagerPage({
     .filter((r) => r.status !== 'pending')
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 10);
-  const managerAlerts = correctionRequestsResult.status === 'success' ? toManagerViewAlerts(pendingCorrections, staffById) : [];
+  const managerCorrectionSummaries =
+    correctionRequestsResult.status === 'success' ? toManagerCorrectionSummaries(pendingCorrections, staffById) : [];
   const pendingExchanges =
     exchangesResult.status === 'success'
       ? exchangesResult.data.filter((exchange) => exchange.status === 'open' || exchange.status === 'accepted')
@@ -252,7 +253,12 @@ export default async function MameToChaPreviewManagerPage({
             <PreviewLogoutButton />
           </div>
         }
-        alerts={managerAlerts}
+        // `PreviewManagerToday` (below, via `managerCorrectionSummaries`) is
+        // the real, language-aware correction-alert surface for this page -
+        // `CafeManagerScreen`'s own alerts block stays hidden and unfed here
+        // rather than duplicating that same domain transformation into a
+        // second, JA-only model.
+        alerts={[]}
         showAlerts={false}
       >
         <PreviewManagerToday
@@ -274,7 +280,7 @@ export default async function MameToChaPreviewManagerPage({
           closingCheckComplete={
             !SHOW_OPENING_CLOSING_STOCK_CHECKS || !inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'
           }
-          correctionDetails={managerAlerts.slice(0, 3).map((alert) => alert.label)}
+          correctionSummaries={managerCorrectionSummaries}
           shortageDetails={activeInventoryItems.filter((item) => item.status === 'shortage').slice(0, 4).map((item) => item.name)}
         />
 

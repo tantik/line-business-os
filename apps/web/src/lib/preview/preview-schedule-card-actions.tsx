@@ -7,9 +7,59 @@ import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
 import { previewPublishSchedule, previewRunAutoDistribution } from './actions/schedule-actions';
 import { previewWriteMessage } from './write-result';
+import type { AutoDistributionInvalidInputReason } from './auto-distribution-requirements';
 import { addIsoDays } from '@/lib/workforce/timezone';
-import { useLang } from '@/lib/demo/cafe/i18n';
+import { deriveActiveScheduleWindowCodes, type UnplacedEmployee, type UnplacedReason } from '@/lib/workforce/auto-distribute';
+import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+
+/** Short, actionable reason text for why a submitted preference did not become a draft assignment - shown (deduped) when an auto-distribution run creates zero shifts, instead of a single generic "check availability" message that discards the real reason. */
+const UNPLACED_REASON_JA: Record<UnplacedReason, string> = {
+  headcount_filled: '希望した時間帯の必要人数がすでに埋まっています',
+  no_staffing_requirement: 'その曜日・時間帯には必要人数が設定されていません',
+  max_period_hours_exceeded: 'スタッフの月間上限時間を超えるため配置できません',
+  already_assigned: '同じ日にすでに別のシフトが割り当てられています',
+  unknown_shift_type: '希望に存在しないシフト種別が指定されています',
+  inactive_shift_type: '希望に無効化されたシフト種別が指定されています',
+};
+
+const UNPLACED_REASON_EN: Record<UnplacedReason, string> = {
+  headcount_filled: 'the requested time window is already fully staffed',
+  max_period_hours_exceeded: "it would exceed the staff member's monthly hour limit",
+  no_staffing_requirement: 'no headcount is required for that day/window',
+  already_assigned: 'the staff member is already assigned elsewhere that day',
+  unknown_shift_type: 'the preference references a shift type that no longer exists',
+  inactive_shift_type: 'the preference references a disabled shift type',
+};
+
+/** Message for a zero-draft auto-distribution run: reuses the algorithm's own `unplaced` reasons (deduped) when it has any, instead of always blaming "check submitted availability" - that generic text is only accurate when nobody was even blocked (e.g. every active employee is a non-submitter). */
+function describeEmptyAutoScheduleResult(lang: Lang, unplaced: UnplacedEmployee[]): string {
+  if (unplaced.length === 0) {
+    return lang === 'ja'
+      ? '条件に合うシフトを作成できませんでした。スタッフの希望提出状況をご確認ください。'
+      : 'No shifts could be created for the current requirements. Please check submitted staff availability.';
+  }
+  const reasons = Array.from(new Set(unplaced.map((u) => u.reason)));
+  const dict = lang === 'ja' ? UNPLACED_REASON_JA : UNPLACED_REASON_EN;
+  const reasonText = reasons.map((reason) => dict[reason]).join(lang === 'ja' ? '、' : '; ');
+  return lang === 'ja'
+    ? `条件に合うシフトを作成できませんでした（${reasonText}）。`
+    : `No shifts could be created (${reasonText}).`;
+}
+
+/** Message for an `invalid_input` auto-distribution result, keyed by the server's typed reason instead of collapsing every cause into "no active shift types" - `no_active_windows` and `no_positive_headcount` are distinct, actionable configuration states, and `malformed_input` falls back to the generic write-result message since it has no single actionable fix. */
+function describeAutoScheduleInvalidInput(lang: Lang, reason: AutoDistributionInvalidInputReason | undefined, t: (key: Parameters<typeof tManager>[1]) => string): string {
+  if (reason === 'no_positive_headcount') {
+    return lang === 'ja'
+      ? '曜日ごとの必要人数がすべて0のため、自動作成できません。「設定」で必要人数を入力してください。'
+      : 'All configured headcounts are zero, so shifts cannot be auto-created. Enter a required headcount under Settings first.';
+  }
+  if (reason === 'malformed_input') return previewWriteMessage(lang, 'invalid_input');
+  // 'no_active_windows' (the default/unknown-reason fallback) - the
+  // pre-existing, still-accurate message for this specific cause.
+  return t('autoScheduleNoWindowsConfigured');
+}
 
 /**
  * Demo/Preview manager UX parity: the demo's シフト表 card keeps its
@@ -20,6 +70,7 @@ export interface PreviewScheduleCardActionsProps {
   periodStart: string;
   periodEnd: string;
   requiredHeadcountByWeekday: number[];
+  shiftTypes: WorkforceShiftType[];
   hasUnpublishedChanges: boolean;
   /**
    * Called after a successful auto-distribute/publish so the caller
@@ -35,31 +86,81 @@ export function PreviewScheduleCardActions({
   periodStart,
   periodEnd,
   requiredHeadcountByWeekday,
+  shiftTypes,
   hasUnpublishedChanges,
   onScheduleChanged,
 }: PreviewScheduleCardActionsProps) {
   const [scheduleActionsOpen, setScheduleActionsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [publishFeedback, setPublishFeedback] = useState<string | null>(null);
+  const [publishFeedbackIsError, setPublishFeedbackIsError] = useState(true);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
   function createSchedule() {
     setPublishFeedback(null);
+    // Founder's 2026-08-05 decision: one staffing-requirement row per active
+    // shift window (AM/PM/etc.), each carrying the same per-weekday
+    // headcount -- never a single windowCode: 'ALL' row, and never split
+    // across windows. This client-side check is only a fast pre-flight for
+    // the common case -- `previewRunAutoDistribution` independently
+    // re-derives the active windows and per-weekday headcount from the
+    // server-resolved tenant/location's own shift types and schedule
+    // settings, and never trusts this payload as authoritative (a stale
+    // `shiftTypes`/`requiredHeadcountByWeekday` prop cannot widen what the
+    // server actually runs).
+    const activeWindowCodes = deriveActiveScheduleWindowCodes(shiftTypes);
+    if (activeWindowCodes.length === 0) {
+      setPublishFeedbackIsError(true);
+      setPublishFeedback(t('autoScheduleNoWindowsConfigured'));
+      return;
+    }
     startTransition(async () => {
       const result = await previewRunAutoDistribution({
         periodStart,
         periodEnd,
-        staffingRequirements: requiredHeadcountByWeekday.map((requiredHeadcount, weekday) => ({
-          workDate: addIsoDays(periodStart, weekday),
-          windowCode: 'ALL',
-          requiredHeadcount,
-        })),
+        staffingRequirements: requiredHeadcountByWeekday.flatMap((requiredHeadcount, weekday) =>
+          activeWindowCodes.map((windowCode) => ({
+            workDate: addIsoDays(periodStart, weekday),
+            windowCode,
+            requiredHeadcount,
+          })),
+        ),
         overwriteExisting: false,
       });
       if (result.status === 'success') {
         await onScheduleChanged();
+        const { draftCount, shortages, unplaced } = result.data;
+        if (draftCount === 0) {
+          setPublishFeedbackIsError(true);
+          setPublishFeedback(describeEmptyAutoScheduleResult(lang, unplaced));
+        } else if (shortages.length > 0) {
+          setPublishFeedbackIsError(false);
+          setPublishFeedback(
+            lang === 'ja'
+              ? `${draftCount}件のシフトを作成しました。${shortages.length}件の時間帯で人員が不足しています。`
+              : `${draftCount} shift(s) created. ${shortages.length} time window(s) remain understaffed.`,
+          );
+        } else {
+          // A fully successful run (every requirement filled, nothing left
+          // short) previously left `publishFeedback` cleared with no
+          // confirmation at all - the manager had no way to tell the run
+          // succeeded versus silently doing nothing.
+          setPublishFeedbackIsError(false);
+          setPublishFeedback(
+            lang === 'ja' ? `${draftCount}件のシフトを作成しました。` : `${draftCount} shift(s) created.`,
+          );
+        }
+      } else if (result.status === 'invalid_input') {
+        // The server distinguishes why an auto-distribution request was
+        // rejected (no active windows vs. an all-zero configured headcount
+        // vs. a malformed payload) via `result.reason` - route each to its
+        // own accurate message instead of always blaming "no active shift
+        // types configured".
+        setPublishFeedbackIsError(true);
+        setPublishFeedback(describeAutoScheduleInvalidInput(lang, result.reason, t));
       } else {
+        setPublishFeedbackIsError(true);
         setPublishFeedback(previewWriteMessage(lang, result.status));
       }
     });
@@ -75,6 +176,7 @@ export function PreviewScheduleCardActions({
       if (result.status === 'success') {
         await onScheduleChanged();
       } else {
+        setPublishFeedbackIsError(true);
         setPublishFeedback(previewWriteMessage(lang, result.status));
       }
     });
@@ -101,7 +203,9 @@ export function PreviewScheduleCardActions({
         onConfirm={createSchedule}
         description={`${periodStart}〜${periodEnd} ${t('autoScheduleConfirmBody')}`}
       />
-      {publishFeedback ? <span style={{ fontSize: 12, color: '#B42318' }}>{publishFeedback}</span> : null}
+      {publishFeedback ? (
+        <span style={{ fontSize: 12, color: publishFeedbackIsError ? '#B42318' : demoColors.textMuted }}>{publishFeedback}</span>
+      ) : null}
     </div>
   );
 }

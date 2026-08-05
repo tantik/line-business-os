@@ -293,7 +293,7 @@ test('the preview settings summary keeps the demo manager operational fields vis
   // via translation keys rather than inline literals.
   const source = read('preview-settings-card.tsx');
   const managerDict = read(MANAGER_I18N_DICT);
-  assert.match(managerDict, /必要人数（曜日ごと）/);
+  assert.match(managerDict, /曜日ごとの各シフト必要人数/);
   assert.match(managerDict, /スタッフ最大勤務時間 \/ 月/);
   assert.match(managerDict, /シフト種別/);
   assert.match(source, /t\('requiredHeadcountHeading'\)/);
