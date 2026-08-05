@@ -94,12 +94,16 @@ test('decideCorrectionRequest returns not_found when the request never existed (
   // First call: the `.eq('status','pending')` update matches zero rows.
   // Second call: the existence follow-up also finds nothing -- genuinely
   // not found, not a decision race.
-  const { client } = recordingClient([
+  const { client, calls } = recordingClient([
     { data: null, error: null },
     { data: null, error: null },
   ]);
   const result = await decideCorrectionRequest(client, TENANT_ID, 'missing', 'approved');
   assert.equal(result.status, 'not_found');
+  assert.ok(
+    calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'),
+    'decision update must be guarded by .eq("status", "pending") to prevent a double-decide race',
+  );
 });
 
 test('decideCorrectionRequest returns stale_reference when the request exists but was already decided concurrently', async () => {
@@ -111,10 +115,14 @@ test('decideCorrectionRequest returns stale_reference when the request exists bu
   // the same `stale_reference` status `decideShiftExchange('approved', ...)`
   // uses for its own concurrent-decision race (see shift-exchanges.ts),
   // not the generic `not_found`.
-  const { client } = recordingClient([
+  const { client, calls } = recordingClient([
     { data: null, error: null },
     { data: { request_id: 'r1' }, error: null },
   ]);
   const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
   assert.equal(result.status, 'stale_reference');
+  assert.ok(
+    calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'),
+    'decision update must be guarded by .eq("status", "pending") to prevent a double-decide race',
+  );
 });

@@ -17,20 +17,31 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *     -- the employee has one or more historical references (shifts,
  *     attendance, requests, exchanges) and the guarded
  *     `api.permanently_delete_employee` RPC (0056) refused to delete it.
- *   - `stale_reference`: only ever returned by `decideShiftExchange('approved', ...)`
- *     -- `api.decide_workforce_shift_exchange` (0050) re-validates the
- *     referenced shift/shift-type at decision time (still published and in
- *     the future; requested shift type still active; schedule still
- *     conflict-free) and raises one of five named exceptions
- *     (`shift_exchange_shift_changed`/`shift_exchange_replacement_required`/
- *     `shift_exchange_schedule_conflict`/`shift_change_type_unavailable`/
- *     `shift_change_location_unavailable`) if any of that has changed since
- *     the request was made -- confirmed by direct reproduction against a
- *     realistic request whose target shift's `starts_at` had since passed.
- *     All five collapse to this one status: the actionable guidance is
- *     identical for each ("refresh - this request no longer matches the
- *     current schedule"), never a distinct message per internal exception
- *     name.
+ *   - `stale_reference`: the target row existed but is no longer in the
+ *     state this write assumed -- returned by two distinct call sites, each
+ *     with its own actionable-guidance meaning:
+ *       - `decideShiftExchange('approved', ...)`: `api.decide_workforce_shift_exchange`
+ *         (0050) re-validates the referenced shift/shift-type at decision
+ *         time (still published and in the future; requested shift type
+ *         still active; schedule still conflict-free) and raises one of five
+ *         named exceptions (`shift_exchange_shift_changed`/
+ *         `shift_exchange_replacement_required`/
+ *         `shift_exchange_schedule_conflict`/`shift_change_type_unavailable`/
+ *         `shift_change_location_unavailable`) if any of that has changed
+ *         since the request was made -- confirmed by direct reproduction
+ *         against a realistic request whose target shift's `starts_at` had
+ *         since passed. All five collapse to this one status: the actionable
+ *         guidance is identical for each ("refresh - this request no longer
+ *         matches the current schedule"), never a distinct message per
+ *         internal exception name.
+ *       - `decideCorrectionRequest(...)`: the request existed but its
+ *         `status` was no longer `pending` at decision time -- another
+ *         manager already approved/rejected it in the race window between
+ *         this manager loading the queue and submitting their own decision.
+ *         The actionable guidance here is "refresh - this request was
+ *         already decided", which is a different underlying cause than the
+ *         shift-exchange case above; callers must not assume `stale_reference`
+ *         always means "the shift changed."
  */
 export type WorkforceWriteResult<T> =
   | TenantAccessResult<T>

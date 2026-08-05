@@ -20,6 +20,7 @@ const ALL_FAILURE_STATUSES: PreviewWriteFailureStatus[] = [
   'not_found',
   'duplicate',
   'blocked_by_history',
+  'stale_reference',
   'unexpected_error',
 ];
 
