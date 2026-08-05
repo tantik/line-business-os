@@ -90,8 +90,39 @@ test('decideCorrectionRequest only writes status (decided_by/decided_at are serv
   assert.deepEqual(updateCall!.args[0], { status: 'approved' });
 });
 
-test('decideCorrectionRequest returns not_found when RLS/filter matches zero rows', async () => {
-  const { client } = recordingClient({ data: null, error: null });
+test('decideCorrectionRequest returns not_found when the request never existed (or is invisible under RLS)', async () => {
+  // First call: the `.eq('status','pending')` update matches zero rows.
+  // Second call: the existence follow-up also finds nothing -- genuinely
+  // not found, not a decision race.
+  const { client, calls } = recordingClient([
+    { data: null, error: null },
+    { data: null, error: null },
+  ]);
   const result = await decideCorrectionRequest(client, TENANT_ID, 'missing', 'approved');
   assert.equal(result.status, 'not_found');
+  assert.ok(
+    calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'),
+    'decision update must be guarded by .eq("status", "pending") to prevent a double-decide race',
+  );
+});
+
+test('decideCorrectionRequest returns stale_reference when the request exists but was already decided concurrently', async () => {
+  // First call: the `.eq('status','pending')` update matches zero rows
+  // because another manager's decision already flipped the status away
+  // from 'pending' between this manager loading the queue and submitting
+  // theirs. Second call: the existence follow-up finds the row -- this is
+  // the concurrent-decision race, not a missing request, so it must map to
+  // the same `stale_reference` status `decideShiftExchange('approved', ...)`
+  // uses for its own concurrent-decision race (see shift-exchanges.ts),
+  // not the generic `not_found`.
+  const { client, calls } = recordingClient([
+    { data: null, error: null },
+    { data: { request_id: 'r1' }, error: null },
+  ]);
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
+  assert.equal(result.status, 'stale_reference');
+  assert.ok(
+    calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'),
+    'decision update must be guarded by .eq("status", "pending") to prevent a double-decide race',
+  );
 });

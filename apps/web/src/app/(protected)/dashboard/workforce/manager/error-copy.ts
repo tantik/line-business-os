@@ -12,7 +12,7 @@ export function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>
     case 'blocked_by_history':
       return 'This has historical records and cannot be permanently deleted.';
     case 'stale_reference':
-      return 'This request no longer matches the current schedule. Refresh to see the latest state.';
+      return 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.';
     default:
       return result.message;
   }

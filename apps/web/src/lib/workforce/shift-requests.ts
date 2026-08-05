@@ -222,11 +222,30 @@ export async function decideCorrectionRequest(
       .update({ status: decision })
       .eq('tenant_id', tenantId)
       .eq('request_id', requestId)
+      .eq('status', 'pending')
       .select(REQUEST_SELECT)
       .maybeSingle();
 
     if (error) return mapWorkforceWriteError(error, 'decide this request');
-    if (!data) return { status: 'not_found' };
+    if (!data) {
+      // The `.eq('status', 'pending')` filter above means a zero-row result
+      // is ambiguous: either the request never existed/isn't visible under
+      // RLS (`not_found`), or it did exist and was already decided by a
+      // concurrent request in the race window between this manager loading
+      // the queue and submitting a decision (`stale_reference` -- the same
+      // status `decideShiftExchange('approved', ...)` uses for its own
+      // concurrent-decision race, see shift-exchanges.ts). Distinguish them
+      // with a follow-up existence check, not the pending filter.
+      const { data: existing, error: existingError } = await supabase
+        .schema('api')
+        .from('workforce_shift_requests')
+        .select('request_id')
+        .eq('tenant_id', tenantId)
+        .eq('request_id', requestId)
+        .maybeSingle();
+      if (existingError) return mapWorkforceWriteError(existingError, 'decide this request');
+      return { status: existing ? 'stale_reference' : 'not_found' };
+    }
     return { status: 'success', data: mapRequestRow(data as ApiWorkforceShiftRequestRow) };
   } catch (err) {
     return {

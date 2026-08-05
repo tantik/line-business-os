@@ -76,7 +76,6 @@ export default async function MameToChaPreviewManagerPage({
 }: {
   searchParams: Promise<{ weekOffset?: string }>;
 }) {
-  console.log('[perf-debug] PERF_TIMING_LOG env =', process.env.PERF_TIMING_LOG);
   const __pageStart = performance.now();
   await time('auth:requirePreviewUser', () => requirePreviewUser(MANAGER_PUBLIC_PATH));
 
