@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildStaffingRequirements,
+  classifyRawAutoDistributionInput,
   hasPositiveHeadcount,
   rawInputHasPositiveRequirement,
   type StaffingRequirementRowInput,
@@ -143,4 +144,32 @@ test('rawInputHasPositiveRequirement ignores malformed entries (non-object, or a
     rawInputHasPositiveRequirement({ staffingRequirements: [null, 'not an object', { requiredHeadcount: '2' }] }),
     false,
   );
+});
+
+// ---------------------------------------------------------------------------
+// classifyRawAutoDistributionInput - the typed reason behind an invalid_input
+// verdict, so the Server Action can report the real cause (malformed payload
+// vs. an all-zero configured headcount) instead of one generic message.
+// ---------------------------------------------------------------------------
+
+test('classifyRawAutoDistributionInput reports malformed_input for non-object input', () => {
+  assert.equal(classifyRawAutoDistributionInput(null), 'malformed_input');
+  assert.equal(classifyRawAutoDistributionInput(undefined), 'malformed_input');
+  assert.equal(classifyRawAutoDistributionInput('not an object'), 'malformed_input');
+  assert.equal(classifyRawAutoDistributionInput(42), 'malformed_input');
+});
+
+test('classifyRawAutoDistributionInput reports malformed_input for a missing or non-array staffingRequirements field', () => {
+  assert.equal(classifyRawAutoDistributionInput({}), 'malformed_input');
+  assert.equal(classifyRawAutoDistributionInput({ staffingRequirements: 'not an array' }), 'malformed_input');
+  assert.equal(classifyRawAutoDistributionInput({ staffingRequirements: null }), 'malformed_input');
+});
+
+test('classifyRawAutoDistributionInput reports no_positive_headcount for a well-formed but all-zero requirement set', () => {
+  assert.equal(classifyRawAutoDistributionInput({ staffingRequirements: [] }), 'no_positive_headcount');
+  assert.equal(classifyRawAutoDistributionInput({ staffingRequirements: [{ requiredHeadcount: 0 }] }), 'no_positive_headcount');
+});
+
+test('classifyRawAutoDistributionInput returns null (no invalid_input) when at least one requirement is positive', () => {
+  assert.equal(classifyRawAutoDistributionInput({ staffingRequirements: [{ requiredHeadcount: 0 }, { requiredHeadcount: 2 }] }), null);
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -15,9 +15,11 @@ import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_MONTHLY_REPORT, HELP_MANAGER_SHIFT_TABLE } from '@/lib/demo/cafe/helpContent';
 import { formatMonthDay } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonSecondary, card, demoColors, mutedText, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
-import { toManagerViewShiftTypes } from './manager-view-model';
+import { computeManagerShortageDateSet, toManagerViewAssignments, toManagerViewShiftTypes } from './manager-view-model';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { WeekRefreshController } from './week-refresh-controller';
+import type { PreviewScheduleWeek } from './actions/schedule-actions';
 
 /**
  * `'use client'` chrome for the manager シフト表 card -- split out of
@@ -82,6 +84,19 @@ export function PreviewManagerViewChrome({
     weekOffset,
     assignments: assignments ?? [],
   });
+  // The stale-response/dedup/forced-replay state machine (see
+  // `week-refresh-controller.ts` for the full invariant/rationale doc and its
+  // own deterministic tests) - one instance per mount, never recreated across
+  // re-renders. `setSchedule` is a stable identity across renders (a
+  // `useState` setter), so capturing it once here is safe.
+  const controllerRef = useRef<WeekRefreshController<PreviewScheduleWeek> | null>(null);
+  if (!controllerRef.current) {
+    controllerRef.current = new WeekRefreshController<PreviewScheduleWeek>(weekOffset, {
+      fetchWeek: previewGetScheduleWeek,
+      onApply: setSchedule,
+    });
+  }
+  const controller = controllerRef.current;
 
   const dates = weekDates(schedule.periodStart);
   const todayIso = todayIsoInTimeZone(timeZone);
@@ -91,6 +106,12 @@ export function PreviewManagerViewChrome({
     estimatedEarningsSummary((attendance ?? []).filter((row) => row.employeeId === entry.staffId), monthPrefix, entry.hourlyWageYen),
   ]));
   const estimatedLabourCost = Object.values(monthlySummaries).reduce((sum, item) => sum + (item.estimatedEarningsYen ?? 0), 0);
+  const shortageDateSet = computeManagerShortageDateSet(
+    dates,
+    toManagerViewAssignments(schedule.assignments, timeZone),
+    shiftTypes ?? [],
+    requiredHeadcountByWeekday,
+  );
   const managerLegendShiftTypes = (shiftTypes ?? []).filter(
     (shiftType) =>
       shiftType.isActive ||
@@ -103,15 +124,10 @@ export function PreviewManagerViewChrome({
     return targetOffset === 0 ? `${basePath}/manager` : `${basePath}/manager?weekOffset=${targetOffset}`;
   }
 
-  async function refreshWeek(targetOffset: number) {
-    const result = await previewGetScheduleWeek(targetOffset);
-    if (result.status === 'success') setSchedule(result.data);
-  }
-
   function navigateToWeek(targetOffset: number) {
     if (targetOffset === schedule.weekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
     startNavigation(async () => {
-      await refreshWeek(targetOffset);
+      await controller.refresh(targetOffset);
       // Keeps the URL bookmarkable/shareable without a Next navigation - a
       // real `router.push`/`router.replace` would re-run the whole Manager
       // page (see the module doc comment above) and reset window scroll,
@@ -133,8 +149,9 @@ export function PreviewManagerViewChrome({
           periodStart={schedule.periodStart}
           periodEnd={schedule.periodEnd}
           requiredHeadcountByWeekday={requiredHeadcountByWeekday}
+          shiftTypes={shiftTypes ?? []}
           hasUnpublishedChanges={schedule.assignments.some((assignment) => !assignment.published)}
-          onScheduleChanged={() => refreshWeek(schedule.weekOffset)}
+          onScheduleChanged={() => controller.refresh(schedule.weekOffset, { force: true })}
         />
       </div>
 
@@ -202,7 +219,15 @@ export function PreviewManagerViewChrome({
             assignments={schedule.assignments}
             shiftTypes={shiftTypes === null ? [] : shiftTypes}
             monthlySummaries={monthlySummaries}
-            onAssignmentsChanged={(next) => setSchedule((prev) => ({ ...prev, assignments: next }))}
+            shortageDateSet={shortageDateSet}
+            onAssignmentsChanged={(next) => {
+              // A single-cell save/unassign is itself a newer snapshot than
+              // anything already in flight for the currently displayed week -
+              // invalidate that offset's in-flight fetch the same way a
+              // newer `controller.refresh` call for that offset would.
+              controller.invalidate(schedule.weekOffset);
+              setSchedule((prev) => ({ ...prev, assignments: next }));
+            }}
           />
         </div>
       )}

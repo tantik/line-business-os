@@ -72,6 +72,7 @@ interface ManagerDict {
   autoScheduleButton: string;
   publishScheduleButton: string;
   autoScheduleConfirmBody: string;
+  autoScheduleNoWindowsConfigured: string;
   settingsCardTitle: string;
   requiredHeadcountHeading: string;
   maxWorkHoursLabel: string;
@@ -192,8 +193,9 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     autoScheduleButton: '自動シフト作成',
     publishScheduleButton: 'スケジュールを公開',
     autoScheduleConfirmBody: 'のシフトを、スタッフの希望と設定内容にもとづいて自動作成します。公開済みのシフトは上書きしません。続けますか？',
+    autoScheduleNoWindowsConfigured: '有効なシフト種別（AM/PMなど）が設定されていないため、自動作成できません。「設定」でシフト種別を有効にしてください。',
     settingsCardTitle: '設定',
-    requiredHeadcountHeading: '必要人数（曜日ごと）',
+    requiredHeadcountHeading: '曜日ごとの各シフト必要人数',
     maxWorkHoursLabel: 'スタッフ最大勤務時間 / 月',
     shiftTypesHeading: 'シフト種別',
     shiftTypesLoadError: 'シフト種別を読み込めませんでした。',
@@ -313,8 +315,10 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     publishScheduleButton: 'Publish schedule',
     autoScheduleConfirmBody:
       'Automatically creates shifts using staff shift preferences and your settings. Already-published shifts are not overwritten. Continue?',
+    autoScheduleNoWindowsConfigured:
+      'No active shift types (e.g. AM/PM) are configured, so shifts cannot be auto-created. Enable shift types under Settings first.',
     settingsCardTitle: 'Settings',
-    requiredHeadcountHeading: 'Required headcount (per weekday)',
+    requiredHeadcountHeading: 'Required staff per shift, by weekday',
     maxWorkHoursLabel: 'Max staff working hours / month',
     shiftTypesHeading: 'Shift types',
     shiftTypesLoadError: 'Could not load shift types.',

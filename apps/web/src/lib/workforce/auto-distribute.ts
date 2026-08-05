@@ -132,7 +132,7 @@ export interface AutoDistributeResult {
   nonSubmitters: NonSubmitter[];
 }
 
-const KNOWN_WINDOW_CODES: readonly WindowCode[] = ['ALL', 'AM', 'PM', 'A-P', 'SHORT_AM'];
+export const KNOWN_WINDOW_CODES: readonly WindowCode[] = ['ALL', 'AM', 'PM', 'A-P', 'SHORT_AM'];
 
 /** Normalizes a free-text shift_type.code to a known WindowCode, or null (non-windowed, e.g. CUSTOM). Case-insensitive; `KONS` is an accepted alias for `SHORT_AM` per the task brief ("SHORT_AM / Kons"). */
 const WINDOW_CODE_ALIASES: Readonly<Record<string, WindowCode>> = {
@@ -144,8 +144,30 @@ const WINDOW_CODE_ALIASES: Readonly<Record<string, WindowCode>> = {
   KONS: 'SHORT_AM',
 };
 
-function resolveWindowCode(code: string): WindowCode | null {
+export function resolveWindowCode(code: string): WindowCode | null {
   return WINDOW_CODE_ALIASES[code.toUpperCase()] ?? null;
+}
+
+/**
+ * The deduped, sorted set of `WindowCode`s a tenant's *active* shift types
+ * actually resolve to (`KNOWN_WINDOW_CODES` order, not input order) -- an
+ * inactive shift type or one whose `code` doesn't resolve (CUSTOM, unknown)
+ * contributes nothing. Used by the manager auto-distribution UI to build one
+ * staffing-requirement row per real active window instead of a single
+ * `'ALL'` row, and by the shortage indicator to know which windows a given
+ * date's requirement actually applies to -- one shared source of truth for
+ * both.
+ */
+export function deriveActiveScheduleWindowCodes(
+  shiftTypes: readonly Pick<AutoDistributeShiftType, 'code' | 'isActive'>[],
+): WindowCode[] {
+  const resolved = new Set<WindowCode>();
+  for (const shiftType of shiftTypes) {
+    if (!shiftType.isActive) continue;
+    const windowCode = resolveWindowCode(shiftType.code);
+    if (windowCode) resolved.add(windowCode);
+  }
+  return KNOWN_WINDOW_CODES.filter((code) => resolved.has(code));
 }
 
 function parseLocalTimeToMinutes(time: LocalTime): number {
