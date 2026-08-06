@@ -400,9 +400,10 @@ surface one; if it does, it stops the closeout and requires immediate founder no
   resolve to "irreversible, no confirmation, or misleading copy."
 - **P1-3 (pending verification)**: A measured (not narrative) performance regression against
   practical usability once Section 10 baseline measurement exists.
-- **P1-4 (pending decision, not a code defect)**: the audit-logging conflict (Section 12) —
-  classified P1 because it is a conflict against a written non-negotiable rule, but its
-  remediation is a founder decision first, implementation second.
+- **P1-4 (Founder decision recorded 2026-08-06, not a code defect)**: ADR 0011 accepts the
+  existing DB-trigger actor/timestamp stamps as a temporary Cafe v2.1 Preview Freeze exception.
+  The global rule remains unchanged and full business audit events are mandatory before
+  Commercial Release.
 - Missing essential loading/error handling proven to cause a user-visible failure (route-level
   `loading.tsx`/`error.tsx` absence is a candidate — confirm severity via Section 5-8 execution
   before treating it as more than a code-level gap).

@@ -99,7 +99,7 @@ race, and EN alert localization (commit `a8eef9a`). Recorded here as
 **Implemented** and merged; not reopened, duplicated, re-scoped, or
 re-verified by this task, per this task's explicit instruction.
 
-## Outstanding founder decision: P1-4, audit-logging conflict
+## Founder decision: P1-4 Preview audit exception
 
 Baseline plan Section 12/13, **P1-4**: `AGENTS.md` rule 7 requires
 `writeAudit` on every mutation; no Cafe/Inventory mutation calls it today —
@@ -109,15 +109,13 @@ as an intentional substitute, since `apps/web` has no service-role client to
 write `audit.audit_logs` directly). This is a real conflict against a written
 non-negotiable rule, not an oversight.
 
-This task does not resolve P1-4. It remains an outstanding founder decision
-between two options recorded in the baseline plan:
-
-1. formally except Cafe/Inventory from `AGENTS.md` rule 7, or
-2. scope a lightweight `writeAudit` path for these modules.
-
-Resolving this is out of scope for `cafe-freeze` (documentation/decision
-scope only, per this task's `allowed_scope`, which does not include
-`AGENTS.md` or `supabase/migrations/**`).
+**Founder accepted on 2026-08-06:** for Cafe v2.1 Preview Freeze only, the
+existing DB-trigger actor/timestamp stamping is accepted as a temporary,
+documented exception. Full business audit events remain mandatory before
+Commercial Release. The global `AGENTS.md` rule is not edited or weakened.
+No migration, RLS, grant, auth, service-role, or Cloud-data change is
+authorized by this decision. The durable boundaries and exit criteria are
+recorded in ADR 0011.
 
 ## Not done — explicitly outstanding, not fabricated
 
@@ -141,8 +139,9 @@ are **not** completed by this task and are not claimed as PASS/FAIL here:
 - **P1-2** (destructive-action gaps) and **P1-3** (measured performance
   regression) — both explicitly "pending verification" in the baseline plan
   and not resolved here.
-- **P1-4** (audit-logging conflict) — outstanding founder decision, see
-  above.
+- **P1-4** (audit-logging conflict) — resolved for Preview Freeze by the
+  bounded Founder decision in ADR 0011; Commercial Release remains blocked
+  until full business audit events exist.
 - **Section 15 regression plan** — the minimum critical smoke list (M1,
   M7-M10, S1, S4, S8, R1-R3, I1-I2) requires the same live-Preview access as
   Sections 5-8 and has not been executed by this task.
@@ -215,11 +214,8 @@ fixture was available.
 
 1. Mutation and high-impact rows require disposable acceptance fixtures; no
    Cloud data write was performed during this evidence pass.
-2. P1-4 still requires an explicit Founder decision. The recommended bounded
-   v2.1 choice is to document the existing DB-trigger actor/timestamp stamping
-   as a temporary exception, keep full business audit events as a mandatory
-   pre-commercial Platform Foundation task, and not weaken the global rule
-   silently. A new audit RPC/migration is a separate security/DB design task.
+2. P1-4 is resolved for Preview Freeze by ADR 0011. Full business audit
+   events remain a mandatory pre-commercial Platform Foundation task.
 3. The observed Manager and week-navigation timings warrant a later measured
    performance investigation, but do not prove a DB or server regression.
 
