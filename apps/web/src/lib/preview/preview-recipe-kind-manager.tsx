@@ -15,6 +15,7 @@ import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { resolveRecipeListTitle } from './recipe-list-title';
 
 export interface PreviewRecipeKindManagerProps {
   recipes: WorkforceRecipe[] | null;
@@ -248,7 +249,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
               <div style={{ width: 44, height: 44, borderRadius: 7, overflow: 'hidden', background: demoColors.surface, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                 {mediaUrls[recipe.recipeId] ? <img src={mediaUrls[recipe.recipeId]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (recipe.contentKind === 'instruction' ? '🛠️' : '🍵')}
               </div>
-              <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipe.titleJa}</strong>
+              <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resolveRecipeListTitle(recipe, lang)}</strong>
                 <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
               </div>
               {recipe.status === 'archived' ? (
