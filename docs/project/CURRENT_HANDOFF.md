@@ -1,26 +1,26 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 14:35:36 +09:00**
+Generated: **2026-08-06 14:43:04 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
 ## Repository snapshot
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
-- Branch: `dev`.
-- HEAD: `52e801d02d39623422c91815ebbc56ab201bc7c7`.
-- `origin/dev`: `52e801d02d39623422c91815ebbc56ab201bc7c7` - Merge pull request #195 from tantik/docs/project-state-staff-acceptance.
-- Working tree: 4 tracked path(s) changed; 14 untracked path(s).
+- Branch: `docs/cafe-v2-1-disposable-acceptance`.
+- HEAD: `71541e02532a0a496e1830837b18f2eb62179660`.
+- `origin/dev`: `71541e02532a0a496e1830837b18f2eb62179660` - Merge pull request #196 from tantik/docs/cafe-v2-1-p1-4-decision.
+- Working tree: 2 tracked path(s) changed; 13 untracked path(s).
 
 ## Last significant event
 
-- Kind: **FounderDecision**
-- Event: Founder accepted ADR 0011: bounded Cafe v2.1 Preview audit exception
-- Evidence: Founder confirmation in project task on 2026-08-06; ADR 0011; full business audit events remain mandatory before Commercial Release
+- Kind: **ReleaseGate**
+- Event: Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data
+- Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared
 
 ## Exactly one next task
 
-**Prepare safe disposable fixtures for remaining Cafe v2.1 mutation gates, reconcile P1-2/P1-3, and request Founder Freeze acceptance**
+**Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: Founder accepted ADR 0011: bounded Cafe v2.1 Preview audit exception. Evidence: Founder confirmation in project task on 2026-08-06; ADR 0011; full business audit events remain mandatory before Commercial Release. The one next task is:
-Prepare safe disposable fixtures for remaining Cafe v2.1 mutation gates, reconcile P1-2/P1-3, and request Founder Freeze acceptance
+recorded event is: Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data. Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared. The one next task is:
+Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging

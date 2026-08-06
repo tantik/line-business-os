@@ -196,7 +196,7 @@ fixture was available.
 | Area | PASS | BLOCKED | N/A |
 |---|---|---|---|
 | Manager M1-M35 | M1 authenticated route load; M4 attention centre renders; M5 previous week completes; M19 recipe list opens; M20 active-language title; M34 automated server-action role separation | M2 requires Staff identity; M3; M6 `+8/-8` bound not fully exercised; M7-M18; M21-M33; M35 full-matrix console claim (observed subset had zero errors) | None |
-| Staff S1-S23 | S1 authenticated Staff route; S2 Manager without Staff profile fails closed; S4 published schedule renders with caller shown as `Me`/`自分` and other names pseudonymized; S5/S6 week navigation; S18 list/detail; S19 JA/EN and JA-original fallback; S22 Staff direct Manager URL denied; S23 zero console errors on observed read paths | S3 menu double-close detail not exhaustively checked; S7 unpublished fixture unavailable; S8-S17 and S20-S21 require safe interaction/write fixtures | None |
+| Staff S1-S23 | S1 authenticated Staff route; S2 Manager without Staff profile fails closed; S3 header menu contains Staff/Recipes/Log out and the logo targets Staff; S4 published schedule renders with caller shown as `Me`/`自分` and other names pseudonymized; S5/S6 week navigation; S8 future own shift opens the change/cancel request dialog; S18 list/detail; S19 JA/EN and JA-original fallback; S22 Staff direct Manager URL denied; S23 zero console errors on observed read paths | S7 unpublished fixture unavailable; S9-S17 and S20-S21 require a suitable safe interaction/write fixture | None |
 | Recipes R1-R15 | R1 Manager list; R4 Staff read-only UI; R5 detail JA/EN resolution; R6 Manager list JA/EN; R7 JA-original fallback marker | R2 Manager edit-detail half not completed; R3; R8-R9; R11-R15 | R10 automatic-generation UI is not an implemented user feature |
 | Inventory I1-I14 | I7 Staff search; I8 Staff no-results state after PR #193; I13 observed with four-item Cafe fixture; Staff shortage state visually distinct (supports S16) | I1-I6 and I9-I12 require Manager execution and/or safe count/item fixtures; I14 is a known Manager consistency finding | None |
 
@@ -235,3 +235,23 @@ fixture was available.
   worked. A missing no-results message was found, fixed in PR #193, merged as
   `49981f5`, and manually reverified on canonical Preview in English with zero
   console errors.
+
+### Authorized disposable-fixture pass — 2026-08-06
+
+- The Founder authorized disposable fixtures in Preview/dev for Cafe v2.1
+  acceptance, excluding production and any migration/RLS change.
+- S3 PASS: the authenticated Staff header menu was opened and inspected in
+  English. It contained Staff, Recipes, and Log out; the logo linked to
+  `/mame-to-cha`, and Recipes linked to `/mame-to-cha/recipes`.
+- S8 PASS: selecting the caller's future published shift for 2026-08-07 opened
+  `Request a shift change or cancellation` and displayed the planned
+  `07:00-15:00` shift.
+- S9 remains BLOCKED: the selected assignment did not expose a new-request
+  form because the current fixture already had request-related state. No
+  second request was forced and no shared acceptance data was changed.
+- Supplemental validation evidence: entering `-1` for Ice in Staff Inventory
+  and attempting Save produced the item-specific message
+  `Ice: Please check your input.` The value was then cleared and the dialog
+  closed. No stock count was saved; this does not claim S17/I2 PASS.
+- No Preview/dev write, production access, migration, RLS, secret, role, or
+  permission change was performed in this pass.
