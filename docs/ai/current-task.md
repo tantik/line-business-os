@@ -67,11 +67,33 @@ routes, localization, or reusable data contracts are affected.
   in ADR 0011. Full business audit events remain mandatory before Commercial
   Release; no migration, RLS, auth, role, permission, or Cloud-data write is
   authorized by this decision.
+- 2026-08-06, static Manager audit: no browser-automation tool was available
+  to this agent, so live Manager Acceptance (rows `M2-M18`, `M21-M33` of the
+  Live Preview Acceptance Matrix) could not be executed. At Founder
+  direction, a static code-only review was performed instead against the
+  real `preview.oruwa.jp/mame-to-cha/manager` route
+  (`apps/web/src/app/%5Fclient-preview/mame-to-cha/manager/page.tsx`, reached
+  via the `preview.oruwa.jp`-only host rewrite in
+  `apps/web/src/lib/preview/rewrite-config.mjs`). Full results, with a
+  dedicated Static Engineering Evidence / Live Acceptance Status column
+  split (this audit's own `SA1`-`SA11` area numbers, distinct from the Live
+  Matrix's `M`-row numbers — no 1:1 correspondence), are in
+  `docs/product/cafe-package-v2-1-acceptance-report.md`, section "Manager
+  static code audit — 2026-08-06". No P0/P1 defect found; only P2/P3 backlog
+  items. Static Engineering Evidence is `VERIFIED`; Live Manager Acceptance
+  remains `BLOCKED` for every row in that table — static code review does
+  not close, and must never be reported as closing, a BLOCKED live row.
+- 2026-08-06 status summary: Cafe v2.1 Static Engineering Audit: **PASS**;
+  Cafe v2.1 Live Manager Acceptance: **BLOCKED**; Founder Technical Freeze:
+  **NOT YET GRANTED**; Commercial Release: **NOT DECLARED**.
 
 ## Exact next gate
 
-1. Establish an isolated Manager session and use only fixtures with a proven
-   full rollback for the remaining Manager/Staff mutation rows; do not mutate
-   shared acceptance data merely to turn rows green.
+1. Establish an isolated Manager session (real browser, two profiles for
+   Manager/Staff) and use only fixtures with a proven full rollback for the
+   remaining Manager/Staff mutation rows; do not mutate shared acceptance
+   data merely to turn rows green. This requires a human or a tool with
+   authenticated browser-session capability — no such tool was available to
+   the agent that ran the 2026-08-06 static audit.
 2. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
    do not start Cafe v2.2 automatically.
