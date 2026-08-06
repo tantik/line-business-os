@@ -54,20 +54,22 @@ routes, localization, or reusable data contracts are affected.
   errors on the observed paths.
 - A Manager account without a Staff profile failed closed on direct Staff URL
   entry, satisfying S2. This is not evidence for S1 or Staff-to-Manager denial.
-- A separate authenticated Staff identity is not currently available in the
-  controlled browser session. Staff acceptance, role-isolated Staff mutations,
-  and Staff performance remain BLOCKED rather than implicitly passed.
+- A separate authenticated Staff identity was established and manually passed
+  Staff route load/self-scope, week navigation, Staff-to-Manager denial,
+  Recipes read-only JA/EN, Inventory search/shortage/no-results, and observed
+  console checks. PR #193 fixed the confirmed Staff Inventory no-results gap
+  and was reverified on canonical Preview after merge.
+- Staff and Manager mutation rows that need disposable Cloud fixtures remain
+  BLOCKED rather than implicitly passed.
 - P1-4 audit logging remains an explicit Founder decision. No migration, RLS,
   auth, role, permission, or Cloud-data write is authorized by this handoff.
 
 ## Exact next gate
 
-1. Establish a separate authenticated Staff Preview session without exposing
-   credentials in chat or Git.
-2. Execute S1, S3-S23, M2, R2/R4/R13, and Staff Inventory/Recipes observations
-   with safe disposable fixtures where writes are required.
-3. Record the Founder decision for P1-4. Recommended for v2.1: a documented,
+1. Prepare safe disposable fixtures for the remaining Staff/Manager mutation
+   rows; do not mutate shared acceptance data merely to turn rows green.
+2. Record the Founder decision for P1-4. Recommended for v2.1: a documented,
    temporary exception for the existing DB-trigger actor/timestamp stamping,
    with full business audit events mandatory before Commercial Release.
-4. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
+3. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
    do not start Cafe v2.2 automatically.

@@ -197,9 +197,9 @@ fixture was available.
 | Area | PASS | BLOCKED | N/A |
 |---|---|---|---|
 | Manager M1-M35 | M1 authenticated route load; M4 attention centre renders; M5 previous week completes; M19 recipe list opens; M20 active-language title; M34 automated server-action role separation | M2 requires Staff identity; M3; M6 `+8/-8` bound not fully exercised; M7-M18; M21-M33; M35 full-matrix console claim (observed subset had zero errors) | None |
-| Staff S1-S23 | S2 Manager account without a Staff profile fails closed on direct Staff URL with the no-profile screen and zero console errors | S1 and S3-S23 require a separate authenticated Staff identity and/or safe mutation fixture | None |
-| Recipes R1-R15 | R1 Manager list; R5 detail JA/EN resolution; R6 Manager list JA/EN; R7 JA-original fallback marker | R2 requires both Manager and Staff identities; R3-R4; R8-R9; R11-R15 | R10 automatic-generation UI is not an implemented user feature |
-| Inventory I1-I14 | None newly promoted by this evidence pass | I1-I14 require isolated Manager/Staff execution and safe count/item fixtures | None |
+| Staff S1-S23 | S1 authenticated Staff route; S2 Manager without Staff profile fails closed; S4 published schedule renders with caller shown as `Me`/`自分` and other names pseudonymized; S5/S6 week navigation; S18 list/detail; S19 JA/EN and JA-original fallback; S22 Staff direct Manager URL denied; S23 zero console errors on observed read paths | S3 menu double-close detail not exhaustively checked; S7 unpublished fixture unavailable; S8-S17 and S20-S21 require safe interaction/write fixtures | None |
+| Recipes R1-R15 | R1 Manager list; R4 Staff read-only UI; R5 detail JA/EN resolution; R6 Manager list JA/EN; R7 JA-original fallback marker | R2 Manager edit-detail half not completed; R3; R8-R9; R11-R15 | R10 automatic-generation UI is not an implemented user feature |
+| Inventory I1-I14 | I7 Staff search; I8 Staff no-results state after PR #193; I13 observed with four-item Cafe fixture; Staff shortage state visually distinct (supports S16) | I1-I6 and I9-I12 require Manager execution and/or safe count/item fixtures; I14 is a known Manager consistency finding | None |
 
 ### M20 / R6 post-merge manual proof
 
@@ -213,15 +213,29 @@ fixture was available.
 
 ### Remaining blockers
 
-1. A separate authenticated Staff session is required for S1, S3-S23, M2,
-   R2/R4/R13, and the Staff side of Inventory/Recipes performance evidence.
-   A Manager session, public demo route, or mock identity is not a substitute.
-2. Mutation and high-impact rows require disposable acceptance fixtures; no
+1. Mutation and high-impact rows require disposable acceptance fixtures; no
    Cloud data write was performed during this evidence pass.
-3. P1-4 still requires an explicit Founder decision. The recommended bounded
+2. P1-4 still requires an explicit Founder decision. The recommended bounded
    v2.1 choice is to document the existing DB-trigger actor/timestamp stamping
    as a temporary exception, keep full business audit events as a mandatory
    pre-commercial Platform Foundation task, and not weaken the global rule
    silently. A new audit RPC/migration is a separate security/DB design task.
-4. The observed Manager and week-navigation timings warrant a later measured
+3. The observed Manager and week-navigation timings warrant a later measured
    performance investigation, but do not prove a DB or server regression.
+
+### Staff-session evidence — 2026-08-06
+
+- Authenticated Staff cold reload: **10.3 s**; functional PASS, performance
+  follow-up retained. Other employee names were pseudonymized while the caller
+  was labelled `Me`/`自分`.
+- Direct `/mame-to-cha/manager`: denied with the localized no-access screen in
+  **5.9 s**; no Manager data rendered and no console errors were captured.
+- Next week: **0.15 s**; previous week: **3.2 s**; both returned the expected
+  date ranges with no console errors.
+- Recipes list reload: **5.3 s**; Matcha Latte detail open: **0.3 s**. The Staff
+  surface exposed no edit/save/archive/delete affordances. JA/EN switched the
+  full detail and displayed `JA original` for untranslated content.
+- Staff Inventory opened in **0.9 s**. Search filtering and shortage styling
+  worked. A missing no-results message was found, fixed in PR #193, merged as
+  `49981f5`, and manually reverified on canonical Preview in English with zero
+  console errors.
