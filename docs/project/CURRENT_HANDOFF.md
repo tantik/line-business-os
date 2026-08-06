@@ -1,6 +1,6 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 14:10:51 +09:00**
+Generated: **2026-08-06 14:29:22 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
@@ -8,19 +8,19 @@ Status: **Operational continuation artifact; repository evidence takes priority*
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
 - Branch: `dev`.
-- HEAD: `1bb58c38011fb6f9692f5406bb407405f39b304b`.
-- `origin/dev`: `1bb58c38011fb6f9692f5406bb407405f39b304b` - Merge pull request #191 from tantik/docs/cafe-v2-1-evidence-reconciliation.
+- HEAD: `74f158271e8a6618fd86b6e1b82bba96d477d3aa`.
+- `origin/dev`: `74f158271e8a6618fd86b6e1b82bba96d477d3aa` - Merge pull request #194 from tantik/docs/cafe-v2-1-staff-evidence.
 - Working tree: clean; 13 untracked path(s).
 
 ## Last significant event
 
 - Kind: **StageTransition**
-- Event: PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed
-- Evidence: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors
+- Event: PR #194 merged: isolated Staff Preview acceptance recorded
+- Evidence: GitHub PR #194; Staff S1/S4/S5/S6/S18/S19/S22 and Inventory/Recipes read gates observed; PR #193 no-results fix reverified on canonical Preview; CI and Vercel PASS
 
 ## Exactly one next task
 
-**Establish a separate authenticated Staff Preview session and execute the blocked Staff/role gates; record the Founder decision for P1-4 before Cafe Freeze**
+**Obtain the Founder P1-4 audit decision and prepare disposable fixtures for the remaining Cafe v2.1 mutation gates before Cafe Freeze**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed. Evidence: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors. The one next task is:
-Establish a separate authenticated Staff Preview session and execute the blocked Staff/role gates; record the Founder decision for P1-4 before Cafe Freeze
+recorded event is: PR #194 merged: isolated Staff Preview acceptance recorded. Evidence: GitHub PR #194; Staff S1/S4/S5/S6/S18/S19/S22 and Inventory/Recipes read gates observed; PR #193 no-results fix reverified on canonical Preview; CI and Vercel PASS. The one next task is:
+Obtain the Founder P1-4 audit decision and prepare disposable fixtures for the remaining Cafe v2.1 mutation gates before Cafe Freeze
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging
