@@ -9,6 +9,8 @@ import {
   type WorkforceRecipeDetail,
 } from '@/lib/workforce/recipes';
 import { parseUpsertRecipeInput } from '@/lib/workforce/recipe-input';
+import { listContentTranslationsForField } from '@/lib/content/translations';
+import { withResolvedRecipeListTitles } from '../manager-recipe-title-translations';
 import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 
@@ -53,8 +55,23 @@ export async function previewListRecipeMediaUrls(
 export async function previewGetRecipesManagerData(): Promise<PreviewWriteResult<WorkforceRecipe[]>> {
   const context = await resolvePreviewManagerContext('workforce.recipe.manage');
   if (context.status !== 'ok') return context.result;
-  const result = await listWorkforceRecipes(context.context.supabase, context.context.tenantId);
-  return mapWorkforceWriteResult(result);
+  const [recipes, translations] = await Promise.all([
+    listWorkforceRecipes(context.context.supabase, context.context.tenantId),
+    listContentTranslationsForField(
+      context.context.supabase,
+      context.context.tenantId,
+      'workforce_recipe',
+      'title',
+    ),
+  ]);
+  if (recipes.status !== 'success') return mapWorkforceWriteResult(recipes);
+  return {
+    status: 'success',
+    data: withResolvedRecipeListTitles(
+      recipes.data,
+      translations.status === 'success' ? translations.data : [],
+    ),
+  };
 }
 
 export async function previewGetRecipeForEdit(recipeId: string): Promise<PreviewWriteResult<PreviewEditableRecipeDetail>> {
