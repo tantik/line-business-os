@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 13:33:38 +09:00.
+- Generated: 2026-08-06 14:00:21 +09:00.
 - Checked-out branch: `dev`.
-- HEAD: `71c48036ad3f574ed76af76b71f4b690dc59d7e0`.
-- `origin/dev`: `71c48036ad3f574ed76af76b71f4b690dc59d7e0` - Merge pull request #187 from tantik/docs/project-state-auto-handoff.
-- Working tree: 5 tracked path(s) changed; 13 untracked path(s).
-- Significant event: **Merge** - PR #187 merged: ORUWA Project State and one-action auto-handoff system published.
-- Evidence supplied by operator: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS.
+- HEAD: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf`.
+- `origin/dev`: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf` - Merge pull request #189 from tantik/fix/cafe-v2-1-manager-recipe-translated-titles.
+- Working tree: clean; 13 untracked path(s).
+- Significant event: **Merge** - PR #189 merged: Manager EN recipe titles now use current content translations.
+- Evidence supplied by operator: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->
