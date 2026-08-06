@@ -7,10 +7,10 @@ Exactly one task: **Close remaining Cafe Package v2.1 acceptance gates.**
 <!-- AUTO:NEXT_TASK:START -->
 ## Automated continuation
 
-- Updated: 2026-08-06 13:33:38 +09:00.
-- Significant event: **Merge** - PR #187 merged: ORUWA Project State and one-action auto-handoff system published.
-- Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS.
-- Next task: **Close the remaining Cafe Package v2.1 acceptance evidence gaps**
+- Updated: 2026-08-06 14:00:21 +09:00.
+- Significant event: **Merge** - PR #189 merged: Manager EN recipe titles now use current content translations.
+- Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors.
+- Next task: **Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision**
 
 Reverify Git and the linked task-specific sources before implementation. This block never authorizes production, database, security, billing, messaging, or destructive actions.
 <!-- AUTO:NEXT_TASK:END -->

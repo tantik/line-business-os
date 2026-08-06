@@ -1,6 +1,6 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 13:33:38 +09:00**
+Generated: **2026-08-06 14:00:21 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
@@ -8,19 +8,19 @@ Status: **Operational continuation artifact; repository evidence takes priority*
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
 - Branch: `dev`.
-- HEAD: `71c48036ad3f574ed76af76b71f4b690dc59d7e0`.
-- `origin/dev`: `71c48036ad3f574ed76af76b71f4b690dc59d7e0` - Merge pull request #187 from tantik/docs/project-state-auto-handoff.
-- Working tree: 5 tracked path(s) changed; 13 untracked path(s).
+- HEAD: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf`.
+- `origin/dev`: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf` - Merge pull request #189 from tantik/fix/cafe-v2-1-manager-recipe-translated-titles.
+- Working tree: clean; 13 untracked path(s).
 
 ## Last significant event
 
 - Kind: **Merge**
-- Event: PR #187 merged: ORUWA Project State and one-action auto-handoff system published
-- Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS
+- Event: PR #189 merged: Manager EN recipe titles now use current content translations
+- Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors
 
 ## Exactly one next task
 
-**Close the remaining Cafe Package v2.1 acceptance evidence gaps**
+**Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: PR #187 merged: ORUWA Project State and one-action auto-handoff system published. Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS. The one next task is:
-Close the remaining Cafe Package v2.1 acceptance evidence gaps
+recorded event is: PR #189 merged: Manager EN recipe titles now use current content translations. Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors. The one next task is:
+Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging
