@@ -114,9 +114,9 @@ $untrackedChanges = @($statusLines | Where-Object { $_ -match '^\?\?' })
 $date = Get-Date -Format 'yyyy-MM-dd'
 $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss K'
 
-$stateContent = Get-Content -Raw -LiteralPath $statePath
-$nextContent = Get-Content -Raw -LiteralPath $nextPath
-$changelogContent = Get-Content -Raw -LiteralPath $changelogPath
+$stateContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $statePath
+$nextContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $nextPath
+$changelogContent = Get-Content -Raw -Encoding UTF8 -LiteralPath $changelogPath
 
 $validationErrors = @()
 if (-not ($stateContent.Contains('<!-- AUTO:REPOSITORY_SNAPSHOT:START -->') -and $stateContent.Contains('<!-- AUTO:REPOSITORY_SNAPSHOT:END -->'))) {
@@ -163,7 +163,7 @@ $snapshot = @"
 - HEAD: ``$head``.
 - ``origin/dev``: ``$originDev`` - $originDevSubject.
 - Working tree: $trackedSummary; $untrackedSummary.
-- Significant event: **$Kind** — $Event.
+- Significant event: **$Kind** - $Event.
 - Evidence supplied by operator: $Evidence.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
@@ -173,7 +173,7 @@ $continuation = @"
 ## Automated continuation
 
 - Updated: $timestamp.
-- Significant event: **$Kind** — $Event.
+- Significant event: **$Kind** - $Event.
 - Evidence: $Evidence.
 - Next task: **$NextTask**
 

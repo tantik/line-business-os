@@ -1,19 +1,19 @@
 # ORUWA Project State
 
-Status: **Living Р В Р вЂ Р В РІР‚С™Р Р†Р вЂљРЎСљ evidence snapshot**
+Status: **Living - evidence snapshot**
 
 Verified: **2026-08-06**
 
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 13:30:41 +09:00.
-- Checked-out branch: `docs/project-state-auto-handoff`.
-- HEAD: `c078aa83ca121e0edee54f0e79d9c22adb1edb11`.
-- `origin/dev`: `c078aa83ca121e0edee54f0e79d9c22adb1edb11` - Merge pull request #186 from tantik/fix/cafe-v2-1-destructive-confirmations.
-- Working tree: 13 tracked path(s) changed; 13 untracked path(s).
-- Significant event: **Documentation** вЂ” Operational Project State and one-action auto-handoff system implemented and locally validated.
-- Evidence supplied by operator: docs/project/**, scripts/project-handoff.ps1, package.json; pnpm project:handoff -- -Check PASS; documentation branch pending commit.
+- Generated: 2026-08-06 13:33:38 +09:00.
+- Checked-out branch: `dev`.
+- HEAD: `71c48036ad3f574ed76af76b71f4b690dc59d7e0`.
+- `origin/dev`: `71c48036ad3f574ed76af76b71f4b690dc59d7e0` - Merge pull request #187 from tantik/docs/project-state-auto-handoff.
+- Working tree: 5 tracked path(s) changed; 13 untracked path(s).
+- Significant event: **Merge** - PR #187 merged: ORUWA Project State and one-action auto-handoff system published.
+- Evidence supplied by operator: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->
