@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as helpContent from '../demo/cafe/helpContent.js';
+import { resolveRecipeListTitle } from './recipe-list-title.js';
 
 /**
  * Regression guard for the "language toggle doesn't translate anything"
@@ -88,4 +89,31 @@ test('Cafe staff management hides the unused employment-type field without destr
 test('an empty shift-exchange approval list is not rendered', () => {
   const source = read('preview-shift-exchange-manager-panel.tsx');
   assert.match(source, /if \(relevant\.length === 0\) return null/);
+});
+
+test('Manager recipe list resolves the recipe title from the active language, not always Japanese', async (t) => {
+  const baseRecipe = { titleJa: '抹茶ラテ' };
+
+  await t.test('Japanese mode renders titleJa regardless of titleEn', () => {
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: 'Matcha Latte' }, 'ja'), '抹茶ラテ');
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: null }, 'ja'), '抹茶ラテ');
+  });
+
+  await t.test('English mode renders titleEn when it is a non-empty, non-whitespace value', () => {
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: 'Matcha Latte' }, 'en'), 'Matcha Latte');
+  });
+
+  await t.test('English mode falls back to titleJa when titleEn is null, undefined, empty, or whitespace-only', () => {
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: null }, 'en'), '抹茶ラテ');
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: undefined as unknown as null }, 'en'), '抹茶ラテ');
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: '' }, 'en'), '抹茶ラテ');
+    assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: '   ' }, 'en'), '抹茶ラテ');
+  });
+
+  // Integration guard: the list row must render through this exact canonical
+  // function, not a re-inlined copy of the fallback logic that could drift
+  // from the cases proven above.
+  const source = read('preview-recipe-kind-manager.tsx');
+  assert.match(source, /from '\.\/recipe-list-title'/, 'the row render must import the canonical resolver rather than reimplementing it');
+  assert.match(source, /\{resolveRecipeListTitle\(recipe, lang\)\}/, 'the recipe list row must render title through the canonical resolver, not a re-inlined condition');
 });
