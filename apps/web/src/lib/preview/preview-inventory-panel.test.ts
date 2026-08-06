@@ -42,3 +42,12 @@ test('Inventory exposes a reusable modal entry point and separate target/reorder
   assert.match(modal, /aria-modal="true"/);
 });
 
+test('Staff Inventory renders a bilingual no-results state for search and shortage filters', () => {
+  const source = readFileSync(path.join(THIS_DIR, 'preview-inventory-staff-panel.tsx'), 'utf8');
+
+  assert.match(source, /noSearchResults: '検索条件に一致する商品はありません。'/);
+  assert.match(source, /noSearchResults: 'No items match your search.'/);
+  assert.match(source, /visibleItems\.length === 0/);
+  assert.match(source, /tr\('noSearchResults'\)/);
+});
+
