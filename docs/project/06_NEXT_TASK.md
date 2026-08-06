@@ -1,16 +1,16 @@
 # ORUWA Next Task
 
-Status: **Active Р В Р вЂ Р В РІР‚С™Р Р†Р вЂљРЎСљ evidence closure**
+Status: **Active - evidence closure**
 
 Exactly one task: **Close remaining Cafe Package v2.1 acceptance gates.**
 
 <!-- AUTO:NEXT_TASK:START -->
 ## Automated continuation
 
-- Updated: 2026-08-06 13:30:41 +09:00.
-- Significant event: **Documentation** вЂ” Operational Project State and one-action auto-handoff system implemented and locally validated.
-- Evidence: docs/project/**, scripts/project-handoff.ps1, package.json; pnpm project:handoff -- -Check PASS; documentation branch pending commit.
-- Next task: **Review and publish the Project State auto-handoff system**
+- Updated: 2026-08-06 13:33:38 +09:00.
+- Significant event: **Merge** - PR #187 merged: ORUWA Project State and one-action auto-handoff system published.
+- Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS.
+- Next task: **Close the remaining Cafe Package v2.1 acceptance evidence gaps**
 
 Reverify Git and the linked task-specific sources before implementation. This block never authorizes production, database, security, billing, messaging, or destructive actions.
 <!-- AUTO:NEXT_TASK:END -->

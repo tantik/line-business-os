@@ -1,26 +1,26 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 13:30:41 +09:00**
+Generated: **2026-08-06 13:33:38 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
 ## Repository snapshot
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
-- Branch: `docs/project-state-auto-handoff`.
-- HEAD: `c078aa83ca121e0edee54f0e79d9c22adb1edb11`.
-- `origin/dev`: `c078aa83ca121e0edee54f0e79d9c22adb1edb11` - Merge pull request #186 from tantik/fix/cafe-v2-1-destructive-confirmations.
-- Working tree: 13 tracked path(s) changed; 13 untracked path(s).
+- Branch: `dev`.
+- HEAD: `71c48036ad3f574ed76af76b71f4b690dc59d7e0`.
+- `origin/dev`: `71c48036ad3f574ed76af76b71f4b690dc59d7e0` - Merge pull request #187 from tantik/docs/project-state-auto-handoff.
+- Working tree: 5 tracked path(s) changed; 13 untracked path(s).
 
 ## Last significant event
 
-- Kind: **Documentation**
-- Event: Operational Project State and one-action auto-handoff system implemented and locally validated
-- Evidence: docs/project/**, scripts/project-handoff.ps1, package.json; pnpm project:handoff -- -Check PASS; documentation branch pending commit
+- Kind: **Merge**
+- Event: PR #187 merged: ORUWA Project State and one-action auto-handoff system published
+- Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS
 
 ## Exactly one next task
 
-**Review and publish the Project State auto-handoff system**
+**Close the remaining Cafe Package v2.1 acceptance evidence gaps**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: Operational Project State and one-action auto-handoff system implemented and locally validated. Evidence: docs/project/**, scripts/project-handoff.ps1, package.json; pnpm project:handoff -- -Check PASS; documentation branch pending commit. The one next task is:
-Review and publish the Project State auto-handoff system
+recorded event is: PR #187 merged: ORUWA Project State and one-action auto-handoff system published. Evidence: GitHub PR #187; merge commit 71c4803; CI and Vercel PASS. The one next task is:
+Close the remaining Cafe Package v2.1 acceptance evidence gaps
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging
