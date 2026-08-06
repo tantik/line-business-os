@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 14:35:36 +09:00.
-- Checked-out branch: `dev`.
-- HEAD: `52e801d02d39623422c91815ebbc56ab201bc7c7`.
-- `origin/dev`: `52e801d02d39623422c91815ebbc56ab201bc7c7` - Merge pull request #195 from tantik/docs/project-state-staff-acceptance.
-- Working tree: 4 tracked path(s) changed; 14 untracked path(s).
-- Significant event: **FounderDecision** - Founder accepted ADR 0011: bounded Cafe v2.1 Preview audit exception.
-- Evidence supplied by operator: Founder confirmation in project task on 2026-08-06; ADR 0011; full business audit events remain mandatory before Commercial Release.
+- Generated: 2026-08-06 14:43:04 +09:00.
+- Checked-out branch: `docs/cafe-v2-1-disposable-acceptance`.
+- HEAD: `71541e02532a0a496e1830837b18f2eb62179660`.
+- `origin/dev`: `71541e02532a0a496e1830837b18f2eb62179660` - Merge pull request #196 from tantik/docs/cafe-v2-1-p1-4-decision.
+- Working tree: 2 tracked path(s) changed; 13 untracked path(s).
+- Significant event: **ReleaseGate** - Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data.
+- Evidence supplied by operator: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->

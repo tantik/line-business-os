@@ -7,10 +7,10 @@ Exactly one task: **Close remaining Cafe Package v2.1 acceptance gates.**
 <!-- AUTO:NEXT_TASK:START -->
 ## Automated continuation
 
-- Updated: 2026-08-06 14:35:36 +09:00.
-- Significant event: **FounderDecision** - Founder accepted ADR 0011: bounded Cafe v2.1 Preview audit exception.
-- Evidence: Founder confirmation in project task on 2026-08-06; ADR 0011; full business audit events remain mandatory before Commercial Release.
-- Next task: **Prepare safe disposable fixtures for remaining Cafe v2.1 mutation gates, reconcile P1-2/P1-3, and request Founder Freeze acceptance**
+- Updated: 2026-08-06 14:43:04 +09:00.
+- Significant event: **ReleaseGate** - Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data.
+- Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared.
+- Next task: **Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness**
 
 Reverify Git and the linked task-specific sources before implementation. This block never authorizes production, database, security, billing, messaging, or destructive actions.
 <!-- AUTO:NEXT_TASK:END -->

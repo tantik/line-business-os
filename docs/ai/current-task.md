@@ -59,8 +59,10 @@ routes, localization, or reusable data contracts are affected.
   Recipes read-only JA/EN, Inventory search/shortage/no-results, and observed
   console checks. PR #193 fixed the confirmed Staff Inventory no-results gap
   and was reverified on canonical Preview after merge.
-- Staff and Manager mutation rows that need disposable Cloud fixtures remain
-  BLOCKED rather than implicitly passed.
+- Founder-authorized disposable-fixture acceptance has started in Preview/dev.
+  The first no-write pass closed S3 and S8 and confirmed item-specific Staff
+  Inventory validation; S9 and successful mutation rows remain BLOCKED where
+  the current fixture cannot be safely created and fully rolled back.
 - P1-4 was accepted by the Founder as a bounded Cafe v2.1 Preview exception
   in ADR 0011. Full business audit events remain mandatory before Commercial
   Release; no migration, RLS, auth, role, permission, or Cloud-data write is
@@ -68,7 +70,8 @@ routes, localization, or reusable data contracts are affected.
 
 ## Exact next gate
 
-1. Prepare safe disposable fixtures for the remaining Staff/Manager mutation
-   rows; do not mutate shared acceptance data merely to turn rows green.
+1. Establish an isolated Manager session and use only fixtures with a proven
+   full rollback for the remaining Manager/Staff mutation rows; do not mutate
+   shared acceptance data merely to turn rows green.
 2. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
    do not start Cafe v2.2 automatically.
