@@ -2,6 +2,8 @@
 
 This directory holds all project documentation for LINE Business OS / ORUWA. It is organized so that the highest-authority, longest-lived documents sit at the top of the hierarchy and are rarely touched, while day-to-day working documents (plans, reports, runbooks) live in more specific subfolders and change often.
 
+For a fast operational handoff or a new AI session, start at [Project State](project/00_PROJECT_INDEX.md). It indexes current work and links back to the normative sources below; it does not replace the Foundation or ADR hierarchy.
+
 For the authoritative order in which to read project documentation, see the root [CLAUDE.md](../CLAUDE.md) "Source of truth" list. This file describes the shape of `docs/`, not the operating rules themselves.
 
 ## Documentation Hierarchy
