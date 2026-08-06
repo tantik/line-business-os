@@ -1,6 +1,6 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 14:00:21 +09:00**
+Generated: **2026-08-06 14:10:51 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
@@ -8,19 +8,19 @@ Status: **Operational continuation artifact; repository evidence takes priority*
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
 - Branch: `dev`.
-- HEAD: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf`.
-- `origin/dev`: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf` - Merge pull request #189 from tantik/fix/cafe-v2-1-manager-recipe-translated-titles.
+- HEAD: `1bb58c38011fb6f9692f5406bb407405f39b304b`.
+- `origin/dev`: `1bb58c38011fb6f9692f5406bb407405f39b304b` - Merge pull request #191 from tantik/docs/cafe-v2-1-evidence-reconciliation.
 - Working tree: clean; 13 untracked path(s).
 
 ## Last significant event
 
-- Kind: **Merge**
-- Event: PR #189 merged: Manager EN recipe titles now use current content translations
-- Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors
+- Kind: **StageTransition**
+- Event: PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed
+- Evidence: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors
 
 ## Exactly one next task
 
-**Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision**
+**Establish a separate authenticated Staff Preview session and execute the blocked Staff/role gates; record the Founder decision for P1-4 before Cafe Freeze**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: PR #189 merged: Manager EN recipe titles now use current content translations. Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors. The one next task is:
-Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision
+recorded event is: PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed. Evidence: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors. The one next task is:
+Establish a separate authenticated Staff Preview session and execute the blocked Staff/role gates; record the Founder decision for P1-4 before Cafe Freeze
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging

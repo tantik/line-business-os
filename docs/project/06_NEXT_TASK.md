@@ -7,10 +7,10 @@ Exactly one task: **Close remaining Cafe Package v2.1 acceptance gates.**
 <!-- AUTO:NEXT_TASK:START -->
 ## Automated continuation
 
-- Updated: 2026-08-06 14:00:21 +09:00.
-- Significant event: **Merge** - PR #189 merged: Manager EN recipe titles now use current content translations.
-- Evidence: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors.
-- Next task: **Complete isolated authenticated Staff and Manager/Staff role-boundary acceptance, then reconcile the Cafe v2.1 acceptance report and obtain the P1-4 Founder decision**
+- Updated: 2026-08-06 14:10:51 +09:00.
+- Significant event: **StageTransition** - PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed.
+- Evidence: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors.
+- Next task: **Establish a separate authenticated Staff Preview session and execute the blocked Staff/role gates; record the Founder decision for P1-4 before Cafe Freeze**
 
 Reverify Git and the linked task-specific sources before implementation. This block never authorizes production, database, security, billing, messaging, or destructive actions.
 <!-- AUTO:NEXT_TASK:END -->

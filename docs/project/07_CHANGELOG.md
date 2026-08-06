@@ -11,6 +11,7 @@ Only significant merges, decisions, stage transitions, release gates, and comple
 | 2026-08-06 | Cafe Manager high-impact confirmation fixes merged as PR #186 | Merge `c078aa8` |
 | 2026-08-06 | [Merge] PR #187 merged: ORUWA Project State and one-action auto-handoff system published | GitHub PR #187; merge commit 71c4803; CI and Vercel PASS |
 | 2026-08-06 | [Merge] PR #189 merged: Manager EN recipe titles now use current content translations | GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors |
+| 2026-08-06 | [StageTransition] PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed | GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors |
 <!-- AUTO:CHANGELOG:APPEND -->
 
 Founder-provided but not repository-verified here: Inventory World Product Research completion, Cafe Product Vision/Constitution preparation, IAC Structured Findings PR #7, and IAC Cafe Freeze task PR #8. Verify them in their owning artifacts/repository before promoting them to confirmed entries.
