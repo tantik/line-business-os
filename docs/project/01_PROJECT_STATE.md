@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 14:00:21 +09:00.
+- Generated: 2026-08-06 14:10:51 +09:00.
 - Checked-out branch: `dev`.
-- HEAD: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf`.
-- `origin/dev`: `a9d1fc72507e7be8b5e7b5a1e83e144e7e91dcaf` - Merge pull request #189 from tantik/fix/cafe-v2-1-manager-recipe-translated-titles.
+- HEAD: `1bb58c38011fb6f9692f5406bb407405f39b304b`.
+- `origin/dev`: `1bb58c38011fb6f9692f5406bb407405f39b304b` - Merge pull request #191 from tantik/docs/cafe-v2-1-evidence-reconciliation.
 - Working tree: clean; 13 untracked path(s).
-- Significant event: **Merge** - PR #189 merged: Manager EN recipe titles now use current content translations.
-- Evidence supplied by operator: GitHub PR #189; commits fceb8b0 and a9d1fc7; PR and dev CI PASS; Vercel PASS; canonical Preview Manager EN/JA acceptance PASS with zero console errors.
+- Significant event: **StageTransition** - PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed.
+- Evidence supplied by operator: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->
