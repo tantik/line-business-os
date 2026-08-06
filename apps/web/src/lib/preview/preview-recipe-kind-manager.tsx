@@ -256,7 +256,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
                 <button type="button" style={buttonSecondary} disabled={pending} onClick={() => setArchived(recipe, false)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
               ) : <>
                 <button type="button" style={buttonSecondary} disabled={pending} onClick={() => edit(recipe.recipeId)}>{t('edit')}</button>
-                <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => setArchiveTarget(recipe)}>{lang === 'ja' ? '削除' : 'Delete'}</button>
+                <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => setArchiveTarget(recipe)}>{lang === 'ja' ? 'アーカイブ' : 'Archive'}</button>
               </>}
             </div>
           ))}
@@ -264,8 +264,8 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
       )}
       <ConfirmDialog
         open={archiveTarget !== null}
-        title={lang === 'ja' ? 'レシピを削除しますか？' : 'Delete this recipe?'}
-        confirmLabel={lang === 'ja' ? '削除する' : 'Delete recipe'}
+        title={lang === 'ja' ? 'このレシピをアーカイブしますか？' : 'Archive this recipe?'}
+        confirmLabel={lang === 'ja' ? 'アーカイブする' : 'Archive recipe'}
         cancelLabel={t('cancel')}
         pending={pending}
         danger

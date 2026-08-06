@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { AutoScheduleModal } from '@/components/demo/cafe/AutoScheduleModal';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 import { buttonPrimary, demoColors } from '@/lib/demo/cafe/theme';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { HELP_MANAGER_AUTO_SCHEDULE } from '@/lib/demo/cafe/helpContent';
@@ -94,6 +95,7 @@ export function PreviewScheduleCardActions({
   const [isPending, startTransition] = useTransition();
   const [publishFeedback, setPublishFeedback] = useState<string | null>(null);
   const [publishFeedbackIsError, setPublishFeedbackIsError] = useState(true);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
@@ -167,6 +169,7 @@ export function PreviewScheduleCardActions({
   }
 
   function publishSchedule() {
+    setPublishConfirmOpen(false);
     const formData = new FormData();
     formData.set('periodStart', periodStart);
     formData.set('periodEnd', periodEnd);
@@ -191,7 +194,7 @@ export function PreviewScheduleCardActions({
       <button
         type="button"
         style={{ ...buttonPrimary, background: hasUnpublishedChanges ? demoColors.accent : demoColors.textMuted }}
-        onClick={publishSchedule}
+        onClick={() => setPublishConfirmOpen(true)}
         disabled={isPending || !hasUnpublishedChanges}
       >
         {t('publishScheduleButton')}
@@ -203,6 +206,19 @@ export function PreviewScheduleCardActions({
         onConfirm={createSchedule}
         description={`${periodStart}〜${periodEnd} ${t('autoScheduleConfirmBody')}`}
       />
+      <ConfirmDialog
+        open={publishConfirmOpen}
+        title={lang === 'ja' ? 'この週のシフトを公開しますか？' : 'Publish this week\'s schedule?'}
+        confirmLabel={t('publishScheduleButton')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        onCancel={() => setPublishConfirmOpen(false)}
+        onConfirm={publishSchedule}
+      >
+        {lang === 'ja'
+          ? '下書きのシフトが確定し、スタッフ画面に表示されます。公開前に内容を確認してください。'
+          : 'Draft shifts will become visible to Staff. Review the schedule before publishing.'}
+      </ConfirmDialog>
       {publishFeedback ? (
         <span style={{ fontSize: 12, color: publishFeedbackIsError ? '#B42318' : demoColors.textMuted }}>{publishFeedback}</span>
       ) : null}
