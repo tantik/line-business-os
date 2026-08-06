@@ -14,5 +14,7 @@ This file indexes accepted decisions; it does not copy the full ADR or Foundatio
 | PS-008 | Founder-provided, evidence pending | Platform subscription billing and merchant payments are separate domains | Avoid mixing SaaS entitlement with customer commerce | Requires formal source before implementation | Founder-provided project history |
 | PS-009 | Founder-provided, evidence pending | Do not make a public one-hour onboarding claim before a successful rehearsal | Commercial claims require evidence | Yes, after verified rehearsal | Founder-provided project history |
 | PS-010 | Founder-provided, evidence pending | Cafe v2.2 selection prioritizes purchase probability and onboarding impact; no heavy ERP | Keep scope commercially useful and deployable | Yes, through Product Review | Founder-provided project history |
+| PS-011 | 2026-08-06 | Cafe v2.1 Preview temporarily accepts DB-trigger actor/timestamp stamping instead of full `writeAudit` events | Avoid mixing Preview Freeze with a privileged audit-platform build; full business audit remains mandatory before Commercial Release | Exception expires before Commercial Release | [ADR 0011](../adr/0011-cafe-v2-1-preview-audit-exception.md) |
 
-Open decision: whether Cafe v2.1 needs a lightweight explicit `writeAudit` path or an approved bounded exception for the current trigger-stamped mutation model. Do not infer the Founder decision.
+P1-4 is no longer open for Preview Freeze. ADR 0011 does not waive the full
+business-audit requirement for Commercial Release.

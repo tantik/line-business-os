@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 14:29:22 +09:00.
+- Generated: 2026-08-06 14:35:36 +09:00.
 - Checked-out branch: `dev`.
-- HEAD: `74f158271e8a6618fd86b6e1b82bba96d477d3aa`.
-- `origin/dev`: `74f158271e8a6618fd86b6e1b82bba96d477d3aa` - Merge pull request #194 from tantik/docs/cafe-v2-1-staff-evidence.
-- Working tree: clean; 13 untracked path(s).
-- Significant event: **StageTransition** - PR #194 merged: isolated Staff Preview acceptance recorded.
-- Evidence supplied by operator: GitHub PR #194; Staff S1/S4/S5/S6/S18/S19/S22 and Inventory/Recipes read gates observed; PR #193 no-results fix reverified on canonical Preview; CI and Vercel PASS.
+- HEAD: `52e801d02d39623422c91815ebbc56ab201bc7c7`.
+- `origin/dev`: `52e801d02d39623422c91815ebbc56ab201bc7c7` - Merge pull request #195 from tantik/docs/project-state-staff-acceptance.
+- Working tree: 4 tracked path(s) changed; 14 untracked path(s).
+- Significant event: **FounderDecision** - Founder accepted ADR 0011: bounded Cafe v2.1 Preview audit exception.
+- Evidence supplied by operator: Founder confirmation in project task on 2026-08-06; ADR 0011; full business audit events remain mandatory before Commercial Release.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->

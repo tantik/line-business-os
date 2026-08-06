@@ -61,15 +61,14 @@ routes, localization, or reusable data contracts are affected.
   and was reverified on canonical Preview after merge.
 - Staff and Manager mutation rows that need disposable Cloud fixtures remain
   BLOCKED rather than implicitly passed.
-- P1-4 audit logging remains an explicit Founder decision. No migration, RLS,
-  auth, role, permission, or Cloud-data write is authorized by this handoff.
+- P1-4 was accepted by the Founder as a bounded Cafe v2.1 Preview exception
+  in ADR 0011. Full business audit events remain mandatory before Commercial
+  Release; no migration, RLS, auth, role, permission, or Cloud-data write is
+  authorized by this decision.
 
 ## Exact next gate
 
 1. Prepare safe disposable fixtures for the remaining Staff/Manager mutation
    rows; do not mutate shared acceptance data merely to turn rows green.
-2. Record the Founder decision for P1-4. Recommended for v2.1: a documented,
-   temporary exception for the existing DB-trigger actor/timestamp stamping,
-   with full business audit events mandatory before Commercial Release.
-3. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
+2. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
    do not start Cafe v2.2 automatically.
