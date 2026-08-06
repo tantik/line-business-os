@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { Modal } from '@/components/demo/cafe/Modal';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -44,6 +45,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const [selected, setSelected] = useState<{ staffId: string; date: string } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [summaryStaffId, setSummaryStaffId] = useState<string | null>(null);
+  const [confirmingUnassign, setConfirmingUnassign] = useState(false);
   useEffect(() => {
     setLocalAssignments(assignments);
   }, [assignments]);
@@ -91,6 +93,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
   const shiftTableShiftTypes = useMemo(() => toManagerViewShiftTypes(visibleShiftTypes), [visibleShiftTypes]);
   const handleCellClick = useCallback((staffId: string, date: string) => {
     setFeedback(null);
+    setConfirmingUnassign(false);
     setSelected({ staffId, date });
   }, []);
 
@@ -122,6 +125,7 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
 
   function clearAssignment() {
     if (!assignment || !existingStart || !existingEnd) return;
+    setConfirmingUnassign(false);
     const formData = new FormData();
     formData.set('assignmentId', assignment.assignmentId);
     formData.set('employeeId', '');
@@ -181,7 +185,10 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
 
       <Modal
         open={selected !== null}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setConfirmingUnassign(false);
+          setSelected(null);
+        }}
         title={
           lang === 'ja'
             ? `${selectedStaff?.name ?? t('shiftModalTitleFallback')}・${selected?.date ?? ''} のシフト`
@@ -233,11 +240,14 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
             {feedback ? <p style={{ margin: 0, color: demoColors.dangerText }}>{feedback}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               {assignment ? (
-                <button type="button" style={buttonSecondary} onClick={clearAssignment} disabled={isSaving}>
+                <button type="button" style={buttonSecondary} onClick={() => setConfirmingUnassign(true)} disabled={isSaving}>
                   {t('unassignShift')}
                 </button>
               ) : null}
-              <button type="button" style={buttonSecondary} onClick={() => setSelected(null)} disabled={isSaving}>
+              <button type="button" style={buttonSecondary} onClick={() => {
+                setConfirmingUnassign(false);
+                setSelected(null);
+              }} disabled={isSaving}>
                 {t('cancel')}
               </button>
               <button type="submit" style={buttonPrimary} disabled={isSaving || shiftTypes.length === 0}>
@@ -247,6 +257,24 @@ export function PreviewShiftGrid({ dates, todayIso, timeZone, staff, shiftTypes,
           </form>
         ) : null}
       </Modal>
+      <ConfirmDialog
+        open={confirmingUnassign && assignment !== null}
+        title={lang === 'ja' ? 'このシフトを解除しますか？' : 'Unassign this shift?'}
+        confirmLabel={t('unassignShift')}
+        cancelLabel={t('cancel')}
+        pending={isSaving}
+        danger={assignment?.published === true}
+        onCancel={() => setConfirmingUnassign(false)}
+        onConfirm={clearAssignment}
+      >
+        {assignment?.published
+          ? (lang === 'ja'
+              ? '公開済みのシフトです。解除するとスタッフ画面から表示が消えます。必要な場合は後で再作成できます。'
+              : 'This shift is already published. Unassigning it removes it from the Staff view. You can recreate it later if needed.')
+          : (lang === 'ja'
+              ? '下書きのシフトを解除します。必要な場合は後で再作成できます。'
+              : 'This draft shift will be unassigned. You can recreate it later if needed.')}
+      </ConfirmDialog>
     </>
   );
 }

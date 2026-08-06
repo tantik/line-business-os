@@ -339,3 +339,28 @@ test('editing the Required-headcount inputs reads event.currentTarget synchronou
   );
   assert.match(setRequirementsCall, /\? parsed : value/);
 });
+
+test('destructive and high-impact Manager actions require accurate copy and an explicit confirmation boundary', () => {
+  const managerDict = read(MANAGER_I18N_DICT);
+  const staffForm = read('preview-staff-form.tsx');
+  const recipeManager = read('preview-recipe-kind-manager.tsx');
+  const shiftGrid = read('preview-shift-grid.tsx');
+  const scheduleActions = read('preview-schedule-card-actions.tsx');
+
+  assert.match(managerDict, /removeStaffButton: 'スタッフを無効化'/);
+  assert.match(managerDict, /removeStaffButton: 'Deactivate staff'/);
+  assert.match(managerDict, /staffFilterInactive: '無効化済み'/);
+  assert.match(managerDict, /staffFilterInactive: 'Deactivated'/);
+  assert.match(staffForm, /confirmLabel=\{t\('removeStaffButton'\)\}/);
+
+  assert.match(recipeManager, /'アーカイブ' : 'Archive'/);
+  assert.match(recipeManager, /title=\{lang === 'ja' \? 'このレシピをアーカイブしますか？' : 'Archive this recipe\?'\}/);
+  assert.doesNotMatch(recipeManager, /Delete this recipe\?|レシピを削除しますか/);
+
+  assert.match(shiftGrid, /open=\{confirmingUnassign && assignment !== null\}/);
+  assert.match(shiftGrid, /assignment\?\.published/);
+  assert.match(shiftGrid, /onConfirm=\{clearAssignment\}/);
+  assert.match(scheduleActions, /onClick=\{\(\) => setPublishConfirmOpen\(true\)\}/);
+  assert.match(scheduleActions, /open=\{publishConfirmOpen\}/);
+  assert.match(scheduleActions, /onConfirm=\{publishSchedule\}/);
+});
