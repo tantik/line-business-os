@@ -23,6 +23,7 @@ interface InventoryStaffDict {
   save: string;
   saving: string;
   empty: string;
+  noSearchResults: string;
   openInventory: string;
   close: string;
   purchaseRecommendation: string;
@@ -46,6 +47,7 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     save: '保存',
     saving: '保存中...',
     empty: '在庫アイテムはまだ登録されていません。',
+    noSearchResults: '検索条件に一致する商品はありません。',
     openInventory: '在庫を確認・入力',
     close: '閉じる',
     purchaseRecommendation: '推奨発注数',
@@ -67,6 +69,7 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     save: 'Save',
     saving: 'Saving...',
     empty: 'No inventory items yet.',
+    noSearchResults: 'No items match your search.',
     openInventory: 'Check / update inventory',
     close: 'Close',
     purchaseRecommendation: 'Recommended purchase',
@@ -254,7 +257,9 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
                 <p style={{ margin: '7px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>{filledCounterLabel[lang](filledCount, items.length)}</p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 8, marginTop: 8 }}>
-                {visibleItems.map((item) => (
+                {visibleItems.length === 0 ? (
+                  <p style={{ margin: '4px 0', ...mutedText }}>{tr('noSearchResults')}</p>
+                ) : visibleItems.map((item) => (
                   <ItemCard
                     key={item.itemId}
                     item={item}
