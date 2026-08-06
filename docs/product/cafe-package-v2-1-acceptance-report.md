@@ -168,3 +168,60 @@ marked complete, and Cafe Freeze cannot be declared, until:
 This report closes the engineer-executable gap identified for this task
 (P1-1 fix and this document) and does not itself constitute, request, or
 imply founder acceptance of the release.
+
+## Live Preview evidence reconciliation — 2026-08-06
+
+This section supersedes the earlier statement that live Preview acceptance was
+fully unexecuted. Evidence was collected against the canonical
+`https://preview.oruwa.jp/mame-to-cha/*` routes with Supabase authentication.
+Browser timings below are user-observed wall-clock timings; they are not DB,
+server-response, or query profiling.
+
+### Environment and release evidence
+
+- Code fix: PR #189, commit `fceb8b0`, merged to `dev` as `a9d1fc7`.
+- PR CI and Vercel: PASS. Post-merge `dev` CI run `31072581990`: PASS.
+- Local web gate: typecheck PASS; tests **837/837 PASS**; lint PASS;
+  production build PASS; `verify:preview-actions` PASS.
+- Canonical Manager post-merge load: **7.7 s**, EN active, no console errors.
+- Earlier same-session observations: Manager cold load **10.2 s**; Recipes cold
+  load **7.0 s**; recipe detail open **2.5 s**; language switch **2.6 s**;
+  previous-week navigation completed but took about **12 s**.
+
+### Checklist reconciliation
+
+Statuses are deliberately fail-closed. A compound row is BLOCKED when only
+part of it was observed, and mutation rows remain BLOCKED when no disposable
+fixture was available.
+
+| Area | PASS | BLOCKED | N/A |
+|---|---|---|---|
+| Manager M1-M35 | M1 authenticated route load; M4 attention centre renders; M5 previous week completes; M19 recipe list opens; M20 active-language title; M34 automated server-action role separation | M2 requires Staff identity; M3; M6 `+8/-8` bound not fully exercised; M7-M18; M21-M33; M35 full-matrix console claim (observed subset had zero errors) | None |
+| Staff S1-S23 | S2 Manager account without a Staff profile fails closed on direct Staff URL with the no-profile screen and zero console errors | S1 and S3-S23 require a separate authenticated Staff identity and/or safe mutation fixture | None |
+| Recipes R1-R15 | R1 Manager list; R5 detail JA/EN resolution; R6 Manager list JA/EN; R7 JA-original fallback marker | R2 requires both Manager and Staff identities; R3-R4; R8-R9; R11-R15 | R10 automatic-generation UI is not an implemented user feature |
+| Inventory I1-I14 | None newly promoted by this evidence pass | I1-I14 require isolated Manager/Staff execution and safe count/item fixtures | None |
+
+### M20 / R6 post-merge manual proof
+
+- Manager EN list displayed `Matcha Latte` and did not display `抹茶ラテ`.
+- Manager JA list displayed `抹茶ラテ` and did not display `Matcha Latte`.
+- The Manage Recipes panel opened in about **0.3 s** after the Manager page had
+  loaded; no browser console errors were captured.
+- The current translation is loaded through the existing tenant-scoped
+  `api.content_translations` facade. No migration, RLS, role, permission,
+  secret, or persisted recipe-model change was made.
+
+### Remaining blockers
+
+1. A separate authenticated Staff session is required for S1, S3-S23, M2,
+   R2/R4/R13, and the Staff side of Inventory/Recipes performance evidence.
+   A Manager session, public demo route, or mock identity is not a substitute.
+2. Mutation and high-impact rows require disposable acceptance fixtures; no
+   Cloud data write was performed during this evidence pass.
+3. P1-4 still requires an explicit Founder decision. The recommended bounded
+   v2.1 choice is to document the existing DB-trigger actor/timestamp stamping
+   as a temporary exception, keep full business audit events as a mandatory
+   pre-commercial Platform Foundation task, and not weaken the global rule
+   silently. A new audit RPC/migration is a separate security/DB design task.
+4. The observed Manager and week-navigation timings warrant a later measured
+   performance investigation, but do not prove a DB or server regression.
