@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as helpContent from '../demo/cafe/helpContent.js';
 import { resolveRecipeListTitle } from './recipe-list-title.js';
+import { withResolvedRecipeListTitles } from './manager-recipe-title-translations.js';
+import { hashSourceText, type ContentTranslation } from '../content/translations.js';
 
 /**
  * Regression guard for the "language toggle doesn't translate anything"
@@ -116,4 +118,36 @@ test('Manager recipe list resolves the recipe title from the active language, no
   const source = read('preview-recipe-kind-manager.tsx');
   assert.match(source, /from '\.\/recipe-list-title'/, 'the row render must import the canonical resolver rather than reimplementing it');
   assert.match(source, /\{resolveRecipeListTitle\(recipe, lang\)\}/, 'the recipe list row must render title through the canonical resolver, not a re-inlined condition');
+  assert.ok(
+    !source.includes('manager-recipe-title-translations'),
+    'the client list must not import the server-side translation overlay or node:crypto',
+  );
+});
+
+test('Manager recipe list overlays the current content translation used by Staff Recipes', () => {
+  const recipe = {
+    recipeId: 'recipe-1', tenantId: 'tenant-1', locationId: 'location-1', recipeCategoryId: null,
+    titleJa: '抹茶ラテ', titleEn: null, descriptionJa: null, descriptionEn: null,
+    contentKind: 'recipe' as const, isPopular: true, status: 'published',
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', mediaPath: null,
+  };
+  const translation: ContentTranslation = {
+    translationId: 'translation-1', tenantId: 'tenant-1', sourceEntityType: 'workforce_recipe',
+    sourceEntityId: 'recipe-1', sourceField: 'title', sourceLanguage: 'ja', targetLanguage: 'en',
+    translatedText: 'Matcha Latte', status: 'reviewed', provider: 'manual',
+    sourceContentHash: hashSourceText('抹茶ラテ'), machineGenerated: false,
+    reviewedAt: '2026-01-01T00:00:00Z', translatedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  const [resolved] = withResolvedRecipeListTitles([recipe], [translation]);
+  assert.ok(resolved);
+  assert.equal(resolveRecipeListTitle(resolved, 'en'), 'Matcha Latte');
+  assert.equal(resolveRecipeListTitle(resolved, 'ja'), '抹茶ラテ');
+
+  const [stale] = withResolvedRecipeListTitles(
+    [{ ...recipe, titleJa: '抹茶ラテ（アイス）' }],
+    [translation],
+  );
+  assert.ok(stale);
+  assert.equal(resolveRecipeListTitle(stale, 'en'), '抹茶ラテ（アイス）');
 });

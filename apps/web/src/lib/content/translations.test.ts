@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hashSourceText, isTranslationStale, listContentTranslationsForEntities, type ContentTranslation } from './translations.js';
+import {
+  hashSourceText,
+  isTranslationStale,
+  listContentTranslationsForEntities,
+  listContentTranslationsForField,
+  type ContentTranslation,
+} from './translations.js';
 
 test('hashSourceText is deterministic for the same text', () => {
   assert.equal(hashSourceText('牛乳を200ml入れて、よく混ぜる'), hashSourceText('牛乳を200ml入れて、よく混ぜる'));
@@ -120,4 +126,19 @@ test('listContentTranslationsForEntities maps a permission-denied error to unaut
     { sourceEntityType: 'workforce_recipe', sourceEntityId: 'recipe-1' },
   ]);
   assert.equal(result.status, 'unauthorized');
+});
+
+test('listContentTranslationsForField applies tenant, entity, field, and language filters in one query', async () => {
+  const { client, calls } = recordingClient({ data: [TRANSLATION_ROW], error: null });
+  const result = await listContentTranslationsForField(client, 'tenant-a', 'workforce_recipe', 'title');
+  assert.equal(result.status, 'success');
+  assert.deepEqual(
+    calls.filter((call) => call.method === 'eq').map((call) => call.args),
+    [
+      ['tenant_id', 'tenant-a'],
+      ['source_entity_type', 'workforce_recipe'],
+      ['source_field', 'title'],
+      ['target_language', 'en'],
+    ],
+  );
 });

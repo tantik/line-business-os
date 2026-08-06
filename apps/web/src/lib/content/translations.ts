@@ -186,6 +186,48 @@ export async function listContentTranslationsForEntities(
   }
 }
 
+/**
+ * Reads one translated field for every entity of a given type in the active
+ * tenant. This is the bounded list-view companion to
+ * `listContentTranslationsForEntities`: callers that render a whole recipe
+ * list do not yet know the entity ids, and must not add a sequential
+ * recipes-then-translations round trip just to discover them.
+ */
+export async function listContentTranslationsForField(
+  supabase: SupabaseClient,
+  tenantId: string,
+  sourceEntityType: ContentSourceEntityType,
+  sourceField: ContentSourceField,
+  targetLanguage: ContentTargetLanguage = 'en',
+): Promise<TenantAccessResult<ContentTranslation[]>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('content_translations')
+      .select(
+        'translation_id, tenant_id, source_entity_type, source_entity_id, source_field, source_language, target_language, translated_text, translation_status, translation_provider, source_content_hash, machine_generated, reviewed_at, translated_at, updated_at',
+      )
+      .eq('tenant_id', tenantId)
+      .eq('source_entity_type', sourceEntityType)
+      .eq('source_field', sourceField)
+      .eq('target_language', targetLanguage);
+
+    if (error) {
+      if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {
+        return { status: 'unauthorized', message: 'Not permitted to read this content translation.' };
+      }
+      return { status: 'unexpected_error', message: 'Unable to load content translations right now.' };
+    }
+
+    return { status: 'success', data: (data ?? []).map((row) => mapRow(row as ApiContentTranslationRow)) };
+  } catch {
+    return {
+      status: 'unexpected_error',
+      message: 'Unable to load content translations right now.',
+    };
+  }
+}
+
 export type SetMachineContentTranslationResult =
   | { status: 'success'; data: { translationId: string; status: ContentTranslationStatus } }
   | { status: 'reviewed_conflict' }

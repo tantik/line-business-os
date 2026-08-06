@@ -17,6 +17,8 @@ import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { listContentTranslationsForField } from '@/lib/content/translations';
+import { withResolvedRecipeListTitles } from '@/lib/preview/manager-recipe-title-translations';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -151,6 +153,7 @@ export default async function MameToChaPreviewManagerPage({
     correctionRequestsResult,
     attendanceResult,
     recipesResult,
+    recipeTitleTranslationsResult,
     settingsResult,
     exchangesResult,
     allAssignmentsResult,
@@ -167,6 +170,9 @@ export default async function MameToChaPreviewManagerPage({
     ),
     time('batch:listAttendanceForManager', () => listAttendanceForManager(supabase, activeTenant.tenantId)),
     time('batch:listWorkforceRecipes', () => listWorkforceRecipes(supabase, activeTenant.tenantId)),
+    time('batch:listRecipeTitleTranslations', () =>
+      listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
+    ),
     time('batch:getWorkforceScheduleSettings', () =>
       getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
     ),
@@ -213,7 +219,12 @@ export default async function MameToChaPreviewManagerPage({
   const assignments = assignmentsResult.status === 'success' ? assignmentsResult.data : null;
   const correctionRequests = correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null;
   const attendance = attendanceResult.status === 'success' ? attendanceResult.data : null;
-  const recipes = recipesResult.status === 'success' ? recipesResult.data : null;
+  const recipes = recipesResult.status === 'success'
+    ? withResolvedRecipeListTitles(
+        recipesResult.data,
+        recipeTitleTranslationsResult.status === 'success' ? recipeTitleTranslationsResult.data : [],
+      )
+    : null;
   const settings = settingsResult.status === 'success' ? settingsResult.data : null;
 
   const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
