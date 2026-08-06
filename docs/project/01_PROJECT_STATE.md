@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 14:10:51 +09:00.
+- Generated: 2026-08-06 14:29:22 +09:00.
 - Checked-out branch: `dev`.
-- HEAD: `1bb58c38011fb6f9692f5406bb407405f39b304b`.
-- `origin/dev`: `1bb58c38011fb6f9692f5406bb407405f39b304b` - Merge pull request #191 from tantik/docs/cafe-v2-1-evidence-reconciliation.
+- HEAD: `74f158271e8a6618fd86b6e1b82bba96d477d3aa`.
+- `origin/dev`: `74f158271e8a6618fd86b6e1b82bba96d477d3aa` - Merge pull request #194 from tantik/docs/cafe-v2-1-staff-evidence.
 - Working tree: clean; 13 untracked path(s).
-- Significant event: **StageTransition** - PR #191 merged: Cafe v2.1 Preview evidence reconciled and S2 role gate passed.
-- Evidence supplied by operator: GitHub PR #191; merge commit 1bb58c3; CI and Vercel PASS; canonical Manager direct Staff URL failed closed with no-profile screen and zero console errors.
+- Significant event: **StageTransition** - PR #194 merged: isolated Staff Preview acceptance recorded.
+- Evidence supplied by operator: GitHub PR #194; Staff S1/S4/S5/S6/S18/S19/S22 and Inventory/Recipes read gates observed; PR #193 no-results fix reverified on canonical Preview; CI and Vercel PASS.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->
