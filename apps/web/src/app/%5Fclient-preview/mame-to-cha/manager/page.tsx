@@ -235,7 +235,7 @@ export default async function MameToChaPreviewManagerPage({
         rightSlot={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <PreviewLanguageToggle />
-            <PreviewLogoutButton />
+            <PreviewLogoutButton returnTo={MANAGER_PUBLIC_PATH} />
           </div>
         }
         // `PreviewManagerToday` (below, via `managerCorrectionSummaries`) is

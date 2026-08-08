@@ -6,6 +6,14 @@ import { demoColors } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from './preview-language-toggle';
 import { PreviewLogoutButton } from './preview-logout-button';
+import { PREVIEW_BASE_PATH } from './constants';
+
+/** Canonical preview path for each menu page, used as the sign-out `returnTo` (FA-01) so logging out from Recipes/Staff signs back in to the same page. */
+const RETURN_TO_BY_CURRENT: Record<'staff' | 'recipes' | 'manager', string> = {
+  staff: PREVIEW_BASE_PATH,
+  recipes: `${PREVIEW_BASE_PATH}/recipes`,
+  manager: `${PREVIEW_BASE_PATH}/manager`,
+};
 
 export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'manager' }) {
   const { lang } = useLang();
@@ -125,7 +133,7 @@ export function PreviewCafeMenu({ current }: { current: 'staff' | 'recipes' | 'm
               transition: 'opacity 320ms ease 280ms, transform 320ms ease 280ms',
             }}
           >
-            <PreviewLogoutButton />
+            <PreviewLogoutButton returnTo={RETURN_TO_BY_CURRENT[current]} />
           </div>
         </div>
       </div>
