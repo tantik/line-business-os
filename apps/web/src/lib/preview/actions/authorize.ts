@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { listTenantLocations, type TenantLocation } from '@/lib/tenant/locations';
 import { resolvePreviewTenantContext } from '../tenant';
 import { resolvePreviewWorkforceModule } from '../module-guard';
 import { resolveManagerLocation, resolveStaffLocation } from '../location';
@@ -40,6 +40,8 @@ export interface PreviewManagerContext {
   locationId: string;
   /** The resolved active location's own time zone - needed by every schedule mutation's local->UTC conversion; never re-derived from a client-supplied value. */
   timeZone: string;
+  /** The full resolved location row (same object `locationId`/`timeZone` above are drawn from) - lets a caller like the Manager page reuse it (e.g. `locationName`) without re-running `listTenantLocations` + `resolveManagerLocation` a second time. */
+  location: TenantLocation;
 }
 
 export type PreviewManagerContextResult =
@@ -132,7 +134,7 @@ export async function resolvePreviewManagerContext(
     }
   }
 
-  return { status: 'ok', context: { supabase, tenantId, locationId, timeZone } };
+  return { status: 'ok', context: { supabase, tenantId, locationId, timeZone, location: locationResult.location } };
 }
 
 /**

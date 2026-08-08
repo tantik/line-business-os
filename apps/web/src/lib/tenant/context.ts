@@ -1,5 +1,6 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { readPublicSupabaseEnv } from '@/lib/supabase/env';
 import { getUserFromClient } from '@/lib/auth/user';
@@ -7,7 +8,7 @@ import { SIGN_IN_PATH } from '@/lib/auth/require-user';
 import { listTenantMemberships } from './membership';
 import { selectActiveTenant } from './select';
 import { getActiveTenantCookieValue } from './active-tenant-cookie.server';
-import type { ActiveTenantContext, TenantAccessResult } from './types';
+import type { ActiveTenantContext, TenantAccessResult, TenantMembership } from './types';
 
 /**
  * Resolve the active tenant context for the current request, end to end:
@@ -28,9 +29,17 @@ import type { ActiveTenantContext, TenantAccessResult } from './types';
  *   - Otherwise the active-tenant cookie is read as a LENIENT candidate/hint
  *     and always revalidated against live memberships; a stale/malformed/absent
  *     cookie is ignored in favor of the deterministic default.
+ *
+ * `opts.user`/`opts.memberships` let a caller that has *already* resolved
+ * these in the same request (e.g. `resolvePreviewTenantContext`, which must
+ * inspect the membership list itself before it knows which `tenantId` to
+ * request here) pass them straight through instead of this function
+ * re-issuing the same `auth.getUser()`/membership read a second time. Both
+ * values are still exactly what a fresh resolution would have produced -
+ * this is reuse within one request, never a cache with a lifetime beyond it.
  */
 export async function getActiveTenantContext(
-  opts: { tenantId?: string } = {},
+  opts: { tenantId?: string; user?: User; memberships?: TenantMembership[] } = {},
 ): Promise<TenantAccessResult<ActiveTenantContext>> {
   const env = readPublicSupabaseEnv();
   if (!env.ok) {
@@ -47,16 +56,18 @@ export async function getActiveTenantContext(
     };
   }
 
-  const user = await getUserFromClient(supabase);
+  const user = opts.user ?? (await getUserFromClient(supabase));
   if (!user) return { status: 'not_authenticated' };
 
-  const memberships = await listTenantMemberships(supabase, user.id);
-  if (memberships.status !== 'success') return memberships;
+  const membershipsResult = opts.memberships
+    ? ({ status: 'success', data: opts.memberships } as const)
+    : await listTenantMemberships(supabase, user.id);
+  if (membershipsResult.status !== 'success') return membershipsResult;
 
   // Explicit request stays strict; only read the cookie hint when none is given.
   const selected = opts.tenantId
-    ? selectActiveTenant(memberships.data, { requestedTenantId: opts.tenantId })
-    : selectActiveTenant(memberships.data, {
+    ? selectActiveTenant(membershipsResult.data, { requestedTenantId: opts.tenantId })
+    : selectActiveTenant(membershipsResult.data, {
         candidateTenantId: await getActiveTenantCookieValue(),
       });
   if (!selected.ok) {
@@ -69,7 +80,7 @@ export async function getActiveTenantContext(
     data: {
       userId: user.id,
       activeTenant: selected.tenant,
-      memberships: memberships.data,
+      memberships: membershipsResult.data,
     },
   };
 }
@@ -81,9 +92,9 @@ export async function getActiveTenantContext(
  * can render a safe state rather than crash.
  */
 export async function requireTenantContext(
-  opts: { tenantId?: string; redirectTo?: string } = {},
+  opts: { tenantId?: string; redirectTo?: string; user?: User; memberships?: TenantMembership[] } = {},
 ): Promise<TenantAccessResult<ActiveTenantContext>> {
-  const result = await getActiveTenantContext({ tenantId: opts.tenantId });
+  const result = await getActiveTenantContext({ tenantId: opts.tenantId, user: opts.user, memberships: opts.memberships });
   if (result.status === 'not_authenticated') redirect(opts.redirectTo ?? SIGN_IN_PATH);
   return result;
 }

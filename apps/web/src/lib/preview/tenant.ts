@@ -48,7 +48,14 @@ export async function resolvePreviewTenantContext(): Promise<PreviewTenantResult
   if (!membership) return { status: 'no_access' };
 
   // Explicit tenantId => strict path; the active-tenant cookie is never read.
-  const tenantContext = await requireTenantContext({ tenantId: membership.tenantId });
+  // `user`/`memberships` are already resolved above - passed through so
+  // `requireTenantContext` -> `getActiveTenantContext` does not re-issue the
+  // same `auth.getUser()` and membership read a second time.
+  const tenantContext = await requireTenantContext({
+    tenantId: membership.tenantId,
+    user,
+    memberships: memberships.data,
+  });
   if (tenantContext.status === 'config_error') return tenantContext;
   if (tenantContext.status !== 'success') return { status: 'no_access' };
 

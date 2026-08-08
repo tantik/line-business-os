@@ -122,3 +122,25 @@ test('resolvePreviewStaffContext never reads the active-tenant cookie', () => {
   const body = fnBody('resolvePreviewStaffContext');
   assert.ok(!/getActiveTenantCookieValue|setActiveTenantCookie/.test(body));
 });
+
+// ============================================================================
+// Performance Fix Phase 1 - resolvePreviewManagerContext returns the already-
+// resolved location alongside locationId/timeZone, so a caller like the
+// Manager page authorization gate can hand the whole context back to the page
+// instead of the page re-running listTenantLocations/resolveManagerLocation.
+// ============================================================================
+
+test('PreviewManagerContext carries the full resolved location object, not just locationId/timeZone', () => {
+  assert.ok(
+    /location: TenantLocation;/.test(SOURCE),
+    'PreviewManagerContext must expose the resolved TenantLocation, not just its id/timezone fields',
+  );
+});
+
+test('resolvePreviewManagerContext returns the same location object resolveManagerLocation resolved, never a second lookup', () => {
+  const body = fnBody('resolvePreviewManagerContext');
+  assert.ok(
+    /status: 'ok', context: \{ supabase, tenantId, locationId, timeZone, location: locationResult\.location \}/.test(body),
+    'resolvePreviewManagerContext must return locationResult.location directly as context.location',
+  );
+});
