@@ -3,7 +3,7 @@
 import { submitCorrectionRequest as submitCorrectionRequestWrite, type WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import { listMyAttendance, submitWorkReport as submitWorkReportWrite, type WorkforceAttendance } from '@/lib/workforce/attendance';
 import { localDateTimeToUtcIso, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { parseSubmitCorrectionRequestInput, parseSubmitWorkReportInput } from '@/lib/workforce/attendance-input';
+import { parsePreviewSubmitCorrectionRequestInput, parseSubmitWorkReportInput } from '@/lib/workforce/attendance-input';
 import { resolvePreviewStaffContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
 
@@ -164,9 +164,9 @@ export async function previewSubmitCorrectionRequest(
 ): Promise<PreviewWriteResult<WorkforceShiftRequest>> {
   const contextResult = await resolvePreviewStaffContext();
   if (contextResult.status !== 'ok') return contextResult.result;
-  const { supabase, tenantId, employeeId, locationId } = contextResult.context;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = contextResult.context;
 
-  const input = parseSubmitCorrectionRequestInput(formData);
+  const input = parsePreviewSubmitCorrectionRequestInput(formData);
   if (!input) return PREVIEW_INVALID_INPUT_RESULT;
 
   if (input.attendanceId) {
@@ -174,6 +174,19 @@ export async function previewSubmitCorrectionRequest(
     if (myAttendanceResult.status !== 'success') return mapWorkforceWriteResult(myAttendanceResult);
     const target = myAttendanceResult.data.find((a) => a.attendanceId === input.attendanceId);
     if (!target || target.employeeId !== employeeId || target.locationId !== locationId) return { status: 'not_found' };
+
+    // FA-02: a submitted field that exactly matches the existing recorded
+    // value is not a correction. Only compares fields the caller actually
+    // submitted (`parsePreviewSubmitCorrectionRequestInput` already
+    // guarantees at least one is present) - if every submitted field is
+    // identical to what is already on record, nothing would change, so the
+    // request carries no actionable correction.
+    const existingClockInLocal = target.clockIn ? utcIsoToLocalDateTime(target.clockIn, timeZone).localTime : undefined;
+    const existingClockOutLocal = target.clockOut ? utcIsoToLocalDateTime(target.clockOut, timeZone).localTime : undefined;
+    const clockInChanged = input.clockInLocal !== undefined && input.clockInLocal !== existingClockInLocal;
+    const clockOutChanged = input.clockOutLocal !== undefined && input.clockOutLocal !== existingClockOutLocal;
+    const breakChanged = input.actualBreakMinutes !== null && input.actualBreakMinutes !== target.actualBreakMinutes;
+    if (!clockInChanged && !clockOutChanged && !breakChanged) return PREVIEW_INVALID_INPUT_RESULT;
   }
 
   const result = await submitCorrectionRequestWrite(supabase, tenantId, {

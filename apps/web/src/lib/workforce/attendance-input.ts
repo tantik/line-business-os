@@ -109,6 +109,39 @@ export function parseSubmitCorrectionRequestInput(formData: FormData): SubmitCor
 }
 
 // ============================================================================
+// Preview-specific correction-request validity contract (FA-02)
+// ============================================================================
+
+export interface PreviewSubmitCorrectionRequestFormInput extends Omit<SubmitCorrectionRequestFormInput, 'message'> {
+  message: string;
+}
+
+/**
+ * FA-02 fix: the Mame To Cha preview correction-request form requires (1) at
+ * least one meaningful correction field (clock-in, clock-out, or break) and
+ * (2) a non-blank reason - both required simultaneously, not either/or.
+ * Layered strictly on top of the existing, more permissive
+ * `parseSubmitCorrectionRequestInput` (never a second reimplementation of its
+ * date/time/uuid parsing - the dashboard's own correction-request form, which
+ * has no time/break fields at all and reuses that same base parser, must keep
+ * its existing looser contract unchanged). This stricter function is the
+ * single preview validity contract, reused unchanged by both the client form
+ * (pre-submit check, for immediate inline feedback) and
+ * `previewSubmitCorrectionRequest` (the authoritative server boundary) - see
+ * `PreviewCorrectionRequestForm` and `staff-attendance-actions.ts`. Before
+ * this fix, every field was independently optional on this path, so an
+ * all-blank submission (no time change, no reason) parsed successfully and
+ * reached the database as an unactionable `Details: -` request.
+ */
+export function parsePreviewSubmitCorrectionRequestInput(formData: FormData): PreviewSubmitCorrectionRequestFormInput | null {
+  const base = parseSubmitCorrectionRequestInput(formData);
+  if (!base) return null;
+  if (!base.message) return null;
+  if (base.clockInLocal === undefined && base.clockOutLocal === undefined && base.actualBreakMinutes === null) return null;
+  return { ...base, message: base.message };
+}
+
+// ============================================================================
 // decideCorrectionRequest (FormData)
 // ============================================================================
 
