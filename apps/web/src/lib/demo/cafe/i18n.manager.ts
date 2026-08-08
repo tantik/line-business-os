@@ -69,6 +69,13 @@ interface ManagerDict {
   approve: string;
   reject: string;
   noPendingCorrections: string;
+  confirmApproveTitle: string;
+  confirmRejectTitle: string;
+  confirmDecisionStaffLabel: string;
+  confirmDecisionDateLabel: string;
+  confirmDecisionDetailsLabel: string;
+  confirmApproveConsequence: string;
+  confirmRejectConsequence: string;
   autoScheduleButton: string;
   publishScheduleButton: string;
   autoScheduleConfirmBody: string;
@@ -102,6 +109,13 @@ interface ManagerDict {
   autoScheduleConfirmTitle: string;
   autoScheduleConfirmAction: string;
   deleteButton: string;
+  deactivateShiftTypeButton: string;
+  confirmDeactivateShiftTypeTitle: string;
+  confirmDeactivateShiftTypeBody: string;
+  showDeactivatedShiftTypes: string;
+  hideDeactivatedShiftTypes: string;
+  deactivatedShiftTypesHeading: string;
+  deactivatedShiftTypesEmpty: string;
   weekdayAriaSuffix: string;
   unknownStaffFallback: string;
   backToHub: string;
@@ -190,6 +204,13 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: '承認',
     reject: '却下',
     noPendingCorrections: '対応が必要な修正申請はありません。',
+    confirmApproveTitle: 'この修正申請を承認しますか？',
+    confirmRejectTitle: 'この修正申請を却下しますか？',
+    confirmDecisionStaffLabel: 'スタッフ',
+    confirmDecisionDateLabel: '対象日',
+    confirmDecisionDetailsLabel: '申請内容',
+    confirmApproveConsequence: '承認すると、この内容で勤怠記録が更新されます。',
+    confirmRejectConsequence: 'この申請は却下され、勤怠記録は変更されません。',
     autoScheduleButton: '自動シフト作成',
     publishScheduleButton: 'スケジュールを公開',
     autoScheduleConfirmBody: 'のシフトを、スタッフの希望と設定内容にもとづいて自動作成します。公開済みのシフトは上書きしません。続けますか？',
@@ -223,6 +244,13 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     autoScheduleConfirmTitle: '自動シフト作成',
     autoScheduleConfirmAction: '自動作成する',
     deleteButton: '削除',
+    deactivateShiftTypeButton: '無効化',
+    confirmDeactivateShiftTypeTitle: 'このシフト種別を無効化しますか？',
+    confirmDeactivateShiftTypeBody: '無効化すると、新しいシフト作成時の選択肢に表示されなくなります。過去のシフト記録は保持され、いつでも再度有効化できます。',
+    showDeactivatedShiftTypes: '無効化したシフト種別を表示',
+    hideDeactivatedShiftTypes: '無効化したシフト種別を隠す',
+    deactivatedShiftTypesHeading: '無効化済みのシフト種別',
+    deactivatedShiftTypesEmpty: '無効化されたシフト種別はありません。',
     weekdayAriaSuffix: '曜日の必要人数',
     unknownStaffFallback: '不明なスタッフ',
     backToHub: 'ホームに戻る',
@@ -311,6 +339,13 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: 'Approve',
     reject: 'Reject',
     noPendingCorrections: 'No correction requests need attention.',
+    confirmApproveTitle: 'Approve this correction request?',
+    confirmRejectTitle: 'Reject this correction request?',
+    confirmDecisionStaffLabel: 'Staff',
+    confirmDecisionDateLabel: 'Date',
+    confirmDecisionDetailsLabel: 'Requested correction',
+    confirmApproveConsequence: 'Approving will update the attendance record with these details.',
+    confirmRejectConsequence: 'Rejecting will decline this request; the attendance record will not change.',
     autoScheduleButton: 'Auto-create shifts',
     publishScheduleButton: 'Publish schedule',
     autoScheduleConfirmBody:
@@ -346,6 +381,14 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     autoScheduleConfirmTitle: 'Auto-create shifts',
     autoScheduleConfirmAction: 'Auto-create',
     deleteButton: 'Delete',
+    deactivateShiftTypeButton: 'Deactivate',
+    confirmDeactivateShiftTypeTitle: 'Deactivate this shift type?',
+    confirmDeactivateShiftTypeBody:
+      'Deactivating will remove it from the choices offered when creating new shifts. Past shift records are preserved, and you can reactivate it anytime.',
+    showDeactivatedShiftTypes: 'Show deactivated shift types',
+    hideDeactivatedShiftTypes: 'Hide deactivated shift types',
+    deactivatedShiftTypesHeading: 'Deactivated shift types',
+    deactivatedShiftTypesEmpty: 'No deactivated shift types.',
     weekdayAriaSuffix: ' required headcount',
     unknownStaffFallback: 'Unknown staff',
     backToHub: 'Back to hub',
