@@ -1,26 +1,26 @@
 # ORUWA Business OS - Current Handoff
 
-Generated: **2026-08-06 14:43:04 +09:00**
+Generated: **2026-08-08 22:40:41 +09:00**
 
 Status: **Operational continuation artifact; repository evidence takes priority**
 
 ## Repository snapshot
 
 - Repository: `tantik/line-business-os` at `D:\Dev\line-business-os`.
-- Branch: `docs/cafe-v2-1-disposable-acceptance`.
-- HEAD: `71541e02532a0a496e1830837b18f2eb62179660`.
-- `origin/dev`: `71541e02532a0a496e1830837b18f2eb62179660` - Merge pull request #196 from tantik/docs/cafe-v2-1-p1-4-decision.
-- Working tree: 2 tracked path(s) changed; 13 untracked path(s).
+- Branch: `docs/cafe-v2-1-founder-audit`.
+- HEAD: `63871093fd2dc4421bfea3b899756a274c03e9b3`.
+- `origin/dev`: `63871093fd2dc4421bfea3b899756a274c03e9b3` - Merge pull request #199 from tantik/fix/cafe-v2-1-preview-context-performance.
+- Working tree: 1 tracked path(s) changed; 1 untracked path(s).
 
 ## Last significant event
 
 - Kind: **ReleaseGate**
-- Event: Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data
-- Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared
+- Event: Live Founder Acceptance completed: Cafe v2.1 not accepted; five confirmed defects require remediation
+- Evidence: docs/product/cafe-package-v2-1-founder-acceptance-audit.md; isolated Manager and Staff Preview sessions on 2026-08-08; disposable Inventory fixture fully deleted; correction request rejected; shift type deactivated
 
 ## Exactly one next task
 
-**Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness**
+**Implement FA-01 through FA-05 in independent batches, verify Manager mobile, then run targeted Founder re-acceptance**
 
 ## Required recovery order
 
@@ -41,8 +41,8 @@ docs/project/00_PROJECT_INDEX.md, docs/project/01_PROJECT_STATE.md,
 docs/project/06_NEXT_TASK.md, and docs/project/CURRENT_HANDOFF.md.
 
 Then run a read-only Git preflight and reconcile it with the handoff. The last
-recorded event is: Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data. Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared. The one next task is:
-Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness
+recorded event is: Live Founder Acceptance completed: Cafe v2.1 not accepted; five confirmed defects require remediation. Evidence: docs/product/cafe-package-v2-1-founder-acceptance-audit.md; isolated Manager and Staff Preview sessions on 2026-08-08; disposable Inventory fixture fully deleted; correction request rejected; shift type deactivated. The one next task is:
+Implement FA-01 through FA-05 in independent batches, verify Manager mobile, then run targeted Founder re-acceptance
 
 Do not reopen Frozen Foundation decisions, invent PASS evidence, stage unrelated
 untracked files, or perform high-risk production/DB/security/billing/messaging

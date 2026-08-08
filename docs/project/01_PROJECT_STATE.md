@@ -7,13 +7,13 @@ Verified: **2026-08-06**
 <!-- AUTO:REPOSITORY_SNAPSHOT:START -->
 ## Automated repository snapshot
 
-- Generated: 2026-08-06 14:43:04 +09:00.
-- Checked-out branch: `docs/cafe-v2-1-disposable-acceptance`.
-- HEAD: `71541e02532a0a496e1830837b18f2eb62179660`.
-- `origin/dev`: `71541e02532a0a496e1830837b18f2eb62179660` - Merge pull request #196 from tantik/docs/cafe-v2-1-p1-4-decision.
-- Working tree: 2 tracked path(s) changed; 13 untracked path(s).
-- Significant event: **ReleaseGate** - Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data.
-- Evidence supplied by operator: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared.
+- Generated: 2026-08-08 22:40:41 +09:00.
+- Checked-out branch: `docs/cafe-v2-1-founder-audit`.
+- HEAD: `63871093fd2dc4421bfea3b899756a274c03e9b3`.
+- `origin/dev`: `63871093fd2dc4421bfea3b899756a274c03e9b3` - Merge pull request #199 from tantik/fix/cafe-v2-1-preview-context-performance.
+- Working tree: 1 tracked path(s) changed; 1 untracked path(s).
+- Significant event: **ReleaseGate** - Live Founder Acceptance completed: Cafe v2.1 not accepted; five confirmed defects require remediation.
+- Evidence supplied by operator: docs/product/cafe-package-v2-1-founder-acceptance-audit.md; isolated Manager and Staff Preview sessions on 2026-08-08; disposable Inventory fixture fully deleted; correction request rejected; shift type deactivated.
 
 Git identifiers above are repository evidence. Event meaning and evidence description are operator-supplied and must still obey the documentation hierarchy.
 <!-- AUTO:REPOSITORY_SNAPSHOT:END -->

@@ -7,10 +7,10 @@ Exactly one task: **Close remaining Cafe Package v2.1 acceptance gates.**
 <!-- AUTO:NEXT_TASK:START -->
 ## Automated continuation
 
-- Updated: 2026-08-06 14:43:04 +09:00.
-- Significant event: **ReleaseGate** - Cafe v2.1 authorized disposable-fixture acceptance started; Staff S3 and S8 closed without persisted data.
-- Evidence: Canonical authenticated Preview Staff session on 2026-08-06; acceptance report; invalid Ice=-1 rejected with item-specific feedback and cleared.
-- Next task: **Establish an isolated Manager session and close only Cafe v2.1 mutation gates with proven full rollback, then reconcile Founder Freeze readiness**
+- Updated: 2026-08-08 22:40:41 +09:00.
+- Significant event: **ReleaseGate** - Live Founder Acceptance completed: Cafe v2.1 not accepted; five confirmed defects require remediation.
+- Evidence: docs/product/cafe-package-v2-1-founder-acceptance-audit.md; isolated Manager and Staff Preview sessions on 2026-08-08; disposable Inventory fixture fully deleted; correction request rejected; shift type deactivated.
+- Next task: **Implement FA-01 through FA-05 in independent batches, verify Manager mobile, then run targeted Founder re-acceptance**
 
 Reverify Git and the linked task-specific sources before implementation. This block never authorizes production, database, security, billing, messaging, or destructive actions.
 <!-- AUTO:NEXT_TASK:END -->

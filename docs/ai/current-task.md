@@ -97,3 +97,14 @@ routes, localization, or reusable data contracts are affected.
    the agent that ran the 2026-08-06 static audit.
 2. Reconcile the remaining BLOCKED rows and request Founder Freeze acceptance;
    do not start Cafe v2.2 automatically.
+
+## 2026-08-08 live Founder Acceptance override
+
+The complete live audit is recorded in
+`docs/product/cafe-package-v2-1-founder-acceptance-audit.md`. It supersedes the
+older browser-blocked next gate above. Founder Acceptance is **NO** until
+FA-01 through FA-05 and Manager mobile revalidation pass.
+
+Exact next gate: implement the audit's independently testable remediation
+batches in order, then run targeted live regression and request a new Founder
+Acceptance decision. Do not start Cafe v2.2 automatically.
