@@ -75,3 +75,28 @@ test('tenant.ts uses no service-role path (anon/RLS client only)', () => {
   assert.ok(!/service_role/i.test(source), 'tenant.ts must not reference service_role');
   assert.ok(!/createServiceClient/.test(source), 'tenant.ts must not import createServiceClient');
 });
+
+// ---------------------------------------------------------------------------
+// Performance Fix Phase 1 - resolvePreviewTenantContext must resolve
+// getUser()/listTenantMemberships() exactly once, then pass that same result
+// through to requireTenantContext -> getActiveTenantContext instead of
+// letting it re-issue both reads a second time for the same request.
+// ---------------------------------------------------------------------------
+
+test('resolvePreviewTenantContext calls getUserFromClient and listTenantMemberships exactly once each (no duplicate resolution within this function)', () => {
+  const source = readFileSync(new URL('./tenant.ts', import.meta.url), 'utf8');
+  const getUserCalls = source.match(/getUserFromClient\(/g) ?? [];
+  const membershipCalls = source.match(/listTenantMemberships\(/g) ?? [];
+  assert.equal(getUserCalls.length, 1, 'tenant.ts must call getUserFromClient exactly once');
+  assert.equal(membershipCalls.length, 1, 'tenant.ts must call listTenantMemberships exactly once');
+});
+
+test('resolvePreviewTenantContext passes the already-resolved user and memberships through to requireTenantContext, so getActiveTenantContext does not re-fetch them', () => {
+  const source = readFileSync(new URL('./tenant.ts', import.meta.url), 'utf8');
+  assert.ok(
+    /requireTenantContext\(\{\s*\n?\s*tenantId:\s*membership\.tenantId,\s*\n?\s*user,\s*\n?\s*memberships:\s*memberships\.data,\s*\n?\s*\}\)/.test(
+      source,
+    ),
+    'resolvePreviewTenantContext must call requireTenantContext with { tenantId, user, memberships } - not just tenantId',
+  );
+});

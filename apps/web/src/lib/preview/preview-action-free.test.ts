@@ -290,6 +290,25 @@ test('manager preview page authorizes manager access before any tenant-wide Work
   }
 });
 
+test('manager preview page reuses the authorization result instead of re-resolving tenant/module/location a second time (Performance Fix Phase 1)', () => {
+  const source = read('../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx');
+  assert.ok(
+    /const \{ supabase, tenantId, location \} = authResult\.context;/.test(source),
+    'the page must destructure supabase/tenantId/location from the authorization result',
+  );
+  for (const duplicateResolutionCall of [
+    'resolvePreviewTenantContext(',
+    'resolvePreviewWorkforceModule(',
+    'resolveManagerLocation(',
+    'listTenantLocations(',
+  ]) {
+    assert.ok(
+      !source.includes(duplicateResolutionCall),
+      `the manager page must not call ${duplicateResolutionCall} - that resolution already happened inside authorizePreviewManagerPage`,
+    );
+  }
+});
+
 test('manager-view.tsx and staff-view.tsx are not client components (no client bundle => no possible action-reference registration)', () => {
   for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
     const source = read(file);

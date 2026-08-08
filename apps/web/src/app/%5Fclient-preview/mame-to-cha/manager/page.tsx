@@ -5,12 +5,7 @@ import { PreviewLogoutButton } from '@/lib/preview/preview-logout-button';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { PreviewInventoryManagerPanel } from '@/lib/preview/preview-inventory-manager-panel';
-import { createClient } from '@/lib/supabase/server';
 import { requirePreviewUser } from '@/lib/preview/auth';
-import { resolvePreviewTenantContext } from '@/lib/preview/tenant';
-import { resolvePreviewWorkforceModule } from '@/lib/preview/module-guard';
-import { resolveManagerLocation } from '@/lib/preview/location';
-import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
@@ -22,12 +17,7 @@ import { withResolvedRecipeListTitles } from '@/lib/preview/manager-recipe-title
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
-import {
-  PreviewErrorState,
-  PreviewLocationBlockedState,
-  PreviewModuleUnavailableState,
-  PreviewNoAccessState,
-} from '@/lib/preview/states';
+import { PreviewNoAccessState } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { toManagerCorrectionSummaries } from '@/lib/preview/manager-view-model';
 import { PreviewManagerView } from '@/lib/preview/manager-view';
@@ -84,29 +74,13 @@ export default async function MameToChaPreviewManagerPage({
   // Page-level authorization must run before any tenant-wide manager loader
   // or manager action form is rendered. Server Actions repeat their own
   // permission checks, but that does not protect the page's read surface.
-  if (!(await time('auth:authorizePreviewManagerPage', () => authorizePreviewManagerPage())))
-    return <PreviewNoAccessState variant="light" />;
+  // `authorizePreviewManagerPage` already resolves tenant/module/location to
+  // run its permission check - reuse that resolved context below instead of
+  // re-resolving tenant/module/location a second time from scratch.
+  const authResult = await time('auth:authorizePreviewManagerPage', () => authorizePreviewManagerPage());
+  if (authResult.status !== 'ok') return <PreviewNoAccessState variant="light" />;
 
-  const tenantResult = await time('tenant:resolvePreviewTenantContext', () => resolvePreviewTenantContext());
-  if (tenantResult.status !== 'success') return <PreviewNoAccessState variant="light" />;
-
-  const { activeTenant } = tenantResult.data;
-  const supabase = await createClient();
-
-  const moduleResult = await time('module:resolvePreviewWorkforceModule', () =>
-    resolvePreviewWorkforceModule(supabase, activeTenant.tenantId),
-  );
-  if (moduleResult.status === 'disabled') return <PreviewModuleUnavailableState variant="light" />;
-  if (moduleResult.status !== 'enabled') return <PreviewErrorState variant="light" />;
-
-  const locationsResult = await time('location:listTenantLocations', () => listTenantLocations(supabase));
-  const tenantLocations =
-    locationsResult.status === 'success'
-      ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
-      : [];
-  const locationResult = resolveManagerLocation(tenantLocations);
-  if (locationResult.kind !== 'ok') return <PreviewLocationBlockedState reason={locationResult.kind} variant="light" />;
-  const location = locationResult.location;
+  const { supabase, tenantId, location } = authResult.context;
 
   const { weekOffset: rawWeekOffset } = await searchParams;
   const weekOffset = parseWeekOffset(rawWeekOffset);
@@ -143,7 +117,7 @@ export default async function MameToChaPreviewManagerPage({
   const modulesResult = await time('modules:listTenantModules', () => listTenantModules(supabase));
   const inventoryEnabled =
     modulesResult.status === 'success' &&
-    modulesResult.data.some((m) => m.tenantId === activeTenant.tenantId && m.module === 'inventory' && m.isEnabled);
+    modulesResult.data.some((m) => m.tenantId === tenantId && m.module === 'inventory' && m.isEnabled);
 
   const __batchStart = performance.now();
   const [
@@ -160,37 +134,37 @@ export default async function MameToChaPreviewManagerPage({
     inventoryItemsResult,
     inventorySessionsResult,
   ] = await Promise.all([
-    time('batch:listWorkforceStaffForManager', () => listWorkforceStaffForManager(supabase, activeTenant.tenantId)),
-    time('batch:listWorkforceShiftTypes', () => listWorkforceShiftTypes(supabase, activeTenant.tenantId)),
+    time('batch:listWorkforceStaffForManager', () => listWorkforceStaffForManager(supabase, tenantId)),
+    time('batch:listWorkforceShiftTypes', () => listWorkforceShiftTypes(supabase, tenantId)),
     time('batch:listShiftAssignments(week)', () =>
-      listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
+      listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
     ),
     time('batch:listShiftRequestsForManager', () =>
-      listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
+      listShiftRequestsForManager(supabase, tenantId, { kind: 'correction' }),
     ),
-    time('batch:listAttendanceForManager', () => listAttendanceForManager(supabase, activeTenant.tenantId)),
-    time('batch:listWorkforceRecipes', () => listWorkforceRecipes(supabase, activeTenant.tenantId)),
+    time('batch:listAttendanceForManager', () => listAttendanceForManager(supabase, tenantId)),
+    time('batch:listWorkforceRecipes', () => listWorkforceRecipes(supabase, tenantId)),
     time('batch:listRecipeTitleTranslations', () =>
-      listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
+      listContentTranslationsForField(supabase, tenantId, 'workforce_recipe', 'title'),
     ),
     time('batch:getWorkforceScheduleSettings', () =>
-      getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
+      getWorkforceScheduleSettings(supabase, tenantId, location.locationId),
     ),
-    time('batch:listShiftExchanges', () => listShiftExchanges(supabase, activeTenant.tenantId, location.locationId)),
+    time('batch:listShiftExchanges', () => listShiftExchanges(supabase, tenantId, location.locationId)),
     time('batch:listShiftAssignments(+-8wk, for exchanges)', () =>
-      listShiftAssignments(supabase, activeTenant.tenantId, {
+      listShiftAssignments(supabase, tenantId, {
         fromIso: exchangeAssignmentFromIso,
         toIsoExclusive: exchangeAssignmentToIsoExclusive,
       }),
     ),
     inventoryEnabled
       ? time('batch:listInventoryItemStatus', () =>
-          listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true }),
+          listInventoryItemStatus(supabase, tenantId, location.locationId, { includeInactive: true }),
         )
       : Promise.resolve(null),
     inventoryEnabled
       ? time('batch:listInventoryCheckSessions', () =>
-          listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso),
+          listInventoryCheckSessions(supabase, tenantId, location.locationId, todayIso),
         )
       : Promise.resolve(null),
   ]);
