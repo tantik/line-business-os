@@ -16,6 +16,7 @@ import {
 import { previewWriteMessage } from './write-result';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 
 /**
  * Demo/Preview manager UX parity: 設定 is a single compact card, like the
@@ -58,7 +59,18 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
   const [newLabel, setNewLabel] = useState('');
   const [newStart, setNewStart] = useState('10:00');
   const [newEnd, setNewEnd] = useState('14:00');
+  // FA-04: "Delete" on a shift type actually deactivates it (the model has no
+  // permanent-delete path here) - `confirmDeactivateId` gates that mutation
+  // behind an explicit confirmation, and `showInactive` exposes the
+  // deactivated set with a Reactivate action, since a deactivated shift type
+  // previously vanished from `activeShiftTypes` with no way back.
+  const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const activeShiftTypes = shiftTypes?.filter((shiftType) => shiftType.isActive) ?? null;
+  const inactiveShiftTypes = shiftTypes?.filter((shiftType) => !shiftType.isActive) ?? null;
+  const confirmDeactivateTarget = confirmDeactivateId
+    ? (activeShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeactivateId) ?? null
+    : null;
 
   // Debounced, always-current-value autosave for the two numeric settings
   // (headcount requirements + max monthly hours). `latestRef` always holds
@@ -149,6 +161,22 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
     setFeedback(null);
     startTransition(async () => {
       const result = await previewSetShiftTypeActive({ shiftTypeId, isActive: false });
+      if (result.status === 'success') {
+        // Closed only on success (same convention as the Inventory
+        // deactivate/permanent-delete confirmations) - a server failure keeps
+        // the dialog open with the error shown in place.
+        setConfirmDeactivateId(null);
+        setFeedback({ ok: true, text: t('saved') });
+        await refreshShiftTypes();
+      }
+      else setFeedback({ ok: false, text: previewWriteMessage(lang, result.status) });
+    });
+  }
+
+  function reactivateShiftType(shiftTypeId: string) {
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await previewSetShiftTypeActive({ shiftTypeId, isActive: true });
       if (result.status === 'success') {
         setFeedback({ ok: true, text: t('saved') });
         await refreshShiftTypes();
@@ -270,8 +298,8 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
                     >
                       {t('edit')}
                     </button>
-                    <button type="button" disabled={isPending} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.dangerText, cursor: isPending ? 'wait' : 'pointer' }} onClick={() => deactivateShiftType(st.shiftTypeId)}>
-                      {t('deleteButton')}
+                    <button type="button" disabled={isPending} style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, color: demoColors.dangerText, cursor: isPending ? 'wait' : 'pointer' }} onClick={() => setConfirmDeactivateId(st.shiftTypeId)}>
+                      {t('deactivateShiftTypeButton')}
                     </button>
                   </div>
                 </div>
@@ -296,7 +324,77 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
             {t('addShiftType')}
           </button>
         </div>
+
+        <button
+          type="button"
+          style={{ ...smallButton, marginTop: 12, border: `1px solid ${demoColors.border}`, background: demoColors.surface }}
+          onClick={() => setShowInactive((value) => !value)}
+        >
+          {showInactive ? t('hideDeactivatedShiftTypes') : t('showDeactivatedShiftTypes')}
+        </button>
+
+        {showInactive ? (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 13, color: demoColors.textMuted, marginBottom: 8 }}>{t('deactivatedShiftTypesHeading')}</div>
+            {inactiveShiftTypes === null || inactiveShiftTypes.length === 0 ? (
+              <p style={{ margin: 0, ...mutedText }}>{t('deactivatedShiftTypesEmpty')}</p>
+            ) : (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {inactiveShiftTypes.map((st) => {
+                  const label = st.labelJa || st.labelEn || st.code;
+                  return (
+                    <div
+                      key={st.shiftTypeId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        background: demoColors.surfaceElevated,
+                        opacity: 0.7,
+                      }}
+                    >
+                      <span>{label} ({st.startsAtLocal}-{st.endsAtLocal})</span>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        style={{ ...smallButton, border: `1px solid ${demoColors.border}`, background: demoColors.surface, cursor: isPending ? 'wait' : 'pointer' }}
+                        onClick={() => reactivateShiftType(st.shiftTypeId)}
+                      >
+                        {t('reactivate')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      {confirmDeactivateId && confirmDeactivateTarget ? (
+        <ConfirmDialog
+          open
+          title={t('confirmDeactivateShiftTypeTitle')}
+          confirmLabel={t('deactivateShiftTypeButton')}
+          cancelLabel={t('cancel')}
+          pending={isPending}
+          danger
+          onCancel={() => setConfirmDeactivateId(null)}
+          onConfirm={() => deactivateShiftType(confirmDeactivateId)}
+        >
+          <p style={{ margin: 0 }}>
+            {confirmDeactivateTarget.labelJa || confirmDeactivateTarget.labelEn || confirmDeactivateTarget.code} (
+            {confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
+          </p>
+          <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
+          {feedback && !feedback.ok ? (
+            <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{feedback.text}</p>
+          ) : null}
+        </ConfirmDialog>
+      ) : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
         {autosaveStatus === 'saving' ? (
           <span style={{ fontSize: 12, color: demoColors.textMuted }}>{t('savingStatus')}</span>
