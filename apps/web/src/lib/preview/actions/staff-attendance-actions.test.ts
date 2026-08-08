@@ -105,3 +105,29 @@ test('never references tenantSlug/moduleEnabled authority literals', () => {
 test("never exports a B2a manager action (kept separate so a route importing one role's actions never bundles the other role's worker registrations)", () => {
   assert.ok(!/export async function previewDecideCorrectionRequest\(/.test(SOURCE));
 });
+
+// ============================================================================
+// FA-02 - server-authoritative correction-request validity contract. A
+// client bypass calling this Server Action directly (skipping the form's own
+// pre-submit check) must be rejected identically to the client - the parse
+// step below is the sole authority, never the client-side check.
+// ============================================================================
+
+test('previewSubmitCorrectionRequest parses input through the stricter preview contract (meaningful change + non-blank reason), never the base dashboard parser', () => {
+  const body = fnBody('previewSubmitCorrectionRequest');
+  assert.ok(/const input = parsePreviewSubmitCorrectionRequestInput\(formData\)/.test(body));
+});
+
+test('previewSubmitCorrectionRequest rejects a submission whose only submitted fields exactly match the existing recorded attendance (no actual change)', () => {
+  const body = fnBody('previewSubmitCorrectionRequest');
+  assert.ok(/existingClockInLocal/.test(body) && /existingClockOutLocal/.test(body));
+  assert.ok(/clockInChanged/.test(body) && /clockOutChanged/.test(body) && /breakChanged/.test(body));
+  assert.ok(/if \(!clockInChanged && !clockOutChanged && !breakChanged\) return PREVIEW_INVALID_INPUT_RESULT/.test(body));
+});
+
+test('the no-change check runs only after the attendanceId is verified to belong to the caller, never before', () => {
+  const body = fnBody('previewSubmitCorrectionRequest');
+  const ownershipIdx = body.indexOf('target.locationId !== locationId');
+  const noChangeIdx = body.indexOf('clockInChanged');
+  assert.ok(ownershipIdx >= 0 && noChangeIdx >= 0 && ownershipIdx < noChangeIdx);
+});

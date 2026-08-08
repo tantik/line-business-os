@@ -64,6 +64,7 @@ interface StaffDict {
   reasonMessage: string;
   reasonPlaceholder: string;
   reasonRequiredError: string;
+  correctionChangeRequiredError: string;
   close: string;
   preferenceModalTitle: string;
   alreadySubmittedNote: string;
@@ -166,6 +167,7 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     reasonMessage: '理由・メッセージ',
     reasonPlaceholder: '例: 開店準備で出勤が12分遅れました。',
     reasonRequiredError: '理由を入力してください。',
+    correctionChangeRequiredError: '出勤時間・退勤時間・休憩時間のいずれかを変更してください。',
     close: '閉じる',
     // ShiftPreferenceModal
     preferenceModalTitle: '来月のシフト希望を提出',
@@ -266,6 +268,7 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     reasonMessage: 'Reason / message',
     reasonPlaceholder: 'e.g. I clocked in 12 minutes late due to opening prep.',
     reasonRequiredError: 'Please enter a reason.',
+    correctionChangeRequiredError: 'Please change the clock-in time, clock-out time, or break time.',
     close: 'Close',
     // ShiftPreferenceModal
     preferenceModalTitle: "Submit next month's shift preference",

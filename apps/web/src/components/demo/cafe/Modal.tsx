@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { demoColors } from '@/lib/demo/cafe/theme';
+import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 interface ModalProps {
   open: boolean;
@@ -17,6 +18,11 @@ interface ModalProps {
 /** Single shared modal shell for the cafe demo: X/overlay/Escape close, mobile-safe sizing. */
 export function Modal({ open, onClose, title, children, footer, maxWidth = 440 }: ModalProps) {
   const { lang } = useLang();
+  // FA-05: restore focus to whatever opened this dialog on every close path
+  // (Escape below, backdrop click, and the close button) - see
+  // `useRestoreFocusOnClose` for why a single `open`-prop watcher covers all
+  // of them.
+  useRestoreFocusOnClose(open);
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
