@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { buttonPrimary, buttonSecondary, demoColors } from '@/lib/demo/cafe/theme';
+import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 export function ConfirmDialog({
   open,
@@ -24,6 +25,12 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  // FA-05: restore focus to whatever opened this dialog on every close path
+  // (Escape below, backdrop click, and Cancel) - see
+  // `useRestoreFocusOnClose` for why a single `open`-prop watcher covers all
+  // of them, including a nested confirmation opened from inside an
+  // already-open `Modal` (it restores to its own opener, not the Modal's).
+  useRestoreFocusOnClose(open);
   useEffect(() => {
     if (!open) return;
     const handleKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !pending) onCancel(); };
