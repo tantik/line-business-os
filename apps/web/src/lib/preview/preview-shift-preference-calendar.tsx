@@ -23,7 +23,11 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
   const [pending, startTransition] = useTransition();
   const dates = useMemo(() => monthDates(defaultMonthDate), [defaultMonthDate]);
-  const options = [null, ...(shiftTypes ?? []).map((item) => item.shiftTypeId)];
+  // Only real, currently-published shift types are valid preference choices -
+  // draft/archived/disabled types configured for testing or retired windows
+  // must never appear as a selectable option here.
+  const activeShiftTypes = useMemo(() => (shiftTypes ?? []).filter((item) => item.isActive), [shiftTypes]);
+  const options = [null, ...activeShiftTypes.map((item) => item.shiftTypeId)];
   const [selections, setSelections] = useState<Record<string, string | null>>({});
   const [note, setNote] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -60,8 +64,8 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
     <>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginBottom: 12 }}>
         <span style={shiftChipStyle(demoColors.surfaceElevated, demoColors.textMuted, true)}>－</span>
-        {(shiftTypes ?? []).map((type) => {
-          const chip = shiftChipColors(type.shiftTypeId, (shiftTypes ?? []).map((t) => t.shiftTypeId));
+        {activeShiftTypes.map((type) => {
+          const chip = shiftChipColors(type.shiftTypeId, activeShiftTypes.map((t) => t.shiftTypeId));
           return <span key={type.shiftTypeId} style={shiftChipStyle(chip.background, chip.color, true)}>{type.labelJa} {type.startsAtLocal.slice(0, 5)}-{type.endsAtLocal.slice(0, 5)}</span>;
         })}
       </div>
@@ -71,8 +75,8 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
         {Array.from({ length: firstWeekday }).map((_, index) => <div key={`blank-${index}`} />)}
         {dates.map((date) => {
           const value = selections[date] ?? null;
-          const type = (shiftTypes ?? []).find((item) => item.shiftTypeId === value);
-          const chip = shiftChipColors(value, (shiftTypes ?? []).map((t) => t.shiftTypeId));
+          const type = activeShiftTypes.find((item) => item.shiftTypeId === value);
+          const chip = shiftChipColors(value, activeShiftTypes.map((t) => t.shiftTypeId));
           return <button key={date} type="button" onClick={() => cycle(date)} style={{ minWidth: 0, minHeight: 44, padding: '4px 2px', overflow: 'hidden', border: `1px solid ${demoColors.border}`, borderRadius: 8, background: chip.background, color: chip.color, cursor: 'pointer' }}>
             <span style={{ display: 'block', fontWeight: 600 }}>{Number(date.slice(-2))}</span>
             <span style={{ display: 'block', overflow: 'hidden', fontSize: 11, fontWeight: 700, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{type?.labelJa ?? '－'}</span>

@@ -207,6 +207,30 @@ export async function listWorkforceRecipes(
   }
 }
 
+/**
+ * Batch-sign the storage media path for every recipe that has one, keyed by
+ * `recipeId`. Shared by the Manager page's initial server-rendered load and
+ * the `previewListRecipeMediaUrls` Server Action so both go through the same
+ * one-call-per-list signing logic instead of duplicating it.
+ */
+export async function createRecipeMediaUrlMap(
+  supabase: SupabaseClient,
+  recipes: WorkforceRecipe[],
+): Promise<Record<string, string>> {
+  const media = recipes.filter((recipe) => recipe.mediaPath);
+  if (media.length === 0) return {};
+  const recipeIdByPath = new Map(media.map((recipe) => [recipe.mediaPath as string, recipe.recipeId]));
+  const signed = await supabase.storage
+    .from('recipe-media')
+    .createSignedUrls(media.map((recipe) => recipe.mediaPath as string), 3600);
+  if (signed.error) return {};
+  return Object.fromEntries(signed.data.flatMap((entry) => {
+    if (!entry.path || !entry.signedUrl) return [];
+    const recipeId = recipeIdByPath.get(entry.path);
+    return recipeId ? [[recipeId, entry.signedUrl]] : [];
+  }));
+}
+
 export async function updateWorkforceRecipeContentKind(
   supabase: SupabaseClient,
   tenantId: string,

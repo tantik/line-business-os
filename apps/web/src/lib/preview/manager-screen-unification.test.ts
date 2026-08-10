@@ -164,17 +164,21 @@ test('the preview manager display component never falls back to the raw employee
 });
 
 test('manager week navigation avoids eager adjacent-week loads, never navigates, and stops at the supported bounds', () => {
-  // Preview Manager architecture (perf phase 2): week nav no longer navigates
-  // the page at all (previously `router.push`/`router.prefetch` against the
-  // same route's `?weekOffset=` search param) - it fetches only the exact
-  // clicked week's data via the scoped, read-only `previewGetScheduleWeek()`
-  // Server Action, so there is no adjacent-page prefetch concept left to
-  // assert on; asserting its absence is the stronger property.
+  // Preview Manager architecture (perf phase 3): plain week nav is now a
+  // pure client-side date-range filter over a preloaded ±8-week
+  // `allAssignments` window - the same pattern Staff already used - so it
+  // makes NO network request at all, not even the scoped
+  // `previewGetScheduleWeek()` Server Action perf phase 2 introduced. That
+  // action is still called, but only from `navigateToWeek`'s absence and
+  // from the post-mutation forced refresh (`onScheduleChanged`) - asserting
+  // it never appears inside `navigateToWeek` is the stronger property.
   const source = read(PREVIEW_MANAGER_VIEW_CHROME);
   assert.ok(!source.includes('useEffect('), 'week navigation must not eagerly load both adjacent weeks');
   assert.ok(!/\brouter\.(push|replace|prefetch)\(/.test(source), 'week navigation must not use next/navigation - it must never re-run the whole Manager page or reset scroll');
-  assert.match(source, /schedule\.weekOffset <= MIN_WEEK_OFFSET/);
-  assert.match(source, /schedule\.weekOffset >= MAX_WEEK_OFFSET/);
+  const navigateToWeekBody = source.slice(source.indexOf('function navigateToWeek'), source.indexOf('\n  }\n', source.indexOf('function navigateToWeek')));
+  assert.ok(!navigateToWeekBody.includes('previewGetScheduleWeek'), 'plain week navigation must not call the scoped week-fetch Server Action - it must read from the already-preloaded window');
+  assert.match(source, /activeWeekOffset <= MIN_WEEK_OFFSET/);
+  assert.match(source, /activeWeekOffset >= MAX_WEEK_OFFSET/);
 });
 
 test('the preview manager display component renders the safe staff-load error via translation, with no interpolated raw error/message', () => {
@@ -347,11 +351,12 @@ test('destructive and high-impact Manager actions require accurate copy and an e
   const shiftGrid = read('preview-shift-grid.tsx');
   const scheduleActions = read('preview-schedule-card-actions.tsx');
 
-  assert.match(managerDict, /removeStaffButton: 'スタッフを無効化'/);
-  assert.match(managerDict, /removeStaffButton: 'Deactivate staff'/);
+  assert.match(managerDict, /deleteStaffButton: '削除'/);
+  assert.match(managerDict, /deleteStaffButton: 'Delete'/);
   assert.match(managerDict, /staffFilterInactive: '無効化済み'/);
   assert.match(managerDict, /staffFilterInactive: 'Deactivated'/);
-  assert.match(staffForm, /confirmLabel=\{t\('removeStaffButton'\)\}/);
+  assert.match(staffForm, /confirmLabel=\{t\('confirmPermanentDeleteStaffButton'\)\}/);
+  assert.match(staffForm, /onClick=\{\(\) => \{\s*setPermanentDeleteError\(null\);\s*setPermanentDeleteTarget\(s\);\s*\}\}/);
 
   assert.match(recipeManager, /'アーカイブ' : 'Archive'/);
   assert.match(recipeManager, /title=\{lang === 'ja' \? 'このレシピをアーカイブしますか？' : 'Archive this recipe\?'\}/);

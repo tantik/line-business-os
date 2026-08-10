@@ -125,6 +125,53 @@ function buildAttendancePayload(input: SubmitWorkReportInput): Record<string, un
   return payload;
 }
 
+export interface ApplyApprovedCorrectionInput {
+  attendanceId: string;
+  clockIn?: string;
+  clockOut?: string;
+  actualBreakMinutes?: number;
+}
+
+/**
+ * Apply an approved correction request's requested values directly to the
+ * attendance row it targets, by `attendance_id` (never by employee/work_date
+ * lookup -- the request already carries the exact row it corrects). Relies
+ * entirely on RLS (`wf_attendance_manage`, `workforce.attendance.manage`):
+ * a manager who can decide the request but lacks attendance-manage returns
+ * `not_found` here rather than a fabricated success, same as every other
+ * RLS-filtered zero-row write in this module.
+ */
+export async function applyApprovedCorrection(
+  supabase: SupabaseClient,
+  tenantId: string,
+  input: ApplyApprovedCorrectionInput,
+): Promise<WorkforceWriteResult<WorkforceAttendance>> {
+  try {
+    const payload: Record<string, unknown> = {};
+    if (input.clockIn !== undefined) payload.clock_in = input.clockIn;
+    if (input.clockOut !== undefined) payload.clock_out = input.clockOut;
+    if (input.actualBreakMinutes !== undefined) payload.actual_break_minutes = input.actualBreakMinutes;
+
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_attendance')
+      .update(payload)
+      .eq('tenant_id', tenantId)
+      .eq('attendance_id', input.attendanceId)
+      .select(ATTENDANCE_SELECT)
+      .maybeSingle();
+
+    if (error) return mapWorkforceWriteError(error, 'apply this correction to attendance');
+    if (!data) return { status: 'not_found' };
+    return { status: 'success', data: mapAttendanceRow(data as ApiWorkforceAttendanceRow) };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error applying this correction to attendance.',
+    };
+  }
+}
+
 /**
  * Submit (create or edit) a work report for one employee/day. Unlike shift
  * preferences, attendance has a full self-scope CRUD surface

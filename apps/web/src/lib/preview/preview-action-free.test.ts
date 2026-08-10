@@ -95,7 +95,6 @@ const ALL_PREVIEW_FILES = [...ACTION_FREE_PREVIEW_FILES, ...MANAGER_PREVIEW_FILE
 
 const B2A_MANAGER_ACTION_EXPORTS = [
   'previewUpsertEmployee',
-  'previewSetEmployeeActive',
   'previewCreateShiftAssignment',
   'previewUpdateShiftAssignment',
   'previewRunAutoDistribution',

@@ -11,7 +11,7 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
-import { listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { withResolvedRecipeListTitles } from '@/lib/preview/manager-recipe-title-translations';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
@@ -200,6 +200,14 @@ export default async function MameToChaPreviewManagerPage({
       )
     : null;
   const settings = settingsResult.status === 'success' ? settingsResult.data : null;
+  // Sign every recipe thumbnail once, here, instead of leaving it to the
+  // "Manage recipes" modal to fetch (and re-fetch on every open) after a
+  // separate client round trip through the full manager-context auth chain.
+  // One Storage call, no extra auth resolution -- `supabase`/`tenantId` are
+  // already authorized above.
+  const recipeMediaUrls = recipes
+    ? await time('batch:createRecipeMediaUrlMap', () => createRecipeMediaUrlMap(supabase, recipes))
+    : {};
 
   const pendingCorrections = (correctionRequests ?? []).filter((r) => r.status === 'pending');
   const decidedCorrections = (correctionRequests ?? [])
@@ -277,6 +285,7 @@ export default async function MameToChaPreviewManagerPage({
           staff={activeStaff}
           shiftTypes={shiftTypes}
           assignments={assignments}
+          allAssignments={allAssignmentsResult.status === 'success' ? allAssignmentsResult.data : null}
           attendance={attendance}
           basePath={PREVIEW_BASE_PATH}
           requiredHeadcountByWeekday={settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]}
@@ -285,6 +294,7 @@ export default async function MameToChaPreviewManagerPage({
         <PreviewStaffRecipeManagement
           staff={staff}
           recipes={recipes}
+          recipeMediaUrls={recipeMediaUrls}
           inventorySlot={
             inventoryEnabled && inventoryItemsResult?.status === 'success' ? (
               <PreviewInventoryManagerPanel

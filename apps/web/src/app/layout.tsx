@@ -5,6 +5,14 @@ import { colors } from '@/lib/ui/theme';
 export const metadata: Metadata = {
   title: 'LINE Business OS',
   description: 'Multi-tenant SaaS platform for Japanese SMBs',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icons/icon-16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/icons/icon-32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
