@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  createRecipeMediaUrlMap,
   getWorkforceRecipeDetail,
   listWorkforceRecipes,
   setWorkforceRecipeArchived,
@@ -9,10 +10,14 @@ import {
   type WorkforceRecipeDetail,
 } from '@/lib/workforce/recipes';
 import { parseUpsertRecipeInput } from '@/lib/workforce/recipe-input';
-import { listContentTranslationsForField } from '@/lib/content/translations';
+import { listContentTranslationsForEntities, listContentTranslationsForField, setMachineContentTranslation } from '@/lib/content/translations';
+import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
 import { withResolvedRecipeListTitles } from '../manager-recipe-title-translations';
 import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
+import { resolveContentTranslationProvider } from '@/lib/content/translation-provider-factory';
+import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & { mediaUrl: string | null };
 const MAX_RECIPE_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -31,19 +36,7 @@ export async function previewListRecipeMediaUrls(
   const media = recipes.data.filter((recipe) =>
     requested.has(recipe.recipeId) && recipe.locationId === context.context.locationId && recipe.mediaPath,
   );
-  const recipeIdByPath = new Map(media.map((recipe) => [recipe.mediaPath as string, recipe.recipeId]));
-  const signed = await context.context.supabase.storage
-    .from('recipe-media')
-    .createSignedUrls(media.map((recipe) => recipe.mediaPath as string), 3600);
-  if (signed.error) return { status: 'unexpected_error' };
-  return {
-    status: 'success',
-    data: Object.fromEntries(signed.data.flatMap((entry) => {
-      if (!entry.path || !entry.signedUrl) return [];
-      const recipeId = recipeIdByPath.get(entry.path);
-      return recipeId ? [[recipeId, entry.signedUrl]] : [];
-    })),
-  };
+  return { status: 'success', data: await createRecipeMediaUrlMap(context.context.supabase, media) };
 }
 
 /**
@@ -147,5 +140,70 @@ export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWr
   if (previousMediaPath && previousMediaPath !== nextMediaPath) {
     await context.context.supabase.storage.from('recipe-media').remove([previousMediaPath]);
   }
+
+  // Auto-translation (Cafe v2.1 final polish - restores the automatic
+  // translation this recipe used to get from the now-removed manager-facing
+  // "Generate English translation" panel, per that removal's own stated
+  // intent: "translation keeps running automatically server-side, just
+  // invisible to managers" - the panel/button were removed, but nothing was
+  // ever wired to actually keep it running, so it had been fully dormant).
+  // Fires ONLY here, once per Save, never on page load/open/browse. Reuses
+  // the same workspace/orchestrator every field of this recipe (title,
+  // description, ingredients, steps, notes) already goes through for Staff
+  // display - `runContentTranslationBatch` refuses to touch a `reviewed`
+  // (manually confirmed) translation and skips a field whose current
+  // (non-stale) machine translation already exists, so a manager's manual
+  // edit -- or an unchanged JA field -- is never overwritten. Recipes author
+  // Japanese only (no English input field exists in this form), so this is
+  // one-directional (ja -> en) by construction, not a restriction added
+  // here. Best-effort: a translation-provider failure (or no provider
+  // configured at all) must never fail the save the manager just made.
+  await autoTranslateRecipe(context.context.supabase, context.context.tenantId, saved.data.recipeId);
+
   return { status: 'success', data: saved.data };
+}
+
+async function autoTranslateRecipe(supabase: SupabaseClient, tenantId: string, recipeId: string): Promise<void> {
+  const provider = resolveContentTranslationProvider();
+  if (!provider) return;
+  try {
+    const detailResult = await getWorkforceRecipeDetail(supabase, tenantId, recipeId);
+    if (detailResult.status !== 'success' || !detailResult.data) return;
+
+    const fieldRefs = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace(detailResult.data, []));
+    const translationsResult = await listContentTranslationsForEntities(
+      supabase,
+      tenantId,
+      fieldRefs.map((f) => ({ sourceEntityType: f.sourceEntityType, sourceEntityId: f.sourceEntityId })),
+    );
+    if (translationsResult.status !== 'success') return;
+
+    const workspace = buildRecipeTranslationWorkspace(detailResult.data, translationsResult.data);
+    const fields = flattenRecipeTranslationFields(workspace);
+    const batchResult = await runContentTranslationBatch(
+      fields.map((field) => ({
+        sourceEntityType: field.sourceEntityType,
+        sourceEntityId: field.sourceEntityId,
+        sourceField: field.sourceField,
+        sourceText: field.sourceText,
+        existing: field.existing,
+      })),
+      provider,
+    );
+    for (const accepted of batchResult.accepted) {
+      const saveResult = await setMachineContentTranslation(supabase, tenantId, {
+        sourceEntityType: accepted.sourceEntityType,
+        sourceEntityId: accepted.sourceEntityId,
+        sourceField: accepted.sourceField,
+        translatedText: accepted.translatedText,
+        sourceContentHash: accepted.sourceContentHash,
+        translationProvider: provider.providerId,
+      });
+      if (saveResult.status !== 'success' && saveResult.status !== 'reviewed_conflict') {
+        console.error(`[preview:recipe-translation] failed to persist machine translation for recipe=${recipeId} field=${accepted.sourceField}: status=${saveResult.status}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[preview:recipe-translation] unexpected error translating recipe=${recipeId}:`, err instanceof Error ? err.message : err);
+  }
 }

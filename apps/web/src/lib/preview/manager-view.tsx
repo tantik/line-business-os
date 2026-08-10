@@ -29,6 +29,8 @@ export interface PreviewManagerViewProps {
   staff: WorkforceStaffManageEntry[] | null;
   shiftTypes: WorkforceShiftType[] | null;
   assignments: WorkforceShiftAssignment[] | null;
+  /** Preloaded ±8-week assignment window - powers instant, network-free week navigation. See `PreviewManagerViewChrome`. */
+  allAssignments: WorkforceShiftAssignment[] | null;
   attendance: WorkforceAttendance[] | null;
   /** Public preview route base, e.g. `/mame-to-cha` - used for week-navigation links only. */
   basePath: string;

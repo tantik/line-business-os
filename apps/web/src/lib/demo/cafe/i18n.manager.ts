@@ -129,6 +129,9 @@ interface ManagerDict {
   staffFilterActive: string;
   staffFilterInactive: string;
   staffFilterAll: string;
+  deleteStaffButton: string;
+  staffSearchPlaceholder: string;
+  staffNoSearchResults: string;
   savingStatus: string;
   savedStatus: string;
   saveErrorStatus: string;
@@ -266,6 +269,9 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     staffFilterActive: '在籍中',
     staffFilterInactive: '無効化済み',
     staffFilterAll: 'すべて',
+    deleteStaffButton: '削除',
+    staffSearchPlaceholder: '名前で検索',
+    staffNoSearchResults: '一致するスタッフはいません。',
     savingStatus: '保存中…',
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',
@@ -404,6 +410,9 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     staffFilterActive: 'Active',
     staffFilterInactive: 'Deactivated',
     staffFilterAll: 'All',
+    deleteStaffButton: 'Delete',
+    staffSearchPlaceholder: 'Search by name',
+    staffNoSearchResults: 'No staff match your search.',
     savingStatus: 'Saving…',
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',

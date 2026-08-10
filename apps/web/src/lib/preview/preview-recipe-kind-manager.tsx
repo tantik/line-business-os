@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import {
   previewGetRecipeForEdit,
@@ -16,6 +16,7 @@ import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
 import { resolveRecipeListTitle } from './recipe-list-title';
+import { ThumbnailImage } from '@/components/media/ThumbnailImage';
 
 export interface PreviewRecipeKindManagerProps {
   recipes: WorkforceRecipe[] | null;
@@ -28,7 +29,26 @@ export interface PreviewRecipeKindManagerProps {
    * architecture, perf phase 2.
    */
   onRecipesChanged: (next: WorkforceRecipe[]) => void;
+  /**
+   * Signed thumbnail URLs, keyed by `recipeId`. Owned by
+   * `PreviewStaffRecipeManagement` for the same reason `recipes` is (see its
+   * comment): the shared `Modal` unmounts this component on close, so any
+   * URL cached here alone would be re-fetched from scratch on every reopen.
+   * Pre-seeded from the page's own server-rendered load, so on a normal open
+   * every thumbnail is already available with no fetch at all. Preview
+   * Manager architecture, perf phase 3.
+   */
+  mediaUrls: Record<string, string>;
+  onMediaUrlsChanged: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
 }
+
+/**
+ * Large-list rule (perf phase 4): the first page renders immediately, every
+ * further page is revealed only once its sentinel scrolls into view. Below
+ * this threshold everything renders at once (extra observer plumbing would
+ * be pure overhead for a handful of rows).
+ */
+const RECIPE_PAGE_SIZE = 20;
 
 function badge(status: string) {
   return { display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
@@ -36,7 +56,58 @@ function badge(status: string) {
     color: status === 'published' ? demoColors.accentStrong : demoColors.goldDark } as const;
 }
 
-export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewRecipeKindManagerProps) {
+interface RecipeRowProps {
+  recipe: WorkforceRecipe;
+  mediaUrl: string | undefined;
+  title: string;
+  pending: boolean;
+  lang: 'ja' | 'en';
+  editLabel: string;
+  onEdit: (recipeId: string) => void;
+  onRestore: (recipe: WorkforceRecipe) => void;
+  onArchive: (recipe: WorkforceRecipe) => void;
+}
+
+/**
+ * Extracted and memoized so editing one recipe (or a media URL arriving for
+ * one row) does not re-render every other row in the list. Perf phase 3.
+ */
+const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, lang, editLabel, onEdit, onRestore, onArchive }: RecipeRowProps) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
+      <ThumbnailImage
+        src={mediaUrl}
+        alt=""
+        size={44}
+        background={demoColors.surface}
+        skeletonColor={demoColors.border}
+        pending={Boolean(recipe.mediaPath)}
+        // A row being mounted (revealed by the list's sentinel-based
+        // pagination below) only means it is somewhere in the current
+        // batch of up to RECIPE_PAGE_SIZE rows - not that it is on screen.
+        // Most of a batch is typically still below the fold inside the
+        // scroll container, so this must stay the ThumbnailImage default
+        // (`lazy`) and rely on the browser's own viewport-distance
+        // heuristic, same as the Staff recipe strip. Do not special-case
+        // this to `eager` again: "row exists in the DOM" is not "row is
+        // visible".
+        fallback={recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}
+      />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
+        <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
+      </div>
+      {recipe.status === 'archived' ? (
+        <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onRestore(recipe)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
+      ) : <>
+        <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onEdit(recipe.recipeId)}>{editLabel}</button>
+        <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => onArchive(recipe)}>{lang === 'ja' ? 'アーカイブ' : 'Archive'}</button>
+      </>}
+    </div>
+  );
+});
+
+export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls, onMediaUrlsChanged }: PreviewRecipeKindManagerProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [pending, startTransition] = useTransition();
@@ -45,12 +116,19 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
-  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [mediaLoading, setMediaLoading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<WorkforceRecipe | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // Tracks which `mediaPath` each cached URL in `mediaUrls` was signed for,
+  // so a save that replaces a recipe's photo (mediaPath changes) is detected
+  // as stale and re-signed, while everything else is left untouched -
+  // "generate only when necessary", not on every render/open.
+  const knownMediaPaths = useRef<Record<string, string>>(
+    Object.fromEntries((recipes ?? []).filter((recipe) => recipe.mediaPath).map((recipe) => [recipe.recipeId, recipe.mediaPath as string])),
+  );
 
   useEffect(() => () => {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
@@ -58,16 +136,19 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
 
   const mediaSignature = (recipes ?? []).map((recipe) => `${recipe.recipeId}:${recipe.mediaPath ?? ''}`).join('|');
   useEffect(() => {
-    const recipeIds = (recipes ?? []).filter((recipe) => recipe.mediaPath).map((recipe) => recipe.recipeId);
-    if (recipeIds.length === 0) {
-      setMediaUrls({});
-      return;
-    }
+    const withMedia = (recipes ?? []).filter((recipe) => recipe.mediaPath);
+    const staleOrMissing = withMedia.filter(
+      (recipe) => knownMediaPaths.current[recipe.recipeId] !== recipe.mediaPath,
+    );
+    if (staleOrMissing.length === 0) return;
     let cancelled = false;
     setMediaLoading(true);
     void (async () => {
-      const result = await previewListRecipeMediaUrls(recipeIds);
-      if (!cancelled && result.status === 'success') setMediaUrls(result.data);
+      const result = await previewListRecipeMediaUrls(staleOrMissing.map((recipe) => recipe.recipeId));
+      if (!cancelled && result.status === 'success') {
+        for (const recipe of staleOrMissing) knownMediaPaths.current[recipe.recipeId] = recipe.mediaPath as string;
+        onMediaUrlsChanged((prev) => ({ ...prev, ...result.data }));
+      }
       if (!cancelled) setMediaLoading(false);
     })();
     return () => { cancelled = true; };
@@ -118,6 +199,41 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
     });
   }
 
+  const visibleRecipes = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (recipes ?? [])
+      .filter((recipe) => (showArchived ? recipe.status === 'archived' : recipe.status !== 'archived'))
+      .filter((recipe) => !query || resolveRecipeListTitle(recipe, lang).toLowerCase().includes(query));
+  }, [recipes, showArchived, search, lang]);
+
+  // Large-list rule: render the first page immediately; reveal further pages
+  // as the sentinel below the list scrolls into view. Resets to one page
+  // whenever the visible set changes shape (archived toggle, save/archive
+  // refetch) so a shrunk list can't leave `renderCount` past its new length.
+  const [renderCount, setRenderCount] = useState(RECIPE_PAGE_SIZE);
+  useEffect(() => {
+    setRenderCount(RECIPE_PAGE_SIZE);
+  }, [visibleRecipes]);
+  const renderedRecipes = visibleRecipes.slice(0, renderCount);
+  const hasMoreRecipes = renderCount < visibleRecipes.length;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasMoreRecipes) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setRenderCount((count) => Math.min(count + RECIPE_PAGE_SIZE, visibleRecipes.length));
+        }
+      },
+      { root: scrollContainerRef.current, rootMargin: '120px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreRecipes, visibleRecipes.length]);
+
   if (mode !== 'list') {
     const recipe = detail?.recipe;
     const ja = lang === 'ja';
@@ -140,7 +256,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 84, height: 84, flexShrink: 0, borderRadius: 9, overflow: 'hidden', border: `1px solid ${demoColors.border}`, background: demoColors.surface, display: 'grid', placeItems: 'center' }}>
               {!removePhoto && (photoPreview || detail?.mediaUrl) ? (
-                <img src={photoPreview ?? detail?.mediaUrl ?? ''} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={photoPreview ?? detail?.mediaUrl ?? ''} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : <span aria-hidden style={{ fontSize: 25 }}>{recipe?.contentKind === 'instruction' ? '🛠️' : '🍵'}</span>}
             </div>
             <div style={{ minWidth: 0, display: 'grid', gap: 7, flex: 1 }}>
@@ -214,8 +330,10 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
           </label>
         </section>
         <label><span style={mutedText}>{ja ? 'ステータス' : 'Status'}</span>
-          <select name="status" style={input} defaultValue={recipe?.status === 'published' ? 'published' : 'draft'}>
-            <option value="draft">{ja ? '下書き' : 'Draft'}</option><option value="published">{ja ? '公開' : 'Published'}</option>
+          <select name="status" style={input} defaultValue={recipe?.status === 'published' ? 'published' : recipe?.status === 'archived' ? 'archived' : 'draft'}>
+            <option value="draft">{ja ? '下書き' : 'Draft'}</option>
+            <option value="published">{ja ? '公開' : 'Published'}</option>
+            <option value="archived">{ja ? 'アーカイブ' : 'Archived'}</option>
           </select>
         </label>
         {feedback ? <p style={{ margin: 0, color: demoColors.dangerText }}>{feedback}</p> : null}
@@ -237,29 +355,40 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged }: PreviewR
       </div>
       {feedback ? <p style={{ color: demoColors.dangerText }}>{feedback}</p> : null}
       {mediaLoading ? <p style={{ margin: '0 0 8px', ...mutedText, fontSize: 12 }}>{lang === 'ja' ? '画像を読み込み中…' : 'Loading images…'}</p> : null}
+      <input
+        type="search"
+        style={{ ...input, marginBottom: 8 }}
+        placeholder={lang === 'ja' ? 'レシピ名で検索' : 'Search by recipe name'}
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        aria-label={lang === 'ja' ? 'レシピ名で検索' : 'Search by recipe name'}
+      />
       {recipes && recipes.some((recipe) => recipe.status === 'archived') ? (
         <button type="button" style={{ ...buttonSecondary, padding: '6px 10px', marginBottom: 8, fontSize: 12 }} onClick={() => setShowArchived((value) => !value)}>
           {showArchived ? (lang === 'ja' ? '現在のレシピを表示' : 'Show current recipes') : (lang === 'ja' ? 'アーカイブを表示' : 'Show archived')}
         </button>
       ) : null}
-      {recipes === null ? <p style={mutedText}>{t('recipeListLoadError')}</p> : recipes.filter((recipe) => showArchived ? recipe.status === 'archived' : recipe.status !== 'archived').length === 0 ? <p style={mutedText}>{t('recipeListEmpty')}</p> : (
-        <div style={{ display: 'grid', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
-          {recipes.filter((recipe) => showArchived ? recipe.status === 'archived' : recipe.status !== 'archived').map((recipe) => (
-            <div key={recipe.recipeId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
-              <div style={{ width: 44, height: 44, borderRadius: 7, overflow: 'hidden', background: demoColors.surface, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                {mediaUrls[recipe.recipeId] ? <img src={mediaUrls[recipe.recipeId]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (recipe.contentKind === 'instruction' ? '🛠️' : '🍵')}
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resolveRecipeListTitle(recipe, lang)}</strong>
-                <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
-              </div>
-              {recipe.status === 'archived' ? (
-                <button type="button" style={buttonSecondary} disabled={pending} onClick={() => setArchived(recipe, false)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
-              ) : <>
-                <button type="button" style={buttonSecondary} disabled={pending} onClick={() => edit(recipe.recipeId)}>{t('edit')}</button>
-                <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => setArchiveTarget(recipe)}>{lang === 'ja' ? 'アーカイブ' : 'Archive'}</button>
-              </>}
-            </div>
+      {recipes === null ? (
+        <p style={mutedText}>{t('recipeListLoadError')}</p>
+      ) : visibleRecipes.length === 0 ? (
+        <p style={mutedText}>{search.trim() ? (lang === 'ja' ? '一致するレシピはありません。' : 'No recipes match your search.') : t('recipeListEmpty')}</p>
+      ) : (
+        <div ref={scrollContainerRef} style={{ display: 'grid', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
+          {renderedRecipes.map((recipe) => (
+            <RecipeRow
+              key={recipe.recipeId}
+              recipe={recipe}
+              mediaUrl={mediaUrls[recipe.recipeId]}
+              title={resolveRecipeListTitle(recipe, lang)}
+              pending={pending}
+              lang={lang}
+              editLabel={t('edit')}
+              onEdit={edit}
+              onRestore={(target) => setArchived(target, false)}
+              onArchive={setArchiveTarget}
+            />
           ))}
+          {hasMoreRecipes ? <div ref={sentinelRef} aria-hidden style={{ height: 1 }} /> : null}
         </div>
       )}
       <ConfirmDialog

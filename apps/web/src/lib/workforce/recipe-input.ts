@@ -5,7 +5,7 @@ export interface UpsertRecipeInput {
   contentKind: 'recipe' | 'instruction';
   titleJa: string;
   descriptionJa: string | null;
-  status: 'draft' | 'published';
+  status: 'draft' | 'published' | 'archived';
   ingredients: string[];
   steps: string[];
   noteTitle: string | null;
@@ -27,7 +27,7 @@ export function parseUpsertRecipeInput(formData: FormData): UpsertRecipeInput | 
   const contentKind = formData.get('contentKind');
   const status = formData.get('status');
   if (contentKind !== 'recipe' && contentKind !== 'instruction') return null;
-  if (status !== 'draft' && status !== 'published') return null;
+  if (status !== 'draft' && status !== 'published' && status !== 'archived') return null;
   const titleJa = parseTrimmedString(formData.get('titleJa'), 160);
   if (!titleJa) return null;
   const description = parseOptionalTrimmedString(formData.get('descriptionJa'), 1000);

@@ -69,6 +69,14 @@ export function RecipeCard({ recipe, selected, onOpen }: RecipeCardProps) {
             <img
               src={recipe.image}
               alt=""
+              // Every card in this horizontally-scrolling strip renders up
+              // front (no pagination gate like the Manager list has), so
+              // unlike that list this one leans on the browser's own
+              // viewport-distance heuristic instead: only cards near the
+              // visible scroll position fetch immediately, the rest defer
+              // until they're scrolled into range.
+              loading="lazy"
+              decoding="async"
               style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (

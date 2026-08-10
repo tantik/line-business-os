@@ -25,6 +25,13 @@ export interface PreviewStaffRecipeManagementProps {
   staff: WorkforceStaffManageEntry[] | null;
   recipes: WorkforceRecipe[] | null;
   /**
+   * Signed thumbnail URLs for every recipe in `recipes` that has a
+   * `mediaPath`, pre-generated during the page's own server-rendered load
+   * (see `manager/page.tsx`). Seeds the recipe manager's cache so the modal
+   * never has to fetch them itself on a normal open.
+   */
+  recipeMediaUrls?: Record<string, string>;
+  /**
    * Pre-built "Manage Inventory" trigger (an embedded inventory manager panel),
    * assembled by the page -- which is where the active-location context is
    * legitimately resolved server-side -- so this island never carries any
@@ -34,7 +41,7 @@ export interface PreviewStaffRecipeManagementProps {
   inventorySlot?: ReactNode;
 }
 
-export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, inventorySlot }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, recipeMediaUrls: initialRecipeMediaUrls, inventorySlot }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   // Owned here (not inside `PreviewStaffForm`/`PreviewRecipeKindManager`)
@@ -47,6 +54,10 @@ export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: ini
   // patches into. Preview Manager architecture, perf phase 2.
   const [staff, setStaff] = useState(initialStaff);
   const [recipes, setRecipes] = useState(initialRecipes);
+  // Same reasoning as `recipes` above, applied to signed thumbnail URLs:
+  // owned here so a modal close/reopen never discards a URL that was already
+  // fetched (or came pre-seeded from the page load). Perf phase 3.
+  const [recipeMediaUrls, setRecipeMediaUrls] = useState(initialRecipeMediaUrls ?? {});
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
 
@@ -71,7 +82,12 @@ export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: ini
       </Modal>
 
       <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={760}>
-        <PreviewRecipeKindManager recipes={recipes} onRecipesChanged={setRecipes} />
+        <PreviewRecipeKindManager
+          recipes={recipes}
+          onRecipesChanged={setRecipes}
+          mediaUrls={recipeMediaUrls}
+          onMediaUrlsChanged={setRecipeMediaUrls}
+        />
       </Modal>
     </section>
   );

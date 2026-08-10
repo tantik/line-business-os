@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { previewSubmitInventoryStockCount } from './actions/inventory-staff-actions';
@@ -108,20 +108,25 @@ function ItemCard({
   item,
   value,
   isSaved,
-  disabled,
+  isSaving,
+  error,
   onChange,
   tr,
 }: {
   item: InventoryItemStatus;
   value: string;
   isSaved: boolean;
-  disabled: boolean;
+  isSaving: boolean;
+  error: string | undefined;
   onChange: (value: string) => void;
   tr: (key: keyof InventoryStaffDict) => string;
 }) {
   const enteredQuantity = parseQuantity(value);
   const needToOrder = enteredQuantity !== null ? Math.max(item.requiredQuantity - enteredQuantity, 0) : null;
 
+  // Stronger shortage hierarchy: a tinted background (not just a border) so
+  // an unsaved shortage row is unmistakable in a long scrolling list, not
+  // just on close inspection.
   const isShortage = item.status === 'shortage' && !isSaved;
 
   return (
@@ -131,12 +136,19 @@ function ItemCard({
         padding: 10,
         marginTop: 0,
         opacity: isSaved ? 0.65 : 1,
-        border: isShortage ? `1px solid ${demoColors.warning}` : card.border,
+        border: isShortage ? `1.5px solid ${demoColors.warning}` : error ? `1.5px solid ${demoColors.dangerText}` : card.border,
+        background: isShortage ? demoColors.alertWarningBg : card.background,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <strong style={{ fontSize: 13.5 }}>{item.name}</strong>
-        {isSaved ? <span style={badgeStyle('active')}>✓ {tr('saved')}</span> : <StatusBadge item={item} tr={tr} />}
+        {isSaving ? (
+          <span style={badgeStyle('neutral')}>{tr('saving')}</span>
+        ) : isSaved ? (
+          <span style={badgeStyle('active')}>✓ {tr('saved')}</span>
+        ) : (
+          <StatusBadge item={item} tr={tr} />
+        )}
       </div>
       <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 12 }}>
         {tr('required')}: {item.requiredQuantity} {item.unit} / {tr('current')}:{' '}
@@ -158,7 +170,6 @@ function ItemCard({
             inputMode="decimal"
             autoComplete="off"
             value={value}
-            disabled={disabled}
             onChange={(event) => onChange(event.target.value)}
           />
         </label>
@@ -168,9 +179,13 @@ function ItemCard({
           </p>
         ) : null}
       </div>
+      {error ? <p style={{ margin: '6px 0 0', fontSize: 11.5, color: demoColors.dangerText }}>{error}</p> : null}
     </div>
   );
 }
+
+/** Debounce delay between the last keystroke in a quantity field and its automatic save - long enough that a manager typing multiple digits doesn't fire a save per digit, short enough that "Saved" shows up while the field is still front of mind. */
+const AUTOSAVE_DEBOUNCE_MS = 800;
 
 export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: string; items: InventoryItemStatus[] }) {
   const { lang } = useLang();
@@ -179,57 +194,73 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
   const [isOpen, setIsOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [savedValues, setSavedValues] = useState<Record<string, string>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [savingItemIds, setSavingItemIds] = useState<Set<string>>(new Set());
+  const [errorByItem, setErrorByItem] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [shortagesOnly, setShortagesOnly] = useState(false);
+  // Any successful autosave since the modal opened, so closing it triggers
+  // exactly one `router.refresh()` (elsewhere on the page, shortage counts
+  // depend on this data) instead of one per keystroke-triggered save.
+  const hasUnrefreshedSaveRef = useRef(false);
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timers = debounceTimers.current;
+    return () => {
+      Object.values(timers).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   const shortageCount = items.filter((item) => item.status === 'shortage').length;
   const filledCount = Object.values(values).filter((raw) => raw.trim() !== '').length;
-  const pendingItems = items.filter((item) => {
-    const raw = values[item.itemId];
-    if (raw === undefined || raw.trim() === '') return false;
-    return savedValues[item.itemId] !== raw;
-  });
   const visibleItems = [...items]
     .filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((item) => !shortagesOnly || item.status === 'shortage')
     .sort((a, b) => Number(b.status === 'shortage') - Number(a.status === 'shortage') || a.name.localeCompare(b.name));
 
-  function handleChange(itemId: string, raw: string) {
-    setValues((prev) => ({ ...prev, [itemId]: raw }));
-    setFeedback(null);
+  async function saveItem(item: InventoryItemStatus, raw: string) {
+    setSavingItemIds((prev) => new Set(prev).add(item.itemId));
+    setErrorByItem((prev) => {
+      if (!(item.itemId in prev)) return prev;
+      const next = { ...prev };
+      delete next[item.itemId];
+      return next;
+    });
+    const formData = new FormData();
+    formData.set('locationId', locationId);
+    formData.set('itemId', item.itemId);
+    formData.set('actualQuantity', raw);
+    const result = await previewSubmitInventoryStockCount(formData);
+    setSavingItemIds((prev) => {
+      const next = new Set(prev);
+      next.delete(item.itemId);
+      return next;
+    });
+    if (result.status !== 'success') {
+      setErrorByItem((prev) => ({ ...prev, [item.itemId]: previewWriteMessage(lang, result.status) }));
+      return;
+    }
+    setSavedValues((prev) => ({ ...prev, [item.itemId]: raw }));
+    hasUnrefreshedSaveRef.current = true;
   }
 
-  async function handleSaveAll() {
-    if (isSaving || pendingItems.length === 0) return;
-    setIsSaving(true);
-    setFeedback(null);
-    setFeedbackIsError(false);
+  function handleChange(item: InventoryItemStatus, raw: string) {
+    setValues((prev) => ({ ...prev, [item.itemId]: raw }));
+    const existingTimer = debounceTimers.current[item.itemId];
+    if (existingTimer) clearTimeout(existingTimer);
+    if (raw.trim() === '') return;
+    debounceTimers.current[item.itemId] = setTimeout(() => {
+      delete debounceTimers.current[item.itemId];
+      void saveItem(item, raw);
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }
 
-    for (const item of pendingItems) {
-      const raw = values[item.itemId];
-      if (raw === undefined) continue;
-      const formData = new FormData();
-      formData.set('locationId', locationId);
-      formData.set('itemId', item.itemId);
-      formData.set('actualQuantity', raw);
-      const result = await previewSubmitInventoryStockCount(formData);
-      if (result.status !== 'success') {
-        setFeedbackIsError(true);
-        setFeedback(`${item.name}: ${previewWriteMessage(lang, result.status)}`);
-        setIsSaving(false);
-        router.refresh();
-        return;
-      }
-      setSavedValues((prev) => ({ ...prev, [item.itemId]: raw }));
+  function handleClose() {
+    setIsOpen(false);
+    if (hasUnrefreshedSaveRef.current) {
+      hasUnrefreshedSaveRef.current = false;
+      router.refresh();
     }
-
-    setIsSaving(false);
-    setFeedbackIsError(false);
-    setFeedback(tr('allSaved'));
-    router.refresh();
   }
 
   return (
@@ -244,7 +275,7 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
         </button>
       </div>
       {isOpen ? (
-        <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={() => setIsOpen(false)}>
+        <PreviewInventoryModal title={tr('title')} closeLabel={tr('close')} onClose={handleClose}>
           {items.length === 0 ? (
             <p style={{ margin: '12px 0 0', ...mutedText }}>{tr('empty')}</p>
           ) : (
@@ -252,7 +283,9 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
               <div style={{ position: 'sticky', top: 51, zIndex: 2, margin: '0 -16px', padding: '10px 16px 8px', background: demoColors.surface, borderBottom: `1px solid ${demoColors.border}` }}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={lang === 'ja' ? '商品を検索' : 'Search items'} aria-label={lang === 'ja' ? '商品を検索' : 'Search items'} style={{ ...input, flex: 1, padding: '7px 10px' }} />
-                  <button type="button" style={shortagesOnly ? buttonPrimary : buttonDisabled} onClick={() => setShortagesOnly((value) => !value)}>{shortagesOnly ? (lang === 'ja' ? '不足のみ' : 'Shortages') : (lang === 'ja' ? 'すべて' : 'All')}</button>
+                  <button type="button" style={shortagesOnly ? buttonPrimary : buttonDisabled} onClick={() => setShortagesOnly((value) => !value)}>
+                    {shortagesOnly ? tr('needsRestock') : (lang === 'ja' ? 'すべて' : 'All')}
+                  </button>
                 </div>
                 <p style={{ margin: '7px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>{filledCounterLabel[lang](filledCount, items.length)}</p>
               </div>
@@ -265,35 +298,12 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
                     item={item}
                     value={values[item.itemId] ?? ''}
                     isSaved={values[item.itemId] !== undefined && savedValues[item.itemId] === values[item.itemId]}
-                    disabled={isSaving}
-                    onChange={(raw) => handleChange(item.itemId, raw)}
+                    isSaving={savingItemIds.has(item.itemId)}
+                    error={errorByItem[item.itemId]}
+                    onChange={(raw) => handleChange(item, raw)}
                     tr={tr}
                   />
                 ))}
-              </div>
-              <div
-                style={{
-                  position: 'sticky',
-                  bottom: 0,
-                  marginTop: 14,
-                  paddingTop: 10,
-                  background: demoColors.surface,
-                  borderTop: `1px solid ${demoColors.border}`,
-                }}
-              >
-                {feedback ? (
-                  <p style={{ margin: '0 0 8px', fontSize: 12.5, color: feedbackIsError ? demoColors.dangerText : demoColors.accentStrong }}>
-                    {feedback}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  style={isSaving || pendingItems.length === 0 ? buttonDisabled : buttonPrimary}
-                  disabled={isSaving || pendingItems.length === 0}
-                  onClick={handleSaveAll}
-                >
-                  {isSaving ? tr('saving') : tr('save')}
-                </button>
               </div>
             </>
           )}

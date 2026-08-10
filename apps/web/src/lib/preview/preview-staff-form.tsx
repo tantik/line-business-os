@@ -5,7 +5,6 @@ import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import {
   previewGetStaffManagerData,
   previewPermanentlyDeleteEmployee,
-  previewSetEmployeeActive,
   previewUpsertEmployee,
 } from './actions/staff-actions';
 import { previewWriteMessage, type PreviewWriteResult } from './write-result';
@@ -17,20 +16,21 @@ import { PendingOverlay } from '@/components/ui/loading';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
- * employee create/edit and remove/permanent-delete. Calls only
- * `previewUpsertEmployee`/`previewSetEmployeeActive`/`previewPermanentlyDeleteEmployee`
- * (never the dashboard `staff-actions.ts`). No tenant/location/role/permission
- * field is ever submitted - `id`/`staffId` are the only client-supplied
- * identifiers, and both are legitimate target-record ids re-verified
- * server-side.
+ * employee create/edit and permanent-delete. Calls only
+ * `previewUpsertEmployee`/`previewPermanentlyDeleteEmployee` (never the
+ * dashboard `staff-actions.ts`). No tenant/location/role/permission field is
+ * ever submitted - `id`/`staffId` are the only client-supplied identifiers,
+ * and both are legitimate target-record ids re-verified server-side.
  *
- * Staff lifecycle (Cafe v2.1 remediation): "Remove staff" (`isActive: false`,
- * always available, always preserves history) is a distinct action from
- * "Permanent delete" (`previewPermanentlyDeleteEmployee`, only succeeds when
- * the employee has zero shift/attendance/request/exchange history - refused
- * otherwise, never a cascade). The list view defaults to Active and never
- * exposes a standalone Deactivate/Reactivate toggle - status changes (a
- * manual reactivate included) happen only inside Edit.
+ * Staff lifecycle (Cafe v2.1 final polish): the list view's only two actions
+ * are "Edit" and "Delete" for every row, active or deactivated alike -
+ * Active/Deactivated status (soft, always reversible, via `isActive` on
+ * `previewUpsertEmployee`) is a field inside Edit, never a standalone list
+ * button. "Delete" is always `previewPermanentlyDeleteEmployee`, gated by a
+ * confirmation dialog, and only succeeds when the employee has zero
+ * shift/attendance/request/exchange history (refused otherwise, never a
+ * cascade) - a manager who needs to remove someone with real history uses
+ * Edit -> Status -> Deactivated instead.
  */
 export interface PreviewStaffFormProps {
   staff: WorkforceStaffManageEntry[] | null;
@@ -62,13 +62,14 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
-  const [removeTarget, setRemoveTarget] = useState<WorkforceStaffManageEntry | null>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<WorkforceStaffManageEntry | null>(null);
   const [permanentDeleteError, setPermanentDeleteError] = useState<string | null>(null);
   const [filter, setFilter] = useState<StaffFilter>('active');
+  const [search, setSearch] = useState('');
 
   const editingEntry = editingId ? (staff ?? []).find((s) => s.staffId === editingId) ?? null : null;
-  const visibleStaff = (staff ?? []).filter((s) => (filter === 'active' ? s.isActive : filter === 'inactive' ? !s.isActive : true));
+  const filteredByStatus = (staff ?? []).filter((s) => (filter === 'active' ? s.isActive : filter === 'inactive' ? !s.isActive : true));
+  const visibleStaff = filteredByStatus.filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   async function refreshStaff() {
     const result = await previewGetStaffManagerData();
@@ -84,17 +85,6 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
         setMode('list');
         await refreshStaff();
       }
-    });
-  }
-
-  function handleSetActive(staffId: string, nextActive: boolean) {
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('staffId', staffId);
-      formData.set('isActive', nextActive ? 'true' : 'false');
-      const result = await previewSetEmployeeActive(formData);
-      setFeedback(toFeedback(lang, result));
-      if (result.status === 'success') await refreshStaff();
     });
   }
 
@@ -135,6 +125,14 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
               {t('addStaff')}
             </button>
           </div>
+          <input
+            type="search"
+            style={{ ...inputStyle, marginBottom: 12 }}
+            placeholder={t('staffSearchPlaceholder')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label={t('staffSearchPlaceholder')}
+          />
           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
             {(['active', 'inactive', 'all'] as const).map((option) => (
               <button
@@ -156,7 +154,7 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
           {staff === null ? (
             <p style={mutedText}>{t('staffListErrorShort')}</p>
           ) : visibleStaff.length === 0 ? (
-            <p style={mutedText}>{t('staffListEmptyShort')}</p>
+            <p style={mutedText}>{search.trim() ? t('staffNoSearchResults') : t('staffListEmptyShort')}</p>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {visibleStaff.map((s) => (
@@ -183,16 +181,17 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
                     >
                       {t('edit')}
                     </button>
-                    {s.isActive ? (
-                      <button
-                        type="button"
-                        style={{ ...buttonSecondary, color: demoColors.dangerText }}
-                        onClick={() => setRemoveTarget(s)}
-                        disabled={isPending}
-                      >
-                        {t('removeStaffButton')}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      style={{ ...buttonSecondary, color: demoColors.dangerText }}
+                      onClick={() => {
+                        setPermanentDeleteError(null);
+                        setPermanentDeleteTarget(s);
+                      }}
+                      disabled={isPending}
+                    >
+                      {t('deleteStaffButton')}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -253,40 +252,9 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
                 {t('save')}
               </button>
             </div>
-            {editingEntry ? (
-              <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${demoColors.border}`, display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  style={{ ...buttonSecondary, color: demoColors.dangerText }}
-                  disabled={isPending}
-                  onClick={() => {
-                    setPermanentDeleteError(null);
-                    setPermanentDeleteTarget(editingEntry);
-                  }}
-                >
-                  {t('permanentDeleteStaffButton')}
-                </button>
-              </div>
-            ) : null}
           </form>
         </>
       )}
-      <ConfirmDialog
-        open={removeTarget !== null}
-        title={t('confirmRemoveStaffTitle')}
-        confirmLabel={t('removeStaffButton')}
-        cancelLabel={t('cancel')}
-        pending={isPending}
-        danger
-        onCancel={() => setRemoveTarget(null)}
-        onConfirm={() => {
-          if (!removeTarget) return;
-          handleSetActive(removeTarget.staffId, false);
-          setRemoveTarget(null);
-        }}
-      >
-        {t('confirmRemoveStaffBody')}
-      </ConfirmDialog>
       <ConfirmDialog
         open={permanentDeleteTarget !== null}
         title={t('confirmPermanentDeleteStaffTitle')}
