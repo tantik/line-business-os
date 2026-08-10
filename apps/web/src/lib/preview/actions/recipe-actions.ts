@@ -4,6 +4,7 @@ import {
   createRecipeMediaUrlMap,
   getWorkforceRecipeDetail,
   listWorkforceRecipes,
+  permanentlyDeleteRecipe,
   setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
   type WorkforceRecipe,
@@ -92,6 +93,38 @@ export async function previewSetRecipeArchived(
   const result = await setWorkforceRecipeArchived(context.context.supabase, context.context.tenantId, recipeId, archived);
   if (result.status !== 'success') return mapWorkforceWriteResult(result);
   return { status: 'success', data: { recipeId, archived } };
+}
+
+/**
+ * Manager-only: permanently delete a recipe. Only ever offered by the UI
+ * from the Archived state; `permanentlyDeleteRecipe` (`api.permanently_delete_recipe`,
+ * 0057) re-checks that server-side too (`blocked_not_archived`), so this is
+ * never a UI-only guard. The location check below (same shape as
+ * `previewSetRecipeArchived`) runs BEFORE the delete so a manager can never
+ * even attempt to delete a recipe outside their resolved location -- the RPC
+ * itself also re-checks `workforce.recipe.manage` for the recipe's own
+ * location independently, so this is defense in depth, not the only check.
+ * On success, removes the Storage object for the recipe's old `mediaPath`
+ * (if any) -- the RPC has no Storage access of its own, same division of
+ * responsibility `previewUpsertRecipe`'s old-photo cleanup already uses.
+ * Storage removal is best-effort: the row is already gone by this point, and
+ * a storage failure must never be reported back as if the delete itself
+ * failed.
+ */
+export async function previewPermanentlyDeleteRecipe(recipeId: string): Promise<PreviewWriteResult<{ recipeId: string }>> {
+  const context = await resolvePreviewManagerContext('workforce.recipe.manage');
+  if (context.status !== 'ok') return context.result;
+  const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, recipeId);
+  if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
+  if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+
+  const result = await permanentlyDeleteRecipe(context.context.supabase, context.context.tenantId, recipeId);
+  if (result.status !== 'success') return mapWorkforceWriteResult(result);
+
+  if (result.data.mediaPath) {
+    await context.context.supabase.storage.from('recipe-media').remove([result.data.mediaPath]);
+  }
+  return { status: 'success', data: { recipeId } };
 }
 
 export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWriteResult<{ recipeId: string }>> {

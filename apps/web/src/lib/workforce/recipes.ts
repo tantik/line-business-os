@@ -280,6 +280,50 @@ export async function setWorkforceRecipeArchived(
   }
 }
 
+/** Flat row shape returned by `api.permanently_delete_recipe` (0057). */
+interface ApiPermanentDeleteRecipeRow {
+  deleted: boolean;
+  blocked_not_archived: boolean;
+  media_path: string | null;
+}
+
+/**
+ * Hard-delete a recipe (and its ingredients/steps/notes, cascaded by 0021's
+ * FKs, plus every `content.translations` row keyed to any of them -- 0057's
+ * own explicit cleanup, since that table deliberately has no FK) -- calls
+ * `api.permanently_delete_recipe` (0057), never a raw DELETE. Only succeeds
+ * when the recipe is currently `archived`; refused otherwise
+ * (`blocked_not_archived`). Distinct from `setWorkforceRecipeArchived`, which
+ * remains the normal, always-available, reversible Archive/Restore path and
+ * never touches this RPC. On success, returns the recipe's `mediaPath` (if
+ * any) so the caller can remove the Storage object -- this function has no
+ * Storage access itself.
+ */
+export async function permanentlyDeleteRecipe(
+  supabase: SupabaseClient,
+  tenantId: string,
+  recipeId: string,
+): Promise<WorkforceWriteResult<{ recipeId: string; mediaPath: string | null }>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .rpc('permanently_delete_recipe', { p_tenant_id: tenantId, p_recipe_id: recipeId });
+
+    if (error) return mapWorkforceWriteError(error, 'permanently delete this recipe');
+
+    const row = (Array.isArray(data) ? data[0] : data) as ApiPermanentDeleteRecipeRow | undefined;
+    if (!row) return { status: 'not_found' };
+    if (row.blocked_not_archived) return { status: 'blocked_not_archived' };
+    if (!row.deleted) return { status: 'unexpected_error', message: 'Unable to permanently delete this recipe right now.' };
+    return { status: 'success', data: { recipeId, mediaPath: row.media_path } };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error permanently deleting this recipe.',
+    };
+  }
+}
+
 /**
  * Read a single recipe plus its ingredients, steps, and notes through the
  * app-facing API facade, narrowed to the active tenant and requested recipe.

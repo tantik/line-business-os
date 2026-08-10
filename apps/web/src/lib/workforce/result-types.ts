@@ -42,10 +42,15 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *         already decided", which is a different underlying cause than the
  *         shift-exchange case above; callers must not assume `stale_reference`
  *         always means "the shift changed."
+ *   - `blocked_not_archived`: only ever returned by `permanentlyDeleteRecipe`
+ *     -- the recipe is not currently `archived`, so a permanent delete is
+ *     refused (the action is only ever offered to a manager from the
+ *     Archived state; this is the server-side re-check, not a UI-only rule).
  */
 export type WorkforceWriteResult<T> =
   | TenantAccessResult<T>
   | { status: 'not_found' }
   | { status: 'duplicate'; message: string }
   | { status: 'blocked_by_history' }
+  | { status: 'blocked_not_archived' }
   | { status: 'stale_reference' };

@@ -374,27 +374,38 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
         ) : null}
       </div>
 
-      {confirmDeactivateId && confirmDeactivateTarget ? (
-        <ConfirmDialog
-          open
-          title={t('confirmDeactivateShiftTypeTitle')}
-          confirmLabel={t('deactivateShiftTypeButton')}
-          cancelLabel={t('cancel')}
-          pending={isPending}
-          danger
-          onCancel={() => setConfirmDeactivateId(null)}
-          onConfirm={() => deactivateShiftType(confirmDeactivateId)}
-        >
-          <p style={{ margin: 0 }}>
-            {confirmDeactivateTarget.labelJa || confirmDeactivateTarget.labelEn || confirmDeactivateTarget.code} (
-            {confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
-          </p>
-          <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
-          {feedback && !feedback.ok ? (
-            <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{feedback.text}</p>
-          ) : null}
-        </ConfirmDialog>
-      ) : null}
+      {/* Always mounted with a real toggled `open` boolean -- never
+          conditionally mounted/unmounted by the parent (`{cond ? <ConfirmDialog
+          open .../> : null}`). `useRestoreFocusOnClose` (shared by every
+          dialog in this app) only restores focus on the true -> false
+          transition of its `open` prop; a component that instead gets
+          removed from the tree entirely never delivers that transition, so
+          Cancel/Escape left focus on `<body>` here specifically (every other
+          `ConfirmDialog` call site in this app already followed this
+          always-mounted pattern). */}
+      <ConfirmDialog
+        open={confirmDeactivateId !== null}
+        title={t('confirmDeactivateShiftTypeTitle')}
+        confirmLabel={t('deactivateShiftTypeButton')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmDeactivateId(null)}
+        onConfirm={() => { if (confirmDeactivateId) deactivateShiftType(confirmDeactivateId); }}
+      >
+        {confirmDeactivateTarget ? (
+          <>
+            <p style={{ margin: 0 }}>
+              {confirmDeactivateTarget.labelJa || confirmDeactivateTarget.labelEn || confirmDeactivateTarget.code} (
+              {confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
+            </p>
+            <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
+          </>
+        ) : null}
+        {feedback && !feedback.ok ? (
+          <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{feedback.text}</p>
+        ) : null}
+      </ConfirmDialog>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
         {autosaveStatus === 'saving' ? (
           <span style={{ fontSize: 12, color: demoColors.textMuted }}>{t('savingStatus')}</span>

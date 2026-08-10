@@ -126,20 +126,34 @@ function buildAttendancePayload(input: SubmitWorkReportInput): Record<string, un
 }
 
 export interface ApplyApprovedCorrectionInput {
-  attendanceId: string;
+  /**
+   * The attendance row the correction request was submitted against, or
+   * `null` when the staff member had no attendance row for that day at
+   * submission time (e.g. a fully missed clock-in/out being corrected from
+   * scratch). `employeeId`/`workDate`/`locationId` are always required so a
+   * `null` target can still be resolved to an existing row or created.
+   */
+  attendanceId: string | null;
+  employeeId: string;
+  workDate: string;
+  locationId: string;
   clockIn?: string;
   clockOut?: string;
   actualBreakMinutes?: number;
 }
 
 /**
- * Apply an approved correction request's requested values directly to the
- * attendance row it targets, by `attendance_id` (never by employee/work_date
- * lookup -- the request already carries the exact row it corrects). Relies
- * entirely on RLS (`wf_attendance_manage`, `workforce.attendance.manage`):
- * a manager who can decide the request but lacks attendance-manage returns
- * `not_found` here rather than a fabricated success, same as every other
- * RLS-filtered zero-row write in this module.
+ * Apply an approved correction request's requested values to the attendance
+ * row it targets. When `attendanceId` is set, updates that row directly
+ * (never by employee/work_date lookup -- the request already carries the
+ * exact row it corrects). When `attendanceId` is `null` (no attendance row
+ * existed for that employee/day when the correction was submitted), falls
+ * back to the same find-or-create-by-day upsert `submitWorkReport` uses, so
+ * approving a from-scratch correction actually produces an attendance row
+ * instead of silently no-op-ing. Relies entirely on RLS (`wf_attendance_manage`,
+ * `workforce.attendance.manage`): a manager who can decide the request but
+ * lacks attendance-manage returns `not_found` here rather than a fabricated
+ * success, same as every other RLS-filtered zero-row write in this module.
  */
 export async function applyApprovedCorrection(
   supabase: SupabaseClient,
@@ -152,17 +166,61 @@ export async function applyApprovedCorrection(
     if (input.clockOut !== undefined) payload.clock_out = input.clockOut;
     if (input.actualBreakMinutes !== undefined) payload.actual_break_minutes = input.actualBreakMinutes;
 
+    if (input.attendanceId) {
+      const { data, error } = await supabase
+        .schema('api')
+        .from('workforce_attendance')
+        .update(payload)
+        .eq('tenant_id', tenantId)
+        .eq('attendance_id', input.attendanceId)
+        .select(ATTENDANCE_SELECT)
+        .maybeSingle();
+
+      if (error) return mapWorkforceWriteError(error, 'apply this correction to attendance');
+      if (!data) return { status: 'not_found' };
+      return { status: 'success', data: mapAttendanceRow(data as ApiWorkforceAttendanceRow) };
+    }
+
+    const { data: existing, error: findError } = await supabase
+      .schema('api')
+      .from('workforce_attendance')
+      .select('attendance_id')
+      .eq('tenant_id', tenantId)
+      .eq('employee_id', input.employeeId)
+      .eq('work_date', input.workDate)
+      .maybeSingle();
+
+    if (findError) return mapWorkforceWriteError(findError, 'apply this correction to attendance');
+
+    if (existing) {
+      const { data, error } = await supabase
+        .schema('api')
+        .from('workforce_attendance')
+        .update(payload)
+        .eq('tenant_id', tenantId)
+        .eq('attendance_id', existing.attendance_id as string)
+        .select(ATTENDANCE_SELECT)
+        .maybeSingle();
+
+      if (error) return mapWorkforceWriteError(error, 'apply this correction to attendance');
+      if (!data) return { status: 'not_found' };
+      return { status: 'success', data: mapAttendanceRow(data as ApiWorkforceAttendanceRow) };
+    }
+
     const { data, error } = await supabase
       .schema('api')
       .from('workforce_attendance')
-      .update(payload)
-      .eq('tenant_id', tenantId)
-      .eq('attendance_id', input.attendanceId)
+      .insert({
+        tenant_id: tenantId,
+        employee_id: input.employeeId,
+        work_date: input.workDate,
+        location_id: input.locationId,
+        ...payload,
+      })
       .select(ATTENDANCE_SELECT)
-      .maybeSingle();
+      .single();
 
     if (error) return mapWorkforceWriteError(error, 'apply this correction to attendance');
-    if (!data) return { status: 'not_found' };
     return { status: 'success', data: mapAttendanceRow(data as ApiWorkforceAttendanceRow) };
   } catch (err) {
     return {

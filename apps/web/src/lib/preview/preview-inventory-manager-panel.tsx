@@ -49,6 +49,9 @@ interface InventoryManagerDict {
   purchaseRecommendation: string;
   searchPlaceholder: string;
   noSearchResults: string;
+  filterAll: string;
+  filterNeedReorder: string;
+  filterOk: string;
   confirmDeleteTitle: string;
   confirmDeleteBody: string;
   confirmDeleteButton: string;
@@ -96,6 +99,9 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: '推奨発注数',
     searchPlaceholder: '商品名で検索',
     noSearchResults: '一致する商品はありません。',
+    filterAll: 'すべて',
+    filterNeedReorder: '要発注',
+    filterOk: '在庫十分',
     confirmDeleteTitle: 'この商品を無効化しますか？',
     confirmDeleteBody: 'この商品は一時的に非表示になりますが、過去の記録は保持されます。いつでも再度有効化できます。',
     confirmDeleteButton: '無効化する',
@@ -136,6 +142,9 @@ const dictionary: Record<'ja' | 'en', InventoryManagerDict> = {
     purchaseRecommendation: 'Recommended purchase',
     searchPlaceholder: 'Search by name',
     noSearchResults: 'No items match your search.',
+    filterAll: 'All',
+    filterNeedReorder: 'Need reorder',
+    filterOk: 'OK',
     confirmDeleteTitle: 'Deactivate this item?',
     confirmDeleteBody: 'This item will be temporarily hidden but its history will be preserved. You can reactivate it anytime.',
     confirmDeleteButton: 'Deactivate',
@@ -379,6 +388,14 @@ export function PreviewInventoryManagerPanel({
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  // Composes with search (search first, then status) -- "Need reorder" here
+  // reuses the same canonical `status === 'shortage'` the shortage badges and
+  // banner already derive from (`api.inventory_item_status`), never a second
+  // frontend shortage calculation. Both reorder-status filters are gated on
+  // `isActive`: a deactivated item isn't something anyone is being asked to
+  // reorder or considered "sufficiently stocked" for, so it only ever
+  // surfaces under All, matching the existing deactivated-item lifecycle.
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
 
   async function refreshItems() {
     const result = await previewGetInventoryManagerData();
@@ -386,7 +403,14 @@ export function PreviewInventoryManagerPanel({
   }
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
-  const filteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const searchFilteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const needReorderCount = searchFilteredItems.filter((item) => item.isActive && item.status === 'shortage').length;
+  const okCount = searchFilteredItems.filter((item) => item.isActive && item.status !== 'shortage').length;
+  const filteredItems = searchFilteredItems.filter((item) => {
+    if (statusFilter === 'shortage') return item.isActive && item.status === 'shortage';
+    if (statusFilter === 'ok') return item.isActive && item.status !== 'shortage';
+    return true;
+  });
 
   const trigger = (
     <button type="button" style={embedded ? buttonSecondary : buttonPrimary} onClick={() => setIsOpen(true)}>
@@ -434,6 +458,21 @@ export function PreviewInventoryManagerPanel({
             <button type="button" style={buttonSecondary} onClick={() => setEditing('new')}>
               {tr('addItem')}
             </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            {(['all', 'shortage', 'ok'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                style={statusFilter === filter ? buttonPrimary : buttonSecondary}
+                onClick={() => setStatusFilter(filter)}
+              >
+                {filter === 'all' ? tr('filterAll') : filter === 'shortage' ? tr('filterNeedReorder') : tr('filterOk')}
+                {' '}
+                ({filter === 'all' ? searchFilteredItems.length : filter === 'shortage' ? needReorderCount : okCount})
+              </button>
+            ))}
           </div>
 
       {items.length === 0 ? (

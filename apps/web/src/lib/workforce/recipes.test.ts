@@ -6,6 +6,7 @@ import {
   getWorkforceRecipeDetail,
   groupRecipesByCategory,
   listWorkforceRecipes,
+  permanentlyDeleteRecipe,
   setWorkforceRecipeArchived,
   updateWorkforceRecipeContentKind,
 } from './recipes.js';
@@ -24,7 +25,7 @@ function recordingClient(result: { data: unknown; error: unknown }): {
 } {
   const calls: RecordedCall[] = [];
   const builder: Record<string, unknown> = {};
-  for (const method of ['schema', 'from', 'select', 'update', 'eq', 'order']) {
+  for (const method of ['schema', 'from', 'select', 'update', 'eq', 'order', 'rpc']) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return builder;
@@ -170,6 +171,29 @@ test('setWorkforceRecipeArchived uses the reversible archived/draft lifecycle', 
   const restored = await setWorkforceRecipeArchived(restoredClient.client, TENANT_ID, RECIPE_ID, false);
   assert.equal(restored.status, 'success');
   assert.deepEqual(restoredClient.calls.find((call) => call.method === 'update')?.args, [{ status: 'draft' }]);
+});
+
+test('permanentlyDeleteRecipe calls api.permanently_delete_recipe (never a raw DELETE) and returns the media_path on success', async () => {
+  const { client, calls } = recordingClient({
+    data: [{ deleted: true, blocked_not_archived: false, media_path: 'tenant/loc/recipe-1/photo.jpg' }],
+    error: null,
+  });
+  const result = await permanentlyDeleteRecipe(client, TENANT_ID, RECIPE_ID);
+  assert.deepEqual(result, { status: 'success', data: { recipeId: RECIPE_ID, mediaPath: 'tenant/loc/recipe-1/photo.jpg' } });
+  const rpcCall = calls.find((call) => call.method === 'rpc');
+  assert.deepEqual(rpcCall?.args, ['permanently_delete_recipe', { p_tenant_id: TENANT_ID, p_recipe_id: RECIPE_ID }]);
+});
+
+test('permanentlyDeleteRecipe maps blocked_not_archived to its own status, distinct from blocked_by_history', async () => {
+  const { client } = recordingClient({ data: [{ deleted: false, blocked_not_archived: true, media_path: null }], error: null });
+  const result = await permanentlyDeleteRecipe(client, TENANT_ID, RECIPE_ID);
+  assert.deepEqual(result, { status: 'blocked_not_archived' });
+});
+
+test('permanentlyDeleteRecipe returns not_found for a zero-row RPC result (not visible/not found/unauthorized), never a fabricated success', async () => {
+  const { client } = recordingClient({ data: [], error: null });
+  const result = await permanentlyDeleteRecipe(client, TENANT_ID, RECIPE_ID);
+  assert.deepEqual(result, { status: 'not_found' });
 });
 
 test('listWorkforceRecipes returns recipes in deterministic sorted order', async () => {

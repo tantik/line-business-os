@@ -11,6 +11,8 @@ export function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>
       return 'You are not a member of this workspace.';
     case 'blocked_by_history':
       return 'This has historical records and cannot be permanently deleted.';
+    case 'blocked_not_archived':
+      return 'Only an archived recipe can be permanently deleted.';
     case 'stale_reference':
       return 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.';
     default:

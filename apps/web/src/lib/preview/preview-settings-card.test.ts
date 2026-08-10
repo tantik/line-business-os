@@ -27,7 +27,12 @@ test('the active-list Deactivate button only stages a confirmation - it never de
 });
 
 test('deactivateShiftType (the actual mutation) is only wired to the ConfirmDialog onConfirm handler', () => {
-  assert.ok(/onConfirm=\{\(\) => deactivateShiftType\(confirmDeactivateId\)\}/.test(SOURCE));
+  assert.ok(/onConfirm=\{\(\) => \{ if \(confirmDeactivateId\) deactivateShiftType\(confirmDeactivateId\); \}\}/.test(SOURCE));
+});
+
+test('FA focus-restoration fix: the deactivate ConfirmDialog is always mounted with a real toggled `open` boolean, never conditionally mounted/unmounted by the parent (the shared useRestoreFocusOnClose contract only restores focus on an open->false transition, not on unmount)', () => {
+  assert.ok(/open=\{confirmDeactivateId !== null\}/.test(SOURCE));
+  assert.ok(!/\{confirmDeactivateId && confirmDeactivateTarget \? \(\s*<ConfirmDialog/.test(SOURCE), 'must not wrap ConfirmDialog in a parent-level conditional mount');
 });
 
 test('the confirmation dialog is dismissed only on a successful deactivation', () => {

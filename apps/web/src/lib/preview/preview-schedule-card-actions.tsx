@@ -220,7 +220,22 @@ export function PreviewScheduleCardActions({
           : 'Draft shifts will become visible to Staff. Review the schedule before publishing.'}
       </ConfirmDialog>
       {publishFeedback ? (
-        <span style={{ fontSize: 12, color: publishFeedbackIsError ? '#B42318' : demoColors.textMuted }}>{publishFeedback}</span>
+        // `flexBasis: '100%'` forces this onto its own full-width row inside
+        // the wrapping button row above instead of squeezing into whatever
+        // partial space is left next to the last button (the layout bug the
+        // founder saw: warning text visually colliding with/breaking across
+        // the Auto-schedule/Publish controls at narrow widths).
+        <span
+          style={{
+            fontSize: 12,
+            color: publishFeedbackIsError ? '#B42318' : demoColors.textMuted,
+            flexBasis: '100%',
+            display: 'block',
+            wordBreak: 'break-word',
+          }}
+        >
+          {publishFeedback}
+        </span>
       ) : null}
     </div>
   );

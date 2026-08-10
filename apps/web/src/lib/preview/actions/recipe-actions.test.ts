@@ -13,9 +13,21 @@ test('exports exactly the reviewed manager recipe actions', () => {
       'previewGetRecipesManagerData',
       'previewGetRecipeForEdit',
       'previewSetRecipeArchived',
+      'previewPermanentlyDeleteRecipe',
       'previewUpsertRecipe',
     ],
   );
+});
+
+test('previewPermanentlyDeleteRecipe validates the visible target location before deleting, then best-effort removes the old Storage object', () => {
+  const body = SOURCE.slice(
+    SOURCE.indexOf('export async function previewPermanentlyDeleteRecipe'),
+    SOURCE.indexOf('export async function previewUpsertRecipe'),
+  );
+  assert.ok(body.includes("resolvePreviewManagerContext('workforce.recipe.manage')"));
+  assert.ok(body.includes('detail.data.recipe.locationId !== context.context.locationId'));
+  assert.ok(body.indexOf('detail.data.recipe.locationId') < body.indexOf('permanentlyDeleteRecipe('));
+  assert.ok(body.includes("supabase.storage.from('recipe-media').remove(["));
 });
 
 test('uses recipe.manage and validates the visible target location before mutation', () => {
