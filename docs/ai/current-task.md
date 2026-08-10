@@ -108,3 +108,27 @@ FA-01 through FA-05 and Manager mobile revalidation pass.
 Exact next gate: implement the audit's independently testable remediation
 batches in order, then run targeted live regression and request a new Founder
 Acceptance decision. Do not start Cafe v2.2 automatically.
+
+## 2026-08-10 final live regression after PR #201
+
+The canonical result is recorded in
+`docs/product/cafe-package-v2-1-final-live-founder-acceptance.md`.
+
+- FA-01: PASS.
+- FA-02: PASS.
+- FA-03: FAIL. Manager approval reached a terminal Approved state but did not
+  apply the requested 07:05-15:05 attendance values; the confirmation also
+  omitted those requested values.
+- FA-04: PASS. The disposable shift type completed deactivate/reactivate and
+  was left Deactivated through the normal product lifecycle.
+- FA-05: FAIL. Manager confirmation Cancel lost focus to `BODY` instead of
+  restoring the Deactivate opener.
+- Manager 390x844: BLOCKED. The viewport tool accepted the override call, but
+  the measured browser viewport stayed 1280x720; desktop evidence was not
+  substituted.
+
+Founder Technical Acceptance remains **NO**. Exact next gate: fix the three
+live P1 findings FR-01 through FR-03, then rerun targeted FA-03/FA-05 and prove
+Manager and Staff at an actual 390x844 viewport. Do not repeat FA-01, FA-02, or
+FA-04 unless the regression-impact matrix shows they were touched. Do not
+start Cafe v2.2 automatically.
