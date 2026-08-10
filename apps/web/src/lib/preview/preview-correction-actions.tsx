@@ -8,6 +8,7 @@ import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, buttonSecondary, card, demoColors, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
 import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 
 /**
  * Phase 1N-4C Slice B2a - preview-specific manager client island for
@@ -42,8 +43,10 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirming, setConfirming] = useState<{ request: WorkforceShiftRequest; decision: 'approved' | 'rejected' } | null>(null);
 
   function handleDecide(requestId: string, decision: 'approved' | 'rejected') {
+    setConfirming(null);
     startTransition(async () => {
       const formData = new FormData();
       formData.set('requestId', requestId);
@@ -84,13 +87,13 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
               <td style={tableCell}>{r.workDate}</td>
               <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : t('dash')}</td>
               <td style={{ ...tableCell, display: 'flex', gap: 6 }}>
-                <button type="button" style={buttonPrimary} onClick={() => handleDecide(r.requestId, 'approved')} disabled={isPending}>
+                <button type="button" style={buttonPrimary} onClick={() => setConfirming({ request: r, decision: 'approved' })} disabled={isPending}>
                   {t('approve')}
                 </button>
                 <button
                   type="button"
                   style={buttonSecondary}
-                  onClick={() => handleDecide(r.requestId, 'rejected')}
+                  onClick={() => setConfirming({ request: r, decision: 'rejected' })}
                   disabled={isPending}
                 >
                   {t('reject')}
@@ -101,6 +104,34 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
         </tbody>
       </table>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title={t(confirming?.decision === 'rejected' ? 'confirmCorrectionRejectTitle' : 'confirmCorrectionApproveTitle')}
+        confirmLabel={t(confirming?.decision === 'rejected' ? 'reject' : 'approve')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger={confirming?.decision === 'rejected'}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (confirming) handleDecide(confirming.request.requestId, confirming.decision);
+        }}
+      >
+        {confirming ? (
+          <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
+            <dt style={mutedText}>{t('staffColumn')}</dt>
+            <dd style={{ margin: 0 }}>{staffById.get(confirming.request.employeeId)?.name ?? t('dash')}</dd>
+            <dt style={mutedText}>{t('dateColumnShort')}</dt>
+            <dd style={{ margin: 0 }}>{confirming.request.workDate}</dd>
+            <dt style={mutedText}>{t('requestedClockInLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.clockInLocal === 'string' ? confirming.request.details.clockInLocal : t('dash')}</dd>
+            <dt style={mutedText}>{t('requestedClockOutLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.clockOutLocal === 'string' ? confirming.request.details.clockOutLocal : t('dash')}</dd>
+            <dt style={mutedText}>{t('reasonLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.message === 'string' ? confirming.request.details.message : t('dash')}</dd>
+          </dl>
+        ) : null}
+      </ConfirmDialog>
     </section>
   );
 }

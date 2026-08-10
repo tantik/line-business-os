@@ -106,6 +106,66 @@ test('decideCorrectionRequest returns not_found when the request never existed (
   );
 });
 
+test('decideCorrectionRequest applies requested clock-in/clock-out to the target attendance row exactly once when approving a correction that carries requested values (FR-01)', async () => {
+  const decidedRow = {
+    ...requestRow,
+    kind: 'correction',
+    status: 'approved',
+    location_id: 'loc-1',
+    attendance_id: 'att-1',
+    work_date: '2026-08-03',
+    details: { clockInLocal: '09:00', clockOutLocal: '17:00' },
+  };
+  const locationRow = { tenant_id: TENANT_ID, location_id: 'loc-1', location_name: 'Main', timezone: 'Asia/Tokyo', is_active: true };
+  const { client, calls } = recordingClient([
+    { data: decidedRow, error: null }, // decide: status -> approved
+    { data: [locationRow], error: null }, // listTenantLocations
+    { data: { ...decidedRow }, error: null }, // applyApprovedCorrection
+  ]);
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
+  assert.equal(result.status, 'success');
+
+  const updateCalls = calls.filter((c) => c.method === 'update');
+  assert.equal(updateCalls.length, 2, 'exactly one status write + exactly one attendance write, no duplicates');
+  assert.deepEqual(updateCalls[0]!.args[0], { status: 'approved' });
+  // Asia/Tokyo is UTC+9 with no DST: 2026-08-03 09:00/17:00 local -> 00:00/08:00 UTC.
+  assert.deepEqual(updateCalls[1]!.args[0], {
+    clock_in: '2026-08-03T00:00:00.000Z',
+    clock_out: '2026-08-03T08:00:00.000Z',
+  });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'attendance_id' && c.args[1] === 'att-1'));
+});
+
+test('decideCorrectionRequest never touches attendance on reject, even when the request carries requested values', async () => {
+  const decidedRow = {
+    ...requestRow,
+    kind: 'correction',
+    status: 'rejected',
+    location_id: 'loc-1',
+    attendance_id: 'att-1',
+    details: { clockInLocal: '09:00', clockOutLocal: '17:00' },
+  };
+  const { client, calls } = recordingClient({ data: decidedRow, error: null });
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'rejected');
+  assert.equal(result.status, 'success');
+  assert.equal(calls.filter((c) => c.method === 'update').length, 1, 'reject must only write status, never attendance');
+});
+
+test('decideCorrectionRequest is a no-op on attendance when an approved correction carries no requested clock/break values', async () => {
+  const decidedRow = {
+    ...requestRow,
+    kind: 'correction',
+    status: 'approved',
+    location_id: 'loc-1',
+    attendance_id: 'att-1',
+    details: { message: 'Forgot to clock out, please review.' },
+  };
+  const { client, calls } = recordingClient({ data: decidedRow, error: null });
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
+  assert.equal(result.status, 'success');
+  assert.equal(calls.filter((c) => c.method === 'update').length, 1, 'no requested values means nothing to apply to attendance');
+});
+
 test('decideCorrectionRequest returns stale_reference when the request exists but was already decided concurrently', async () => {
   // First call: the `.eq('status','pending')` update matches zero rows
   // because another manager's decision already flipped the status away

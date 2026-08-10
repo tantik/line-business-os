@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import './estimated-earnings.test.js';
 import assert from 'node:assert/strict';
-import { listAttendanceForManager, listMyAttendance, submitWorkReport } from './attendance.js';
+import { applyApprovedCorrection, listAttendanceForManager, listMyAttendance, submitWorkReport } from './attendance.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
@@ -72,4 +72,24 @@ test('submitWorkReport updates when an existing row is found for (employee, work
   assert.equal(result.status, 'success');
   assert.ok(calls.some((c) => c.method === 'update'));
   assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'attendance_id' && c.args[1] === 'att-1'));
+});
+
+test('applyApprovedCorrection updates the target attendance row by attendance_id with only the fields supplied', async () => {
+  const { client, calls } = recordingClient({ data: { ...attendanceRow, clock_in: '2026-08-03T00:00:00.000Z', clock_out: '2026-08-03T08:00:00.000Z' }, error: null });
+  const result = await applyApprovedCorrection(client, TENANT_ID, {
+    attendanceId: 'att-1',
+    clockIn: '2026-08-03T00:00:00.000Z',
+    clockOut: '2026-08-03T08:00:00.000Z',
+  });
+  assert.equal(result.status, 'success');
+  const updateCall = calls.find((c) => c.method === 'update');
+  assert.deepEqual(updateCall!.args[0], { clock_in: '2026-08-03T00:00:00.000Z', clock_out: '2026-08-03T08:00:00.000Z' });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'attendance_id' && c.args[1] === 'att-1'));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'tenant_id' && c.args[1] === TENANT_ID));
+});
+
+test('applyApprovedCorrection returns not_found for a zero-row result (RLS-filtered or missing row), never a fabricated success', async () => {
+  const { client } = recordingClient({ data: null, error: null });
+  const result = await applyApprovedCorrection(client, TENANT_ID, { attendanceId: 'missing', clockIn: '2026-08-03T00:00:00.000Z' });
+  assert.equal(result.status, 'not_found');
 });

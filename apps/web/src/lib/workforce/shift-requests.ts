@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { listTenantLocations } from '@/lib/tenant/locations';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
+import { applyApprovedCorrection } from './attendance';
+import { localDateTimeToUtcIso } from './timezone';
 
 /** Flat row shape returned by `api.workforce_shift_requests`. Never includes `decided_by`/`decided_at` (0030/0031). */
 interface ApiWorkforceShiftRequestRow {
@@ -202,12 +205,33 @@ export async function submitCorrectionRequest(
 
 export type ShiftRequestDecision = 'approved' | 'rejected';
 
+/** Fields a correction request's `details` may carry for the attendance row it targets. Read defensively -- `details` is untyped jsonb. */
+function readCorrectionDetails(details: Record<string, unknown>): {
+  clockInLocal?: string;
+  clockOutLocal?: string;
+  actualBreakMinutes?: number;
+} {
+  return {
+    clockInLocal: typeof details.clockInLocal === 'string' ? details.clockInLocal : undefined,
+    clockOutLocal: typeof details.clockOutLocal === 'string' ? details.clockOutLocal : undefined,
+    actualBreakMinutes: typeof details.actualBreakMinutes === 'number' ? details.actualBreakMinutes : undefined,
+  };
+}
+
 /**
- * Manager decides a pending request (correction or otherwise). Only `status`
- * is written -- `decided_by`/`decided_at` are stamped server-side by the
+ * Manager decides a pending request (correction or otherwise). `status` is
+ * written first -- `decided_by`/`decided_at` are stamped server-side by the
  * `stamp_shift_request_decision` trigger (0031) and are never accepted from
  * the client. RLS: `wf_shift_requests_write` (`workforce.request.manage`,
  * unchanged).
+ *
+ * An *approved* `kind: 'correction'` request that carries requested clock-in/
+ * clock-out/break values in `details` is then applied to the attendance row
+ * it targets (`applyApprovedCorrection`, by `attendance_id`, exactly once --
+ * gated by the same `.eq('status', 'pending')` race guard above, so a
+ * request can never be approved, and therefore never applied, twice).
+ * Rejects never touch attendance. A request with no requested values (e.g. a
+ * text-only correction note) has nothing to apply and is a no-op here.
  */
 export async function decideCorrectionRequest(
   supabase: SupabaseClient,
@@ -246,7 +270,28 @@ export async function decideCorrectionRequest(
       if (existingError) return mapWorkforceWriteError(existingError, 'decide this request');
       return { status: existing ? 'stale_reference' : 'not_found' };
     }
-    return { status: 'success', data: mapRequestRow(data as ApiWorkforceShiftRequestRow) };
+
+    const decided = mapRequestRow(data as ApiWorkforceShiftRequestRow);
+
+    if (decision === 'approved' && decided.kind === 'correction' && decided.attendanceId) {
+      const { clockInLocal, clockOutLocal, actualBreakMinutes } = readCorrectionDetails(decided.details);
+      if (clockInLocal !== undefined || clockOutLocal !== undefined || actualBreakMinutes !== undefined) {
+        const locationsResult = await listTenantLocations(supabase);
+        if (locationsResult.status !== 'success') return locationsResult;
+        const location = locationsResult.data.find((l) => l.locationId === decided.locationId);
+        if (!location) return { status: 'not_found' };
+
+        const applyResult = await applyApprovedCorrection(supabase, tenantId, {
+          attendanceId: decided.attendanceId,
+          clockIn: clockInLocal ? localDateTimeToUtcIso(decided.workDate, clockInLocal, location.timezone) : undefined,
+          clockOut: clockOutLocal ? localDateTimeToUtcIso(decided.workDate, clockOutLocal, location.timezone) : undefined,
+          actualBreakMinutes,
+        });
+        if (applyResult.status !== 'success') return applyResult;
+      }
+    }
+
+    return { status: 'success', data: decided };
   } catch (err) {
     return {
       status: 'unexpected_error',

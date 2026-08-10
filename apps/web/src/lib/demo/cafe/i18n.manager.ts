@@ -69,6 +69,11 @@ interface ManagerDict {
   approve: string;
   reject: string;
   noPendingCorrections: string;
+  confirmCorrectionApproveTitle: string;
+  confirmCorrectionRejectTitle: string;
+  requestedClockInLabel: string;
+  requestedClockOutLabel: string;
+  reasonLabel: string;
   autoScheduleButton: string;
   publishScheduleButton: string;
   autoScheduleConfirmBody: string;
@@ -190,6 +195,11 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: '承認',
     reject: '却下',
     noPendingCorrections: '対応が必要な修正申請はありません。',
+    confirmCorrectionApproveTitle: 'この修正申請を承認しますか？',
+    confirmCorrectionRejectTitle: 'この修正申請を却下しますか？',
+    requestedClockInLabel: '申請された出勤時刻',
+    requestedClockOutLabel: '申請された退勤時刻',
+    reasonLabel: '理由',
     autoScheduleButton: '自動シフト作成',
     publishScheduleButton: 'スケジュールを公開',
     autoScheduleConfirmBody: 'のシフトを、スタッフの希望と設定内容にもとづいて自動作成します。公開済みのシフトは上書きしません。続けますか？',
@@ -311,6 +321,11 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: 'Approve',
     reject: 'Reject',
     noPendingCorrections: 'No correction requests need attention.',
+    confirmCorrectionApproveTitle: 'Approve this correction request?',
+    confirmCorrectionRejectTitle: 'Reject this correction request?',
+    requestedClockInLabel: 'Requested clock in',
+    requestedClockOutLabel: 'Requested clock out',
+    reasonLabel: 'Reason',
     autoScheduleButton: 'Auto-create shifts',
     publishScheduleButton: 'Publish schedule',
     autoScheduleConfirmBody:
