@@ -38,6 +38,21 @@ export function ConfirmDialog({
     return () => document.removeEventListener('keydown', handleKey);
   }, [open, pending, onCancel]);
 
+  // Focus management: give focus back to whatever opened this dialog
+  // (Cancel, Escape, and backdrop close all route through `onCancel`/state
+  // going false) instead of leaving it on `<body>`. The opener can be gone
+  // from the DOM by the time this runs (e.g. its row was removed by a
+  // refetch after the confirmed action completed) -- `document.contains`
+  // guards that case so restoring focus is always a safe no-op, never a
+  // runtime error.
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    return () => {
+      if (previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus();
+    };
+  }, [open]);
+
   if (!open) return null;
   // No `backdropFilter` on the overlay below: blurring the full viewport
   // behind this dialog was a measurable paint cost on lower-end mobile

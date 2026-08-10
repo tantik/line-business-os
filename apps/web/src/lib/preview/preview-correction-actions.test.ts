@@ -3,57 +3,41 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 /**
- * FA-03 regression - Approve/Reject must go through an explicit confirmation
- * boundary (the shared `ConfirmDialog`), never mutate on the first click.
- * Source-text checks (same convention as `authorize.test.ts` and
- * `staff-attendance-actions.test.ts`) since this is a `'use client'` React
- * component and this repo has no component-rendering test harness - the
- * properties below are the exact ones a rendering test would otherwise
- * assert (click-target wiring, gating, and close-on-success-only).
+ * Source-text regression guard for the correction-request approve/reject
+ * confirmation step (FA-03, FR-02, FR-03) -- same convention as
+ * `attendance-actions.test.ts`, needed because this repo's test runner
+ * (`node --test`) has no DOM/React-rendering environment to exercise the
+ * component directly.
  */
 const SOURCE = readFileSync(new URL('./preview-correction-actions.tsx', import.meta.url), 'utf8');
 
-test('imports the shared ConfirmDialog rather than a new/duplicate modal implementation', () => {
-  assert.ok(/import \{ ConfirmDialog \} from '@\/components\/demo\/cafe\/ConfirmDialog'/.test(SOURCE));
+test('routes Approve/Reject through the shared ConfirmDialog instead of deciding immediately on click', () => {
+  assert.ok(SOURCE.includes("import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';"));
+  assert.ok(/onClick=\{\(\) => setConfirming\(\{ request: r, decision: 'approved' \}\)\}/.test(SOURCE));
+  assert.ok(/onClick=\{\(\) => setConfirming\(\{ request: r, decision: 'rejected' \}\)\}/.test(SOURCE));
 });
 
-test('the Approve and Reject row buttons only stage a pending decision - they never call handleDecide directly', () => {
-  const approveButtonIdx = SOURCE.indexOf("setPendingDecision({ requestId: r.requestId, decision: 'approved' })");
-  const rejectButtonIdx = SOURCE.indexOf("setPendingDecision({ requestId: r.requestId, decision: 'rejected' })");
-  assert.ok(approveButtonIdx >= 0, 'Approve button must stage a pending decision');
-  assert.ok(rejectButtonIdx >= 0, 'Reject button must stage a pending decision');
-  // Neither row button literal calls handleDecide(r.requestId, ...) directly.
-  assert.ok(!/onClick=\{\(\) => handleDecide\(r\.requestId/.test(SOURCE));
+test('the confirmation dialog body shows employee, date, requested clock in/out, and reason (FR-02)', () => {
+  assert.ok(/staffById\.get\(confirming\.request\.employeeId\)/.test(SOURCE), 'must show the employee');
+  assert.ok(/confirming\.request\.workDate/.test(SOURCE), 'must show the date');
+  assert.ok(/confirming\.request\.details\.clockInLocal/.test(SOURCE), 'must show the requested clock in');
+  assert.ok(/confirming\.request\.details\.clockOutLocal/.test(SOURCE), 'must show the requested clock out');
+  assert.ok(/confirming\.request\.details\.message/.test(SOURCE), 'must show the reason');
 });
 
-test('handleDecide (the actual mutation) is only wired to the ConfirmDialog onConfirm handler', () => {
-  const onConfirmIdx = SOURCE.indexOf('onConfirm={() => handleDecide(confirmTarget.requestId, pendingDecision.decision)}');
-  assert.ok(onConfirmIdx >= 0, 'ConfirmDialog onConfirm must be the only call site invoking handleDecide with the confirmed target');
-});
-
-test('ConfirmDialog is only open while a decision is staged, and closes without mutating on cancel', () => {
-  assert.ok(/pendingDecision && confirmTarget \? \(\s*<ConfirmDialog/.test(SOURCE));
-  assert.ok(/onCancel=\{\(\) => setPendingDecision\(null\)\}/.test(SOURCE));
+test('the decision (approve vs reject) is only actually applied from the confirm step, not the trigger click', () => {
+  const triggerSectionEnd = SOURCE.indexOf('<ConfirmDialog');
+  const triggerSection = SOURCE.slice(0, triggerSectionEnd);
+  assert.ok(!/handleDecide\(r\.requestId/.test(triggerSection), 'the row buttons must open confirmation, never call handleDecide directly');
+  assert.ok(/onConfirm=\{\(\) => \{\s*if \(confirming\) handleDecide\(confirming\.request\.requestId, confirming\.decision\);/.test(SOURCE));
 });
 
 test('the dialog is only dismissed on a successful decision - a failed mutation keeps it open with the error shown', () => {
   const body = SOURCE.slice(SOURCE.indexOf('function handleDecide'), SOURCE.indexOf('const staffById'));
-  assert.ok(/if \(result\.status === 'success'\) \{\s*setPendingDecision\(null\);/.test(body));
-});
-
-test('confirmation copy is decision-specific (Approve vs Reject use different title/consequence keys)', () => {
-  assert.ok(/pendingDecision\.decision === 'approved' \? t\('confirmApproveTitle'\) : t\('confirmRejectTitle'\)/.test(SOURCE));
-  assert.ok(
-    /pendingDecision\.decision === 'approved' \? t\('confirmApproveConsequence'\) : t\('confirmRejectConsequence'\)/.test(SOURCE),
-  );
-});
-
-test('confirmation body surfaces the staff, date, and requested details', () => {
-  assert.ok(/confirmDecisionStaffLabel/.test(SOURCE));
-  assert.ok(/confirmDecisionDateLabel/.test(SOURCE));
-  assert.ok(/confirmDecisionDetailsLabel/.test(SOURCE));
-  assert.ok(/staffById\.get\(confirmTarget\.employeeId\)/.test(SOURCE));
-  assert.ok(/confirmTarget\.workDate/.test(SOURCE));
+  const beforeTransition = body.slice(0, body.indexOf('startTransition'));
+  assert.ok(!/setConfirming\(null\)/.test(beforeTransition), 'handleDecide must not close the dialog before the mutation result is known');
+  assert.ok(/if \(result\.status === 'success'\) \{\s*setConfirming\(null\);/.test(body));
+  assert.ok(/\{feedback && !feedback\.ok \? \(/.test(SOURCE), 'a failed decision must surface the error inside the still-open dialog');
 });
 
 test('buttons are disabled while a decision is in flight, preventing a duplicate submission', () => {

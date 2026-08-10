@@ -44,11 +44,11 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   // FA-03: Approve/Reject must go through an explicit confirmation boundary
-  // rather than mutating on the first click - `pendingDecision` holds the
+  // rather than mutating on the first click - `confirming` holds the
   // request/decision the manager is about to confirm; the mutation itself
   // only ever runs from `handleDecide`, called exclusively by the dialog's
   // own `onConfirm` below, never directly from the table row buttons.
-  const [pendingDecision, setPendingDecision] = useState<{ requestId: string; decision: 'approved' | 'rejected' } | null>(null);
+  const [confirming, setConfirming] = useState<{ request: WorkforceShiftRequest; decision: 'approved' | 'rejected' } | null>(null);
 
   function handleDecide(requestId: string, decision: 'approved' | 'rejected') {
     startTransition(async () => {
@@ -62,14 +62,13 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
       // the dialog open with the error shown in place, so a successful
       // decision is never implied when the mutation did not actually apply.
       if (result.status === 'success') {
-        setPendingDecision(null);
+        setConfirming(null);
         await onDecided();
       }
     });
   }
 
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
-  const confirmTarget = pendingDecision ? pendingRequests.find((r) => r.requestId === pendingDecision.requestId) ?? null : null;
 
   if (pendingRequests.length === 0) {
     return (
@@ -102,7 +101,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
                 <button
                   type="button"
                   style={buttonPrimary}
-                  onClick={() => setPendingDecision({ requestId: r.requestId, decision: 'approved' })}
+                  onClick={() => setConfirming({ request: r, decision: 'approved' })}
                   disabled={isPending}
                 >
                   {t('approve')}
@@ -110,7 +109,7 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
                 <button
                   type="button"
                   style={buttonSecondary}
-                  onClick={() => setPendingDecision({ requestId: r.requestId, decision: 'rejected' })}
+                  onClick={() => setConfirming({ request: r, decision: 'rejected' })}
                   disabled={isPending}
                 >
                   {t('reject')}
@@ -122,35 +121,36 @@ export function PreviewCorrectionActions({ pendingRequests, staff, onDecided }: 
       </table>
       {feedback ? <p style={{ marginTop: 12, color: feedback.ok ? undefined : demoColors.dangerText }}>{feedback.text}</p> : null}
 
-      {pendingDecision && confirmTarget ? (
-        <ConfirmDialog
-          open
-          title={pendingDecision.decision === 'approved' ? t('confirmApproveTitle') : t('confirmRejectTitle')}
-          confirmLabel={pendingDecision.decision === 'approved' ? t('approve') : t('reject')}
-          cancelLabel={t('cancel')}
-          pending={isPending}
-          danger={pendingDecision.decision === 'rejected'}
-          onCancel={() => setPendingDecision(null)}
-          onConfirm={() => handleDecide(confirmTarget.requestId, pendingDecision.decision)}
-        >
-          <p style={{ margin: 0 }}>
-            <strong>{t('confirmDecisionStaffLabel')}:</strong> {staffById.get(confirmTarget.employeeId)?.name ?? t('dash')}
-          </p>
-          <p style={{ margin: '4px 0 0' }}>
-            <strong>{t('confirmDecisionDateLabel')}:</strong> {confirmTarget.workDate}
-          </p>
-          <p style={{ margin: '4px 0 0' }}>
-            <strong>{t('confirmDecisionDetailsLabel')}:</strong>{' '}
-            {typeof confirmTarget.details.message === 'string' ? confirmTarget.details.message : t('dash')}
-          </p>
-          <p style={{ margin: '8px 0 0' }}>
-            {pendingDecision.decision === 'approved' ? t('confirmApproveConsequence') : t('confirmRejectConsequence')}
-          </p>
-          {feedback && !feedback.ok ? (
-            <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{feedback.text}</p>
-          ) : null}
-        </ConfirmDialog>
-      ) : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={t(confirming?.decision === 'rejected' ? 'confirmCorrectionRejectTitle' : 'confirmCorrectionApproveTitle')}
+        confirmLabel={t(confirming?.decision === 'rejected' ? 'reject' : 'approve')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger={confirming?.decision === 'rejected'}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (confirming) handleDecide(confirming.request.requestId, confirming.decision);
+        }}
+      >
+        {confirming ? (
+          <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
+            <dt style={mutedText}>{t('staffColumn')}</dt>
+            <dd style={{ margin: 0 }}>{staffById.get(confirming.request.employeeId)?.name ?? t('dash')}</dd>
+            <dt style={mutedText}>{t('dateColumnShort')}</dt>
+            <dd style={{ margin: 0 }}>{confirming.request.workDate}</dd>
+            <dt style={mutedText}>{t('requestedClockInLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.clockInLocal === 'string' ? confirming.request.details.clockInLocal : t('dash')}</dd>
+            <dt style={mutedText}>{t('requestedClockOutLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.clockOutLocal === 'string' ? confirming.request.details.clockOutLocal : t('dash')}</dd>
+            <dt style={mutedText}>{t('reasonLabel')}</dt>
+            <dd style={{ margin: 0 }}>{typeof confirming.request.details.message === 'string' ? confirming.request.details.message : t('dash')}</dd>
+          </dl>
+        ) : null}
+        {feedback && !feedback.ok ? (
+          <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{feedback.text}</p>
+        ) : null}
+      </ConfirmDialog>
     </section>
   );
 }

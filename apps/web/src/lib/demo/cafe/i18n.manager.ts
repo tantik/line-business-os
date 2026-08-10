@@ -69,13 +69,11 @@ interface ManagerDict {
   approve: string;
   reject: string;
   noPendingCorrections: string;
-  confirmApproveTitle: string;
-  confirmRejectTitle: string;
-  confirmDecisionStaffLabel: string;
-  confirmDecisionDateLabel: string;
-  confirmDecisionDetailsLabel: string;
-  confirmApproveConsequence: string;
-  confirmRejectConsequence: string;
+  confirmCorrectionApproveTitle: string;
+  confirmCorrectionRejectTitle: string;
+  requestedClockInLabel: string;
+  requestedClockOutLabel: string;
+  reasonLabel: string;
   autoScheduleButton: string;
   publishScheduleButton: string;
   autoScheduleConfirmBody: string;
@@ -207,13 +205,11 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: '承認',
     reject: '却下',
     noPendingCorrections: '対応が必要な修正申請はありません。',
-    confirmApproveTitle: 'この修正申請を承認しますか？',
-    confirmRejectTitle: 'この修正申請を却下しますか？',
-    confirmDecisionStaffLabel: 'スタッフ',
-    confirmDecisionDateLabel: '対象日',
-    confirmDecisionDetailsLabel: '申請内容',
-    confirmApproveConsequence: '承認すると、この内容で勤怠記録が更新されます。',
-    confirmRejectConsequence: 'この申請は却下され、勤怠記録は変更されません。',
+    confirmCorrectionApproveTitle: 'この修正申請を承認しますか？',
+    confirmCorrectionRejectTitle: 'この修正申請を却下しますか？',
+    requestedClockInLabel: '申請された出勤時刻',
+    requestedClockOutLabel: '申請された退勤時刻',
+    reasonLabel: '理由',
     autoScheduleButton: '自動シフト作成',
     publishScheduleButton: 'スケジュールを公開',
     autoScheduleConfirmBody: 'のシフトを、スタッフの希望と設定内容にもとづいて自動作成します。公開済みのシフトは上書きしません。続けますか？',
@@ -345,13 +341,11 @@ const MANAGER_DICT: Record<Lang, ManagerDict> = {
     approve: 'Approve',
     reject: 'Reject',
     noPendingCorrections: 'No correction requests need attention.',
-    confirmApproveTitle: 'Approve this correction request?',
-    confirmRejectTitle: 'Reject this correction request?',
-    confirmDecisionStaffLabel: 'Staff',
-    confirmDecisionDateLabel: 'Date',
-    confirmDecisionDetailsLabel: 'Requested correction',
-    confirmApproveConsequence: 'Approving will update the attendance record with these details.',
-    confirmRejectConsequence: 'Rejecting will decline this request; the attendance record will not change.',
+    confirmCorrectionApproveTitle: 'Approve this correction request?',
+    confirmCorrectionRejectTitle: 'Reject this correction request?',
+    requestedClockInLabel: 'Requested clock in',
+    requestedClockOutLabel: 'Requested clock out',
+    reasonLabel: 'Reason',
     autoScheduleButton: 'Auto-create shifts',
     publishScheduleButton: 'Publish schedule',
     autoScheduleConfirmBody:
