@@ -20,6 +20,7 @@ const ALL_FAILURE_STATUSES: PreviewWriteFailureStatus[] = [
   'not_found',
   'duplicate',
   'blocked_by_history',
+  'blocked_not_archived',
   'stale_reference',
   'unexpected_error',
 ];
@@ -80,4 +81,10 @@ test('mapWorkforceWriteResult maps config_error/unexpected_error to unexpected_e
 
 test('mapWorkforceWriteResult maps not_authenticated to itself', () => {
   assert.deepEqual(mapWorkforceWriteResult({ status: 'not_authenticated' }), { status: 'not_authenticated' });
+});
+
+test('mapWorkforceWriteResult maps blocked_by_history/blocked_not_archived/stale_reference to themselves', () => {
+  assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_by_history' }), { status: 'blocked_by_history' });
+  assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_not_archived' }), { status: 'blocked_not_archived' });
+  assert.deepEqual(mapWorkforceWriteResult({ status: 'stale_reference' }), { status: 'stale_reference' });
 });

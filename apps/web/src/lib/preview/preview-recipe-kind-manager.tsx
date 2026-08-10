@@ -6,6 +6,7 @@ import {
   previewGetRecipeForEdit,
   previewGetRecipesManagerData,
   previewListRecipeMediaUrls,
+  previewPermanentlyDeleteRecipe,
   previewSetRecipeArchived,
   previewUpsertRecipe,
   type PreviewEditableRecipeDetail,
@@ -66,15 +67,16 @@ interface RecipeRowProps {
   onEdit: (recipeId: string) => void;
   onRestore: (recipe: WorkforceRecipe) => void;
   onArchive: (recipe: WorkforceRecipe) => void;
+  onPermanentDelete: (recipe: WorkforceRecipe) => void;
 }
 
 /**
  * Extracted and memoized so editing one recipe (or a media URL arriving for
  * one row) does not re-render every other row in the list. Perf phase 3.
  */
-const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, lang, editLabel, onEdit, onRestore, onArchive }: RecipeRowProps) {
+const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, lang, editLabel, onEdit, onRestore, onArchive, onPermanentDelete }: RecipeRowProps) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated, flexWrap: 'wrap' }}>
       <ThumbnailImage
         src={mediaUrl}
         alt=""
@@ -93,16 +95,25 @@ const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, la
         // visible".
         fallback={recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}
       />
-      <div style={{ minWidth: 0, flex: 1 }}>
+      {/* `minWidth` kept non-zero (not 0) so a narrow viewport wraps the
+          actions onto their own row instead of squeezing name/status down to
+          an unreadable sliver - the row-level `flexWrap: 'wrap'` above only
+          helps once this item stops trying to absorb all remaining width. */}
+      <div style={{ minWidth: 140, flex: '1 1 160px' }}>
         <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
         <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
       </div>
-      {recipe.status === 'archived' ? (
-        <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onRestore(recipe)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
-      ) : <>
-        <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onEdit(recipe.recipeId)}>{editLabel}</button>
-        <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => onArchive(recipe)}>{lang === 'ja' ? 'アーカイブ' : 'Archive'}</button>
-      </>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {recipe.status === 'archived' ? (
+          <>
+            <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onRestore(recipe)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
+            <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => onPermanentDelete(recipe)}>{lang === 'ja' ? '完全に削除' : 'Delete permanently'}</button>
+          </>
+        ) : <>
+          <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onEdit(recipe.recipeId)}>{editLabel}</button>
+          <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => onArchive(recipe)}>{lang === 'ja' ? 'アーカイブ' : 'Archive'}</button>
+        </>}
+      </div>
     </div>
   );
 });
@@ -118,6 +129,8 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
   const [removePhoto, setRemovePhoto] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<WorkforceRecipe | null>(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<WorkforceRecipe | null>(null);
+  const [permanentDeleteError, setPermanentDeleteError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -196,6 +209,23 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
         setArchiveTarget(null);
         await refreshRecipes();
       } else setFeedback(previewWriteMessage(lang, result.status));
+    });
+  }
+
+  function permanentlyDelete(recipeId: string) {
+    setPermanentDeleteError(null);
+    startTransition(async () => {
+      const result = await previewPermanentlyDeleteRecipe(recipeId);
+      if (result.status === 'success') {
+        setPermanentDeleteTarget(null);
+        await refreshRecipes();
+      } else {
+        // Kept open (not `setPermanentDeleteTarget(null)`) on failure -- same
+        // convention as Inventory's permanent-delete confirmation -- so the
+        // manager sees the reason (e.g. "must be Archived first") right next
+        // to the action they just tried, not after the dialog has vanished.
+        setPermanentDeleteError(previewWriteMessage(lang, result.status));
+      }
     });
   }
 
@@ -386,6 +416,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
               onEdit={edit}
               onRestore={(target) => setArchived(target, false)}
               onArchive={setArchiveTarget}
+              onPermanentDelete={(target) => { setPermanentDeleteError(null); setPermanentDeleteTarget(target); }}
             />
           ))}
           {hasMoreRecipes ? <div ref={sentinelRef} aria-hidden style={{ height: 1 }} /> : null}
@@ -402,6 +433,34 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
         onConfirm={() => { if (archiveTarget) setArchived(archiveTarget, true); }}
       >
         {lang === 'ja' ? 'スタッフ画面から非表示になります。履歴と内容は安全のためアーカイブに保存され、後で復元できます。' : 'It will disappear from the staff screen. Its content and history are safely archived and can be restored later.'}
+      </ConfirmDialog>
+
+      {/* Always mounted with a real toggled `open` boolean, never conditionally
+          mounted/unmounted by a parent ternary -- FA-05: `useRestoreFocusOnClose`
+          only restores focus on an open->false transition, which a component
+          removed from the tree entirely never delivers (see the Shift
+          Settings Deactivate fix for the bug this pattern avoids). */}
+      <ConfirmDialog
+        open={permanentDeleteTarget !== null}
+        title={lang === 'ja' ? 'このレシピを完全に削除しますか？' : 'Delete this recipe permanently?'}
+        confirmLabel={lang === 'ja' ? '完全に削除する' : 'Delete permanently'}
+        cancelLabel={t('cancel')}
+        pending={pending}
+        danger
+        onCancel={() => { setPermanentDeleteTarget(null); setPermanentDeleteError(null); }}
+        onConfirm={() => { if (permanentDeleteTarget) permanentlyDelete(permanentDeleteTarget.recipeId); }}
+      >
+        {permanentDeleteTarget ? (
+          <p style={{ margin: 0 }}>{resolveRecipeListTitle(permanentDeleteTarget, lang)}</p>
+        ) : null}
+        <p style={{ margin: '8px 0 0', fontWeight: 700 }}>
+          {lang === 'ja'
+            ? 'この操作は取り消せません。レシピ、材料、手順、メモ、翻訳、写真がすべて完全に削除されます。'
+            : 'This cannot be undone. The recipe, its ingredients, steps, notes, translations, and photo will all be permanently deleted.'}
+        </p>
+        {permanentDeleteError ? (
+          <p style={{ margin: '10px 0 0', color: demoColors.dangerText, fontSize: 12 }}>{permanentDeleteError}</p>
+        ) : null}
       </ConfirmDialog>
     </div>
   );

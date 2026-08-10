@@ -219,6 +219,29 @@ function readCorrectionDetails(details: Record<string, unknown>): {
 }
 
 /**
+ * Best-effort revert of a decision back to `pending` after the attendance
+ * side of an approval failed, so a manager-visible "Approved" state is never
+ * left standing over unapplied attendance values (the atomicity invariant
+ * `decideCorrectionRequest` exists to guarantee -- see below). Guarded by
+ * `.eq('status', decision)` so it only ever undoes the exact decision this
+ * call just made, never a different concurrent decision.
+ */
+async function revertRequestToPending(
+  supabase: SupabaseClient,
+  tenantId: string,
+  requestId: string,
+  decision: ShiftRequestDecision,
+): Promise<void> {
+  await supabase
+    .schema('api')
+    .from('workforce_shift_requests')
+    .update({ status: 'pending' })
+    .eq('tenant_id', tenantId)
+    .eq('request_id', requestId)
+    .eq('status', decision);
+}
+
+/**
  * Manager decides a pending request (correction or otherwise). `status` is
  * written first -- `decided_by`/`decided_at` are stamped server-side by the
  * `stamp_shift_request_decision` trigger (0031) and are never accepted from
@@ -226,12 +249,23 @@ function readCorrectionDetails(details: Record<string, unknown>): {
  * unchanged).
  *
  * An *approved* `kind: 'correction'` request that carries requested clock-in/
- * clock-out/break values in `details` is then applied to the attendance row
- * it targets (`applyApprovedCorrection`, by `attendance_id`, exactly once --
- * gated by the same `.eq('status', 'pending')` race guard above, so a
- * request can never be approved, and therefore never applied, twice).
- * Rejects never touch attendance. A request with no requested values (e.g. a
- * text-only correction note) has nothing to apply and is a no-op here.
+ * clock-out/break values in `details` is then applied to attendance
+ * (`applyApprovedCorrection`, exactly once -- gated by the same
+ * `.eq('status', 'pending')` race guard above, so a request can never be
+ * approved, and therefore never applied, twice). The request's own
+ * `attendance_id` may be `null` (the staff member had no attendance row for
+ * that day when they submitted the correction); `applyApprovedCorrection`
+ * handles that by finding-or-creating the row for (employee, work_date)
+ * instead of silently doing nothing.
+ *
+ * Atomicity: `status` is flipped to `approved`/`rejected` first only to use
+ * it as a mutex against a concurrent double-decide (the pending-filtered
+ * update above). If applying the attendance side then fails, the decision is
+ * reverted back to `pending` (`revertRequestToPending`) before returning the
+ * failure -- a correction must never end up "Approved" while its requested
+ * hours were not actually applied. Rejects never touch attendance. A request
+ * with no requested values (e.g. a text-only correction note) has nothing to
+ * apply and is a no-op here.
  */
 export async function decideCorrectionRequest(
   supabase: SupabaseClient,
@@ -273,21 +307,33 @@ export async function decideCorrectionRequest(
 
     const decided = mapRequestRow(data as ApiWorkforceShiftRequestRow);
 
-    if (decision === 'approved' && decided.kind === 'correction' && decided.attendanceId) {
+    if (decision === 'approved' && decided.kind === 'correction') {
       const { clockInLocal, clockOutLocal, actualBreakMinutes } = readCorrectionDetails(decided.details);
       if (clockInLocal !== undefined || clockOutLocal !== undefined || actualBreakMinutes !== undefined) {
         const locationsResult = await listTenantLocations(supabase);
-        if (locationsResult.status !== 'success') return locationsResult;
+        if (locationsResult.status !== 'success') {
+          await revertRequestToPending(supabase, tenantId, requestId, decision);
+          return locationsResult;
+        }
         const location = locationsResult.data.find((l) => l.locationId === decided.locationId);
-        if (!location) return { status: 'not_found' };
+        if (!location) {
+          await revertRequestToPending(supabase, tenantId, requestId, decision);
+          return { status: 'not_found' };
+        }
 
         const applyResult = await applyApprovedCorrection(supabase, tenantId, {
           attendanceId: decided.attendanceId,
+          employeeId: decided.employeeId,
+          workDate: decided.workDate,
+          locationId: location.locationId,
           clockIn: clockInLocal ? localDateTimeToUtcIso(decided.workDate, clockInLocal, location.timezone) : undefined,
           clockOut: clockOutLocal ? localDateTimeToUtcIso(decided.workDate, clockOutLocal, location.timezone) : undefined,
           actualBreakMinutes,
         });
-        if (applyResult.status !== 'success') return applyResult;
+        if (applyResult.status !== 'success') {
+          await revertRequestToPending(supabase, tenantId, requestId, decision);
+          return applyResult;
+        }
       }
     }
 

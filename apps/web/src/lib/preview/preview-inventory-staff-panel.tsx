@@ -30,6 +30,9 @@ interface InventoryStaffDict {
   needToOrder: string;
   saved: string;
   allSaved: string;
+  filterAll: string;
+  filterNeedReorder: string;
+  filterOk: string;
 }
 
 const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
@@ -54,6 +57,9 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     needToOrder: '発注目安',
     saved: '保存済み',
     allSaved: 'すべて保存しました。',
+    filterAll: 'すべて',
+    filterNeedReorder: '要発注',
+    filterOk: '在庫十分',
   },
   en: {
     title: 'Inventory check',
@@ -76,6 +82,9 @@ const dictionary: Record<'ja' | 'en', InventoryStaffDict> = {
     needToOrder: 'Need to order',
     saved: 'Saved',
     allSaved: 'All items saved.',
+    filterAll: 'All',
+    filterNeedReorder: 'Need reorder',
+    filterOk: 'OK',
   },
 };
 
@@ -197,7 +206,13 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
   const [savingItemIds, setSavingItemIds] = useState<Set<string>>(new Set());
   const [errorByItem, setErrorByItem] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
-  const [shortagesOnly, setShortagesOnly] = useState(false);
+  // Composes with search (search first, then status) -- "Need reorder" reuses
+  // the same canonical `status === 'shortage'` the shortage badge/banner
+  // already derive from, never a second frontend shortage calculation. The
+  // Staff read (`listInventoryItemStatus` with no `includeInactive`) never
+  // includes deactivated items in the first place, so no extra isActive gate
+  // is needed here (unlike the Manager panel, which does see inactive rows).
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
   // Any successful autosave since the modal opened, so closing it triggers
   // exactly one `router.refresh()` (elsewhere on the page, shortage counts
   // depend on this data) instead of one per keystroke-triggered save.
@@ -213,9 +228,15 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
 
   const shortageCount = items.filter((item) => item.status === 'shortage').length;
   const filledCount = Object.values(values).filter((raw) => raw.trim() !== '').length;
-  const visibleItems = [...items]
-    .filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((item) => !shortagesOnly || item.status === 'shortage')
+  const searchFilteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const needReorderCount = searchFilteredItems.filter((item) => item.status === 'shortage').length;
+  const okCount = searchFilteredItems.filter((item) => item.status !== 'shortage').length;
+  const visibleItems = [...searchFilteredItems]
+    .filter((item) => {
+      if (statusFilter === 'shortage') return item.status === 'shortage';
+      if (statusFilter === 'ok') return item.status !== 'shortage';
+      return true;
+    })
     .sort((a, b) => Number(b.status === 'shortage') - Number(a.status === 'shortage') || a.name.localeCompare(b.name));
 
   async function saveItem(item: InventoryItemStatus, raw: string) {
@@ -283,9 +304,20 @@ export function PreviewInventoryStaffPanel({ locationId, items }: { locationId: 
               <div style={{ position: 'sticky', top: 51, zIndex: 2, margin: '0 -16px', padding: '10px 16px 8px', background: demoColors.surface, borderBottom: `1px solid ${demoColors.border}` }}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={lang === 'ja' ? '商品を検索' : 'Search items'} aria-label={lang === 'ja' ? '商品を検索' : 'Search items'} style={{ ...input, flex: 1, padding: '7px 10px' }} />
-                  <button type="button" style={shortagesOnly ? buttonPrimary : buttonDisabled} onClick={() => setShortagesOnly((value) => !value)}>
-                    {shortagesOnly ? tr('needsRestock') : (lang === 'ja' ? 'すべて' : 'All')}
-                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                  {(['all', 'shortage', 'ok'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      style={statusFilter === filter ? buttonPrimary : buttonDisabled}
+                      onClick={() => setStatusFilter(filter)}
+                    >
+                      {filter === 'all' ? tr('filterAll') : filter === 'shortage' ? tr('filterNeedReorder') : tr('filterOk')}
+                      {' '}
+                      ({filter === 'all' ? searchFilteredItems.length : filter === 'shortage' ? needReorderCount : okCount})
+                    </button>
+                  ))}
                 </div>
                 <p style={{ margin: '7px 0 0', fontSize: 12.5, fontWeight: 700, color: demoColors.textPrimary }}>{filledCounterLabel[lang](filledCount, items.length)}</p>
               </div>

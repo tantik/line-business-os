@@ -166,6 +166,62 @@ test('decideCorrectionRequest is a no-op on attendance when an approved correcti
   assert.equal(calls.filter((c) => c.method === 'update').length, 1, 'no requested values means nothing to apply to attendance');
 });
 
+test('decideCorrectionRequest applies requested values to a newly created attendance row when the request has no attendance_id (FR-01 from-scratch correction)', async () => {
+  const decidedRow = {
+    ...requestRow,
+    kind: 'correction',
+    status: 'approved',
+    location_id: 'loc-1',
+    attendance_id: null,
+    work_date: '2026-08-03',
+    details: { clockInLocal: '07:05', clockOutLocal: '15:05' },
+  };
+  const locationRow = { tenant_id: TENANT_ID, location_id: 'loc-1', location_name: 'Main', timezone: 'Asia/Tokyo', is_active: true };
+  const { client, calls } = recordingClient([
+    { data: decidedRow, error: null }, // decide: status -> approved
+    { data: [locationRow], error: null }, // listTenantLocations
+    { data: null, error: null }, // applyApprovedCorrection: find existing row for the day -> none
+    { data: { ...decidedRow, attendance_id: 'att-new' }, error: null }, // applyApprovedCorrection: insert
+  ]);
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
+  assert.equal(result.status, 'success');
+
+  const insertCall = calls.find((c) => c.method === 'insert');
+  assert.ok(insertCall, 'a request with no attendance_id must create the attendance row on approval, never silently no-op');
+  const insertPayload = insertCall!.args[0] as Record<string, unknown>;
+  assert.equal(insertPayload.employee_id, EMPLOYEE_ID);
+  assert.equal(insertPayload.work_date, '2026-08-03');
+  // Asia/Tokyo is UTC+9 with no DST: 2026-08-03 07:05/15:05 local -> 2026-08-02T22:05 / 2026-08-03T06:05 UTC.
+  assert.equal(insertPayload.clock_in, '2026-08-02T22:05:00.000Z');
+  assert.equal(insertPayload.clock_out, '2026-08-03T06:05:00.000Z');
+});
+
+test('decideCorrectionRequest reverts the decision back to pending when applying the attendance side fails (atomicity: never Approved without applied hours)', async () => {
+  const decidedRow = {
+    ...requestRow,
+    kind: 'correction',
+    status: 'approved',
+    location_id: 'loc-1',
+    attendance_id: 'att-1',
+    work_date: '2026-08-03',
+    details: { clockInLocal: '09:00', clockOutLocal: '17:00' },
+  };
+  const locationRow = { tenant_id: TENANT_ID, location_id: 'loc-1', location_name: 'Main', timezone: 'Asia/Tokyo', is_active: true };
+  const { client, calls } = recordingClient([
+    { data: decidedRow, error: null }, // decide: status -> approved
+    { data: [locationRow], error: null }, // listTenantLocations
+    { data: null, error: { code: '42501', message: 'permission denied' } }, // applyApprovedCorrection: fails
+    { data: { ...decidedRow, status: 'pending' }, error: null }, // revert back to pending
+  ]);
+  const result = await decideCorrectionRequest(client, TENANT_ID, 'r1', 'approved');
+  assert.equal(result.status, 'unauthorized');
+
+  const updateCalls = calls.filter((c) => c.method === 'update');
+  assert.equal(updateCalls.length, 3, 'status->approved, failed attendance update, and the revert back to pending');
+  assert.deepEqual(updateCalls[0]!.args[0], { status: 'approved' });
+  assert.deepEqual(updateCalls[2]!.args[0], { status: 'pending' });
+});
+
 test('decideCorrectionRequest returns stale_reference when the request exists but was already decided concurrently', async () => {
   // First call: the `.eq('status','pending')` update matches zero rows
   // because another manager's decision already flipped the status away

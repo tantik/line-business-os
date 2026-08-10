@@ -38,11 +38,32 @@ function read(relativeToThisFile: string): string {
 }
 
 /** Only the `import ...` statement lines - so a doc comment explaining why a component must not be imported never itself trips these guards. */
+/**
+ * Every `import ... ;` statement, each collapsed onto one line -- not just
+ * lines that literally start with `import`. A multi-line brace import (e.g.
+ * `import {\n  a,\n  b,\n} from '...';`) has its named imports on lines that
+ * don't themselves start with `import`; a naive per-line filter would keep
+ * only the opening `import {` line and silently drop every name inside,
+ * making the allowlist checks below blind to exactly that (common) import
+ * style. This joins from each `import` line through the statement's closing
+ * `;` (or the next blank line, defensively, in case a `;` is ever missing)
+ * before the per-line filter, so every import name is actually checked.
+ */
 function importLines(source: string): string {
-  return source
-    .split('\n')
-    .filter((line) => /^\s*import\b/.test(line))
-    .join('\n');
+  const lines = source.split('\n');
+  const collapsed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (!/^\s*import\b/.test(line)) continue;
+    let statement = line;
+    let j = i;
+    while (!statement.includes(';') && j + 1 < lines.length) {
+      j += 1;
+      statement += ' ' + lines[j]!.trim();
+    }
+    collapsed.push(statement);
+  }
+  return collapsed.join('\n');
 }
 
 /** Action-free display components + root/recipes preview route files - must register zero Server Actions, unchanged from B1. */
@@ -105,6 +126,7 @@ const B2A_MANAGER_ACTION_EXPORTS = [
   'previewGetRecipeForEdit',
   'previewListRecipeMediaUrls',
   'previewSetRecipeArchived',
+  'previewPermanentlyDeleteRecipe',
   'previewUpsertRecipe',
   'previewSaveScheduleSettings',
   'previewUpsertShiftType',

@@ -192,6 +192,34 @@ test('updateShiftAssignment returns not_found when the row is not visible/does n
   assert.equal(result.status, 'not_found');
 });
 
+test('updateShiftAssignment(employeeId: null) actually writes employee_id: null (Unassign) and the returned row reflects it -- regression for "Unassign appears to confirm but the assignment stays employee-attached"', async () => {
+  const unassignedRow = {
+    assignment_id: 'a-1',
+    tenant_id: TENANT_ID,
+    location_id: 'loc-1',
+    employee_id: null,
+    shift_type_id: 'st-1',
+    starts_at: '2026-08-03T00:00:00.000Z',
+    ends_at: '2026-08-03T04:00:00.000Z',
+    break_minutes: 15,
+    role: null,
+    notes: null,
+    published: true,
+    created_at: '2026-08-01T00:00:00.000Z',
+    updated_at: '2026-08-01T00:00:00.000Z',
+  };
+  const { client, calls } = recordingClient({ data: unassignedRow, error: null });
+  const result = await updateShiftAssignment(client, TENANT_ID, 'a-1', { employeeId: null, published: true });
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data.employeeId, null);
+
+  const updateCall = calls.find((c) => c.method === 'update');
+  // `employeeId: null !== undefined` so it must be included in the payload
+  // as `employee_id: null` -- omitting it here would leave the DB row's
+  // existing employee_id untouched, i.e. Unassign silently doing nothing.
+  assert.deepEqual(updateCall?.args[0], { employee_id: null, published: true });
+});
+
 test('publishShiftAssignments reports the published count and filters published=false within bounds', async () => {
   const { client, calls } = recordingClient({ data: [{ assignment_id: 'a1' }], error: null });
   const result = await publishShiftAssignments(client, TENANT_ID, 'loc-1', '2026-08-01T00:00:00.000Z', '2026-08-08T00:00:00.000Z');

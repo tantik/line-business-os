@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encryptPII, blindIndex, bufferToBytea } from '@line-os/db/crypto';
-import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
+import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, permanentlyDeleteEmployee, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
@@ -176,4 +176,27 @@ test('setWorkforceEmployeeActive succeeds', async () => {
   const { client } = recordingClient({ data: { staff_id: 's2', is_active: false }, error: null });
   const result = await setWorkforceEmployeeActive(client, TENANT_ID, 's2', false);
   assert.deepEqual(result, { status: 'success', data: { staffId: 's2', isActive: false } });
+});
+
+// Regression coverage for the founder-reported "Delete permanently -> error"
+// staff blocker: this service-layer wrapper around api.permanently_delete_employee
+// (0056) previously had zero test coverage at all.
+test('permanentlyDeleteEmployee calls api.permanently_delete_employee (never a raw DELETE) and succeeds for a disposable staff member with zero history', async () => {
+  const { client, calls } = recordingClient({ data: [{ deleted: true, blocked_by_history: false }], error: null });
+  const result = await permanentlyDeleteEmployee(client, TENANT_ID, 's-disposable');
+  assert.deepEqual(result, { status: 'success', data: { staffId: 's-disposable' } });
+  const rpcCall = calls.find((c) => c.method === 'rpc');
+  assert.deepEqual(rpcCall?.args, ['permanently_delete_employee', { p_tenant_id: TENANT_ID, p_employee_id: 's-disposable' }]);
+});
+
+test('permanentlyDeleteEmployee refuses safely with blocked_by_history for a staff member with protected history, never weakening referential integrity to force success', async () => {
+  const { client } = recordingClient({ data: [{ deleted: false, blocked_by_history: true }], error: null });
+  const result = await permanentlyDeleteEmployee(client, TENANT_ID, 's-with-history');
+  assert.deepEqual(result, { status: 'blocked_by_history' });
+});
+
+test('permanentlyDeleteEmployee returns not_found for a zero-row RPC result (not visible/not found/unauthorized), never a fabricated success', async () => {
+  const { client } = recordingClient({ data: [], error: null });
+  const result = await permanentlyDeleteEmployee(client, TENANT_ID, 'missing');
+  assert.deepEqual(result, { status: 'not_found' });
 });

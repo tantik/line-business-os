@@ -177,10 +177,10 @@ export function PreviewManagerViewChrome({
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: demoColors.textPrimary }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: demoColors.textPrimary, whiteSpace: 'nowrap' }}>
           {formatMonthDay(new Date(`${activePeriodStart}T00:00:00`))} 〜 {formatMonthDay(new Date(`${activePeriodEnd}T00:00:00`))}
         </span>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => navigateToWeek(activeWeekOffset - 1)} disabled={activeWeekOffset <= MIN_WEEK_OFFSET} style={activeWeekOffset <= MIN_WEEK_OFFSET ? buttonDisabled : buttonSecondary}>
             ← {t('prevWeek')}
           </button>

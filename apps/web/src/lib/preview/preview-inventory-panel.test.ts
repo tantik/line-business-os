@@ -51,3 +51,19 @@ test('Staff Inventory renders a bilingual no-results state for search and shorta
   assert.match(source, /tr\('noSearchResults'\)/);
 });
 
+test('Manager and Staff Inventory both offer Search/All/Need reorder/OK filters that compose, reusing the canonical status field (never a second frontend shortage calculation)', () => {
+  for (const file of ['preview-inventory-staff-panel.tsx', 'preview-inventory-manager-panel.tsx']) {
+    const source = readFileSync(path.join(THIS_DIR, file), 'utf8');
+    assert.match(source, /useState<'all' \| 'shortage' \| 'ok'>\('all'\)/, `${file} must track a three-way status filter`);
+    assert.match(source, /searchFilteredItems/, `${file} must filter by search before applying the status filter, so they compose`);
+    assert.match(source, /item\.status === 'shortage'/, `${file} must reuse the canonical status field for "Need reorder", not a new calculation`);
+    assert.ok(!/item\.actualQuantity <= item\.reorderPoint/.test(source), `${file} must not recompute shortage in the frontend`);
+  }
+});
+
+test('Manager Inventory gates the reorder-status filters on isActive so a deactivated item only ever surfaces under All', () => {
+  const source = readFileSync(path.join(THIS_DIR, 'preview-inventory-manager-panel.tsx'), 'utf8');
+  assert.match(source, /item\.isActive && item\.status === 'shortage'/);
+  assert.match(source, /item\.isActive && item\.status !== 'shortage'/);
+});
+
