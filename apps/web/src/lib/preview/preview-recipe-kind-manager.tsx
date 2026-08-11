@@ -101,7 +101,13 @@ const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, la
           helps once this item stops trying to absorb all remaining width. */}
       <div style={{ minWidth: 140, flex: '1 1 160px' }}>
         <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
-        <span style={{ ...badge(recipe.status), marginTop: 3 }}>{recipe.status === 'published' ? (lang === 'ja' ? '公開' : 'Published') : (lang === 'ja' ? '下書き' : 'Draft')}</span>
+        <span style={{ ...badge(recipe.status), marginTop: 3 }}>
+          {recipe.status === 'published'
+            ? (lang === 'ja' ? '公開' : 'Published')
+            : recipe.status === 'archived'
+              ? (lang === 'ja' ? 'アーカイブ' : 'Archived')
+              : (lang === 'ja' ? '下書き' : 'Draft')}
+        </span>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {recipe.status === 'archived' ? (

@@ -63,6 +63,16 @@ test('preview staff mutation forms open through the shared Modal instead of rend
   assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
 });
 
+test('completed attendance has a direct correction-request entry point in Staff actions, not only through the schedule-table day cell', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  const actions = read(PREVIEW_STAFF_ACTIONS);
+  assert.ok(!page.includes('<PreviewCorrectionRequestForm'), 'PreviewCorrectionRequestForm must not render directly on the staff page');
+  assert.match(actions, /PreviewCorrectionRequestForm/);
+  assert.match(actions, /t\('requestCorrection'\)/);
+  assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
+  assert.match(page, /defaultReportDate=\{todayIso\}\s*\n\s*timeZone=\{location\.timezone\}/);
+});
+
 test('future own shifts expose the complete change or cancellation form without an exchange-only intermediate button', () => {
   const source = read(PREVIEW_STAFF_SCHEDULE);
   assert.match(source, /canRequestExchange && selectedAssignment/);
