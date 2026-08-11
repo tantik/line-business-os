@@ -34,60 +34,61 @@ function makeField(overrides: Partial<RecipeTranslationField> = {}): RecipeTrans
     sourceEntityId: 'recipe-1',
     sourceField: 'title',
     key: 'workforce_recipe:recipe-1:title',
+    originalLanguage: 'ja',
     sourceText,
-    legacyEnText: null,
+    legacyOtherLanguageText: null,
     existing,
     isStale: existing ? existing.sourceContentHash !== hashSourceText(sourceText) : false,
     ...overrides,
   };
 }
 
-test('lang=ja always shows the Japanese original, no marker, regardless of any translation', () => {
-  const field = makeField({ existing: makeTranslation(), legacyEnText: 'Legacy Matcha' });
+test('lang matching the recipe original_language always shows the human source, no marker, regardless of any translation', () => {
+  const field = makeField({ existing: makeTranslation(), legacyOtherLanguageText: 'Legacy Matcha' });
   const display = resolveFieldDisplay(field, 'ja');
   assert.deepEqual(display, { text: '抹茶ラテ', marker: null });
 });
 
-test('lang=en with a current (non-stale) machine translation shows it with a machine marker', () => {
+test('the OTHER language with a current (non-stale) machine translation shows it with a machine marker', () => {
   const field = makeField({ existing: makeTranslation({ status: 'machine' }) });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: 'Matcha latte', marker: 'machine' });
 });
 
-test('lang=en with a current (non-stale) reviewed translation shows it with a reviewed marker', () => {
+test('the OTHER language with a current (non-stale) reviewed translation shows it with a reviewed marker', () => {
   const field = makeField({ existing: makeTranslation({ status: 'reviewed' }) });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: 'Matcha latte', marker: 'reviewed' });
 });
 
-test('lang=en with a STALE translation falls back to the legacy *_en column, not the stale translation, no marker', () => {
+test('the OTHER language with a STALE translation falls back to the legacy other-language column, not the stale translation, no marker', () => {
   const field = makeField({
     sourceText: '抹茶ラテ（アイス）', // source changed since translation
     existing: makeTranslation({ sourceContentHash: hashSourceText('抹茶ラテ') }),
-    legacyEnText: 'Legacy Iced Matcha Latte',
+    legacyOtherLanguageText: 'Legacy Iced Matcha Latte',
   });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: 'Legacy Iced Matcha Latte', marker: null });
 });
 
-test('lang=en with a STALE translation and no legacy fallback shows the Japanese original with an "original" marker', () => {
+test('the OTHER language with a STALE translation and no legacy fallback shows the source text with an "original" marker', () => {
   const field = makeField({
     sourceText: '抹茶ラテ（アイス）',
     existing: makeTranslation({ sourceContentHash: hashSourceText('抹茶ラテ') }),
-    legacyEnText: null,
+    legacyOtherLanguageText: null,
   });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: '抹茶ラテ（アイス）', marker: 'original' });
 });
 
-test('lang=en with no translation at all falls back to the legacy *_en column, no marker', () => {
-  const field = makeField({ existing: null, legacyEnText: 'Legacy Matcha Latte' });
+test('the OTHER language with no translation at all falls back to the legacy other-language column, no marker', () => {
+  const field = makeField({ existing: null, legacyOtherLanguageText: 'Legacy Matcha Latte' });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: 'Legacy Matcha Latte', marker: null });
 });
 
-test('lang=en with no translation and no legacy value shows the Japanese original with an "original" marker', () => {
-  const field = makeField({ existing: null, legacyEnText: null });
+test('the OTHER language with no translation and no legacy value shows the source text with an "original" marker', () => {
+  const field = makeField({ existing: null, legacyOtherLanguageText: null });
   const display = resolveFieldDisplay(field, 'en');
   assert.deepEqual(display, { text: '抹茶ラテ', marker: 'original' });
 });
@@ -102,4 +103,37 @@ test('numeric/unit fragments in the source text are never altered by display res
   });
   const display = resolveFieldDisplay(field, 'en');
   assert.ok(display.text.includes('200ml'));
+});
+
+// -- en-original recipes: symmetric behavior ---------------------------------
+
+test('an en-original field: lang=en (matching original_language) shows the human EN source directly, no marker', () => {
+  const field = makeField({
+    originalLanguage: 'en',
+    sourceText: 'Matcha Latte',
+    existing: makeTranslation({ targetLanguage: 'ja', translatedText: '抹茶ラテ' }),
+  });
+  const display = resolveFieldDisplay(field, 'en');
+  assert.deepEqual(display, { text: 'Matcha Latte', marker: null });
+});
+
+test('an en-original field: lang=ja (the OTHER language) shows the persisted machine JA translation', () => {
+  const field = makeField({
+    originalLanguage: 'en',
+    sourceText: 'Matcha Latte',
+    existing: makeTranslation({
+      targetLanguage: 'ja',
+      translatedText: '抹茶ラテ',
+      status: 'machine',
+      sourceContentHash: hashSourceText('Matcha Latte'),
+    }),
+  });
+  const display = resolveFieldDisplay(field, 'ja');
+  assert.deepEqual(display, { text: '抹茶ラテ', marker: 'machine' });
+});
+
+test('an en-original field with no JA translation yet shows the EN source with an "original" marker for JA viewers -- never a fabricated translation', () => {
+  const field = makeField({ originalLanguage: 'en', sourceText: 'Matcha Latte', existing: null, legacyOtherLanguageText: null });
+  const display = resolveFieldDisplay(field, 'ja');
+  assert.deepEqual(display, { text: 'Matcha Latte', marker: 'original' });
 });

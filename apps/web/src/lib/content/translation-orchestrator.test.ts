@@ -142,6 +142,27 @@ test('fields beyond the batch size cap are skipped, not silently dropped', async
   assert.equal(result.skippedOverLimit.length, 1);
 });
 
+test('direction defaults to ja->en when unspecified (backward compatible)', async () => {
+  const captured: { input: TranslateBatchInput | null } = { input: null };
+  const provider = fakeProvider((input) => { captured.input = input; return { ok: true, translations: input.texts.map((t) => `EN:${t}`) }; });
+  await runContentTranslationBatch([field({})], provider);
+  assert.equal(captured.input?.sourceLang, 'ja');
+  assert.equal(captured.input?.targetLang, 'en');
+});
+
+test('an en-original recipe drives the provider with en->ja direction', async () => {
+  const captured: { input: TranslateBatchInput | null } = { input: null };
+  const provider = fakeProvider((input) => { captured.input = input; return { ok: true, translations: input.texts.map((t) => `JA:${t}`) }; });
+  const result = await runContentTranslationBatch(
+    [field({ sourceText: 'Matcha Latte' })],
+    provider,
+    { sourceLang: 'en', targetLang: 'ja' },
+  );
+  assert.equal(captured.input?.sourceLang, 'en');
+  assert.equal(captured.input?.targetLang, 'ja');
+  assert.equal(result.accepted[0]?.translatedText, 'JA:Matcha Latte');
+});
+
 test('original field objects passed in are never mutated', async () => {
   const original = field({ sourceText: '抹茶ラテ' });
   const snapshot = JSON.parse(JSON.stringify(original));

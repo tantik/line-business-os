@@ -88,6 +88,7 @@ test('the Preview recipe adapter maps real detail data without demo fixtures', (
         status: 'published',
         createdAt: '',
         updatedAt: '',
+        originalLanguage: 'ja',
       },
       ingredients: [
         { ingredientId: 'i-1', tenantId: 'tenant-1', recipeId: 'recipe-1', labelJa: '抹茶', labelEn: 'Matcha', sortOrder: 1 },

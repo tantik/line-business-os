@@ -11,7 +11,7 @@ interface ApiWorkforceRecipeRow {
   tenant_id: string;
   location_id: string | null;
   recipe_category_id: string | null;
-  title_ja: string;
+  title_ja: string | null;
   title_en: string | null;
   description_ja: string | null;
   description_en: string | null;
@@ -21,6 +21,7 @@ interface ApiWorkforceRecipeRow {
   created_at: string;
   updated_at: string;
   media_path: string | null;
+  original_language: 'ja' | 'en';
 }
 
 export interface WorkforceRecipe {
@@ -28,7 +29,7 @@ export interface WorkforceRecipe {
   tenantId: string;
   locationId: string | null;
   recipeCategoryId: string | null;
-  titleJa: string;
+  titleJa: string | null;
   titleEn: string | null;
   descriptionJa: string | null;
   descriptionEn: string | null;
@@ -38,6 +39,8 @@ export interface WorkforceRecipe {
   createdAt: string;
   updatedAt: string;
   mediaPath?: string | null;
+  /** The language this recipe's human-authored content was written in. Translation always flows from this language to the other one -- a single recipe-level setting, never guessed per field. */
+  originalLanguage: 'ja' | 'en';
 }
 
 /** Flat row shape returned by `api.workforce_recipe_ingredients`. */
@@ -45,7 +48,7 @@ interface ApiWorkforceRecipeIngredientRow {
   ingredient_id: string;
   tenant_id: string;
   recipe_id: string;
-  label_ja: string;
+  label_ja: string | null;
   label_en: string | null;
   sort_order: number;
 }
@@ -54,7 +57,7 @@ export interface WorkforceRecipeIngredient {
   ingredientId: string;
   tenantId: string;
   recipeId: string;
-  labelJa: string;
+  labelJa: string | null;
   labelEn: string | null;
   sortOrder: number;
 }
@@ -65,7 +68,7 @@ interface ApiWorkforceRecipeStepRow {
   tenant_id: string;
   recipe_id: string;
   step_number: number;
-  instruction_ja: string;
+  instruction_ja: string | null;
   instruction_en: string | null;
 }
 
@@ -74,7 +77,7 @@ export interface WorkforceRecipeStep {
   tenantId: string;
   recipeId: string;
   stepNumber: number;
-  instructionJa: string;
+  instructionJa: string | null;
   instructionEn: string | null;
 }
 
@@ -83,9 +86,9 @@ interface ApiWorkforceRecipeNoteRow {
   note_id: string;
   tenant_id: string;
   recipe_id: string;
-  title_ja: string;
+  title_ja: string | null;
   title_en: string | null;
-  body_ja: string;
+  body_ja: string | null;
   body_en: string | null;
 }
 
@@ -93,9 +96,9 @@ export interface WorkforceRecipeNote {
   noteId: string;
   tenantId: string;
   recipeId: string;
-  titleJa: string;
+  titleJa: string | null;
   titleEn: string | null;
-  bodyJa: string;
+  bodyJa: string | null;
   bodyEn: string | null;
 }
 
@@ -112,7 +115,7 @@ export interface WorkforceRecipeGroup {
 }
 
 const RECIPE_SELECT =
-  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path';
+  'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path, original_language';
 const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
@@ -141,6 +144,7 @@ function mapRecipeRow(row: ApiWorkforceRecipeRow): WorkforceRecipe {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     mediaPath: row.media_path,
+    originalLanguage: row.original_language,
   };
 }
 
@@ -153,12 +157,18 @@ export async function upsertWorkforceRecipe(
   try {
     const { data, error } = await supabase.schema('api').rpc('upsert_workforce_recipe', {
       p_tenant_id: tenantId, p_location_id: locationId, p_recipe_id: input.recipeId,
-      p_content_kind: input.contentKind, p_title_ja: input.titleJa,
-      p_description_ja: input.descriptionJa ?? '', p_status: input.status,
+      p_content_kind: input.contentKind, p_title: input.title,
+      p_description: input.description ?? '', p_status: input.status,
       p_ingredients: input.ingredients, p_steps: input.steps,
       p_note_title: input.noteTitle ?? '', p_note_body: input.noteBody ?? '', p_media_path: input.mediaPath,
+      p_original_language: input.originalLanguage, p_confirm_language_change: input.confirmLanguageChange ?? false,
     });
-    if (error) return mapWorkforceWriteError(error, 'save this recipe');
+    if (error) {
+      if (error.message?.includes('recipe_language_change_requires_confirmation')) {
+        return { status: 'language_change_requires_confirmation' };
+      }
+      return mapWorkforceWriteError(error, 'save this recipe');
+    }
     return { status: 'success', data: { recipeId: String(data) } };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error saving recipe.' };
@@ -170,7 +180,7 @@ function compareRecipes(a: WorkforceRecipe, b: WorkforceRecipe): number {
   if (kindPriority !== 0) return kindPriority;
   const popularPriority = Number(b.isPopular) - Number(a.isPopular);
   if (popularPriority !== 0) return popularPriority;
-  return a.titleJa.localeCompare(b.titleJa) || a.recipeId.localeCompare(b.recipeId);
+  return (a.titleJa ?? a.titleEn ?? '').localeCompare(b.titleJa ?? b.titleEn ?? '') || a.recipeId.localeCompare(b.recipeId);
 }
 
 /**
@@ -410,7 +420,7 @@ export async function getWorkforceRecipeDetail(
         bodyJa: row.body_ja,
         bodyEn: row.body_en,
       }))
-      .sort((a, b) => a.titleJa.localeCompare(b.titleJa) || a.noteId.localeCompare(b.noteId));
+      .sort((a, b) => (a.titleJa ?? '').localeCompare(b.titleJa ?? '') || a.noteId.localeCompare(b.noteId));
 
     return {
       status: 'success',

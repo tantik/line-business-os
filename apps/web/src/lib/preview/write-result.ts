@@ -28,6 +28,7 @@ export type PreviewWriteFailureStatus =
   | 'blocked_by_history'
   | 'blocked_not_archived'
   | 'stale_reference'
+  | 'language_change_requires_confirmation'
   | 'unexpected_error';
 
 export type PreviewWriteResult<T> =
@@ -46,6 +47,7 @@ const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
   blocked_by_history: 'この商品には過去の在庫記録があるため完全に削除できません。「無効化」をご利用ください。',
   blocked_not_archived: 'アーカイブ済みのレシピのみ完全に削除できます。先にアーカイブしてください。',
   stale_reference: 'この依頼は最新の状態ではありません。対象のシフトが変更されたか、すでに他の担当者が承認・却下済みです。最新の内容に更新しました。',
+  language_change_requires_confirmation: '元の言語を変更しようとしています。既存の内容は削除されません。変更を確認してもう一度保存してください。',
   unexpected_error: '一時的な問題が発生しました。しばらくしてからもう一度お試しください。',
 };
 
@@ -65,6 +67,7 @@ const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
   blocked_by_history: 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.',
   blocked_not_archived: 'Only an Archived recipe can be permanently deleted. Archive it first.',
   stale_reference: 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. It has been refreshed to the latest state.',
+  language_change_requires_confirmation: 'You are changing this recipe’s original language. Existing content will not be deleted. Please confirm the change and save again.',
   unexpected_error: 'Something went wrong. Please try again in a moment.',
 };
 
@@ -114,6 +117,8 @@ export function mapWorkforceWriteResult<T>(result: WorkforceWriteResult<T>): Pre
       return { status: 'blocked_not_archived' };
     case 'stale_reference':
       return { status: 'stale_reference' };
+    case 'language_change_requires_confirmation':
+      return { status: 'language_change_requires_confirmation' };
     case 'not_authenticated':
       return { status: 'not_authenticated' };
     case 'no_membership':

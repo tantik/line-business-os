@@ -15,6 +15,8 @@ export function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>
       return 'Only an archived recipe can be permanently deleted.';
     case 'stale_reference':
       return 'This request no longer matches the current schedule. Refresh to see the latest state.';
+    case 'language_change_requires_confirmation':
+      return 'You are changing this recipe’s original language. Existing content will not be deleted. Please confirm the change and save again.';
     default:
       return result.message;
   }

@@ -5,8 +5,9 @@ select no_plan();
 
 select has_column('workforce', 'recipes', 'media_path', 'recipe stores only an opaque private-media path');
 select function_privs_are('api', 'upsert_workforce_recipe',
-  array['uuid','uuid','uuid','text','text','text','text','jsonb','jsonb','text','text','text'],
+  array['uuid','uuid','uuid','text','text','text','text','jsonb','jsonb','text','text','text','text','boolean'],
   'authenticated', array['EXECUTE'], 'authenticated can execute only the app-facing recipe RPC');
+select has_column('workforce', 'recipes', 'original_language', 'recipe carries an explicit original_language (ja|en)');
 select is((select prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='api' and p.proname='upsert_workforce_recipe'), false,
   'recipe RPC is SECURITY INVOKER so RLS stays authoritative');
@@ -77,6 +78,53 @@ select isnt(pg_temp.as_auth_exec('cf200000-0000-0000-0000-000000000001',
     'cf000000-0000-0000-0000-000000000002','cf100000-0000-0000-0000-000000000002',null,
     'recipe','Cross tenant','','draft','[]','[]','','',null)$q$), true,
   'manager cannot create in another tenant/location');
+
+-- ----------------------------------------------------------------------------
+-- Bilingual original_language (0058)
+-- ----------------------------------------------------------------------------
+select ok(pg_temp.as_auth_exec('cf200000-0000-0000-0000-000000000001',
+  $q$select api.upsert_workforce_recipe(
+    'cf000000-0000-0000-0000-000000000001','cf100000-0000-0000-0000-000000000001',null,
+    'recipe','Matcha Latte','Signature','published','["Matcha","Milk"]','["Whisk","Pour"]','Serving','Mix well',null,
+    'en',false)$q$),
+  'manager creates an en-original recipe through the RPC');
+select is((select original_language from workforce.recipes
+  where tenant_id='cf000000-0000-0000-0000-000000000001' and title_en='Matcha Latte'), 'en',
+  'en-original recipe stores original_language=en');
+select is((select title_ja from workforce.recipes
+  where tenant_id='cf000000-0000-0000-0000-000000000001' and title_en='Matcha Latte'), null,
+  'en-original recipe has no human title_ja (nullable column, never fabricated)');
+
+create temporary table en_recipe_ids as
+select r.id recipe_id from workforce.recipes r
+where r.tenant_id='cf000000-0000-0000-0000-000000000001' and r.title_en='Matcha Latte';
+
+-- Changing original_language on an existing recipe without confirmation is
+-- refused (safety rule: never a silent dropdown swap).
+select isnt(pg_temp.as_auth_exec('cf200000-0000-0000-0000-000000000001', format(
+  $q$select api.upsert_workforce_recipe(
+    'cf000000-0000-0000-0000-000000000001','cf100000-0000-0000-0000-000000000001','%s',
+    'recipe','抹茶ラテ','定番','published','["抹茶"]','["混ぜる"]','','',null,'ja',false)$q$,
+  (select recipe_id from en_recipe_ids))), true,
+  'changing original_language without confirmation is refused');
+select is((select original_language from workforce.recipes r join en_recipe_ids e on e.recipe_id=r.id), 'en',
+  'unconfirmed language-change attempt left original_language unchanged');
+select is((select title_en from workforce.recipes r join en_recipe_ids e on e.recipe_id=r.id), 'Matcha Latte',
+  'unconfirmed language-change attempt left existing human content untouched');
+
+-- Confirmed change: allowed, existing content preserved.
+select ok(pg_temp.as_auth_exec('cf200000-0000-0000-0000-000000000001', format(
+  $q$select api.upsert_workforce_recipe(
+    'cf000000-0000-0000-0000-000000000001','cf100000-0000-0000-0000-000000000001','%s',
+    'recipe','抹茶ラテ','定番','published','["抹茶"]','["混ぜる"]','','',null,'ja',true)$q$,
+  (select recipe_id from en_recipe_ids))),
+  'confirmed original_language change is accepted');
+select is((select original_language from workforce.recipes r join en_recipe_ids e on e.recipe_id=r.id), 'ja',
+  'confirmed change updates original_language');
+select is((select title_en from workforce.recipes r join en_recipe_ids e on e.recipe_id=r.id), 'Matcha Latte',
+  'confirmed language change never overwrites/deletes the prior human title_en');
+select is((select title_ja from workforce.recipes r join en_recipe_ids e on e.recipe_id=r.id), '抹茶ラテ',
+  'confirmed language change writes the new source column');
 
 select * from finish();
 rollback;

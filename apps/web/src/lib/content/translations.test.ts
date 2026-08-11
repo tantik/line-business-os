@@ -128,7 +128,22 @@ test('listContentTranslationsForEntities maps a permission-denied error to unaut
   assert.equal(result.status, 'unauthorized');
 });
 
-test('listContentTranslationsForField applies tenant, entity, field, and language filters in one query', async () => {
+test('listContentTranslationsForField applies tenant, entity, field, and an explicit language filter in one query', async () => {
+  const { client, calls } = recordingClient({ data: [TRANSLATION_ROW], error: null });
+  const result = await listContentTranslationsForField(client, 'tenant-a', 'workforce_recipe', 'title', 'en');
+  assert.equal(result.status, 'success');
+  assert.deepEqual(
+    calls.filter((call) => call.method === 'eq').map((call) => call.args),
+    [
+      ['tenant_id', 'tenant-a'],
+      ['source_entity_type', 'workforce_recipe'],
+      ['source_field', 'title'],
+      ['target_language', 'en'],
+    ],
+  );
+});
+
+test('listContentTranslationsForField omits the target_language filter when none is given -- returns both directions for a mixed-language recipe list', async () => {
   const { client, calls } = recordingClient({ data: [TRANSLATION_ROW], error: null });
   const result = await listContentTranslationsForField(client, 'tenant-a', 'workforce_recipe', 'title');
   assert.equal(result.status, 'success');
@@ -138,7 +153,6 @@ test('listContentTranslationsForField applies tenant, entity, field, and languag
       ['tenant_id', 'tenant-a'],
       ['source_entity_type', 'workforce_recipe'],
       ['source_field', 'title'],
-      ['target_language', 'en'],
     ],
   );
 });

@@ -140,6 +140,11 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
   const [showArchived, setShowArchived] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Source-language selector state for the add/edit form. New recipe:
+  // defaults to the Manager's current chrome language. Existing recipe:
+  // reset to its actual stored `originalLanguage` whenever `edit()` loads it
+  // (never guessed/defaulted to ja for an en-authored recipe).
+  const [originalLanguage, setOriginalLanguage] = useState<'ja' | 'en'>(lang);
   const photoInputRef = useRef<HTMLInputElement>(null);
   // Tracks which `mediaPath` each cached URL in `mediaUrls` was signed for,
   // so a save that replaces a recipe's photo (mediaPath changes) is detected
@@ -184,7 +189,11 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
     resetPhotoState();
     startTransition(async () => {
       const result = await previewGetRecipeForEdit(recipeId);
-      if (result.status === 'success') { setDetail(result.data); setMode('edit'); }
+      if (result.status === 'success') {
+        setDetail(result.data);
+        setOriginalLanguage(result.data.recipe.originalLanguage);
+        setMode('edit');
+      }
       else setFeedback(previewWriteMessage(lang, result.status));
     });
   }
@@ -281,11 +290,48 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
             <option value="recipe">{ja ? 'レシピ' : 'Recipe'}</option><option value="instruction">{ja ? '手順書' : 'Instructions'}</option>
           </select>
         </label>
+        <label><span style={mutedText}>{ja ? '元の言語（このレシピの入力言語）' : 'Original language (the language you are writing in)'}</span>
+          <select
+            name="originalLanguage"
+            style={input}
+            value={originalLanguage}
+            onChange={(event) => setOriginalLanguage(event.target.value === 'en' ? 'en' : 'ja')}
+          >
+            <option value="ja">{ja ? '日本語' : 'Japanese'}</option>
+            <option value="en">{ja ? '英語' : 'English'}</option>
+          </select>
+        </label>
+        {recipe && originalLanguage !== recipe.originalLanguage ? (
+          <div style={{ padding: 10, borderRadius: 8, border: `1px solid ${demoColors.dangerText}`, background: demoColors.surfaceElevated }}>
+            <p style={{ margin: '0 0 6px', fontSize: 12.5 }}>
+              {ja
+                ? 'このレシピの元の言語を変更しようとしています。既存の日本語・英語の内容は削除されません。今後の自動翻訳の方向のみが変わり、既存の翻訳は再確認が必要な状態（stale）になります。'
+                : 'You are changing this recipe’s original language. Existing Japanese and English content will not be deleted. Only the direction of future auto-translation changes, and existing translations will be marked for re-check (stale).'}
+            </p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+              <input type="checkbox" name="confirmLanguageChange" value="true" required />
+              {ja ? 'この変更を確認しました' : 'I confirm this change'}
+            </label>
+          </div>
+        ) : null}
         <label><span style={mutedText}>{ja ? 'レシピ名' : 'Recipe title'}</span>
-          <input name="titleJa" style={input} required maxLength={160} defaultValue={recipe?.titleJa ?? ''} />
+          <input
+            key={`title-${originalLanguage}`}
+            name="title"
+            style={input}
+            required
+            maxLength={160}
+            defaultValue={(originalLanguage === 'ja' ? recipe?.titleJa : recipe?.titleEn) ?? ''}
+          />
         </label>
         <label><span style={mutedText}>{ja ? '短い説明' : 'Short description'}</span>
-          <textarea name="descriptionJa" style={{ ...input, minHeight: 70 }} maxLength={1000} defaultValue={recipe?.descriptionJa ?? ''} />
+          <textarea
+            key={`description-${originalLanguage}`}
+            name="description"
+            style={{ ...input, minHeight: 70 }}
+            maxLength={1000}
+            defaultValue={(originalLanguage === 'ja' ? recipe?.descriptionJa : recipe?.descriptionEn) ?? ''}
+          />
         </label>
         <div style={{ padding: 12, border: `1px solid ${demoColors.border}`, borderRadius: 10, background: demoColors.surfaceElevated, display: 'grid', gap: 8 }}>
           <strong style={{ fontSize: 13 }}>{ja ? '写真' : 'Photo'}</strong>
@@ -351,18 +397,40 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
           {removePhoto ? <input type="hidden" name="removePhoto" value="true" /> : null}
         </div>
         <label><span style={mutedText}>{ja ? '材料（1行に1つ）' : 'Ingredients (one per line)'}</span>
-          <textarea name="ingredients" style={{ ...input, minHeight: 110 }} defaultValue={detail?.ingredients.map((item) => item.labelJa).join('\n') ?? ''} />
+          <textarea
+            key={`ingredients-${originalLanguage}`}
+            name="ingredients"
+            style={{ ...input, minHeight: 110 }}
+            defaultValue={detail?.ingredients.map((item) => (originalLanguage === 'ja' ? item.labelJa : item.labelEn) ?? '').join('\n') ?? ''}
+          />
         </label>
         <label><span style={mutedText}>{ja ? '手順（1行に1ステップ）' : 'Instructions (one step per line)'}</span>
-          <textarea name="steps" style={{ ...input, minHeight: 140 }} defaultValue={detail?.steps.map((item) => item.instructionJa).join('\n') ?? ''} />
+          <textarea
+            key={`steps-${originalLanguage}`}
+            name="steps"
+            style={{ ...input, minHeight: 140 }}
+            defaultValue={detail?.steps.map((item) => (originalLanguage === 'ja' ? item.instructionJa : item.instructionEn) ?? '').join('\n') ?? ''}
+          />
         </label>
         <section style={{ padding: 12, borderRadius: 10, border: `1px solid ${demoColors.border}`, background: demoColors.surfaceElevated, display: 'grid', gap: 10 }}>
           <p style={{ ...mutedText, margin: 0, fontSize: 12 }}>{ja ? '追加メモは任意です。本文が空の場合、スタッフ画面には表示されません。' : 'Optional additional notes. If the body is empty, this block is not shown to staff.'}</p>
           <label><span style={mutedText}>{ja ? '追加見出し' : 'Additional heading'}</span>
-            <input name="noteTitle" style={input} maxLength={160} defaultValue={detail?.notes[0]?.titleJa ?? ''} />
+            <input
+              key={`noteTitle-${originalLanguage}`}
+              name="noteTitle"
+              style={input}
+              maxLength={160}
+              defaultValue={(originalLanguage === 'ja' ? detail?.notes[0]?.titleJa : detail?.notes[0]?.titleEn) ?? ''}
+            />
           </label>
           <label><span style={mutedText}>{ja ? '追加資料' : 'Additional materials'}</span>
-            <textarea name="noteBody" style={{ ...input, minHeight: 100 }} maxLength={4000} defaultValue={detail?.notes[0]?.bodyJa ?? ''} />
+            <textarea
+              key={`noteBody-${originalLanguage}`}
+              name="noteBody"
+              style={{ ...input, minHeight: 100 }}
+              maxLength={4000}
+              defaultValue={(originalLanguage === 'ja' ? detail?.notes[0]?.bodyJa : detail?.notes[0]?.bodyEn) ?? ''}
+            />
           </label>
         </section>
         <label><span style={mutedText}>{ja ? 'ステータス' : 'Status'}</span>
@@ -385,7 +453,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
         <p style={{ margin: 0, ...mutedText }}>{t('recipeManagerHelp')}</p>
-        <button type="button" style={buttonPrimary} onClick={() => { setDetail(null); resetPhotoState(); setMode('add'); }}>
+        <button type="button" style={buttonPrimary} onClick={() => { setDetail(null); resetPhotoState(); setOriginalLanguage(lang); setMode('add'); }}>
           {lang === 'ja' ? 'レシピを追加' : 'Add recipe'}
         </button>
       </div>

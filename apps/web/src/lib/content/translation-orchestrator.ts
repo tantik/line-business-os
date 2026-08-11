@@ -64,8 +64,15 @@ function fieldRef(field: TranslationCandidateField): TranslationFieldRef {
 export async function runContentTranslationBatch(
   fields: TranslationCandidateField[],
   provider: ContentTranslationProvider,
-  options: { replaceStaleReviewed?: boolean } = {},
+  options: {
+    replaceStaleReviewed?: boolean;
+    /** Direction for this whole batch -- always one recipe's original_language -> the other language, never guessed per field. Defaults to ja->en for backward compatibility with existing callers/tests. */
+    sourceLang?: 'ja' | 'en';
+    targetLang?: 'ja' | 'en';
+  } = {},
 ): Promise<RunTranslationBatchResult> {
+  const sourceLang = options.sourceLang ?? 'ja';
+  const targetLang = options.targetLang ?? 'en';
   const skippedReviewed: TranslationFieldRef[] = [];
   const skippedEmpty: TranslationFieldRef[] = [];
   const skippedCurrent: TranslationFieldRef[] = [];
@@ -112,8 +119,8 @@ export async function runContentTranslationBatch(
 
   const result = await provider.translateBatch({
     texts: batch.map((field) => field.sourceText),
-    sourceLang: 'ja',
-    targetLang: 'en',
+    sourceLang,
+    targetLang,
   });
 
   if (!result.ok) {

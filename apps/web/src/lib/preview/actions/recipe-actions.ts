@@ -186,11 +186,15 @@ export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWr
   // display - `runContentTranslationBatch` refuses to touch a `reviewed`
   // (manually confirmed) translation and skips a field whose current
   // (non-stale) machine translation already exists, so a manager's manual
-  // edit -- or an unchanged JA field -- is never overwritten. Recipes author
-  // Japanese only (no English input field exists in this form), so this is
-  // one-directional (ja -> en) by construction, not a restriction added
-  // here. Best-effort: a translation-provider failure (or no provider
-  // configured at all) must never fail the save the manager just made.
+  // edit -- or an unchanged source field -- is never overwritten.
+  //
+  // Bilingual (Cafe v2.1 final): direction is no longer fixed ja->en. Each
+  // recipe has an explicit `originalLanguage` ('ja' or 'en'); translation
+  // always flows FROM that recipe's original language TO the other one --
+  // resolved once per recipe below (`detail.recipe.originalLanguage`), never
+  // guessed per field. Best-effort: a translation-provider failure (or no
+  // provider configured at all) must never fail the save the manager just
+  // made.
   await autoTranslateRecipe(context.context.supabase, context.context.tenantId, saved.data.recipeId);
 
   return { status: 'success', data: saved.data };
@@ -213,6 +217,8 @@ async function autoTranslateRecipe(supabase: SupabaseClient, tenantId: string, r
 
     const workspace = buildRecipeTranslationWorkspace(detailResult.data, translationsResult.data);
     const fields = flattenRecipeTranslationFields(workspace);
+    const sourceLang = detailResult.data.recipe.originalLanguage;
+    const targetLang = sourceLang === 'ja' ? 'en' : 'ja';
     const batchResult = await runContentTranslationBatch(
       fields.map((field) => ({
         sourceEntityType: field.sourceEntityType,
@@ -222,6 +228,7 @@ async function autoTranslateRecipe(supabase: SupabaseClient, tenantId: string, r
         existing: field.existing,
       })),
       provider,
+      { sourceLang, targetLang },
     );
     for (const accepted of batchResult.accepted) {
       const saveResult = await setMachineContentTranslation(supabase, tenantId, {
