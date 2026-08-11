@@ -5,6 +5,8 @@ import {
   mapPreviewModuleFailure,
   mapManagerLocationFailure,
   mapWorkforceWriteResult,
+  previewStaffDeleteMessage,
+  previewWriteMessage,
   previewWriteMessageJa,
   PREVIEW_INVALID_INPUT_RESULT,
   type PreviewWriteFailureStatus,
@@ -33,6 +35,14 @@ test('previewWriteMessageJa returns a non-empty, UUID-free, path-free message fo
     assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(message), `${status} message must not contain a UUID`);
     assert.ok(!/\/(dashboard|_client-preview)/.test(message), `${status} message must not contain an internal route path`);
   }
+});
+
+test('previewStaffDeleteMessage uses employee-specific history copy', () => {
+  assert.match(previewStaffDeleteMessage('ja', 'blocked_by_history'), /スタッフ/);
+  assert.doesNotMatch(previewStaffDeleteMessage('ja', 'blocked_by_history'), /商品|在庫/);
+  assert.match(previewStaffDeleteMessage('en', 'blocked_by_history'), /staff member/i);
+  assert.doesNotMatch(previewStaffDeleteMessage('en', 'blocked_by_history'), /stock-count|item/i);
+  assert.equal(previewStaffDeleteMessage('en', 'invalid_input'), previewWriteMessage('en', 'invalid_input'));
 });
 
 test('PREVIEW_INVALID_INPUT_RESULT is the fixed invalid_input status', () => {
