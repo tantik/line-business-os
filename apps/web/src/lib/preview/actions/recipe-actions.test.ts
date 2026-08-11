@@ -36,6 +36,14 @@ test('uses recipe.manage and validates the visible target location before mutati
   assert.ok(SOURCE.indexOf('detail.data.recipe.locationId') < SOURCE.indexOf('upsertWorkforceRecipe('));
 });
 
+test('Founder QA F07B regression: previewGetRecipeForEdit reports the other language\'s real translation readiness, derived server-side from resolveFieldDisplay (marker !== original), not guessed client-side', () => {
+  const body = SOURCE.slice(
+    SOURCE.indexOf('async function titleTranslationIsReady'),
+  );
+  assert.ok(body.includes("resolveFieldDisplay(resolvedTitleField, otherLang).marker !== 'original'"));
+  assert.ok(SOURCE.includes('otherLanguageTranslationReady: await titleTranslationIsReady('));
+});
+
 test('never reads client-supplied tenant or location authority fields and uses no service role', () => {
   assert.ok(!SOURCE.includes("formData.get('tenantId')"));
   assert.ok(!SOURCE.includes("formData.get('locationId')"));

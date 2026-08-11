@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { previewCreateShiftAssignment, previewUpdateShiftAssignment } from './actions/schedule-actions';
@@ -111,7 +111,7 @@ export function PreviewShiftEditor({ timeZone, staff, shiftTypes, assignments, d
             <option value="">カスタム</option>
             {shiftTypeOptions.map((st) => (
               <option key={st.shiftTypeId} value={st.shiftTypeId}>
-                {st.code}
+                {shiftTypeDisplayLabel(st)}
               </option>
             ))}
           </select>
@@ -214,7 +214,7 @@ export function PreviewShiftEditor({ timeZone, staff, shiftTypes, assignments, d
               <option value="">カスタム</option>
               {shiftTypeOptions.map((st) => (
                 <option key={st.shiftTypeId} value={st.shiftTypeId}>
-                  {st.code}
+                  {shiftTypeDisplayLabel(st)}
                 </option>
               ))}
             </select>

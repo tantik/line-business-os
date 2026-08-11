@@ -20,9 +20,7 @@ import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import { PreviewNoAccessState } from '@/lib/preview/states';
 import { PREVIEW_BASE_PATH } from '@/lib/preview/constants';
 import { toManagerCorrectionSummaries } from '@/lib/preview/manager-view-model';
-import { PreviewManagerView } from '@/lib/preview/manager-view';
-import { PreviewStaffRecipeManagement } from '@/lib/preview/preview-staff-recipe-management';
-import { PreviewSettingsCard } from '@/lib/preview/preview-settings-card';
+import { PreviewManagerRosterSection } from '@/lib/preview/preview-manager-roster-section';
 import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
@@ -55,13 +53,17 @@ function parseWeekOffset(raw: string | undefined): number {
 
 /**
  * Mame To Cha preview manager view (Phase 1N-4C Slice B1) - read-only reuse
- * of the existing Workforce manager data loaders, rendered through the
- * action-free `PreviewManagerView` display component (see
- * `lib/preview/manager-view.tsx`). This page and its dependency graph import
- * no Server Action and no dashboard interactive component - the dashboard's
- * `ManagerDashboardClient` (which does own the mutation forms/actions) is
- * never imported here, so no mutation action can be registered as a callable
- * worker for this route (verified by `scripts/verify-preview-no-server-actions.mjs`).
+ * of the existing Workforce manager data loaders, rendered through
+ * `PreviewManagerRosterSection` (`lib/preview/preview-manager-roster-section.tsx`),
+ * a `'use client'` wrapper that owns the one live, shared copy of
+ * `staff`/`shiftTypes` for the schedule grid, Manage Staff, and Shift Types
+ * so a mutation in one immediately reflects in the others (F02/F03/F11 fix)
+ * without ever calling `router.refresh()`. This page and its dependency
+ * graph import no Server Action and no dashboard interactive component - the
+ * dashboard's `ManagerDashboardClient` (which does own the mutation
+ * forms/actions) is never imported here, so no mutation action can be
+ * registered as a callable worker for this route (verified by
+ * `scripts/verify-preview-no-server-actions.mjs`).
  */
 export default async function MameToChaPreviewManagerPage({
   searchParams,
@@ -181,13 +183,13 @@ export default async function MameToChaPreviewManagerPage({
   }
 
   const staff = staffResult.status === 'success' ? staffResult.data : null;
-  // A removed/deactivated staff member must never appear as a schedulable row
-  // or in an assignment selector by default (Staff lifecycle requirement) --
-  // `staff` itself stays the full (active + inactive) list for every other
-  // consumer below (Staff management's own Active/Inactive/All filter,
-  // historical name lookups in Correction Requests/Shift Exchange, which must
-  // keep resolving a removed employee's name against past records).
-  const activeStaff = staff === null ? null : staff.filter((s) => s.isActive);
+  // `staff` stays the full (active + inactive) list -- every consumer below
+  // needs it (Staff management's own Active/Inactive/All filter, historical
+  // name lookups in Correction Requests/Shift Exchange, which must keep
+  // resolving a removed employee's name against past records). The
+  // active-only filter for the schedule grid's roster is applied inside
+  // `PreviewManagerRosterSection`, which now owns the live copy of `staff`
+  // (see that component's doc comment - F02/F11 stale-roster fix).
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const shiftTypes = shiftTypesResult.status === 'success' ? shiftTypesResult.data : null;
   const assignments = assignmentsResult.status === 'success' ? assignmentsResult.data : null;
@@ -277,22 +279,18 @@ export default async function MameToChaPreviewManagerPage({
           shortageDetails={activeInventoryItems.filter((item) => item.status === 'shortage').slice(0, 4).map((item) => item.name)}
         />
 
-        <PreviewManagerView
+        <PreviewManagerRosterSection
           timeZone={location.timezone}
           periodStart={periodStart}
           periodEnd={periodEnd}
           weekOffset={weekOffset}
-          staff={activeStaff}
-          shiftTypes={shiftTypes}
+          initialStaff={staff}
+          initialShiftTypes={shiftTypes}
           assignments={assignments}
           allAssignments={allAssignmentsResult.status === 'success' ? allAssignmentsResult.data : null}
           attendance={attendance}
           basePath={PREVIEW_BASE_PATH}
           requiredHeadcountByWeekday={settings?.requiredHeadcountByWeekday ?? [3, 3, 3, 3, 3, 2, 4]}
-        />
-
-        <PreviewStaffRecipeManagement
-          staff={staff}
           recipes={recipes}
           recipeMediaUrls={recipeMediaUrls}
           inventorySlot={
@@ -305,19 +303,19 @@ export default async function MameToChaPreviewManagerPage({
               />
             ) : null
           }
+          settings={settings}
+          exchangePanelSlot={(liveShiftTypes) =>
+            exchangesResult.status === 'success' && allAssignmentsResult.status === 'success' ? (
+              <PreviewShiftExchangeManagerPanel
+                timeZone={location.timezone}
+                assignments={allAssignmentsResult.data}
+                exchanges={exchangesResult.data}
+                staffNameById={staffNameById}
+                shiftTypes={liveShiftTypes ?? []}
+              />
+            ) : null
+          }
         />
-
-        <PreviewSettingsCard shiftTypes={shiftTypes} settings={settings} />
-
-        {exchangesResult.status === 'success' && allAssignmentsResult.status === 'success' ? (
-          <PreviewShiftExchangeManagerPanel
-            timeZone={location.timezone}
-            assignments={allAssignmentsResult.data}
-            exchanges={exchangesResult.data}
-            staffNameById={staffNameById}
-            shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : []}
-          />
-        ) : null}
       </CafeManagerScreen>
     </BrandProvider>
   );

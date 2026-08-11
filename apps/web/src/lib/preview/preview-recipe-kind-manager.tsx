@@ -290,7 +290,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
             <option value="recipe">{ja ? 'レシピ' : 'Recipe'}</option><option value="instruction">{ja ? '手順書' : 'Instructions'}</option>
           </select>
         </label>
-        <label><span style={mutedText}>{ja ? '元の言語（このレシピの入力言語）' : 'Original language (the language you are writing in)'}</span>
+        <label><span style={mutedText}>{ja ? '元の言語' : 'Original language'}</span>
           <select
             name="originalLanguage"
             style={input}
@@ -301,6 +301,18 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
             <option value="en">{ja ? '英語' : 'English'}</option>
           </select>
         </label>
+        <p style={{ margin: '-4px 0 0', fontSize: 12, ...mutedText }}>
+          {ja
+            ? '以下の内容は入力したとおりに保存されます。もう一方の言語は自動的に生成されます。'
+            : 'The text below is saved exactly as entered. The other language is generated automatically.'}
+        </p>
+        {recipe ? (
+          <p style={{ margin: '-4px 0 0', fontSize: 12, fontWeight: 600, color: detail?.otherLanguageTranslationReady ? demoColors.success : demoColors.textMuted }}>
+            {detail?.otherLanguageTranslationReady
+              ? (ja ? '翻訳: 準備完了' : 'Translation: ready')
+              : (ja ? '翻訳: 未生成（元の言語のまま表示されます）' : 'Translation: unavailable — original shown')}
+          </p>
+        ) : null}
         {recipe && originalLanguage !== recipe.originalLanguage ? (
           <div style={{ padding: 10, borderRadius: 8, border: `1px solid ${demoColors.dangerText}`, background: demoColors.surfaceElevated }}>
             <p style={{ margin: '0 0 6px', fontSize: 12.5 }}>
@@ -451,9 +463,13 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-        <p style={{ margin: 0, ...mutedText }}>{t('recipeManagerHelp')}</p>
-        <button type="button" style={buttonPrimary} onClick={() => { setDetail(null); resetPhotoState(); setOriginalLanguage(lang); setMode('add'); }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <p style={{ margin: 0, flex: '1 1 220px', minWidth: 0, ...mutedText }}>{t('recipeManagerHelp')}</p>
+        <button
+          type="button"
+          style={{ ...buttonPrimary, flexShrink: 0, whiteSpace: 'nowrap' }}
+          onClick={() => { setDetail(null); resetPhotoState(); setOriginalLanguage(lang); setMode('add'); }}
+        >
           {lang === 'ja' ? 'レシピを追加' : 'Add recipe'}
         </button>
       </div>

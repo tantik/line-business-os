@@ -8,6 +8,7 @@ import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff, staffWeekdayInitials } from '@/lib/demo/cafe/i18n.staff';
+import { PendingOverlay } from '@/components/ui/loading';
 
 interface Props { shiftTypes: WorkforceShiftType[] | null; defaultMonthDate: string; onClose: () => void }
 
@@ -61,7 +62,8 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
   }
 
   return (
-    <>
+    <div style={{ position: 'relative' }}>
+      <PendingOverlay visible={pending} message={t('submitting')} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginBottom: 12 }}>
         <span style={shiftChipStyle(demoColors.surfaceElevated, demoColors.textMuted, true)}>－</span>
         {activeShiftTypes.map((type) => {
@@ -91,6 +93,6 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
         <button type="button" style={buttonSecondary} disabled={pending} onClick={onClose}>{t('cancel')}</button>
         <button type="button" style={buttonPrimary} disabled={pending} onClick={submit}>{pending ? t('submitting') : t('submitPreference')}</button>
       </div>
-    </>
+    </div>
   );
 }

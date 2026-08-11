@@ -39,9 +39,17 @@ export interface PreviewStaffRecipeManagementProps {
    * management entry points live in one block.
    */
   inventorySlot?: ReactNode;
+  /**
+   * Notified with the freshly refetched staff list every time this dialog's
+   * `PreviewStaffForm` create/edit/status-change mutation succeeds, so a
+   * sibling that also renders staff (e.g. the Shift Schedule grid's roster)
+   * can stay in sync without a full page reload. Optional so this component
+   * still works exactly as before when rendered standalone (e.g. tests).
+   */
+  onStaffChanged?: (next: WorkforceStaffManageEntry[]) => void;
 }
 
-export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, recipeMediaUrls: initialRecipeMediaUrls, inventorySlot }: PreviewStaffRecipeManagementProps) {
+export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, recipeMediaUrls: initialRecipeMediaUrls, inventorySlot, onStaffChanged: onStaffChangedProp }: PreviewStaffRecipeManagementProps) {
   const [staffOpen, setStaffOpen] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   // Owned here (not inside `PreviewStaffForm`/`PreviewRecipeKindManager`)
@@ -78,7 +86,13 @@ export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: ini
       </div>
 
       <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={760}>
-        <PreviewStaffForm staff={staff} onStaffChanged={setStaff} />
+        <PreviewStaffForm
+          staff={staff}
+          onStaffChanged={(next) => {
+            setStaff(next);
+            onStaffChangedProp?.(next);
+          }}
+        />
       </Modal>
 
       <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={760}>

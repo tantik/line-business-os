@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import { previewSubmitShiftPreference } from './actions/staff-schedule-actions';
 import { previewWriteMessageJa, type PreviewWriteResult } from './write-result';
 import { buttonPrimary, card, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
@@ -70,7 +70,7 @@ export function PreviewShiftPreferenceForm({ shiftTypes, defaultWorkDate, embedd
               </option>
               {activeShiftTypes.map((st) => (
                 <option key={st.shiftTypeId} value={st.shiftTypeId}>
-                  {st.code} ({st.startsAtLocal.slice(0, 5)}-{st.endsAtLocal.slice(0, 5)})
+                  {shiftTypeDisplayLabel(st)} ({st.startsAtLocal.slice(0, 5)}-{st.endsAtLocal.slice(0, 5)})
                 </option>
               ))}
             </select>
