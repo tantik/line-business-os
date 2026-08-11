@@ -9,21 +9,19 @@ import {
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 
 /**
- * Resolves the EN text for one field via `resolveFieldDisplay` (current
- * `content.translations` row -> legacy `*_en` column -> Japanese original,
- * per the documented precedence) when a workspace is supplied. Without a
- * workspace, falls back to the legacy `*_en`-or-`undefined` behavior this
- * function had before `content.translations` existed -- kept only so any
- * future caller that hasn't loaded a workspace yet doesn't regress.
+ * Resolves either display language through the same symmetric translation
+ * precedence. Without a workspace, falls back to the corresponding legacy
+ * language column so demo/static callers do not regress.
  */
-function resolveEnText(
+function resolveText(
   fieldByKey: Map<string, RecipeTranslationField>,
   key: string,
-  legacyEnFallback: string | null,
+  lang: 'ja' | 'en',
+  fallback: string | null,
 ): string | undefined {
   const field = fieldByKey.get(key);
-  if (!field) return legacyEnFallback ?? undefined;
-  return resolveFieldDisplay(field, 'en').text;
+  if (!field) return fallback ?? undefined;
+  return resolveFieldDisplay(field, lang).text;
 }
 
 export function toPreviewRecipeViewModel(
@@ -39,45 +37,60 @@ export function toPreviewRecipeViewModel(
   const fieldByKey = new Map(
     workspace ? flattenRecipeTranslationFields(workspace).map((field) => [field.key, field]) : [],
   );
-  const englishMarkers = [...fieldByKey.values()].map((field) => resolveFieldDisplay(field, 'en').marker);
-  const translationNotice = englishMarkers.includes('original')
-    ? 'original'
-    : englishMarkers.includes('machine')
-      ? 'machine'
-      : englishMarkers.includes('reviewed')
-        ? 'reviewed'
-        : undefined;
+  function noticeFor(lang: 'ja' | 'en') {
+    const markers = [...fieldByKey.values()].map((field) => resolveFieldDisplay(field, lang).marker);
+    return markers.includes('original')
+      ? 'original'
+      : markers.includes('machine')
+        ? 'machine'
+        : markers.includes('reviewed')
+          ? 'reviewed'
+          : undefined;
+  }
+  const translationNotice = noticeFor('en');
+  const translationNoticeJa = noticeFor('ja');
+
+  const titleKey = `workforce_recipe:${recipe.recipeId}:title`;
+  const descriptionKey = `workforce_recipe:${recipe.recipeId}:description`;
 
   return {
     id: recipe.recipeId,
     contentKind: recipe.contentKind,
-    name: recipe.titleJa || recipe.titleEn || '名称未設定',
-    nameEn: resolveEnText(fieldByKey, `workforce_recipe:${recipe.recipeId}:title`, recipe.titleEn),
+    name: resolveText(fieldByKey, titleKey, 'ja', recipe.titleJa) ?? recipe.titleEn ?? '名称未設定',
+    nameEn: resolveText(fieldByKey, titleKey, 'en', recipe.titleEn),
     category: category?.labelJa || category?.labelEn || '未分類',
     badges: recipe.isPopular ? ['人気'] : [],
     icon: recipe.contentKind === 'instruction' ? '🛠️' : '☕',
     image,
-    description: recipe.descriptionJa || recipe.descriptionEn || '',
-    descriptionEn: recipe.descriptionJa
-      ? resolveEnText(fieldByKey, `workforce_recipe:${recipe.recipeId}:description`, recipe.descriptionEn)
-      : undefined,
-    ingredients: ingredients.map((item) => item.labelJa || item.labelEn || '').filter(Boolean),
+    description: resolveText(fieldByKey, descriptionKey, 'ja', recipe.descriptionJa) ?? recipe.descriptionEn ?? '',
+    descriptionEn: resolveText(fieldByKey, descriptionKey, 'en', recipe.descriptionEn),
+    ingredients: ingredients
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_ingredient:${item.ingredientId}:label`, 'ja', item.labelJa) ?? item.labelEn ?? '')
+      .filter(Boolean),
     ingredientsEn: ingredients
-      .map((item) => resolveEnText(fieldByKey, `workforce_recipe_ingredient:${item.ingredientId}:label`, item.labelEn) ?? '')
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_ingredient:${item.ingredientId}:label`, 'en', item.labelEn) ?? '')
       .filter(Boolean),
-    steps: steps.map((item) => item.instructionJa || item.instructionEn || '').filter(Boolean),
+    steps: steps
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_step:${item.stepId}:instruction`, 'ja', item.instructionJa) ?? item.instructionEn ?? '')
+      .filter(Boolean),
     stepsEn: steps
-      .map((item) => resolveEnText(fieldByKey, `workforce_recipe_step:${item.stepId}:instruction`, item.instructionEn) ?? '')
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_step:${item.stepId}:instruction`, 'en', item.instructionEn) ?? '')
       .filter(Boolean),
-    memoTitle: firstNote?.titleJa || firstNote?.titleEn || undefined,
-    memoTitleEn: firstNote
-      ? resolveEnText(fieldByKey, `workforce_recipe_note:${firstNote.noteId}:note_title`, firstNote.titleEn)
+    memoTitle: firstNote
+      ? resolveText(fieldByKey, `workforce_recipe_note:${firstNote.noteId}:note_title`, 'ja', firstNote.titleJa) ?? firstNote.titleEn ?? undefined
       : undefined,
-    memo: notes.map((item) => item.bodyJa || item.bodyEn || '').filter(Boolean).join('\n'),
+    memoTitleEn: firstNote
+      ? resolveText(fieldByKey, `workforce_recipe_note:${firstNote.noteId}:note_title`, 'en', firstNote.titleEn)
+      : undefined,
+    memo: notes
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_note:${item.noteId}:note_body`, 'ja', item.bodyJa) ?? item.bodyEn ?? '')
+      .filter(Boolean)
+      .join('\n'),
     memoEn: notes
-      .map((item) => resolveEnText(fieldByKey, `workforce_recipe_note:${item.noteId}:note_body`, item.bodyEn) ?? '')
+      .map((item) => resolveText(fieldByKey, `workforce_recipe_note:${item.noteId}:note_body`, 'en', item.bodyEn) ?? '')
       .filter(Boolean)
       .join('\n'),
     translationNotice,
+    translationNoticeJa,
   };
 }
