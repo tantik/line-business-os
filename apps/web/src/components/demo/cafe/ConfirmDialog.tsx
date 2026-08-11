@@ -62,7 +62,11 @@ export function ConfirmDialog({
     <div
       role="presentation"
       onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) onCancel(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(42, 34, 25, .58)' }}
+      // ConfirmDialog is frequently opened from inside the shared Modal
+      // (shift unassign, recipe archive/delete, attendance decisions). It
+      // must sit above Modal's z-index: 1000 overlay or the confirmation is
+      // visible in the accessibility tree but cannot receive pointer input.
+      style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(42, 34, 25, .58)' }}
     >
       <section role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" style={{ width: 'min(420px, 100%)', padding: 20, borderRadius: 14, background: demoColors.surface, border: `1px solid ${demoColors.border}`, boxShadow: '0 24px 70px rgba(42,34,25,.28)' }}>
         <h3 id="confirm-dialog-title" style={{ margin: 0, fontSize: 18 }}>{title}</h3>

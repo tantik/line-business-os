@@ -9,6 +9,19 @@ import { readFileSync } from 'node:fs';
  * environment available to exercise the effect directly.
  */
 const SOURCE = readFileSync(new URL('./ConfirmDialog.tsx', import.meta.url), 'utf8');
+const MODAL_SOURCE = readFileSync(new URL('./Modal.tsx', import.meta.url), 'utf8');
+
+test('confirmation overlay stays above the shared parent modal', () => {
+  const confirmZIndex = Number(SOURCE.match(/zIndex:\s*(\d+)/)?.[1]);
+  const modalZIndex = Number(MODAL_SOURCE.match(/zIndex:\s*(\d+)/)?.[1]);
+
+  assert.ok(Number.isFinite(confirmZIndex), 'ConfirmDialog must define a numeric overlay z-index');
+  assert.ok(Number.isFinite(modalZIndex), 'Modal must define a numeric overlay z-index');
+  assert.ok(
+    confirmZIndex > modalZIndex,
+    `ConfirmDialog z-index (${confirmZIndex}) must exceed Modal z-index (${modalZIndex}) so nested confirmations receive pointer input`,
+  );
+});
 
 test('captures the previously-focused element while open and restores it on close', () => {
   assert.ok(
