@@ -24,7 +24,6 @@ import { PreviewManagerRosterSection } from '@/lib/preview/preview-manager-roste
 import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { PreviewShiftExchangeManagerPanel } from '@/lib/preview/preview-shift-exchange-manager-panel';
 import { PreviewManagerToday } from '@/lib/preview/preview-manager-today';
 import { listInventoryCheckSessions } from '@/lib/inventory/check-sessions';
 import { time, mark } from '@/lib/perf/timing';
@@ -304,16 +303,15 @@ export default async function MameToChaPreviewManagerPage({
             ) : null
           }
           settings={settings}
-          exchangePanelSlot={(liveShiftTypes) =>
-            exchangesResult.status === 'success' && allAssignmentsResult.status === 'success' ? (
-              <PreviewShiftExchangeManagerPanel
-                timeZone={location.timezone}
-                assignments={allAssignmentsResult.data}
-                exchanges={exchangesResult.data}
-                staffNameById={staffNameById}
-                shiftTypes={liveShiftTypes ?? []}
-              />
-            ) : null
+          exchangePanelData={
+            exchangesResult.status === 'success' && allAssignmentsResult.status === 'success'
+              ? {
+                  timeZone: location.timezone,
+                  assignments: allAssignmentsResult.data,
+                  exchanges: exchangesResult.data,
+                  staffNameById,
+                }
+              : null
           }
         />
       </CafeManagerScreen>

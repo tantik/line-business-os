@@ -7,9 +7,11 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceRecipe } from '@/lib/workforce/recipes';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
+import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import { PreviewManagerViewChrome } from './preview-manager-view-chrome';
 import { PreviewStaffRecipeManagement } from './preview-staff-recipe-management';
 import { PreviewSettingsCard } from './preview-settings-card';
+import { PreviewShiftExchangeManagerPanel } from './preview-shift-exchange-manager-panel';
 
 /**
  * Owns the one shared, live copy of `staff`/`shiftTypes` for everything
@@ -53,8 +55,22 @@ export interface PreviewManagerRosterSectionProps {
   // PreviewSettingsCard props, minus shiftTypes (owned here).
   settings: WorkforceScheduleSettings | null;
 
-  /** Rendered with the live shift-type list (e.g. `PreviewShiftExchangeManagerPanel`, which also displays shift-type labels and must stay in sync with Settings). */
-  exchangePanelSlot?: (shiftTypes: WorkforceShiftType[] | null) => ReactNode;
+  /**
+   * `PreviewShiftExchangeManagerPanel` also displays shift-type labels and
+   * must stay in sync with Settings - rendered here (not passed in as a
+   * function-returning-JSX prop) because a Server Component (the page) can
+   * only pass a Client Component *plain data* or already-built JSX across
+   * the RSC boundary, never a closure - only a `'use server'` Server Action
+   * may cross that boundary as a callable. `null` when the exchange data
+   * itself failed to load (the page already applies that gate before
+   * building this prop).
+   */
+  exchangePanelData: {
+    timeZone: string;
+    assignments: WorkforceShiftAssignment[];
+    exchanges: WorkforceShiftExchange[];
+    staffNameById: Record<string, string>;
+  } | null;
 }
 
 export function PreviewManagerRosterSection({
@@ -73,7 +89,7 @@ export function PreviewManagerRosterSection({
   recipeMediaUrls,
   inventorySlot,
   settings,
-  exchangePanelSlot,
+  exchangePanelData,
 }: PreviewManagerRosterSectionProps) {
   const [staff, setStaff] = useState(initialStaff);
   const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
@@ -108,7 +124,15 @@ export function PreviewManagerRosterSection({
 
       <PreviewSettingsCard shiftTypes={shiftTypes} settings={settings} onShiftTypesChanged={setShiftTypes} />
 
-      {exchangePanelSlot?.(shiftTypes)}
+      {exchangePanelData ? (
+        <PreviewShiftExchangeManagerPanel
+          timeZone={exchangePanelData.timeZone}
+          assignments={exchangePanelData.assignments}
+          exchanges={exchangePanelData.exchanges}
+          staffNameById={exchangePanelData.staffNameById}
+          shiftTypes={shiftTypes ?? []}
+        />
+      ) : null}
     </>
   );
 }
