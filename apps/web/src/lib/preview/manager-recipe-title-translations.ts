@@ -5,10 +5,13 @@ import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 
 /**
  * Produces the Manager list's serializable display copy. Manager edits the
- * Japanese source while current English copy lives in `content.translations`,
- * so the legacy `titleEn` column alone is not sufficient for live data.
- * Reuse the same current-translation -> legacy -> original precedence as the
- * Staff recipe view, without changing the persisted recipe model.
+ * source in whichever language is the recipe's `originalLanguage`, while
+ * current copy in the OTHER language lives in `content.translations`, so
+ * neither legacy column alone is sufficient for live data. Reuse the same
+ * current-translation -> legacy -> original precedence as the Staff recipe
+ * view for BOTH languages, without changing the persisted recipe model --
+ * an en-original recipe's `titleJa` can be just as stale as a ja-original
+ * recipe's `titleEn`.
  *
  * This module is server-side by import boundary because the translation
  * service hashes source text with node:crypto. Never import it from the
@@ -26,6 +29,10 @@ export function withResolvedRecipeListTitles(
     );
     const titleField = workspace.sections[0]?.fields[0];
     if (!titleField) return recipe;
-    return { ...recipe, titleEn: resolveFieldDisplay(titleField, 'en').text };
+    return {
+      ...recipe,
+      titleEn: resolveFieldDisplay(titleField, 'en').text,
+      titleJa: resolveFieldDisplay(titleField, 'ja').text,
+    };
   });
 }
