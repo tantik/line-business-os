@@ -49,6 +49,21 @@ test('PreviewManagerRosterSection filters deactivated staff out of the schedule 
   assert.match(ROSTER_SECTION, /const activeStaff = staff === null \? null : staff\.filter\(\(entry\) => entry\.isActive\)/);
 });
 
+test('production incident regression: PreviewManagerRosterSectionProps has no function-typed prop - a Server Component (the manager page) cannot pass a plain closure across the Server->Client boundary (only JSX/data or a `\'use server\'` action may cross it), and this crashed Preview in production once already ("Uncaught Error: An error occurred in the Server Components render")', () => {
+  const propsBlock = ROSTER_SECTION.slice(
+    ROSTER_SECTION.indexOf('export interface PreviewManagerRosterSectionProps'),
+    ROSTER_SECTION.indexOf('export function PreviewManagerRosterSection'),
+  );
+  // Every prop must be data or ReactNode, never `(...) => ReactNode` / `(...) => void` etc.
+  assert.ok(!/:\s*\([^)]*\)\s*=>/.test(propsBlock), `no prop on PreviewManagerRosterSectionProps may be typed as a function - found a function-typed prop in:\n${propsBlock}`);
+});
+
+test('PreviewManagerRosterSection renders PreviewShiftExchangeManagerPanel itself from plain data (exchangePanelData), not from a JSX-returning function prop passed in by the server page', () => {
+  assert.match(ROSTER_SECTION, /import \{ PreviewShiftExchangeManagerPanel \} from '\.\/preview-shift-exchange-manager-panel'/);
+  assert.match(ROSTER_SECTION, /exchangePanelData:\s*\{/);
+  assert.match(ROSTER_SECTION, /<PreviewShiftExchangeManagerPanel/);
+});
+
 test('PreviewStaffRecipeManagement propagates a successful staff mutation to its optional onStaffChanged callback (not just its own local state)', () => {
   assert.match(STAFF_RECIPE_MANAGEMENT, /onStaffChangedProp\?\.\(next\)/);
 });
