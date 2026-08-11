@@ -3,12 +3,17 @@ import type { ContentSourceEntityType, ContentSourceField, ContentTranslation } 
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 
 /**
- * Pure data-shaping layer that turns a `WorkforceRecipeDetail` (Japanese
- * original + legacy `*_en` columns) plus the recipe's `content.translations`
- * rows into one flat, per-field structure. Both the Manager translation
- * panel and Staff rendering (`recipe-display.ts`) build on this same shape,
- * so the "what are this recipe's translatable fields" list is defined
- * exactly once.
+ * Pure data-shaping layer that turns a `WorkforceRecipeDetail` (human source
+ * content in whichever `*_ja`/`*_en` column pair matches the recipe's
+ * `originalLanguage`, plus the recipe's `content.translations` rows) into
+ * one flat, per-field structure. Both the Manager translation panel and
+ * Staff rendering (`recipe-display.ts`) build on this same shape, so the
+ * "what are this recipe's translatable fields" list is defined exactly
+ * once.
+ *
+ * Direction is resolved ONCE per recipe (`recipe.originalLanguage`), never
+ * guessed per field -- mixed JA/EN content within one recipe (brand names,
+ * measurements) is normal and must not flip direction field-by-field.
  */
 export interface RecipeTranslationField {
   sourceEntityType: ContentSourceEntityType;
@@ -16,9 +21,12 @@ export interface RecipeTranslationField {
   sourceField: ContentSourceField;
   /** Stable key for list rendering: `${sourceEntityType}:${sourceEntityId}:${sourceField}`. */
   key: string;
+  /** This recipe's original/source language -- same value for every field of a given recipe. */
+  originalLanguage: 'ja' | 'en';
+  /** The human-authored text in `originalLanguage`. */
   sourceText: string;
-  /** Legacy static English column value (migration 0021), if any -- see recipe-display.ts for how this combines with `existing`. */
-  legacyEnText: string | null;
+  /** Whatever raw value already sits in the OTHER language's column (pre-content.translations legacy value, or an en-original recipe's not-yet-translated ja column, etc.) -- an honest fallback only, never fabricated. */
+  legacyOtherLanguageText: string | null;
   existing: ContentTranslation | null;
   isStale: boolean;
 }
@@ -33,11 +41,16 @@ export interface RecipeTranslationWorkspace {
   sections: RecipeTranslationSection[];
 }
 
+function otherLanguage(lang: 'ja' | 'en'): 'ja' | 'en' {
+  return lang === 'ja' ? 'en' : 'ja';
+}
+
 function findTranslation(
   translations: ContentTranslation[],
   sourceEntityType: ContentSourceEntityType,
   sourceEntityId: string,
   sourceField: ContentSourceField,
+  targetLanguage: 'ja' | 'en',
 ): ContentTranslation | null {
   return (
     translations.find(
@@ -45,7 +58,7 @@ function findTranslation(
         t.sourceEntityType === sourceEntityType &&
         t.sourceEntityId === sourceEntityId &&
         t.sourceField === sourceField &&
-        t.targetLanguage === 'en',
+        t.targetLanguage === targetLanguage,
     ) ?? null
   );
 }
@@ -54,19 +67,27 @@ function makeField(
   sourceEntityType: ContentSourceEntityType,
   sourceEntityId: string,
   sourceField: ContentSourceField,
+  originalLanguage: 'ja' | 'en',
   sourceText: string,
-  legacyEnText: string | null,
+  legacyOtherLanguageText: string | null,
   translations: ContentTranslation[],
 ): RecipeTranslationField {
-  const existing = findTranslation(translations, sourceEntityType, sourceEntityId, sourceField);
+  const existing = findTranslation(
+    translations,
+    sourceEntityType,
+    sourceEntityId,
+    sourceField,
+    otherLanguage(originalLanguage),
+  );
   const isStale = existing !== null && isTranslationStale(existing, sourceText);
   return {
     sourceEntityType,
     sourceEntityId,
     sourceField,
     key: `${sourceEntityType}:${sourceEntityId}:${sourceField}`,
+    originalLanguage,
     sourceText,
-    legacyEnText,
+    legacyOtherLanguageText,
     existing,
     isStale,
   };
@@ -77,22 +98,30 @@ export function buildRecipeTranslationWorkspace(
   translations: ContentTranslation[],
 ): RecipeTranslationWorkspace {
   const { recipe, ingredients, steps, notes } = detail;
+  const lang = recipe.originalLanguage;
+  const isJa = lang === 'ja';
+
+  const titleSource = (isJa ? recipe.titleJa : recipe.titleEn) ?? '';
+  const titleOther = isJa ? recipe.titleEn : recipe.titleJa;
+  const descriptionSource = isJa ? recipe.descriptionJa : recipe.descriptionEn;
+  const descriptionOther = isJa ? recipe.descriptionEn : recipe.descriptionJa;
 
   const sections: RecipeTranslationSection[] = [
     {
       section: 'title',
-      fields: [makeField('workforce_recipe', recipe.recipeId, 'title', recipe.titleJa, recipe.titleEn, translations)],
+      fields: [makeField('workforce_recipe', recipe.recipeId, 'title', lang, titleSource, titleOther, translations)],
     },
     {
       section: 'description',
-      fields: recipe.descriptionJa
+      fields: descriptionSource
         ? [
             makeField(
               'workforce_recipe',
               recipe.recipeId,
               'description',
-              recipe.descriptionJa,
-              recipe.descriptionEn,
+              lang,
+              descriptionSource,
+              descriptionOther,
               translations,
             ),
           ]
@@ -105,8 +134,9 @@ export function buildRecipeTranslationWorkspace(
           'workforce_recipe_ingredient',
           ingredient.ingredientId,
           'label',
-          ingredient.labelJa,
-          ingredient.labelEn,
+          lang,
+          (isJa ? ingredient.labelJa : ingredient.labelEn) ?? '',
+          isJa ? ingredient.labelEn : ingredient.labelJa,
           translations,
         ),
       ),
@@ -114,14 +144,38 @@ export function buildRecipeTranslationWorkspace(
     {
       section: 'steps',
       fields: steps.map((step) =>
-        makeField('workforce_recipe_step', step.stepId, 'instruction', step.instructionJa, step.instructionEn, translations),
+        makeField(
+          'workforce_recipe_step',
+          step.stepId,
+          'instruction',
+          lang,
+          (isJa ? step.instructionJa : step.instructionEn) ?? '',
+          isJa ? step.instructionEn : step.instructionJa,
+          translations,
+        ),
       ),
     },
     {
       section: 'notes',
       fields: notes.flatMap((note) => [
-        makeField('workforce_recipe_note', note.noteId, 'note_title', note.titleJa, note.titleEn, translations),
-        makeField('workforce_recipe_note', note.noteId, 'note_body', note.bodyJa, note.bodyEn, translations),
+        makeField(
+          'workforce_recipe_note',
+          note.noteId,
+          'note_title',
+          lang,
+          (isJa ? note.titleJa : note.titleEn) ?? '',
+          isJa ? note.titleEn : note.titleJa,
+          translations,
+        ),
+        makeField(
+          'workforce_recipe_note',
+          note.noteId,
+          'note_body',
+          lang,
+          (isJa ? note.bodyJa : note.bodyEn) ?? '',
+          isJa ? note.bodyEn : note.bodyJa,
+          translations,
+        ),
       ]),
     },
   ];

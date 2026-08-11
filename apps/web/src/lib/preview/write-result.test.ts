@@ -22,6 +22,7 @@ const ALL_FAILURE_STATUSES: PreviewWriteFailureStatus[] = [
   'blocked_by_history',
   'blocked_not_archived',
   'stale_reference',
+  'language_change_requires_confirmation',
   'unexpected_error',
 ];
 
@@ -87,4 +88,8 @@ test('mapWorkforceWriteResult maps blocked_by_history/blocked_not_archived/stale
   assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_by_history' }), { status: 'blocked_by_history' });
   assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_not_archived' }), { status: 'blocked_not_archived' });
   assert.deepEqual(mapWorkforceWriteResult({ status: 'stale_reference' }), { status: 'stale_reference' });
+  assert.deepEqual(
+    mapWorkforceWriteResult({ status: 'language_change_requires_confirmation' }),
+    { status: 'language_change_requires_confirmation' },
+  );
 });

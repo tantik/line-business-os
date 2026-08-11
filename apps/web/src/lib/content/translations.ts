@@ -26,8 +26,8 @@ export type ContentSourceEntityType =
 
 export type ContentSourceField = 'title' | 'description' | 'label' | 'instruction' | 'note_title' | 'note_body';
 
-/** Only target language supported by this MVP (source is always Japanese). */
-export type ContentTargetLanguage = 'en';
+/** A recipe's original/translated content language. Either can be the source or the target depending on the owning recipe's `original_language` -- translation direction is a per-recipe setting, never guessed per field. */
+export type ContentTargetLanguage = 'ja' | 'en';
 
 export type ContentTranslationStatus = 'machine' | 'reviewed' | 'stale' | 'failed';
 
@@ -198,10 +198,11 @@ export async function listContentTranslationsForField(
   tenantId: string,
   sourceEntityType: ContentSourceEntityType,
   sourceField: ContentSourceField,
-  targetLanguage: ContentTargetLanguage = 'en',
+  /** When omitted, translations for BOTH target languages are returned -- callers that don't yet know each recipe's original_language (e.g. a mixed-direction list) must not assume 'en'. */
+  targetLanguage?: ContentTargetLanguage,
 ): Promise<TenantAccessResult<ContentTranslation[]>> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .schema('api')
       .from('content_translations')
       .select(
@@ -209,8 +210,9 @@ export async function listContentTranslationsForField(
       )
       .eq('tenant_id', tenantId)
       .eq('source_entity_type', sourceEntityType)
-      .eq('source_field', sourceField)
-      .eq('target_language', targetLanguage);
+      .eq('source_field', sourceField);
+    if (targetLanguage) query = query.eq('target_language', targetLanguage);
+    const { data, error } = await query;
 
     if (error) {
       if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {

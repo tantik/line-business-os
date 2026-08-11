@@ -5,17 +5,18 @@ import type { RecipeTranslationField } from './recipe-translation-workspace';
  * to show for a field, given the viewer's chosen content language. Never
  * touches the network/DB; pure function over already-loaded data.
  *
- * Confirmed precedence (see plan / implementation report for the full
- * rationale) for `lang: 'en'`:
+ * Symmetric by construction: when `lang` equals the recipe's
+ * `originalLanguage`, the persisted human original is shown directly (no
+ * translation lookup at all). When `lang` is the OTHER language:
  *   1. A current (non-stale) `content.translations` row -- shown with a
  *      `machine` or `reviewed` marker (only these rows carry that
  *      metadata).
- *   2. Else the legacy `*_en` column, if set -- covers both "never
+ *   2. Else the legacy other-language column, if set -- covers both "never
  *      translated" and "translation is stale": a stale row never overrides
  *      a valid legacy value, it's simply treated the same as absent. No
  *      marker (legacy values have no provider/review metadata to report).
- *   3. Else the Japanese original, with an `original` marker.
- * `lang: 'ja'` always shows the Japanese original, no marker.
+ *   3. Else the source text itself, with an `original` marker -- an honest
+ *      fallback, never a fabricated translation.
  */
 export type RecipeFieldDisplayMarker = 'machine' | 'reviewed' | 'original' | null;
 
@@ -25,7 +26,7 @@ export interface RecipeFieldDisplay {
 }
 
 export function resolveFieldDisplay(field: RecipeTranslationField, lang: 'ja' | 'en'): RecipeFieldDisplay {
-  if (lang === 'ja') {
+  if (lang === field.originalLanguage) {
     return { text: field.sourceText, marker: null };
   }
 
@@ -36,8 +37,8 @@ export function resolveFieldDisplay(field: RecipeTranslationField, lang: 'ja' | 
     };
   }
 
-  if (field.legacyEnText) {
-    return { text: field.legacyEnText, marker: null };
+  if (field.legacyOtherLanguageText) {
+    return { text: field.legacyOtherLanguageText, marker: null };
   }
 
   return { text: field.sourceText, marker: 'original' };

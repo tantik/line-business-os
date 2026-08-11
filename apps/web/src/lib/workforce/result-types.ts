@@ -53,4 +53,5 @@ export type WorkforceWriteResult<T> =
   | { status: 'duplicate'; message: string }
   | { status: 'blocked_by_history' }
   | { status: 'blocked_not_archived' }
-  | { status: 'stale_reference' };
+  | { status: 'stale_reference' }
+  | { status: 'language_change_requires_confirmation' };

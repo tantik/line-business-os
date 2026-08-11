@@ -130,6 +130,7 @@ test('Manager recipe list overlays the current content translation used by Staff
     titleJa: '抹茶ラテ', titleEn: null, descriptionJa: null, descriptionEn: null,
     contentKind: 'recipe' as const, isPopular: true, status: 'published',
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', mediaPath: null,
+    originalLanguage: 'ja' as const,
   };
   const translation: ContentTranslation = {
     translationId: 'translation-1', tenantId: 'tenant-1', sourceEntityType: 'workforce_recipe',
