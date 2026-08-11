@@ -240,6 +240,7 @@ export default async function MameToChaPreviewStaffPage({
         }
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
+        timeZone={location.timezone}
       />
 
       {SHOW_OPENING_CLOSING_STOCK_CHECKS && inventoryEnabled && inventorySessionsResult?.status === 'success' ? (
