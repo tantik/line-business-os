@@ -152,3 +152,28 @@ test('Manager recipe list overlays the current content translation used by Staff
   assert.ok(stale);
   assert.equal(resolveRecipeListTitle(stale, 'en'), '抹茶ラテ（アイス）');
 });
+
+test('Manager recipe list overlays the current translation for an en-original recipe too, not just ja-original', () => {
+  // An en-original recipe whose human title changed after an original-language
+  // flip: `titleJa` is left over from when this recipe was ja-original and must
+  // not be shown once a current ja translation of the new en source exists.
+  const recipe = {
+    recipeId: 'recipe-2', tenantId: 'tenant-1', locationId: 'location-1', recipeCategoryId: null,
+    titleJa: 'Stale Japanese Title', titleEn: 'New English Source', descriptionJa: null, descriptionEn: null,
+    contentKind: 'recipe' as const, isPopular: false, status: 'published',
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', mediaPath: null,
+    originalLanguage: 'en' as const,
+  };
+  const translation: ContentTranslation = {
+    translationId: 'translation-2', tenantId: 'tenant-1', sourceEntityType: 'workforce_recipe',
+    sourceEntityId: 'recipe-2', sourceField: 'title', sourceLanguage: 'en', targetLanguage: 'ja',
+    translatedText: '新しい日本語訳', status: 'machine', provider: 'machine',
+    sourceContentHash: hashSourceText('New English Source'), machineGenerated: true,
+    reviewedAt: null, translatedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  const [resolved] = withResolvedRecipeListTitles([recipe], [translation]);
+  assert.ok(resolved);
+  assert.equal(resolveRecipeListTitle(resolved, 'en'), 'New English Source');
+  assert.equal(resolveRecipeListTitle(resolved, 'ja'), '新しい日本語訳');
+});
