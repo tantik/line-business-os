@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { reportNeedsManagerAttention } from '@/lib/demo/cafe/report-indicator';
 import { toPreviewRecipeViewModel } from '@/lib/preview/recipe-view-model';
+import { buildRecipeTranslationWorkspace } from '@/lib/content/recipe-translation-workspace';
+import { hashSourceText } from '@/lib/content/translations';
 
 /**
  * Static source-text regression guards for the Cafe Manager screen
@@ -123,6 +125,29 @@ test('the DB-backed Preview recipes page reuses the shared recipe browser and ne
   const source = read('../../app/%5Fclient-preview/mame-to-cha/recipes/page.tsx');
   assert.match(source, /RecipeBrowser/);
   assert.ok(!source.includes('@/lib/demo/cafe/data'));
+});
+
+test('the Preview recipe adapter resolves Japanese translations for an English-original recipe', () => {
+  const detail = {
+    recipe: {
+      recipeId: 'recipe-en', tenantId: 'tenant-1', locationId: null, recipeCategoryId: null,
+      titleJa: null, titleEn: 'Lemon Tea', descriptionJa: null, descriptionEn: 'Fresh tea',
+      contentKind: 'recipe' as const, isPopular: false, status: 'published' as const,
+      createdAt: '', updatedAt: '', originalLanguage: 'en' as const,
+    },
+    ingredients: [{ ingredientId: 'i-en', tenantId: 'tenant-1', recipeId: 'recipe-en', labelJa: null, labelEn: 'Lemon', sortOrder: 1 }],
+    steps: [{ stepId: 's-en', tenantId: 'tenant-1', recipeId: 'recipe-en', stepNumber: 1, instructionJa: null, instructionEn: 'Mix' }],
+    notes: [],
+  };
+  const workspace = buildRecipeTranslationWorkspace(detail, [
+    { translationId: 't1', tenantId: 'tenant-1', sourceEntityType: 'workforce_recipe', sourceEntityId: 'recipe-en', sourceField: 'title', sourceLanguage: 'en', targetLanguage: 'ja', translatedText: 'レモンティー', status: 'machine', provider: 'google', sourceContentHash: hashSourceText('Lemon Tea'), machineGenerated: true, reviewedAt: null, translatedAt: '', updatedAt: '' },
+    { translationId: 't2', tenantId: 'tenant-1', sourceEntityType: 'workforce_recipe_ingredient', sourceEntityId: 'i-en', sourceField: 'label', sourceLanguage: 'en', targetLanguage: 'ja', translatedText: 'レモン', status: 'machine', provider: 'google', sourceContentHash: hashSourceText('Lemon'), machineGenerated: true, reviewedAt: null, translatedAt: '', updatedAt: '' },
+  ]);
+  const recipe = toPreviewRecipeViewModel(detail, [], workspace);
+  assert.equal(recipe.name, 'レモンティー');
+  assert.equal(recipe.nameEn, 'Lemon Tea');
+  assert.deepEqual(recipe.ingredients, ['レモン']);
+  assert.equal(recipe.translationNoticeJa, 'original');
 });
 
 test('the demo manager screen and the DB-backed preview manager page both render through the shared CafeManagerScreen shell', () => {

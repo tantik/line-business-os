@@ -115,8 +115,10 @@ export function RecipeCard({ recipe, selected, onOpen }: RecipeCardProps) {
       >
         {name}
       </strong>
-      {lang === 'en' && recipe.translationNotice === 'original' ? (
-        <span style={{ fontSize: 9.5, color: demoColors.goldDark, fontWeight: 700 }}>JA original</span>
+      {(lang === 'en' ? recipe.translationNotice : recipe.translationNoticeJa) === 'original' ? (
+        <span style={{ fontSize: 9.5, color: demoColors.goldDark, fontWeight: 700 }}>
+          {lang === 'en' ? 'JA original' : 'EN原文'}
+        </span>
       ) : null}
     </button>
   );

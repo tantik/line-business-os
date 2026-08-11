@@ -21,10 +21,11 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const memoTitle = isEn ? recipe.memoTitleEn ?? recipe.memoTitle : recipe.memoTitle;
   const isPopular = recipe.badges.includes('人気');
   const isInstruction = recipe.contentKind === 'instruction';
+  const translationNotice = isEn ? recipe.translationNotice : recipe.translationNoticeJa;
 
   return (
     <section style={{ ...card, marginTop: 14 }}>
-      {isEn && recipe.translationNotice === 'original' ? (
+      {translationNotice === 'original' ? (
         <div
           role="status"
           style={{
@@ -37,7 +38,9 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
             fontWeight: 700,
           }}
         >
-          English translation is not available yet. Showing the Japanese original.
+          {isEn
+            ? 'English translation is not available yet. Showing the Japanese original.'
+            : '日本語訳がまだありません。英語の原文を表示しています。'}
         </div>
       ) : null}
       <div>

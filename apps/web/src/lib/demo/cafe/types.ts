@@ -88,6 +88,8 @@ export interface Recipe {
   memoEn?: string;
   /** Staff-facing provenance for dynamic user-authored English content. */
   translationNotice?: 'original' | 'machine' | 'reviewed';
+  /** Staff-facing provenance for dynamic Japanese content on EN-original recipes. */
+  translationNoticeJa?: 'original' | 'machine' | 'reviewed';
 }
 
 export interface StaffingRequirement {
