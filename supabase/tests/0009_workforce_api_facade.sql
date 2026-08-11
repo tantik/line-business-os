@@ -181,7 +181,8 @@ select is(
   array[
     'recipe_id', 'tenant_id', 'location_id', 'recipe_category_id',
     'title_ja', 'title_en', 'description_ja', 'description_en',
-    'is_popular', 'status', 'created_at', 'updated_at', 'content_kind', 'media_path'
+    'is_popular', 'status', 'created_at', 'updated_at', 'content_kind', 'media_path',
+    'original_language'
   ]::text[],
   'api.workforce_recipes exposes only approved columns'
 );
