@@ -7,7 +7,7 @@ import {
   previewPermanentlyDeleteEmployee,
   previewUpsertEmployee,
 } from './actions/staff-actions';
-import { previewWriteMessage, type PreviewWriteResult } from './write-result';
+import { previewStaffDeleteMessage, previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { badgeStyle, buttonPrimary, buttonSecondary, demoColors, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
@@ -103,7 +103,7 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
         // Kept open (not cleared) when blocked by history, same as
         // Inventory's permanent delete -- the manager should see why right
         // next to the action they just tried.
-        setPermanentDeleteError(previewWriteMessage(lang, result.status));
+        setPermanentDeleteError(previewStaffDeleteMessage(lang, result.status));
       }
     });
   }

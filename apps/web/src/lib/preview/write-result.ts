@@ -76,6 +76,14 @@ export function previewWriteMessage(lang: Lang, status: PreviewWriteFailureStatu
   return lang === 'en' ? PREVIEW_WRITE_MESSAGES_EN[status] : PREVIEW_WRITE_MESSAGES_JA[status];
 }
 
+/** Staff deletion shares the generic fail-closed status with Inventory, but needs domain-specific copy. */
+export function previewStaffDeleteMessage(lang: Lang, status: PreviewWriteFailureStatus): string {
+  if (status !== 'blocked_by_history') return previewWriteMessage(lang, status);
+  return lang === 'en'
+    ? 'This staff member has shift, attendance, or request history, so they cannot be permanently deleted. Use Inactive instead.'
+    : 'このスタッフにはシフト・勤怠・申請などの履歴があるため完全に削除できません。「休止中」をご利用ください。';
+}
+
 export const PREVIEW_INVALID_INPUT_RESULT: PreviewWriteResult<never> = { status: 'invalid_input' };
 
 /** Maps every non-`success` `PreviewTenantResult` to the fixed preview write contract. */
