@@ -10,29 +10,31 @@ import { HELP_STAFF_NEXT_MONTH_PREFERENCE } from '@/lib/demo/cafe/helpContent';
 import { buttonPrimary } from '@/lib/demo/cafe/theme';
 import { PreviewShiftPreferenceCalendar } from './preview-shift-preference-calendar';
 import { PreviewWorkReportForm } from './preview-work-report-form';
-import { PreviewCorrectionRequestForm } from './preview-correction-request-form';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 
 export interface PreviewStaffActionsProps {
   shiftTypes: WorkforceShiftType[] | null;
-  attendanceOptions: WorkforceAttendance[] | null;
   todayAttendance: WorkforceAttendance | null;
   preferenceSubmitted: boolean;
   defaultPreferenceDate: string;
   defaultReportDate: string;
-  timeZone: string;
 }
 
-export function PreviewStaffActions({ shiftTypes, attendanceOptions, todayAttendance, preferenceSubmitted, defaultPreferenceDate, defaultReportDate, timeZone }: PreviewStaffActionsProps) {
+/**
+ * Founder QA F09: this card used to also render a second, standalone
+ * "Request a correction" button (always targeting only the single most
+ * recent completed work day, disabled entirely with no completed attendance
+ * yet) - fully redundant with the contextual entry point on the Shift
+ * Schedule itself (`PreviewStaffSchedule`: tap any day cell -> that day's
+ * detail -> "Request a correction", correctly prepopulated for *that* date,
+ * not just the latest one). Removed here rather than keeping two paths to
+ * the same workflow - see that component for the canonical flow.
+ */
+export function PreviewStaffActions({ shiftTypes, todayAttendance, preferenceSubmitted, defaultPreferenceDate, defaultReportDate }: PreviewStaffActionsProps) {
   const [preferenceOpen, setPreferenceOpen] = useState(false);
-  const [correctionOpen, setCorrectionOpen] = useState(false);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
-  const completedAttendance = (attendanceOptions ?? []).filter((entry) => Boolean(entry.clockOut));
-  const latestCompletedAttendance = completedAttendance.length
-    ? completedAttendance.reduce((latest, entry) => (entry.workDate > latest.workDate ? entry : latest))
-    : null;
   return (
     <>
       <CafeStaffReportCard>
@@ -46,29 +48,8 @@ export function PreviewStaffActions({ shiftTypes, attendanceOptions, todayAttend
           <DemoHelpButton content={HELP_STAFF_NEXT_MONTH_PREFERENCE} />
         </div>
       </CafeStaffPreferenceCard>
-      <CafeStaffPreferenceCard>
-        <button
-          type="button"
-          style={{ ...buttonPrimary, width: '100%' }}
-          disabled={!latestCompletedAttendance}
-          onClick={() => setCorrectionOpen(true)}
-        >
-          {t('requestCorrection')}
-        </button>
-      </CafeStaffPreferenceCard>
       <Modal open={preferenceOpen} onClose={() => setPreferenceOpen(false)} title={t('submitNextMonthPreference')} maxWidth={520}>
         <PreviewShiftPreferenceCalendar shiftTypes={shiftTypes} defaultMonthDate={defaultPreferenceDate} onClose={() => setPreferenceOpen(false)} />
-      </Modal>
-      <Modal open={correctionOpen} onClose={() => setCorrectionOpen(false)} title={t('correctionModalTitle')}>
-        {latestCompletedAttendance ? (
-          <PreviewCorrectionRequestForm
-            defaultWorkDate={latestCompletedAttendance.workDate}
-            defaultAttendance={latestCompletedAttendance}
-            timeZone={timeZone}
-            embedded
-            onSuccess={() => setCorrectionOpen(false)}
-          />
-        ) : null}
       </Modal>
     </>
   );

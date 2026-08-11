@@ -8,7 +8,7 @@ import { previewWriteMessage, type PreviewWriteResult } from './write-result';
 import { buttonDisabled, buttonPrimary, input as inputStyle, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 
 /**
  * Staff client island for requesting a shift exchange on one's own shift.
@@ -69,7 +69,7 @@ export function PreviewShiftExchangeRequestForm({ shiftId, shiftTypes, onSuccess
           <span style={{ ...mutedText, fontSize: 12 }}>{lang === 'ja' ? '希望シフト' : 'Requested shift'}</span>
           <select style={inputStyle} name="requestedShiftTypeId" required defaultValue="">
             <option value="" disabled>{lang === 'ja' ? '選択してください' : 'Select a shift'}</option>
-            {shiftTypes.filter((type) => type.isActive).map((type) => <option key={type.shiftTypeId} value={type.shiftTypeId}>{type.code} ({type.startsAtLocal.slice(0, 5)}–{type.endsAtLocal.slice(0, 5)})</option>)}
+            {shiftTypes.filter((type) => type.isActive).map((type) => <option key={type.shiftTypeId} value={type.shiftTypeId}>{shiftTypeDisplayLabel(type)} ({type.startsAtLocal.slice(0, 5)}–{type.endsAtLocal.slice(0, 5)})</option>)}
           </select>
         </label>
       ) : null}

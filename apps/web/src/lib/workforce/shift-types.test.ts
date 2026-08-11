@@ -1,9 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWorkforceShiftTypeById, listWorkforceShiftTypes } from './shift-types.js';
+import { getWorkforceShiftTypeById, listWorkforceShiftTypes, shiftTypeDisplayLabel } from './shift-types.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
+
+// F05 regression: an auto-generated custom shift type's `code` is an
+// internal `CUSTOM_<timestamp>` identifier, never a customer-facing label -
+// every Staff/Manager shift selector must resolve through this helper
+// instead of rendering `code` directly.
+test('shiftTypeDisplayLabel prefers labelJa, then labelEn, then falls back to code', () => {
+  assert.equal(shiftTypeDisplayLabel({ labelJa: '早番', labelEn: 'Early', code: 'AM' }), '早番');
+  assert.equal(shiftTypeDisplayLabel({ labelJa: '', labelEn: 'Early', code: 'AM' }), 'Early');
+  assert.equal(shiftTypeDisplayLabel({ labelJa: '', labelEn: null, code: 'CUSTOM_1786154377761' }), 'CUSTOM_1786154377761');
+});
 
 test('listWorkforceShiftTypes maps rows and sorts by sortOrder then code', async () => {
   const { client } = recordingClient({

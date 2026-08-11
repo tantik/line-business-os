@@ -68,7 +68,6 @@ function importLines(source: string): string {
 
 /** Action-free display components + root/recipes preview route files - must register zero Server Actions, unchanged from B1. */
 const ACTION_FREE_PREVIEW_FILES = [
-  'manager-view.tsx',
   'staff-view.tsx',
   '../../components/demo/cafe/CafeManagerScreen.tsx',
   '../../app/%5Fclient-preview/mame-to-cha/page.tsx',
@@ -92,6 +91,7 @@ const MANAGER_DIALOG_WRAPPER_FILES = [
   'preview-staff-recipe-management.tsx',
   'preview-schedule-card-actions.tsx',
   'preview-correction-requests-panel.tsx',
+  'preview-manager-roster-section.tsx',
 ];
 
 /** Every manager-route client file: the action islands plus the dialog wrappers that compose them. */
@@ -330,18 +330,14 @@ test('manager preview page reuses the authorization result instead of re-resolvi
   }
 });
 
-test('manager-view.tsx and staff-view.tsx are not client components (no client bundle => no possible action-reference registration)', () => {
-  for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
-    const source = read(file);
-    assert.ok(!/^\s*['"]use client['"]/m.test(source), `${file} must not be a 'use client' component`);
-  }
+test('staff-view.tsx is not a client component (no client bundle => no possible action-reference registration)', () => {
+  const source = read('staff-view.tsx');
+  assert.ok(!/^\s*['"]use client['"]/m.test(source), `staff-view.tsx must not be a 'use client' component`);
 });
 
-test('manager-view.tsx and staff-view.tsx expose no callback prop shaped like a Server Action (e.g. onSuccess/onSubmit bound to a mutation)', () => {
-  for (const file of ['manager-view.tsx', 'staff-view.tsx']) {
-    const source = read(file);
-    assert.ok(!/formData/.test(source), `${file} must not construct FormData (a mutation-submission pattern)`);
-  }
+test('staff-view.tsx exposes no callback prop shaped like a Server Action (e.g. onSuccess/onSubmit bound to a mutation)', () => {
+  const source = read('staff-view.tsx');
+  assert.ok(!/formData/.test(source), `staff-view.tsx must not construct FormData (a mutation-submission pattern)`);
 });
 
 test('the manager client islands are all "use client" components', () => {

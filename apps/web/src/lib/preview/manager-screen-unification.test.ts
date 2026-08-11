@@ -36,9 +36,10 @@ function importLines(source: string): string {
 
 const DEMO_MANAGER_VIEW = '../../components/demo/cafe/views/ManagerView.tsx';
 const PREVIEW_MANAGER_PAGE = '../../app/%5Fclient-preview/mame-to-cha/manager/page.tsx';
-const PREVIEW_MANAGER_VIEW = 'manager-view.tsx';
-/** The `'use client'` chrome `manager-view.tsx` delegates all rendering (including i18n) to -- see that file's header comment for why the split exists (the "manager-view.tsx must not be 'use client'" invariant in `preview-action-free.test.ts`). */
+/** The schedule grid's display chrome (F02/F03/F11 fix: `preview-manager-roster-section.tsx` now owns the live shared `staff`/`shiftTypes` state above this and the Manage Staff/Shift Types dialog wrappers - this file itself stays a pure, action-free display component). */
 const PREVIEW_MANAGER_VIEW_CHROME = 'preview-manager-view-chrome.tsx';
+/** The top-level manager-route composition point that replaced the old `manager-view.tsx` pass-through - owns the shared roster/shift-type state and renders the schedule chrome plus every dialog wrapper. */
+const PREVIEW_MANAGER_ROSTER_SECTION = 'preview-manager-roster-section.tsx';
 const MANAGER_I18N_DICT = '../demo/cafe/i18n.manager.ts';
 const CAFE_MANAGER_SCREEN = '../../components/demo/cafe/CafeManagerScreen.tsx';
 
@@ -165,7 +166,7 @@ test('the demo manager screen does not import any Preview Server Action, loader,
 });
 
 test('the DB-backed preview manager page and display component do not import the demo localStorage store', () => {
-  for (const file of [PREVIEW_MANAGER_PAGE, PREVIEW_MANAGER_VIEW]) {
+  for (const file of [PREVIEW_MANAGER_PAGE, PREVIEW_MANAGER_VIEW_CHROME, PREVIEW_MANAGER_ROSTER_SECTION]) {
     const source = read(file);
     assert.ok(!/['"]@\/lib\/demo\/cafe\/store['"]/.test(source), `${file} must not import @/lib/demo/cafe/store`);
     assert.ok(!/useDemoCafeStore/.test(source), `${file} must not reference useDemoCafeStore`);
@@ -173,8 +174,10 @@ test('the DB-backed preview manager page and display component do not import the
 });
 
 test('the DB-backed preview manager display component does not import demo mock data (STAFF/SHIFT_TYPES/etc from @/lib/demo/cafe/data)', () => {
-  const source = read(PREVIEW_MANAGER_VIEW);
-  assert.ok(!/['"]@\/lib\/demo\/cafe\/data['"]/.test(source), `${PREVIEW_MANAGER_VIEW} must not import @/lib/demo/cafe/data`);
+  for (const file of [PREVIEW_MANAGER_VIEW_CHROME, PREVIEW_MANAGER_ROSTER_SECTION]) {
+    const source = read(file);
+    assert.ok(!/['"]@\/lib\/demo\/cafe\/data['"]/.test(source), `${file} must not import @/lib/demo/cafe/data`);
+  }
 });
 
 test('the shared CafeManagerScreen shell is itself action-free and store-free (usable from both demo and preview trees)', () => {
@@ -245,9 +248,11 @@ const DIALOG_WRAPPER_FILES = [
 ];
 
 test('the action-free preview manager display component never renders a mutation-form island directly (they only ever open inside a dialog wrapper)', () => {
-  const source = read(PREVIEW_MANAGER_VIEW);
-  for (const name of MUTATION_ISLAND_COMPONENT_NAMES) {
-    assert.ok(!source.includes(name), `${PREVIEW_MANAGER_VIEW} must not reference ${name} - mutation forms must open via a dialog wrapper, never render inline`);
+  for (const file of [PREVIEW_MANAGER_VIEW_CHROME, PREVIEW_MANAGER_ROSTER_SECTION]) {
+    const source = read(file);
+    for (const name of MUTATION_ISLAND_COMPONENT_NAMES) {
+      assert.ok(!source.includes(name), `${file} must not reference ${name} - mutation forms must open via a dialog wrapper, never render inline`);
+    }
   }
 });
 

@@ -31,11 +31,19 @@ import { ConfirmDialog } from '@/components/demo/cafe/ConfirmDialog';
 export interface PreviewSettingsCardProps {
   shiftTypes: WorkforceShiftType[] | null;
   settings: WorkforceScheduleSettings | null;
+  /**
+   * Notified with the freshly refetched shift-type list every time this card
+   * saves/deactivates/reactivates one, so a sibling that also renders shift
+   * types (e.g. the Shift Schedule grid's selectors/legend) can stay in sync
+   * without a full page reload. Optional so this card still works exactly as
+   * before when rendered standalone (e.g. in isolation/tests).
+   */
+  onShiftTypesChanged?: (next: WorkforceShiftType[]) => void;
 }
 
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
-export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }: PreviewSettingsCardProps) {
+export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings, onShiftTypesChanged }: PreviewSettingsCardProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
@@ -139,7 +147,10 @@ export function PreviewSettingsCard({ shiftTypes: initialShiftTypes, settings }:
 
   async function refreshShiftTypes() {
     const result = await previewGetShiftTypesManagerData();
-    if (result.status === 'success') setShiftTypes(result.data);
+    if (result.status === 'success') {
+      setShiftTypes(result.data);
+      onShiftTypesChanged?.(result.data);
+    }
   }
 
   function saveShiftType(input: { shiftTypeId?: string; labelJa: string; startsAtLocal: string; endsAtLocal: string }) {

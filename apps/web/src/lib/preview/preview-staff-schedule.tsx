@@ -106,8 +106,22 @@ export function PreviewStaffSchedule({
     isCustom: shiftType.isCustom,
     }));
 
+  // Scoped to the currently displayed week only (same `dates.includes`
+  // pattern `referencedShiftTypeIds` above already uses) - `assignments` is
+  // a preloaded ±8-week window, so without this the roster silently
+  // accumulated every employee who ever had a published assignment anywhere
+  // in that 17-week span (including past/deactivated staff), producing a
+  // colleague count that didn't match Manager's current active-staff list.
   const employeeIds = Array.from(
-    new Set((assignments ?? []).filter((item) => item.published && item.employeeId).map((item) => item.employeeId!)),
+    new Set(
+      (assignments ?? [])
+        .filter((item) => {
+          if (!item.published || !item.employeeId) return false;
+          const workDate = utcIsoToLocalDateTime(item.startsAt, timeZone).workDate;
+          return dates.includes(workDate);
+        })
+        .map((item) => item.employeeId!),
+    ),
   );
   employeeIds.sort((a, b) => (a === profile.staffId ? -1 : b === profile.staffId ? 1 : a.localeCompare(b)));
   if (!employeeIds.includes(profile.staffId)) employeeIds.unshift(profile.staffId);

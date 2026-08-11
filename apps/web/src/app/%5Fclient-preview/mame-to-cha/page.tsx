@@ -232,7 +232,6 @@ export default async function MameToChaPreviewStaffPage({
 
       <PreviewStaffActions
         shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-        attendanceOptions={attendanceResult.status === 'success' ? attendanceResult.data : null}
         todayAttendance={todayAttendance}
         preferenceSubmitted={
           requestsResult.status === 'success' &&
@@ -240,7 +239,6 @@ export default async function MameToChaPreviewStaffPage({
         }
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
-        timeZone={location.timezone}
       />
 
       {SHOW_OPENING_CLOSING_STOCK_CHECKS && inventoryEnabled && inventorySessionsResult?.status === 'success' ? (

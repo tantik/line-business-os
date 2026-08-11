@@ -63,14 +63,22 @@ test('preview staff mutation forms open through the shared Modal instead of rend
   assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
 });
 
-test('completed attendance has a direct correction-request entry point in Staff actions, not only through the schedule-table day cell', () => {
+test('Founder QA F09: the correction-request entry point is canonical - reachable only through the schedule-table day cell, never duplicated as a second standalone button', () => {
+  // Superseded by the F09 fix: `PreviewStaffActions` previously also rendered
+  // its own standalone "Request a correction" button, always targeting only
+  // the single most recent completed work day (disabled entirely with no
+  // completed attendance yet) - fully redundant with, and strictly more
+  // limited than, the contextual entry point on the Shift Schedule day-cell
+  // modal (`preview-staff-schedule.tsx`, tests further down this file),
+  // which correctly prepopulates for *any* selected date.
   const page = read(PREVIEW_STAFF_PAGE);
   const actions = read(PREVIEW_STAFF_ACTIONS);
+  const schedule = read(PREVIEW_STAFF_SCHEDULE);
   assert.ok(!page.includes('<PreviewCorrectionRequestForm'), 'PreviewCorrectionRequestForm must not render directly on the staff page');
-  assert.match(actions, /PreviewCorrectionRequestForm/);
-  assert.match(actions, /t\('requestCorrection'\)/);
-  assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
-  assert.match(page, /defaultReportDate=\{todayIso\}\s*\n\s*timeZone=\{location\.timezone\}/);
+  assert.ok(!actions.includes('PreviewCorrectionRequestForm'), 'PreviewStaffActions must not render its own duplicate correction-request form');
+  assert.ok(!actions.includes('requestCorrection'), 'PreviewStaffActions must not render a standalone correction-request button');
+  assert.match(schedule, /PreviewCorrectionRequestForm/, 'the schedule day-cell modal remains the one correction-request entry point');
+  assert.match(schedule, /t\('requestCorrection'\)/);
 });
 
 test('future own shifts expose the complete change or cancellation form without an exchange-only intermediate button', () => {

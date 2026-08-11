@@ -13,6 +13,7 @@ import {
 import { parseUpsertRecipeInput } from '@/lib/workforce/recipe-input';
 import { listContentTranslationsForEntities, listContentTranslationsForField, setMachineContentTranslation } from '@/lib/content/translations';
 import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
+import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { withResolvedRecipeListTitles } from '../manager-recipe-title-translations';
 import { resolvePreviewManagerContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
@@ -20,7 +21,18 @@ import { resolveContentTranslationProvider } from '@/lib/content/translation-pro
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & { mediaUrl: string | null };
+export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & {
+  mediaUrl: string | null;
+  /**
+   * F07B: a manager editing a recipe's original-language source has no way
+   * to tell whether the *other* language has a real machine/reviewed
+   * translation on file, or is only ever falling back to the original text.
+   * One honest, single signal (title field only - this is a status
+   * indicator, not a translation-management surface) rather than exposing
+   * provider/staleness internals per field.
+   */
+  otherLanguageTranslationReady: boolean;
+};
 const MAX_RECIPE_PHOTO_BYTES = 2 * 1024 * 1024;
 
 export async function previewListRecipeMediaUrls(
@@ -78,7 +90,35 @@ export async function previewGetRecipeForEdit(recipeId: string): Promise<Preview
   const signed = mediaPath
     ? await context.context.supabase.storage.from('recipe-media').createSignedUrl(mediaPath, 3600)
     : null;
-  return { status: 'success', data: { ...detail.data, mediaUrl: signed?.data?.signedUrl ?? null } };
+  return {
+    status: 'success',
+    data: {
+      ...detail.data,
+      mediaUrl: signed?.data?.signedUrl ?? null,
+      otherLanguageTranslationReady: await titleTranslationIsReady(context.context.supabase, context.context.tenantId, detail.data),
+    },
+  };
+}
+
+/** F07B helper - see `PreviewEditableRecipeDetail.otherLanguageTranslationReady`. */
+async function titleTranslationIsReady(
+  supabase: SupabaseClient,
+  tenantId: string,
+  detail: WorkforceRecipeDetail,
+): Promise<boolean> {
+  const titleField = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace(detail, [])).find(
+    (field) => field.sourceField === 'title',
+  );
+  if (!titleField) return false;
+  const translationsResult = await listContentTranslationsForEntities(supabase, tenantId, [
+    { sourceEntityType: titleField.sourceEntityType, sourceEntityId: titleField.sourceEntityId },
+  ]);
+  if (translationsResult.status !== 'success') return false;
+  const workspace = buildRecipeTranslationWorkspace(detail, translationsResult.data);
+  const resolvedTitleField = flattenRecipeTranslationFields(workspace).find((field) => field.sourceField === 'title');
+  if (!resolvedTitleField) return false;
+  const otherLang = detail.recipe.originalLanguage === 'ja' ? 'en' : 'ja';
+  return resolveFieldDisplay(resolvedTitleField, otherLang).marker !== 'original';
 }
 
 export async function previewSetRecipeArchived(

@@ -35,6 +35,18 @@ export interface WorkforceShiftType {
   isActive: boolean;
 }
 
+/**
+ * Canonical customer-facing label for a shift type -- never render `code`
+ * directly (an auto-generated custom shift type's `code` is an internal
+ * `CUSTOM_<timestamp>` identifier, never a display label; see
+ * `upsertWorkforceShiftType` below). Every Staff/Manager selector must
+ * resolve through this instead of its own ad-hoc `labelJa || labelEn || code`
+ * chain.
+ */
+export function shiftTypeDisplayLabel(shiftType: Pick<WorkforceShiftType, 'labelJa' | 'labelEn' | 'code'>): string {
+  return shiftType.labelJa || shiftType.labelEn || shiftType.code;
+}
+
 const SHIFT_TYPE_SELECT =
   'shift_type_id, tenant_id, location_id, code, label_ja, label_en, starts_at_local, ends_at_local, break_minutes, is_custom, sort_order, is_active';
 

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tShiftExchange } from '@/lib/demo/cafe/i18n.shiftExchange';
@@ -128,7 +128,7 @@ export function PreviewShiftExchangeManagerPanel({
               <p style={{ margin: '5px 0', fontSize: 13 }}>
                 {actionLabel} · {requester}
                 {exchange.requestKind === 'exchange' ? ` → ${replacement ?? tShiftExchange(lang, 'waitingForCandidate')}` : ''}
-                {exchange.requestKind === 'change' && requestedType ? ` → ${requestedType.code} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})` : ''}
+                {exchange.requestKind === 'change' && requestedType ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})` : ''}
               </p>
               <p style={{ ...mutedText, margin: '5px 0 9px', fontSize: 12 }}>{exchange.reason}</p>
               <div style={{ display: 'flex', gap: 8 }}>
