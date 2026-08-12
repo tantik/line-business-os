@@ -50,6 +50,11 @@ export function PreviewInventoryModal({
           overflowY: 'auto',
           background: demoColors.surface,
           boxShadow: '0 24px 64px rgba(15, 23, 42, 0.28)',
+          // Founder QA F11: the shared 18px `card` padding left the last
+          // item flush against a mobile home-indicator/gesture bar. `max()`
+          // keeps desktop untouched (env() resolves to 0 there) while adding
+          // real clearance on devices with a safe-area inset.
+          paddingBottom: 'max(18px, calc(env(safe-area-inset-bottom, 0px) + 12px))',
         }}
       >
         <div style={{ position: 'sticky', top: -16, zIndex: 2, margin: '-16px -16px 0', padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: demoColors.surface, borderBottom: `1px solid ${demoColors.border}` }}>

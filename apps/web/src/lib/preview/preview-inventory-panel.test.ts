@@ -67,3 +67,8 @@ test('Manager Inventory gates the reorder-status filters on isActive so a deacti
   assert.match(source, /item\.isActive && item\.status !== 'shortage'/);
 });
 
+test('Founder QA F12 regression: the launcher/banner shortage count also excludes deactivated items, so it never disagrees with the in-modal "Need reorder" tab count', () => {
+  const source = readFileSync(path.join(THIS_DIR, 'preview-inventory-manager-panel.tsx'), 'utf8');
+  assert.match(source, /const shortageCount = items\.filter\(\(i\) => i\.isActive && i\.status === 'shortage'\)\.length;/);
+});
+

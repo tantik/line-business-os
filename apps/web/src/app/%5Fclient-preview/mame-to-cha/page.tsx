@@ -186,6 +186,19 @@ export default async function MameToChaPreviewStaffPage({
   }
   const [todayYear, todayMonth] = todayIso.split('-').map(Number);
   const defaultPreferenceDate = new Date(Date.UTC(todayYear!, todayMonth!, 1)).toISOString().slice(0, 10);
+  // Founder QA F10 persistence contract: the preference calendar must show
+  // what was actually submitted on reopen/hard-reload, not a blank grid.
+  // The calendar's own selection cycle has no "unavailable" state distinct
+  // from "nothing selected" (`null`), so only requests naming a concrete
+  // shift type carry a display-able selection here.
+  const existingPreferenceSelections: Record<string, string | null> = {};
+  if (requestsResult.status === 'success') {
+    for (const request of requestsResult.data) {
+      if (request.kind === 'preference' && request.workDate >= todayIso && !request.isUnavailable && request.shiftTypeId) {
+        existingPreferenceSelections[request.workDate] = request.shiftTypeId;
+      }
+    }
+  }
 
   return (
     <main style={mobilePageStyle(760)}>
@@ -239,6 +252,7 @@ export default async function MameToChaPreviewStaffPage({
         }
         defaultPreferenceDate={defaultPreferenceDate}
         defaultReportDate={todayIso}
+        existingPreferenceSelections={existingPreferenceSelections}
       />
 
       {SHOW_OPENING_CLOSING_STOCK_CHECKS && inventoryEnabled && inventorySessionsResult?.status === 'success' ? (

@@ -30,3 +30,13 @@ test('Submit and Cancel are both disabled while a submission is pending (duplica
   assert.match(SOURCE, /disabled=\{pending\} onClick=\{onClose\}/);
   assert.match(SOURCE, /disabled=\{pending\} onClick=\{submit\}/);
 });
+
+test('Founder QA F10 regression: per-day submissions fire concurrently (Promise.all) instead of a fully sequential for-await loop', () => {
+  assert.match(SOURCE, /await Promise\.all\(/);
+  assert.ok(!/for \(const \[workDate, shiftTypeId\] of chosen\) \{\s*const data = new FormData/.test(SOURCE), 'must not still submit one day at a time in a sequential loop');
+});
+
+test('Founder QA F10 regression: the calendar initializes its selections from an `existingSelections` prop so reopening/hard-reloading shows the previously submitted choices', () => {
+  assert.match(SOURCE, /existingSelections\?: Record<string, string \| null>/);
+  assert.match(SOURCE, /useState<Record<string, string \| null>>\(existingSelections \?\? \{\}\)/);
+});
