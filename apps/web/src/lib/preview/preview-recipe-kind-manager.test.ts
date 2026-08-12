@@ -31,3 +31,13 @@ test('Founder QA F07B regression: the edit form shows an honest translation-read
   assert.match(source, /'翻訳: 準備完了'/);
   assert.match(source, /'Translation: unavailable — original shown'/);
 });
+
+test('Founder QA F02 regression: a new recipe (no existing `recipe`) defaults Status to Published so an untouched save is visible on Staff/Recipes; editing an existing recipe still defaults to its own current status', () => {
+  assert.match(source, /defaultValue=\{recipe \? \(recipe\.status === 'published' \? 'published' : recipe\.status === 'archived' \? 'archived' : 'draft'\) : 'published'\}/);
+  assert.match(source, /'Draft recipes are not visible on Staff or Recipes surfaces\.'/);
+});
+
+test('Founder QA F06 regression: an archived recipe row explains why Edit is not shown instead of silently omitting it', () => {
+  assert.match(source, /'Archived — restore to edit'/);
+  assert.match(source, /'アーカイブ済み — 編集するには復元してください'/);
+});

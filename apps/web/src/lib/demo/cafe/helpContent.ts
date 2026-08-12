@@ -293,6 +293,11 @@ export const HELP_MANAGER_SHIFT_TABLE = bilingual({
 4. 日付欄に付いた「!」は、必要人数に対して人員が不足している日を示します。
 5. 「前の週」「今日」「次の週」で週を切り替えられます。
 
+「公開する」について:
+- 公開すると、表示中の期間のシフトがスタッフから見えるようになります。未公開のシフトはスタッフには表示されません。
+- 公開後にシフトを編集した場合、その変更をスタッフに見せるには再度「公開する」を押す必要があります。
+- 公開はシフトの表示状態を切り替えるだけで、通知の送信や勤怠・給与記録への影響はありません。
+
 注意:
 このデモでは画面上の確認・編集のみです。本番導入時には実データとして保存します。`,
 }, {
@@ -304,7 +309,12 @@ export const HELP_MANAGER_SHIFT_TABLE = bilingual({
 2. Future shifts can be created or edited.
 3. Past shifts open their recorded information.
 4. An exclamation mark identifies an understaffed day.
-5. Use Previous week, Today, and Next week to change the week.`,
+5. Use Previous week, Today, and Next week to change the week.
+
+About "Publish schedule":
+- Publishing makes the currently displayed period's shifts visible to staff. Unpublished shifts are not shown to staff.
+- If you edit shifts after publishing, you must publish again for staff to see those changes.
+- Publishing only changes shift visibility - it does not send notifications and does not affect attendance or payroll records.`,
 });
 
 export const HELP_MANAGER_AUTO_SCHEDULE = bilingual({
@@ -319,6 +329,11 @@ export const HELP_MANAGER_AUTO_SCHEDULE = bilingual({
 - 最大勤務時間
 - 休暇希望
 
+上書きに関する注意:
+- 対象期間のうち、公開済みのシフトは上書きされません。
+- 一方、まだ公開していない手動入力のシフトは、自動作成によって上書きされる場合があります。
+- 作成結果は常に下書きとして保存され、店長が内容を確認し、必要に応じて編集したうえで「公開する」を押すまでスタッフには表示されません。
+
 本番導入時:
 実店舗のルールに合わせて、シフト案を作成し、店長が最終確認できる形にします。`,
 }, {
@@ -331,7 +346,10 @@ export const HELP_MANAGER_AUTO_SCHEDULE = bilingual({
 - unavailable days;
 - maximum monthly hours.
 
-The result remains a draft until a manager reviews and publishes it.`,
+About overwriting existing shifts:
+- Published shifts in the affected period are not overwritten.
+- Manually entered shifts that are NOT yet published can be overwritten by auto-create.
+- The result is always saved as a draft. It is not visible to staff until a manager reviews it, makes any needed edits, and presses "Publish schedule."`,
 });
 
 export const HELP_MANAGER_MONTHLY_REPORT = bilingual({

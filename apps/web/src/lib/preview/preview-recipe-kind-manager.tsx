@@ -127,6 +127,12 @@ const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, translation
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {recipe.status === 'archived' ? (
           <>
+            {/* Archived recipes intentionally have no direct Edit action
+                (must Restore first) - this label is the only signal a
+                Founder sees explaining why Edit disappeared here. */}
+            <span style={{ ...mutedText, fontSize: 11.5 }}>
+              {lang === 'ja' ? 'アーカイブ済み — 編集するには復元してください' : 'Archived — restore to edit'}
+            </span>
             <button type="button" style={buttonSecondary} disabled={pending} onClick={() => onRestore(recipe)}>{lang === 'ja' ? '復元' : 'Restore'}</button>
             <button type="button" style={{ ...buttonSecondary, color: demoColors.dangerText }} disabled={pending} onClick={() => onPermanentDelete(recipe)}>{lang === 'ja' ? '完全に削除' : 'Delete permanently'}</button>
           </>
@@ -461,12 +467,23 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
           </label>
         </section>
         <label><span style={mutedText}>{ja ? 'ステータス' : 'Status'}</span>
-          <select name="status" style={input} defaultValue={recipe?.status === 'published' ? 'published' : recipe?.status === 'archived' ? 'archived' : 'draft'}>
+          {/* New recipes default to Published: Staff/Recipes only show
+              published rows (RLS), so an untouched new-recipe save must not
+              silently disappear from those surfaces. Editing an existing
+              recipe still defaults to its own current status - never
+              silently republish something a Manager intentionally set to
+              draft/archived. */}
+          <select name="status" style={input} defaultValue={recipe ? (recipe.status === 'published' ? 'published' : recipe.status === 'archived' ? 'archived' : 'draft') : 'published'}>
             <option value="draft">{ja ? '下書き' : 'Draft'}</option>
             <option value="published">{ja ? '公開' : 'Published'}</option>
             <option value="archived">{ja ? 'アーカイブ' : 'Archived'}</option>
           </select>
         </label>
+        <p style={{ margin: '-4px 0 0', fontSize: 12, ...mutedText }}>
+          {ja
+            ? '下書きのレシピはスタッフ画面やレシピ一覧に表示されません。'
+            : 'Draft recipes are not visible on Staff or Recipes surfaces.'}
+        </p>
         {feedback ? <p style={{ margin: 0, color: demoColors.dangerText }}>{feedback}</p> : null}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" style={buttonSecondary} disabled={pending} onClick={() => { setDetail(null); resetPhotoState(); setMode('list'); }}>{t('cancel')}</button>

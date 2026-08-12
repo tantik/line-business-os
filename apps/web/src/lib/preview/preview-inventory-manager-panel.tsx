@@ -402,7 +402,13 @@ export function PreviewInventoryManagerPanel({
     if (result.status === 'success') setItems(result.data);
   }
 
-  const shortageCount = items.filter((i) => i.status === 'shortage').length;
+  // Founder QA F12: this badge/banner count must exclude deactivated items,
+  // same as the in-modal tab counts below - otherwise the launcher can show
+  // a higher number than the modal's own "Need reorder" tab, which reads as
+  // the tab being wrong when it is actually the more correct figure.
+  // Deliberately NOT narrowed by `search` (unlike the tab counts): it is a
+  // global badge, not scoped to the current in-modal search.
+  const shortageCount = items.filter((i) => i.isActive && i.status === 'shortage').length;
   const searchFilteredItems = items.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()));
   const needReorderCount = searchFilteredItems.filter((item) => item.isActive && item.status === 'shortage').length;
   const okCount = searchFilteredItems.filter((item) => item.isActive && item.status !== 'shortage').length;

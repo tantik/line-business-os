@@ -169,29 +169,41 @@ export function PreviewStaffForm({ staff, onStaffChanged }: PreviewStaffFormProp
                       <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('active') : t('inactive')}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      type="button"
-                      style={buttonSecondary}
-                      onClick={() => {
-                        setEditingId(s.staffId);
-                        setMode('edit');
-                      }}
-                      disabled={isPending}
-                    >
-                      {t('edit')}
-                    </button>
-                    <button
-                      type="button"
-                      style={{ ...buttonSecondary, color: demoColors.dangerText }}
-                      onClick={() => {
-                        setPermanentDeleteError(null);
-                        setPermanentDeleteTarget(s);
-                      }}
-                      disabled={isPending}
-                    >
-                      {t('deleteStaffButton')}
-                    </button>
+                  <div style={{ display: 'grid', gap: 4, justifyItems: 'end' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        style={buttonSecondary}
+                        onClick={() => {
+                          setEditingId(s.staffId);
+                          setMode('edit');
+                        }}
+                        disabled={isPending}
+                      >
+                        {t('edit')}
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...buttonSecondary, color: demoColors.dangerText }}
+                        onClick={() => {
+                          setPermanentDeleteError(null);
+                          setPermanentDeleteTarget(s);
+                        }}
+                        disabled={isPending}
+                      >
+                        {t('deleteStaffButton')}
+                      </button>
+                    </div>
+                    {/* Founder QA F05: warn BEFORE the click, not just after a
+                        failed delete attempt - same wording the RPC guard
+                        (0056) produces on an actual blocked attempt, so the
+                        two never disagree. The button itself stays enabled;
+                        this only makes the outcome predictable. */}
+                    {s.hasProtectedHistory ? (
+                      <span style={{ maxWidth: 220, textAlign: 'right', fontSize: 11, color: demoColors.textMuted }}>
+                        {previewStaffDeleteMessage(lang, 'blocked_by_history')}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               ))}

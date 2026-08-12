@@ -62,6 +62,51 @@ export interface WorkforceStaffManageEntry {
   createdAt: string;
   updatedAt: string;
   hourlyWageYen: number | null;
+  /**
+   * True when this employee has any shift/attendance/request/exchange row,
+   * mirroring the exact guard `workforce.permanently_delete_employee`
+   * (0056) enforces server-side. Read-only advance signal so the Manager UI
+   * can explain the block BEFORE a delete attempt, not just after it fails
+   * (Founder QA F05) - the RPC guard itself remains the sole enforcement
+   * point and is never weakened or duplicated here.
+   */
+  hasProtectedHistory: boolean;
+}
+
+/**
+ * Employee IDs with at least one row in any table
+ * `workforce.permanently_delete_employee` (0056) checks before allowing a
+ * hard delete: shift assignments, attendance, shift requests, shift
+ * exchanges (as either requester or replacement). Read through the same
+ * manager-visible `api` views/RLS used elsewhere in this module - no new
+ * RPC, no schema change.
+ */
+async function getEmployeeIdsWithProtectedHistory(
+  supabase: SupabaseClient,
+  tenantId: string,
+): Promise<Set<string>> {
+  const [assignments, attendance, requests, exchanges] = await Promise.all([
+    supabase.schema('api').from('workforce_shift_assignments').select('employee_id').eq('tenant_id', tenantId),
+    supabase.schema('api').from('workforce_attendance').select('employee_id').eq('tenant_id', tenantId),
+    supabase.schema('api').from('workforce_shift_requests').select('employee_id').eq('tenant_id', tenantId),
+    supabase.schema('api').from('workforce_shift_exchanges').select('requester_employee_id, replacement_employee_id').eq('tenant_id', tenantId),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of (assignments.data ?? []) as { employee_id: string | null }[]) {
+    if (row.employee_id) ids.add(row.employee_id);
+  }
+  for (const row of (attendance.data ?? []) as { employee_id: string }[]) {
+    ids.add(row.employee_id);
+  }
+  for (const row of (requests.data ?? []) as { employee_id: string }[]) {
+    ids.add(row.employee_id);
+  }
+  for (const row of (exchanges.data ?? []) as { requester_employee_id: string; replacement_employee_id: string | null }[]) {
+    ids.add(row.requester_employee_id);
+    if (row.replacement_employee_id) ids.add(row.replacement_employee_id);
+  }
+  return ids;
 }
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
@@ -80,7 +125,7 @@ function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDire
   };
 }
 
-function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string): WorkforceStaffManageEntry {
+function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string, hasProtectedHistory: boolean): WorkforceStaffManageEntry {
   return {
     staffId: row.staff_id,
     tenantId: row.tenant_id,
@@ -96,6 +141,7 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     hourlyWageYen: row.hourly_wage_yen,
+    hasProtectedHistory,
   };
 }
 
@@ -172,9 +218,10 @@ export async function listWorkforceStaffForManager(
 
     if (error) return mapWorkforceReadError(error, 'read the staff list');
 
+    const protectedHistoryIds = await getEmployeeIdsWithProtectedHistory(supabase, tenantId);
     const rows = (data ?? []) as ApiWorkforceStaffManageRow[];
     const entries = rows
-      .map((row) => decryptManageRow(row, pii.config.encryptionKey))
+      .map((row) => decryptManageRow(row, pii.config.encryptionKey, protectedHistoryIds.has(row.staff_id)))
       .sort((a, b) => a.name.localeCompare(b.name) || a.staffId.localeCompare(b.staffId));
     return { status: 'success', data: entries };
   } catch (err) {
@@ -248,7 +295,11 @@ export async function upsertWorkforceEmployee(
 
       if (error) return mapWorkforceWriteError(error, 'update this staff profile');
       if (!data) return { status: 'not_found' };
-      return { status: 'success', data: decryptManageRow(data as ApiWorkforceStaffManageRow, pii.config.encryptionKey) };
+      // Not recomputed here (an update doesn't change history) - the
+      // list query (`listWorkforceStaffForManager`) is the source of
+      // truth for `hasProtectedHistory`, and callers refetch the list
+      // after a save rather than relying on this write-result value for it.
+      return { status: 'success', data: decryptManageRow(data as ApiWorkforceStaffManageRow, pii.config.encryptionKey, false) };
     }
 
     const { data, error } = await supabase
@@ -273,7 +324,8 @@ export async function upsertWorkforceEmployee(
       .single();
 
     if (error) return mapWorkforceWriteError(error, 'create this staff profile');
-    return { status: 'success', data: decryptManageRow(data as ApiWorkforceStaffManageRow, pii.config.encryptionKey) };
+    // A brand-new employee has no shifts/attendance/requests yet.
+    return { status: 'success', data: decryptManageRow(data as ApiWorkforceStaffManageRow, pii.config.encryptionKey, false) };
   } catch (err) {
     return {
       status: 'unexpected_error',

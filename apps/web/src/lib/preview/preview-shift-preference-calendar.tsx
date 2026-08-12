@@ -10,7 +10,23 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff, staffWeekdayInitials } from '@/lib/demo/cafe/i18n.staff';
 import { PendingOverlay } from '@/components/ui/loading';
 
-interface Props { shiftTypes: WorkforceShiftType[] | null; defaultMonthDate: string; onClose: () => void }
+interface Props {
+  shiftTypes: WorkforceShiftType[] | null;
+  defaultMonthDate: string;
+  onClose: () => void;
+  /**
+   * The staff member's already-submitted preference selections for this
+   * month (workDate -> shiftTypeId, `null` = unavailable), so reopening the
+   * modal - or opening it after a hard reload - shows what was actually
+   * submitted instead of a blank calendar. Founder QA F10 persistence
+   * contract: submit -> close -> reopen -> hard reload -> reopen must all
+   * show the same selections. This is INSERT-only display state: editing a
+   * cell that already has a submitted preference still only queues a new
+   * submission attempt (which the server correctly reports as `duplicate`)
+   * - there is no update path here, by product design.
+   */
+  existingSelections?: Record<string, string | null>;
+}
 
 function monthDates(monthDate: string): string[] {
   const [year, month] = monthDate.split('-').map(Number);
@@ -18,7 +34,7 @@ function monthDates(monthDate: string): string[] {
   return Array.from({ length: count }, (_, index) => `${year}-${String(month).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`);
 }
 
-export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, onClose }: Props) {
+export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, onClose, existingSelections }: Props) {
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
@@ -29,7 +45,7 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
   // must never appear as a selectable option here.
   const activeShiftTypes = useMemo(() => (shiftTypes ?? []).filter((item) => item.isActive), [shiftTypes]);
   const options = [null, ...activeShiftTypes.map((item) => item.shiftTypeId)];
-  const [selections, setSelections] = useState<Record<string, string | null>>({});
+  const [selections, setSelections] = useState<Record<string, string | null>>(existingSelections ?? {});
   const [note, setNote] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const firstWeekday = dates[0] ? (new Date(`${dates[0]}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
@@ -44,13 +60,24 @@ export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, o
     const chosen = Object.entries(selections);
     if (chosen.length === 0) return setFeedback(t('tapToSelectHelp'));
     startTransition(async () => {
-      for (const [workDate, shiftTypeId] of chosen) {
-        const data = new FormData();
-        data.set('workDate', workDate);
-        if (shiftTypeId) data.set('shiftTypeId', shiftTypeId);
-        data.set('isUnavailable', 'false');
-        if (note) data.set('note', note);
-        const result = await previewSubmitShiftPreference(data);
+      // Founder QA F10: each day was previously submitted with a fully
+      // sequential `await` in a `for` loop, and every call re-resolves the
+      // staff context (~4-6 DB round trips) from scratch - for N selected
+      // days that serialized to N * (~6 round trips), which is what made a
+      // multi-day submission take several seconds. Firing them concurrently
+      // removes that N-times serialization without touching the server
+      // action or its per-day duplicate handling below.
+      const results = await Promise.all(
+        chosen.map(([workDate, shiftTypeId]) => {
+          const data = new FormData();
+          data.set('workDate', workDate);
+          if (shiftTypeId) data.set('shiftTypeId', shiftTypeId);
+          data.set('isUnavailable', 'false');
+          if (note) data.set('note', note);
+          return previewSubmitShiftPreference(data);
+        }),
+      );
+      for (const result of results) {
         if (result.status !== 'success' && result.status !== 'duplicate') {
           setFeedback(previewWriteMessage(lang, result.status));
           return;

@@ -19,6 +19,8 @@ export interface PreviewStaffActionsProps {
   preferenceSubmitted: boolean;
   defaultPreferenceDate: string;
   defaultReportDate: string;
+  /** Founder QA F10 persistence contract - see `PreviewShiftPreferenceCalendar`'s prop doc. */
+  existingPreferenceSelections?: Record<string, string | null>;
 }
 
 /**
@@ -31,7 +33,7 @@ export interface PreviewStaffActionsProps {
  * not just the latest one). Removed here rather than keeping two paths to
  * the same workflow - see that component for the canonical flow.
  */
-export function PreviewStaffActions({ shiftTypes, todayAttendance, preferenceSubmitted, defaultPreferenceDate, defaultReportDate }: PreviewStaffActionsProps) {
+export function PreviewStaffActions({ shiftTypes, todayAttendance, preferenceSubmitted, defaultPreferenceDate, defaultReportDate, existingPreferenceSelections }: PreviewStaffActionsProps) {
   const [preferenceOpen, setPreferenceOpen] = useState(false);
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
@@ -49,7 +51,12 @@ export function PreviewStaffActions({ shiftTypes, todayAttendance, preferenceSub
         </div>
       </CafeStaffPreferenceCard>
       <Modal open={preferenceOpen} onClose={() => setPreferenceOpen(false)} title={t('submitNextMonthPreference')} maxWidth={520}>
-        <PreviewShiftPreferenceCalendar shiftTypes={shiftTypes} defaultMonthDate={defaultPreferenceDate} onClose={() => setPreferenceOpen(false)} />
+        <PreviewShiftPreferenceCalendar
+          shiftTypes={shiftTypes}
+          defaultMonthDate={defaultPreferenceDate}
+          onClose={() => setPreferenceOpen(false)}
+          existingSelections={existingPreferenceSelections}
+        />
       </Modal>
     </>
   );
