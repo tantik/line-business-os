@@ -21,6 +21,19 @@ import { resolveContentTranslationProvider } from '@/lib/content/translation-pro
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Mirrors the tenant-wide-vs-location branch `wf_recipes_update` (0022) and
+ * the manage-scope SELECT policy already apply at the RLS layer: a recipe
+ * with `locationId === null` is tenant-wide and any manager holding
+ * `workforce.recipe.manage` (checked above via `resolvePreviewManagerContext`,
+ * itself RLS-backed) may act on it, same as a recipe scoped to their own
+ * resolved location. A recipe scoped to a *different* location is out of
+ * scope. This is a pre-check only -- RLS is still the actual enforcement.
+ */
+function recipeOutOfManagerScope(recipeLocationId: string | null, managerLocationId: string): boolean {
+  return recipeLocationId !== null && recipeLocationId !== managerLocationId;
+}
+
 export type PreviewEditableRecipeDetail = WorkforceRecipeDetail & {
   mediaUrl: string | null;
   /**
@@ -85,7 +98,7 @@ export async function previewGetRecipeForEdit(recipeId: string): Promise<Preview
   if (context.status !== 'ok') return context.result;
   const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, recipeId);
   if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
-  if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+  if (!detail.data || recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)) return { status: 'not_found' };
   const mediaPath = detail.data.recipe.mediaPath;
   const signed = mediaPath
     ? await context.context.supabase.storage.from('recipe-media').createSignedUrl(mediaPath, 3600)
@@ -129,7 +142,7 @@ export async function previewSetRecipeArchived(
   if (context.status !== 'ok') return context.result;
   const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, recipeId);
   if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
-  if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+  if (!detail.data || recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)) return { status: 'not_found' };
   const result = await setWorkforceRecipeArchived(context.context.supabase, context.context.tenantId, recipeId, archived);
   if (result.status !== 'success') return mapWorkforceWriteResult(result);
   return { status: 'success', data: { recipeId, archived } };
@@ -141,9 +154,11 @@ export async function previewSetRecipeArchived(
  * 0057) re-checks that server-side too (`blocked_not_archived`), so this is
  * never a UI-only guard. The location check below (same shape as
  * `previewSetRecipeArchived`) runs BEFORE the delete so a manager can never
- * even attempt to delete a recipe outside their resolved location -- the RPC
- * itself also re-checks `workforce.recipe.manage` for the recipe's own
- * location independently, so this is defense in depth, not the only check.
+ * even attempt to delete a recipe outside their manage scope (their own
+ * resolved location, or a tenant-wide recipe -- see `recipeOutOfManagerScope`)
+ * -- the RPC itself also re-checks `workforce.recipe.manage` for the recipe's
+ * own tenant/location independently, so this is defense in depth, not the
+ * only check.
  * On success, removes the Storage object for the recipe's old `mediaPath`
  * (if any) -- the RPC has no Storage access of its own, same division of
  * responsibility `previewUpsertRecipe`'s old-photo cleanup already uses.
@@ -156,7 +171,7 @@ export async function previewPermanentlyDeleteRecipe(recipeId: string): Promise<
   if (context.status !== 'ok') return context.result;
   const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, recipeId);
   if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
-  if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+  if (!detail.data || recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)) return { status: 'not_found' };
 
   const result = await permanentlyDeleteRecipe(context.context.supabase, context.context.tenantId, recipeId);
   if (result.status !== 'success') return mapWorkforceWriteResult(result);
@@ -184,7 +199,7 @@ export async function previewUpsertRecipe(formData: FormData): Promise<PreviewWr
   if (input.recipeId) {
     const detail = await getWorkforceRecipeDetail(context.context.supabase, context.context.tenantId, input.recipeId);
     if (detail.status !== 'success') return mapWorkforceWriteResult(detail);
-    if (!detail.data || detail.data.recipe.locationId !== context.context.locationId) return { status: 'not_found' };
+    if (!detail.data || recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)) return { status: 'not_found' };
     previousMediaPath = detail.data.recipe.mediaPath ?? null;
   }
   input.mediaPath = formData.get('removePhoto') === 'true' ? null : previousMediaPath;
