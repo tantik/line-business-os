@@ -25,15 +25,23 @@ test('previewPermanentlyDeleteRecipe validates the visible target location befor
     SOURCE.indexOf('export async function previewUpsertRecipe'),
   );
   assert.ok(body.includes("resolvePreviewManagerContext('workforce.recipe.manage')"));
-  assert.ok(body.includes('detail.data.recipe.locationId !== context.context.locationId'));
-  assert.ok(body.indexOf('detail.data.recipe.locationId') < body.indexOf('permanentlyDeleteRecipe('));
+  assert.ok(body.includes('recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)'));
+  assert.ok(body.indexOf('recipeOutOfManagerScope(detail.data.recipe.locationId') < body.indexOf('permanentlyDeleteRecipe('));
   assert.ok(body.includes("supabase.storage.from('recipe-media').remove(["));
 });
 
 test('uses recipe.manage and validates the visible target location before mutation', () => {
   assert.ok(SOURCE.includes("resolvePreviewManagerContext('workforce.recipe.manage')"));
-  assert.ok(SOURCE.includes('detail.data.recipe.locationId !== context.context.locationId'));
-  assert.ok(SOURCE.indexOf('detail.data.recipe.locationId') < SOURCE.indexOf('upsertWorkforceRecipe('));
+  assert.ok(SOURCE.includes('recipeOutOfManagerScope(detail.data.recipe.locationId, context.context.locationId)'));
+  assert.ok(SOURCE.indexOf('recipeOutOfManagerScope(detail.data.recipe.locationId') < SOURCE.indexOf('upsertWorkforceRecipe('));
+});
+
+test('recipeOutOfManagerScope treats a tenant-wide (null-location) recipe as in scope, matches only the manager\'s own resolved location otherwise, and rejects every other location', () => {
+  const body = SOURCE.slice(
+    SOURCE.indexOf('function recipeOutOfManagerScope'),
+    SOURCE.indexOf('export type PreviewEditableRecipeDetail'),
+  );
+  assert.ok(body.includes('recipeLocationId !== null && recipeLocationId !== managerLocationId'));
 });
 
 test('Founder QA F07B regression: previewGetRecipeForEdit reports the other language\'s real translation readiness, derived server-side from resolveFieldDisplay (marker !== original), not guessed client-side', () => {
