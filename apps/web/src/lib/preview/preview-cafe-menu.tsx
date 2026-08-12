@@ -1,12 +1,13 @@
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { demoColors } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from './preview-language-toggle';
 import { PreviewLogoutButton } from './preview-logout-button';
 import { PREVIEW_BASE_PATH } from './constants';
+import { BrandLoader } from '@/components/ui/loading';
 
 /** Canonical preview path for each menu page, used as the sign-out `returnTo` (FA-01) so logging out from Recipes/Staff signs back in to the same page. */
 const RETURN_TO_BY_CURRENT: Record<'staff' | 'recipes' | 'manager', string> = {
@@ -180,7 +181,22 @@ function MenuLink({
     >
       <span aria-hidden style={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 12, background: active ? '#FFFFFF' : 'rgba(255,255,255,.16)', color: active ? demoColors.accentStrong : '#FFFFFF', fontSize: 19 }}>{icon}</span>
       <span><strong style={{ display: 'block', fontSize: 15.5 }}>{label}</strong><span style={{ display: 'block', marginTop: 1, color: 'rgba(255,255,255,.72)', fontSize: 12.5 }}>{description}</span></span>
-      <span aria-hidden style={{ color: 'rgba(255,255,255,.7)' }}>›</span>
+      <MenuLinkStatus />
     </Link>
   );
+}
+
+/**
+ * Immediate click feedback for cross-page menu navigation (Staff <-> Recipes
+ * <-> Manager): `useLinkStatus` flips to pending the instant this Link is
+ * clicked, entirely client-side -- unlike the destination route's own
+ * `loading.tsx`, it does not wait on any server round trip (middleware's
+ * per-navigation `supabase.auth.getUser()` refresh is a real network call
+ * that can itself take a couple of seconds, which is what previously left
+ * the full-screen nav overlay looking frozen with no feedback at all).
+ */
+function MenuLinkStatus() {
+  const { pending } = useLinkStatus();
+  if (pending) return <BrandLoader size="xs" label="Loading" />;
+  return <span aria-hidden style={{ color: 'rgba(255,255,255,.7)' }}>›</span>;
 }
