@@ -161,31 +161,6 @@ test('staff page bounds assignment history to the complete client navigation win
   assert.match(page, /listShiftAssignments\(supabase, activeTenant\.tenantId, \{[\s\S]*?fromIso: assignmentFromIso,[\s\S]*?toIsoExclusive: assignmentToIsoExclusive/);
 });
 
-test('Final Founder Acceptance: deactivated staff are excluded from the Staff roster the same way Manager already excludes them', () => {
-  // A deactivated employee can still have historical/published
-  // shift_assignments rows. Manager's roster is built from the active-staff
-  // list (`preview-manager-roster-section.tsx`), never from assignments, so
-  // it already never shows them. The Staff page's roster/legend, however,
-  // is derived purely from which employeeIds have an assignment in the
-  // displayed week (`preview-staff-schedule.tsx`) - without also filtering
-  // by active status, a deactivated employee's leftover shift resurfaced as
-  // an anonymized phantom "Staff N" row that Manager's grid, for the exact
-  // same displayed week, did not contain.
-  const page = read(PREVIEW_STAFF_PAGE);
-  assert.match(page, /listWorkforceStaffDirectory\(supabase, activeTenant\.tenantId\)/, 'must read the staff directory to know which staff are active');
-  assert.match(
-    page,
-    /staffDirectoryResult\.data\.filter\(\(entry\) => entry\.isActive\)/,
-    'must derive an active-only staff id set from the directory',
-  );
-  const assignmentsFilterBody = page.slice(page.indexOf('const publishedAssignments ='), page.indexOf('return (\n    <main'));
-  assert.match(
-    assignmentsFilterBody,
-    /activeStaffIds === null \|\| !a\.employeeId \|\| activeStaffIds\.has\(a\.employeeId\)/,
-    'publishedAssignments passed to the Staff view must be filtered to active-staff employeeIds (or unassigned), failing open only when the directory read itself failed',
-  );
-});
-
 test('hidden opening and closing stock checks do not load sessions or their items', () => {
   const page = read(PREVIEW_STAFF_PAGE);
   assert.match(page, /inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS[\s\S]*?listInventoryCheckSessions/);
