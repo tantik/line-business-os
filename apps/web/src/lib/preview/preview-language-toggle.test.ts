@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as helpContent from '../demo/cafe/helpContent.js';
-import { resolveRecipeListTitle } from './recipe-list-title.js';
+import { resolveRecipeListTitle, resolveRecipeListSourceTitle, resolveRecipeListTranslationTitle } from './recipe-list-title.js';
 import { withResolvedRecipeListTitles } from './manager-recipe-title-translations.js';
 import { hashSourceText, type ContentTranslation } from '../content/translations.js';
 
@@ -112,15 +112,65 @@ test('Manager recipe list resolves the recipe title from the active language, no
     assert.equal(resolveRecipeListTitle({ ...baseRecipe, titleEn: '   ' }, 'en'), '抹茶ラテ');
   });
 
-  // Integration guard: the list row must render through this exact canonical
-  // function, not a re-inlined copy of the fallback logic that could drift
-  // from the cases proven above.
+  // Integration guard: search filtering must still go through this exact
+  // canonical viewer-language resolver, not a re-inlined copy.
   const source = read('preview-recipe-kind-manager.tsx');
-  assert.match(source, /from '\.\/recipe-list-title'/, 'the row render must import the canonical resolver rather than reimplementing it');
-  assert.match(source, /\{resolveRecipeListTitle\(recipe, lang\)\}/, 'the recipe list row must render title through the canonical resolver, not a re-inlined condition');
+  assert.match(source, /from '\.\/recipe-list-title'/, 'the component must import the canonical resolvers rather than reimplementing them');
+  assert.match(source, /resolveRecipeListTitle\(recipe, lang\)\.toLowerCase\(\)/, 'search filtering must go through the canonical viewer-language resolver');
   assert.ok(
     !source.includes('manager-recipe-title-translations'),
     'the client list must not import the server-side translation overlay or node:crypto',
+  );
+});
+
+test('Manager recipe list row renders the human-authored SOURCE title as primary, never a silent machine translation', () => {
+  const source = read('preview-recipe-kind-manager.tsx');
+  assert.match(
+    source,
+    /title=\{resolveRecipeListSourceTitle\(recipe\)\}/,
+    "the row's primary (bold) title must render through resolveRecipeListSourceTitle, not the viewer-language resolver -- " +
+      'Founder recipe contract Part J: Manager authoring surfaces must never show a translation as if it were what was typed',
+  );
+  assert.match(
+    source,
+    /translationTitle=\{resolveRecipeListTranslationTitle\(recipe, lang\)\}/,
+    'the row must pass a separate, explicitly-labeled translation line rather than folding translated text into the primary title',
+  );
+});
+
+test("resolveRecipeListSourceTitle always returns the recipe's own originalLanguage text, ignoring viewer language", () => {
+  // JA-original: source is titleJa even when titleEn (a machine translation)
+  // exists and looks perfectly plausible as a title.
+  assert.equal(
+    resolveRecipeListSourceTitle({ titleJa: '抹茶 Latte 250ml / ICE を使用する', titleEn: 'Matcha Latte 250ml / uses ICE', originalLanguage: 'ja' }),
+    '抹茶 Latte 250ml / ICE を使用する',
+    'ja-original recipe: source title is titleJa verbatim, mixed-language content preserved exactly',
+  );
+  // EN-original: source is titleEn even when titleJa (a machine translation)
+  // exists.
+  assert.equal(
+    resolveRecipeListSourceTitle({ titleJa: 'ゆずをスパークリングウォーターと混ぜる', titleEn: 'Mix Yuzu 柚子 with sparkling water', originalLanguage: 'en' }),
+    'Mix Yuzu 柚子 with sparkling water',
+    'en-original recipe: source title is titleEn verbatim, mixed-language content preserved exactly',
+  );
+});
+
+test('resolveRecipeListTranslationTitle only surfaces a translation line when the viewer language differs from originalLanguage', () => {
+  const jaOriginal = { titleJa: '抹茶ラテ', titleEn: 'Matcha Latte', originalLanguage: 'ja' as const };
+  assert.equal(
+    resolveRecipeListTranslationTitle(jaOriginal, 'ja'),
+    null,
+    'viewing in the same language as the source: no secondary translation line (nothing to disambiguate)',
+  );
+  assert.equal(
+    resolveRecipeListTranslationTitle(jaOriginal, 'en'),
+    'Matcha Latte',
+    'viewing in the opposite language: the translation is shown, but only as the secondary line',
+  );
+  assert.equal(
+    resolveRecipeListTranslationTitle({ ...jaOriginal, titleEn: null }, 'en'),
+    null,
+    'no translation yet: no secondary line rather than falling back to the source text a second time',
   );
 });
 
