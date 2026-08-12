@@ -16,7 +16,7 @@ import { previewWriteMessage } from './write-result';
 import { buttonPrimary, buttonSecondary, demoColors, input, mutedText } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
-import { resolveRecipeListTitle } from './recipe-list-title';
+import { resolveRecipeListTitle, resolveRecipeListSourceTitle, resolveRecipeListTranslationTitle } from './recipe-list-title';
 import { ThumbnailImage } from '@/components/media/ThumbnailImage';
 
 export interface PreviewRecipeKindManagerProps {
@@ -61,6 +61,7 @@ interface RecipeRowProps {
   recipe: WorkforceRecipe;
   mediaUrl: string | undefined;
   title: string;
+  translationTitle: string | null;
   pending: boolean;
   lang: 'ja' | 'en';
   editLabel: string;
@@ -74,7 +75,7 @@ interface RecipeRowProps {
  * Extracted and memoized so editing one recipe (or a media URL arriving for
  * one row) does not re-render every other row in the list. Perf phase 3.
  */
-const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, lang, editLabel, onEdit, onRestore, onArchive, onPermanentDelete }: RecipeRowProps) {
+const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, translationTitle, pending, lang, editLabel, onEdit, onRestore, onArchive, onPermanentDelete }: RecipeRowProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: demoColors.surfaceElevated, flexWrap: 'wrap' }}>
       <ThumbnailImage
@@ -100,7 +101,21 @@ const RecipeRow = memo(function RecipeRow({ recipe, mediaUrl, title, pending, la
           an unreadable sliver - the row-level `flexWrap: 'wrap'` above only
           helps once this item stops trying to absorb all remaining width. */}
       <div style={{ minWidth: 140, flex: '1 1 160px' }}>
+        {/* PRIMARY: always the human-authored source text, never a machine/
+            reviewed translation -- see resolveRecipeListSourceTitle's doc
+            comment (Founder recipe contract, Part J). */}
         <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
+        {/* SECONDARY: only rendered when the Manager's chrome language
+            differs from this recipe's originalLanguage, i.e. only when
+            `title` above is NOT already in the viewer's language. Clearly
+            subordinate (smaller, muted, explicitly labeled) so it can never
+            be mistaken for the source. */}
+        {translationTitle ? (
+          <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, ...mutedText }}>
+            {lang === 'ja' ? '翻訳: ' : 'Translation: '}
+            {translationTitle}
+          </span>
+        ) : null}
         <span style={{ ...badge(recipe.status), marginTop: 3 }}>
           {recipe.status === 'published'
             ? (lang === 'ja' ? '公開' : 'Published')
@@ -499,7 +514,8 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
               key={recipe.recipeId}
               recipe={recipe}
               mediaUrl={mediaUrls[recipe.recipeId]}
-              title={resolveRecipeListTitle(recipe, lang)}
+              title={resolveRecipeListSourceTitle(recipe)}
+              translationTitle={resolveRecipeListTranslationTitle(recipe, lang)}
               pending={pending}
               lang={lang}
               editLabel={t('edit')}
@@ -541,7 +557,7 @@ export function PreviewRecipeKindManager({ recipes, onRecipesChanged, mediaUrls,
         onConfirm={() => { if (permanentDeleteTarget) permanentlyDelete(permanentDeleteTarget.recipeId); }}
       >
         {permanentDeleteTarget ? (
-          <p style={{ margin: 0 }}>{resolveRecipeListTitle(permanentDeleteTarget, lang)}</p>
+          <p style={{ margin: 0 }}>{resolveRecipeListSourceTitle(permanentDeleteTarget)}</p>
         ) : null}
         <p style={{ margin: '8px 0 0', fontWeight: 700 }}>
           {lang === 'ja'
