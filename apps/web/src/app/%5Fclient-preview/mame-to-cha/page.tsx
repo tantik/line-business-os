@@ -7,6 +7,7 @@ import { resolveStaffLocation } from '@/lib/preview/location';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
+import { listWorkforceStaffDirectory } from '@/lib/workforce/employees';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listMyAttendance } from '@/lib/workforce/attendance';
@@ -150,6 +151,7 @@ export default async function MameToChaPreviewStaffPage({
     exchangesResult,
     inventoryItemsResult,
     inventorySessionsResult,
+    staffDirectoryResult,
   ] = await Promise.all([
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
     listMyShiftRequests(supabase, activeTenant.tenantId),
@@ -165,11 +167,30 @@ export default async function MameToChaPreviewStaffPage({
     inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS
       ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
       : Promise.resolve(null),
+    // No-PII directory, used only to strip deactivated staff out of the
+    // Staff-facing roster below (Manager's roster is already active-only).
+    listWorkforceStaffDirectory(supabase, activeTenant.tenantId),
   ]);
+
+  // Deactivated staff can still have historical/published shift_assignments
+  // rows; without this filter they resurfaced as anonymized "phantom"
+  // coworkers on the Staff schedule even though Manager's roster (which is
+  // built from the active-staff list, not from assignments) never showed
+  // them. Fail open (skip filtering) if the directory read itself failed, so
+  // one degraded read doesn't blank out the whole schedule.
+  const activeStaffIds =
+    staffDirectoryResult.status === 'success'
+      ? new Set(staffDirectoryResult.data.filter((entry) => entry.isActive).map((entry) => entry.staffId))
+      : null;
 
   const publishedAssignments =
     assignmentsResult.status === 'success'
-      ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
+      ? assignmentsResult.data.filter(
+          (a) =>
+            a.published &&
+            a.locationId === location.locationId &&
+            (activeStaffIds === null || !a.employeeId || activeStaffIds.has(a.employeeId)),
+        )
       : null;
   const todayAttendance =
     attendanceResult.status === 'success'
