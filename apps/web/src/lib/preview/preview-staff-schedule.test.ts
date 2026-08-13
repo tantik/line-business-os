@@ -100,21 +100,41 @@ test('unassigned/unpublished rows and rows with no employeeId are excluded from 
   assert.deepEqual(ids, [self]);
 });
 
-/**
- * Founder P1, 2026-08-13, Contract 1 - no "Me" pseudo-name. The authenticated
- * employee's own row must carry the same "Staff N" identity scheme every
- * colleague already gets, not a special-cased literal. Mirrors the
- * `numberByEmployeeId` construction in `preview-staff-schedule.tsx` exactly.
- */
-function deriveStaffNumbers(employeeIds: string[]): Map<string, number> {
-  return new Map([...employeeIds].sort((a, b) => a.localeCompare(b)).map((id, index) => [id, index + 1]));
-}
-
 test('source no longer contains a "Me" pseudo-name label', () => {
   assert.doesNotMatch(SOURCE, /t\('me'\)/, 'the authenticated employee\'s row must not use a special-cased "me" label');
 });
 
-test('authenticated employee gets a canonical "Staff N" number, same scheme as colleagues', () => {
+/**
+ * Founder P1, 2026-08-13, roster follow-up (migration
+ * 0061_workforce_staff_roster_visibility.sql) - Staff must render the SAME
+ * stored employee name Manager sees for a given employee_id, never a
+ * frontend-synthesized "Staff N" label, UUID-derived numbering, or
+ * row-position-derived alias. This source-text check catches a regression
+ * back to the old synthetic-numbering pattern even if the behavioral test
+ * below is preserved by accident.
+ */
+test('source no longer synthesizes a "Staff N" label or any employee_id/position-derived numbering', () => {
+  assert.doesNotMatch(SOURCE, /staffNumberPrefix/, 'the real DB-backed Staff schedule must not use the synthetic "Staff N" i18n prefix');
+  assert.doesNotMatch(SOURCE, /numberByEmployeeId/, 'no numbering scheme derived from employee_id sort order may remain');
+  assert.match(SOURCE, /nameByEmployeeId/, 'staffList names must be sourced from the roster-derived nameByEmployeeId map');
+});
+
+/**
+ * Behavioral mirror of `preview-staff-schedule.tsx`'s `staffList` derivation:
+ * every row's `name` comes from the roster-derived `nameByEmployeeId` map
+ * (real, Manager-entered display names), keyed by employee_id - identical
+ * for the authenticated employee's own row and every coworker's row, and
+ * identical regardless of which employee is viewing.
+ */
+function deriveStaffList(
+  employeeIds: string[],
+  nameByEmployeeId: Map<string, string>,
+  fallback: string,
+): { id: string; name: string }[] {
+  return employeeIds.map((id) => ({ id, name: nameByEmployeeId.get(id) ?? fallback }));
+}
+
+test('staffList renders the real roster display name for every employee, including self', () => {
   const self = 'staff-3';
   const ids = deriveEmployeeIds(
     [
@@ -125,25 +145,39 @@ test('authenticated employee gets a canonical "Staff N" number, same scheme as c
     self,
     ['2026-08-10'],
   );
-  const numbers = deriveStaffNumbers(ids);
-  assert.equal(numbers.size, 3);
-  for (const id of ids) assert.ok(typeof numbers.get(id) === 'number');
+  const roster = new Map([
+    ['staff-1', '田中 愛'],
+    ['staff-2', '佐藤 健'],
+    [self, '鈴木 翔'],
+  ]);
+  const staffList = deriveStaffList(ids, roster, '(name unavailable)');
+  assert.deepEqual(new Map(staffList.map((s) => [s.id, s.name])), roster);
+  assert.equal(staffList.find((s) => s.id === self)?.name, '鈴木 翔', "self's own row shows their real stored name, not a synthetic label");
 });
 
-test('numbering is keyed by employee_id, not by self-pinned display position', () => {
-  // Two different authenticated users viewing the exact same underlying
-  // roster must compute the exact same number for any given colleague,
-  // even though each of them pins themselves first in `employeeIds`.
+test('a missing roster entry renders an explicit unavailable fallback, never a synthesized identity', () => {
+  const staffList = deriveStaffList(['staff-1', 'staff-2'], new Map([['staff-1', '田中 愛']]), '(name unavailable)');
+  assert.equal(staffList.find((s) => s.id === 'staff-2')?.name, '(name unavailable)');
+});
+
+test('roster display names are identical for every viewer, regardless of who is signed in', () => {
   const raw = [
     { published: true, employeeId: 'staff-1', workDate: '2026-08-10' },
     { published: true, employeeId: 'staff-2', workDate: '2026-08-10' },
     { published: true, employeeId: 'staff-3', workDate: '2026-08-10' },
   ];
-  const asStaff1 = deriveEmployeeIds(raw, 'staff-1', ['2026-08-10']);
-  const asStaff3 = deriveEmployeeIds(raw, 'staff-3', ['2026-08-10']);
-  const numbersAsStaff1 = deriveStaffNumbers(asStaff1);
-  const numbersAsStaff3 = deriveStaffNumbers(asStaff3);
+  const roster = new Map([
+    ['staff-1', '田中 愛'],
+    ['staff-2', '佐藤 健'],
+    ['staff-3', '鈴木 翔'],
+  ]);
+  const asStaff1 = deriveStaffList(deriveEmployeeIds(raw, 'staff-1', ['2026-08-10']), roster, '');
+  const asStaff3 = deriveStaffList(deriveEmployeeIds(raw, 'staff-3', ['2026-08-10']), roster, '');
   for (const id of ['staff-1', 'staff-2', 'staff-3']) {
-    assert.equal(numbersAsStaff1.get(id), numbersAsStaff3.get(id), `${id}'s number must not depend on who is viewing`);
+    assert.equal(
+      asStaff1.find((s) => s.id === id)?.name,
+      asStaff3.find((s) => s.id === id)?.name,
+      `${id}'s displayed name must not depend on who is viewing`,
+    );
   }
 });

@@ -159,7 +159,9 @@ select is(
 select is(
   (select count(*)::int from pg_policies
     where schemaname = 'workforce' and tablename = 'employees'),
-  3, 'workforce.employees carries exactly the 3 new policies (no leftovers)'
+  -- 3 from this migration (0022) + wf_employees_coworker_roster_read, added
+  -- later by 0061_workforce_staff_roster_visibility.sql.
+  4, 'workforce.employees carries exactly the 4 expected policies (no leftovers)'
 );
 
 -- --- core.has_permission_in_tenant exists with the hardened EXECUTE posture -
@@ -464,11 +466,19 @@ select ok(
 -- ============================================================================
 
 -- --- self-read ---------------------------------------------------------------
+-- Sees 2 rows, not 1: their own row (8a300000-...0001) PLUS the active
+-- Location-A coworker 8a300000-...0002, visible via
+-- wf_employees_coworker_roster_read (0061_workforce_staff_roster_visibility.sql)
+-- -- both are Tenant A, Location A1, is_active (default true). The
+-- Location-B employee (8a300000-...0003) stays excluded (different
+-- location, not tenant-wide) -- see the roster-scope assertions in
+-- supabase/tests/0029_workforce_staff_roster_visibility.sql for the full
+-- tenant/location/active matrix this policy is held to.
 select is(
   pg_temp.as_auth_count('8a900000-0000-0000-0000-000000000001',
     $q$ select count(*)::int from workforce.employees $q$),
-  1,
-  'employee self-read: sees exactly their own employee row (no staff.* permission held)'
+  2,
+  'employee self-read + active same-location coworker roster-read (no staff.* permission held)'
 );
 
 -- --- cannot self-update --------------------------------------------------------

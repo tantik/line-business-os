@@ -163,7 +163,10 @@ select is(
         'content_translations',
         -- Cafe v2 Final Improvements (0044/0045).
         'workforce_shift_exchanges',
-        'inventory_check_sessions', 'inventory_check_session_items'
+        'inventory_check_sessions', 'inventory_check_session_items',
+        -- Staff-safe coworker roster (0061_workforce_staff_roster_visibility.sql):
+        -- 1 new read-only view, added in a later, separate migration.
+        'workforce_staff_roster'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

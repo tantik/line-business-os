@@ -9,6 +9,7 @@ import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
+import { listWorkforceStaffRoster } from '@/lib/workforce/employees';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -150,6 +151,7 @@ export default async function MameToChaPreviewStaffPage({
     exchangesResult,
     inventoryItemsResult,
     inventorySessionsResult,
+    rosterResult,
   ] = await Promise.all([
     listWorkforceShiftTypes(supabase, activeTenant.tenantId),
     listMyShiftRequests(supabase, activeTenant.tenantId),
@@ -165,6 +167,9 @@ export default async function MameToChaPreviewStaffPage({
     inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS
       ? listInventoryCheckSessions(supabase, activeTenant.tenantId, location.locationId, todayIso)
       : Promise.resolve(null),
+    // Staff-safe coworker roster (0061, Founder P1 follow-up 2026-08-13):
+    // real display names, never a frontend-synthesized "Staff N" label.
+    listWorkforceStaffRoster(supabase, activeTenant.tenantId, location.locationId),
   ]);
 
   const publishedAssignments =
@@ -240,6 +245,7 @@ export default async function MameToChaPreviewStaffPage({
         attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
         requests={requestsResult.status === 'success' ? requestsResult.data : null}
         exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
+        roster={rosterResult.status === 'success' ? rosterResult.data : []}
         basePath={PREVIEW_BASE_PATH}
       />
 

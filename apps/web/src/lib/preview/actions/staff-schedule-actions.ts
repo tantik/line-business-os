@@ -3,6 +3,7 @@
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { submitShiftPreference as submitShiftPreferenceWrite, type WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments, type WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import { listWorkforceStaffRoster, type WorkforceStaffRosterEntry } from '@/lib/workforce/employees';
 import { parseSubmitShiftPreferenceInput } from '@/lib/workforce/schedule-input';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -68,18 +69,28 @@ export interface PreviewStaffScheduleWeek {
   periodEnd: string;
   weekOffset: number;
   assignments: WorkforceShiftAssignment[];
+  /**
+   * Staff-safe coworker roster (0061, Founder P1 follow-up 2026-08-13):
+   * employee_id + real, Manager-entered display name for every active
+   * employee in the caller's own tenant/location schedule scope. Included on
+   * every poll response (not a separate action) so a Manager rename
+   * propagates to an already-open Staff page on the same ~2.5s cadence as
+   * shift changes, without introducing a second poll loop.
+   */
+  roster: WorkforceStaffRosterEntry[];
 }
 
 /**
- * Staff-only: re-read one week's PUBLISHED shift assignments for the caller's
- * own resolved location. Live-sync poll target for `PreviewStaffSchedule`
- * (Founder P1, 2026-08-13, Manager-\>Staff propagation) - deliberately scoped
- * to exactly one week (never the full ±8-week window `mame-to-cha/page.tsx`
- * loads once at render) so a background poll stays a small, targeted query,
- * never a full-page/full-history refetch. Filters to `published` the same
- * way the Staff page's initial server-render does - a Manager's still-draft
- * edit is never surfaced here, preserving the existing draft/published
- * schedule contract for Staff.
+ * Staff-only: re-read one week's PUBLISHED shift assignments (plus the
+ * caller's coworker roster) for the caller's own resolved location.
+ * Live-sync poll target for `PreviewStaffSchedule` (Founder P1, 2026-08-13,
+ * Manager-\>Staff propagation) - deliberately scoped to exactly one week
+ * (never the full ±8-week window `mame-to-cha/page.tsx` loads once at
+ * render) so a background poll stays a small, targeted query, never a
+ * full-page/full-history refetch. Filters to `published` the same way the
+ * Staff page's initial server-render does - a Manager's still-draft edit is
+ * never surfaced here, preserving the existing draft/published schedule
+ * contract for Staff.
  */
 export async function previewGetStaffScheduleWeek(weekOffset: number): Promise<PreviewWriteResult<PreviewStaffScheduleWeek>> {
   const contextResult = await resolvePreviewStaffContext();
@@ -94,9 +105,13 @@ export async function previewGetStaffScheduleWeek(weekOffset: number): Promise<P
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', timeZone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', timeZone);
 
-  const result = await listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive });
-  if (result.status !== 'success') return mapWorkforceWriteResult(result);
+  const [assignmentsResult, rosterResult] = await Promise.all([
+    listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
+    listWorkforceStaffRoster(supabase, tenantId, locationId),
+  ]);
+  if (assignmentsResult.status !== 'success') return mapWorkforceWriteResult(assignmentsResult);
 
-  const publishedAssignments = result.data.filter((a) => a.published && a.locationId === locationId);
-  return { status: 'success', data: { periodStart, periodEnd, weekOffset: clampedOffset, assignments: publishedAssignments } };
+  const publishedAssignments = assignmentsResult.data.filter((a) => a.published && a.locationId === locationId);
+  const roster = rosterResult.status === 'success' ? rosterResult.data : [];
+  return { status: 'success', data: { periodStart, periodEnd, weekOffset: clampedOffset, assignments: publishedAssignments, roster } };
 }

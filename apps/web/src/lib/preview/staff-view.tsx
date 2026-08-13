@@ -4,6 +4,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import type { WorkforceStaffRosterEntry } from '@/lib/workforce/employees';
 import { PreviewStaffSchedule } from './preview-staff-schedule';
 
 export interface PreviewStaffViewProps {
@@ -17,6 +18,7 @@ export interface PreviewStaffViewProps {
   attendance: WorkforceAttendance[] | null;
   requests: WorkforceShiftRequest[] | null;
   exchanges: WorkforceShiftExchange[] | null;
+  roster: WorkforceStaffRosterEntry[];
   basePath: string;
 }
 

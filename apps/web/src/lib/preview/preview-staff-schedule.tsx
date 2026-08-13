@@ -14,6 +14,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import type { WorkforceStaffRosterEntry } from '@/lib/workforce/employees';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { buttonDisabled, buttonPrimary, buttonSecondary, demoColors, mutedText } from '@/lib/demo/cafe/theme';
 import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
@@ -44,6 +45,7 @@ export interface PreviewStaffScheduleProps {
   attendance: WorkforceAttendance[] | null;
   requests: WorkforceShiftRequest[] | null;
   exchanges: WorkforceShiftExchange[] | null;
+  roster: WorkforceStaffRosterEntry[];
   basePath: string;
 }
 
@@ -74,6 +76,7 @@ export function PreviewStaffSchedule({
   attendance,
   requests,
   exchanges,
+  roster,
   basePath,
 }: PreviewStaffScheduleProps) {
   const { lang } = useLang();
@@ -97,6 +100,15 @@ export function PreviewStaffSchedule({
   // publish becomes visible here without a manual reload.
   const [windowAssignments, setWindowAssignments] = useState<WorkforceShiftAssignment[]>(assignments ?? []);
 
+  // Staff-safe coworker display names (0061, Founder P1 follow-up
+  // 2026-08-13): employee_id -> real, Manager-entered name. Seeded from the
+  // initial page load's `roster` prop, refreshed on the same poll as
+  // `windowAssignments` below so a Manager rename propagates to an
+  // already-open Staff page without a manual reload.
+  const [nameByEmployeeId, setNameByEmployeeId] = useState<Map<string, string>>(
+    () => new Map(roster.map((entry) => [entry.employeeId, entry.displayName])),
+  );
+
   useEffect(() => {
     if (assignments === null) return;
     let cancelled = false;
@@ -112,6 +124,7 @@ export function PreviewStaffSchedule({
           ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
           ...result.data.assignments,
         ]);
+        setNameByEmployeeId(new Map(result.data.roster.map((entry) => [entry.employeeId, entry.displayName])));
       } finally {
         inFlight = false;
       }
@@ -176,21 +189,19 @@ export function PreviewStaffSchedule({
   employeeIds.sort((a, b) => (a === profile.staffId ? -1 : b === profile.staffId ? 1 : a.localeCompare(b)));
   if (!employeeIds.includes(profile.staffId)) employeeIds.unshift(profile.staffId);
 
-  // Other employees' encrypted names are deliberately not exposed to Staff,
-  // so every row - including the authenticated employee's own - gets a
-  // neutral "Staff N" label from one canonical, employee_id-keyed numbering
-  // (Founder P1, 2026-08-13, Contract 1: no "Me" pseudo-name; the
-  // authenticated employee keeps the same stable identity Manager would
-  // reference for them, not a special-cased string). Numbering is derived
-  // from a plain alphabetical sort of every employeeId in the roster -
-  // independent of the self-first display order above and of which week is
-  // open - so a given employee's number never changes across renders.
-  const numberByEmployeeId = new Map(
-    [...employeeIds].sort((a, b) => a.localeCompare(b)).map((id, index) => [id, index + 1]),
-  );
+  // Real, Manager-entered display names (0061, Founder P1 follow-up
+  // 2026-08-13): every row - including the authenticated employee's own -
+  // shows the same stored name Manager sees for that employee_id, sourced
+  // from the Staff-safe roster (api.workforce_staff_roster), never a
+  // frontend-synthesized "Staff N" label, "Me"/"自分" pseudo-name, or
+  // UUID/row-position-derived alias. `nameFallback` only renders for an
+  // employee_id genuinely absent from the roster response (e.g. a transient
+  // fetch error) - it is an explicit "unavailable" state, not a synthesized
+  // identity.
+  const nameFallback = lang === 'ja' ? '（名前不明）' : '(name unavailable)';
   const staffList = employeeIds.map((id) => ({
     id,
-    name: `${t('staffNumberPrefix')} ${numberByEmployeeId.get(id)}`,
+    name: nameByEmployeeId.get(id) ?? nameFallback,
     role: 'staff' as const,
   }));
 

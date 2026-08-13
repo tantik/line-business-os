@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encryptPII, blindIndex, bufferToBytea } from '@line-os/db/crypto';
-import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, permanentlyDeleteEmployee, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
+import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, listWorkforceStaffRoster, permanentlyDeleteEmployee, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
@@ -85,6 +85,41 @@ test('listWorkforceStaffForManager decrypts name_encrypted server-side', async (
     assert.equal(result.data[0]!.email, 'aiko@example.com');
     assert.equal('nameEncrypted' in result.data[0]!, false);
   }
+});
+
+test('listWorkforceStaffRoster decrypts name_encrypted server-side and returns only employeeId/displayName/isActive', async () => {
+  const encryptedSelf = bufferToBytea(encryptPII('Aiko Tanaka', ENCRYPTION_KEY));
+  const encryptedCoworker = bufferToBytea(encryptPII('Kenji Sato', ENCRYPTION_KEY));
+  const { client, calls } = recordingClient({
+    data: [
+      { employee_id: 's1', tenant_id: TENANT_ID, location_id: 'loc-1', name_encrypted: encryptedSelf, is_active: true },
+      { employee_id: 's2', tenant_id: TENANT_ID, location_id: 'loc-1', name_encrypted: encryptedCoworker, is_active: true },
+    ],
+    error: null,
+  });
+
+  const result = await listWorkforceStaffRoster(client, TENANT_ID, 'loc-1');
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.deepEqual(result.data, [
+      { employeeId: 's1', displayName: 'Aiko Tanaka', isActive: true },
+      { employeeId: 's2', displayName: 'Kenji Sato', isActive: true },
+    ]);
+    // No ciphertext, no name_hash, no PII field of any kind on the returned shape.
+    assert.equal('nameEncrypted' in result.data[0]!, false);
+    assert.equal('nameHash' in result.data[0]!, false);
+    assert.equal('email' in result.data[0]!, false);
+  }
+  assert.deepEqual(calls[0], { method: 'schema', args: ['api'] });
+  assert.deepEqual(calls[1], { method: 'from', args: ['workforce_staff_roster'] });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'tenant_id' && c.args[1] === TENANT_ID));
+  assert.ok(calls.some((c) => c.method === 'or' && typeof c.args[0] === 'string' && (c.args[0] as string).includes('loc-1')));
+});
+
+test('listWorkforceStaffRoster maps a permission-denied error to unauthorized', async () => {
+  const { client } = recordingClient({ data: null, error: { code: '42501', message: 'permission denied' } });
+  const result = await listWorkforceStaffRoster(client, TENANT_ID, 'loc-1');
+  assert.equal(result.status, 'unauthorized');
 });
 
 test('upsertWorkforceEmployee (create, no id) inserts and returns the decrypted new row', async () => {

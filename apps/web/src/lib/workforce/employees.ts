@@ -232,6 +232,68 @@ export async function listWorkforceStaffForManager(
   }
 }
 
+/** Flat row shape returned by `api.workforce_staff_roster` (0061). `name_encrypted` arrives as PostgREST's hex bytea text (`\x...`), same as `api.workforce_staff_manage`. */
+interface ApiWorkforceStaffRosterRow {
+  employee_id: string;
+  tenant_id: string;
+  location_id: string | null;
+  name_encrypted: string;
+  is_active: boolean;
+}
+
+/** Staff-safe coworker roster entry: identity + display name only, decrypted server-side. Never re-serialize a `nameEncrypted` field back to a client. */
+export interface WorkforceStaffRosterEntry {
+  employeeId: string;
+  displayName: string;
+  isActive: boolean;
+}
+
+const ROSTER_SELECT = 'employee_id, tenant_id, location_id, name_encrypted, is_active';
+
+/**
+ * Staff-safe coworker roster through `api.workforce_staff_roster` (0061):
+ * employee_id + decrypted display name, nothing else. RLS
+ * (`wf_employees_coworker_roster_read`, plus the pre-existing
+ * `wf_employees_self_read`/`staff_read`/`staff_manage` policies) is what
+ * actually restricts rows to the caller's own tenant/location schedule scope
+ * -- this never trusts `tenantId`/`locationId` as authorization, only as a
+ * defense-in-depth narrowing of the same query a Manager caller could also
+ * run through this view. `name_encrypted` never leaves this function as
+ * ciphertext -- only the decrypted `displayName` is returned.
+ */
+export async function listWorkforceStaffRoster(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+): Promise<TenantAccessResult<WorkforceStaffRosterEntry[]>> {
+  const pii = readPiiEnv();
+  if (!pii.ok) return { status: 'config_error', message: `Missing PII protection env: ${pii.missing.join(', ')}` };
+
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_staff_roster')
+      .select(ROSTER_SELECT)
+      .eq('tenant_id', tenantId)
+      .or(`location_id.eq.${locationId},location_id.is.null`);
+
+    if (error) return mapWorkforceReadError(error, 'read the staff roster');
+
+    const rows = (data ?? []) as ApiWorkforceStaffRosterRow[];
+    const entries = rows.map((row) => ({
+      employeeId: row.employee_id,
+      displayName: decryptPII(byteaToBuffer(row.name_encrypted), pii.config.encryptionKey),
+      isActive: row.is_active,
+    }));
+    return { status: 'success', data: entries };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading the staff roster.',
+    };
+  }
+}
+
 export interface UpsertWorkforceEmployeeInput {
   /** Omit to create a new employee; provide to edit an existing one. */
   id?: string;
