@@ -2,9 +2,16 @@
 
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { submitShiftPreference as submitShiftPreferenceWrite, type WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
+import { listShiftAssignments, type WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { parseSubmitShiftPreferenceInput } from '@/lib/workforce/schedule-input';
+import { getWeekPeriod } from '@/lib/workforce/period';
+import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import { resolvePreviewStaffContext } from './authorize';
 import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
+
+/** Mirrors the same bound the Staff page and week-nav chrome enforce (`MAX_WEEK_OFFSET` in `mame-to-cha/page.tsx`/`preview-staff-schedule.tsx`) - never trust a client-supplied offset outside this range. */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
 
 /**
  * Phase 1N-4C Slice B2b - preview-specific staff Server Action for shift
@@ -54,4 +61,42 @@ export async function previewSubmitShiftPreference(
     isUnavailable: input.isUnavailable,
   });
   return mapWorkforceWriteResult(result);
+}
+
+export interface PreviewStaffScheduleWeek {
+  periodStart: string;
+  periodEnd: string;
+  weekOffset: number;
+  assignments: WorkforceShiftAssignment[];
+}
+
+/**
+ * Staff-only: re-read one week's PUBLISHED shift assignments for the caller's
+ * own resolved location. Live-sync poll target for `PreviewStaffSchedule`
+ * (Founder P1, 2026-08-13, Manager-\>Staff propagation) - deliberately scoped
+ * to exactly one week (never the full ±8-week window `mame-to-cha/page.tsx`
+ * loads once at render) so a background poll stays a small, targeted query,
+ * never a full-page/full-history refetch. Filters to `published` the same
+ * way the Staff page's initial server-render does - a Manager's still-draft
+ * edit is never surfaced here, preserving the existing draft/published
+ * schedule contract for Staff.
+ */
+export async function previewGetStaffScheduleWeek(weekOffset: number): Promise<PreviewWriteResult<PreviewStaffScheduleWeek>> {
+  const contextResult = await resolvePreviewStaffContext();
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId, timeZone } = contextResult.context;
+
+  const rawOffset = Number.isInteger(weekOffset) ? weekOffset : 0;
+  const clampedOffset = Math.max(MIN_WEEK_OFFSET, Math.min(MAX_WEEK_OFFSET, rawOffset));
+
+  const nowIso = new Date().toISOString();
+  const { periodStart, periodEnd } = getWeekPeriod(nowIso, timeZone, clampedOffset);
+  const fromIso = localDateTimeToUtcIso(periodStart, '00:00', timeZone);
+  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', timeZone);
+
+  const result = await listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive });
+  if (result.status !== 'success') return mapWorkforceWriteResult(result);
+
+  const publishedAssignments = result.data.filter((a) => a.published && a.locationId === locationId);
+  return { status: 'success', data: { periodStart, periodEnd, weekOffset: clampedOffset, assignments: publishedAssignments } };
 }

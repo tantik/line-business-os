@@ -24,7 +24,7 @@ import { PreviewManagerRosterSection } from '@/lib/preview/preview-manager-roste
 import { PreviewCorrectionRequestsPanel } from '@/lib/preview/preview-correction-requests-panel';
 import { authorizePreviewManagerPage } from '@/lib/preview/manager-page-authorize';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { PreviewManagerToday } from '@/lib/preview/preview-manager-today';
+import { PreviewManagerLiveToday } from '@/lib/preview/preview-manager-live-today';
 import { listInventoryCheckSessions } from '@/lib/inventory/check-sessions';
 import { time, mark } from '@/lib/perf/timing';
 
@@ -255,7 +255,7 @@ export default async function MameToChaPreviewManagerPage({
         alerts={[]}
         showAlerts={false}
       >
-        <PreviewManagerToday
+        <PreviewManagerLiveToday
           actionSlot={<PreviewCorrectionRequestsPanel
             timeZone={location.timezone}
             pendingRequests={pendingCorrections}
@@ -263,8 +263,8 @@ export default async function MameToChaPreviewManagerPage({
             staff={staff}
             attendance={attendance}
           />}
-          pendingCorrections={pendingCorrections.length}
-          pendingExchanges={pendingExchanges.length}
+          initialPendingCorrections={pendingCorrections.length}
+          initialPendingExchanges={pendingExchanges.length}
           shortageItems={activeInventoryItems.filter((item) => item.status === 'shortage').length}
           uncountedItems={activeInventoryItems.filter((item) => item.status === 'unknown').length}
           unpublishedShifts={(assignments ?? []).filter((assignment) => !assignment.published).length}
@@ -274,7 +274,8 @@ export default async function MameToChaPreviewManagerPage({
           closingCheckComplete={
             !SHOW_OPENING_CLOSING_STOCK_CHECKS || !inventoryEnabled || localHour < 18 ? null : closingSession?.status === 'completed'
           }
-          correctionSummaries={managerCorrectionSummaries}
+          initialCorrectionSummaries={managerCorrectionSummaries}
+          staffNameById={staffNameById}
           shortageDetails={activeInventoryItems.filter((item) => item.status === 'shortage').slice(0, 4).map((item) => item.name)}
         />
 
