@@ -176,12 +176,21 @@ export function PreviewStaffSchedule({
   employeeIds.sort((a, b) => (a === profile.staffId ? -1 : b === profile.staffId ? 1 : a.localeCompare(b)));
   if (!employeeIds.includes(profile.staffId)) employeeIds.unshift(profile.staffId);
 
-  // Other employees' encrypted names are deliberately not exposed to Staff.
-  // Stable neutral labels preserve the full-roster schedule without leaking PII.
-  let colleagueNumber = 0;
+  // Other employees' encrypted names are deliberately not exposed to Staff,
+  // so every row - including the authenticated employee's own - gets a
+  // neutral "Staff N" label from one canonical, employee_id-keyed numbering
+  // (Founder P1, 2026-08-13, Contract 1: no "Me" pseudo-name; the
+  // authenticated employee keeps the same stable identity Manager would
+  // reference for them, not a special-cased string). Numbering is derived
+  // from a plain alphabetical sort of every employeeId in the roster -
+  // independent of the self-first display order above and of which week is
+  // open - so a given employee's number never changes across renders.
+  const numberByEmployeeId = new Map(
+    [...employeeIds].sort((a, b) => a.localeCompare(b)).map((id, index) => [id, index + 1]),
+  );
   const staffList = employeeIds.map((id) => ({
     id,
-    name: id === profile.staffId ? t('me') : `${t('staffNumberPrefix')} ${++colleagueNumber}`,
+    name: `${t('staffNumberPrefix')} ${numberByEmployeeId.get(id)}`,
     role: 'staff' as const,
   }));
 

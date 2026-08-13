@@ -99,3 +99,51 @@ test('unassigned/unpublished rows and rows with no employeeId are excluded from 
   const ids = deriveEmployeeIds(assignments, self, ['2026-08-10']);
   assert.deepEqual(ids, [self]);
 });
+
+/**
+ * Founder P1, 2026-08-13, Contract 1 - no "Me" pseudo-name. The authenticated
+ * employee's own row must carry the same "Staff N" identity scheme every
+ * colleague already gets, not a special-cased literal. Mirrors the
+ * `numberByEmployeeId` construction in `preview-staff-schedule.tsx` exactly.
+ */
+function deriveStaffNumbers(employeeIds: string[]): Map<string, number> {
+  return new Map([...employeeIds].sort((a, b) => a.localeCompare(b)).map((id, index) => [id, index + 1]));
+}
+
+test('source no longer contains a "Me" pseudo-name label', () => {
+  assert.doesNotMatch(SOURCE, /t\('me'\)/, 'the authenticated employee\'s row must not use a special-cased "me" label');
+});
+
+test('authenticated employee gets a canonical "Staff N" number, same scheme as colleagues', () => {
+  const self = 'staff-3';
+  const ids = deriveEmployeeIds(
+    [
+      { published: true, employeeId: self, workDate: '2026-08-10' },
+      { published: true, employeeId: 'staff-1', workDate: '2026-08-10' },
+      { published: true, employeeId: 'staff-2', workDate: '2026-08-10' },
+    ],
+    self,
+    ['2026-08-10'],
+  );
+  const numbers = deriveStaffNumbers(ids);
+  assert.equal(numbers.size, 3);
+  for (const id of ids) assert.ok(typeof numbers.get(id) === 'number');
+});
+
+test('numbering is keyed by employee_id, not by self-pinned display position', () => {
+  // Two different authenticated users viewing the exact same underlying
+  // roster must compute the exact same number for any given colleague,
+  // even though each of them pins themselves first in `employeeIds`.
+  const raw = [
+    { published: true, employeeId: 'staff-1', workDate: '2026-08-10' },
+    { published: true, employeeId: 'staff-2', workDate: '2026-08-10' },
+    { published: true, employeeId: 'staff-3', workDate: '2026-08-10' },
+  ];
+  const asStaff1 = deriveEmployeeIds(raw, 'staff-1', ['2026-08-10']);
+  const asStaff3 = deriveEmployeeIds(raw, 'staff-3', ['2026-08-10']);
+  const numbersAsStaff1 = deriveStaffNumbers(asStaff1);
+  const numbersAsStaff3 = deriveStaffNumbers(asStaff3);
+  for (const id of ['staff-1', 'staff-2', 'staff-3']) {
+    assert.equal(numbersAsStaff1.get(id), numbersAsStaff3.get(id), `${id}'s number must not depend on who is viewing`);
+  }
+});

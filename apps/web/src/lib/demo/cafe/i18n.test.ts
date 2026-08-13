@@ -12,7 +12,7 @@ test('tStaff returns a non-empty string for every key in both languages', () => 
   const keys: Parameters<typeof tStaff>[1][] = [
     'clockIn', 'clockOut', 'workStatus', 'statusIdle', 'statusClockedIn', 'shiftTable',
     'all', 'onlyMe', 'workedHours', 'save', 'cancel', 'submit', 'submitPreference',
-    'processing', 'resetTodayClockTest', 'scheduleLoadError', 'me', 'staffNumberPrefix',
+    'processing', 'resetTodayClockTest', 'scheduleLoadError', 'staffNumberPrefix',
     'workReportSubmittedFeedback', 'workReportFormTitle', 'submitting', 'reportConfirmed',
     'correctionSubmittedFeedback', 'correctionFormTitle',
   ];

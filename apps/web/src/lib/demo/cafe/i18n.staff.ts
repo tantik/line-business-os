@@ -83,7 +83,6 @@ interface StaffDict {
   processing: string;
   resetTodayClockTest: string;
   scheduleLoadError: string;
-  me: string;
   staffNumberPrefix: string;
   lockedAfterManagerConfirm: string;
   editableBeforeManagerConfirm: string;
@@ -187,7 +186,6 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     processing: '処理中…',
     resetTodayClockTest: 'テスト用：本日の勤務をリセット',
     scheduleLoadError: 'シフトを読み込めませんでした。時間をおいて再度お試しください。',
-    me: '自分',
     staffNumberPrefix: 'スタッフ',
     lockedAfterManagerConfirm: '店長が確認済みのため変更できません。',
     editableBeforeManagerConfirm: '店長が確認するまでは内容を変更できます。',
@@ -289,7 +287,6 @@ const STAFF_DICT: Record<Lang, StaffDict> = {
     processing: 'Processing…',
     resetTodayClockTest: 'Test: reset today’s clock',
     scheduleLoadError: 'Could not load the schedule. Please try again later.',
-    me: 'Me',
     staffNumberPrefix: 'Staff',
     lockedAfterManagerConfirm: 'Locked — the manager has already confirmed this.',
     editableBeforeManagerConfirm: 'You can still edit this until the manager confirms it.',
