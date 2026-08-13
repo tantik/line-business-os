@@ -8,7 +8,7 @@ import type { ManagerCorrectionSummary } from './manager-view-model';
 /**
  * Staff→Manager live-sync poll interval (Founder P1, 2026-08-13, Contract
  * 3). Deliberately targeted (pending corrections + pending exchanges only,
- * `previewGetManagerTodaySignals`), never a full page/`router.refresh()` -
+ * `previewGetManagerTodaySignals`), never a full page reload/router refresh -
  * meets the ~1-3s propagation target without refreshing Inventory/Staff/
  * Recipes/Schedule state this panel doesn't own.
  */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
@@ -11,6 +11,17 @@ import { previewGetCorrectionRequestsManagerData } from './actions/attendance-ac
 import { badgeStyle, buttonSecondary, mutedText, tableCell, tableHeaderCell } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManager } from '@/lib/demo/cafe/i18n.manager';
+
+/**
+ * Staff→Manager live-sync poll interval (Founder P1, 2026-08-13, Contract
+ * 3). Reuses the existing scoped `previewGetCorrectionRequestsManagerData`
+ * refetch (already used after the manager's own decide action, below) on a
+ * timer too, so a Staff-submitted correction request updates this trigger
+ * button's own count/detail automatically - previously this panel only ever
+ * refreshed after the *manager's* own mutation, never in response to a
+ * Staff-originated change to the same data.
+ */
+const CORRECTION_REQUESTS_POLL_INTERVAL_MS = 2500;
 
 /**
  * Demo/Preview manager UX parity: correction requests surface as a 要確認
@@ -51,6 +62,7 @@ export function PreviewCorrectionRequestsPanel({
   const [decidedRequests, setDecidedRequests] = useState(initialDecidedRequests);
   const staffById = new Map((staff ?? []).map((s) => [s.staffId, s]));
   const attendanceById = new Map((attendance ?? []).map((a) => [a.attendanceId, a]));
+  const inFlightRef = useRef(false);
 
   async function refreshRequests() {
     const result = await previewGetCorrectionRequestsManagerData();
@@ -59,6 +71,27 @@ export function PreviewCorrectionRequestsPanel({
       setDecidedRequests(result.data.decided);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      if (inFlightRef.current || document.visibilityState !== 'visible') return;
+      inFlightRef.current = true;
+      try {
+        const result = await previewGetCorrectionRequestsManagerData();
+        if (cancelled || result.status !== 'success') return;
+        setPendingRequests(result.data.pending);
+        setDecidedRequests(result.data.decided);
+      } finally {
+        inFlightRef.current = false;
+      }
+    };
+    const id = setInterval(poll, CORRECTION_REQUESTS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   return (
     <>
