@@ -83,6 +83,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewGetShiftTypesManagerData',
       'previewGetShiftExchangeManagerData',
       'previewGetCorrectionRequestsManagerData',
+      'previewGetManagerTodaySignals',
     ]),
   ],
   [
@@ -102,6 +103,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
       'previewRecordInventorySessionItem',
       'previewCompleteInventorySession',
       'previewSignOut',
+      'previewGetStaffScheduleWeek',
     ]),
   ],
   [LEGACY_STAFF_ROUTE, new Set()],

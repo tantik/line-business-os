@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
@@ -23,6 +23,15 @@ import { PreviewShiftExchangeRequestForm } from './preview-shift-exchange-reques
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
+import { previewGetStaffScheduleWeek } from './actions/staff-schedule-actions';
+
+/**
+ * Manager→Staff live-sync poll interval (Founder P1, 2026-08-13, Contract
+ * 3). Targeted at the single displayed week only (`previewGetStaffScheduleWeek`),
+ * never the whole page - meets the ~1-3s propagation target without the
+ * "refresh everything every second" pattern the task explicitly rules out.
+ */
+const SCHEDULE_POLL_INTERVAL_MS = 2500;
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -80,6 +89,40 @@ export function PreviewStaffSchedule({
   const todayIso = todayIsoInTimeZone(timeZone);
   const monthlySummary = estimatedEarningsSummary(attendance ?? [], todayIso.slice(0, 7), profile.hourlyWageYen);
 
+  // The full ±8-week assignment window, seeded once from the initial page
+  // load's props (same pattern `PreviewManagerViewChrome`'s
+  // `windowAssignments` already uses). A background poll of just the
+  // currently displayed week (`previewGetStaffScheduleWeek`, below) splices
+  // fresh rows for that week's dates back into this window, so a Manager's
+  // publish becomes visible here without a manual reload.
+  const [windowAssignments, setWindowAssignments] = useState<WorkforceShiftAssignment[]>(assignments ?? []);
+
+  useEffect(() => {
+    if (assignments === null) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const result = await previewGetStaffScheduleWeek(activeWeekOffset);
+        if (cancelled || result.status !== 'success') return;
+        const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
+        setWindowAssignments((prev) => [
+          ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
+          ...result.data.assignments,
+        ]);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(poll, SCHEDULE_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [activeWeekOffset, timeZone, assignments]);
+
   function goToWeek(nextOffset: number) {
     const bounded = Math.max(-8, Math.min(8, nextOffset));
     setActiveWeekOffset(bounded);
@@ -88,7 +131,7 @@ export function PreviewStaffSchedule({
   }
 
   const referencedShiftTypeIds = new Set(
-    (assignments ?? [])
+    windowAssignments
       .filter((item) => {
         if (!item.published || !item.employeeId || !item.shiftTypeId) return false;
         const workDate = utcIsoToLocalDateTime(item.startsAt, timeZone).workDate;
@@ -106,20 +149,27 @@ export function PreviewStaffSchedule({
     isCustom: shiftType.isCustom,
     }));
 
-  // Scoped to the currently displayed week only (same `dates.includes`
-  // pattern `referencedShiftTypeIds` above already uses) - `assignments` is
-  // a preloaded ±8-week window, so without this the roster silently
-  // accumulated every employee who ever had a published assignment anywhere
-  // in that 17-week span (including past/deactivated staff), producing a
-  // colleague count that didn't match Manager's current active-staff list.
+  // Roster derived from the FULL preloaded ±8-week assignment window, not
+  // just the currently displayed week. This used to be scoped to
+  // `dates.includes(workDate)` to keep a deactivated employee's historical
+  // assignments from polluting the roster - but that concern is now handled
+  // at the DB layer instead (api.workforce_shift_assignments already
+  // excludes a deactivated employee's rows for a plain Staff reader, see
+  // 0059_workforce_staff_schedule_active_employee_filter.sql), so
+  // `assignments` here is already roster-safe without a per-week filter.
+  // Scoping this list to the displayed week caused a distinct, worse bug
+  // (Founder P1, 2026-08-13): colleague numbering below is assigned by
+  // iterating this set, so a week-varying set meant the same real colleague
+  // could get a different "Staff #N" number depending on which week
+  // happened to be open, and a colleague with no shift in the displayed
+  // week vanished from the roster entirely - both read as "the schedule
+  // shows the wrong person" under manual comparison against Manager's
+  // stable, week-independent roster. Deriving from the full window instead
+  // makes each colleague's number stable across every week/render.
   const employeeIds = Array.from(
     new Set(
-      (assignments ?? [])
-        .filter((item) => {
-          if (!item.published || !item.employeeId) return false;
-          const workDate = utcIsoToLocalDateTime(item.startsAt, timeZone).workDate;
-          return dates.includes(workDate);
-        })
+      windowAssignments
+        .filter((item) => item.published && item.employeeId)
         .map((item) => item.employeeId!),
     ),
   );
@@ -136,7 +186,7 @@ export function PreviewStaffSchedule({
   }));
 
   const displayAssignments: ShiftAssignment[] = [];
-  for (const assignment of assignments ?? []) {
+  for (const assignment of windowAssignments) {
     if (!assignment.published || !assignment.employeeId) continue;
     const start = utcIsoToLocalDateTime(assignment.startsAt, timeZone);
     if (!dates.includes(start.workDate)) continue;
@@ -148,7 +198,7 @@ export function PreviewStaffSchedule({
   }
 
   const selectedAttendance = (attendance ?? []).find((entry) => entry.workDate === selectedDate) ?? null;
-  const selectedAssignment = (assignments ?? []).find((entry) => {
+  const selectedAssignment = windowAssignments.find((entry) => {
     if (entry.employeeId !== profile.staffId) return false;
     return utcIsoToLocalDateTime(entry.startsAt, timeZone).workDate === selectedDate;
   });
@@ -201,7 +251,7 @@ export function PreviewStaffSchedule({
   }
   for (const exchange of exchanges ?? []) {
     if (!['open', 'accepted'].includes(exchange.status)) continue;
-    const assignment = (assignments ?? []).find((item) => item.assignmentId === exchange.shiftId);
+    const assignment = windowAssignments.find((item) => item.assignmentId === exchange.shiftId);
     if (assignment) attentionCellKeys.add(`${profile.staffId}:${utcIsoToLocalDateTime(assignment.startsAt, timeZone).workDate}`);
   }
 
