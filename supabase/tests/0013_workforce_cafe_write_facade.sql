@@ -144,9 +144,13 @@ select is(
   array[
     'staff_id', 'tenant_id', 'location_id', 'name_encrypted', 'name_hash',
     'position_label', 'employment_type', 'is_active', 'created_at', 'updated_at', 'hourly_wage_yen',
-    'family_name_encrypted', 'given_name_encrypted', 'email_encrypted', 'email_hash', 'notes_encrypted'
+    'family_name_encrypted', 'given_name_encrypted', 'email_encrypted', 'email_hash', 'notes_encrypted',
+    -- 0067_workforce_staff_manage_account_access.sql: a later, separate
+    -- migration. Derived boolean only (user_id is not null) -- still no raw
+    -- user_id/created_by/updated_by.
+    'has_account_access'
   ]::text[],
-  'api.workforce_staff_manage exposes no user_id/created_by/updated_by'
+  'api.workforce_staff_manage exposes no user_id/created_by/updated_by (beyond the derived has_account_access boolean)'
 );
 
 select has_function('api', 'bind_workforce_employee_line_user',

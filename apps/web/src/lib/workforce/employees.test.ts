@@ -72,6 +72,7 @@ test('listWorkforceStaffForManager decrypts name_encrypted server-side', async (
         created_at: '2026-01-01',
         updated_at: '2026-01-01',
         hourly_wage_yen: 1250,
+        has_account_access: false,
       },
     ],
     error: null,
@@ -145,6 +146,7 @@ test('upsertWorkforceEmployee (create, no id) inserts and returns the decrypted 
       created_at: '2026-01-01',
       updated_at: '2026-01-01',
       hourly_wage_yen: 1250,
+      has_account_access: false,
     },
     error: null,
   });
@@ -181,6 +183,7 @@ test('upsertWorkforceEmployee (edit, with id) updates and filters by staff_id', 
       created_at: '2026-01-01',
       updated_at: '2026-01-02',
       hourly_wage_yen: null,
+      has_account_access: true,
     },
     error: null,
   });
