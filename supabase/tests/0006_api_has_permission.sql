@@ -167,7 +167,10 @@ select is(
         -- Staff invitation facade (0065_workforce_employee_invitations_facade.sql):
         -- 1 new view (SELECT + UPDATE, no new grant beyond 0064's own
         -- anticipated authenticated grant), added in a later, separate migration.
-        'workforce_employee_invitations'
+        'workforce_employee_invitations',
+        -- Staff-safe coworker roster (0061_workforce_staff_roster_visibility.sql):
+        -- 1 new read-only view, added in a later, separate migration.
+        'workforce_staff_roster'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

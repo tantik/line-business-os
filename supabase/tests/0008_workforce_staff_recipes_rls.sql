@@ -142,7 +142,7 @@ select is(
   'legacy wf_employees_read/wf_employees_write policies were dropped'
 );
 
--- --- new employees policies exist, and only these three ---------------------
+-- --- new employees policies exist, and only these four ----------------------
 select is(
   (select count(*)::int from pg_policies
     where schemaname = 'workforce' and tablename = 'employees'
@@ -163,8 +163,14 @@ select is(
 );
 select is(
   (select count(*)::int from pg_policies
+    where schemaname = 'workforce' and tablename = 'employees'
+      and policyname = 'wf_employees_coworker_roster_read'),
+  1, 'wf_employees_coworker_roster_read policy exists (0061, Staff-safe coworker roster)'
+);
+select is(
+  (select count(*)::int from pg_policies
     where schemaname = 'workforce' and tablename = 'employees'),
-  3, 'workforce.employees carries exactly the 3 new policies (no leftovers)'
+  4, 'workforce.employees carries exactly the 4 new policies (no leftovers)'
 );
 
 -- --- core.has_permission_in_tenant exists with the hardened EXECUTE posture -
@@ -469,11 +475,15 @@ select ok(
 -- ============================================================================
 
 -- --- self-read ---------------------------------------------------------------
+-- 2, not 1: own row (self-read) + fixture employee 8a300000...002, an active
+-- coworker in the same tenant/location scope, now visible via 0061's
+-- wf_employees_coworker_roster_read policy (Staff-safe coworker roster).
+-- 8a300000...003 (Location B) and 8b300000...001 (Tenant B) remain invisible.
 select is(
   pg_temp.as_auth_count('8a900000-0000-0000-0000-000000000001',
     $q$ select count(*)::int from workforce.employees $q$),
-  1,
-  'employee self-read: sees exactly their own employee row (no staff.* permission held)'
+  2,
+  'employee self-read: sees their own row + in-scope active coworkers (no staff.* permission held)'
 );
 
 -- --- cannot self-update --------------------------------------------------------
