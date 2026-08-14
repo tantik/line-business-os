@@ -67,6 +67,36 @@ export async function listWorkforceEmployeeInvitations(
   }
 }
 
+/**
+ * Single invitation by id, scoped by whatever RLS already grants the caller
+ * (`wf_employee_invitations_self_read`: their own `target_user_id`, or
+ * `wf_employee_invitations_manager_read`: their tenant, if a manager).
+ * Read-only pre-check for the invite-email callback (`auth/accept-invite`)
+ * -- confirms the invitation is still `pending` before routing to
+ * password setup. Never mutates; never itself accepts an invitation.
+ * `null` covers both "no such invitation" and "exists but not visible to
+ * this caller" identically -- RLS already collapses those two cases, and
+ * the callback deliberately doesn't distinguish them further to avoid
+ * leaking which invitation ids exist.
+ */
+export async function getWorkforceEmployeeInvitationById(
+  supabase: SupabaseClient,
+  invitationId: string,
+): Promise<TenantAccessResult<WorkforceEmployeeInvitation | null>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_employee_invitations')
+      .select(SELECT)
+      .eq('invitation_id', invitationId)
+      .maybeSingle();
+    if (error) return mapWorkforceReadError(error, 'read this invitation');
+    return { status: 'success', data: data ? mapRow(data as ApiWorkforceEmployeeInvitationRow) : null };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading this invitation.' };
+  }
+}
+
 /** Self-scoped, any tenant: powers the "you have a pending invitation" banner (RLS: wf_employee_invitations_self_read). */
 export async function listMyPendingWorkforceInvitations(
   supabase: SupabaseClient,
