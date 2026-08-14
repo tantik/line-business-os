@@ -10,6 +10,7 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
+import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -91,6 +92,17 @@ export default async function WorkforceManagerPage({
           </main>
         );
       }
+
+      // Authorization boundary for the Manager operational surface: a plain
+      // Staff (employee-role) tenant member passes `requireTenantContext`
+      // above (they are a valid member) and the module-enabled check, but
+      // must never reach the Manager-only data fetch below. `workforce.staff.manage`
+      // is the existing permission that already governs every other
+      // Manager-only capability in this module -- see `hasManagerAccess`.
+      // Denial happens here, before any Manager-only Supabase read, so no
+      // protected row ever reaches the RSC payload for an unauthorized caller.
+      const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
+      if (!managerAccess) return <UnauthorizedState />;
 
       const { weekOffset: rawWeekOffset } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
