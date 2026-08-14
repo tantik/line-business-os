@@ -227,6 +227,20 @@ test('computeStaffAttentionCellKeys flags a pending correction request and an op
   assert.ok(keys.has('staff-1:2026-08-11'), 'date of the shift under an open exchange must be flagged');
 });
 
+test('computeStaffAttentionCellKeys never flags a coworker\'s open exchange on the caller\'s own dashboard (Founder QA 2026-08-14: listShiftExchanges is location-wide, not self-scoped)', () => {
+  const keys = computeStaffAttentionCellKeys(
+    [],
+    [shiftExchange({ shiftId: 'assignment-coworker', status: 'open' })],
+    [
+      assignment({ assignmentId: 'assignment-coworker', employeeId: 'staff-2', startsAt: '2026-08-15T00:00:00.000Z' }),
+      assignment({ assignmentId: 'assignment-mine', employeeId: 'staff-1', startsAt: '2026-08-15T00:00:00.000Z' }),
+    ],
+    'staff-1',
+    'UTC',
+  );
+  assert.equal(keys.size, 0, 'a coworker\'s exchange on a different assignment must not flag the caller\'s own same-date cell');
+});
+
 test('computeStaffAttentionCellKeys ignores an approved/rejected correction and a cancelled/rejected exchange', () => {
   const keys = computeStaffAttentionCellKeys(
     [shiftRequest({ workDate: '2026-08-10', kind: 'correction', status: 'approved' })],

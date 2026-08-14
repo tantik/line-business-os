@@ -178,7 +178,9 @@ export function computeStaffAttentionCellKeys(
   for (const exchange of exchanges) {
     if (exchange.status !== 'open' && exchange.status !== 'accepted') continue;
     const assignment = windowAssignments.find((item) => item.assignmentId === exchange.shiftId);
-    if (assignment) attentionCellKeys.add(`${ownStaffId}:${utcIsoToLocalDateTime(assignment.startsAt, timeZone).workDate}`);
+    if (assignment && assignment.employeeId === ownStaffId) {
+      attentionCellKeys.add(`${ownStaffId}:${utcIsoToLocalDateTime(assignment.startsAt, timeZone).workDate}`);
+    }
   }
   return attentionCellKeys;
 }
