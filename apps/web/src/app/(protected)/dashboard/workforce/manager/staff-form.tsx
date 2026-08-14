@@ -45,6 +45,18 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
         <input style={input} name="name" defaultValue={employee?.name ?? ''} maxLength={120} required />
       </label>
       <label>
+        <span style={{ ...mutedText, fontSize: 13 }}>Family name</span>
+        <input style={input} name="familyName" defaultValue={employee?.familyName ?? ''} maxLength={80} required />
+      </label>
+      <label>
+        <span style={{ ...mutedText, fontSize: 13 }}>Given name</span>
+        <input style={input} name="givenName" defaultValue={employee?.givenName ?? ''} maxLength={80} required />
+      </label>
+      <label>
+        <span style={{ ...mutedText, fontSize: 13 }}>Email</span>
+        <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
+      </label>
+      <label>
         <span style={{ ...mutedText, fontSize: 13 }}>Position</span>
         <input style={input} name="positionLabel" defaultValue={employee?.positionLabel ?? ''} maxLength={60} />
       </label>
