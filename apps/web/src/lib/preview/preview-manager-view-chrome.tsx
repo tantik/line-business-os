@@ -7,7 +7,7 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { todayIsoInTimeZone } from '@/app/(protected)/dashboard/workforce/_ui/workforce-theme';
+import { todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { PreviewShiftGrid } from './preview-shift-grid';
 import { PreviewScheduleCardActions } from './preview-schedule-card-actions';
 import { previewGetScheduleWeek } from './actions/schedule-actions';

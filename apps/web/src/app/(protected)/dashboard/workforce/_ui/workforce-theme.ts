@@ -1,6 +1,12 @@
 import type { CSSProperties } from 'react';
 import { badgeStyle, card, colors } from '@/lib/ui/theme';
 
+// Re-exported for existing call sites in this dashboard tree; the canonical
+// implementation now lives in `@/lib/workforce/timezone.ts` (shared with the
+// `_client-preview` surface). New call sites should import it from there
+// directly rather than from this dashboard-page-scoped module.
+export { todayIsoInTimeZone } from '@/lib/workforce/timezone';
+
 /**
  * Workforce-scoped visual helpers layered on top of `@/lib/ui/theme`.
  *
@@ -60,11 +66,6 @@ export function shiftChipStyle(tone: { background: string; color: string }): CSS
     fontSize: 12,
     fontWeight: 600,
   };
-}
-
-/** Today's date as `YYYY-MM-DD` in the given IANA time zone -- display-only, for highlighting the current row in a table. */
-export function todayIsoInTimeZone(timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 }
 
 const CORRECTION_STATUS_LABELS: Record<string, string> = {
