@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceEmployeeLineLink } from '@/lib/workforce/employee-line-links';
+import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
@@ -41,6 +42,7 @@ import { describeWriteError } from './error-copy';
 import { StaffForm } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { ShiftCellEditor } from './shift-cell-editor';
+import { InvitationCell } from './invitation-cell';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,
@@ -75,6 +77,7 @@ export interface ManagerDashboardClientProps {
   assignments: WorkforceShiftAssignment[] | null;
   correctionRequests: WorkforceShiftRequest[] | null;
   attendance: WorkforceAttendance[] | null;
+  invitations: WorkforceEmployeeInvitation[] | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -98,6 +101,7 @@ export function ManagerDashboardClient({
   assignments,
   correctionRequests,
   attendance,
+  invitations,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -123,6 +127,19 @@ export function ManagerDashboardClient({
     () => new Map((lineLinks ?? []).filter((l) => l.isActive).map((l) => [l.employeeId, true])),
     [lineLinks],
   );
+  // At most one PENDING row per employee (DB-enforced, 0064); when none is
+  // pending, show the most recently updated row (e.g. a past revoke) so
+  // Revoke/Resend history stays visible instead of silently vanishing.
+  const latestInvitationByEmployeeId = useMemo(() => {
+    const map = new Map<string, WorkforceEmployeeInvitation>();
+    for (const inv of invitations ?? []) {
+      const existing = map.get(inv.employeeId);
+      if (!existing || inv.status === 'pending' || (existing.status !== 'pending' && inv.updatedAt > existing.updatedAt)) {
+        map.set(inv.employeeId, inv);
+      }
+    }
+    return map;
+  }, [invitations]);
   const attendanceById = useMemo(
     () => new Map((attendance ?? []).map((a) => [a.attendanceId, a])),
     [attendance],
@@ -338,6 +355,7 @@ export function ManagerDashboardClient({
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Employment type</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>LINE</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>アクセス</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
               </tr>
             </thead>
@@ -346,7 +364,7 @@ export function ManagerDashboardClient({
                 if (editingStaffId === s.staffId) {
                   return (
                     <tr key={s.staffId}>
-                      <td colSpan={6} style={tableCell}>
+                      <td colSpan={7} style={tableCell}>
                         <StaffForm
                           locationId={locationId}
                           employee={s}
@@ -374,6 +392,14 @@ export function ManagerDashboardClient({
                         employeeId={s.staffId}
                         isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
                         onSuccess={() => router.refresh()}
+                      />
+                    </td>
+                    <td style={tableCell}>
+                      <InvitationCell
+                        hasAccountAccess={s.hasAccountAccess}
+                        employeeId={s.staffId}
+                        invitation={latestInvitationByEmployeeId.get(s.staffId) ?? null}
+                        onChange={() => router.refresh()}
                       />
                     </td>
                     <td style={tableCell}>

@@ -123,6 +123,11 @@ select is(
         )
         or (table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
         or (table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
+        or (
+          -- 0064_workforce_employee_invitations.sql: a later, separate migration.
+          table_name = 'employee_invitations'
+          and privilege_type in ('SELECT', 'UPDATE')
+        )
       )),
   0,
   'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation + 0034''s schedule_settings grant, before this file''s own test-only grants'

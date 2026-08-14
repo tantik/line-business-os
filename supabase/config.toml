@@ -44,3 +44,15 @@ enable_signup = true
 
 [auth.external.line]
 enabled = false
+
+# STAFF_AUTH_PROVISIONING: the ONLY function in this repo that holds
+# service_role (Founder decision 9, docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-08-13.md).
+# verify_jwt = true (the default) is kept explicit: the platform gateway
+# rejects an unauthenticated call before the function body ever runs, and the
+# function itself additionally re-derives the caller's identity from that
+# same JWT for its own Manager-permission check -- defense in depth, not
+# duplication. Local secrets (functions/.env, gitignored): SITE_URL should
+# match [auth] site_url above; PII_ENCRYPTION_KEY must match apps/web's own
+# PII_ENCRYPTION_KEY so decryption of an employee's email succeeds.
+[functions.invite-employee]
+verify_jwt = true

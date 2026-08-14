@@ -5,6 +5,7 @@ import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
+import { listWorkforceEmployeeInvitations } from '@/lib/workforce/invitations';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
@@ -105,6 +106,7 @@ export default async function WorkforceManagerPage({
         assignmentsResult,
         correctionRequestsResult,
         attendanceResult,
+        invitationsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -113,6 +115,7 @@ export default async function WorkforceManagerPage({
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listAttendanceForManager(supabase, activeTenant.tenantId),
+        listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
       ]);
 
       return (
@@ -143,6 +146,7 @@ export default async function WorkforceManagerPage({
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
             attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
+            invitations={invitationsResult.status === 'success' ? invitationsResult.data : null}
           />
         </main>
       );
