@@ -44,6 +44,7 @@ interface ApiWorkforceStaffManageRow {
   created_at: string;
   updated_at: string;
   hourly_wage_yen: number | null;
+  has_account_access: boolean;
 }
 
 /** Manager-facing staff entry with the name already decrypted server-side. Never re-serialize `nameEncrypted`/`nameHash` back to a client. */
@@ -62,6 +63,8 @@ export interface WorkforceStaffManageEntry {
   createdAt: string;
   updatedAt: string;
   hourlyWageYen: number | null;
+  /** Derived boolean only (0067) -- never the raw user id. True once this employee's workforce.employees.user_id is bound (accepted an invitation). */
+  hasAccountAccess: boolean;
   /**
    * True when this employee has any shift/attendance/request/exchange row,
    * mirroring the exact guard `workforce.permanently_delete_employee`
@@ -111,7 +114,7 @@ async function getEmployeeIdsWithProtectedHistory(
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
 const MANAGE_SELECT =
-  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen';
+  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen, has_account_access';
 
 function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDirectoryEntry {
   return {
@@ -141,6 +144,7 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     hourlyWageYen: row.hourly_wage_yen,
+    hasAccountAccess: row.has_account_access,
     hasProtectedHistory,
   };
 }

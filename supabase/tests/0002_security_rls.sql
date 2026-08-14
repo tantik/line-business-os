@@ -191,6 +191,15 @@ select is(
         )
         or (table_schema = 'workforce' and table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
         or (table_schema = 'workforce' and table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
+        or (
+          -- 0064_workforce_employee_invitations.sql: a later, separate migration.
+          -- No INSERT grant at all -- every row is written by a service_role
+          -- caller (Edge Function) or the SECURITY DEFINER accept RPC, never
+          -- directly by `authenticated`.
+          table_schema = 'workforce'
+          and table_name = 'employee_invitations'
+          and privilege_type in ('SELECT', 'UPDATE')
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
@@ -301,6 +310,11 @@ select is(
         )
         or (table_name = 'recipes' and privilege_type in ('INSERT', 'UPDATE'))
         or (table_name in ('recipe_ingredients', 'recipe_steps', 'recipe_notes') and privilege_type in ('INSERT', 'UPDATE', 'DELETE'))
+        or (
+          -- 0064_workforce_employee_invitations.sql: a later, separate migration.
+          table_name = 'employee_invitations'
+          and privilege_type in ('SELECT', 'UPDATE')
+        )
       )),
   0,
   'authenticated has no workforce grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'

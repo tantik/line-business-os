@@ -163,7 +163,11 @@ select is(
         'content_translations',
         -- Cafe v2 Final Improvements (0044/0045).
         'workforce_shift_exchanges',
-        'inventory_check_sessions', 'inventory_check_session_items'
+        'inventory_check_sessions', 'inventory_check_session_items',
+        -- Staff invitation facade (0065_workforce_employee_invitations_facade.sql):
+        -- 1 new view (SELECT + UPDATE, no new grant beyond 0064's own
+        -- anticipated authenticated grant), added in a later, separate migration.
+        'workforce_employee_invitations'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'
