@@ -7,8 +7,10 @@ import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
+import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
-import { getWeekPeriod } from '@/lib/workforce/period';
+import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   ErrorState,
@@ -76,6 +78,17 @@ export default async function WorkforceStaffPage({
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
 
+      // `inventory` is a separate top-level module (ADR 0010) from `workforce`
+      // -- re-uses the already-fetched `modulesResult` rather than a second
+      // `listTenantModules` call. Gates only whether the Inventory
+      // entry-point card below renders; the real Inventory page/RLS remain
+      // the authorization boundary regardless of this flag.
+      const inventoryEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
+        );
+
       // Resolved before anything else: a caller with no `workforce.employees`
       // row has nothing else on this page to show, and no location/period is
       // needed to say so.
@@ -128,27 +141,55 @@ export default async function WorkforceStaffPage({
       const { weekOffset: rawWeekOffset } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
-      const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
-      const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
-      const [shiftTypesResult, requestsResult, assignmentsResult, attendanceResult, correctionRequestsResult] =
-        await Promise.all([
-          listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-          listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
-          listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
-          listMyAttendance(supabase, activeTenant.tenantId),
-          listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
-        ]);
+      // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
+      // week), tenant/location-wide (every employee, not just the caller) --
+      // mirrors `_client-preview`'s `mame-to-cha/page.tsx` initial load, so
+      // the coworker-roster/self-pin view below has a stable, week-independent
+      // roster instead of one that changes shape as the caller navigates
+      // weeks. Other employees' shift rows are read here only to build this
+      // roster/schedule grid; RLS on `api.workforce_shift_assignments` still
+      // enforces that a plain Staff reader only ever sees `published` rows,
+      // never a manager's draft.
+      const assignmentWindow = getWeekOffsetWindow(new Date().toISOString(), location.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
+      const assignmentFromIso = localDateTimeToUtcIso(assignmentWindow.periodStart, '00:00', location.timezone);
+      const assignmentToIsoExclusive = localDateTimeToUtcIso(addIsoDays(assignmentWindow.periodEnd, 1), '00:00', location.timezone);
+
+      const [
+        shiftTypesResult,
+        requestsResult,
+        assignmentsResult,
+        attendanceResult,
+        correctionRequestsResult,
+        exchangesResult,
+        inventoryItemsResult,
+      ] = await Promise.all([
+        listWorkforceShiftTypes(supabase, activeTenant.tenantId),
+        listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
+        listShiftAssignments(supabase, activeTenant.tenantId, {
+          fromIso: assignmentFromIso,
+          toIsoExclusive: assignmentToIsoExclusive,
+        }),
+        listMyAttendance(supabase, activeTenant.tenantId),
+        listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
+        listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
+        // Read-only, for the shortage-aware entry-point card below -- the
+        // actual Inventory catalog/count-entry UI is not duplicated here; it
+        // stays on its own canonical `/dashboard/inventory` page (shared
+        // Staff+Manager, RLS-scoped), which this card links to.
+        inventoryEnabled
+          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
+      ]);
 
       // `listShiftAssignments` is shared with the manager view and returns
-      // every employee's rows at this location -- narrow to the caller's own
-      // published shifts here, server-side, before anything is sent to the
-      // browser. RLS already limits staff to published rows tenant-wide; this
-      // is the employee-id narrowing on top of that, done before the network
-      // boundary rather than after it.
-      const myPublishedAssignments =
+      // every employee's rows at this location -- narrow to this location and
+      // to published rows here, server-side, before anything is sent to the
+      // browser (the roster/self-pin view needs every published employee row,
+      // not just the caller's own, unlike the previous self-only table).
+      const locationAssignments =
         assignmentsResult.status === 'success'
-          ? assignmentsResult.data.filter((a) => a.published && a.employeeId === profile.staffId)
+          ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
           : null;
 
       return (
@@ -169,9 +210,12 @@ export default async function WorkforceStaffPage({
             profile={profile}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
-            assignments={myPublishedAssignments}
+            assignments={locationAssignments}
             attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
+            exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
+            inventoryEnabled={inventoryEnabled}
+            inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
           />
         </main>
       );

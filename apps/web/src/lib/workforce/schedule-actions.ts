@@ -18,6 +18,7 @@ import {
   type WorkforceShiftAssignment,
 } from './shift-assignments';
 import { autoDistribute, type AutoDistributeEmployee, type AutoDistributePreference } from './auto-distribute';
+import { getWeekPeriod } from './period';
 import { addIsoDays, localDateTimeToUtcIso } from './timezone';
 import {
   parseCreateShiftAssignmentInput,
@@ -42,6 +43,59 @@ import type { RunAutoDistributionActionResult } from './schedule-types';
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
 const NO_STAFF_PROFILE_RESULT = { status: 'unexpected_error', message: 'You have no staff profile in this tenant.' } as const;
+
+export interface MyScheduleWeek {
+  periodStart: string;
+  periodEnd: string;
+  weekOffset: number;
+  assignments: WorkforceShiftAssignment[];
+}
+
+/** Sanity cap on how far a staff member can navigate the weekly view, matching `staff/page.tsx`'s own `MAX_WEEK_OFFSET`. */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
+
+/**
+ * Staff-only: re-read one week's PUBLISHED shift assignments for the
+ * caller's own resolved location, tenant-wide (every employee at that
+ * location, not just the caller's own rows) -- the canonical Staff
+ * dashboard's coworker-roster/self-pin/all-only-me schedule view needs the
+ * full roster's published shifts, the same shape `_client-preview`'s
+ * `previewGetStaffScheduleWeek` already returns. Live-sync poll target
+ * (Manager -> Staff propagation) deliberately scoped to exactly one week
+ * (never the caller's full multi-week window) so a background poll stays a
+ * small, targeted query.
+ */
+export async function getMyScheduleWeek(weekOffset: number): Promise<WorkforceWriteResult<MyScheduleWeek>> {
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  const myProfile = await getMyWorkforceStaffProfile(supabase, tenantId);
+  if (myProfile.status !== 'success') return myProfile;
+  if (!myProfile.data) return NO_STAFF_PROFILE_RESULT;
+
+  const locationsResult = await listTenantLocations(supabase);
+  if (locationsResult.status !== 'success') return locationsResult;
+  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === myProfile.data!.locationId);
+  if (!location) return { status: 'not_found' };
+
+  const rawOffset = Number.isInteger(weekOffset) ? weekOffset : 0;
+  const clampedOffset = Math.max(MIN_WEEK_OFFSET, Math.min(MAX_WEEK_OFFSET, rawOffset));
+
+  const nowIso = new Date().toISOString();
+  const { periodStart, periodEnd } = getWeekPeriod(nowIso, location.timezone, clampedOffset);
+  const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
+  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
+
+  const result = await listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive });
+  if (result.status !== 'success') return result;
+
+  const publishedAssignments = result.data.filter((a) => a.published && a.locationId === location.locationId);
+  return { status: 'success', data: { periodStart, periodEnd, weekOffset: clampedOffset, assignments: publishedAssignments } };
+}
 
 export async function submitShiftPreference(formData: FormData): Promise<WorkforceWriteResult<WorkforceShiftRequest>> {
   const input = parseSubmitShiftPreferenceInput(formData);
