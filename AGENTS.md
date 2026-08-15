@@ -17,18 +17,22 @@ Read these in order before changing anything:
 1. `AGENTS.md` — operating rules (this file).
 2. `docs/ai/oaes-project-profile.md` — how OAES is applied in this repository.
 3. `docs/ai/current-task.md` — the current verified stage and next gate.
-4. `PROJECT_BRIEF.md` — high-level project strategy and context.
-5. `README.md` — repository overview and getting started.
-6. `.cursor/rules/*` — machine-enforced guardrails.
-7. `docs/architecture/*` — architecture detail.
-8. `docs/security/*` — security requirements.
-9. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
+4. `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` — for Claude Code
+   sessions: mission sizing, autonomy boundaries, context management,
+   subagent use, evidence discipline, and the mission/handoff/completion-report
+   formats. Adds no new engineering rules.
+5. `PROJECT_BRIEF.md` — high-level project strategy and context.
+6. `README.md` — repository overview and getting started.
+7. `.cursor/rules/*` — machine-enforced guardrails.
+8. `docs/architecture/*` — architecture detail.
+9. `docs/security/*` — security requirements.
+10. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
    already contains, the scaffold-only module schemas, local-first flow, and
    cloud safety guardrails.
-10. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
+11. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
    prepares a separate Supabase Cloud dev project (placeholders only; Cloud
    writes are approval-gated).
-11. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
+12. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
    app-layer foundation for authenticated multi-tenant access (Supabase Auth,
    tenant context, protected routes, RLS). Planning only — no product features.
 
