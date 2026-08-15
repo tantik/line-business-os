@@ -82,3 +82,20 @@ export function correctionStatusLabel(status: string): string {
 export function correctionStatusBadgeStyle(status: string): CSSProperties {
   return badgeStyle(status === 'approved' ? 'active' : status === 'rejected' ? 'inactive' : 'neutral');
 }
+
+const EXCHANGE_STATUS_LABELS: Record<string, string> = {
+  open: 'Open',
+  accepted: 'Accepted',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+};
+
+/** Display-only friendlier label for a raw shift-exchange status value; does not change the underlying value. */
+export function exchangeStatusLabel(status: string): string {
+  return EXCHANGE_STATUS_LABELS[status] ?? status;
+}
+
+export function exchangeStatusBadgeStyle(status: string): CSSProperties {
+  return badgeStyle(status === 'approved' ? 'active' : status === 'rejected' || status === 'cancelled' ? 'inactive' : 'neutral');
+}

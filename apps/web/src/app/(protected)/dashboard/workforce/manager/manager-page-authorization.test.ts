@@ -39,3 +39,14 @@ test('the manager-access gate runs after location resolution (workforce.staff.ma
   const gateIndex = SOURCE.indexOf('hasManagerAccess(supabase, activeTenant.tenantId, location.locationId)');
   assert.ok(locationIndex !== -1 && gateIndex !== -1 && locationIndex < gateIndex);
 });
+
+test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {
+  const gateIndex = SOURCE.indexOf('const managerAccess = await hasManagerAccess(');
+  const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");
+  const exchangeFetchIndex = SOURCE.indexOf('listShiftExchanges(supabase, activeTenant.tenantId, location.locationId)');
+  assert.ok(exchangeFetchIndex !== -1, 'expected a listShiftExchanges(supabase, activeTenant.tenantId, location.locationId) call in the Manager page');
+  assert.ok(
+    gateIndex < denyIndex && denyIndex < exchangeFetchIndex,
+    'no shift-exchange row (which can include another employee\'s reason text) may reach an unauthorized caller\'s RSC payload',
+  );
+});

@@ -10,10 +10,13 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
+import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
+import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
   alertDanger,
@@ -32,6 +35,8 @@ import {
   buttonDanger,
   correctionStatusBadgeStyle,
   correctionStatusLabel,
+  exchangeStatusBadgeStyle,
+  exchangeStatusLabel,
   primaryCard,
   shiftChipColors,
   shiftChipStyle,
@@ -78,6 +83,8 @@ export interface ManagerDashboardClientProps {
   correctionRequests: WorkforceShiftRequest[] | null;
   attendance: WorkforceAttendance[] | null;
   invitations: WorkforceEmployeeInvitation[] | null;
+  shiftExchanges: WorkforceShiftExchange[] | null;
+  exchangeAssignments: WorkforceShiftAssignment[] | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -102,6 +109,8 @@ export function ManagerDashboardClient({
   correctionRequests,
   attendance,
   invitations,
+  shiftExchanges,
+  exchangeAssignments,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -156,6 +165,27 @@ export function ManagerDashboardClient({
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .slice(0, 10),
     [correctionRequests],
+  );
+
+  // 'open' (no candidate yet, or a plain change/cancel request) and
+  // 'accepted' (a colleague has taken an exchange, awaiting Manager
+  // decision) are the two states a Manager can act on -- mirrors
+  // `PreviewShiftExchangeManagerPanel`'s `relevant` filter.
+  const pendingExchanges = useMemo(
+    () => (shiftExchanges ?? []).filter((e) => e.status === 'open' || e.status === 'accepted'),
+    [shiftExchanges],
+  );
+  const decidedExchanges = useMemo(
+    () =>
+      (shiftExchanges ?? [])
+        .filter((e) => e.status === 'approved' || e.status === 'rejected' || e.status === 'cancelled')
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 10),
+    [shiftExchanges],
+  );
+  const exchangeAssignmentById = useMemo(
+    () => new Map((exchangeAssignments ?? []).map((a) => [a.assignmentId, a])),
+    [exchangeAssignments],
   );
 
   const localAssignments = useMemo(
@@ -284,6 +314,24 @@ export function ManagerDashboardClient({
       const result = await decideCorrectionRequest(formData);
       if (result.status === 'success') {
         setBanner({ tone: 'success', message: decision === 'approved' ? 'Correction approved.' : 'Correction rejected.' });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setPendingAction(null);
+    });
+  }
+
+  function handleDecideExchange(exchangeId: string, decision: 'approved' | 'rejected') {
+    setBanner(null);
+    setPendingAction(`decide-exchange-${exchangeId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('exchangeId', exchangeId);
+      formData.set('decision', decision);
+      const result = await decideShiftExchange(formData);
+      if (result.status === 'success') {
+        setBanner({ tone: 'success', message: decision === 'approved' ? 'Shift exchange approved.' : 'Shift exchange rejected.' });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -758,6 +806,120 @@ export function ManagerDashboardClient({
                           <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                           <td style={tableCell}>
                             <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status)}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section style={card}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>Shift exchange requests</h2>
+        {shiftExchanges === null ? (
+          <p style={{ margin: '8px 0 0', ...mutedText }}>Shift exchange requests are temporarily unavailable.</p>
+        ) : (
+          <>
+            <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Needs action
+            </p>
+            {pendingExchanges.length === 0 ? (
+              <p style={{ margin: '8px 0 0', ...mutedText }}>No pending shift exchange requests.</p>
+            ) : (
+              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Requester</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Shift</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Request</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Reason</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingExchanges.map((e) => {
+                    const deciding = pendingAction === `decide-exchange-${e.exchangeId}`;
+                    const shift = exchangeAssignmentById.get(e.shiftId);
+                    const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
+                    const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
+                    const replacementName = e.replacementEmployeeId
+                      ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId
+                      : null;
+                    const requestedType = shiftTypes?.find((t) => t.shiftTypeId === e.requestedShiftTypeId);
+                    const requestLabel =
+                      e.requestKind === 'cancel' ? 'Cancellation' : e.requestKind === 'change' ? 'Shift change' : 'Exchange';
+                    // Mirrors `PreviewShiftExchangeManagerPanel`'s `canApprove`: an
+                    // 'exchange' request has nothing to approve into until a
+                    // colleague has accepted it (replacementEmployeeId set); the
+                    // RPC itself also rejects an approve without one.
+                    const canApprove = e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId);
+                    return (
+                      <tr key={e.exchangeId}>
+                        <td style={tableCell}>{requesterName}</td>
+                        <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
+                        <td style={tableCell}>
+                          {requestLabel}
+                          {e.requestKind === 'exchange' ? ` → ${replacementName ?? 'awaiting candidate'}` : ''}
+                          {e.requestKind === 'change' && requestedType
+                            ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})`
+                            : ''}
+                        </td>
+                        <td style={tableCell}>{e.reason}</td>
+                        <td style={tableCell}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              style={isPending || !canApprove ? buttonDisabled : buttonPrimary}
+                              disabled={isPending || !canApprove}
+                              onClick={() => handleDecideExchange(e.exchangeId, 'approved')}
+                            >
+                              {deciding ? 'Saving...' : 'Approve'}
+                            </button>
+                            <button
+                              type="button"
+                              style={isPending ? buttonDisabled : buttonSecondary}
+                              disabled={isPending}
+                              onClick={() => handleDecideExchange(e.exchangeId, 'rejected')}
+                            >
+                              {deciding ? 'Saving...' : 'Reject'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {decidedExchanges.length > 0 ? (
+              <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>Recently decided</h3>
+                <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Requester</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Shift</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Reason</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decidedExchanges.map((e) => {
+                      const shift = exchangeAssignmentById.get(e.shiftId);
+                      const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
+                      const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
+                      return (
+                        <tr key={e.exchangeId}>
+                          <td style={tableCell}>{requesterName}</td>
+                          <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
+                          <td style={tableCell}>{e.reason}</td>
+                          <td style={tableCell}>
+                            <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status)}</span>
                           </td>
                         </tr>
                       );
