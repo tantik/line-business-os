@@ -7,6 +7,7 @@ import {
   acceptShiftExchange,
   cancelShiftExchange as cancelShiftExchangeWrite,
   createShiftExchange,
+  decideShiftExchange as decideShiftExchangeWrite,
   listShiftExchanges,
   type ShiftRequestKind,
   type WorkforceShiftExchange,
@@ -14,16 +15,22 @@ import {
 import type { WorkforceWriteResult } from './result-types';
 
 /**
- * Staff-side Server Actions for the shift-exchange/change/cancel workflow --
- * canonical-dashboard counterpart to `_client-preview`'s
- * `lib/preview/actions/shift-exchange-actions.ts`, ported to consolidate
- * this Cafe v2.1 capability into the canonical Staff app rather than leaving
- * it preview-only. Wraps the already-shared backend (`shift-exchanges.ts`);
- * `employeeId`/`locationId` are always the server-resolved, self-bound
- * values from the caller's own tenant context -- never accepted from
- * `formData`. RLS on `api.workforce_shift_exchanges` remains the real
- * authorization boundary; this module adds no separate permission check
- * beyond resolving the caller's own identity server-side.
+ * Server Actions for the shift-exchange/change/cancel workflow -- canonical-
+ * dashboard counterpart to `_client-preview`'s
+ * `lib/preview/actions/shift-exchange-actions.ts` /
+ * `shift-exchange-manager-actions.ts`, ported to consolidate this Cafe v2.1
+ * capability into the canonical app rather than leaving it preview-only.
+ * Wraps the already-shared backend (`shift-exchanges.ts`). The staff-side
+ * actions always use the server-resolved, self-bound `employeeId`/
+ * `locationId` from the caller's own tenant context -- never accepted from
+ * `formData`. `decideShiftExchange` (Manager) adds no separate app-level
+ * permission check, same as `decideCorrectionRequest` in
+ * `attendance-actions.ts`: `api.decide_workforce_shift_exchange`
+ * (0050_workforce_shift_change_requests.sql) already re-checks
+ * `workforce.request.manage` and the row's decidable status inside its own
+ * transaction, and RLS (`wf_shift_exchanges_manage`) is the redundant
+ * defense-in-depth layer beneath that. RLS remains the real authorization
+ * boundary for every action in this module.
  */
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
@@ -95,4 +102,18 @@ export async function acceptColleagueShiftExchange(exchangeId: string): Promise<
   const context = await resolveMyExchangeContext();
   if (context.status !== 'ok') return context.result;
   return acceptShiftExchange(context.supabase, exchangeId);
+}
+
+/** Manager decision (approve/reject) on a shift-exchange/change/cancel request. RLS (`wf_shift_exchanges_manage`) and the RPC's own `workforce.request.manage` check are the authorization boundary -- see module doc comment. */
+export async function decideShiftExchange(formData: FormData): Promise<WorkforceWriteResult<{ exchangeId: string }>> {
+  const exchangeId = formData.get('exchangeId');
+  const decision = formData.get('decision');
+  if (typeof exchangeId !== 'string' || !exchangeId) return INVALID_INPUT_RESULT;
+  if (decision !== 'approved' && decision !== 'rejected') return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return decideShiftExchangeWrite(supabase, exchangeId, decision);
 }

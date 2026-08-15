@@ -10,8 +10,9 @@ import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
+import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
-import { getWeekPeriod } from '@/lib/workforce/period';
+import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
   ErrorState,
@@ -110,6 +111,16 @@ export default async function WorkforceManagerPage({
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
 
+      // Shift-exchange requests can reference a shift outside the currently
+      // viewed week (the manager may be looking at a different weekOffset
+      // than the one the request's shift falls in), so the shift lookup for
+      // the exchange panel reads the same bounded -8..+8 week window the
+      // page's own navigator allows, not just the current week -- mirrors
+      // `_client-preview`'s `previewGetShiftExchangeManagerData` window.
+      const exchangeWindow = getWeekOffsetWindow(new Date().toISOString(), location.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
+      const exchangeFromIso = localDateTimeToUtcIso(exchangeWindow.periodStart, '00:00', location.timezone);
+      const exchangeToIsoExclusive = localDateTimeToUtcIso(addIsoDays(exchangeWindow.periodEnd, 1), '00:00', location.timezone);
+
       const [
         staffResult,
         lineLinksResult,
@@ -119,6 +130,8 @@ export default async function WorkforceManagerPage({
         correctionRequestsResult,
         attendanceResult,
         invitationsResult,
+        shiftExchangesResult,
+        exchangeAssignmentsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -128,6 +141,8 @@ export default async function WorkforceManagerPage({
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listAttendanceForManager(supabase, activeTenant.tenantId),
         listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
+        listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
+        listShiftAssignments(supabase, activeTenant.tenantId, { fromIso: exchangeFromIso, toIsoExclusive: exchangeToIsoExclusive }),
       ]);
 
       return (
@@ -159,6 +174,8 @@ export default async function WorkforceManagerPage({
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
             attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
             invitations={invitationsResult.status === 'success' ? invitationsResult.data : null}
+            shiftExchanges={shiftExchangesResult.status === 'success' ? shiftExchangesResult.data : null}
+            exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
           />
         </main>
       );
