@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.0.0 |
+| Version | 1.1.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-08-15 |
+| Last Updated | 2026-08-15 (v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -272,13 +272,15 @@ list for fast reference and are consistent with both.
 
 ### Bounded delivery autonomy for approved missions
 
-`oaes-project-profile.md`'s "Authority boundaries" list, quoted above,
-bundles "commit, push, PR, merge, force-push, history rewrite, branch/data
-deletion" together as all requiring approval. That wording predates the
-Cafe v2.1 pilot and has not itself been edited to reflect it — recorded here
-as a **legacy operating-model conflict** (Authority rule above), not
-silently allowed to defeat the Founder-approved model that superseded it in
-practice.
+`oaes-project-profile.md`'s "Authority boundaries" list previously bundled
+"commit, push, PR, merge, force-push, history rewrite, branch/data deletion"
+together as all requiring approval, predating the Cafe v2.1 pilot. **As of
+Phase 2A of the ORUWA AI Governance Consolidation mission
+(`docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`), this is resolved**:
+`oaes-project-profile.md` and `docs/foundation/oruwa-engineering-principles-and-governance.md`
+§7.5 (v1.0.2) now both state the split below directly, so this section no
+longer describes a live conflict — it is kept here as the authoritative
+statement of the grant itself, not as a flagged inconsistency.
 
 The Founder has approved the pilot's autonomous delivery model as "the
 default direction for ORUWA engineering" (this document's originating
@@ -526,16 +528,20 @@ recorded, not silently resolved by this document:
    propagate to the others. §9 designates two as canonical for new writing,
    but does not edit or remove the other seven-plus — that is a larger
    documentation-consolidation mission of its own.
-4. **`docs/ai/oaes-project-profile.md` "Authority boundaries" bundles
-   commit/push/PR-creation together with merge/force-push/history-rewrite as
-   all requiring approval.** That wording predates the Cafe v2.1 pilot. Per
-   the Authority rule above, the Founder Decision approving the pilot's
-   bounded delivery autonomy (§9) now governs feature-branch
-   commit/push/PR-open-or-update within an explicitly authorized Standard
-   mission;
-   `oaes-project-profile.md`'s own text has not been edited to reflect this
-   and should be refreshed in a future Founder-reviewed edit rather than
-   left to silently conflict with §9.
+4. **RESOLVED (Phase 2A, 2026-08-15).** `docs/ai/oaes-project-profile.md`
+   "Authority boundaries" previously bundled commit/push/PR-creation together
+   with merge/force-push/history-rewrite as all requiring approval, which
+   predated the Cafe v2.1 pilot and conflicted with the bounded delivery
+   autonomy this document grants in §9. Both `oaes-project-profile.md` and
+   the Foundation-level `oruwa-engineering-principles-and-governance.md`
+   §7.5 (bumped to v1.0.2) have been edited, as a Founder-approved governance
+   correction scoped strictly to this conflict, to state the same split this
+   document already used: commit/push-to-feature-branch/PR-creation-or-update
+   are covered by the Founder-approved bounded delivery autonomy for an
+   explicitly authorized Standard mission; merge/force-push/history-rewrite/
+   branch-data-deletion remain an unconditional human gate. See
+   `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md` for the full
+   before/after record.
 
 ---
 

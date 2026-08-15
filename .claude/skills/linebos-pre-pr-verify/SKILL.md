@@ -13,12 +13,12 @@ Human-invoked checklist. Never run Supabase Cloud commands or production deploys
 1. Check the current branch with git branch --show-current. Confirm it is a feature branch off dev, never main.
 2. Check working tree status with git status --short.
 3. Inspect the diff stat with git diff --stat to see which files changed.
-4. Based on the affected files, ask before running the appropriate checks. Do not run all checks unconditionally:
+4. Based on the affected files, run the appropriate local checks. Do not run all checks unconditionally:
    - pnpm typecheck or pnpm exec turbo run typecheck for TypeScript changes.
    - pnpm lint for lint-sensitive changes.
    - pnpm test for logic or behavior changes.
    - pnpm build for build-affecting changes.
-5. Only run checks relevant to the changed files, and ask first if unsure which checks apply.
+5. Only run checks relevant to the changed files. Ask first only if a check installs dependencies, resets a local database, uses an external service, or crosses another approval boundary in `docs/ai/oaes-project-profile.md`.
 
 ## Report
 
@@ -36,4 +36,5 @@ Produce a report with these fields, per .cursor/rules/03-git-workflow.mdc:
 
 - Never run supabase link, supabase db push, supabase db pull, supabase migration repair, or any production deploy command.
 - Never push to main.
-- If a check would require installing packages, running migrations, or touching Supabase Cloud, stop and ask a human instead of proceeding.
+- Local read-only checks are allowed. Installing packages, resetting a local database,
+  executing migrations, or touching Supabase Cloud requires explicit human approval.
