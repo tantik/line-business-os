@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.0.1 |
+| Version | 1.0.2 |
 | Status | Accepted |
 | Acceptance Note | Accepted status does not approve items explicitly marked OPEN QUESTION, GOVERNANCE RECOMMENDATION, HYPOTHESIS, or FOUNDER REVIEW REQUIRED. |
 | Owner | Founder / CTO |
@@ -16,7 +16,7 @@
 | Horizon | Многолетний, независимо от текущего стека и текущей вертикали |
 | Priority | Ниже Core Laws & Product DNA. Уровень Decision Hierarchy: **Platform Architecture Principles** — тот же уровень, на котором находятся `platform-foundation-roadmap.md` и `oruwa-portfolio-and-module-strategy.md`, но отвечает не "что строить" (portfolio) и не "в каком порядке строить платформу" (roadmap), а "как принимается и утверждается любое инженерное решение" |
 | Supersedes | None |
-| Last Updated | 2026-08-06 |
+| Last Updated | 2026-08-15 |
 
 ## Change Log
 
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 1.0.0 | 2026-08-06 | Initial draft. | Claude (agent), for Founder review |
 | 1.0.1 | 2026-08-06 | Founder acceptance: Status changed from Draft for Founder Review to Accepted. Content marked OPEN QUESTION, RECOMMENDATION / Governance Recommendation, `[ГИПОТЕЗА]`, or Founder Review Required elsewhere in this document (see Раздел "Метод" for the marking scheme; e.g. §3.2 OPEN QUESTION on ADR escalation threshold) remains unresolved and is not approved by this acceptance. | Founder |
+| 1.0.2 | 2026-08-15 | Founder-approved governance correction (ORUWA AI Governance Consolidation Phase 2A, `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`), scoped strictly to §7.5: split the single "commit, push, PR, merge, force-push, history rewrite, branch/data deletion" approval bundle so that commit/push-to-feature-branch/PR-creation-or-update are covered by the Founder-approved bounded delivery autonomy already defined in `ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §9/§10 for an explicitly authorized Standard mission, while merge/force-push/history-rewrite/branch-data-deletion remain an unconditional human gate. No other content in this document changed; this brings §7.5 into agreement with Core Laws Law 6's own risk-scaled framing (§21.2–21.3), which this bundling had drifted from. | Claude (agent), for Founder review |
 
 ## Что это за документ
 
@@ -248,7 +249,21 @@ Roles применяются по риску (Раздел 3.1). Database work �
 - установкой зависимости или подключением внешнего сервиса;
 - любой записью в Supabase Cloud, Vercel, DNS или production;
 - изменением auth, secrets, PII handling, ролей, прав, billing, LINE broadcast поведения;
-- commit, push, созданием PR, merge, force-push, переписыванием истории, удалением branch/данных или другим внешне видимым действием.
+- merge, force-push, переписыванием истории, удалением branch/данных.
+
+Для explicitly Founder-approved Standard mission, чей mission file авторизует
+обычный delivery lifecycle, commit, push в feature branch этой задачи и
+создание/обновление PR в `dev` не требуют отдельного одобрения на каждый шаг —
+это bounded delivery autonomy, определённая в
+`docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §9/§10 и в
+`docs/ai/oaes-project-profile.md` "Authority boundaries". Вне этого явного
+разрешения commit/push/PR creation по-прежнему требует одобрения, как и любое
+другое внешне видимое действие. Это разрешение никогда не распространяется на
+merge, production deployment или любой пункт из списка выше. Это согласуется,
+а не противоречит, Core Laws Law 6: закон сформулирован как Human Authority
+at High-Risk Boundaries, а не Human Approval Everywhere, и approval должен
+зависеть от риска (§21.2 "Слабость 3"; §21.3 "Automation и Human Authority:
+низкорисковые действия могут выполняться автоматически").
 
 Одобрение узкое: одобрение одного действия не авторизует следующий шлюз.
 

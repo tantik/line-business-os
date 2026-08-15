@@ -71,7 +71,12 @@ Frontend / UX and QA.
 ## Authority boundaries
 
 Local reading, analysis, reversible code/docs edits, and relevant read-only
-tests may proceed within an approved scope.
+tests may proceed within an approved scope. Safe local verification —
+typecheck, lint, automated tests, build — runs first and is not itself gated
+behind a separate approval; Core Laws Law 6 is "Human Authority at
+High-Risk Boundaries," not "Human Approval Everywhere," and approval scales
+with risk (`core-laws-and-product-dna.md` §21.2, §21.3 "Automation и Human
+Authority: низкорисковые действия могут выполняться автоматически").
 
 Explicit human approval is required before:
 
@@ -81,8 +86,16 @@ Explicit human approval is required before:
 - any Supabase Cloud, Vercel, DNS, or production write;
 - changing auth, secrets, PII handling, roles, permissions, billing, or LINE
   broadcast behavior;
-- commit, push, PR creation, merge, force-push, history rewrite, branch/data
-  deletion, or another externally visible action.
+- merge, force-push, history rewrite, or branch/data deletion.
+
+For an explicitly Founder-approved Standard mission whose mission file
+authorizes the normal delivery lifecycle, commit, push to that mission's own
+feature branch, and PR creation/update into `dev` do not each require a
+separate approval request — this is the bounded delivery autonomy defined in
+`docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §9/§10. Outside that
+explicit grant, commit/push/PR creation still requires approval like any
+other externally visible action. This bounded autonomy never extends to
+merge, production deployment, or any item in the list above.
 
 Approval is narrow: approval for one action does not authorize the next gate.
 
