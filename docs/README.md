@@ -2,7 +2,7 @@
 
 This directory holds all project documentation for LINE Business OS / ORUWA. It is organized so that the highest-authority, longest-lived documents sit at the top of the hierarchy and are rarely touched, while day-to-day working documents (plans, reports, runbooks) live in more specific subfolders and change often.
 
-For a fast operational handoff or a new AI session, start at [Project State](project/00_PROJECT_INDEX.md). It indexes current work and links back to the normative sources below; it does not replace the Foundation or ADR hierarchy.
+For a fast operational handoff or a new AI session, start at [Current Task](ai/current-task.md). It states the current verified stage and next gate, and links back to the normative sources below; it does not replace the Foundation or ADR hierarchy.
 
 For the authoritative order in which to read project documentation, see the root [CLAUDE.md](../CLAUDE.md) "Source of truth" list. This file describes the shape of `docs/`, not the operating rules themselves.
 
@@ -17,7 +17,7 @@ docs
  ├── sales            Sales and go-to-market materials: pitches, pricing, demo scripts.
  ├── security         Security requirements and policy.
  ├── operations       Runbooks, deployment checklists, incident response, environment inventory.
- ├── ai               AI-agent operating context: project profile, current task, agent roles.
+ ├── ai               AI-agent operating context: project profile, current task, operating model.
  ├── adr              Architecture Decision Records.
  ├── strategy         Longer-range strategic RFCs (e.g. future verticals).
  └── development       Contributor-facing process docs (e.g. acceptance workflow).
@@ -34,7 +34,7 @@ Folders are added as needed; the list above reflects what exists today plus the 
 - **`sales/`** — Sales enablement: pilot packages, pricing notes, demo scripts, client-facing messaging.
 - **`security/`** — Security requirements and policy documents.
 - **`operations/`** — Runbooks, deployment checklists, backup/DR, incident response, environment inventory.
-- **`ai/`** — Operating context for AI agents working in this repository: project profile, current task, agent roles.
+- **`ai/`** — Operating context for AI agents working in this repository: project profile, current task, the ORUWA AI Engineering Operating Model, and mission handoffs/completion reports.
 - **`adr/`** — Architecture Decision Records, numbered sequentially.
 - **`strategy/`** — Longer-range strategic proposals, such as future vertical RFCs.
 - **`development/`** — Process documents for contributors, such as the product acceptance workflow.
