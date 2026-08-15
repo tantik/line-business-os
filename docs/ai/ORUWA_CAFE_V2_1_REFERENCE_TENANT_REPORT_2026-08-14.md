@@ -8,6 +8,12 @@
 > read that for the current state before citing this report's §16/§33 as
 > current. Not superseded otherwise; kept as the evidence-grade record of
 > the reference-tenant bootstrap.
+>
+> **Phase 2C addendum (2026-08-15).** Some 2026-08-14 reports this document
+> cross-references (`CANONICAL_CAFE_PREVIEW_ACCEPTANCE_REPORT_2026-08-14.md`,
+> `STAFF_AUTH_PREVIEW_FINAL_REPORT_2026-08-14.md`,
+> `MANAGER_ROUTE_AUTHORIZATION_FINAL_REPORT_2026-08-14.md`) were retired as
+> fully-superseded process detail; git history preserves them.
 
 # ORUWA_CAFE_V2_1_REFERENCE_TENANT_REPORT (2026-08-14)
 

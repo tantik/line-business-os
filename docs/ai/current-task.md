@@ -11,22 +11,28 @@ verified stage, active constraints, and the next gate.
 - `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` is the canonical
   definition of how a Claude Code session runs a mission here (autonomy
   boundaries, evidence discipline, mission/handoff/completion-report formats).
-- **ORUWA AI Governance Consolidation** is in progress across phases:
+- **ORUWA AI Governance Consolidation** — complete across phases:
   - Phase 1 (read-only audit) — complete:
     `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`.
   - Phase 2A (approval-authority reconciliation between
     `oaes-project-profile.md`/`oruwa-engineering-principles-and-governance.md`
     §7.5 and the Operating Model) — complete, merged via PR #236.
-  - Phase 2B (unique-information consolidation — migrate still-valid content
-    out of `docs/project/*` and the stale `docs/ai/` standing docs before
-    Phase 2C deletes them) — this mission. See its PR for the exact file
-    disposition and the SAFE_TO_DELETE list handed to Phase 2C.
-  - Phase 2C (mass deletion of superseded governance/state files) — not yet
-    started; scoped by Phase 2B's completion report.
-- `docs/project/*` is retired as an active state system (Founder decision,
-  Phase 2B mission scope). `docs/ai/current-task.md` (this file) is the single
-  canonical mission-state mechanism going forward. `docs/project/*` files
-  still exist on disk pending Phase 2C deletion; do not update them further.
+  - Phase 2B (unique-information consolidation — migrated still-valid content
+    out of `docs/project/*` and the stale `docs/ai/` standing docs into
+    `docs/ai/current-task.md`, `docs/ai/review-checklists.md`, and
+    `docs/operations/risk-register.md`) — complete, merged via PR #237.
+  - Phase 2C (deletion of the superseded governance/state/history files
+    Phase 2B marked SAFE_TO_DELETE, plus §4–6 of `docs/AI_PLAYBOOK.md`
+    migrated to `docs/architecture/frontend-engineering-standards.md`) —
+    this mission.
+- `docs/project/*`, `scripts/project-handoff.ps1`, `docs/ai/project-context.md`,
+  `docs/ai/agent-roles.md`, `docs/ai/oaes-integration-acceptance-report.md`,
+  and `docs/AI_PLAYBOOK.md` have been deleted (Phase 2C, 2026-08-15). Their
+  still-valid content survives in `docs/ai/current-task.md` (this file),
+  `docs/ai/review-checklists.md`, `docs/operations/risk-register.md`, and
+  `docs/architecture/frontend-engineering-standards.md`. `docs/ai/current-task.md`
+  is the single canonical mission-state mechanism going forward. Do not
+  recreate any of the deleted files under new names.
 
 ## 2. Cafe product state
 
@@ -138,9 +144,9 @@ Staff identity/auth architecture (`docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-
   first-time hire stuck mid-onboarding — see Defect C, §2.3).
 - No LINE Login in the Staff-auth-provisioning scope.
 
-Product/business (`docs/project/03_DECISIONS.md`, Founder-provided,
-evidence still pending — carried forward as still-open constraints, not yet
-formal ADRs):
+Product/business (originally recorded in the now-deleted `docs/project/03_DECISIONS.md`;
+Founder-provided, evidence still pending — carried forward here as still-open
+constraints, not yet formal ADRs):
 - Platform subscription billing and merchant payments are treated as separate
   domains; do not mix SaaS entitlement with customer commerce without a
   formal source.
@@ -158,9 +164,9 @@ duplicated here.
 
 ## 5. Exact next gate
 
-1. This mission (Phase 2B) opens a PR into `dev` for review; merge remains a
-   human gate. Phase 2C (mass deletion of the files this mission's PR marks
-   SAFE_TO_DELETE) is a separate, future mission.
+1. This mission (Phase 2C) opens a PR into `dev` for review; merge remains a
+   human gate. This completes the ORUWA AI Governance Consolidation
+   (Phases 1, 2A, 2B, 2C).
 2. Cafe v2.1 Staff-surface reconciliation (§2.3) is a separate, future
    product mission — Phase 1 (P0) is already closed; Phase 2 (P1) and Phase 3
    (P2) from the reconciliation audit's §14 plan are not yet scheduled.

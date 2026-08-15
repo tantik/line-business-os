@@ -109,20 +109,19 @@ The AI engineering system in this repository optimizes for, in order:
 | Role | Authority | Typical acts |
 |---|---|---|
 | **Founder** | Final authority. Business/product goals, priorities, budget, high-impact approvals, Foundation changes (Evolution Rules, Core Laws §19). | Approves production deploys, destructive operations, RLS/Auth/billing/LINE-broadcast changes, mission scope, and Foundation edits. |
-| **Strategic CTO / Product / Independent Gate** (currently ChatGPT, per `docs/ai/agent-roles.md` — see note below) | Product strategy, market/competitor research, high-level architecture, independent review of important mission results, recommendation to Founder. | Reviews a Lead Agent's completed mission before Founder sign-off on substantial missions (§12). |
+| **Strategic CTO / Product / Independent Gate** (currently ChatGPT) | Product strategy, market/competitor research, high-level architecture, independent review of important mission results, recommendation to Founder. | Reviews a Lead Agent's completed mission before Founder sign-off on substantial missions (§12). |
 | **Claude Lead Execution Agent** | Repository-grounded technical analysis, planning, implementation, tests, QA, security review, git/PR/CI/Preview workflow, evidence collection, context management, Mission Completion Report. | Runs the autonomous execution loop (§4) inside a mission's boundaries (§3), escalating only at approval boundaries (§9). |
 | **Temporary subagents** | Parallel investigation, fresh-context review, specialized checking — not a standing team. | Spawned only when they add something the Lead Agent doing it directly would not (§13). |
 
-**Note on `docs/ai/agent-roles.md`**: that file's §3 ("Current operating
-model") still describes ChatGPT/Cursor/Codex as the primary execution agents
-and Claude Code as a later addition. It predates the two Cafe v2.1 missions
-that established this document's execution model and has not been updated to
-reflect that Claude Code is now the Lead Execution Agent in practice. This
-document's Section 2 is the current description; `agent-roles.md` is flagged
-here as needing a Founder-reviewed refresh (see completion report), not
-silently overridden — per the Authority rule above, a stale peer-level
-document does not win merely by existing, but the conflict is recorded, not
-erased.
+**`docs/ai/agent-roles.md` retired (ORUWA AI Governance Consolidation, Phase
+2C, 2026-08-15)**: that file described ChatGPT/Cursor/Codex as the primary
+execution agents and Claude Code as a later addition, predating the two Cafe
+v2.1 missions that established this document's execution model, and was
+orphaned from the authority chain. Its still-useful, non-duplicate content
+(per-domain review-lens checklists) was migrated to
+[`docs/ai/review-checklists.md`](review-checklists.md) in Phase 2B before
+deletion; this document's Section 2 remains the current description of the
+responsibility model.
 
 The Lead Agent is responsible for verifying and integrating subagent
 findings — a subagent's report is not itself an approved conclusion until the
@@ -213,11 +212,14 @@ Use these markers in mission docs, handoffs, and completion reports:
 Never claim browser execution, tests, deployments, DB state, Git state, CI
 state, or production state without the tool output that proves it. This is
 the same discipline already used in the two 2026-08-15 mission documents and
-in `docs/AI_PLAYBOOK.md`'s evidence-level vocabulary; this document is now
-the canonical definition for future missions. (`docs/AI_PLAYBOOK.md` is
-currently untracked and not linked from any entrypoint — reconciling it with
-this section is a follow-up, not performed by this mission; see completion
-report.)
+in `docs/AI_PLAYBOOK.md`'s evidence-level vocabulary; this document is the
+canonical definition for future missions. (`docs/AI_PLAYBOOK.md` §9–11's
+Founder-acceptance order, defect/evidence standard, and improvement
+classification were migrated to `docs/ai/review-checklists.md`, and its §4–6
+engineering/performance/UX standards to
+[`docs/architecture/frontend-engineering-standards.md`](../architecture/frontend-engineering-standards.md),
+before the file was retired in Phase 2C of the ORUWA AI Governance
+Consolidation, 2026-08-15.)
 
 ## 7. Implementation discipline
 
@@ -247,15 +249,18 @@ wrong and must change — not the security requirement
 
 ## 9. Human approval / escalation
 
-**Do not write an eleventh independently-worded approval-boundary list.**
-At least nine already exist in this repository (AGENTS.md, CLAUDE.md,
-`agent-roles.md` twice, `oaes-project-profile.md`, Core Laws Law 6,
+**Do not write another independently-worded approval-boundary list.**
+Several already exist in this repository (AGENTS.md, CLAUDE.md,
+`oaes-project-profile.md`, Core Laws Law 6,
 `oruwa-engineering-principles-and-governance.md` §7.5, ADR 0010 §H,
 `docs/development/product-acceptance-workflow.md`,
-`docs/operations/deployment-checklist.md`, `docs/AI_PLAYBOOK.md` §3) — they
-agree in substance and disagree only in wording, which is itself a
-maintenance hazard flagged in this mission's completion report. The two
-below are designated **canonical** for this document; cite them, do not
+`docs/operations/deployment-checklist.md`) — they agree in substance and
+disagree only in wording, which is itself a maintenance hazard flagged in
+this mission's completion report. (`docs/ai/agent-roles.md` and
+`docs/AI_PLAYBOOK.md` each formerly held one more such list; both files were
+retired in Phase 2C of the ORUWA AI Governance Consolidation, 2026-08-15 —
+their non-duplicate content survives in `docs/ai/review-checklists.md`.) The
+two below are designated **canonical** for this document; cite them, do not
 restate them:
 
 - **[`docs/ai/oaes-project-profile.md`](oaes-project-profile.md) "Authority
@@ -506,28 +511,26 @@ lines.
 Per `documentation-and-decision-hierarchy.md` §4 step 8, a conflict is
 recorded, not silently resolved by this document:
 
-1. **`docs/project/*` vs. `docs/ai/current-task.md` + `docs/ai/project-context.md`**
-   are two independently-maintained state-tracking systems that each, at
-   different points, called the other stale; `docs/project/*` has had no
-   commits since 2026-08-08. `docs/ai/current-task.md` is the system this
-   document treats as canonical for context continuity, because it is the
-   one `oaes-project-profile.md` "Context continuity" already designates and
-   the one listed in `documentation-and-decision-hierarchy.md` §2's
-   canonical entry points — `docs/project/*` is not listed there. This is
-   not a resolution of which system should exist going forward; that is a
-   Founder decision.
-2. **`.claude/skills/linebos-pre-pr-verify/SKILL.md` vs.
-   `.agents/skills/linebos-pre-pr-verify/SKILL.md`** have drifted: the
-   `.agents/` copy is more permissive about which checks require asking
-   first than the `.claude/` copy of the same-named skill, contrary to
-   `AGENTS.md`'s own instruction to keep them in sync. Not corrected by this
-   mission (a behavioral/tooling change, out of this mission's
-   documentation-only authority) — flagged for a follow-up mission.
-3. **Nine-plus independently-worded approval-boundary lists** exist (§9).
-   They agree in substance today; a future edit to one is not guaranteed to
-   propagate to the others. §9 designates two as canonical for new writing,
-   but does not edit or remove the other seven-plus — that is a larger
-   documentation-consolidation mission of its own.
+1. **RESOLVED (Phase 2C, 2026-08-15).** `docs/project/*` (10 files) and its
+   generator `scripts/project-handoff.ps1` were a second, independently-
+   maintained state-tracking system, unreferenced by any canonical entry
+   point and stale by 7–9 days at the time of the audit. Their still-unique
+   content (`03_DECISIONS.md`, `08_RISKS.md`) was migrated to
+   `docs/ai/current-task.md` and `docs/operations/risk-register.md` in Phase
+   2B; the files themselves were deleted in Phase 2C. `docs/ai/current-task.md`
+   is the single mission-state mechanism going forward — see
+   `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md` for the full record.
+2. **RESOLVED.** `.claude/skills/linebos-pre-pr-verify/SKILL.md` and
+   `.agents/skills/linebos-pre-pr-verify/SKILL.md` are byte-identical
+   (re-verified 2026-08-15, Phase 2C) — no drift remains.
+3. **Several independently-worded approval-boundary lists** still exist
+   (§9). They agree in substance today; a future edit to one is not
+   guaranteed to propagate to the others. §9 designates two as canonical for
+   new writing, but does not edit or remove the rest — that is a larger
+   documentation-consolidation mission of its own. (Two of the lists that
+   existed at Phase 1 audit time — `docs/ai/agent-roles.md` and
+   `docs/AI_PLAYBOOK.md` §3 — no longer exist; both files were retired in
+   Phase 2C.)
 4. **RESOLVED (Phase 2A, 2026-08-15).** `docs/ai/oaes-project-profile.md`
    "Authority boundaries" previously bundled commit/push/PR-creation together
    with merge/force-push/history-rewrite as all requiring approval, which

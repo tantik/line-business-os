@@ -1,5 +1,14 @@
 # CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_HANDOFF (2026-08-15)
 
+> **Retained (ORUWA AI Governance Consolidation, Phase 2C, 2026-08-15).**
+> This file is cited directly by `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md`
+> §§4–5 as the originating pattern for its execution-loop and self-correction
+> rules — kept, not archived. Several one-off 2026-08-14 mission reports this
+> document cross-references below (git/branch-preparation reports, local
+> implementation/Preview-gate reports) were retired in the same Phase 2C
+> cleanup as fully-superseded process detail; their content is preserved in
+> git history, not in a live file at those paths.
+
 Durable handoff for a **fresh** Claude Code session. This file, git, and the
 repository's own tests/docs are the source of truth — not any prior chat's
 conversational memory. Everything below is VERIFIED against tool output in

@@ -7,6 +7,11 @@
 > Current status tracked in `docs/ai/current-task.md` §2.3 — treat that file,
 > not this one, as the live status; this document remains the authoritative
 > evidence record for everything except the P0 item.
+>
+> **Phase 2C addendum (2026-08-15).** `CANONICAL_CAFE_STAFF_CONSOLIDATION_LOCAL_REPORT_2026-08-14.md`,
+> cross-referenced below, was retired as fully-superseded local-implementation
+> detail (ORUWA AI Governance Consolidation, Phase 2C); git history preserves
+> it.
 
 # CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_AUDIT (2026-08-15)
 
