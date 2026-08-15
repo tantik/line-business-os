@@ -1,5 +1,21 @@
 # LINE Business OS - AI Agent Roles and Review Modes
 
+> **Superseded, 2026-08-15 (ORUWA AI Governance Consolidation, Phase 2B).**
+> Not a canonical entry point and orphaned from the authority chain. The
+> per-role focus-area/reject-criteria checklists (§4–13) were genuinely more
+> detailed than `oaes-project-profile.md`'s terse role list and were migrated
+> to `docs/ai/review-checklists.md`, stripped of the stale ChatGPT/
+> Cursor/Codex tool assignments (§3, §17). §2/§15/§20 (approval gates,
+> "good vs. bad approval" example) restate `ORUWA_AI_ENGINEERING_OPERATING_MODEL.md`
+> §9's canonical lists; the approval example was kept in
+> `review-checklists.md` as it adds concrete illustration. §16 (AI memory
+> policy naming this file and `project-context.md` as "primary context
+> files") is stale and superseded by the Operating Model's context-management
+> protocol (§14). §18–19 (PR review policy/order) overlap
+> `oaes-project-profile.md` "Project verification routing" and were not
+> separately migrated. Kept only pending Phase 2C deletion, do not update
+> further. Full disposition: `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`.
+
 ## 1. Purpose
 
 This document defines the AI roles and review modes used in the LINE Business OS project.

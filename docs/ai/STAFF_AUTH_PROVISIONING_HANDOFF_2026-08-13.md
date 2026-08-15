@@ -1,3 +1,14 @@
+> **Extraction note, 2026-08-15 (ORUWA AI Governance Consolidation, Phase
+> 2B).** The still-active Founder decisions in §3 (identity-shape
+> invariants, existing-user invite behavior, no-LINE-Login scope) were
+> migrated to `docs/ai/current-task.md` §3. The DB-layer work this handoff
+> describes (migrations `0062`–`0064`) is committed and self-documenting in
+> schema/tests; the Edge Function, Manager UI, and acceptance UI this handoff
+> describes as not-yet-started were completed in later sessions — see
+> `docs/ai/current-task.md` §2.2 for the current, proven end-to-end state.
+> This file remains the historical record of *why* the identity model is
+> shaped the way it is; not superseded, kept as reference.
+
 # STAFF_AUTH_PROVISIONING — Continuation Handoff (2026-08-13)
 
 Written mid-task, on explicit user instruction to stop and hand off. **No code changes made after this point.** This file is the resumption context for a fresh Claude Code session.

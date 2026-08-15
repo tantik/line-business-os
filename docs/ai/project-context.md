@@ -1,5 +1,20 @@
 # LINE Business OS - AI Project Context
 
+> **Superseded, 2026-08-15 (ORUWA AI Governance Consolidation, Phase 2B).**
+> Not a canonical entry point (`documentation-and-decision-hierarchy.md` §2)
+> and orphaned from the authority chain. Reviewed in full: §1–8 and §10–13
+> duplicate `AGENTS.md`/Core Laws/`.cursor/rules/*` (already canonical, no
+> migration needed); §9 (onboarding CLI stages) is historical and superseded
+> by the current `packages/db/scripts/onboard-tenant.ts` implementation;
+> §13 (ChatGPT-as-CTO/Cursor-paused/Codex-emergency-only operating model) is
+> stale, superseded by `ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §2; §14
+> (roadmap direction) is already covered by
+> `docs/foundation/platform-foundation-roadmap.md` and
+> `docs/foundation/oruwa-portfolio-and-module-strategy.md`. No unique,
+> still-valid content requiring migration was found — kept only pending
+> Phase 2C deletion, do not update further. Full disposition:
+> `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`.
+
 ## 1. Purpose
 
 LINE Business OS is a single multi-tenant SaaS platform for Japanese small and medium-sized businesses.

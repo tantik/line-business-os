@@ -39,7 +39,8 @@ team.
 
 Use only the roles relevant to the change. Database work always requires the
 Security and Database / RLS lenses. Customer-facing Cafe UI always requires
-Frontend / UX and QA.
+Frontend / UX and QA. `docs/ai/review-checklists.md` has detailed per-lens
+focus areas, reject-criteria, and evidence/severity standards.
 
 ## Required artifacts
 

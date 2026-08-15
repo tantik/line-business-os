@@ -1,5 +1,11 @@
 # ORUWA Current Risks
 
+> **Superseded, 2026-08-15 (ORUWA AI Governance Consolidation, Phase 2B).**
+> `docs/project/*` is retired as an active state system; this file is kept
+> only pending Phase 2C deletion — do not update it further. Still-current,
+> actionable risks were migrated to `docs/operations/risk-register.md`,
+> which also records which risks below were judged stale/resolved and why.
+
 | Risk | Severity | Impact | Mitigation | Owner | Status |
 |---|---|---|---|---|---|
 | Mixed working tree with untracked research/generated files | High | Accidental scope pollution or data loss | Explicit paths only; no `git add .`, clean, reset, stash, or unrelated restore | Task owner | Open |

@@ -1,5 +1,14 @@
 # ORUWA Decision Index
 
+> **Superseded, 2026-08-15 (ORUWA AI Governance Consolidation, Phase 2B).**
+> `docs/project/*` is retired as an active state system; this file is kept
+> only pending Phase 2C deletion — do not update it further. PS-001–PS-007
+> and PS-011 restate decisions already canonical in Core Laws/ADRs/`AGENTS.md`
+> (see the Source column below) and needed no migration. PS-008–PS-010 (the
+> only genuinely unique, still-open entries) were migrated to
+> `docs/ai/current-task.md` §3. Full disposition:
+> `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`.
+
 This file indexes accepted decisions; it does not copy the full ADR or Foundation text. Follow the linked source for exact wording.
 
 | ID | Date | Decision | Reason / consequence | Reversible | Source |
