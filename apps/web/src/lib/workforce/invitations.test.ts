@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   acceptWorkforceEmployeeInvitation,
+  getWorkforceEmployeeInvitationById,
   inviteOrResendWorkforceEmployee,
   listMyPendingWorkforceInvitations,
   listWorkforceEmployeeInvitations,
@@ -95,6 +96,39 @@ test('acceptWorkforceEmployeeInvitation returns not_found for a zero-row RPC res
   const { client } = recordingClient({ data: null, error: null });
   const result = await acceptWorkforceEmployeeInvitation(client, 'inv-missing');
   assert.equal(result.status, 'not_found');
+});
+
+test('getWorkforceEmployeeInvitationById narrows by invitation_id and maps a found row', async () => {
+  const { client, calls } = recordingClient({
+    data: {
+      invitation_id: 'inv-1', tenant_id: TENANT_ID, employee_id: 'e1', status: 'pending',
+      created_at: '2026-01-01', updated_at: '2026-01-01', expires_at: '2099-01-01', accepted_at: null, revoked_at: null,
+    },
+    error: null,
+  });
+  const result = await getWorkforceEmployeeInvitationById(client, 'inv-1');
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.ok(result.data);
+    assert.equal(result.data!.status, 'pending');
+    assert.equal(result.data!.isExpired, false);
+  }
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'invitation_id' && c.args[1] === 'inv-1'));
+});
+
+test('getWorkforceEmployeeInvitationById returns null (not an error) when RLS/filter matches zero rows -- covers both "no such invitation" and "not this caller\'s"', async () => {
+  const { client } = recordingClient({ data: null, error: null });
+  const result = await getWorkforceEmployeeInvitationById(client, 'inv-not-mine');
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    assert.equal(result.data, null);
+  }
+});
+
+test('getWorkforceEmployeeInvitationById maps a permission-denied error to unauthorized', async () => {
+  const { client } = recordingClient({ data: null, error: { code: '42501', message: 'permission denied' } });
+  const result = await getWorkforceEmployeeInvitationById(client, 'inv-1');
+  assert.equal(result.status, 'unauthorized');
 });
 
 test('inviteOrResendWorkforceEmployee forwards the caller access token and maps a successful outcome', async () => {
