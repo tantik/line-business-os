@@ -12,10 +12,11 @@ Every product runs as a module inside one shared Core, never as an isolated proj
 1. AGENTS.md - operating rules for AI agents and contributors.
 2. docs/ai/oaes-project-profile.md - OAES stages, roles, artifacts, and approval gates for this repository.
 3. docs/ai/current-task.md - current verified stage and next gate.
-4. .cursor/rules/* - machine-enforced guardrails for architecture, security, database/RLS, git workflow, AI-agent workflow, and legacy-migration boundaries.
-5. docs/architecture/* - architecture detail.
-6. docs/security/* - security requirements.
-7. docs/operations/deployment-checklist.md - deployment and release safety.
+4. docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md - how a Claude Code session runs a mission: autonomy boundaries, context management, subagent use, evidence discipline, mission/handoff/completion-report formats. Adds no new rules; defers to the sources above and below on what is allowed.
+5. .cursor/rules/* - machine-enforced guardrails for architecture, security, database/RLS, git workflow, AI-agent workflow, and legacy-migration boundaries.
+6. docs/architecture/* - architecture detail.
+7. docs/security/* - security requirements.
+8. docs/operations/deployment-checklist.md - deployment and release safety.
 
 If anything here ever conflicts with those sources, the sources above win.
 
