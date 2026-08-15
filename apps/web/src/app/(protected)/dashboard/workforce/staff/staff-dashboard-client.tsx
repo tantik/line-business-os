@@ -36,6 +36,7 @@ import {
   tableHeaderCell,
 } from '@/lib/ui/theme';
 import {
+  attendanceStatusLabel,
   correctionStatusBadgeStyle,
   correctionStatusLabel,
   primaryCard,
@@ -453,18 +454,18 @@ function StaffDashboardBody({
       </section>
 
       <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Submit / 提出</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>My submitted shift preferences / シフト希望</h2>
+        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
+        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('shiftPreferencesHeading')}</h2>
         {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your shift preferences are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftPreferencesUnavailable')}</p>
         ) : myRequestsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No shift preferences submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftPreferencesEmpty')}</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Preference / 希望</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('preferenceColumnLabel')}</th>
               </tr>
             </thead>
             <tbody>
@@ -473,7 +474,7 @@ function StaffDashboardBody({
                   <td style={tableCell}>{r.workDate}</td>
                   <td style={tableCell}>
                     {r.isUnavailable ? (
-                      'Unavailable'
+                      t('preferenceUnavailableValue')
                     ) : (
                       <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
                         {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
@@ -486,33 +487,34 @@ function StaffDashboardBody({
           </table>
         )}
         {shiftTypes === null ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>Shift types are temporarily unavailable, so preferences cannot be submitted right now.</p>
+          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('shiftTypesUnavailable')}</p>
         ) : (
           <ShiftPreferenceForm
             shiftTypes={shiftTypes}
             defaultWorkDate={periodStart}
-            onSuccess={() => handleFormSuccess('Shift preference submitted.')}
+            lang={lang}
+            onSuccess={() => handleFormSuccess(t('shiftPreferenceSubmitted'))}
           />
         )}
       </section>
 
       <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Submit / 提出</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>My work reports this week / 勤務報告</h2>
+        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
+        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('workReportsHeading')}</h2>
         {attendance === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your work reports are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('workReportsUnavailable')}</p>
         ) : myAttendanceThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No work reports submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('workReportsEmpty')}</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date / 日付</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock in / 出勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Clock out / 退勤</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('clockInColumnLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('clockOutColumnLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('transportationColumnLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('messageColumnLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('statusLabel')}</th>
               </tr>
             </thead>
             <tbody>
@@ -526,43 +528,42 @@ function StaffDashboardBody({
                     <td style={tableCell}>{clockOut}</td>
                     <td style={tableCell}>{a.transportationCost ?? '-'}</td>
                     <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
-                    <td style={tableCell}>{a.status}</td>
+                    <td style={tableCell}>{attendanceStatusLabel(a.status, lang)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         )}
-        <WorkReportForm defaultWorkDate={periodStart} onSuccess={() => handleFormSuccess('Work report submitted.')} />
+        <WorkReportForm defaultWorkDate={periodStart} lang={lang} onSuccess={() => handleFormSuccess(t('workReportSubmitted'))} />
       </section>
 
       <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Submit / 提出</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>Submit a correction request / 修正依頼</h2>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          If a submitted work report is wrong, describe the correction here -- your manager reviews it separately.
-        </p>
+        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
+        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('correctionRequestHeading')}</h2>
+        <p style={{ margin: '8px 0 0', ...mutedText }}>{t('correctionRequestDescription')}</p>
         <CorrectionRequestForm
           attendanceOptions={attendance ?? []}
           defaultWorkDate={periodStart}
-          onSuccess={() => handleFormSuccess('Correction request submitted.')}
+          lang={lang}
+          onSuccess={() => handleFormSuccess(t('correctionRequestSubmitted'))}
         />
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My correction requests this week</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('myCorrectionsHeading')}</h2>
         {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Your correction requests are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('myCorrectionsUnavailable')}</p>
         ) : myCorrectionsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No correction requests submitted for this week yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('myCorrectionsEmpty')}</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Related work report</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('messageColumnLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('statusLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('relatedWorkReportColumnLabel')}</th>
               </tr>
             </thead>
             <tbody>
@@ -577,7 +578,7 @@ function StaffDashboardBody({
                     <td style={tableCell}>{r.workDate}</td>
                     <td style={tableCell}>{message}</td>
                     <td style={tableCell}>
-                      <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status)}</span>
+                      <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
                     </td>
                     <td style={tableCell}>{relatedSummary}</td>
                   </tr>
