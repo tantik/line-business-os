@@ -119,10 +119,14 @@ export default async function WorkforceStaffPage({
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
           : [];
-      const location =
-        tenantLocations.find((l) => l.locationId === profile.locationId) ??
-        tenantLocations.find((l) => l.isActive) ??
-        tenantLocations[0];
+      // LOC-1 (docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md): fails
+      // closed on the employee's own location being missing or inactive,
+      // matching the `_client-preview/mame-to-cha` reference surface -- never
+      // silently substitutes a different active location, which would show
+      // this Staff member schedule/shift-type data for a location they
+      // aren't actually assigned to (same-tenant only, not a tenant-isolation
+      // break, but still the wrong data).
+      const location = tenantLocations.find((l) => l.locationId === profile.locationId && l.isActive);
 
       if (!location) {
         return (
@@ -132,7 +136,11 @@ export default async function WorkforceStaffPage({
               <BackLink />
             </header>
             <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>No location is configured for this workspace yet.</p>
+              <p style={{ margin: 0, ...mutedText }}>
+                {tenantLocations.length === 0
+                  ? 'No location is configured for this workspace yet.'
+                  : 'Your assigned location is not available. Ask your manager for help.'}
+              </p>
             </section>
           </main>
         );
