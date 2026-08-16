@@ -279,9 +279,9 @@ Tenant isolation, location scoping, RLS, role/permission boundaries, отсут�
 ## 22. Where We Are Now
 
 - **CURRENT PRODUCT:** ORUWA Cafe
-- **CURRENT STAGE:** Cafe v2.1 (bounded, F1/F2) CLOSED 2026-08-16; Cafe Commercial Launch Readiness (§11, `ai/current-task.md` §2.4) not yet started.
-- **CURRENT GOAL:** Founder to select which Commercial Launch Readiness step begins next — Cafe IA/visual reconciliation + Hardening, or Platform Foundation critical path — per `ai/current-task.md` §2.4/§5; none is automatically authorized.
-- **NEXT:** see `ai/current-task.md` §5 for the exact next gate once selected.
+- **CURRENT STAGE:** Cafe v2.1 (bounded, F1/F2) CLOSED 2026-08-16; Cafe Commercial Launch Readiness step 1 (§11, `ai/current-task.md` §2.4) COMPLETE 2026-08-16 (IA/visual reconciliation, Hardening register items, LOC-1, Defect C — all done, merged, and deployed). Only `I18N-JA-1` (native review) and Surface A retirement timing remain open, neither blocking.
+- **CURRENT GOAL:** Founder-directed 2026-08-16 to proceed to step 2, Platform Foundation critical path (Entitlements engine → Module Registry → Navigation/Settings → Notifications → Event Bus), per `ai/current-task.md` §2.4/§5.
+- **NEXT:** re-verify `ai/current-task.md` and `foundation/platform-foundation-roadmap.md` against actual repo state before starting implementation — do not assume this summary is still current without checking.
 
 ## 23. How a Fresh AI Session Should Use This File
 

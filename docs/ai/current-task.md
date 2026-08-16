@@ -159,17 +159,43 @@ Sequence (recommended):
      horizontal scroll instead of moving the whole page at 390px, PR #248).
      Each PR passed typecheck/lint/1089–1091 tests/build plus live
      authenticated Preview QA before merge.
-   - **Still open, needs a Founder decision before any code change** (not
-     mechanical fixes like the above — see §2.3's original register in the
-     Whole-Product Gate for full detail): `LOC-1` (Staff/Manager location
-     fallback is lenient — needs an explicit fail-closed-vs-lenient policy
-     decision); Defect C (onboarding recovery path for an interrupted
-     first-time Staff invite — Auth-adjacent, bigger than a bounded fix);
-     full visual/brand reconciliation against the Surface A reference
-     (color/layout/branding — a design decision, not only code); Surface A
-     retain-vs-retire timing; `I18N-JA-1` (native Japanese copy review —
-     needs a native speaker, not code). `F4` (`InvitationCell` JA-only) is
-     intentional per Founder direction, no action needed.
+   - **Also done, merged, and deployed** (Founder-approved 2026-08-16,
+     each decision item resolved individually rather than deferred as a
+     block):
+     - Visual/brand reconciliation: `@/lib/ui/theme.ts`'s palette replaced
+       1:1 with `@/lib/demo/cafe/theme.ts`'s warm/light tokens (the Surface
+       A reference), PR #250. No call-site changes needed; repaints the
+       whole canonical dashboard. Live-confirmed against the reference
+       tenant.
+     - `LOC-1`: Manager/Staff location resolution now fails closed (exactly
+       one active location for Manager; the employee's own active location
+       for Staff), matching the Surface A reference's existing behavior,
+       PR #251. Live-confirmed no behavior change on the single-location
+       reference tenant.
+     - Defect C (onboarding-interruption half): new Manager-triggered
+       "アクセスを回復" action sends a real Supabase password-recovery
+       email to a first-time hire whose Auth identity was confirmed but
+       who never finished password setup — closes the gap the normal
+       resend path cannot (it deliberately sends nothing to an
+       already-registered Auth user, Founder decision 8). Code in PR #252;
+       the required `supabase functions deploy invite-employee` to the
+       Cloud dev project (`pehcoenozjtsjdvjietj`) was run and separately
+       approved 2026-08-16. Live-confirmed end-to-end on the reference
+       tenant: clicking the action against the now-deployed function
+       returns the `recovery_email_sent` outcome (actual email delivery
+       not independently verified — no test-inbox access — but the server
+       round-trip proves the deployed function recognizes
+       `action: 'recover'`).
+   - **Still open, needs a Founder decision before any code change**: full
+     visual/brand reconciliation is done (see above); the remaining
+     decision items are `I18N-JA-1` (native Japanese copy review — needs a
+     native speaker, not code, not something an AI agent session can
+     close) and Surface A retain-vs-retire timing (whether/when to remove
+     the `%5Fclient-preview/mame-to-cha/**` reference surface now that
+     Surface B has closed the P1/P2 gaps that motivated keeping it as a
+     UX/acceptance reference — a product decision, not a code change by
+     itself). `F4` (`InvitationCell` JA-only) is intentional per Founder
+     direction, no action needed.
 2. Platform Foundation critical path (per the already-accepted document;
    this work is not blocked by step 1 and could run in parallel, but
    sequential is preferred here to avoid re-creating the "audit → fix →
@@ -229,18 +255,28 @@ duplicated here.
 
 **Cafe v2.1 (bounded, §2.3) is closed.** Preview QA, independent review, and
 Final Founder Acceptance for F1/F2 all complete as of 2026-08-16. **Cafe
-Commercial Launch Readiness (§2.4) step 1's mechanical items (IA
-reconciliation + ORPHAN-1/STAFF-I18N-1/F3/I18N-DOC-1/F5/MOB-1) are done and
-merged; step 1's decision-dependent items (LOC-1, Defect C, visual/brand
-reconciliation, Surface A retirement, I18N-JA-1) and steps 2–4 have not
-started.**
+Commercial Launch Readiness (§2.4) step 1 is complete as of 2026-08-16**:
+every mechanical item (IA reconciliation, ORPHAN-1, STAFF-I18N-1, F3,
+I18N-DOC-1, F5, MOB-1) and every decision-dependent item the Founder chose
+to resolve now (visual/brand reconciliation, LOC-1, Defect C) is done,
+merged, and — for Defect C's Edge Function — deployed. Only two step-1
+items remain genuinely open, and neither blocks moving on: `I18N-JA-1`
+(needs a native Japanese speaker, not an engineering task) and Surface A
+retain-vs-retire timing (a product decision with no forcing function yet).
 
-1. Do not automatically start Cafe Hardening / Deferred Debt, Cafe Product
-   Growth, Platform Foundation, Cafe Commercial Launch Readiness step
-   2–4, or Cafe v2.2 as a consequence of the §2.3 closure or step 1's
-   partial progress; each requires its own bounded Product/Founder
-   decision, per §2.3/§2.4 and `../ORUWA-info.md` §14.
-2. The Founder selects which of §2.4's remaining items begins next (or a
-   different priority entirely). Once selected, update this section to
-   name the active mission explicitly, rather than leaving this file
-   pointing at an already-closed gate.
+1. **Founder direction 2026-08-16: proceed to step 2, Platform Foundation
+   critical path, once step 1 is confirmed complete** (this entry). Do not
+   also silently start Cafe Hardening / Deferred Debt, Cafe Product Growth,
+   or Cafe v2.2 as a side effect — those remain separate, not yet
+   requested.
+2. Platform Foundation critical path (already-accepted sequencing,
+   `docs/foundation/platform-foundation-roadmap.md` §7/§10): Entitlements
+   engine → Module Registry → Shared Navigation/Settings → Notifications →
+   Event Bus. Not started. The next session should open by re-verifying
+   this file and `docs/foundation/platform-foundation-roadmap.md` against
+   the actual repo state (per that document's own hardening-only status
+   for Core Platform) before beginning implementation, not assume this
+   summary is still current without checking.
+3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
+   remain correctly sequenced after Platform Foundation, per §2.4's
+   original ordering — not started, not to be pulled forward.
