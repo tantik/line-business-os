@@ -21,6 +21,7 @@ import {
 } from '@/components/states';
 import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { StaffDashboardClient } from './staff-dashboard-client';
+import { SignOutButton } from '../_ui/sign-out-button';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -100,9 +101,12 @@ export default async function WorkforceStaffPage({
       if (!profileResult.data) {
         return (
           <main style={pageStyle(720)}>
-            <header>
-              <h1 style={{ margin: 0 }}>Workforce staff</h1>
-              <BackLink />
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h1 style={{ margin: 0 }}>Workforce staff</h1>
+                <BackLink />
+              </div>
+              <SignOutButton />
             </header>
             <section style={card}>
               <p style={{ margin: 0, ...mutedText }}>
@@ -131,9 +135,12 @@ export default async function WorkforceStaffPage({
       if (!location) {
         return (
           <main style={pageStyle(720)}>
-            <header>
-              <h1 style={{ margin: 0 }}>Workforce staff</h1>
-              <BackLink />
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h1 style={{ margin: 0 }}>Workforce staff</h1>
+                <BackLink />
+              </div>
+              <SignOutButton />
             </header>
             <section style={card}>
               <p style={{ margin: 0, ...mutedText }}>
@@ -202,12 +209,15 @@ export default async function WorkforceStaffPage({
 
       return (
         <main style={pageStyle(1000)}>
-          <header>
-            <h1 style={{ margin: 0 }}>Workforce staff</h1>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>
-              {activeTenant.tenantName} - {location.locationName}
-            </p>
-            <BackLink />
+          <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ margin: 0 }}>Workforce staff</h1>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>
+                {activeTenant.tenantName} - {location.locationName}
+              </p>
+              <BackLink />
+            </div>
+            <SignOutButton />
           </header>
 
           <StaffDashboardClient
