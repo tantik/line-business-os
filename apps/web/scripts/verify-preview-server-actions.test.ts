@@ -55,7 +55,7 @@ test('isPreviewRoute also recognizes the percent-encoded form, defensively, in c
 });
 
 test('isPreviewRoute does not match a dashboard or unrelated route', () => {
-  assert.ok(!isPreviewRoute('app/(protected)/dashboard/workforce/manager/page'));
+  assert.ok(!isPreviewRoute('app/(protected)/manager/page'));
   assert.ok(!isPreviewRoute('app/mame-to-cha/manager/page'));
 });
 
@@ -277,14 +277,14 @@ test('dashboard positive control passes when both dashboard mutation routes have
     actionEntry({
       exportedName: 'upsertEmployee',
       filename: '../D:\\Dev\\line-business-os\\apps\\web\\src\\lib\\workforce\\staff-actions.ts',
-      workers: { 'app/(protected)/dashboard/workforce/manager/page': {} },
+      workers: { 'app/(protected)/manager/page': {} },
     }),
     actionEntry({
       exportedName: 'submitWorkReport',
       filename: '../D:\\Dev\\line-business-os\\apps\\web\\src\\lib\\workforce\\attendance-actions.ts',
       workers: {
-        'app/(protected)/dashboard/workforce/manager/page': {},
-        'app/(protected)/dashboard/workforce/staff/page': {},
+        'app/(protected)/manager/page': {},
+        'app/(protected)/staff/page': {},
       },
     }),
   ];
@@ -296,8 +296,8 @@ test('dashboard positive control fails when a dashboard mutation route has no Wo
   const entries: ReturnType<typeof actionEntry>[] = [];
   const result = evaluateManifestEntries(entries);
   assert.deepEqual(result.missingDashboardCoverage, [
-    'app/(protected)/dashboard/workforce/manager/page',
-    'app/(protected)/dashboard/workforce/staff/page',
+    'app/(protected)/manager/page',
+    'app/(protected)/staff/page',
   ]);
 });
 
@@ -306,9 +306,9 @@ test('dashboard positive control is not satisfied by a preview action module of 
     actionEntry({
       exportedName: 'previewUpsertEmployee',
       filename: '../D:\\Dev\\line-business-os\\apps\\web\\src\\lib\\preview\\actions\\staff-actions.ts',
-      workers: { 'app/(protected)/dashboard/workforce/manager/page': {} },
+      workers: { 'app/(protected)/manager/page': {} },
     }),
   ];
   const result = evaluateManifestEntries(entries);
-  assert.ok(result.missingDashboardCoverage.includes('app/(protected)/dashboard/workforce/manager/page'));
+  assert.ok(result.missingDashboardCoverage.includes('app/(protected)/manager/page'));
 });

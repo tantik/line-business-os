@@ -4,10 +4,12 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 /**
- * Minimal JA/EN language switch for the cafe demo (`/demo/cafe` and
- * `/demo/cafe/recipes` only — the manager dashboard stays Japanese-first and
- * does not use this). Demo-only static dictionaries, no ICU/plural/
- * interpolation library, no auto-translation.
+ * Minimal JA/EN language switch, shared by the public cafe demo
+ * (`/demo/cafe`, `/demo/cafe/recipes`) and the canonical authenticated
+ * Manager/Staff/Inventory/Admin/Recipes dashboards (each mounts its own
+ * `LangProvider` instance; persistence is per-browser via `localStorage`,
+ * not shared state across them). Static dictionaries per surface, no ICU/
+ * plural/interpolation library, no auto-translation.
  */
 export type Lang = 'ja' | 'en';
 

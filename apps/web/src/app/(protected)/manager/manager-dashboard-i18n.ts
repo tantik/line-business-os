@@ -133,6 +133,13 @@ interface ManagerDashboardDict {
   shortagesLabel: string;
   unplacedLabel: string;
   nonSubmittersLabel: string;
+  // LINE link form (F3)
+  lineUserIdPlaceholder: string;
+  bind: string;
+  binding: string;
+  unbindLine: string;
+  unbinding: string;
+  confirmUnbindLine: string;
 }
 
 const dictionary: Record<Lang, ManagerDashboardDict> = {
@@ -243,6 +250,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shortagesLabel: 'Shortages',
     unplacedLabel: 'Unplaced',
     nonSubmittersLabel: 'No preferences submitted',
+    lineUserIdPlaceholder: 'LINE user id',
+    bind: 'Bind',
+    binding: 'Binding...',
+    unbindLine: 'Unbind LINE',
+    unbinding: 'Unbinding...',
+    confirmUnbindLine: 'Unbind this LINE user id from this staff member?',
   },
   ja: {
     attentionHeading: '要確認',
@@ -351,6 +364,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shortagesLabel: '不足',
     unplacedLabel: '未配置',
     nonSubmittersLabel: '希望未提出',
+    lineUserIdPlaceholder: 'LINEユーザーID',
+    bind: '連携する',
+    binding: '連携中...',
+    unbindLine: 'LINE連携を解除',
+    unbinding: '解除中...',
+    confirmUnbindLine: 'このスタッフのLINEユーザーIDの連携を解除しますか？',
   },
 };
 

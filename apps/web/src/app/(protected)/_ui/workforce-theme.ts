@@ -13,8 +13,9 @@ export { todayIsoInTimeZone } from '@/lib/workforce/timezone';
  *
  * Additive only: every export here composes the shared dark tokens (colors,
  * card, badgeStyle) rather than introducing new hex values or a parallel
- * palette. Kept local to `dashboard/workforce/` so it never becomes a second
- * source of truth for the rest of the dashboard.
+ * palette. Shared across the canonical Manager, Staff, Recipes, and
+ * Workforce-landing surfaces (all under `(protected)/`) so it never becomes
+ * a second source of truth for the rest of the dashboard.
  */
 
 /** `card` variant with an accent left-border for the one or two sections per page that deserve more visual weight. */

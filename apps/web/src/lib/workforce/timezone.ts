@@ -81,7 +81,7 @@ export function utcIsoToLocalDateTime(isoInstant: string, timeZone: string): { w
  * Today's date as `YYYY-MM-DD` in the given IANA time zone -- display-only,
  * for highlighting the current row/column in a schedule table. Moved here
  * (Cafe v2.1 canonical Staff consolidation) from the dashboard-scoped
- * `dashboard/workforce/_ui/workforce-theme.ts` so both the canonical
+ * `(protected)/_ui/workforce-theme.ts` so both the canonical
  * dashboard Staff surface and the `_client-preview` reference surface share
  * one implementation instead of the preview surface reaching into a
  * dashboard-page-scoped file.
