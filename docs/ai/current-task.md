@@ -211,7 +211,8 @@ Sequence (recommended):
    next audit finds a neighbor problem" context-blur pattern this project
    has already hit more than once). **All 5 steps done, 2026-08-16** — see
    §5 for full detail. Schema + `packages/core` engine only; no UI/worker
-   consumer wired up by design; not yet pushed to Supabase Cloud.
+   consumer wired up by design; pushed to Supabase Cloud dev 2026-08-16
+   (Founder-run, PR #264 fixed a pre-existing migration-ledger gap first).
 3. New-Tenant / One-Hour Provisioning Test (`docs/strategy/go-to-market-roadmap.md`
    §7) — creating a genuinely new tenant with zero application-code changes
    is the actual evidence this gate exists to produce, not a formality. Not
@@ -422,22 +423,44 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      `supabase/tests/0041_core_event_bus.sql`; full suite green locally
      (866/866), typecheck/lint clean. Not pushed to Supabase Cloud.
 
-   **Platform Foundation critical path status: all 5 steps done
-   (2026-08-16), none pushed to Supabase Cloud yet.** Every step
-   (`0069`-`0073`) deliberately built schema + a reusable `packages/core`
-   engine only — none wired a live `apps/web`/`apps/worker` consumer, by
-   design (each migration's own header documents why: UI-regression risk
-   for Shared Navigation, the LINE-broadcast-messaging safety boundary for
+   **Platform Foundation critical path status: all 5 steps done AND pushed
+   to Supabase Cloud dev (2026-08-16).** Every step (`0069`-`0073`)
+   deliberately built schema + a reusable `packages/core` engine only —
+   none wired a live `apps/web`/`apps/worker` consumer, by design (each
+   migration's own header documents why: UI-regression risk for Shared
+   Navigation, the LINE-broadcast-messaging safety boundary for
    Notifications, "no real consumer yet" for Module Registry/Event Bus).
-   Two concrete, not-yet-started follow-on items this leaves on the table,
-   neither authorized to start by this entry alone:
-   1. Push migrations `0069`-`0073` to Supabase Cloud dev — needs separate
-      explicit human approval per `CLAUDE.md`.
-   2. UI/worker adoption of the 5 new contracts (dashboard nav driven by
-      `core.module_registry`, a `/dashboard/settings` route, an actual LINE
-      dispatch worker consuming `core.notifications`, any real producer/
-      consumer of `core.events`) — each is its own bounded, separately
-      scoped task, not a single follow-up PR.
+
+   Cloud dev push (2026-08-16, Founder-run per the CLAUDE.md hard gate —
+   `supabase link`/`db push` are permission-denied for the agent by
+   `.claude/settings.json`, by design, so the Founder ran them): before the
+   push, `supabase db push` failed with "0060 not found locally" —
+   `supabase migration list` showed `0060` already applied on the remote
+   ledger with no matching local file, the same class of issue previously
+   fixed once for `0061` (commit `4d58aec`, 2026-08-14). Root-caused and
+   fixed first, PR #264: the missing file
+   (`0060_workforce_recipe_tenant_wide_update_fix.sql`, a forward-only
+   `create or replace function` fix so a Manager can edit/publish a
+   tenant-wide recipe) was found preserved only in an untracked `git
+   stash` object, restored byte-identical, verified via a fresh local
+   `db reset` + full pgTAP suite (866/866) before retrying. That PR also
+   closed a real gap in `.claude/settings.json`'s deny list: it blocked
+   `supabase link`/`db push`/`db pull`/`migration repair` but not the
+   `pnpm exec supabase ...` variants actually used in this repo — `pnpm
+   exec supabase link` slipped through once (low-risk, no Cloud write) before
+   being caught and closed. After that fix, `supabase db push` succeeded
+   cleanly; `supabase migration list` confirms remote now matches local
+   through `0073` exactly. Every step's own migration header still applies
+   for what's now NOT true even in Cloud: no UI/worker wired up, no LINE
+   messages sent, no consumer of `core.events` exists.
+
+   One concrete, not-yet-started follow-on item this leaves on the table,
+   not authorized to start by this entry alone:
+   - UI/worker adoption of the 5 new contracts (dashboard nav driven by
+     `core.module_registry`, a `/dashboard/settings` route, an actual LINE
+     dispatch worker consuming `core.notifications`, any real producer/
+     consumer of `core.events`) — each is its own bounded, separately
+     scoped task, not a single follow-up PR.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.
