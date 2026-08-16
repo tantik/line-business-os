@@ -117,7 +117,7 @@ also not started by this closure — it is planned future work
 B) and requires its own bounded Product/Founder decision to begin, same as
 any other post-v2.1 category.
 
-### 2.4 Cafe Commercial Launch Readiness (separate, higher gate — not started)
+### 2.4 Cafe Commercial Launch Readiness (separate, higher gate — step 1 in progress)
 
 **"Cafe v2.1 CLOSED" (§2.3) is a bounded, code-scoped closure — F1/F2 only,
 against the frozen Whole-Product Gate backlog.** It is not the same claim as
@@ -143,23 +143,48 @@ product's versioning with platform-wide infrastructure completion — this
 gate exists precisely to avoid that conflation while still giving the
 Founder the single "is it actually ready to launch" answer they asked for.
 
-Sequence (recommended, not yet started):
+Sequence (recommended):
 
 1. Cafe IA/visual reconciliation + remaining Cafe Hardening items (one
-   focused pass, same surface).
+   focused pass, same surface). **In progress, partially complete as of
+   2026-08-16:**
+   - **Done, merged to `dev`:** IA/route reconciliation
+     (`/dashboard/workforce/{manager,staff}` → `/manager`, `/staff`, old
+     paths redirect, PR #246); `ORPHAN-1` (dead `/workforce` stub deleted,
+     PR #246); `STAFF-I18N-1` expanded (whole Workforce landing hub now
+     JA/EN, not just the profile card, PR #246); `F3` (Manager LINE-link
+     form localized, PR #246); `I18N-DOC-1` (stale comment fixed, PR #246);
+     `F5` (Admin member table `tenantKind`/`membershipStatus` localized, PR
+     #247); `MOB-1` (wide tables on Manager/Staff contained to their own
+     horizontal scroll instead of moving the whole page at 390px, PR #248).
+     Each PR passed typecheck/lint/1089–1091 tests/build plus live
+     authenticated Preview QA before merge.
+   - **Still open, needs a Founder decision before any code change** (not
+     mechanical fixes like the above — see §2.3's original register in the
+     Whole-Product Gate for full detail): `LOC-1` (Staff/Manager location
+     fallback is lenient — needs an explicit fail-closed-vs-lenient policy
+     decision); Defect C (onboarding recovery path for an interrupted
+     first-time Staff invite — Auth-adjacent, bigger than a bounded fix);
+     full visual/brand reconciliation against the Surface A reference
+     (color/layout/branding — a design decision, not only code); Surface A
+     retain-vs-retire timing; `I18N-JA-1` (native Japanese copy review —
+     needs a native speaker, not code). `F4` (`InvitationCell` JA-only) is
+     intentional per Founder direction, no action needed.
 2. Platform Foundation critical path (per the already-accepted document;
    this work is not blocked by step 1 and could run in parallel, but
    sequential is preferred here to avoid re-creating the "audit → fix →
    next audit finds a neighbor problem" context-blur pattern this project
-   has already hit more than once).
+   has already hit more than once). Not started.
 3. New-Tenant / One-Hour Provisioning Test (`docs/strategy/go-to-market-roadmap.md`
    §7) — creating a genuinely new tenant with zero application-code changes
-   is the actual evidence this gate exists to produce, not a formality.
+   is the actual evidence this gate exists to produce, not a formality. Not
+   started.
 4. A single combined QA + Founder acceptance pass over the result of 1–3,
-   not a re-run of the narrow F1/F2-style acceptance from §2.3.
+   not a re-run of the narrow F1/F2-style acceptance from §2.3. Not started.
 
-None of steps 1–4 is authorized to start by this entry alone — the Founder
-selects which one begins next (see §5).
+None of the still-open items in step 1, or steps 2–4, is authorized to
+start by this entry alone — the Founder selects which one begins next (see
+§5).
 
 ## 3. Founder decisions in force (not fully restated elsewhere)
 
@@ -204,15 +229,18 @@ duplicated here.
 
 **Cafe v2.1 (bounded, §2.3) is closed.** Preview QA, independent review, and
 Final Founder Acceptance for F1/F2 all complete as of 2026-08-16. **Cafe
-Commercial Launch Readiness (§2.4) is a separate, higher gate and has not
-started** — none of its four steps is authorized by this entry alone.
+Commercial Launch Readiness (§2.4) step 1's mechanical items (IA
+reconciliation + ORPHAN-1/STAFF-I18N-1/F3/I18N-DOC-1/F5/MOB-1) are done and
+merged; step 1's decision-dependent items (LOC-1, Defect C, visual/brand
+reconciliation, Surface A retirement, I18N-JA-1) and steps 2–4 have not
+started.**
 
 1. Do not automatically start Cafe Hardening / Deferred Debt, Cafe Product
-   Growth, Platform Foundation, IA/visual reconciliation, Cafe Commercial
-   Launch Readiness step 1–4, or Cafe v2.2 as a consequence of the §2.3
-   closure; each requires its own bounded Product/Founder decision, per
-   §2.3/§2.4 and `../ORUWA-info.md` §14.
-2. The Founder selects which of §2.4's four steps begins next (or a
+   Growth, Platform Foundation, Cafe Commercial Launch Readiness step
+   2–4, or Cafe v2.2 as a consequence of the §2.3 closure or step 1's
+   partial progress; each requires its own bounded Product/Founder
+   decision, per §2.3/§2.4 and `../ORUWA-info.md` §14.
+2. The Founder selects which of §2.4's remaining items begins next (or a
    different priority entirely). Once selected, update this section to
    name the active mission explicitly, rather than leaving this file
    pointing at an already-closed gate.
