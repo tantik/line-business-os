@@ -5,7 +5,8 @@ import type { TenantAdminMember } from '@/lib/tenant/admin-members';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { card, colors, linkAccent, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
-import { tAdminDashboard } from './admin-i18n';
+import { membershipStatusLabel, tAdminDashboard, tenantKindLabel } from './admin-i18n';
+import type { Lang } from '@/lib/demo/cafe/i18n';
 
 export interface AdminMembersData {
   status: 'success' | 'unauthorized' | 'unexpected_error';
@@ -38,7 +39,15 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
   );
 }
 
-function AdminMembersSection({ members, t }: { members: AdminMembersData; t: (key: Parameters<typeof tAdminDashboard>[1]) => string }) {
+function AdminMembersSection({
+  members,
+  t,
+  lang,
+}: {
+  members: AdminMembersData;
+  t: (key: Parameters<typeof tAdminDashboard>[1]) => string;
+  lang: Lang;
+}) {
   if (members.status === 'success' && members.data) {
     return (
       <section style={card}>
@@ -73,9 +82,9 @@ function AdminMembersSection({ members, t }: { members: AdminMembersData; t: (ke
                       <strong>{member.tenantName}</strong>
                     </td>
                     <td style={{ ...tableCell, overflowWrap: 'anywhere' }}>{member.tenantSlug}</td>
-                    <td style={tableCell}>{member.tenantKind}</td>
+                    <td style={tableCell}>{tenantKindLabel(lang, member.tenantKind)}</td>
                     <td style={{ ...tableCell, overflowWrap: 'anywhere' }}>{member.locationId ?? t('allLocations')}</td>
-                    <td style={tableCell}>{member.membershipStatus}</td>
+                    <td style={tableCell}>{membershipStatusLabel(lang, member.membershipStatus)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -120,7 +129,7 @@ function AdminDashboardBody({ tenantName, tenantSlug, members }: AdminDashboardC
         </p>
       </section>
 
-      <AdminMembersSection members={members} t={t} />
+      <AdminMembersSection members={members} t={t} lang={lang} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
         {sectionCardKeys.map((item) => (
