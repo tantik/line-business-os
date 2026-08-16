@@ -361,7 +361,44 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      `supabase/tests/0039_core_shared_navigation_and_settings.sql`; full
      suite green locally (855/855), typecheck/lint clean. Not pushed to
      Supabase Cloud.
-   - Notifications → Event Bus: not started.
+   - **Notifications — done, 2026-08-16, merged to `main` via PR #260.**
+     Added `supabase/migrations/0072_core_notifications_engine.sql`: a
+     generic cross-module notification outbox (`core.notifications`:
+     tenant/module/channel/`recipient_line_account_id`/idempotency_key/
+     template_key/template_params/status/attempt_count). Research before
+     writing this found the roadmap's "extract duplicated LINE logic from
+     Workforce and Booking" premise partly stale —
+     `apps/worker/src/jobs/booking-reminders.ts` doesn't actually send
+     anything today (a documented skeleton whose own TODO already cited
+     this future service) and Workforce has no shift-notification send code
+     at all; the value delivered is the shared engine existing *before* a
+     module writes its own send+idempotency logic. The real duplication
+     that already happened is schema-level —
+     `workforce.employee_line_links` re-implements `core.line_accounts`'
+     identical encrypted+blind-index-hash pattern — flagged in the
+     migration header as durable debt, **not fixed here** (a real data
+     migration on an existing, reference-tenant-bearing table needs its own
+     bounded, separately-approved pass; do not silently start it as a side
+     effect of a later step). Recipient is `recipient_line_account_id`
+     (→ `core.line_accounts.id`, matching `booking.bookings
+     .line_account_id`'s existing shape), not a generic polymorphic
+     recipient — no second channel exists yet to design that
+     generalization against. **Deliberately did NOT** wire
+     `booking-reminders.ts` to actually enqueue/send (only updated its TODO
+     to point at `enqueueNotification`) and did NOT add a dispatch worker
+     to `apps/worker`'s cron loop — actually causing LINE messages to go
+     out to real customers is `CLAUDE.md`'s "LINE broadcast/mass messaging"
+     safety boundary, a separate, later, explicitly-approved step from
+     building this engine, distinct from and in addition to the
+     Supabase-Cloud-push approval every migration in this critical path
+     still needs. Writes are system-generated only (no
+     INSERT/UPDATE/DELETE grant to `authenticated`, same convention as
+     `audit.audit_logs`). App wrapper: `packages/core/src/notifications.ts`
+     (`enqueueNotification`/`listPendingNotifications`/
+     `markNotificationSent`/`markNotificationFailed`). New pgTAP coverage:
+     `supabase/tests/0040_core_notifications_engine.sql`; full suite green
+     locally (860/860), typecheck/lint clean. Not pushed to Supabase Cloud.
+   - Event Bus: not started.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.
