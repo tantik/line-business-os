@@ -12,7 +12,8 @@
     "./module-registry": "./src/module-registry.ts",
     "./navigation": "./src/navigation.ts",
     "./settings": "./src/settings.ts",
-    "./notifications": "./src/notifications.ts"
+    "./notifications": "./src/notifications.ts",
+    "./events": "./src/events.ts"
   },
   "scripts": {
     "lint": "eslint .",
