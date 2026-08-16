@@ -9,7 +9,9 @@
     "./tenant-context": "./src/tenant-context.ts",
     "./audit": "./src/audit.ts",
     "./entitlements": "./src/entitlements.ts",
-    "./module-registry": "./src/module-registry.ts"
+    "./module-registry": "./src/module-registry.ts",
+    "./navigation": "./src/navigation.ts",
+    "./settings": "./src/settings.ts"
   },
   "scripts": {
     "lint": "eslint .",

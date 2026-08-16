@@ -217,6 +217,17 @@ select is(
           and table_name in ('module_registry', 'module_dependencies')
           and privilege_type = 'SELECT'
         )
+        or (
+          -- 0071_core_shared_navigation_and_settings.sql: a later, separate
+          -- migration. Unlike 0069/0070's latent-write-policy convention,
+          -- core.tenant_settings IS meant to be directly writable by an
+          -- ordinary tenant admin under RLS (core.settings.manage) -- a
+          -- self-serve settings contract, not a platform-controlled one --
+          -- so SELECT/INSERT/UPDATE/DELETE are all granted for real.
+          table_schema = 'core'
+          and table_name = 'tenant_settings'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
