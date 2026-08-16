@@ -209,7 +209,9 @@ Sequence (recommended):
    this work is not blocked by step 1 and could run in parallel, but
    sequential is preferred here to avoid re-creating the "audit → fix →
    next audit finds a neighbor problem" context-blur pattern this project
-   has already hit more than once). Not started.
+   has already hit more than once). **All 5 steps done, 2026-08-16** — see
+   §5 for full detail. Schema + `packages/core` engine only; no UI/worker
+   consumer wired up by design; not yet pushed to Supabase Cloud.
 3. New-Tenant / One-Hour Provisioning Test (`docs/strategy/go-to-market-roadmap.md`
    §7) — creating a genuinely new tenant with zero application-code changes
    is the actual evidence this gate exists to produce, not a formality. Not
@@ -398,7 +400,44 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      `markNotificationSent`/`markNotificationFailed`). New pgTAP coverage:
      `supabase/tests/0040_core_notifications_engine.sql`; full suite green
      locally (860/860), typecheck/lint clean. Not pushed to Supabase Cloud.
-   - Event Bus: not started.
+   - **Event Bus — done, 2026-08-16, merged to `main` via PR #262. This
+     completes all 5 steps of the Platform Foundation critical path.**
+     Added `supabase/migrations/0073_core_event_bus.sql`: an append-only
+     cross-module event log (`core.events`), modeled like
+     `audit.audit_logs` (immutable via a prevent-mutation trigger), not
+     like `core.notifications`' mutable status — an event is a fact that
+     happened, not a task with a lifecycle. Research before writing this
+     (same discipline as all 4 prior steps) found no live cross-module
+     coupling to fix today: no module reads/writes another module's
+     schema, no package imports another module's package, and
+     `ai.proposals` (the roadmap's own cited precedent) has zero callers
+     anywhere. Matches the roadmap's own explicit permission (§8): Event
+     Bus can wait for the first real decoupled scenario, no later than the
+     3rd vertical — this migration builds the primitive ahead of need, not
+     as a coupling-removal refactor. Deliberately did NOT add a
+     `core.event_subscriptions`/delivery-tracking table (zero current
+     producers/consumers — that would design fan-out bookkeeping against a
+     hypothetical). App wrapper: `packages/core/src/events.ts`
+     (`publishEvent`/`listEventsSince`). New pgTAP coverage:
+     `supabase/tests/0041_core_event_bus.sql`; full suite green locally
+     (866/866), typecheck/lint clean. Not pushed to Supabase Cloud.
+
+   **Platform Foundation critical path status: all 5 steps done
+   (2026-08-16), none pushed to Supabase Cloud yet.** Every step
+   (`0069`-`0073`) deliberately built schema + a reusable `packages/core`
+   engine only — none wired a live `apps/web`/`apps/worker` consumer, by
+   design (each migration's own header documents why: UI-regression risk
+   for Shared Navigation, the LINE-broadcast-messaging safety boundary for
+   Notifications, "no real consumer yet" for Module Registry/Event Bus).
+   Two concrete, not-yet-started follow-on items this leaves on the table,
+   neither authorized to start by this entry alone:
+   1. Push migrations `0069`-`0073` to Supabase Cloud dev — needs separate
+      explicit human approval per `CLAUDE.md`.
+   2. UI/worker adoption of the 5 new contracts (dashboard nav driven by
+      `core.module_registry`, a `/dashboard/settings` route, an actual LINE
+      dispatch worker consuming `core.notifications`, any real producer/
+      consumer of `core.events`) — each is its own bounded, separately
+      scoped task, not a single follow-up PR.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.
