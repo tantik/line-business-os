@@ -38,6 +38,21 @@ interface ManagerDashboardDict {
   deactivate: string;
   saving: string;
   confirmDeactivate: string;
+  // Staff form (Add/Edit modal)
+  fieldName: string;
+  fieldFamilyName: string;
+  fieldGivenName: string;
+  fieldEmail: string;
+  fieldPosition: string;
+  fieldEmploymentType: string;
+  addStaffSubmit: string;
+  saveChanges: string;
+  cancel: string;
+  // Shared write-error chrome (staff form + shift cell editor)
+  errorNotFound: string;
+  errorNotAuthenticated: string;
+  errorNoMembership: string;
+  errorStaleReference: string;
   // Weekly schedule section
   prevWeek: string;
   thisWeek: string;
@@ -65,6 +80,14 @@ interface ManagerDashboardDict {
   colLabel: string;
   colTime: string;
   colBreak: string;
+  // Shift cell editor
+  fieldEmployee: string;
+  fieldShiftType: string;
+  shiftTypeCustom: string;
+  fieldStart: string;
+  fieldEnd: string;
+  fieldBreakMinutes: string;
+  save: string;
   // Submitted shift preferences
   preferencesUnavailable: string;
   preferencesEmpty: string;
@@ -134,6 +157,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivate: 'Deactivate',
     saving: 'Saving...',
     confirmDeactivate: 'Deactivate this staff member?',
+    fieldName: 'Name',
+    fieldFamilyName: 'Family name',
+    fieldGivenName: 'Given name',
+    fieldEmail: 'Email',
+    fieldPosition: 'Position',
+    fieldEmploymentType: 'Employment type',
+    addStaffSubmit: 'Add staff',
+    saveChanges: 'Save changes',
+    cancel: 'Cancel',
+    errorNotFound: 'Not found.',
+    errorNotAuthenticated: 'Please sign in again.',
+    errorNoMembership: 'You are not a member of this workspace.',
+    errorStaleReference: 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.',
     prevWeek: 'Prev week',
     thisWeek: 'This week',
     nextWeek: 'Next week',
@@ -160,6 +196,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colLabel: 'Label',
     colTime: 'Time',
     colBreak: 'Break',
+    fieldEmployee: 'Employee',
+    fieldShiftType: 'Shift type',
+    shiftTypeCustom: 'Custom',
+    fieldStart: 'Start',
+    fieldEnd: 'End',
+    fieldBreakMinutes: 'Break (min)',
+    save: 'Save',
     preferencesUnavailable: 'Shift preferences are temporarily unavailable.',
     preferencesEmpty: 'No shift preferences submitted for this week yet.',
     colDate: 'Date',
@@ -222,6 +265,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivate: '無効化',
     saving: '保存中...',
     confirmDeactivate: 'このスタッフを無効化しますか？',
+    fieldName: '氏名',
+    fieldFamilyName: '姓',
+    fieldGivenName: '名',
+    fieldEmail: 'メールアドレス',
+    fieldPosition: '役職',
+    fieldEmploymentType: '雇用形態',
+    addStaffSubmit: 'スタッフを追加',
+    saveChanges: '変更を保存',
+    cancel: 'キャンセル',
+    errorNotFound: '見つかりませんでした。',
+    errorNotAuthenticated: 'もう一度サインインしてください。',
+    errorNoMembership: 'このワークスペースのメンバーではありません。',
+    errorStaleReference: 'この依頼は最新の状態ではありません。シフトが変更されたか、別のマネージャーが既に対応した可能性があります。最新の状態を確認するには更新してください。',
     prevWeek: '前週',
     thisWeek: '今週',
     nextWeek: '次週',
@@ -248,6 +304,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colLabel: '名称',
     colTime: '時間',
     colBreak: '休憩',
+    fieldEmployee: 'スタッフ',
+    fieldShiftType: 'シフト種別',
+    shiftTypeCustom: 'カスタム',
+    fieldStart: '開始',
+    fieldEnd: '終了',
+    fieldBreakMinutes: '休憩（分）',
+    save: '保存',
     preferencesUnavailable: 'シフト希望は一時的に利用できません。',
     preferencesEmpty: '今週はまだシフト希望が提出されていません。',
     colDate: '日付',
