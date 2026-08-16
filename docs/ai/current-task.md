@@ -40,8 +40,9 @@ verified stage, active constraints, and the next gate.
 
 Cafe Package v2.0 remains frozen (bug/security/accessibility/localization
 fixes and bounded release polish only; new features require a new Product
-Review). Cafe Package v2.1 is in **Final Founder Acceptance**; this is not a
-Commercial Release and Final Founder Acceptance has not been recorded.
+Review). **Cafe Package v2.1 is CLOSED** (Final Founder Acceptance recorded
+2026-08-16, see §2.3). This is not a Commercial Release — production remains
+separately gated and was not enabled (see "Verified baseline" below).
 
 Verified baseline:
 
@@ -52,9 +53,11 @@ Verified baseline:
 - v2.0 authenticated acceptance: `docs/product/cafe-package-v2-acceptance-report.md`.
 - v2.1 evidence of record: `docs/product/cafe-package-v2-1-acceptance-report.md`,
   `docs/product/cafe-package-v2-1-founder-acceptance-audit.md`,
-  `docs/product/cafe-package-v2-1-final-live-founder-acceptance.md`, and
-  `docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md`. Do not reuse
-  v2.0 PASS results as proof of changed v2.1 surfaces.
+  `docs/product/cafe-package-v2-1-final-live-founder-acceptance.md` (2026-08-10,
+  stale/superseded — see that file and §2.3),
+  `docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md`, and the closing
+  record `docs/product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md`.
+  Do not reuse v2.0 PASS results as proof of changed v2.1 surfaces.
 - Production remains separately gated and was not enabled.
 
 ### 2.1 Canonical Staff surface (settled)
@@ -94,15 +97,25 @@ The only authorized implementation closure scope is:
 2. **F2** — localize the Manager Shift Cell Editor.
 
 Implementation merged into `dev` through PR #241 (`ed1de927`); CI and Vercel
-passed. This confirms code delivery, not authenticated product acceptance.
-F1/F2 and Cafe v2.1 are not finally accepted until authenticated Preview QA,
-independent review, and Final Founder Acceptance complete.
+passed. **Authenticated Preview QA, independent review, and Final Founder
+Acceptance have since completed** (2026-08-16): both F1 and F2 verified
+PASS live on `preview.oruwa.jp` (JA rendering confirmed in the Add/Edit
+Staff modal and the shift-assignment editor, persisted across reload), no
+P0/P1 regression found. Full evidence:
+`docs/product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md`.
+**Cafe v2.1 is CLOSED on this basis.**
 
 Known P2/P3 findings remain durable **Cafe Hardening / Deferred Debt**. They
 are not fixed, forgotten, or release blockers, and they are not automatically
 authorized as the next mission. Cafe Product Growth (Checklists, Manuals
 integration, report/problem lifecycle, lightweight Training, Weekly Review,
-Inventory improvements) is a separate post-v2.1 candidate category.
+Inventory improvements) is a separate post-v2.1 candidate category. The IA/
+navigation and visual/UX reconciliation of the canonical surface against the
+Surface A reference (route naming, mobile styling, presentation polish) is
+also not started by this closure — it is planned future work
+(`docs/strategy/go-to-market-roadmap.md` §3; `../ORUWA-info.md` §15 Horizon
+B) and requires its own bounded Product/Founder decision to begin, same as
+any other post-v2.1 category.
 
 ## 3. Founder decisions in force (not fully restated elsewhere)
 
@@ -145,10 +158,15 @@ duplicated here.
 
 ## 5. Exact next gate
 
-1. Run authenticated Preview QA for the merged F1/F2-only change set.
-2. Run independent review.
-3. Run Final Founder Acceptance. Declare Cafe v2.1 closed only if no P0/P1
-   regression remains.
-4. Do not automatically start Cafe Hardening, Product Growth, Platform
-   Foundation, or Cafe v2.2 after closure; each requires its own bounded
-   Product/Founder decision.
+**Cafe v2.1 is closed** (§2.3). Preview QA, independent review, and Final
+Founder Acceptance all complete as of 2026-08-16 — this repeats no further
+action.
+
+1. Do not automatically start Cafe Hardening / Deferred Debt, Cafe Product
+   Growth, Platform Foundation, IA/visual reconciliation of the canonical
+   surface, or Cafe v2.2 as a consequence of this closure; each requires
+   its own bounded Product/Founder decision, per §2.3 and `../ORUWA-info.md`
+   §14.
+2. The next bounded mission (once selected by the Founder) should update
+   this section to name it explicitly, rather than leaving this file
+   pointing at a already-closed gate.

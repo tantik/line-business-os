@@ -131,7 +131,7 @@ Manager Attention не является новым business module: он соб�
 - **F1:** localization Manager Add/Edit Staff modal;
 - **F2:** localization Manager Shift Cell Editor.
 
-Implementation F1/F2 merged в `dev` через PR #241; CI и Vercel для PR прошли. Это подтверждает code delivery, но не заменяет authenticated Preview QA, independent review и Final Founder Acceptance. Cafe v2.1 закрывается только если после этих gates не осталось P0/P1 regression. Evidence и полный deferred register: [Whole-Product Integrity Gate](ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md).
+Implementation F1/F2 merged в `dev` через PR #241; CI и Vercel для PR прошли. **Authenticated Preview QA, independent review и Final Founder Acceptance завершены 2026-08-16** — оба F1 и F2 подтверждены PASS live на `preview.oruwa.jp`, P0/P1 regression не найден. **Cafe v2.1 CLOSED.** Evidence: [Final Founder Acceptance 2026-08-16](product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md); полный deferred P2/P3 register остаётся открытым и не закрыт этим решением: [Whole-Product Integrity Gate](ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md).
 
 ## 12. Cafe v2.1 Closure Philosophy
 
@@ -259,17 +259,17 @@ Tenant isolation, location scoping, RLS, role/permission boundaries, отсут�
 - Future Platform Admin отделён от tenant `/dashboard/admin`.
 - Customer Onboarding конфигурирует tenant/package; self-service и assisted flow используют одно состояние.
 - Развитие модулей: REUSE → CONNECT → IMPROVE → ONLY THEN BUILD NEW.
-- Whole-Product Gate после PR #240 завершён; до Final Founder Acceptance разрешён только bounded F1/F2 closure.
+- Whole-Product Gate после PR #240 завершён; Final Bounded Closure (F1/F2) прошёл Preview QA, independent review и Final Founder Acceptance 2026-08-16 — **Cafe v2.1 CLOSED.**
 
 ## 21. Open Decisions / Risks
 
-- **MERGED, FINAL ACCEPTANCE PENDING:** Final Bounded Closure ограничен F1/F2 и вошёл в `dev` через PR #241; закрытие версии требует authenticated Preview QA, independent review и Final Founder Acceptance.
+- **CLOSED 2026-08-16:** Final Bounded Closure (F1/F2, PR #241) прошёл authenticated Preview QA, independent review и Final Founder Acceptance с результатом PASS, P0/P1 regression не найден — см. [Final Founder Acceptance 2026-08-16](product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md).
 - **OPEN:** live clock-in/out disposition и strict location-fallback policy.
 - **OPEN:** retirement timing Surface A после parity canonical dashboard.
+- **OPEN:** IA/route naming (`/dashboard/workforce/**` is internal/technical, not decided customer-facing IA) и visual/UX reconciliation канонической поверхности против Surface A reference — не начато этим закрытием, отдельное будущее решение (`strategy/go-to-market-roadmap.md` §3).
 - **OPEN:** native Japanese review и recovery после прерванного first-time Staff invite.
 - **OPEN:** точная последовательность Platform Foundation и billing/provider details.
 - **CANDIDATE:** следующая vertical и Checklists/Training/Weekly Review — только после customer validation.
-- **ACCEPTANCE RISK:** CI/Vercel PASS не доказывает authenticated product behavior; Final Founder Acceptance ещё не записан.
 - **NEEDS_FOUNDER_DECISION:** должен ли IAOS после refresh оставаться отдельным authoritative company-strategy repo или быть сведён к редкому portfolio decision register. До решения не переносить его правила и не удалять repo.
 
 Актуальный реестр: [risk-register.md](operations/risk-register.md).
@@ -277,8 +277,8 @@ Tenant isolation, location scoping, RLS, role/permission boundaries, отсут�
 ## 22. Where We Are Now
 
 - **CURRENT PRODUCT:** ORUWA Cafe
-- **CURRENT STAGE:** Cafe v2.1 Final Founder Acceptance
-- **CURRENT GOAL:** проверить merged F1/F2 в authenticated Preview, провести independent review и Final Founder Acceptance.
+- **CURRENT STAGE:** Cafe v2.1 CLOSED (Final Founder Acceptance recorded 2026-08-16); next mission not yet selected.
+- **CURRENT GOAL:** Founder to select the next bounded mission — candidates are Cafe Hardening/Deferred Debt, IA/visual reconciliation, or Platform Foundation (Horizon C) — per §14/§15 above, none is automatically authorized by this closure.
 - **NEXT:** authenticated Preview QA → independent review → Final Founder Acceptance → Cafe v2.1 closure при отсутствии P0/P1 regression.
 
 ## 23. How a Fresh AI Session Should Use This File
