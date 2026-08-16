@@ -313,8 +313,29 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      this migration has NOT yet been pushed to Supabase Cloud — that
      requires separate explicit human approval, same as every prior
      migration; it is merged to `main` locally/in GitHub only.
-   - Module Registry → Shared Navigation/Settings → Notifications →
-     Event Bus: not started.
+   - **Module Registry — done, 2026-08-16, merged to `main` via PR #256.**
+     Added `supabase/migrations/0070_core_module_registry.sql`: module
+     metadata (`core.module_registry`: name/description/version/
+     lifecycle_status/min_plan_code) and a dependency graph
+     (`core.module_dependencies`), keyed by the existing `core.module_code`
+     enum rather than replacing it — confirmed `logistics`/`crm` are pure
+     placeholders (enum values only, zero schema/routes anywhere), so
+     generalizing the module identifier isn't needed yet. Seeded from actual
+     shipped state: `core`/`workforce`/`booking` = `ga`, `inventory`/`ai` =
+     `beta`, `logistics`/`crm` = `planned`. `core.can_enable_module(tenant,
+     module)` pre-checks lifecycle status (not deprecated/retired), the
+     tenant's plan against `min_plan_code` (exact match —
+     `core.entitlement_plans` has no tier ordering yet), and that every
+     direct dependency is already enabled; not wired to any consumer yet.
+     Registry writes are platform-staff-only (same convention as `0069`).
+     App wrapper: `packages/core/src/module-registry.ts`
+     (`getModuleRegistry`/`canEnableModule`). New pgTAP coverage:
+     `supabase/tests/0038_core_module_registry.sql`; full suite verified
+     green locally (845/845), plus typecheck/lint clean. Out of scope:
+     wiring this into `apps/web` nav/dashboard (Shared Navigation/Settings,
+     the next critical-path step), an admin UI for editing registry rows.
+     Not pushed to Supabase Cloud (same pending-approval status as `0069`).
+   - Shared Navigation/Settings → Notifications → Event Bus: not started.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.
