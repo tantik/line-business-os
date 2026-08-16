@@ -236,6 +236,14 @@ select is(
           and table_name = 'notifications'
           and privilege_type = 'SELECT'
         )
+        or (
+          -- 0073_core_event_bus.sql: a later, separate migration. SELECT
+          -- only -- events are system-generated (no authenticated-role
+          -- write grant at all), same as audit.audit_logs/core.notifications.
+          table_schema = 'core'
+          and table_name = 'events'
+          and privilege_type = 'SELECT'
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
