@@ -178,8 +178,9 @@ Implementation F1/F2 merged в `dev` через PR #241; CI и Vercel для PR 
 | D — Cafe Product Growth            | Validated recurring operations/checklists, Manuals integration, problem lifecycle, lightweight Training, Weekly Review, Inventory improvements                                                                                                                        |
 | E — Product #2 / Next Vertical     | Product research and customer validation; winner не выбран заранее                                                                                                                                                                                                    |
 | F — Cross-product Expansion        | CRM/Loyalty/LINE/AI capabilities после validation и нужной foundation                                                                                                                                                                                                 |
+| G — Go-to-Market                   | Website, commercial package, sales pipeline/channels, AI Sales Assistant, first real customers, Product #2 selection gate — commercial layer above C, runs after Cafe v2.1 closes                                                                                    |
 
-Roadmaps: [Platform Foundation Roadmap](foundation/platform-foundation-roadmap.md) и [Repository Maturity Roadmap](foundation/repository-maturity-roadmap.md). Они задают gates, а не автоматическое разрешение строить следующий горизонт.
+Roadmaps: [Platform Foundation Roadmap](foundation/platform-foundation-roadmap.md) и [Repository Maturity Roadmap](foundation/repository-maturity-roadmap.md) задают engineering gates для Horizon C. [Go-to-Market Roadmap](strategy/go-to-market-roadmap.md) (draft, not yet Founder-reviewed) раскрывает Horizon G и сверяет её порядок с уже принятым critical path из Platform Foundation Roadmap. Ни один из roadmap-документов не даёт автоматического разрешения строить следующий горизонт.
 
 ## 16. AI Engineering Operating Model
 
