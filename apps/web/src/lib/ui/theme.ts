@@ -1,28 +1,38 @@
 import type { CSSProperties } from 'react';
 
 /**
- * Shared dark UI tokens/style helpers for apps/web.
+ * Shared UI tokens/style helpers for apps/web.
  *
  * Visual foundation only — no component logic. Centralizing colors here
  * avoids repeating magic hex values across pages while keeping every page a
  * plain server component with inline styles (no new styling dependency).
+ *
+ * Warm/light palette (Cafe Commercial Launch Readiness, visual/brand
+ * reconciliation, Founder decision 2026-08-16): values are ported 1:1 from
+ * `@/lib/demo/cafe/theme.ts`'s `demoColors` (the Surface A / public-demo
+ * reference the Founder approved as the canonical visual direction), not
+ * reinvented. The two token files stay structurally separate by design (each
+ * surface remains independently themeable) but now share the same palette,
+ * so the canonical Manager/Staff/Inventory/Admin/Recipes dashboards read as
+ * one commercial product with the reference surface instead of a plain dark
+ * admin panel next to a warm consumer-facing demo.
  */
 
 export const colors = {
-  bg: '#0B1220',
-  surface: '#151C2E',
-  surfaceElevated: '#172033',
-  border: '#243041',
-  textPrimary: '#E5E7EB',
-  textMuted: '#9CA3AF',
-  accent: '#06C755',
-  accentMuted: 'rgba(6, 199, 85, 0.12)',
-  danger: '#F87171',
-  dangerMuted: 'rgba(248, 113, 113, 0.12)',
-  dangerText: '#FCA5A5',
-  success: '#34D399',
-  successMuted: 'rgba(52, 211, 153, 0.12)',
-  warning: '#FBBF24',
+  bg: '#FAF3E7',
+  surface: '#FFFFFF',
+  surfaceElevated: '#F6EEDF',
+  border: '#E7D9C1',
+  textPrimary: '#362B1F',
+  textMuted: '#8B7C64',
+  accent: '#4F7A52',
+  accentMuted: 'rgba(79, 122, 82, 0.12)',
+  danger: '#C1503F',
+  dangerMuted: 'rgba(193, 80, 63, 0.12)',
+  dangerText: '#A6402F',
+  success: '#4F7A52',
+  successMuted: 'rgba(79, 122, 82, 0.12)',
+  warning: '#B8863B',
 } as const;
 
 export function pageStyle(maxWidth: number): CSSProperties {
@@ -31,10 +41,11 @@ export function pageStyle(maxWidth: number): CSSProperties {
 
 export const card: CSSProperties = {
   border: `1px solid ${colors.border}`,
-  borderRadius: 12,
-  padding: 16,
+  borderRadius: 8,
+  padding: 18,
   marginTop: 16,
   background: colors.surface,
+  boxShadow: '0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05)',
 };
 
 export const mutedText: CSSProperties = { color: colors.textMuted };
@@ -42,7 +53,7 @@ export const mutedText: CSSProperties = { color: colors.textMuted };
 export const buttonPrimary: CSSProperties = {
   padding: '10px 16px',
   background: colors.accent,
-  color: colors.bg,
+  color: '#FFFFFF',
   border: 'none',
   borderRadius: 8,
   fontSize: 14,
@@ -52,17 +63,18 @@ export const buttonPrimary: CSSProperties = {
 
 export const buttonSecondary: CSSProperties = {
   padding: '8px 14px',
-  background: colors.surfaceElevated,
+  background: colors.surface,
   color: colors.textPrimary,
   border: `1px solid ${colors.border}`,
   borderRadius: 8,
   fontSize: 14,
+  fontWeight: 600,
   cursor: 'pointer',
 };
 
 export const buttonDisabled: CSSProperties = {
   padding: '8px 12px',
-  background: colors.surface,
+  background: colors.surfaceElevated,
   color: colors.textMuted,
   border: `1px solid ${colors.border}`,
   borderRadius: 8,
@@ -78,9 +90,10 @@ export const linkAccent: CSSProperties = {
 export const input: CSSProperties = {
   display: 'block',
   width: '100%',
+  boxSizing: 'border-box',
   marginTop: 4,
   padding: '10px 12px',
-  background: colors.surfaceElevated,
+  background: colors.surface,
   border: `1px solid ${colors.border}`,
   borderRadius: 8,
   color: colors.textPrimary,

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { inviteOrResendEmployee, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
-import { badgeStyle, buttonDisabled, buttonSecondary, mutedText } from '@/lib/ui/theme';
+import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 
 /**
  * JA-only per Founder direction: localize the NEW Staff Auth Provisioning
@@ -107,7 +107,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
           取り消す
         </button>
       ) : null}
-      {error ? <span style={{ ...mutedText, color: '#b00020', fontSize: 12 }}>{error}</span> : null}
+      {error ? <span style={{ ...mutedText, color: colors.dangerText, fontSize: 12 }}>{error}</span> : null}
     </div>
   );
 }
