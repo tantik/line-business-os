@@ -3,3 +3,5 @@ export * from './tenant-context.js';
 export * from './audit.js';
 export * from './entitlements.js';
 export * from './module-registry.js';
+export * from './navigation.js';
+export * from './settings.js';
