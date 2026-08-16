@@ -170,7 +170,11 @@ select is(
         'workforce_employee_invitations',
         -- Staff-safe coworker roster (0061_workforce_staff_roster_visibility.sql):
         -- 1 new read-only view, added in a later, separate migration.
-        'workforce_staff_roster'
+        'workforce_staff_roster',
+        -- Entitlements engine (0069_core_entitlements_engine.sql): 1 new
+        -- read-only view for the new `core.tenant_plans` table, added in a
+        -- later, separate migration.
+        'my_tenant_plan'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

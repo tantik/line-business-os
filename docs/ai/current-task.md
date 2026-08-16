@@ -186,16 +186,25 @@ Sequence (recommended):
        not independently verified — no test-inbox access — but the server
        round-trip proves the deployed function recognizes
        `action: 'recover'`).
-   - **Still open, needs a Founder decision before any code change**: full
-     visual/brand reconciliation is done (see above); the remaining
-     decision items are `I18N-JA-1` (native Japanese copy review — needs a
-     native speaker, not code, not something an AI agent session can
-     close) and Surface A retain-vs-retire timing (whether/when to remove
-     the `%5Fclient-preview/mame-to-cha/**` reference surface now that
-     Surface B has closed the P1/P2 gaps that motivated keeping it as a
-     UX/acceptance reference — a product decision, not a code change by
-     itself). `F4` (`InvitationCell` JA-only) is intentional per Founder
-     direction, no action needed.
+   - **Still open, no code change yet, but both now have a Founder decision
+     recorded (2026-08-16)**: full visual/brand reconciliation is done (see
+     above); the remaining items are:
+     - `I18N-JA-1` (native Japanese copy review): Founder will review it
+       personally once the whole Commercial Launch Readiness gate (§2.4
+       steps 1–4) is complete — not an engineering task, not something an
+       AI agent session closes. Do not start this proactively; wait for the
+       Founder.
+     - Surface A retain-vs-retire (`%5Fclient-preview/mame-to-cha/**`):
+       Founder decision is to **retire/remove it once Cafe v2.1 closure is
+       fully settled** (i.e. once this remaining step-1 decision work is
+       wrapped up — treat as authorized to execute as part of finishing
+       step 1, not a separate future ask). Removal itself is still a code
+       change (deleting the preview-host-only route tree and any
+       references to it) and has not been done yet — do it as a discrete,
+       reviewable PR when picked up, not folded silently into unrelated
+       work.
+     `F4` (`InvitationCell` JA-only) is intentional per Founder direction,
+     no action needed.
 2. Platform Foundation critical path (per the already-accepted document;
    this work is not blocked by step 1 and could run in parallel, but
    sequential is preferred here to avoid re-creating the "audit → fix →
@@ -272,11 +281,39 @@ retain-vs-retire timing (a product decision with no forcing function yet).
 2. Platform Foundation critical path (already-accepted sequencing,
    `docs/foundation/platform-foundation-roadmap.md` §7/§10): Entitlements
    engine → Module Registry → Shared Navigation/Settings → Notifications →
-   Event Bus. Not started. The next session should open by re-verifying
-   this file and `docs/foundation/platform-foundation-roadmap.md` against
-   the actual repo state (per that document's own hardening-only status
-   for Core Platform) before beginning implementation, not assume this
-   summary is still current without checking.
+   Event Bus.
+   - **Entitlements engine — done, 2026-08-16, local only, not merged/pushed
+     yet.** Re-verified the roadmap's characterization of
+     `core.tenant_modules`/`core.module_code` against the actual repo before
+     starting (still accurate — pure boolean toggle, no plan/limit/lifecycle
+     model, no prior entitlements code anywhere). Added
+     `supabase/migrations/0069_core_entitlements_engine.sql`: a plan catalog
+     (`core.entitlement_plans`: trial/standard/custom), per-tenant lifecycle
+     (`core.tenant_plans`: trial/active/past_due/suspended/canceled, with a
+     backfill for all 4 existing tenants incl. `oruwa-cafe` and an
+     on-insert trigger for future tenants), generic limits
+     (`core.plan_default_limits` + `core.tenant_entitlement_limits`), and
+     enforcement functions `core.has_module_access` /
+     `core.check_entitlement_limit` / `core.get_entitlement_limit`. Layered
+     strictly on top of the existing `tenant_modules.is_enabled` boolean —
+     nothing that reads it today changed. Plan/limit writes are
+     platform-staff-only by design (stricter than `tenant_modules`'s
+     `core.billing.manage` gate — no Customer Portal/Billing yet to make a
+     tenant-visible plan change commercially honest). App wrapper added at
+     `packages/core/src/entitlements.ts`
+     (`hasModuleAccess`/`requireModuleAccess`/`checkEntitlementLimit`/
+     `requireEntitlementLimit`). New pgTAP coverage:
+     `supabase/tests/0037_core_entitlements_engine.sql` (21 assertions);
+     full suite verified green locally (830/830,
+     `pnpm exec supabase db reset && pnpm exec supabase test db`), plus
+     `pnpm --filter @line-os/core typecheck`/`lint` clean. Explicitly out of
+     scope for this step (deferred to Module Registry or later): wiring
+     `has_module_access`/limits into any `apps/web` nav/guard/UI, an admin
+     surface for assigning plans, actual pricing/Stripe. Per `CLAUDE.md`,
+     this migration has NOT been pushed to Supabase Cloud — that requires
+     separate explicit human approval, same as every prior migration.
+   - Module Registry → Shared Navigation/Settings → Notifications →
+     Event Bus: not started.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.

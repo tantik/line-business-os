@@ -200,6 +200,16 @@ select is(
           and table_name = 'employee_invitations'
           and privilege_type in ('SELECT', 'UPDATE')
         )
+        or (
+          -- 0069_core_entitlements_engine.sql: a later, separate migration.
+          -- SELECT only -- no INSERT/UPDATE/DELETE grant to `authenticated`
+          -- yet, matching tenant_modules/tenant_memberships/locations' own
+          -- latent-write-policy convention (RLS write policies exist, but no
+          -- facade/grant is wired up until an actual write consumer lands).
+          table_schema = 'core'
+          and table_name in ('entitlement_plans', 'tenant_plans')
+          and privilege_type = 'SELECT'
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
