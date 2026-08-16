@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 /**
  * Source-text regression guards closing the Staff -> Manager dashboard
- * information-disclosure defect: the canonical `/dashboard/workforce/manager`
+ * information-disclosure defect: the canonical `/manager`
  * page previously ran `requireTenantContext` + the workforce-module-enabled
  * check only, so any tenant member (Staff included) reached the Manager-only
  * data fetch and UI. `hasManagerAccess` (`workforce.staff.manage`, the same

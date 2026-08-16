@@ -46,7 +46,7 @@ export function SetPasswordForm({ invitationId }: { invitationId: string }) {
     startTransition(async () => {
       const result = await setPasswordAndAcceptInvitation(formData);
       if (result.status === 'success') {
-        router.push('/dashboard/workforce/staff');
+        router.push('/staff');
       } else {
         setError(describeError(result));
       }

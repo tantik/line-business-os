@@ -548,6 +548,7 @@ function ManagerDashboardBody({
                         employeeId={s.staffId}
                         isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
                         onSuccess={() => router.refresh()}
+                        lang={lang}
                       />
                     </td>
                     <td style={tableCell}>
@@ -585,17 +586,17 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+            <Link href={`/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
               {t('prevWeek')}
             </Link>
             <Link
-              href="/dashboard/workforce/manager"
+              href="/manager"
               style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
               aria-disabled={weekOffset === 0}
             >
               {t('thisWeek')}
             </Link>
-            <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+            <Link href={`/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
               {t('nextWeek')}
             </Link>
           </div>

@@ -122,7 +122,7 @@ const PREVIEW_ROUTE_ALLOWLISTS = new Map([
  * for these two keys specifically - `normalizeRouteKey` is still applied
  * uniformly below for consistency, but is a no-op here.
  */
-const DASHBOARD_MUTATION_ROUTES = ['app/(protected)/dashboard/workforce/manager/page', 'app/(protected)/dashboard/workforce/staff/page'];
+const DASHBOARD_MUTATION_ROUTES = ['app/(protected)/manager/page', 'app/(protected)/staff/page'];
 
 /** Filenames (suffix-matched) of dashboard-only action modules. Never a valid worker for any preview route, regardless of that route's allowlist. */
 const FORBIDDEN_PREVIEW_ACTION_FILE_SUFFIXES = [

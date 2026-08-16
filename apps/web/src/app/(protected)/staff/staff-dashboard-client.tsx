@@ -323,17 +323,17 @@ function StaffDashboardBody({
                 {t('onlyMe')}
               </button>
             </div>
-            <Link href={`/dashboard/workforce/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+            <Link href={`/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
               {t('prevWeek')}
             </Link>
             <Link
-              href="/dashboard/workforce/staff"
+              href="/staff"
               style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
               aria-disabled={weekOffset === 0}
             >
               {t('thisWeek')}
             </Link>
-            <Link href={`/dashboard/workforce/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+            <Link href={`/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
               {t('nextWeek')}
             </Link>
           </div>

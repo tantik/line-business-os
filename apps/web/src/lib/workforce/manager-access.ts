@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Server-side gate for the Manager operational surface
- * (`/dashboard/workforce/manager`). `workforce.staff.manage` is the existing
+ * (`/manager`). `workforce.staff.manage` is the existing
  * permission key that already governs every other Manager-only
  * administrative capability in this module -- the staff directory
  * (`api.workforce_staff_directory`, 0023), LINE link management (0029), and
