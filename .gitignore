@@ -40,3 +40,13 @@ Thumbs.db
 supabase/.branches/
 supabase/.temp/
 .supabase/
+
+# Backups may contain PII — never commit.
+backups/
+*.dump
+*.dump.enc
+*.sql.gz
+*.sql.enc
+
+# Claude Code runtime state — session id/pid/timestamp, not governance
+.claude/scheduled_tasks.lock

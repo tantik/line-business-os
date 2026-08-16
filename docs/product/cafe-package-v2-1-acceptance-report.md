@@ -1,0 +1,341 @@
+# Cafe Package v2.1 — acceptance report
+
+Date: 2026-08-05
+Status: **Preview Baseline — Cafe Freeze not yet declared**
+
+## Scope
+
+This report records the engineer-executable portion of the Cafe Package v2.1
+Preview Baseline closeout defined in
+`docs/product/cafe-package-v2-1-baseline-and-acceptance-plan.md` (the
+"baseline plan"). It does not re-derive the baseline definition, the
+acceptance checklists, or the Definition of Done — those live in the baseline
+plan and are referenced here by section number. Evidence levels used below
+match the baseline plan, Section 3: **Implemented**, **Automated-test
+verified**, **Manually verified**, **Founder accepted**.
+
+This report covers three prior units of work plus the current task
+(`cafe-freeze`):
+
+1. `cafe-sprint-0` — merged to `dev` (PR #182, commit `505a539`).
+2. `cafe-sprint-a-shift-schedule` — merged to `dev` (PR #183, commit
+   `199f44a`). Not reopened, duplicated, or re-scoped by this task.
+3. This task (`cafe-freeze`) — fixes baseline-plan finding P1-1 and produces
+   this document.
+
+## `cafe-freeze` — P1-1 fix (this task)
+
+**Finding**: baseline plan Section 12/13, P1-1 — Manager recipe list resolved
+`recipe.titleJa` unconditionally regardless of the active language toggle,
+confirmed by static code read at
+`apps/web/src/lib/preview/preview-recipe-kind-manager.tsx:251` (line 226 at
+the time the baseline plan was written; the file has since moved).
+
+**Fix**: the list-row title now resolves by active language — Japanese when
+`lang === 'ja'`, English when `lang === 'en'` (falling back to the Japanese
+title when `titleEn` is null, undefined, empty, or whitespace-only) —
+matching the resolution pattern already used elsewhere in Recipes
+(`recipe-view-model.ts`), without pulling in that module's
+machine-translation path, which this list view does not need. No other row
+content (badge, thumbnail, edit/delete/restore/archive controls) changed.
+
+**Follow-up, same day**: Codex flagged the original regression test as a
+source-text/regex check rather than a behavioral test. Remediated by
+extracting the title-resolution logic into a standalone pure function,
+`resolveRecipeListTitle`, in a new file (`recipe-list-title.ts`) with no
+`'use server'`/Server Action imports of its own — the component imports and
+renders through this exact function, and the test now imports the same
+function and asserts real return values for JA mode, EN mode with a real
+`titleEn`, and EN-mode fallback for `null`, `undefined`, `''`, and
+whitespace-only `titleEn`. Isolating the resolver from
+`preview-recipe-kind-manager.tsx` (a `'use client'` component that imports
+`'use server'` recipe actions) is what makes it importable directly in the
+`node:test` suite without pulling in the full server-action module graph.
+The test retains two narrow source-text assertions only as an integration
+guard confirming the row still imports and calls this exact function — the
+behavioral proof itself is the direct function-call assertions, not the
+source check.
+
+Changed files:
+
+- `apps/web/src/lib/preview/recipe-list-title.ts` — new file; exports the
+  canonical `resolveRecipeListTitle(recipe, lang)` pure function.
+- `apps/web/src/lib/preview/preview-recipe-kind-manager.tsx` — list-row title
+  render now calls `resolveRecipeListTitle(recipe, lang)` instead of an
+  inline conditional.
+- `apps/web/src/lib/preview/preview-language-toggle.test.ts` — replaced the
+  source-regex regression test with behavioral subtests against
+  `resolveRecipeListTitle`, plus the integration guard described above.
+
+**Automated-test verified** (2026-08-05, this task, local run):
+
+- `pnpm --filter web test`: **834/834 passed** (831 baseline + 3 new
+  behavioral subtests for the recipe-list title resolver).
+- `pnpm --filter web lint`: passed, no findings.
+- `pnpm --filter web typecheck`: passed, no errors.
+- `pnpm --filter web build`: passed.
+- `pnpm --filter web run verify:preview-actions`: passed, all three checks.
+
+This resolves baseline plan checklist row **M20** ("Recipe list titles
+resolve to the active language") and **R6** ("JA/EN display in the Manager
+list view") at the **Implemented** and **Automated-test verified** levels
+only. Live-Preview confirmation of M20/R6 (**Manually verified**) has not
+been performed by this task — see "Not done" below.
+
+## Prior work: `cafe-sprint-0`
+
+**Status**: merged to `dev`, PR #182, commit `505a539`. Fixed three confirmed
+Sprint 0 defects (a correction-request decision race, an unwired CI
+verification script, leftover production debug instrumentation) plus a
+test-coverage gap and stale `stale_reference` copy correction (commit
+`6e62e1b`). Recorded here as **Implemented** and merged; not re-verified by
+this task, which did not touch that code.
+
+## Prior work: `cafe-sprint-a-shift-schedule`
+
+**Status**: merged to `dev`, PR #183, commit `199f44a`. Fixed AM/PM
+auto-distribution windows, a real staffing-shortage indicator, a week-cache
+race, and EN alert localization (commit `a8eef9a`). Recorded here as
+**Implemented** and merged; not reopened, duplicated, re-scoped, or
+re-verified by this task, per this task's explicit instruction.
+
+## Founder decision: P1-4 Preview audit exception
+
+Baseline plan Section 12/13, **P1-4**: `AGENTS.md` rule 7 requires
+`writeAudit` on every mutation; no Cafe/Inventory mutation calls it today —
+the module instead relies on DB-trigger-stamped `created_by`/`updated_by`
+columns (documented in `supabase/migrations/0035_inventory_stock_check.sql`
+as an intentional substitute, since `apps/web` has no service-role client to
+write `audit.audit_logs` directly). This is a real conflict against a written
+non-negotiable rule, not an oversight.
+
+**Founder accepted on 2026-08-06:** for Cafe v2.1 Preview Freeze only, the
+existing DB-trigger actor/timestamp stamping is accepted as a temporary,
+documented exception. Full business audit events remain mandatory before
+Commercial Release. The global `AGENTS.md` rule is not edited or weakened.
+No migration, RLS, grant, auth, service-role, or Cloud-data change is
+authorized by this decision. The durable boundaries and exit criteria are
+recorded in ADR 0011.
+
+## Not done — explicitly outstanding, not fabricated
+
+The following items from the baseline plan's Definition of Done (Section 16)
+are **not** completed by this task and are not claimed as PASS/FAIL here:
+
+- **Sections 5-8 acceptance checklists** (Manager, Staff, Recipes, Inventory)
+  — require a live, Supabase-authenticated Preview session with no local
+  dev-login bypass (baseline plan Section 3, "Known constraint on evidence
+  collection"). Cannot be executed by an unattended agent against a local
+  environment. Remain fully unexecuted except for the single P1-1/M20/R6
+  code-level finding recorded above.
+- **Section 9 destructive-action confirmation review** — most rows remain
+  "to verify" against live Preview; not resolved by this task.
+- **Section 10 performance baseline** — no measurement was taken by this
+  task. No committed benchmark tooling exists in the repository (baseline
+  plan Section 10). All prior narrative timings in `plan.md` remain
+  unverified per the baseline plan's own evidence rules.
+- **Section 11 performance investigation checklist** — untouched by this
+  task; each item remains a hypothesis, not a scheduled fix.
+- **P1-2** (destructive-action gaps) and **P1-3** (measured performance
+  regression) — both explicitly "pending verification" in the baseline plan
+  and not resolved here.
+- **P1-4** (audit-logging conflict) — resolved for Preview Freeze by the
+  bounded Founder decision in ADR 0011; Commercial Release remains blocked
+  until full business audit events exist.
+- **Section 15 regression plan** — the minimum critical smoke list (M1,
+  M7-M10, S1, S4, S8, R1-R3, I1-I2) requires the same live-Preview access as
+  Sections 5-8 and has not been executed by this task.
+
+None of the above is claimed as PASS, FAIL, or otherwise verified by this
+report. They are recorded as outstanding per the baseline plan's evidence
+rules (Section 3): absence of evidence is not treated as a passing result.
+
+## Founder Freeze acceptance
+
+**Not recorded.** Per the baseline plan Definition of Done (Section 16) and
+Deliverables (Section 17), Cafe Package v2.1 Preview Baseline cannot be
+marked complete, and Cafe Freeze cannot be declared, until:
+
+- the Sections 5-8 checklists are executed against live Preview with
+  recorded evidence (requires founder or delegated-QA action — see baseline
+  plan Section 18, "Exact Next Action");
+- the Section 10 performance baseline is measured;
+- P1-2, P1-3, and P1-4 are resolved or explicitly accepted by the founder;
+- the Section 15 regression plan is run;
+- founder approval is recorded against the release as a whole.
+
+This report closes the engineer-executable gap identified for this task
+(P1-1 fix and this document) and does not itself constitute, request, or
+imply founder acceptance of the release.
+
+## Live Preview evidence reconciliation — 2026-08-06
+
+This section supersedes the earlier statement that live Preview acceptance was
+fully unexecuted. Evidence was collected against the canonical
+`https://preview.oruwa.jp/mame-to-cha/*` routes with Supabase authentication.
+Browser timings below are user-observed wall-clock timings; they are not DB,
+server-response, or query profiling.
+
+### Environment and release evidence
+
+- Code fix: PR #189, commit `fceb8b0`, merged to `dev` as `a9d1fc7`.
+- PR CI and Vercel: PASS. Post-merge `dev` CI run `31072581990`: PASS.
+- Local web gate: typecheck PASS; tests **837/837 PASS**; lint PASS;
+  production build PASS; `verify:preview-actions` PASS.
+- Canonical Manager post-merge load: **7.7 s**, EN active, no console errors.
+- Earlier same-session observations: Manager cold load **10.2 s**; Recipes cold
+  load **7.0 s**; recipe detail open **2.5 s**; language switch **2.6 s**;
+  previous-week navigation completed but took about **12 s**.
+
+### Checklist reconciliation
+
+Statuses are deliberately fail-closed. A compound row is BLOCKED when only
+part of it was observed, and mutation rows remain BLOCKED when no disposable
+fixture was available.
+
+| Area | PASS | BLOCKED | N/A |
+|---|---|---|---|
+| Manager M1-M35 | M1 authenticated route load; M4 attention centre renders; M5 previous week completes; M19 recipe list opens; M20 active-language title; M34 automated server-action role separation | M2 requires Staff identity; M3; M6 `+8/-8` bound not fully exercised; M7-M18; M21-M33; M35 full-matrix console claim (observed subset had zero errors) | None |
+| Staff S1-S23 | S1 authenticated Staff route; S2 Manager without Staff profile fails closed; S3 header menu contains Staff/Recipes/Log out and the logo targets Staff; S4 published schedule renders with caller shown as `Me`/`自分` and other names pseudonymized; S5/S6 week navigation; S8 future own shift opens the change/cancel request dialog; S18 list/detail; S19 JA/EN and JA-original fallback; S22 Staff direct Manager URL denied; S23 zero console errors on observed read paths | S7 unpublished fixture unavailable; S9-S17 and S20-S21 require a suitable safe interaction/write fixture | None |
+| Recipes R1-R15 | R1 Manager list; R4 Staff read-only UI; R5 detail JA/EN resolution; R6 Manager list JA/EN; R7 JA-original fallback marker | R2 Manager edit-detail half not completed; R3; R8-R9; R11-R15 | R10 automatic-generation UI is not an implemented user feature |
+| Inventory I1-I14 | I7 Staff search; I8 Staff no-results state after PR #193; I13 observed with four-item Cafe fixture; Staff shortage state visually distinct (supports S16) | I1-I6 and I9-I12 require Manager execution and/or safe count/item fixtures; I14 is a known Manager consistency finding | None |
+
+### M20 / R6 post-merge manual proof
+
+- Manager EN list displayed `Matcha Latte` and did not display `抹茶ラテ`.
+- Manager JA list displayed `抹茶ラテ` and did not display `Matcha Latte`.
+- The Manage Recipes panel opened in about **0.3 s** after the Manager page had
+  loaded; no browser console errors were captured.
+- The current translation is loaded through the existing tenant-scoped
+  `api.content_translations` facade. No migration, RLS, role, permission,
+  secret, or persisted recipe-model change was made.
+
+### Remaining blockers
+
+1. Mutation and high-impact rows require disposable acceptance fixtures; no
+   Cloud data write was performed during this evidence pass.
+2. P1-4 is resolved for Preview Freeze by ADR 0011. Full business audit
+   events remain a mandatory pre-commercial Platform Foundation task.
+3. The observed Manager and week-navigation timings warrant a later measured
+   performance investigation, but do not prove a DB or server regression.
+
+### Staff-session evidence — 2026-08-06
+
+- Authenticated Staff cold reload: **10.3 s**; functional PASS, performance
+  follow-up retained. Other employee names were pseudonymized while the caller
+  was labelled `Me`/`自分`.
+- Direct `/mame-to-cha/manager`: denied with the localized no-access screen in
+  **5.9 s**; no Manager data rendered and no console errors were captured.
+- Next week: **0.15 s**; previous week: **3.2 s**; both returned the expected
+  date ranges with no console errors.
+- Recipes list reload: **5.3 s**; Matcha Latte detail open: **0.3 s**. The Staff
+  surface exposed no edit/save/archive/delete affordances. JA/EN switched the
+  full detail and displayed `JA original` for untranslated content.
+- Staff Inventory opened in **0.9 s**. Search filtering and shortage styling
+  worked. A missing no-results message was found, fixed in PR #193, merged as
+  `49981f5`, and manually reverified on canonical Preview in English with zero
+  console errors.
+
+### Authorized disposable-fixture pass — 2026-08-06
+
+- The Founder authorized disposable fixtures in Preview/dev for Cafe v2.1
+  acceptance, excluding production and any migration/RLS change.
+- S3 PASS: the authenticated Staff header menu was opened and inspected in
+  English. It contained Staff, Recipes, and Log out; the logo linked to
+  `/mame-to-cha`, and Recipes linked to `/mame-to-cha/recipes`.
+- S8 PASS: selecting the caller's future published shift for 2026-08-07 opened
+  `Request a shift change or cancellation` and displayed the planned
+  `07:00-15:00` shift.
+- S9 remains BLOCKED: the selected assignment did not expose a new-request
+  form because the current fixture already had request-related state. No
+  second request was forced and no shared acceptance data was changed.
+- Supplemental validation evidence: entering `-1` for Ice in Staff Inventory
+  and attempting Save produced the item-specific message
+  `Ice: Please check your input.` The value was then cleared and the dialog
+  closed. No stock count was saved; this does not claim S17/I2 PASS.
+- No Preview/dev write, production access, migration, RLS, secret, role, or
+  permission change was performed in this pass.
+
+## Manager static code audit — 2026-08-06
+
+No browser-automation tool was available in this session, so the remaining
+BLOCKED Manager rows of the Live Preview Acceptance Matrix above (`M2-M18`,
+`M21-M33`) could not be executed live. At the Founder's explicit direction,
+this pass instead performed a **static, code-only** review of the Manager
+surface actually served at `https://preview.oruwa.jp/mame-to-cha/manager`.
+**This is not a substitute for live Manager Acceptance.** Two independent
+statuses are tracked per row, and they must never be collapsed into one:
+
+- **Static Engineering Evidence** — what source-code, RLS-policy, and
+  automated-test inspection can support (`VERIFIED` or `FAIL`).
+- **Live Acceptance Status** — whether the row has been exercised in a real
+  authenticated browser session against running Preview/Supabase. Every row
+  in this table is `BLOCKED` for live acceptance, with no exception, because
+  no browser session was used in this pass.
+
+**Numbering note — read before comparing tables.** The `SA1`-`SA11` IDs below
+are this static audit's own consolidated area numbers. They are **not** the
+same numbering as the Live Preview Acceptance Matrix's granular `M1`-`M35`
+rows used in the "Live Preview evidence reconciliation" section above, and
+must not be read as a row-for-row match (e.g. static `SA2` "navigation/shell"
+is not live row `M2`, which is a Staff-identity precondition; static `SA3`
+"dashboard" is not live row `M3`). `SA1` covers the same ground as live `M1`
+(authentication) and is the one row in this table with a corresponding
+already-`PASS` live entry. `SA2`-`SA11` collectively cover code paths behind
+the still-`BLOCKED` live rows `M2-M18` and `M21-M33`, but do so as broader,
+merged areas, not a 1:1 index. Static coverage of any given live `M`-row
+number is therefore partial and approximate, never assume a specific `M`-row
+is closed by a specific `SA`-row without checking the Evidence column.
+
+**Route-finding, load-bearing for the whole pass**: on host
+`preview.oruwa.jp`, `apps/web/src/lib/preview/rewrite-config.mjs` +
+`next.config.mjs` `beforeFiles`-rewrite `/mame-to-cha/*` to
+`/_client-preview/mame-to-cha/*`. The physical page at
+`apps/web/src/app/mame-to-cha/manager/page.tsx` (rendering the client-only
+`ManagerView`/`StaffManagementModal` demo store) is **not** what serves
+`preview.oruwa.jp` traffic — it is an unauthenticated public/marketing demo
+served only on other hosts. The real, DB-backed, authenticated Manager page
+is `apps/web/src/app/%5Fclient-preview/mame-to-cha/manager/page.tsx`. An
+initial review pass audited the wrong tree for Staff management; it was
+caught and corrected before being recorded here.
+
+| ID | Area | Static Engineering Evidence | Live Acceptance Status | Evidence | Notes |
+|---|---|---|---|---|---|
+| SA1 | Manager authentication | VERIFIED | BLOCKED | `apps/web/src/lib/preview/auth.ts:17-19` → `apps/web/src/lib/auth/require-user.ts:14-18` (server-side `redirect()`, no client flash); `return-to.ts:27,36-62` (path-traversal/protocol-relative safe `returnTo`); `middleware.ts:8-10` (session refresh); `actions/session-actions.ts:21-39` (logout, try/catch-wrapped, always redirects) | Live rows: `M1` already `PASS` live (see reconciliation table). BLOCKED here refers only to the exact live cookie-refresh timing/flash, not observed in this static pass |
+| SA2 | Manager navigation/shell | VERIFIED | BLOCKED | `ManagerHeader.tsx:28-34` (logo only links when `homeHref` passed, which it isn't here — correctly inert); Staff/Recipes/Inventory render inline on the same page, not as separate nav links; logout wired to real sign-out | P3: `preview-back-to-top-link.tsx`'s `PreviewBackToTopLink` is defined but imported nowhere — dead code |
+| SA3 | Manager dashboard | VERIFIED | BLOCKED | `page.tsx:149-227` (`Promise.all`, per-source degrade to `null`/`[]`, no throw); `write-result.ts:19-66` (fixed JA/EN enum, no raw Postgres text ever surfaced); `preview-manager-today.tsx:39-97` (JA/EN branched) | P2: no `error.tsx`/`global-error.tsx` anywhere under `apps/web/src/app` — an unhandled render exception would fall through to Next's default unstyled page, breaking the localization guarantee. Not currently reachable given defensive loaders; recommended backlog item, not fixed this pass (no reproducible trigger found) |
+| SA4 | Schedule navigation | VERIFIED | BLOCKED | `lib/workforce/period.ts:11-31` + `timezone.ts:43-77` (JST-correct week math via `Intl.DateTimeFormat`); `preview/week-refresh-controller.ts:59-114` (sequence-numbered stale-response guard, own unit tests); `preview-manager-view-chrome.tsx:127-139` (no-op on same/out-of-range offset, disabled while navigating); `schedule-actions.ts:38-40,332-338` (server re-clamps `[-8,8]` independent of client) | Live row `M5` (previous week) already `PASS` live; live `M6` (`+8/-8` bound) remains BLOCKED |
+| SA5 | Schedule editing | VERIFIED | BLOCKED | `lib/workforce/schedule-input.ts:90-92,160-162` (rejects `end<=start`); `preview-shift-grid.tsx:247-252` (Cancel is a no-op `type="button"`, no write path); `:260-277` (unassign/delete behind `ConfirmDialog`, copy differs correctly for published vs. draft); `schedule-actions.ts:70-139` + `authorize.ts:86-136` (tenant/location re-resolved server-side, client value discarded) | P3/BLOCKED: true same-tick double-click race on Save is a live-timing question; worst case is an idempotent duplicate update by `assignmentId`, not corruption |
+| SA6 | Schedule publish | VERIFIED | BLOCKED | `preview-manager-view-chrome.tsx` → `preview-schedule-card-actions.tsx:171-221` (publish gated by `ConfirmDialog`, disabled while `!hasUnpublishedChanges` or pending, dialog closes synchronously on click); `shift-assignments.ts:277-304` (`publishShiftAssignments` UPDATE is `WHERE … published=false AND starts_at in [from,to)` — a re-submit naturally no-ops, genuinely idempotent at the DB layer, not just UI-guarded); confirmation copy matches actual effect | Correction: a separate, unconfirmed `handlePublish` exists in `preview-schedule-actions.tsx:88-97`, but it is **dead code** — confirmed by grep, imported nowhere. It does not serve live traffic; flagged for cleanup, not a live defect |
+| SA7 | Staff management | VERIFIED | BLOCKED | Real surface is `preview-staff-form.tsx` + `actions/staff-actions.ts` (not the demo `StaffManagementModal.tsx`). List/PII: tenant+location scoped server-side, client `locationId` never trusted (`staff-actions.ts:51-60,105-108`). Create/edit: required fields, bounded inputs, server re-validates (`parseUpsertEmployeeInput`). Cancel: no submit. Deactivate and permanent-delete are each behind their own `ConfirmDialog` with accurate JA/EN copy; permanent delete is RPC-guarded against employees with history (`staff-actions.ts:121-138`). All actions disabled during `isPending` | Corresponds to live Staff-management rows within `M21-M33`, still BLOCKED live |
+| SA8 | Inventory Manager workflow | VERIFIED | BLOCKED | Shortage/status math computed once in `api.inventory_item_status` (`0046_inventory_reorder_levels.sql:100-125`), rendered unmodified by the Manager panel — no client recompute, no drift vs. Staff view. Negative-value rejection enforced server-side (`lib/inventory/validation.ts:61-73`) plus DB CHECK constraints (`0035:49`, `0046:29-30`) — defense in depth, not client-only. Cancel is a pure state reset. Deactivate/delete each behind `ConfirmDialog`; delete RPC refuses items with stock-count history. Single atomic upsert statement — no window for a partial/hidden invalid row | I14 confirmed (baseline plan): Manager panel lacks the shortage-first sort and sticky filter bar the Staff panel has (`preview-inventory-staff-panel.tsx:197-198,252` vs. `preview-inventory-manager-panel.tsx:389,425`). Known, pre-existing, **P3** — not fixed this pass |
+| SA9 | Recipes/SOP (Manager side) | VERIFIED | BLOCKED | Archive is reversible and confirmed (`preview-recipe-kind-manager.tsx:265-276`); no permanent-delete policy exists for recipes at all (`0022_workforce_staff_recipes_rls_policies.sql:126-128`, no DELETE policy). No false translation-engine claim: Manager editor only exposes JA input fields; EN display is a separately labeled pipeline, machine-translated text is explicitly badged in the Staff view (`preview-recipe-detail-view.tsx:23-30`). All recipe mutations call `resolvePreviewManagerContext(...)`, fail closed on RPC error (`authorize.ts:68-72,117-120`), and re-check `workforce.recipe.publish` on publish | P3: Restore (`setArchived(recipe, false)`) fires directly with no `ConfirmDialog`, inconsistent with Archive's confirm-first pattern; low risk since reversible. Not fixed this pass |
+| SA10 | Dangerous/meaningful actions inventory | VERIFIED, one item corrected mid-review | BLOCKED | Full inventory on the real surface: deactivate staff, permanent-delete staff, archive recipe, deactivate/permanent-delete inventory item, approve/reject shift exchange, delete/update shift assignment, and publish schedule are **all** behind a `ConfirmDialog` with accurate copy and a working Cancel path (see SA5-SA9 evidence above) | An initial pass flagged an unconfirmed publish button as P1; traced to dead code (see SA6) and corrected. The **separate, out-of-scope public demo surface** (`StaffManagementModal.tsx`, `RecipeManagementModal.tsx`, `SettingsPanel.tsx`, `ManagerView.tsx`) does have four real unconfirmed-delete/publish actions and an unused `ConfirmDialog` sitting in the same directory — real defect, but in marketing/demo content with fake fixture data, not the Cafe v2.1 Manager Acceptance surface. Recommended as a **P2 backlog item**, not fixed this pass (out of scope, no tenant data at risk) |
+| SA11 | Manager/Staff role boundary | VERIFIED, DB-enforced | BLOCKED | `page.tsx:87-88` calls `authorizePreviewManagerPage()` → `resolvePreviewManagerContext('workforce.staff.manage')` → real `supabase.schema('api').rpc('has_permission', …)` round trip (`authorize.ts:63-67`), fails closed to `false` on any RPC error, gates the **entire** render tree before any staff/schedule/inventory data loads — no manager-content flash is possible. RLS policy text itself confirmed: `wf_employees_staff_manage` (`0022_workforce_staff_recipes_rls_policies.sql:94-97`) is `for all using (core.has_permission(tenant_id,'workforce.staff.manage',location_id)) with check (…)` — real tenant+permission-scoped DB enforcement, not app-layer-only. Tenant context resolved via membership (`tenant.ts:37-56`), never a trusted cookie | An actual live cross-tenant/cross-role request against the running Postgres/Supabase instance was not exercised — code and RLS policy text are both correct, but this is not the same as an empirical denial |
+
+**No P0 or P1 defect was found in the static code review of the Manager surface served at `preview.oruwa.jp/mame-to-cha/manager`.** All findings above are P2 (2: missing global error boundary; out-of-scope demo-surface confirmations) or P3 (4: dead-code cleanup x2, restore-recipe confirmation, Inventory Manager-panel shortage-sort/sticky-bar parity). None were fixed in this pass — none met the bar of "reproducible defect on the in-scope Cafe v2.1 Manager surface"; they are recorded as backlog candidates for Commercial Readiness / v2.2, per the audit's own fix-eligibility rules.
+
+**Verification commands, this pass (2026-08-06, local, HEAD `feb35a0`)**:
+
+- `pnpm --filter web typecheck` — PASS, no errors.
+- `pnpm --filter web lint` — PASS, no findings.
+- `pnpm --filter web test` — **838/838 passed**, 0 failed, 0 skipped.
+- `pnpm --filter web build` — PASS.
+- `pnpm --filter web run verify:preview-actions` — PASS, all three checks.
+
+No code was changed in this pass. This is a documentation-only update recording
+the static-audit evidence above.
+
+### Working tree at time of this audit
+
+The tracked working tree contains two intentional documentation
+modifications (this file and `docs/ai/current-task.md`). 13 unrelated
+pre-existing untracked files remain untouched, unstaged, and unadded; they
+are not part of, and were not created by, this audit.
+
+### Status summary
+
+- Cafe v2.1 Static Engineering Audit: **PASS**
+- Cafe v2.1 Live Manager Acceptance: **BLOCKED**
+- Founder Technical Freeze: **NOT YET GRANTED**
+- Commercial Release: **NOT DECLARED**

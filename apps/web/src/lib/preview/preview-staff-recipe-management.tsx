@@ -1,0 +1,108 @@
+'use client';
+
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
+import type { WorkforceRecipe } from '@/lib/workforce/recipes';
+import { Modal } from '@/components/demo/cafe/Modal';
+import { PreviewStaffForm } from './preview-staff-form';
+import { PreviewRecipeKindManager } from './preview-recipe-kind-manager';
+import { buttonSecondary, card } from '@/lib/demo/cafe/theme';
+import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
+import { HELP_MANAGER_STAFF_RECIPE_MANAGEMENT } from '@/lib/demo/cafe/helpContent';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tManager } from '@/lib/demo/cafe/i18n.manager';
+
+/**
+ * Demo/Preview manager UX parity: the demo's スタッフ・レシピ管理 card only ever
+ * shows two trigger buttons on the main dashboard - the create/edit forms
+ * open in a dialog on demand. This wraps the existing preview manager
+ * islands (`PreviewStaffForm`/`PreviewRecipeKindManager`, which already call
+ * only their allowlisted preview Server Actions) in the same dialog pattern,
+ * with zero change to those islands or the actions they call.
+ */
+export interface PreviewStaffRecipeManagementProps {
+  staff: WorkforceStaffManageEntry[] | null;
+  recipes: WorkforceRecipe[] | null;
+  /**
+   * Signed thumbnail URLs for every recipe in `recipes` that has a
+   * `mediaPath`, pre-generated during the page's own server-rendered load
+   * (see `manager/page.tsx`). Seeds the recipe manager's cache so the modal
+   * never has to fetch them itself on a normal open.
+   */
+  recipeMediaUrls?: Record<string, string>;
+  /**
+   * Pre-built "Manage Inventory" trigger (an embedded inventory manager panel),
+   * assembled by the page -- which is where the active-location context is
+   * legitimately resolved server-side -- so this island never carries any
+   * location field itself. Rendered alongside Staff/Recipes so all three
+   * management entry points live in one block.
+   */
+  inventorySlot?: ReactNode;
+  /**
+   * Notified with the freshly refetched staff list every time this dialog's
+   * `PreviewStaffForm` create/edit/status-change mutation succeeds, so a
+   * sibling that also renders staff (e.g. the Shift Schedule grid's roster)
+   * can stay in sync without a full page reload. Optional so this component
+   * still works exactly as before when rendered standalone (e.g. tests).
+   */
+  onStaffChanged?: (next: WorkforceStaffManageEntry[]) => void;
+}
+
+export function PreviewStaffRecipeManagement({ staff: initialStaff, recipes: initialRecipes, recipeMediaUrls: initialRecipeMediaUrls, inventorySlot, onStaffChanged: onStaffChangedProp }: PreviewStaffRecipeManagementProps) {
+  const [staffOpen, setStaffOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  // Owned here (not inside `PreviewStaffForm`/`PreviewRecipeKindManager`)
+  // because the shared `Modal` fully unmounts its children on close - state
+  // owned by the form/manager itself would be silently discarded every time
+  // its dialog closes, reverting to this stale initial-load prop on next
+  // open. This component stays mounted across both dialogs' open/close
+  // cycles, so it is the right place for the "live" copy each scoped
+  // `previewGetStaffManagerData()`/`previewGetRecipesManagerData()` refetch
+  // patches into. Preview Manager architecture, perf phase 2.
+  const [staff, setStaff] = useState(initialStaff);
+  const [recipes, setRecipes] = useState(initialRecipes);
+  // Same reasoning as `recipes` above, applied to signed thumbnail URLs:
+  // owned here so a modal close/reopen never discards a URL that was already
+  // fetched (or came pre-seeded from the page load). Perf phase 3.
+  const [recipeMediaUrls, setRecipeMediaUrls] = useState(initialRecipeMediaUrls ?? {});
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManager>[1]) => tManager(lang, key);
+
+  return (
+    <section style={card}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <strong style={{ fontSize: 16 }}>{t('staffRecipeManagementTitle')}</strong>
+        <DemoHelpButton content={HELP_MANAGER_STAFF_RECIPE_MANAGEMENT} />
+      </div>
+      <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" style={buttonSecondary} onClick={() => setStaffOpen(true)}>
+          {t('manageStaffButton')}
+        </button>
+        <button type="button" style={buttonSecondary} onClick={() => setRecipeOpen(true)}>
+          {t('manageRecipesButton')}
+        </button>
+        {inventorySlot}
+      </div>
+
+      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title={t('manageStaffModalTitle')} maxWidth={760}>
+        <PreviewStaffForm
+          staff={staff}
+          onStaffChanged={(next) => {
+            setStaff(next);
+            onStaffChangedProp?.(next);
+          }}
+        />
+      </Modal>
+
+      <Modal open={recipeOpen} onClose={() => setRecipeOpen(false)} title={t('manageRecipesModalTitle')} maxWidth={760}>
+        <PreviewRecipeKindManager
+          recipes={recipes}
+          onRecipesChanged={setRecipes}
+          mediaUrls={recipeMediaUrls}
+          onMediaUrlsChanged={setRecipeMediaUrls}
+        />
+      </Modal>
+    </section>
+  );
+}

@@ -1,0 +1,100 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  attentionCorrectionLabel,
+  attentionExchangeLabel,
+  attentionInventoryLabel,
+  autoDistributionCreatedMessage,
+  breakMinutesValue,
+  preferencesHeadingValue,
+  publishedCountMessage,
+  scheduleHeadingValue,
+  tManagerDashboard,
+} from './manager-dashboard-i18n.js';
+
+/**
+ * Cafe v2.1 Mission 2 (Manager Attention & Product Experience): the
+ * canonical Manager dashboard's first adoption of the
+ * `LangProvider`/`makeTranslator` mechanism already proven on the
+ * canonical Staff dashboard (`staff-dashboard-i18n.test.ts`, same
+ * convention -- this repo's test runner has no DOM/React harness, so these
+ * are pure-function behavioral tests of the translator, not
+ * component-rendering tests).
+ */
+const LANGS = ['ja', 'en'] as const;
+
+const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
+  'attentionHeading', 'attentionAllClear', 'attentionReview',
+  'staffHeading', 'addStaff', 'staffUnavailable', 'staffEmpty', 'colName', 'colPosition', 'colEmploymentType',
+  'colStatus', 'colLine', 'colActions', 'statusActive', 'statusInactive', 'edit', 'activate', 'deactivate',
+  'saving', 'confirmDeactivate',
+  'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition', 'fieldEmploymentType',
+  'addStaffSubmit', 'saveChanges', 'cancel',
+  'errorNotFound', 'errorNotAuthenticated', 'errorNoMembership', 'errorStaleReference',
+  'prevWeek', 'thisWeek', 'nextWeek', 'addStaffToSeeSchedule', 'colStaff', 'assign', 'unassign', 'unassigning',
+  'statusPublished', 'statusDraft', 'publishedReadOnly', 'actionsHeading', 'autoDistributionDescription',
+  'runAutoDistribution', 'running', 'publishSchedule', 'publishing', 'confirmPublish',
+  'shiftTypesHeading', 'shiftTypesUnavailable', 'shiftTypesEmpty', 'colCode', 'colLabel', 'colTime', 'colBreak',
+  'fieldEmployee', 'fieldShiftType', 'shiftTypeCustom', 'fieldStart', 'fieldEnd', 'fieldBreakMinutes', 'save',
+  'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
+  'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
+  'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
+  'exchangesHeading', 'exchangesUnavailable', 'noPendingExchanges', 'colRequester', 'colShift', 'colRequest',
+  'colReason', 'requestKindCancellation', 'requestKindChange', 'requestKindExchange', 'awaitingCandidate',
+  'backToWorkforce',
+  'staffActivated', 'staffDeactivated', 'shiftUnassigned', 'correctionApproved', 'correctionRejected',
+  'exchangeApproved', 'exchangeRejected', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
+];
+
+test('tManagerDashboard returns a non-empty string for every key in both languages', () => {
+  for (const lang of LANGS) {
+    for (const key of ALL_KEYS) {
+      const value = tManagerDashboard(lang, key);
+      assert.equal(typeof value, 'string', `tManagerDashboard(${lang}, ${key}) must return a string`);
+      assert.ok(value.length > 0, `tManagerDashboard(${lang}, ${key}) must not be empty`);
+    }
+  }
+});
+
+// 'colLine' is the LINE messaging platform's brand name -- correctly
+// identical in both languages, not an untranslated leak.
+const BRAND_NAME_KEYS = new Set<(typeof ALL_KEYS)[number]>(['colLine']);
+
+test('tManagerDashboard ja/en copy differs for every key (no untranslated English leaking through when JA is selected)', () => {
+  for (const key of ALL_KEYS) {
+    if (BRAND_NAME_KEYS.has(key)) continue;
+    assert.notEqual(tManagerDashboard('ja', key), tManagerDashboard('en', key), `tManagerDashboard(ja/en, ${key}) should have distinct copy`);
+  }
+});
+
+test('scheduleHeadingValue interpolates both dates and differs by language', () => {
+  assert.match(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), /2026-08-10/);
+  assert.match(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), /2026-08-16/);
+  assert.notEqual(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), scheduleHeadingValue.ja('2026-08-10', '2026-08-16'));
+});
+
+test('preferencesHeadingValue interpolates both dates and differs by language', () => {
+  assert.match(preferencesHeadingValue.ja('2026-08-10', '2026-08-16'), /2026-08-10/);
+  assert.notEqual(preferencesHeadingValue.en('2026-08-10', '2026-08-16'), preferencesHeadingValue.ja('2026-08-10', '2026-08-16'));
+});
+
+test('breakMinutesValue interpolates the minute count and differs by language', () => {
+  assert.match(breakMinutesValue.en(30), /30/);
+  assert.match(breakMinutesValue.ja(30), /30/);
+  assert.notEqual(breakMinutesValue.en(30), breakMinutesValue.ja(30));
+});
+
+test('autoDistributionCreatedMessage and publishedCountMessage interpolate their counts and differ by language', () => {
+  assert.match(autoDistributionCreatedMessage.en(4), /4/);
+  assert.notEqual(autoDistributionCreatedMessage.en(4), autoDistributionCreatedMessage.ja(4));
+  assert.match(publishedCountMessage.ja(6), /6/);
+  assert.notEqual(publishedCountMessage.en(6), publishedCountMessage.ja(6));
+});
+
+test('attention label helpers interpolate their counts and differ by language', () => {
+  for (const helper of [attentionCorrectionLabel, attentionExchangeLabel, attentionInventoryLabel]) {
+    assert.match(helper.en(3), /3/);
+    assert.match(helper.ja(3), /3/);
+    assert.notEqual(helper.en(3), helper.ja(3));
+  }
+});

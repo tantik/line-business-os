@@ -1,0 +1,316 @@
+import { makeTranslator, type Lang } from './i18n';
+
+interface StaffDict {
+  clockIn: string;
+  clockOut: string;
+  breakStart: string;
+  breakEnd: string;
+  clockOutBreakTitle: string;
+  clockOutBreakBody: string;
+  clockOutConfirmTitle: string;
+  clockOutConfirmTime: string;
+  clockOutConfirmBreak: string;
+  clockOutConfirmAction: string;
+  clockOutCancel: string;
+  workStatus: string;
+  statusIdle: string;
+  statusClockedIn: string;
+  statusOnBreak: string;
+  statusClockedOut: string;
+  shiftTable: string;
+  all: string;
+  onlyMe: string;
+  workedHours: string;
+  transport: string;
+  transportRemembered: string;
+  todaysMessage: string;
+  messagePlaceholder: string;
+  save: string;
+  saved: string;
+  submitNextMonthPreference: string;
+  submittedSuffix: string;
+  prevWeek: string;
+  today: string;
+  nextWeek: string;
+  cancel: string;
+  submit: string;
+  submitPreference: string;
+  staffColumnHeader: string;
+  managerRoleSuffix: string;
+  notScheduled: string;
+  correctionRequestAlready: string;
+  messageAlready: string;
+  shortageTooltip: string;
+  loading: string;
+  workReportTitle: string;
+  plannedShift: string;
+  reportClockIn: string;
+  reportClockOut: string;
+  breakMinutesLabel: string;
+  minutesSuffix: string;
+  message: string;
+  none: string;
+  dash: string;
+  requestCorrection: string;
+  correctionRequested: string;
+  correctionStatusPending: string;
+  correctionStatusApproved: string;
+  correctionStatusRejected: string;
+  correctionModalTitle: string;
+  workDate: string;
+  actualClockIn: string;
+  actualClockOut: string;
+  breakMinutesInput: string;
+  reasonMessage: string;
+  reasonPlaceholder: string;
+  reasonRequiredError: string;
+  correctionChangeRequiredError: string;
+  close: string;
+  preferenceModalTitle: string;
+  alreadySubmittedNote: string;
+  tapToSelectHelp: string;
+  dashOrTimeOffHelp: string;
+  optionalMessage: string;
+  optionalNotePlaceholder: string;
+  unspecified: string;
+  demoEnvironmentSuffix: string;
+  resetDemo: string;
+  resetDemoDone: string;
+  resetConfirmTitle: string;
+  resetConfirmBody: string;
+  resetConfirmButton: string;
+  resetCancelButton: string;
+  processing: string;
+  resetTodayClockTest: string;
+  scheduleLoadError: string;
+  me: string;
+  staffNumberPrefix: string;
+  lockedAfterManagerConfirm: string;
+  editableBeforeManagerConfirm: string;
+  workReportSubmittedFeedback: string;
+  workReportFormTitle: string;
+  submitting: string;
+  reportConfirmed: string;
+  updateMessage: string;
+  correctionSubmittedFeedback: string;
+  correctionFormTitle: string;
+  monthSuffix: string;
+  weekdayInitials: string[];
+  backToHub: string;
+}
+
+/** UI-chrome dictionary for `/demo/cafe` (staff app) and the modals it opens. Static demo copy only. */
+const STAFF_DICT: Record<Lang, StaffDict> = {
+  ja: {
+    clockIn: '出勤',
+    clockOut: '退勤',
+    breakStart: '休憩開始',
+    breakEnd: '休憩終了',
+    clockOutBreakTitle: '休憩時間を選択',
+    clockOutBreakBody: '本日の休憩時間を選んでください。',
+    clockOutConfirmTitle: '退勤を確認',
+    clockOutConfirmTime: '退勤時刻',
+    clockOutConfirmBreak: '休憩時間',
+    clockOutConfirmAction: '退勤を確定',
+    clockOutCancel: 'キャンセル',
+    workStatus: '勤務状況',
+    statusIdle: '未出勤',
+    statusClockedIn: '勤務中',
+    statusOnBreak: '休憩中',
+    statusClockedOut: '退勤済み',
+    shiftTable: 'シフト表',
+    all: '全体',
+    onlyMe: '自分だけ',
+    workedHours: '実働時間',
+    transport: '交通費',
+    transportRemembered: '（前回入力値を記憶）',
+    todaysMessage: '本日のメッセージ',
+    messagePlaceholder: '店長への連絡事項があれば入力してください',
+    save: '保存',
+    saved: '保存しました',
+    submitNextMonthPreference: '来月のシフト希望を提出',
+    submittedSuffix: '済み',
+    prevWeek: '前の週',
+    today: '今日',
+    nextWeek: '次の週',
+    cancel: 'キャンセル',
+    submit: '送信する',
+    submitPreference: '提出する',
+    staffColumnHeader: 'スタッフ',
+    managerRoleSuffix: '店長',
+    notScheduled: '未設定',
+    correctionRequestAlready: '修正依頼あり',
+    messageAlready: 'メッセージあり',
+    shortageTooltip: '人手不足の可能性があります',
+    loading: '読み込み中...',
+    // WorkReportModal
+    workReportTitle: '勤務記録',
+    plannedShift: 'シフト予定',
+    reportClockIn: '出勤',
+    reportClockOut: '退勤',
+    breakMinutesLabel: '休憩',
+    minutesSuffix: '分',
+    message: 'メッセージ',
+    none: 'なし',
+    dash: '－',
+    requestCorrection: '勤務時間の修正を依頼',
+    correctionRequested: '修正依頼済み',
+    correctionStatusPending: '確認待ち',
+    correctionStatusApproved: '承認されました',
+    correctionStatusRejected: '却下されました',
+    // CorrectionRequestModal
+    correctionModalTitle: '勤務時間の修正を依頼',
+    workDate: '勤務日',
+    actualClockIn: '実際の出勤時間',
+    actualClockOut: '実際の退勤時間',
+    breakMinutesInput: '休憩時間（分）',
+    reasonMessage: '理由・メッセージ',
+    reasonPlaceholder: '例: 開店準備で出勤が12分遅れました。',
+    reasonRequiredError: '理由を入力してください。',
+    correctionChangeRequiredError: '出勤時間・退勤時間・休憩時間のいずれかを変更してください。',
+    close: '閉じる',
+    // ShiftPreferenceModal
+    preferenceModalTitle: '来月のシフト希望を提出',
+    alreadySubmittedNote: '提出済みです。内容を変更して再提出することもできます。',
+    tapToSelectHelp: '日付をタップして希望するシフトを選択してください。',
+    dashOrTimeOffHelp: '「-」は未指定、休暇は勤務不可として扱われます。',
+    optionalMessage: 'メッセージ（任意）',
+    optionalNotePlaceholder: '例: 10日は終日休み希望です。',
+    unspecified: '未指定',
+    demoEnvironmentSuffix: '（デモ環境）',
+    resetDemo: 'デモをリセット',
+    resetDemoDone: 'リセットしました',
+    resetConfirmTitle: 'デモをリセットしますか？',
+    resetConfirmBody: 'このデモ環境のシフト・メッセージ・修正依頼などの内容をすべて初期状態に戻します。この操作は元に戻せません。',
+    resetConfirmButton: 'リセットする',
+    resetCancelButton: 'キャンセル',
+    processing: '処理中…',
+    resetTodayClockTest: 'テスト用：本日の勤務をリセット',
+    scheduleLoadError: 'シフトを読み込めませんでした。時間をおいて再度お試しください。',
+    me: '自分',
+    staffNumberPrefix: 'スタッフ',
+    lockedAfterManagerConfirm: '店長が確認済みのため変更できません。',
+    editableBeforeManagerConfirm: '店長が確認するまでは内容を変更できます。',
+    workReportSubmittedFeedback: '勤務報告を提出しました。',
+    workReportFormTitle: '勤務報告の提出',
+    submitting: '送信中...',
+    reportConfirmed: '確認済み',
+    updateMessage: 'メッセージを更新',
+    correctionSubmittedFeedback: '修正依頼を提出しました。',
+    correctionFormTitle: '修正依頼の提出',
+    monthSuffix: '月',
+    weekdayInitials: ['月', '火', '水', '木', '金', '土', '日'],
+    backToHub: 'ホームに戻る',
+  },
+  en: {
+    clockIn: 'Clock in',
+    clockOut: 'Clock out',
+    breakStart: 'Start break',
+    breakEnd: 'End break',
+    clockOutBreakTitle: 'Select break time',
+    clockOutBreakBody: 'Choose today’s total break time.',
+    clockOutConfirmTitle: 'Confirm clock-out',
+    clockOutConfirmTime: 'Clock-out time',
+    clockOutConfirmBreak: 'Break time',
+    clockOutConfirmAction: 'Confirm clock-out',
+    clockOutCancel: 'Cancel',
+    workStatus: 'Work status',
+    statusIdle: 'Not clocked in',
+    statusClockedIn: 'Working',
+    statusOnBreak: 'On break',
+    statusClockedOut: 'Clocked out',
+    shiftTable: 'Shift schedule',
+    all: 'All',
+    onlyMe: 'Only me',
+    workedHours: 'Worked hours',
+    transport: 'Transport',
+    transportRemembered: '(remembers last value)',
+    todaysMessage: "Today's message",
+    messagePlaceholder: 'Leave a note for the manager if you have one',
+    save: 'Save',
+    saved: 'Saved',
+    submitNextMonthPreference: "Submit next month's shift preference",
+    submittedSuffix: ' (submitted)',
+    prevWeek: 'Prev week',
+    today: 'Today',
+    nextWeek: 'Next week',
+    cancel: 'Cancel',
+    submit: 'Submit',
+    submitPreference: 'Submit',
+    staffColumnHeader: 'Staff',
+    managerRoleSuffix: 'Manager',
+    notScheduled: 'Not set',
+    correctionRequestAlready: 'Correction requested',
+    messageAlready: 'Message',
+    shortageTooltip: 'Possible staffing shortage',
+    loading: 'Loading...',
+    // WorkReportModal
+    workReportTitle: 'Work record',
+    plannedShift: 'Planned shift',
+    reportClockIn: 'Clock-in',
+    reportClockOut: 'Clock-out',
+    breakMinutesLabel: 'Break',
+    minutesSuffix: ' min',
+    message: 'Message',
+    none: 'None',
+    dash: '–',
+    requestCorrection: 'Request a correction',
+    correctionRequested: 'Correction requested',
+    correctionStatusPending: 'Pending review',
+    correctionStatusApproved: 'Approved',
+    correctionStatusRejected: 'Rejected',
+    // CorrectionRequestModal
+    correctionModalTitle: 'Request a working-hours correction',
+    workDate: 'Work date',
+    actualClockIn: 'Actual clock-in time',
+    actualClockOut: 'Actual clock-out time',
+    breakMinutesInput: 'Break time (minutes)',
+    reasonMessage: 'Reason / message',
+    reasonPlaceholder: 'e.g. I clocked in 12 minutes late due to opening prep.',
+    reasonRequiredError: 'Please enter a reason.',
+    correctionChangeRequiredError: 'Please change the clock-in time, clock-out time, or break time.',
+    close: 'Close',
+    // ShiftPreferenceModal
+    preferenceModalTitle: "Submit next month's shift preference",
+    alreadySubmittedNote: 'Already submitted. You can change your answers and resubmit.',
+    tapToSelectHelp: 'Tap a date to choose your preferred shift.',
+    dashOrTimeOffHelp: '"-" means unspecified; time off means unavailable to work.',
+    optionalMessage: 'Message (optional)',
+    optionalNotePlaceholder: 'e.g. I would like the 10th off all day.',
+    unspecified: 'Unspecified',
+    demoEnvironmentSuffix: ' (Demo environment)',
+    resetDemo: 'Reset demo',
+    resetDemoDone: 'Demo reset',
+    resetConfirmTitle: 'Reset this demo?',
+    resetConfirmBody:
+      'This clears the schedule, messages, and correction requests in this demo environment back to their starting state. This cannot be undone.',
+    resetConfirmButton: 'Reset',
+    resetCancelButton: 'Cancel',
+    processing: 'Processing…',
+    resetTodayClockTest: 'Test: reset today’s clock',
+    scheduleLoadError: 'Could not load the schedule. Please try again later.',
+    me: 'Me',
+    staffNumberPrefix: 'Staff',
+    lockedAfterManagerConfirm: 'Locked — the manager has already confirmed this.',
+    editableBeforeManagerConfirm: 'You can still edit this until the manager confirms it.',
+    workReportSubmittedFeedback: 'Work report submitted.',
+    workReportFormTitle: 'Submit work report',
+    submitting: 'Submitting...',
+    reportConfirmed: 'Confirmed',
+    updateMessage: 'Update message',
+    correctionSubmittedFeedback: 'Correction request submitted.',
+    correctionFormTitle: 'Submit a correction request',
+    monthSuffix: '',
+    weekdayInitials: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    backToHub: 'Back to hub',
+  },
+};
+
+export type StaffDictKey = keyof StaffDict;
+
+export const tStaff = makeTranslator(STAFF_DICT);
+
+/** `weekdayInitials` is a string[], not a plain string -- `tStaff` casts every value to `string`, so this reads the raw dictionary entry directly instead. */
+export function staffWeekdayInitials(lang: Lang): string[] {
+  return STAFF_DICT[lang].weekdayInitials;
+}

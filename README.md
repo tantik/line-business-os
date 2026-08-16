@@ -53,9 +53,10 @@ Prerequisites: Node 20+, pnpm 9+, and the [Supabase CLI](https://supabase.com/do
 cp .env.example .env          # fill in secrets (never commit .env)
 pnpm install
 
-# Start local Postgres + apply migrations + seed structure
-supabase start
-supabase db reset             # runs migrations then supabase/seed/seed.sql
+# Start local Postgres + apply migrations + seed structure (LOCAL only)
+pnpm db:start                 # supabase start
+pnpm db:reset                 # runs migrations then supabase/seed/seed.sql
+pnpm db:test                  # run pgTAP DB/RLS tests in supabase/tests
 
 # Seed PII-bearing demo data (encrypted)
 pnpm db:seed
@@ -63,6 +64,24 @@ pnpm db:seed
 # Run everything
 pnpm dev
 ```
+
+> **Database is local-first.** Day-to-day development runs against the local
+> Supabase stack. `db:reset` is destructive (rebuilds the local DB) and
+> `db:migrate` (`supabase db push`) targets a **linked remote** — only run it
+> against Cloud under the approval gate. The schema scaffold (including the
+> `workforce`/`booking`/`ai` module schemas) already exists but is
+> **scaffold-only**: the tables are real, the product features are not built yet.
+> See [`docs/phase-1-core-db.md`](./docs/phase-1-core-db.md).
+> A separate Supabase **Cloud dev** project has been prepared (Phase 1B,
+> complete): the scaffold migrations `0000`–`0012` were applied to the
+> human-created Cloud **dev** project under explicit human approval (verified
+> Local = Remote). It is a **dev environment only — no production project exists
+> yet**. Future Cloud schema changes are **new forward migrations only**, applied
+> under the approval gate. Details (no secrets, no project ref) in
+> [`docs/supabase-cloud-dev-setup.md`](./docs/supabase-cloud-dev-setup.md).
+> The next phase, **Phase 1C — App-layer foundation for authenticated
+> multi-tenant access**, is in **planning (docs-only)**: see
+> [`docs/phase-1c-app-foundation.md`](./docs/phase-1c-app-foundation.md).
 
 Generate a 32-byte encryption key for `PII_ENCRYPTION_KEY`:
 
@@ -80,3 +99,7 @@ clean `client_template` tenant to clone for real clients.
 
 Read [`AGENTS.md`](./AGENTS.md). `main` is stable, `dev` is integration, work on
 `feature/*`. Never push directly to `main`.
+
+Cursor project rules live in [`.cursor/rules`](./.cursor/rules) — they encode
+the platform architecture, security, RLS, git, AI-agent, and legacy-migration
+guardrails for AI agents and contributors.

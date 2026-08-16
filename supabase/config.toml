@@ -5,14 +5,31 @@ project_id = "line-business-os"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "core", "audit", "workforce", "booking", "ai"]
+# Data API exposes ONLY `public` + the app-facing `api` facade (Phase 1E-3).
+# `core` and the product schemas (audit/workforce/booking/ai) are intentionally
+# NOT exposed to PostgREST — the app reads tenant context through `api` views
+# (e.g. api.my_tenant_memberships), keeping internal `core` private. This mirrors
+# the intended Cloud dev Data API posture. See docs/phase-1e-data-api-exposure.md
+# and docs/adr/0008-api-facade-schema.md.
+schemas = ["public", "api"]
 extra_search_path = ["public"]
 max_rows = 1000
 
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 16
+# Supabase CLI accepts only 15 or 17 here (16 is not a published image and is
+# rejected by `Validate()`). Pinned to 15 (supabase/postgres:15.8.1.085), the
+# long-stable local image; all migrations use version-agnostic SQL.
+major_version = 15
+
+# Local-only seed. `supabase db reset` applies these after migrations. This is
+# demo/structural data for LOCAL development only — never apply it to a linked
+# cloud/production database. PII-bearing demo rows are created separately by the
+# encrypted TS seeder (`pnpm db:seed`). See docs/phase-1-core-db.md §3.
+[db.seed]
+enabled = true
+sql_paths = ["./seed/seed.sql"]
 
 [studio]
 enabled = true
@@ -27,3 +44,15 @@ enable_signup = true
 
 [auth.external.line]
 enabled = false
+
+# STAFF_AUTH_PROVISIONING: the ONLY function in this repo that holds
+# service_role (Founder decision 9, docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-08-13.md).
+# verify_jwt = true (the default) is kept explicit: the platform gateway
+# rejects an unauthenticated call before the function body ever runs, and the
+# function itself additionally re-derives the caller's identity from that
+# same JWT for its own Manager-permission check -- defense in depth, not
+# duplication. Local secrets (functions/.env, gitignored): SITE_URL should
+# match [auth] site_url above; PII_ENCRYPTION_KEY must match apps/web's own
+# PII_ENCRYPTION_KEY so decryption of an employee's email succeeds.
+[functions.invite-employee]
+verify_jwt = true

@@ -10,6 +10,32 @@ A single **multi-tenant SaaS platform** for Japanese SMBs. Multiple products
 **Do not build isolated one-off projects.** Every product runs inside this
 platform.
 
+## Read order for AI agents
+
+Read these in order before changing anything:
+
+1. `AGENTS.md` — operating rules (this file).
+2. `docs/ai/oaes-project-profile.md` — how OAES is applied in this repository.
+3. `docs/ai/current-task.md` — the current verified stage and next gate.
+4. `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` — for Claude Code
+   sessions: mission sizing, autonomy boundaries, context management,
+   subagent use, evidence discipline, and the mission/handoff/completion-report
+   formats. Adds no new engineering rules.
+5. `PROJECT_BRIEF.md` — high-level project strategy and context.
+6. `README.md` — repository overview and getting started.
+7. `.cursor/rules/*` — machine-enforced guardrails.
+8. `docs/architecture/*` — architecture detail.
+9. `docs/security/*` — security requirements.
+10. `docs/phase-1-core-db.md` — current DB phase: what the Supabase scaffold
+   already contains, the scaffold-only module schemas, local-first flow, and
+   cloud safety guardrails.
+11. `docs/supabase-cloud-dev-setup.md` — Phase 1B: how a human safely creates and
+   prepares a separate Supabase Cloud dev project (placeholders only; Cloud
+   writes are approval-gated).
+12. `docs/phase-1c-app-foundation.md` — Phase 1C planning (docs-only): the
+   app-layer foundation for authenticated multi-tenant access (Supabase Auth,
+   tenant context, protected routes, RLS). Planning only — no product features.
+
 ## Non-negotiable rules
 
 1. **Every business table includes `tenant_id uuid not null`.** If the data
@@ -33,14 +59,26 @@ platform.
 
 ## Before implementing any module feature
 
-1. Check `docs/architecture`.
-2. Check the `tenant_id` requirement.
-3. Check RLS impact.
-4. Check RBAC permissions (`packages/core/src/permissions.ts`).
-5. Check audit log requirement.
-6. Check cross-module impact.
-7. Run lint/build/tests.
-8. Summarize risks before commit.
+1. Complete the OAES Product Review and Architecture Review gates in
+   `docs/ai/oaes-project-profile.md`.
+2. Check `docs/architecture`.
+3. Check the `tenant_id` requirement.
+4. Check RLS impact.
+5. Check RBAC permissions (`packages/core/src/permissions.ts`).
+6. Check audit log requirement.
+7. Check cross-module impact.
+8. Run the applicable local verification.
+9. Produce an OAES Acceptance Report before declaring the task done.
+
+## Database phase (Phase 1)
+
+The Supabase scaffold already exists under `supabase/migrations` and applies
+cleanly to a **local** database. Migrations `0009_workforce.sql`,
+`0010_booking.sql`, and `0011_ai.sql` are **real schema migrations but
+scaffold-only** — the tables/RLS exist; the product features do not. Do not
+delete or renumber existing migrations. During Phase 1 the DB is **local-first**:
+do not link Supabase Cloud and do not run `supabase db push` (`db:migrate`).
+Full detail and command risk table: `docs/phase-1-core-db.md`.
 
 ## Git rules
 
@@ -62,6 +100,15 @@ demo + client-template seed → test module isolation.
 Both are **tenants**, not separate codebases. Differences come from
 `tenant.kind`, `settings`, and seed data only. Demo has fake realistic data and
 no real PII; client template is a clean, production-auth, strict-RLS starter.
+
+## Cursor project rules
+
+Machine-enforced guardrails for AI agents live in `.cursor/rules` (architecture,
+security, database/RLS, git workflow, AI-agent workflow, legacy-migration
+boundaries). They restate and operationalize the rules in this file; keep both
+in sync when either changes. Claude Code guardrails in `.claude/` (`CLAUDE.md`,
+`settings.json`, `skills/*`) must also stay in sync with this file and
+`.cursor/rules/*`.
 
 ## Layout
 

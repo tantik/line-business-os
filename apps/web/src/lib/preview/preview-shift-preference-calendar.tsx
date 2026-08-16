@@ -1,0 +1,125 @@
+'use client';
+
+import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { previewSubmitShiftPreference } from './actions/staff-schedule-actions';
+import { previewWriteMessage } from './write-result';
+import { buttonPrimary, buttonSecondary, demoColors, input, shiftChipColors, shiftChipStyle } from '@/lib/demo/cafe/theme';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tStaff, staffWeekdayInitials } from '@/lib/demo/cafe/i18n.staff';
+import { PendingOverlay } from '@/components/ui/loading';
+
+interface Props {
+  shiftTypes: WorkforceShiftType[] | null;
+  defaultMonthDate: string;
+  onClose: () => void;
+  /**
+   * The staff member's already-submitted preference selections for this
+   * month (workDate -> shiftTypeId, `null` = unavailable), so reopening the
+   * modal - or opening it after a hard reload - shows what was actually
+   * submitted instead of a blank calendar. Founder QA F10 persistence
+   * contract: submit -> close -> reopen -> hard reload -> reopen must all
+   * show the same selections. This is INSERT-only display state: editing a
+   * cell that already has a submitted preference still only queues a new
+   * submission attempt (which the server correctly reports as `duplicate`)
+   * - there is no update path here, by product design.
+   */
+  existingSelections?: Record<string, string | null>;
+}
+
+function monthDates(monthDate: string): string[] {
+  const [year, month] = monthDate.split('-').map(Number);
+  const count = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
+  return Array.from({ length: count }, (_, index) => `${year}-${String(month).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`);
+}
+
+export function PreviewShiftPreferenceCalendar({ shiftTypes, defaultMonthDate, onClose, existingSelections }: Props) {
+  const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tStaff>[1]) => tStaff(lang, key);
+  const [pending, startTransition] = useTransition();
+  const dates = useMemo(() => monthDates(defaultMonthDate), [defaultMonthDate]);
+  // Only real, currently-published shift types are valid preference choices -
+  // draft/archived/disabled types configured for testing or retired windows
+  // must never appear as a selectable option here.
+  const activeShiftTypes = useMemo(() => (shiftTypes ?? []).filter((item) => item.isActive), [shiftTypes]);
+  const options = [null, ...activeShiftTypes.map((item) => item.shiftTypeId)];
+  const [selections, setSelections] = useState<Record<string, string | null>>(existingSelections ?? {});
+  const [note, setNote] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const firstWeekday = dates[0] ? (new Date(`${dates[0]}T00:00:00Z`).getUTCDay() + 6) % 7 : 0;
+
+  function cycle(date: string) {
+    const current = selections[date] ?? null;
+    const next = options[(options.indexOf(current) + 1) % options.length] ?? null;
+    setSelections((previous) => ({ ...previous, [date]: next }));
+  }
+
+  function submit() {
+    const chosen = Object.entries(selections);
+    if (chosen.length === 0) return setFeedback(t('tapToSelectHelp'));
+    startTransition(async () => {
+      // Founder QA F10: each day was previously submitted with a fully
+      // sequential `await` in a `for` loop, and every call re-resolves the
+      // staff context (~4-6 DB round trips) from scratch - for N selected
+      // days that serialized to N * (~6 round trips), which is what made a
+      // multi-day submission take several seconds. Firing them concurrently
+      // removes that N-times serialization without touching the server
+      // action or its per-day duplicate handling below.
+      const results = await Promise.all(
+        chosen.map(([workDate, shiftTypeId]) => {
+          const data = new FormData();
+          data.set('workDate', workDate);
+          if (shiftTypeId) data.set('shiftTypeId', shiftTypeId);
+          data.set('isUnavailable', 'false');
+          if (note) data.set('note', note);
+          return previewSubmitShiftPreference(data);
+        }),
+      );
+      for (const result of results) {
+        if (result.status !== 'success' && result.status !== 'duplicate') {
+          setFeedback(previewWriteMessage(lang, result.status));
+          return;
+        }
+      }
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <PendingOverlay visible={pending} message={t('submitting')} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginBottom: 12 }}>
+        <span style={shiftChipStyle(demoColors.surfaceElevated, demoColors.textMuted, true)}>－</span>
+        {activeShiftTypes.map((type) => {
+          const chip = shiftChipColors(type.shiftTypeId, activeShiftTypes.map((t) => t.shiftTypeId));
+          return <span key={type.shiftTypeId} style={shiftChipStyle(chip.background, chip.color, true)}>{type.labelJa} {type.startsAtLocal.slice(0, 5)}-{type.endsAtLocal.slice(0, 5)}</span>;
+        })}
+      </div>
+      <strong>{Number(defaultMonthDate.slice(5, 7))}{t('monthSuffix')}</strong>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginTop: 8 }}>
+        {staffWeekdayInitials(lang).map((day) => <div key={day} style={{ textAlign: 'center', fontSize: 11, color: demoColors.textMuted }}>{day}</div>)}
+        {Array.from({ length: firstWeekday }).map((_, index) => <div key={`blank-${index}`} />)}
+        {dates.map((date) => {
+          const value = selections[date] ?? null;
+          const type = activeShiftTypes.find((item) => item.shiftTypeId === value);
+          const chip = shiftChipColors(value, activeShiftTypes.map((t) => t.shiftTypeId));
+          return <button key={date} type="button" onClick={() => cycle(date)} style={{ minWidth: 0, minHeight: 44, padding: '4px 2px', overflow: 'hidden', border: `1px solid ${demoColors.border}`, borderRadius: 8, background: chip.background, color: chip.color, cursor: 'pointer' }}>
+            <span style={{ display: 'block', fontWeight: 600 }}>{Number(date.slice(-2))}</span>
+            <span style={{ display: 'block', overflow: 'hidden', fontSize: 11, fontWeight: 700, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{type?.labelJa ?? '－'}</span>
+          </button>;
+        })}
+      </div>
+      <p style={{ fontSize: 12, color: demoColors.textMuted }}>{t('tapToSelectHelp')}</p>
+      <label style={{ fontSize: 13, color: demoColors.textMuted }}>{t('optionalMessage')}</label>
+      <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} placeholder={t('optionalNotePlaceholder')} style={{ ...input, resize: 'vertical' }} />
+      {feedback ? <p style={{ color: demoColors.dangerText }}>{feedback}</p> : null}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+        <button type="button" style={buttonSecondary} disabled={pending} onClick={onClose}>{t('cancel')}</button>
+        <button type="button" style={buttonPrimary} disabled={pending} onClick={submit}>{pending ? t('submitting') : t('submitPreference')}</button>
+      </div>
+    </div>
+  );
+}

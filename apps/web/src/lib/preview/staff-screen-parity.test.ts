@@ -1,0 +1,175 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
+const read = (relativePath: string) => readFileSync(path.join(THIS_DIR, relativePath), 'utf8');
+
+const PREVIEW_STAFF_PAGE = '../../app/%5Fclient-preview/mame-to-cha/page.tsx';
+const PREVIEW_STAFF_VIEW = 'staff-view.tsx';
+const PREVIEW_STAFF_SCHEDULE = 'preview-staff-schedule.tsx';
+const PREVIEW_STAFF_ACTIONS = 'preview-staff-actions.tsx';
+const PREVIEW_CAFE_LAYOUT = '../../app/%5Fclient-preview/mame-to-cha/layout.tsx';
+const DEMO_STAFF_VIEW = '../../components/demo/cafe/views/StaffView.tsx';
+const SHARED_STAFF_PRESENTATION = '../../components/demo/cafe/CafeStaffPresentation.tsx';
+const DEMO_CLOCK_PANEL = '../../components/demo/cafe/ClockPanel.tsx';
+const PREVIEW_CLOCK_PANEL = 'preview-clock-panel.tsx';
+const PREVIEW_SHIFT_PREFERENCE_FORM = 'preview-shift-preference-calendar.tsx';
+
+test('staff shift legend excludes inactive types unless the visible week references them', () => {
+  const source = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(source, /shiftType\.isActive \|\| referencedShiftTypeIds\.has\(shiftType\.shiftTypeId\)/);
+  assert.match(source, /dates\.includes\(workDate\)/);
+});
+
+test('preview staff uses the cafe product theme and never the legacy dark theme', () => {
+  for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
+    const source = read(file);
+    assert.ok(!source.includes('@/lib/ui/theme'), `${file} must not import the legacy dark UI theme`);
+  }
+});
+
+test('manager, staff, and recipes inherit one light Mame To Cha preview shell', () => {
+  const layout = read(PREVIEW_CAFE_LAYOUT);
+  assert.match(layout, /demoColors\.bg/);
+  assert.match(layout, /minHeight:\s*'100vh'/);
+
+  for (const route of ['manager', 'staff', 'recipes']) {
+    const nestedLayout = `../../app/%5Fclient-preview/mame-to-cha/${route}/layout.tsx`;
+    assert.throws(() => read(nestedLayout), `${route} must not duplicate the shared Cafe layout`);
+  }
+});
+
+test('staff no-profile diagnostics expose reason categories but no identifiers or error text', () => {
+  const source = read('staff-profile-diagnostic.ts');
+  assert.match(source, /profile_not_bound/);
+  assert.match(source, /profile_read_unauthorized/);
+  assert.match(source, /profile_location_mismatch/);
+  assert.ok(!source.includes('tenantId'));
+  assert.ok(!source.includes('staffId'));
+  assert.ok(!source.includes('userId'));
+  assert.ok(!source.includes('.message'));
+});
+
+test('preview staff mutation forms open through the shared Modal instead of rendering permanently on the page', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  const actions = read(PREVIEW_STAFF_ACTIONS);
+  for (const component of ['PreviewShiftPreferenceCalendar', 'PreviewWorkReportForm']) {
+    assert.ok(!page.includes(`<${component}`), `${component} must not render directly on the staff page`);
+    assert.ok(actions.includes(component), `${component} must be composed by PreviewStaffActions`);
+  }
+  assert.match(actions, /@\/components\/demo\/cafe\/Modal/);
+});
+
+test('Founder QA F09: the correction-request entry point is canonical - reachable only through the schedule-table day cell, never duplicated as a second standalone button', () => {
+  // Superseded by the F09 fix: `PreviewStaffActions` previously also rendered
+  // its own standalone "Request a correction" button, always targeting only
+  // the single most recent completed work day (disabled entirely with no
+  // completed attendance yet) - fully redundant with, and strictly more
+  // limited than, the contextual entry point on the Shift Schedule day-cell
+  // modal (`preview-staff-schedule.tsx`, tests further down this file),
+  // which correctly prepopulates for *any* selected date.
+  const page = read(PREVIEW_STAFF_PAGE);
+  const actions = read(PREVIEW_STAFF_ACTIONS);
+  const schedule = read(PREVIEW_STAFF_SCHEDULE);
+  assert.ok(!page.includes('<PreviewCorrectionRequestForm'), 'PreviewCorrectionRequestForm must not render directly on the staff page');
+  assert.ok(!actions.includes('PreviewCorrectionRequestForm'), 'PreviewStaffActions must not render its own duplicate correction-request form');
+  assert.ok(!actions.includes('requestCorrection'), 'PreviewStaffActions must not render a standalone correction-request button');
+  assert.match(schedule, /PreviewCorrectionRequestForm/, 'the schedule day-cell modal remains the one correction-request entry point');
+  assert.match(schedule, /t\('requestCorrection'\)/);
+});
+
+test('future own shifts expose the complete change or cancellation form without an exchange-only intermediate button', () => {
+  const source = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(source, /canRequestExchange && selectedAssignment/);
+  assert.match(source, /<PreviewShiftExchangeRequestForm/);
+  assert.ok(!source.includes('requestExchangeButton'));
+  assert.ok(!source.includes('exchangeFormOpen'));
+});
+
+test('preview staff adapter never imports demo mock data or localStorage state', () => {
+  for (const file of [PREVIEW_STAFF_PAGE, PREVIEW_STAFF_VIEW, PREVIEW_STAFF_ACTIONS]) {
+    const source = read(file);
+    assert.ok(!source.includes('@/lib/demo/cafe/data'), `${file} must not import demo mock data`);
+    assert.ok(!source.includes('@/lib/demo/cafe/store'), `${file} must not import the demo store`);
+    assert.ok(!source.includes('localStorage'), `${file} must not use localStorage`);
+  }
+});
+
+test('preview staff reuses the Demo compact schedule and removes the Preview-only profile card', () => {
+  const source = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(source, /@\/components\/demo\/cafe\/ShiftTable/);
+  assert.match(source, /@\/components\/demo\/cafe\/ShiftLegend/);
+  assert.ok(!source.includes('プロフィール'));
+  assert.ok(!source.includes('employmentType'));
+  assert.ok(!source.includes('positionLabel'));
+  assert.match(source, /startsAtLocal\.slice\(0,\s*5\)/);
+  assert.match(source, /endsAtLocal\.slice\(0,\s*5\)/);
+});
+
+test('Demo and Preview compose the same Staff presentation sections', () => {
+  const demo = read(DEMO_STAFF_VIEW);
+  const page = read(PREVIEW_STAFF_PAGE);
+  const view = read(PREVIEW_STAFF_VIEW);
+  const schedule = read(PREVIEW_STAFF_SCHEDULE);
+  const actions = read(PREVIEW_STAFF_ACTIONS);
+  const shared = read(SHARED_STAFF_PRESENTATION);
+  const demoClock = read(DEMO_CLOCK_PANEL);
+  const previewClock = read(PREVIEW_CLOCK_PANEL);
+
+  assert.match(demo, /CafeStaffHeader/);
+  assert.match(page, /CafeStaffHeader/);
+  assert.match(demoClock, /CafeStaffStatusCard/);
+  assert.match(previewClock, /CafeStaffStatusCard/);
+  assert.match(demo, /CafeStaffScheduleCard/);
+  assert.match(`${view}\n${schedule}`, /CafeStaffScheduleCard/);
+  assert.match(demo, /CafeStaffReportCard/);
+  assert.match(actions, /CafeStaffReportCard/);
+  assert.match(demo, /CafeStaffPreferenceCard/);
+  assert.match(actions, /CafeStaffPreferenceCard/);
+  assert.ok(!shared.includes('@/lib/demo/cafe/store'));
+  assert.ok(!shared.includes('@/lib/preview/'));
+});
+
+test('preview staff client-facing summary has no mixed English section labels', () => {
+  const source = read(PREVIEW_STAFF_VIEW);
+  for (const phrase of [
+    'My staff profile',
+    'My published schedule',
+    'My submitted shift preferences',
+    'My work reports this week',
+    'My correction requests this week',
+    'temporarily unavailable',
+  ]) {
+    assert.ok(!source.includes(phrase), `staff-view.tsx must not contain "${phrase}"`);
+  }
+});
+
+test('next-month preference UI uses compact HH:MM labels and a next-month default date', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  const form = read(PREVIEW_SHIFT_PREFERENCE_FORM);
+  assert.match(page, /Date\.UTC\(todayYear!,\s*todayMonth!,\s*1\)/);
+  assert.match(form, /startsAtLocal\.slice\(0,\s*5\)/);
+  assert.match(form, /endsAtLocal\.slice\(0,\s*5\)/);
+});
+
+test('staff page bounds assignment history to the complete client navigation window', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  assert.match(page, /getWeekOffsetWindow\(nowIso, location\.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET\)/);
+  assert.match(page, /listShiftAssignments\(supabase, activeTenant\.tenantId, \{[\s\S]*?fromIso: assignmentFromIso,[\s\S]*?toIsoExclusive: assignmentToIsoExclusive/);
+});
+
+test('hidden opening and closing stock checks do not load sessions or their items', () => {
+  const page = read(PREVIEW_STAFF_PAGE);
+  assert.match(page, /inventoryEnabled && SHOW_OPENING_CLOSING_STOCK_CHECKS[\s\S]*?listInventoryCheckSessions/);
+  assert.match(page, /if \(SHOW_OPENING_CLOSING_STOCK_CHECKS && inventorySessionsResult\?\.status === 'success'\)/);
+});
+
+test('staff week swap has a stable-height reduced-motion-safe transition', () => {
+  const schedule = read(PREVIEW_STAFF_SCHEDULE);
+  assert.match(schedule, /key=\{activeWeekOffset\} className="preview-staff-week-swap" style=\{\{ minHeight:/);
+  assert.match(schedule, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(schedule, /\.preview-staff-week-swap \{ animation: none; \}/);
+});

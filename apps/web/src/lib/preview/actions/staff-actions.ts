@@ -1,0 +1,138 @@
+'use server';
+
+import { parseSetEmployeeActiveInput, parseUpsertEmployeeInput } from '@/lib/workforce/employees-input';
+import {
+  listWorkforceStaffDirectory,
+  listWorkforceStaffForManager,
+  permanentlyDeleteEmployee,
+  setWorkforceEmployeeActive,
+  upsertWorkforceEmployee,
+  type WorkforceEmployeeActiveState,
+  type WorkforceStaffManageEntry,
+} from '@/lib/workforce/employees';
+import { resolvePreviewManagerContext } from './authorize';
+import { bindEmployeeLineUser } from '@/lib/workforce/employee-line-links';
+import { mapWorkforceWriteResult, PREVIEW_INVALID_INPUT_RESULT, type PreviewWriteResult } from '../write-result';
+
+/**
+ * Phase 1N-4C Slice B2a - preview-specific manager Server Actions for
+ * employee create/edit and activate/deactivate. Preview-only wrappers around
+ * the existing, unchanged `employees.ts` service-layer functions - never
+ * imports `staff-actions.ts` (the dashboard action module).
+ *
+ * Every wrapper: resolve strict tenant/module/location/permission
+ * (`resolvePreviewManagerContext`) -> validate submitted target-record id(s)
+ * against the strict tenant + resolved location -> call the existing
+ * service-layer function -> map to the neutral `PreviewWriteResult`. No
+ * `redirect()`, no `revalidatePath` - the calling client island refreshes via
+ * `router.refresh()`.
+ */
+
+/**
+ * Manager-only: re-read the current staff directory for the manager's own
+ * resolved location's tenant. Preview Manager architecture (perf phase 2) -
+ * called by the Staff panel instead of `router.refresh()` after a successful
+ * write, so a Staff mutation refreshes only its own list, not the whole
+ * Manager page (Inventory/Recipes/Schedule/etc. never re-render).
+ */
+export async function previewGetStaffManagerData(): Promise<PreviewWriteResult<WorkforceStaffManageEntry[]>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId } = contextResult.context;
+  const result = await listWorkforceStaffForManager(supabase, tenantId);
+  return mapWorkforceWriteResult(result);
+}
+
+export async function previewUpsertEmployee(formData: FormData): Promise<PreviewWriteResult<WorkforceStaffManageEntry>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId } = contextResult.context;
+
+  // The server-resolved active location always wins - a submitted `locationId`
+  // field (authority, never a legitimate target-record identifier here, B2
+  // plan Section 3.0/8.1) is never read from the client; it is discarded and
+  // replaced before the shared parser ever sees it.
+  const scopedFormData = new FormData();
+  for (const [key, value] of formData.entries()) {
+    if (key === 'locationId') continue;
+    scopedFormData.append(key, value);
+  }
+  scopedFormData.set('locationId', locationId);
+
+  const input = parseUpsertEmployeeInput(scopedFormData);
+  if (!input) return PREVIEW_INVALID_INPUT_RESULT;
+
+  if (input.id) {
+    const directoryResult = await listWorkforceStaffDirectory(supabase, tenantId);
+    if (directoryResult.status !== 'success') return { status: 'unexpected_error' };
+    const target = directoryResult.data.find((s) => s.staffId === input.id);
+    if (!target || target.locationId !== locationId) return { status: 'not_found' };
+  }
+
+  const result = await upsertWorkforceEmployee(supabase, tenantId, {
+    id: input.id ?? undefined,
+    locationId,
+    name: input.name,
+    familyName: input.familyName,
+    givenName: input.givenName,
+    email: input.email,
+    notes: input.notes,
+    positionLabel: input.positionLabel,
+    employmentType: input.employmentType,
+    hourlyWageYen: input.hourlyWageYen,
+    isActive: input.isActive,
+  });
+  if (result.status === 'success') {
+    const rawLineUserId = formData.get('rawLineUserId');
+    if (typeof rawLineUserId === 'string' && rawLineUserId.trim()) {
+      const bindResult = await bindEmployeeLineUser(supabase, tenantId, result.data.staffId, rawLineUserId.trim());
+      if (bindResult.status !== 'success') return mapWorkforceWriteResult(bindResult);
+    }
+  }
+  return mapWorkforceWriteResult(result);
+}
+
+export async function previewSetEmployeeActive(
+  formData: FormData,
+): Promise<PreviewWriteResult<WorkforceEmployeeActiveState>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId } = contextResult.context;
+
+  const input = parseSetEmployeeActiveInput(formData);
+  if (!input) return PREVIEW_INVALID_INPUT_RESULT;
+
+  const directoryResult = await listWorkforceStaffDirectory(supabase, tenantId);
+  if (directoryResult.status !== 'success') return { status: 'unexpected_error' };
+  const target = directoryResult.data.find((s) => s.staffId === input.staffId);
+  if (!target || target.locationId !== locationId) return { status: 'not_found' };
+
+  const result = await setWorkforceEmployeeActive(supabase, tenantId, input.staffId, input.isActive);
+  return mapWorkforceWriteResult(result);
+}
+
+/**
+ * Manager-only: permanently (physically) remove a staff profile. Distinct
+ * from `previewSetEmployeeActive(..., false)` ("Remove staff", the normal
+ * path, which soft-deactivates and always preserves history) -- this refuses
+ * when the employee has any shift/attendance/request/exchange history, via
+ * the guarded `api.permanently_delete_employee` RPC (0056).
+ */
+export async function previewPermanentlyDeleteEmployee(
+  formData: FormData,
+): Promise<PreviewWriteResult<{ staffId: string }>> {
+  const contextResult = await resolvePreviewManagerContext('workforce.staff.manage');
+  if (contextResult.status !== 'ok') return contextResult.result;
+  const { supabase, tenantId, locationId } = contextResult.context;
+
+  const staffId = formData.get('staffId');
+  if (typeof staffId !== 'string' || !staffId) return PREVIEW_INVALID_INPUT_RESULT;
+
+  const directoryResult = await listWorkforceStaffDirectory(supabase, tenantId);
+  if (directoryResult.status !== 'success') return { status: 'unexpected_error' };
+  const target = directoryResult.data.find((s) => s.staffId === staffId);
+  if (!target || target.locationId !== locationId) return { status: 'not_found' };
+
+  const result = await permanentlyDeleteEmployee(supabase, tenantId, staffId);
+  return mapWorkforceWriteResult(result);
+}

@@ -1,0 +1,28 @@
+---
+description: AI agent workflow — propose, approve, apply, audit
+alwaysApply: true
+---
+
+# AI Never Writes Business Data Directly
+
+AI assists; it does not mutate business data on its own. Every AI-driven change
+follows this pipeline:
+
+1. **AI proposes** a structured change (no direct DB writes).
+2. **A manager approves** (RBAC-gated human decision).
+3. **Backend applies** the approved change via normal Core APIs (tenant context,
+   RLS, validation).
+4. **Audit records** the action with `writeAudit`.
+
+```ts
+// ❌ BAD: AI writes straight to the database
+await serviceClient.from('shifts').update(aiSuggestion);
+
+// ✅ GOOD: AI emits a proposal for human approval
+await createProposal({ module: 'workforce', action: 'reschedule', payload });
+// → manager approves → backend applies → writeAudit(...)
+```
+
+- Proposals are data, not commands. They are inert until approved.
+- Apply step reuses the same tenant/RBAC/RLS/audit path as human actions.
+- Log AI prompts/outputs per `@line-os/ai` contracts; never bypass approval.
