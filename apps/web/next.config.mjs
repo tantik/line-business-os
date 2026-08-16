@@ -14,13 +14,6 @@ const nextConfig = {
   // legacy eslint-config-next setup.
   eslint: { ignoreDuringBuilds: true },
   transpilePackages: ['@line-os/ui', '@line-os/workforce', '@line-os/booking', '@line-os/config'],
-  // Preserve legacy demo URLs by redirecting into the module namespaces.
-  async redirects() {
-    return [
-      { source: '/shifts', destination: '/workforce/shifts', permanent: false },
-      { source: '/manager', destination: '/workforce/manager', permanent: false },
-    ];
-  },
   // Phase 1N-4C Slice B1: host-based routing for the Mame To Cha DB-backed
   // preview shell. `beforeFiles` so this overrides the physical public
   // `/mame-to-cha/*` demo pages conditionally, only on `preview.oruwa.jp` -
