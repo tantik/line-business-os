@@ -35,9 +35,24 @@ test('WorkforceManagerPage returns UnauthorizedState when hasManagerAccess denie
 });
 
 test('the manager-access gate runs after location resolution (workforce.staff.manage is location-scoped)', () => {
-  const locationIndex = SOURCE.indexOf('const location = tenantLocations.find');
+  const locationIndex = SOURCE.indexOf('const activeTenantLocations = tenantLocations.filter');
   const gateIndex = SOURCE.indexOf('hasManagerAccess(supabase, activeTenant.tenantId, location.locationId)');
   assert.ok(locationIndex !== -1 && gateIndex !== -1 && locationIndex < gateIndex);
+});
+
+test('LOC-1: location resolution fails closed on 0 or more than 1 active location, never silently substitutes an arbitrary one', () => {
+  assert.ok(
+    /const activeTenantLocations = tenantLocations\.filter\(\(l\) => l\.isActive\);/.test(SOURCE),
+    'must compute the active-location set explicitly',
+  );
+  assert.ok(
+    /const location = activeTenantLocations\.length === 1 \? activeTenantLocations\[0\] : undefined;/.test(SOURCE),
+    'must resolve location only when exactly one active location exists, never falling back to tenantLocations[0] regardless of active status',
+  );
+  assert.ok(
+    !SOURCE.includes('tenantLocations.find((l) => l.isActive) ?? tenantLocations[0]'),
+    'the old lenient fallback (first active, else literally any location) must not reappear',
+  );
 });
 
 test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {

@@ -87,7 +87,13 @@ export default async function WorkforceManagerPage({
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
           : [];
-      const location = tenantLocations.find((l) => l.isActive) ?? tenantLocations[0];
+      // LOC-1 (docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md): fails
+      // closed on 0 or more than 1 active location, matching the
+      // `_client-preview/mame-to-cha/manager` reference surface exactly --
+      // never silently falls back to an arbitrary (possibly inactive)
+      // location the way this page previously did.
+      const activeTenantLocations = tenantLocations.filter((l) => l.isActive);
+      const location = activeTenantLocations.length === 1 ? activeTenantLocations[0] : undefined;
 
       if (!location) {
         return (
@@ -102,7 +108,11 @@ export default async function WorkforceManagerPage({
               </Link>
             </header>
             <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>No location is configured for this workspace yet.</p>
+              <p style={{ margin: 0, ...mutedText }}>
+                {activeTenantLocations.length === 0
+                  ? 'No location is configured for this workspace yet.'
+                  : 'This workspace has more than one active location. Multi-location management is not supported on this page yet.'}
+              </p>
             </section>
           </main>
         );
