@@ -117,6 +117,50 @@ also not started by this closure — it is planned future work
 B) and requires its own bounded Product/Founder decision to begin, same as
 any other post-v2.1 category.
 
+### 2.4 Cafe Commercial Launch Readiness (separate, higher gate — not started)
+
+**"Cafe v2.1 CLOSED" (§2.3) is a bounded, code-scoped closure — F1/F2 only,
+against the frozen Whole-Product Gate backlog.** It is not the same claim as
+"Cafe is ready to sell." Founder decision 2026-08-16: a distinct, higher gate
+— **Cafe Commercial Launch Readiness** — must pass before Cafe is treated as
+commercially launch-ready. This gate is intentionally **not** folded back
+into "Cafe v2.1," because it bundles two different kinds of work with
+different owners and timelines:
+
+- **Cafe-specific work** (belongs to this product, no other vertical depends
+  on it): IA/route reconciliation (`/dashboard/workforce/manager` is
+  internal/technical, not decided customer-facing IA) and visual/UX
+  reconciliation of the canonical surface against the Surface A reference,
+  plus the remaining Cafe Hardening / Deferred Debt items above.
+- **Platform-wide work** (not Cafe-specific — required by any future
+  vertical, tracked at Horizon C / `docs/foundation/platform-foundation-roadmap.md`,
+  not owned by a Cafe mission): the accepted critical path Entitlements
+  engine → Module Registry → Shared Navigation/Settings → Notifications →
+  Event Bus.
+
+Recording both under a single "Cafe v2.1" label would conflate one
+product's versioning with platform-wide infrastructure completion — this
+gate exists precisely to avoid that conflation while still giving the
+Founder the single "is it actually ready to launch" answer they asked for.
+
+Sequence (recommended, not yet started):
+
+1. Cafe IA/visual reconciliation + remaining Cafe Hardening items (one
+   focused pass, same surface).
+2. Platform Foundation critical path (per the already-accepted document;
+   this work is not blocked by step 1 and could run in parallel, but
+   sequential is preferred here to avoid re-creating the "audit → fix →
+   next audit finds a neighbor problem" context-blur pattern this project
+   has already hit more than once).
+3. New-Tenant / One-Hour Provisioning Test (`docs/strategy/go-to-market-roadmap.md`
+   §7) — creating a genuinely new tenant with zero application-code changes
+   is the actual evidence this gate exists to produce, not a formality.
+4. A single combined QA + Founder acceptance pass over the result of 1–3,
+   not a re-run of the narrow F1/F2-style acceptance from §2.3.
+
+None of steps 1–4 is authorized to start by this entry alone — the Founder
+selects which one begins next (see §5).
+
 ## 3. Founder decisions in force (not fully restated elsewhere)
 
 Staff identity/auth architecture (`docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-08-13.md`
@@ -158,15 +202,17 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**Cafe v2.1 is closed** (§2.3). Preview QA, independent review, and Final
-Founder Acceptance all complete as of 2026-08-16 — this repeats no further
-action.
+**Cafe v2.1 (bounded, §2.3) is closed.** Preview QA, independent review, and
+Final Founder Acceptance for F1/F2 all complete as of 2026-08-16. **Cafe
+Commercial Launch Readiness (§2.4) is a separate, higher gate and has not
+started** — none of its four steps is authorized by this entry alone.
 
 1. Do not automatically start Cafe Hardening / Deferred Debt, Cafe Product
-   Growth, Platform Foundation, IA/visual reconciliation of the canonical
-   surface, or Cafe v2.2 as a consequence of this closure; each requires
-   its own bounded Product/Founder decision, per §2.3 and `../ORUWA-info.md`
-   §14.
-2. The next bounded mission (once selected by the Founder) should update
-   this section to name it explicitly, rather than leaving this file
-   pointing at a already-closed gate.
+   Growth, Platform Foundation, IA/visual reconciliation, Cafe Commercial
+   Launch Readiness step 1–4, or Cafe v2.2 as a consequence of the §2.3
+   closure; each requires its own bounded Product/Founder decision, per
+   §2.3/§2.4 and `../ORUWA-info.md` §14.
+2. The Founder selects which of §2.4's four steps begins next (or a
+   different priority entirely). Once selected, update this section to
+   name the active mission explicitly, rather than leaving this file
+   pointing at an already-closed gate.

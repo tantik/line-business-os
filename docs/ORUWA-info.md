@@ -131,7 +131,9 @@ Manager Attention не является новым business module: он соб�
 - **F1:** localization Manager Add/Edit Staff modal;
 - **F2:** localization Manager Shift Cell Editor.
 
-Implementation F1/F2 merged в `dev` через PR #241; CI и Vercel для PR прошли. **Authenticated Preview QA, independent review и Final Founder Acceptance завершены 2026-08-16** — оба F1 и F2 подтверждены PASS live на `preview.oruwa.jp`, P0/P1 regression не найден. **Cafe v2.1 CLOSED.** Evidence: [Final Founder Acceptance 2026-08-16](product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md); полный deferred P2/P3 register остаётся открытым и не закрыт этим решением: [Whole-Product Integrity Gate](ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md).
+Implementation F1/F2 merged в `dev` через PR #241; CI и Vercel для PR прошли. **Authenticated Preview QA, independent review и Final Founder Acceptance завершены 2026-08-16** — оба F1 и F2 подтверждены PASS live на `preview.oruwa.jp`, P0/P1 regression не найден. **Cafe v2.1 (bounded, F1/F2) CLOSED.** Evidence: [Final Founder Acceptance 2026-08-16](product/cafe-package-v2-1-final-founder-acceptance-2026-08-16.md); полный deferred P2/P3 register остаётся открытым и не закрыт этим решением: [Whole-Product Integrity Gate](ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md).
+
+**Это не то же самое, что "Cafe готов к продаже".** Founder decision 2026-08-16: отдельный, более высокий gate — **Cafe Commercial Launch Readiness** (`ai/current-task.md` §2.4) — должен пройти прежде, чем Cafe считается коммерчески готовым. Он намеренно не влит обратно в "Cafe v2.1", потому что объединяет разнородную работу: Cafe-специфичную (IA/route + visual reconciliation, оставшийся Cafe Hardening) и платформенную, не принадлежащую Cafe (Platform Foundation critical path — Entitlements → Module Registry → Navigation/Settings → Notifications → Event Bus, Horizon C). Ни один из четырёх шагов этого gate ещё не начат.
 
 ## 12. Cafe v2.1 Closure Philosophy
 
@@ -277,9 +279,9 @@ Tenant isolation, location scoping, RLS, role/permission boundaries, отсут�
 ## 22. Where We Are Now
 
 - **CURRENT PRODUCT:** ORUWA Cafe
-- **CURRENT STAGE:** Cafe v2.1 CLOSED (Final Founder Acceptance recorded 2026-08-16); next mission not yet selected.
-- **CURRENT GOAL:** Founder to select the next bounded mission — candidates are Cafe Hardening/Deferred Debt, IA/visual reconciliation, or Platform Foundation (Horizon C) — per §14/§15 above, none is automatically authorized by this closure.
-- **NEXT:** authenticated Preview QA → independent review → Final Founder Acceptance → Cafe v2.1 closure при отсутствии P0/P1 regression.
+- **CURRENT STAGE:** Cafe v2.1 (bounded, F1/F2) CLOSED 2026-08-16; Cafe Commercial Launch Readiness (§11, `ai/current-task.md` §2.4) not yet started.
+- **CURRENT GOAL:** Founder to select which Commercial Launch Readiness step begins next — Cafe IA/visual reconciliation + Hardening, or Platform Foundation critical path — per `ai/current-task.md` §2.4/§5; none is automatically authorized.
+- **NEXT:** see `ai/current-task.md` §5 for the exact next gate once selected.
 
 ## 23. How a Fresh AI Session Should Use This File
 
