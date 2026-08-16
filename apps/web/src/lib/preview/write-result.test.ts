@@ -1,14 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  mapPreviewTenantFailure,
-  mapPreviewModuleFailure,
-  mapManagerLocationFailure,
-  mapWorkforceWriteResult,
-  previewStaffDeleteMessage,
   previewWriteMessage,
   previewWriteMessageJa,
-  PREVIEW_INVALID_INPUT_RESULT,
   type PreviewWriteFailureStatus,
 } from './write-result.js';
 
@@ -37,69 +31,13 @@ test('previewWriteMessageJa returns a non-empty, UUID-free, path-free message fo
   }
 });
 
-test('previewStaffDeleteMessage uses employee-specific history copy', () => {
-  assert.match(previewStaffDeleteMessage('ja', 'blocked_by_history'), /スタッフ/);
-  assert.doesNotMatch(previewStaffDeleteMessage('ja', 'blocked_by_history'), /商品|在庫/);
-  assert.match(previewStaffDeleteMessage('en', 'blocked_by_history'), /staff member/i);
-  assert.doesNotMatch(previewStaffDeleteMessage('en', 'blocked_by_history'), /stock-count|item/i);
-  assert.equal(previewStaffDeleteMessage('en', 'invalid_input'), previewWriteMessage('en', 'invalid_input'));
-});
-
-test('PREVIEW_INVALID_INPUT_RESULT is the fixed invalid_input status', () => {
-  assert.deepEqual(PREVIEW_INVALID_INPUT_RESULT, { status: 'invalid_input' });
-});
-
-test('mapPreviewTenantFailure maps not_authenticated/no_access to themselves and everything else to unexpected_error', () => {
-  assert.deepEqual(mapPreviewTenantFailure({ status: 'not_authenticated' }), { status: 'not_authenticated' });
-  assert.deepEqual(mapPreviewTenantFailure({ status: 'no_access' }), { status: 'no_access' });
-  assert.deepEqual(mapPreviewTenantFailure({ status: 'config_error', message: 'raw pg detail' }), { status: 'unexpected_error' });
-  assert.deepEqual(mapPreviewTenantFailure({ status: 'unexpected_error', message: 'raw pg detail' }), { status: 'unexpected_error' });
-});
-
-test('mapPreviewModuleFailure maps disabled to module_disabled and everything else to unexpected_error', () => {
-  assert.deepEqual(mapPreviewModuleFailure({ status: 'disabled' }), { status: 'module_disabled' });
-  assert.deepEqual(mapPreviewModuleFailure({ status: 'config_error', message: 'x' }), { status: 'unexpected_error' });
-  assert.deepEqual(mapPreviewModuleFailure({ status: 'unexpected_error', message: 'x' }), { status: 'unexpected_error' });
-});
-
-test('mapManagerLocationFailure maps both none and ambiguous to the same neutral location_blocked status (never distinguished to the caller)', () => {
-  assert.deepEqual(mapManagerLocationFailure({ kind: 'none' }), { status: 'location_blocked' });
-  assert.deepEqual(mapManagerLocationFailure({ kind: 'ambiguous', count: 2 }), { status: 'location_blocked' });
-});
-
-test('mapWorkforceWriteResult passes success data through unchanged', () => {
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'success', data: { staffId: 's-1' } }), {
-    status: 'success',
-    data: { staffId: 's-1' },
-  });
-});
-
-test('mapWorkforceWriteResult maps not_found/duplicate to themselves', () => {
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'not_found' }), { status: 'not_found' });
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'duplicate', message: 'unique violation detail' }), { status: 'duplicate' });
-});
-
-test('mapWorkforceWriteResult maps no_membership/unauthorized (RLS/permission denials) to the same neutral no_access status', () => {
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'no_membership' }), { status: 'no_access' });
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'unauthorized', message: 'policy detail' }), { status: 'no_access' });
-});
-
-test('mapWorkforceWriteResult maps config_error/unexpected_error to unexpected_error and never surfaces the raw message', () => {
-  const result = mapWorkforceWriteResult({ status: 'unexpected_error', message: 'raw postgres error: relation X violates constraint Y' });
-  assert.deepEqual(result, { status: 'unexpected_error' });
-  assert.ok(!('message' in result), 'mapped result must not carry the raw error message');
-});
-
-test('mapWorkforceWriteResult maps not_authenticated to itself', () => {
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'not_authenticated' }), { status: 'not_authenticated' });
-});
-
-test('mapWorkforceWriteResult maps blocked_by_history/blocked_not_archived/stale_reference to themselves', () => {
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_by_history' }), { status: 'blocked_by_history' });
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'blocked_not_archived' }), { status: 'blocked_not_archived' });
-  assert.deepEqual(mapWorkforceWriteResult({ status: 'stale_reference' }), { status: 'stale_reference' });
-  assert.deepEqual(
-    mapWorkforceWriteResult({ status: 'language_change_requires_confirmation' }),
-    { status: 'language_change_requires_confirmation' },
-  );
+test('previewWriteMessage returns distinct, non-empty ja/en copy for every failure status, matching previewWriteMessageJa for ja', () => {
+  for (const status of ALL_FAILURE_STATUSES) {
+    const ja = previewWriteMessage('ja', status);
+    const en = previewWriteMessage('en', status);
+    assert.ok(ja.length > 0, `previewWriteMessage(ja, ${status}) must not be empty`);
+    assert.ok(en.length > 0, `previewWriteMessage(en, ${status}) must not be empty`);
+    assert.notEqual(ja, en, `previewWriteMessage(ja/en, ${status}) should have distinct copy`);
+    assert.equal(previewWriteMessageJa(status), ja);
+  }
 });

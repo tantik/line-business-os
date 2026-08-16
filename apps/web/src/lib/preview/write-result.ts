@@ -1,7 +1,3 @@
-import type { PreviewTenantResult } from './tenant';
-import type { PreviewModuleResult } from './module-guard';
-import type { ManagerLocationResult } from './location';
-import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 
 /**
@@ -12,9 +8,13 @@ import type { Lang } from '@/lib/demo/cafe/i18n';
  * status here ever carries a tenant/employee UUID, an internal route path,
  * an RLS policy name, or raw Postgres/PostgREST error text.
  *
- * No `server-only` import - this module is intentionally importable from a
- * `'use client'` preview island so the Japanese status->message dictionary
- * lives in exactly one place, shared by server wrapper and client renderer.
+ * Trimmed 2026-08-16 when the `_client-preview` route tree (Surface A) was
+ * retired: this module's own preview-route consumers are gone, but the
+ * Japanese/English status->message dictionary is still shared with
+ * `@/lib/demo/cafe/i18n.test.ts`, so the type + message functions stay.
+ * The `mapPreview*`/`mapWorkforceWriteResult` adapters and
+ * `previewStaffDeleteMessage`/`PREVIEW_INVALID_INPUT_RESULT` had no callers
+ * left outside the deleted route tree and were removed with it.
  */
 export type PreviewWriteFailureStatus =
   | 'not_authenticated'
@@ -71,71 +71,7 @@ const PREVIEW_WRITE_MESSAGES_EN: Record<PreviewWriteFailureStatus, string> = {
   unexpected_error: 'Something went wrong. Please try again in a moment.',
 };
 
-/** Lang-aware version of `previewWriteMessageJa` -- prefer this in any component that already calls `useLang()`. `previewWriteMessageJa` is kept for the handful of not-currently-reachable preview components (see `preview-action-free.test.ts`) so they are not touched unnecessarily. */
+/** Lang-aware version of `previewWriteMessageJa`. */
 export function previewWriteMessage(lang: Lang, status: PreviewWriteFailureStatus): string {
   return lang === 'en' ? PREVIEW_WRITE_MESSAGES_EN[status] : PREVIEW_WRITE_MESSAGES_JA[status];
-}
-
-/** Staff deletion shares the generic fail-closed status with Inventory, but needs domain-specific copy. */
-export function previewStaffDeleteMessage(lang: Lang, status: PreviewWriteFailureStatus): string {
-  if (status !== 'blocked_by_history') return previewWriteMessage(lang, status);
-  return lang === 'en'
-    ? 'This staff member has shift, attendance, or request history, so they cannot be permanently deleted. Use Inactive instead.'
-    : 'このスタッフにはシフト・勤怠・申請などの履歴があるため完全に削除できません。「休止中」をご利用ください。';
-}
-
-export const PREVIEW_INVALID_INPUT_RESULT: PreviewWriteResult<never> = { status: 'invalid_input' };
-
-/** Maps every non-`success` `PreviewTenantResult` to the fixed preview write contract. */
-export function mapPreviewTenantFailure(
-  result: Exclude<PreviewTenantResult, { status: 'success' }>,
-): PreviewWriteResult<never> {
-  if (result.status === 'not_authenticated') return { status: 'not_authenticated' };
-  if (result.status === 'no_access') return { status: 'no_access' };
-  return { status: 'unexpected_error' };
-}
-
-/** Maps every non-`enabled` `PreviewModuleResult` to the fixed preview write contract. */
-export function mapPreviewModuleFailure(
-  result: Exclude<PreviewModuleResult, { status: 'enabled' }>,
-): PreviewWriteResult<never> {
-  if (result.status === 'disabled') return { status: 'module_disabled' };
-  return { status: 'unexpected_error' };
-}
-
-/** Maps every non-`ok` `ManagerLocationResult` (`none`/`ambiguous`) to the fixed preview write contract - both fail closed to the same neutral status, never distinguished to the caller. */
-export function mapManagerLocationFailure(
-  _result: Exclude<ManagerLocationResult, { kind: 'ok' }>,
-): PreviewWriteResult<never> {
-  return { status: 'location_blocked' };
-}
-
-/** Maps an existing service-layer `WorkforceWriteResult` to the fixed preview write contract. */
-export function mapWorkforceWriteResult<T>(result: WorkforceWriteResult<T>): PreviewWriteResult<T> {
-  switch (result.status) {
-    case 'success':
-      return { status: 'success', data: result.data };
-    case 'not_found':
-      return { status: 'not_found' };
-    case 'duplicate':
-      return { status: 'duplicate' };
-    case 'blocked_by_history':
-      return { status: 'blocked_by_history' };
-    case 'blocked_not_archived':
-      return { status: 'blocked_not_archived' };
-    case 'stale_reference':
-      return { status: 'stale_reference' };
-    case 'language_change_requires_confirmation':
-      return { status: 'language_change_requires_confirmation' };
-    case 'not_authenticated':
-      return { status: 'not_authenticated' };
-    case 'no_membership':
-    case 'unauthorized':
-      return { status: 'no_access' };
-    case 'config_error':
-    case 'unexpected_error':
-      return { status: 'unexpected_error' };
-    default:
-      return { status: 'unexpected_error' };
-  }
 }
