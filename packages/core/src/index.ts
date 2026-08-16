@@ -5,3 +5,4 @@ export * from './entitlements.js';
 export * from './module-registry.js';
 export * from './navigation.js';
 export * from './settings.js';
+export * from './notifications.js';

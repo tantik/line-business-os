@@ -11,7 +11,8 @@
     "./entitlements": "./src/entitlements.ts",
     "./module-registry": "./src/module-registry.ts",
     "./navigation": "./src/navigation.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./notifications": "./src/notifications.ts"
   },
   "scripts": {
     "lint": "eslint .",
