@@ -48,6 +48,26 @@
 // -> refresh it in place (resend), re-resolving target_user_id via the Auth
 // Admin API again in case the resend is meant to recover from a lost email.
 //
+// RECOVERY (Defect C, docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md
+// / docs/ai/CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_HANDOFF_2026-08-15.md §4):
+// `{ tenantId, employeeId, action: 'recover' }` is a distinct request shape
+// for a pending, unbound invitation. The normal resend path deliberately
+// sends NO email once `inviteUserByEmail` reports the target address is
+// already a registered Auth user (Founder decision 8) -- correct for an
+// existing ORUWA user who can just use the in-app PendingInvitationBanner,
+// but a dead end for a first-time hire whose Auth identity exists (their
+// invite email was already consumed once) but who never finished password
+// setup: they have no session yet, so they can never reach that banner.
+// `action: 'recover'` sends a real Supabase password-recovery email instead
+// -- `auth.resetPasswordForEmail`, not an Admin API call, but issued from
+// this service-role client purely because it is the only place in this
+// codebase already holding the decrypted employee email. The resulting
+// `type=recovery` token_hash is handled by the SAME
+// `/auth/accept-invite` callback as a normal invite (see that route for the
+// corresponding `ALLOWED_TOKEN_HASH_TYPES` change) -- recovery and invite
+// both land the caller on the identical password-setup step, because a
+// fresh password is the only thing either flow is actually missing.
+//
 // EXISTING-USER CASE (Founder decision 8): when `inviteUserByEmail` reports
 // the email already belongs to a registered Auth user, NO new email is
 // sent -- this function falls back to `listUsers` to resolve that user's id
@@ -160,13 +180,39 @@ async function resolveTargetUser(
   throw new Error('auth_admin_existing_user_not_found');
 }
 
+/**
+ * Look up an existing Auth user by email WITHOUT ever creating one --
+ * `action: 'recover'`'s own resolution step. Reuses the same
+ * `listUsers` pagination as `resolveTargetUser`'s existing-user branch, but
+ * never calls `inviteUserByEmail` first (recovery is only ever valid for
+ * someone already invited at least once; a brand-new Auth user being
+ * created as a side effect of a "recover access" click would be a bug, not
+ * a fallback).
+ */
+async function findExistingAuthUser(
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any,
+  email: string,
+): Promise<string | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+    const listed = await serviceClient.auth.admin.listUsers({ page, perPage: LIST_PAGE_SIZE });
+    if (listed.error) throw new Error(`auth_admin_list_failed: ${listed.error.message}`);
+    const users: AdminUser[] = listed.data?.users ?? [];
+    const match = users.find((u) => (u.email ?? '').trim().toLowerCase() === normalizedEmail);
+    if (match) return match.id;
+    if (users.length < LIST_PAGE_SIZE) break;
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'method_not_allowed' });
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return jsonResponse(401, { error: 'missing_bearer_token' });
 
-  let body: { tenantId?: unknown; employeeId?: unknown };
+  let body: { tenantId?: unknown; employeeId?: unknown; action?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -180,6 +226,10 @@ Deno.serve(async (req: Request) => {
   }
   if (typeof employeeId !== 'string' || !UUID_RE.test(employeeId)) {
     return jsonResponse(400, { error: 'invalid_employee_id' });
+  }
+  const isRecoveryAction = body.action === 'recover';
+  if (body.action !== undefined && body.action !== 'recover') {
+    return jsonResponse(400, { error: 'invalid_action' });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -244,10 +294,29 @@ Deno.serve(async (req: Request) => {
 
   let targetUserId: string;
   let wasNewUser: boolean;
+  let recoveryEmailSent = false;
   try {
-    const resolved = await resolveTargetUser(serviceClient, email, redirectTo);
-    targetUserId = resolved.userId;
-    wasNewUser = resolved.wasNewUser;
+    if (isRecoveryAction) {
+      const existingUserId = await findExistingAuthUser(serviceClient, email);
+      if (!existingUserId) return jsonResponse(409, { error: 'employee_not_yet_invited' });
+      targetUserId = existingUserId;
+      wasNewUser = false;
+      // The one place this function sends a real password-recovery email
+      // instead of an invite -- see the RECOVERY comment above this
+      // handler. Not an Admin API call (no service-role-only method
+      // exists for it), but issued from this client purely because it is
+      // the only place in this codebase already holding the decrypted
+      // employee email.
+      const recovery = await serviceClient.auth.resetPasswordForEmail(email, { redirectTo });
+      if (recovery.error) {
+        return jsonResponse(502, { error: 'auth_recovery_email_failed', detail: recovery.error.message });
+      }
+      recoveryEmailSent = true;
+    } else {
+      const resolved = await resolveTargetUser(serviceClient, email, redirectTo);
+      targetUserId = resolved.userId;
+      wasNewUser = resolved.wasNewUser;
+    }
   } catch (err) {
     return jsonResponse(502, { error: 'auth_admin_error', detail: err instanceof Error ? err.message : 'unknown' });
   }
@@ -275,13 +344,15 @@ Deno.serve(async (req: Request) => {
   if (!upserted) return jsonResponse(500, { error: 'invitation_write_failed' });
 
   const wasResend = Boolean((upserted as { out_was_resend: boolean }).out_was_resend);
-  const outcome = wasResend
-    ? wasNewUser
-      ? 'resent_new_user_email'
-      : 'resent_existing_user_no_email'
-    : wasNewUser
-      ? 'invited_new_user'
-      : 'invited_existing_user_no_email';
+  const outcome = recoveryEmailSent
+    ? 'recovery_email_sent'
+    : wasResend
+      ? wasNewUser
+        ? 'resent_new_user_email'
+        : 'resent_existing_user_no_email'
+      : wasNewUser
+        ? 'invited_new_user'
+        : 'invited_existing_user_no_email';
 
   return jsonResponse(200, {
     outcome,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { inviteOrResendEmployee, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
+import { inviteOrResendEmployee, recoverEmployeeAccess, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 
@@ -38,6 +38,21 @@ function describeRevokeError(result: { status: string }): string {
   }
 }
 
+/**
+ * Defect C recovery-specific copy -- distinct from `describeInviteError`
+ * because "employee_not_yet_invited" only makes sense on this action (the
+ * button itself is never shown before a first invite anyway, but the
+ * Edge Function still enforces it server-side).
+ */
+function describeRecoverError(result: { status: string }): string {
+  switch (result.status) {
+    case 'unauthorized':
+      return 'この操作を行う権限がありません。';
+    default:
+      return '復旧メールを送信できませんでした。もう一度お試しください。';
+  }
+}
+
 export interface InvitationCellProps {
   hasAccountAccess: boolean;
   employeeId: string;
@@ -49,9 +64,11 @@ export interface InvitationCellProps {
 export function InvitationCell({ hasAccountAccess, employeeId, invitation, onChange }: InvitationCellProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [recoverySent, setRecoverySent] = useState(false);
 
   function handleInviteOrResend() {
     setError(null);
+    setRecoverySent(false);
     const formData = new FormData();
     formData.set('employeeId', employeeId);
     startTransition(async () => {
@@ -64,10 +81,27 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
     });
   }
 
+  function handleRecover() {
+    if (!window.confirm('このスタッフにパスワード再設定メールを送信しますか？')) return;
+    setError(null);
+    setRecoverySent(false);
+    const formData = new FormData();
+    formData.set('employeeId', employeeId);
+    startTransition(async () => {
+      const result = await recoverEmployeeAccess(formData);
+      if (result.status === 'success') {
+        setRecoverySent(true);
+      } else {
+        setError(describeRecoverError(result));
+      }
+    });
+  }
+
   function handleRevoke() {
     if (!invitation) return;
     if (!window.confirm('この招待を取り消しますか？')) return;
     setError(null);
+    setRecoverySent(false);
     const formData = new FormData();
     formData.set('invitationId', invitation.invitationId);
     startTransition(async () => {
@@ -102,11 +136,17 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
       >
         {isPending ? '送信中…' : isPendingInvite || isExpired ? '再送信' : '招待する'}
       </button>
+      {isPendingInvite || isExpired ? (
+        <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRecover}>
+          アクセスを回復
+        </button>
+      ) : null}
       {isPendingInvite ? (
         <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRevoke}>
           取り消す
         </button>
       ) : null}
+      {recoverySent ? <span style={{ ...mutedText, color: colors.success, fontSize: 12 }}>復旧メールを送信しました。</span> : null}
       {error ? <span style={{ ...mutedText, color: colors.dangerText, fontSize: 12 }}>{error}</span> : null}
     </div>
   );

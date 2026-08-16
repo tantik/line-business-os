@@ -143,7 +143,8 @@ export type InviteEmployeeOutcome =
   | 'invited_new_user'
   | 'invited_existing_user_no_email'
   | 'resent_new_user_email'
-  | 'resent_existing_user_no_email';
+  | 'resent_existing_user_no_email'
+  | 'recovery_email_sent';
 
 export interface InviteEmployeeResult {
   outcome: InviteEmployeeOutcome;
@@ -158,11 +159,20 @@ export interface InviteEmployeeResult {
  * this is the only place apps/web talks to that function, and it never holds
  * or forwards a service-role key (that lives exclusively inside the Edge
  * Function itself, per Founder decision 9).
+ *
+ * `action: 'recover'` (Defect C, Founder-approved 2026-08-16) sends a
+ * password-recovery email instead of the normal invite/resend, for a
+ * first-time hire whose Auth identity already exists (they consumed their
+ * original invite email) but who never finished password setup -- the
+ * normal resend path sends nothing once the target is an existing Auth
+ * user (Founder decision 8), which is correct for an existing ORUWA user
+ * but a dead end for someone who has never had a session.
  */
 export async function inviteOrResendWorkforceEmployee(
   accessToken: string,
   tenantId: string,
   employeeId: string,
+  action?: 'recover',
 ): Promise<WorkforceWriteResult<InviteEmployeeResult>> {
   const { url, anonKey } = requirePublicSupabaseEnv();
   const endpoint = `${url.replace(/\/$/, '')}/functions/v1/invite-employee`;
@@ -176,7 +186,7 @@ export async function inviteOrResendWorkforceEmployee(
         apikey: anonKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ tenantId, employeeId }),
+      body: JSON.stringify(action ? { tenantId, employeeId, action } : { tenantId, employeeId }),
     });
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unable to reach the invitation service.' };
@@ -204,6 +214,12 @@ export async function inviteOrResendWorkforceEmployee(
   if (code === 'employee_already_bound') return { status: 'duplicate', message: 'This employee is already bound to an account.' };
   if (code === 'employee_inactive') return { status: 'unexpected_error', message: 'This employee is deactivated and cannot be invited.' };
   if (code === 'employee_missing_email') return { status: 'unexpected_error', message: 'This employee has no contact email on file.' };
+  if (code === 'employee_not_yet_invited') {
+    return { status: 'unexpected_error', message: 'This employee has never been invited yet -- use Invite, not Recover access.' };
+  }
+  if (code === 'auth_recovery_email_failed') {
+    return { status: 'unexpected_error', message: 'Could not send the recovery email. Please try again.' };
+  }
   return { status: 'unexpected_error', message: `The invitation service reported an error (${code}).` };
 }
 

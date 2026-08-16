@@ -177,3 +177,37 @@ test('inviteOrResendWorkforceEmployee maps employee_already_bound to duplicate',
     globalThis.fetch = originalFetch;
   }
 });
+
+test('inviteOrResendWorkforceEmployee(action: "recover") forwards action in the request body and maps recovery_email_sent', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    capturedInit = init;
+    return new Response(JSON.stringify({ outcome: 'recovery_email_sent', invitationId: 'inv-1', expiresAt: '2026-01-08' }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const result = await inviteOrResendWorkforceEmployee('token', TENANT_ID, 'e1', 'recover');
+    assert.equal(result.status, 'success');
+    if (result.status === 'success') {
+      assert.equal(result.data.outcome, 'recovery_email_sent');
+    }
+    assert.deepEqual(JSON.parse(capturedInit?.body as string), { tenantId: TENANT_ID, employeeId: 'e1', action: 'recover' });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('inviteOrResendWorkforceEmployee maps employee_not_yet_invited to a clear unexpected_error message, not a generic one', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'employee_not_yet_invited' }), { status: 409 })) as typeof fetch;
+  try {
+    const result = await inviteOrResendWorkforceEmployee('token', TENANT_ID, 'e1', 'recover');
+    assert.equal(result.status, 'unexpected_error');
+    if (result.status === 'unexpected_error') {
+      assert.match(result.message, /never been invited/);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
