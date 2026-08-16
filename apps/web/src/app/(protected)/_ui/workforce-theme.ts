@@ -42,7 +42,7 @@ export const buttonDanger: CSSProperties = {
 
 const CHIP_TONES: ReadonlyArray<{ background: string; color: string }> = [
   { background: colors.accentMuted, color: colors.accent },
-  { background: 'rgba(251, 191, 36, 0.14)', color: colors.warning },
+  { background: 'rgba(184, 134, 59, 0.14)', color: colors.warning },
   { background: colors.successMuted, color: colors.success },
 ];
 
