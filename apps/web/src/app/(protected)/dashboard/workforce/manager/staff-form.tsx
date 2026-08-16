@@ -5,7 +5,23 @@ import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { upsertEmployee } from '@/lib/workforce/staff-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import { useLang } from '@/lib/demo/cafe/i18n';
 import { describeWriteError } from './error-copy';
+import { tManagerDashboard } from './manager-dashboard-i18n';
+
+/** Localizes the subset of `WorkforceWriteResult` statuses this form can actually receive; falls back to the shared (English) copy for statuses this form's own action never returns. */
+function localizedFormError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
+  switch (result.status) {
+    case 'not_found':
+      return t('errorNotFound');
+    case 'not_authenticated':
+      return t('errorNotAuthenticated');
+    case 'no_membership':
+      return t('errorNoMembership');
+    default:
+      return describeWriteError(result);
+  }
+}
 
 export interface StaffFormProps {
   locationId: string;
@@ -16,6 +32,8 @@ export interface StaffFormProps {
 }
 
 export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFormProps) {
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +50,7 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeWriteError(result));
+        setError(localizedFormError(result, t));
       }
     });
   }
@@ -41,35 +59,35 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Name</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldName')}</span>
         <input style={input} name="name" defaultValue={employee?.name ?? ''} maxLength={120} required />
       </label>
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Family name</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldFamilyName')}</span>
         <input style={input} name="familyName" defaultValue={employee?.familyName ?? ''} maxLength={80} required />
       </label>
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Given name</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldGivenName')}</span>
         <input style={input} name="givenName" defaultValue={employee?.givenName ?? ''} maxLength={80} required />
       </label>
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Email</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmail')}</span>
         <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
       </label>
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Position</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldPosition')}</span>
         <input style={input} name="positionLabel" defaultValue={employee?.positionLabel ?? ''} maxLength={60} />
       </label>
       <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>Employment type</span>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmploymentType')}</span>
         <input style={input} name="employmentType" defaultValue={employee?.employmentType ?? ''} maxLength={40} />
       </label>
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? 'Saving...' : employee ? 'Save changes' : 'Add staff'}
+          {isPending ? t('saving') : employee ? t('saveChanges') : t('addStaffSubmit')}
         </button>
         <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </form>

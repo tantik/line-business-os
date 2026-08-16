@@ -7,7 +7,25 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import { useLang } from '@/lib/demo/cafe/i18n';
 import { describeWriteError } from './error-copy';
+import { tManagerDashboard } from './manager-dashboard-i18n';
+
+/** Localizes the subset of `WorkforceWriteResult` statuses this editor can actually receive; falls back to the shared (English) copy for statuses its own actions never return. */
+function localizedEditorError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
+  switch (result.status) {
+    case 'not_found':
+      return t('errorNotFound');
+    case 'not_authenticated':
+      return t('errorNotAuthenticated');
+    case 'no_membership':
+      return t('errorNoMembership');
+    case 'stale_reference':
+      return t('errorStaleReference');
+    default:
+      return describeWriteError(result);
+  }
+}
 
 export interface ShiftCellEditorProps {
   locationId: string;
@@ -37,6 +55,8 @@ export function ShiftCellEditor({
   onSuccess,
   onCancel,
 }: ShiftCellEditorProps) {
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +86,7 @@ export function ShiftCellEditor({
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeWriteError(result));
+        setError(localizedEditorError(result, t));
       }
     });
   }
@@ -77,7 +97,7 @@ export function ShiftCellEditor({
 
       {existing ? (
         <label>
-          <span style={{ ...mutedText, fontSize: 12 }}>Employee</span>
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEmployee')}</span>
           <select style={input} name="employeeId" defaultValue={currentEmployeeId}>
             {assignableStaff.map((s) => (
               <option key={s.staffId} value={s.staffId}>
@@ -91,9 +111,9 @@ export function ShiftCellEditor({
       )}
 
       <label>
-        <span style={{ ...mutedText, fontSize: 12 }}>Shift type</span>
+        <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldShiftType')}</span>
         <select style={input} name="shiftTypeId" defaultValue={existing?.assignment.shiftTypeId ?? ''}>
-          <option value="">Custom</option>
+          <option value="">{t('shiftTypeCustom')}</option>
           {activeShiftTypes.map((st) => (
             <option key={st.shiftTypeId} value={st.shiftTypeId}>
               {st.code} ({st.startsAtLocal}-{st.endsAtLocal})
@@ -104,17 +124,17 @@ export function ShiftCellEditor({
 
       <div style={{ display: 'flex', gap: 6 }}>
         <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 12 }}>Start</span>
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldStart')}</span>
           <input style={input} type="time" name="startsAtLocal" defaultValue={existing?.startsAtLocal ?? '09:00'} required />
         </label>
         <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 12 }}>End</span>
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEnd')}</span>
           <input style={input} type="time" name="endsAtLocal" defaultValue={existing?.endsAtLocal ?? '13:00'} required />
         </label>
       </div>
 
       <label>
-        <span style={{ ...mutedText, fontSize: 12 }}>Break (min)</span>
+        <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldBreakMinutes')}</span>
         <input
           style={input}
           type="number"
@@ -127,10 +147,10 @@ export function ShiftCellEditor({
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? 'Saving...' : existing ? 'Save' : 'Assign'}
+          {isPending ? t('saving') : existing ? t('save') : t('assign')}
         </button>
         <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </form>
