@@ -335,7 +335,33 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      wiring this into `apps/web` nav/dashboard (Shared Navigation/Settings,
      the next critical-path step), an admin UI for editing registry rows.
      Not pushed to Supabase Cloud (same pending-approval status as `0069`).
-   - Shared Navigation/Settings → Notifications → Event Bus: not started.
+   - **Shared Navigation + Shared Settings — done, 2026-08-16, merged to
+     `main` via PR #258.** Added
+     `supabase/migrations/0071_core_shared_navigation_and_settings.sql`:
+     `core.module_registry` gained `nav_route`/`icon_key`/`nav_sort_order`
+     (only `workforce`/`inventory` have a real route today — `booking`/`ai`/
+     `core`/`logistics`/`crm` have no dashboard entry point yet, confirmed
+     by research before writing this, not an oversight); a new generic
+     `core.tenant_settings` key/value table (new `core.settings.manage`
+     permission, granted to `tenant_owner`/`tenant_admin`) gives any module
+     a settings store without its own migration —
+     `workforce.schedule_settings` (0034) keeps its own dedicated table for
+     structured settings, not migrated into this. Unlike `0069`/`0070`'s
+     platform-staff-only writes, `tenant_settings` has a real
+     `authenticated`-role grant (settings are ordinary tenant-admin
+     territory, no Commercial-Honesty concern). **Deliberately did NOT**
+     refactor `apps/web`'s hard-coded dashboard cards to consume the
+     registry or add a `/dashboard/settings` route — both are live
+     production-UI changes needing their own focused session with live
+     Preview QA, not something to bundle into a backend/schema step; this
+     is the next concrete actionable item whenever UI adoption of the
+     Platform Foundation contracts becomes the task. App wrappers:
+     `packages/core/src/navigation.ts` (`getTenantNavigation`),
+     `packages/core/src/settings.ts`. New pgTAP coverage:
+     `supabase/tests/0039_core_shared_navigation_and_settings.sql`; full
+     suite green locally (855/855), typecheck/lint clean. Not pushed to
+     Supabase Cloud.
+   - Notifications → Event Bus: not started.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
    original ordering — not started, not to be pulled forward.
