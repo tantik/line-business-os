@@ -24,6 +24,7 @@ import {
 } from '@/components/states';
 import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { ManagerDashboardClient } from './manager-dashboard-client';
+import { SignOutButton } from '../_ui/sign-out-button';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -98,14 +99,17 @@ export default async function WorkforceManagerPage({
       if (!location) {
         return (
           <main style={pageStyle(1180)}>
-            <header>
-              <h1 style={{ margin: 0 }}>Workforce manager</h1>
-              <Link
-                href="/dashboard/workforce"
-                style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-              >
-                Back to Workforce
-              </Link>
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h1 style={{ margin: 0 }}>Workforce manager</h1>
+                <Link
+                  href="/dashboard/workforce"
+                  style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+                >
+                  Back to Workforce
+                </Link>
+              </div>
+              <SignOutButton />
             </header>
             <section style={card}>
               <p style={{ margin: 0, ...mutedText }}>
@@ -180,17 +184,20 @@ export default async function WorkforceManagerPage({
 
       return (
         <main style={pageStyle(1180)}>
-          <header>
-            <h1 style={{ margin: 0 }}>Workforce manager</h1>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>
-              {activeTenant.tenantName} - {location.locationName}
-            </p>
-            <Link
-              href="/dashboard/workforce"
-              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-            >
-              Back to Workforce
-            </Link>
+          <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ margin: 0 }}>Workforce manager</h1>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>
+                {activeTenant.tenantName} - {location.locationName}
+              </p>
+              <Link
+                href="/dashboard/workforce"
+                style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+              >
+                Back to Workforce
+              </Link>
+            </div>
+            <SignOutButton />
           </header>
 
           <ManagerDashboardClient
