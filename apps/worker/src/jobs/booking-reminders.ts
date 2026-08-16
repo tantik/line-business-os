@@ -36,9 +36,14 @@ export async function sendBookingReminders(): Promise<number> {
       ? decryptPII(byteaToBuffer(booking.customer_name_encrypted as string), env.PII_ENCRYPTION_KEY)
       : 'Customer';
 
-    // TODO: resolve tenant LINE channel (core.line_channels) + recipient line id
-    //       (core.line_accounts), then push this message via LineMessagingClient,
-    //       and insert a booking_events row of type 'reminded' for idempotency.
+    // TODO: enqueue via packages/core/src/notifications.ts's enqueueNotification
+    //       (core.notifications, migration 0072) using booking.line_account_id
+    //       as recipientLineAccountId and this booking's id as the
+    //       idempotency_key -- the engine's uniqueness constraint replaces the
+    //       previously-planned booking_events row for idempotency. Actually
+    //       dispatching (a worker job calling LineMessagingClient.push against
+    //       pending core.notifications rows) is a separate, later,
+    //       explicitly-approved step -- see 0072's migration header.
     prepared.push(`${customerName}様、ご予約のリマインドです。`);
   }
 
