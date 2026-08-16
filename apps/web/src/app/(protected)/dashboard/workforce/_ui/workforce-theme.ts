@@ -123,17 +123,32 @@ export function correctionStatusBadgeStyle(status: string): CSSProperties {
   return badgeStyle(status === 'approved' ? 'active' : status === 'rejected' ? 'inactive' : 'neutral');
 }
 
-const EXCHANGE_STATUS_LABELS: Record<string, string> = {
-  open: 'Open',
-  accepted: 'Accepted',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  cancelled: 'Cancelled',
+const EXCHANGE_STATUS_LABELS: Record<Lang, Record<string, string>> = {
+  en: {
+    open: 'Open',
+    accepted: 'Accepted',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    cancelled: 'Cancelled',
+  },
+  ja: {
+    open: '募集中',
+    accepted: '承諾済み',
+    approved: '承認済み',
+    rejected: '却下',
+    cancelled: 'キャンセル済み',
+  },
 };
 
-/** Display-only friendlier label for a raw shift-exchange status value; does not change the underlying value. */
-export function exchangeStatusLabel(status: string): string {
-  return EXCHANGE_STATUS_LABELS[status] ?? status;
+/**
+ * Display-only friendlier label for a raw shift-exchange status value; does
+ * not change the underlying value. `lang` defaults to `'en'` for backward
+ * compatibility with call sites predating the Manager dashboard's Mission 2
+ * `LangProvider` adoption; the Manager dashboard itself now always passes
+ * its own `lang`.
+ */
+export function exchangeStatusLabel(status: string, lang: Lang = 'en'): string {
+  return EXCHANGE_STATUS_LABELS[lang][status] ?? status;
 }
 
 export function exchangeStatusBadgeStyle(status: string): CSSProperties {

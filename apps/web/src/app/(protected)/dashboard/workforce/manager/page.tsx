@@ -11,6 +11,7 @@ import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
+import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -67,6 +68,19 @@ export default async function WorkforceManagerPage({
         );
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
+
+      // `inventory` is a separate top-level module (ADR 0010) from
+      // `workforce` -- reuses the already-fetched `modulesResult` rather
+      // than a second `listTenantModules` call. Gates only the Manager
+      // Attention layer's inventory-shortage line (Mission 2); the real
+      // Inventory page/RLS remain the authorization boundary regardless of
+      // this flag. Mirrors the identical pattern already used by the
+      // canonical Staff page for its own Inventory entry-point card.
+      const inventoryEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
+        );
 
       const locationsResult = await listTenantLocations(supabase);
       const tenantLocations =
@@ -132,6 +146,7 @@ export default async function WorkforceManagerPage({
         invitationsResult,
         shiftExchangesResult,
         exchangeAssignmentsResult,
+        inventoryItemsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -143,6 +158,14 @@ export default async function WorkforceManagerPage({
         listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso: exchangeFromIso, toIsoExclusive: exchangeToIsoExclusive }),
+        // Read-only, for the Manager Attention layer's shortage count
+        // (Mission 2) -- the actual Inventory catalog/count-entry UI is not
+        // duplicated here; it stays on its own canonical `/dashboard/inventory`
+        // page (shared Staff+Manager, RLS-scoped), which the Attention item
+        // links to. Mirrors the identical fetch already on the Staff page.
+        inventoryEnabled
+          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
       ]);
 
       return (
@@ -176,6 +199,8 @@ export default async function WorkforceManagerPage({
             invitations={invitationsResult.status === 'success' ? invitationsResult.data : null}
             shiftExchanges={shiftExchangesResult.status === 'success' ? shiftExchangesResult.data : null}
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
+            inventoryEnabled={inventoryEnabled}
+            inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
           />
         </main>
       );
