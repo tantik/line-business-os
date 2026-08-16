@@ -210,6 +210,13 @@ select is(
           and table_name in ('entitlement_plans', 'tenant_plans')
           and privilege_type = 'SELECT'
         )
+        or (
+          -- 0070_core_module_registry.sql: a later, separate migration.
+          -- SELECT only, same latent-write-policy convention as 0069.
+          table_schema = 'core'
+          and table_name in ('module_registry', 'module_dependencies')
+          and privilege_type = 'SELECT'
+        )
       )),
   0,
   'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
