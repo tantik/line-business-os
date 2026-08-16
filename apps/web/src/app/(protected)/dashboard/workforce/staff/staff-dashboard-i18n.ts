@@ -1,16 +1,17 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
 
 /**
- * JA/EN strings for the canonical dashboard Staff surface's schedule/
- * shift-exchange/Inventory-entry section -- the part of `/dashboard/workforce/staff`
- * added or reworked by the Cafe v2.1 canonical Staff consolidation. Reuses
- * the existing `LangProvider`/`useLang`/`makeTranslator` mechanism
+ * JA/EN strings for the canonical dashboard Staff surface. Originally
+ * scoped to the schedule/shift-exchange/Inventory-entry section only (the
+ * part added by the Cafe v2.1 canonical Staff consolidation); extended
+ * (Cafe v2.1 Mission 1, Product/UX Reconciliation Audit §5/§8/§14) to also
+ * cover the shift-preference, work-report, and correction-request sections,
+ * which previously mixed hardcoded bilingual literals with some
+ * English-only strings instead of toggling with the rest of the page.
+ * Reuses the existing `LangProvider`/`useLang`/`makeTranslator` mechanism
  * (`@/lib/demo/cafe/i18n`) already powering `_client-preview`'s JA/EN
- * toggle -- a new dictionary, not a new i18n system. Deliberately scoped to
- * this section only (not the pre-existing, already-bilingual-labelled
- * shift-preference/work-report/correction-request sections further down the
- * same page, and never the Manager dashboard) -- see the task brief's
- * explicit "do not create a broad i18n refactor" instruction.
+ * toggle -- one dictionary, not a new i18n system, and never the Manager
+ * dashboard (out of this mission's scope).
  */
 interface StaffDashboardDict {
   scheduleHeading: string;
@@ -42,6 +43,49 @@ interface StaffDashboardDict {
   reasonLabel: string;
   submit: string;
   submitting: string;
+  submitEyebrow: string;
+  dateLabel: string;
+  statusLabel: string;
+  // Shift preferences
+  shiftPreferencesHeading: string;
+  shiftPreferencesUnavailable: string;
+  shiftPreferencesEmpty: string;
+  preferenceColumnLabel: string;
+  preferenceUnavailableValue: string;
+  shiftTypesUnavailable: string;
+  unavailableThisDayLabel: string;
+  shiftTypeLabel: string;
+  chooseShiftType: string;
+  submitPreference: string;
+  // Work reports
+  workReportsHeading: string;
+  workReportsUnavailable: string;
+  workReportsEmpty: string;
+  clockInColumnLabel: string;
+  clockOutColumnLabel: string;
+  transportationColumnLabel: string;
+  messageColumnLabel: string;
+  actualBreakLabel: string;
+  breakMinutes0: string;
+  breakMinutes30: string;
+  breakMinutes60: string;
+  transportationCostLabel: string;
+  dailyMessageLabel: string;
+  submitWorkReport: string;
+  // Correction requests
+  correctionRequestHeading: string;
+  correctionRequestDescription: string;
+  relatedWorkReportLabel: string;
+  relatedWorkReportNone: string;
+  correctionMessageLabel: string;
+  submitCorrectionRequest: string;
+  myCorrectionsHeading: string;
+  myCorrectionsUnavailable: string;
+  myCorrectionsEmpty: string;
+  relatedWorkReportColumnLabel: string;
+  shiftPreferenceSubmitted: string;
+  workReportSubmitted: string;
+  correctionRequestSubmitted: string;
 }
 
 const dictionary: Record<Lang, StaffDashboardDict> = {
@@ -75,6 +119,47 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     reasonLabel: 'Reason',
     submit: 'Submit request',
     submitting: 'Submitting...',
+    submitEyebrow: 'Submit',
+    dateLabel: 'Date',
+    statusLabel: 'Status',
+    shiftPreferencesHeading: 'My submitted shift preferences',
+    shiftPreferencesUnavailable: 'Your shift preferences are temporarily unavailable.',
+    shiftPreferencesEmpty: 'No shift preferences submitted for this week yet.',
+    preferenceColumnLabel: 'Preference',
+    preferenceUnavailableValue: 'Unavailable',
+    shiftTypesUnavailable: 'Shift types are temporarily unavailable, so preferences cannot be submitted right now.',
+    unavailableThisDayLabel: 'Unavailable this day',
+    shiftTypeLabel: 'Shift type',
+    chooseShiftType: 'Choose a shift type',
+    submitPreference: 'Submit preference',
+    workReportsHeading: 'My work reports this week',
+    workReportsUnavailable: 'Your work reports are temporarily unavailable.',
+    workReportsEmpty: 'No work reports submitted for this week yet.',
+    clockInColumnLabel: 'Clock in',
+    clockOutColumnLabel: 'Clock out',
+    transportationColumnLabel: 'Transportation',
+    messageColumnLabel: 'Message',
+    actualBreakLabel: 'Actual break',
+    breakMinutes0: '0 minutes',
+    breakMinutes30: '30 minutes',
+    breakMinutes60: '60 minutes',
+    transportationCostLabel: 'Transportation cost',
+    dailyMessageLabel: 'Daily message',
+    submitWorkReport: 'Submit work report',
+    correctionRequestHeading: 'Submit a correction request',
+    correctionRequestDescription:
+      "If a submitted work report is wrong, describe the correction here -- your manager reviews it separately.",
+    relatedWorkReportLabel: 'Related work report (optional)',
+    relatedWorkReportNone: 'None',
+    correctionMessageLabel: 'Message',
+    submitCorrectionRequest: 'Submit correction request',
+    myCorrectionsHeading: 'My correction requests this week',
+    myCorrectionsUnavailable: 'Your correction requests are temporarily unavailable.',
+    myCorrectionsEmpty: 'No correction requests submitted for this week yet.',
+    relatedWorkReportColumnLabel: 'Related work report',
+    shiftPreferenceSubmitted: 'Shift preference submitted.',
+    workReportSubmitted: 'Work report submitted.',
+    correctionRequestSubmitted: 'Correction request submitted.',
   },
   ja: {
     scheduleHeading: '公開シフト',
@@ -106,6 +191,46 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     reasonLabel: '理由',
     submit: '申請を送信',
     submitting: '送信中...',
+    submitEyebrow: '提出',
+    dateLabel: '日付',
+    statusLabel: 'ステータス',
+    shiftPreferencesHeading: '自分が提出したシフト希望',
+    shiftPreferencesUnavailable: 'シフト希望は一時的に利用できません。',
+    shiftPreferencesEmpty: '今週はまだシフト希望が提出されていません。',
+    preferenceColumnLabel: '希望',
+    preferenceUnavailableValue: '休み希望',
+    shiftTypesUnavailable: 'シフト種別は一時的に利用できないため、現在希望を提出できません。',
+    unavailableThisDayLabel: 'この日は休み希望',
+    shiftTypeLabel: 'シフト種別',
+    chooseShiftType: 'シフト種別を選択',
+    submitPreference: '希望を提出',
+    workReportsHeading: '今週の勤務報告',
+    workReportsUnavailable: '勤務報告は一時的に利用できません。',
+    workReportsEmpty: '今週はまだ勤務報告が提出されていません。',
+    clockInColumnLabel: '出勤',
+    clockOutColumnLabel: '退勤',
+    transportationColumnLabel: '交通費',
+    messageColumnLabel: 'メッセージ',
+    actualBreakLabel: '実際の休憩時間',
+    breakMinutes0: '0分',
+    breakMinutes30: '30分',
+    breakMinutes60: '60分',
+    transportationCostLabel: '交通費',
+    dailyMessageLabel: '当日のメッセージ',
+    submitWorkReport: '勤務報告を提出',
+    correctionRequestHeading: '修正依頼を提出',
+    correctionRequestDescription: '提出した勤務報告に誤りがある場合は、ここに修正内容を記入してください。マネージャーが別途確認します。',
+    relatedWorkReportLabel: '関連する勤務報告（任意）',
+    relatedWorkReportNone: 'なし',
+    correctionMessageLabel: 'メッセージ',
+    submitCorrectionRequest: '修正依頼を提出',
+    myCorrectionsHeading: '今週の修正依頼',
+    myCorrectionsUnavailable: '修正依頼は一時的に利用できません。',
+    myCorrectionsEmpty: '今週はまだ修正依頼が提出されていません。',
+    relatedWorkReportColumnLabel: '関連する勤務報告',
+    shiftPreferenceSubmitted: 'シフト希望を送信しました。',
+    workReportSubmitted: '勤務報告を送信しました。',
+    correctionRequestSubmitted: '修正依頼を送信しました。',
   },
 };
 

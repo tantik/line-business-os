@@ -19,17 +19,34 @@ import {
  */
 const LANGS = ['ja', 'en'] as const;
 
+/**
+ * Cafe v2.1 Mission 1 (Product/UX Reconciliation Audit §5/§8/§14) extended
+ * this dictionary to the shift-preference/work-report/correction-request
+ * sections, which previously mixed hardcoded bilingual literals with some
+ * English-only strings instead of toggling with the rest of the page.
+ */
+const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
+  'scheduleHeading', 'all', 'onlyMe', 'prevWeek', 'thisWeek', 'nextWeek', 'scheduleUnavailable',
+  'scheduledThisWeekLabel', 'meLabel', 'colleaguePrefixLabel', 'shiftLabel', 'timeLabel',
+  'clockInLabel', 'clockOutLabel', 'transportationLabel', 'noShiftOrReport', 'requestChangeHeading',
+  'exchangeSubmitted', 'inventoryTitle', 'inventoryDescription', 'inventorySufficient', 'inventoryOpen',
+  'inventoryNotEnabled', 'requestTypeLabel', 'optionExchange', 'optionCancel', 'reasonLabel', 'submit',
+  'submitting', 'submitEyebrow', 'dateLabel', 'statusLabel',
+  'shiftPreferencesHeading', 'shiftPreferencesUnavailable', 'shiftPreferencesEmpty', 'preferenceColumnLabel',
+  'preferenceUnavailableValue', 'shiftTypesUnavailable', 'unavailableThisDayLabel', 'shiftTypeLabel',
+  'chooseShiftType', 'submitPreference', 'shiftPreferenceSubmitted',
+  'workReportsHeading', 'workReportsUnavailable', 'workReportsEmpty', 'clockInColumnLabel',
+  'clockOutColumnLabel', 'transportationColumnLabel', 'messageColumnLabel', 'actualBreakLabel',
+  'breakMinutes0', 'breakMinutes30', 'breakMinutes60', 'transportationCostLabel', 'dailyMessageLabel',
+  'submitWorkReport', 'workReportSubmitted',
+  'correctionRequestHeading', 'correctionRequestDescription', 'relatedWorkReportLabel', 'relatedWorkReportNone',
+  'correctionMessageLabel', 'submitCorrectionRequest', 'correctionRequestSubmitted',
+  'myCorrectionsHeading', 'myCorrectionsUnavailable', 'myCorrectionsEmpty', 'relatedWorkReportColumnLabel',
+];
+
 test('tStaffDashboard returns a non-empty string for every key in both languages', () => {
-  const keys: Parameters<typeof tStaffDashboard>[1][] = [
-    'scheduleHeading', 'all', 'onlyMe', 'prevWeek', 'thisWeek', 'nextWeek', 'scheduleUnavailable',
-    'scheduledThisWeekLabel', 'meLabel', 'colleaguePrefixLabel', 'shiftLabel', 'timeLabel',
-    'clockInLabel', 'clockOutLabel', 'transportationLabel', 'noShiftOrReport', 'requestChangeHeading',
-    'exchangeSubmitted', 'inventoryTitle', 'inventoryDescription', 'inventorySufficient', 'inventoryOpen',
-    'inventoryNotEnabled', 'requestTypeLabel', 'optionExchange', 'optionCancel', 'reasonLabel', 'submit',
-    'submitting',
-  ];
   for (const lang of LANGS) {
-    for (const key of keys) {
+    for (const key of ALL_KEYS) {
       const value = tStaffDashboard(lang, key);
       assert.equal(typeof value, 'string', `tStaffDashboard(${lang}, ${key}) must return a string`);
       assert.ok(value.length > 0, `tStaffDashboard(${lang}, ${key}) must not be empty`);
@@ -38,14 +55,7 @@ test('tStaffDashboard returns a non-empty string for every key in both languages
 });
 
 test('tStaffDashboard ja/en copy differs for every key (no untranslated English leaking through when JA is selected)', () => {
-  const keys: Parameters<typeof tStaffDashboard>[1][] = [
-    'scheduleHeading', 'all', 'onlyMe', 'prevWeek', 'thisWeek', 'nextWeek', 'scheduleUnavailable',
-    'meLabel', 'colleaguePrefixLabel', 'shiftLabel', 'timeLabel', 'clockInLabel', 'clockOutLabel',
-    'transportationLabel', 'noShiftOrReport', 'requestChangeHeading', 'exchangeSubmitted',
-    'inventoryTitle', 'inventoryDescription', 'inventorySufficient', 'inventoryOpen', 'inventoryNotEnabled',
-    'requestTypeLabel', 'optionExchange', 'optionCancel', 'reasonLabel', 'submit', 'submitting',
-  ];
-  for (const key of keys) {
+  for (const key of ALL_KEYS) {
     assert.notEqual(tStaffDashboard('ja', key), tStaffDashboard('en', key), `tStaffDashboard(ja/en, ${key}) should have distinct copy`);
   }
 });

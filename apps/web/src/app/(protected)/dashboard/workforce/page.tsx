@@ -1,7 +1,9 @@
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
+import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
+import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import Link from 'next/link';
 import {
   ErrorState,
@@ -108,6 +110,24 @@ export default async function WorkforceLandingPage() {
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
 
+      // Role-aware nav: only offer the Manager card to a caller who can
+      // actually use `/dashboard/workforce/manager` -- mirrors that page's
+      // own gate (`hasManagerAccess`, `workforce.staff.manage`) and its own
+      // location-resolution fallback exactly, so "the card is shown" and
+      // "the route would grant access" never disagree. This is a UX
+      // affordance only: the Manager route re-runs this same server-side
+      // check independently regardless of what this landing page renders,
+      // so hiding the card is never the security boundary by itself.
+      const locationsResult = await listTenantLocations(supabase);
+      const tenantLocations =
+        locationsResult.status === 'success'
+          ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
+          : [];
+      const managerLocation = tenantLocations.find((l) => l.isActive) ?? tenantLocations[0];
+      const canAccessManager = managerLocation
+        ? await hasManagerAccess(supabase, activeTenant.tenantId, managerLocation.locationId)
+        : false;
+
       const profileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
 
       return (
@@ -131,18 +151,20 @@ export default async function WorkforceLandingPage() {
               Open staff dashboard
             </Link>
           </section>
-          <section style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <IconBadge label="M" />
-              <h2 style={{ margin: 0, fontSize: 16 }}>Manager</h2>
-            </div>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>
-              Review staff, shift preferences, and the weekly schedule; run auto-distribution and publish shifts.
-            </p>
-            <Link href="/dashboard/workforce/manager" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
-              Open manager dashboard
-            </Link>
-          </section>
+          {canAccessManager ? (
+            <section style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <IconBadge label="M" />
+                <h2 style={{ margin: 0, fontSize: 16 }}>Manager</h2>
+              </div>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>
+                Review staff, shift preferences, and the weekly schedule; run auto-distribution and publish shifts.
+              </p>
+              <Link href="/dashboard/workforce/manager" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
+                Open manager dashboard
+              </Link>
+            </section>
+          ) : null}
           <section style={card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <IconBadge label="R" />

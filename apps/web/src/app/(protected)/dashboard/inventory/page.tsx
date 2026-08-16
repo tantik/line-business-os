@@ -100,27 +100,27 @@ export default async function InventoryPage() {
 
       return (
         <main style={pageStyle(880)}>
-          <header>
-            <h1 style={{ margin: 0 }}>Inventory</h1>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>
-              Daily stock check for {activeTenant.tenantName} — {location.locationName}.
-            </p>
-            <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
-              Back to dashboard
-            </Link>
-          </header>
-
           {itemsResult.status === 'success' ? (
             <InventoryDashboardClient
+              tenantName={activeTenant.tenantName}
+              locationName={location.locationName}
               locationId={location.locationId}
               items={itemsResult.data}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}
             />
           ) : (
-            <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>Inventory is temporarily unavailable.</p>
-            </section>
+            <>
+              <header>
+                <h1 style={{ margin: 0 }}>Inventory</h1>
+                <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+                  Back to dashboard
+                </Link>
+              </header>
+              <section style={card}>
+                <p style={{ margin: 0, ...mutedText }}>Inventory is temporarily unavailable.</p>
+              </section>
+            </>
           )}
         </main>
       );

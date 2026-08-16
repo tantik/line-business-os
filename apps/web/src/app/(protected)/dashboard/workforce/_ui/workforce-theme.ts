@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { badgeStyle, card, colors } from '@/lib/ui/theme';
+import type { Lang } from '@/lib/demo/cafe/i18n';
 
 // Re-exported for existing call sites in this dashboard tree; the canonical
 // implementation now lives in `@/lib/workforce/timezone.ts` (shared with the
@@ -68,15 +69,54 @@ export function shiftChipStyle(tone: { background: string; color: string }): CSS
   };
 }
 
-const CORRECTION_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  approved: 'Approved',
-  rejected: 'Rejected',
+const CORRECTION_STATUS_LABELS: Record<Lang, Record<string, string>> = {
+  en: {
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+  },
+  ja: {
+    pending: '保留中',
+    approved: '承認済み',
+    rejected: '却下',
+  },
 };
 
-/** Display-only friendlier label for a raw correction-request status value; does not change the underlying value. */
-export function correctionStatusLabel(status: string): string {
-  return CORRECTION_STATUS_LABELS[status] ?? status;
+/**
+ * Display-only friendlier label for a raw correction-request status value;
+ * does not change the underlying value. `lang` defaults to `'en'` so the
+ * Manager dashboard (which has no `LangProvider`/`useLang` mechanism, out of
+ * this mission's scope) keeps its existing English-only call sites
+ * unchanged; the canonical Staff dashboard passes its own `lang`.
+ */
+export function correctionStatusLabel(status: string, lang: Lang = 'en'): string {
+  return CORRECTION_STATUS_LABELS[lang][status] ?? status;
+}
+
+const ATTENDANCE_STATUS_LABELS: Record<Lang, Record<string, string>> = {
+  en: {
+    present: 'Present',
+    late: 'Late',
+    absent: 'Absent',
+    on_leave: 'On leave',
+  },
+  ja: {
+    present: '出勤',
+    late: '遅刻',
+    absent: '欠勤',
+    on_leave: '休暇',
+  },
+};
+
+/**
+ * Display-only friendlier label for a raw `workforce.attendance_status`
+ * value (`present`/`late`/`absent`/`on_leave` -- a controlled DB enum,
+ * `supabase/migrations/0009_workforce.sql`, not user-entered text). Does not
+ * change the underlying value. `lang` defaults to `'en'` for the same reason
+ * as `correctionStatusLabel`.
+ */
+export function attendanceStatusLabel(status: string, lang: Lang = 'en'): string {
+  return ATTENDANCE_STATUS_LABELS[lang][status] ?? status;
 }
 
 export function correctionStatusBadgeStyle(status: string): CSSProperties {
