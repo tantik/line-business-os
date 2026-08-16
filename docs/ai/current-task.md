@@ -67,11 +67,12 @@ Staff/Manager product surface — Founder decision, PR #228 (2026-08-14),
 ratified with no contradicting evidence by
 `docs/ai/CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_AUDIT_2026-08-15.md`. The
 `%5Fclient-preview/mame-to-cha/**` surface ("Surface A", preview-host-only)
-remains, for now, the client-acceptance/UX-reference environment; its
-long-term retain-vs-retire status is still an open Founder decision (see
-§2.3). The unauthenticated `mame-to-cha/**` / `demo/cafe/**` surfaces are
+served as the client-acceptance/UX-reference environment during Cafe v2.1
+development; **retired and deleted 2026-08-16, PR #266** (see §2.4 step 1
+for detail), once Surface B had closed the gaps that motivated keeping it.
+The unauthenticated `mame-to-cha/**` / `demo/cafe/**` surfaces are
 intentional public marketing demos, out of scope for "real Staff product
-experience."
+experience," and were not touched by that removal.
 
 ### 2.2 Staff onboarding (proven end-to-end)
 
@@ -194,15 +195,25 @@ Sequence (recommended):
        steps 1–4) is complete — not an engineering task, not something an
        AI agent session closes. Do not start this proactively; wait for the
        Founder.
-     - Surface A retain-vs-retire (`%5Fclient-preview/mame-to-cha/**`):
-       Founder decision is to **retire/remove it once Cafe v2.1 closure is
-       fully settled** (i.e. once this remaining step-1 decision work is
-       wrapped up — treat as authorized to execute as part of finishing
-       step 1, not a separate future ask). Removal itself is still a code
-       change (deleting the preview-host-only route tree and any
-       references to it) and has not been done yet — do it as a discrete,
-       reviewable PR when picked up, not folded silently into unrelated
-       work.
+     - Surface A retain-vs-retire (`%5Fclient-preview/mame-to-cha/**`) —
+       **done, 2026-08-16, merged via PR #266.** Removed the whole route
+       tree, its `next.config.mjs` host-based rewrite, the
+       `verify-preview-server-actions` build guard, and ~90 exclusive
+       files under `apps/web/src/lib/preview/` (confirmed zero importers
+       outside the deleted tree via a full import-graph check, not just
+       the route directory). Kept `preview-language-toggle.tsx`/
+       `return-to.ts`/`write-result.ts` (real consumers: canonical
+       dashboard + sign-in flow) and `module-guard.ts`/`location.ts`/
+       `tenant-select.ts` (reused by the standalone operator CLI
+       `apps/web/scripts/generate-recipe-translations.ts`, unrelated to
+       the preview route — caught by a typecheck failure after an
+       initial alias-only grep missed it). Public marketing-demo routes
+       (`apps/web/src/app/mame-to-cha/**`, `apps/web/src/app/demo/cafe/**`)
+       untouched, confirmed different directories. Verified: typecheck/
+       lint/test (626/626)/build all green, plus live Preview QA on the
+       Vercel deploy (`/mame-to-cha` and `/demo/cafe` 200, deleted
+       `/_client-preview/mame-to-cha` 404, `/dashboard` redirects to
+       sign-in as expected).
      `F4` (`InvitationCell` JA-only) is intentional per Founder direction,
      no action needed.
 2. Platform Foundation critical path (per the already-accepted document;
