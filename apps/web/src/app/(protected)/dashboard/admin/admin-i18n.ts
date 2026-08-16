@@ -1,4 +1,5 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
+import type { MembershipStatus, TenantKind } from '@/lib/tenant/types';
 
 /**
  * JA/EN strings for the tenant Admin page (`/dashboard/admin`). Reuses the
@@ -113,3 +114,29 @@ const dictionary: Record<Lang, AdminDashboardDict> = {
 };
 
 export const tAdminDashboard = makeTranslator(dictionary);
+
+/**
+ * F5 (`docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md`): the member
+ * table previously rendered `tenantKind`/`membershipStatus` as raw DB enum
+ * values (`client_template`, `invited`, ...). Both are true fixed enums
+ * (`@/lib/tenant/types.ts`), unlike `workforce.employees.employment_type`
+ * (free text, deliberately left unmapped elsewhere) -- safe to give a
+ * closed label map.
+ */
+const tenantKindLabels: Record<Lang, Record<TenantKind, string>> = {
+  en: { demo: 'Demo', client_template: 'Client template', client: 'Client' },
+  ja: { demo: 'デモ', client_template: 'クライアントテンプレート', client: 'クライアント' },
+};
+
+export function tenantKindLabel(lang: Lang, kind: TenantKind): string {
+  return tenantKindLabels[lang][kind];
+}
+
+const membershipStatusLabels: Record<Lang, Record<MembershipStatus, string>> = {
+  en: { invited: 'Invited', active: 'Active', suspended: 'Suspended', revoked: 'Revoked' },
+  ja: { invited: '招待中', active: '有効', suspended: '停止中', revoked: '取消済み' },
+};
+
+export function membershipStatusLabel(lang: Lang, status: MembershipStatus): string {
+  return membershipStatusLabels[lang][status];
+}
