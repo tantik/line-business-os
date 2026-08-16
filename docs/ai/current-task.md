@@ -474,4 +474,54 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      scoped task, not a single follow-up PR.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
    remain correctly sequenced after Platform Foundation, per §2.4's
-   original ordering — not started, not to be pulled forward.
+   original ordering. **Attempted 2026-08-16, then deliberately paused —
+   not abandoned, re-scoped.** Findings, so a future session doesn't
+   re-investigate from scratch:
+   - `packages/db/scripts/onboard-tenant.ts`'s committed onboarding path
+     (`onboard-commit.ts`) is real, tested (682 lines of tests), but
+     hard-locked local-only by 4 independent layers (CLI `--target local`
+     gate, `assertLocalDatabaseUrl`, `onboard-preflight.ts`'s own target
+     check, the `--i-understand-this-writes-local-db` confirmation flag)
+     — deliberately, per multiple docs saying Cloud onboarding "requires a
+     separate, explicit go-ahead." Left untouched; do not weaken it.
+   - A SEPARATE, already-built, gate-by-gate Cloud onboarding system
+     already exists: `packages/db/scripts/mame-to-cha-cloud-{gates,d1..d7}
+     .ts(+cli)`, targeting Cloud dev (`pehcoenozjtsjdvjietj`) for an
+     "acceptance" tenant slug `mame-to-cha` (distinct from the seeded
+     demo `mame-to-cha-tokyo` and from `oruwa-cafe`). Governing doc
+     `docs/phase-1n-4c-slice-d-cloud-acceptance-preflight-plan.md` states
+     "preparation only, no Cloud write is authorized." D7 (verification)
+     is read-only DB checks only — nothing in D1-D7 drives a real browser
+     login, so even a fully executed D1-D7 run would still need a manual
+     live-login step to satisfy roadmap §7's "first login" pass condition.
+   - **D1 was actually run against Cloud dev this session** (Founder-run,
+     with the AI agent's guidance — direct `db.<ref>.supabase.co:5432`
+     failed, connection required the Session Pooler
+     `aws-1-ap-southeast-1.pooler.supabase.com:5432` +
+     `sslmode=require&uselibpqcompat=true` to work around a client-side
+     TLS chain-verification issue). Result: `committed:false, noop:true`
+     — **the `mame-to-cha` tenant already existed**, created
+     `2026-07-24T23:43:23Z` (three weeks before this session), with 2
+     modules already enabled (`workforce`, `inventory` — inventory isn't
+     covered by any D1-D7 gate) and 3 active memberships/role assignments
+     already present. Founder confirmed by memory: `mame-to-cha` was an
+     earlier, problem-hitting first attempt at a test café tenant;
+     `oruwa-cafe` was later built as the "clean version" based on it
+     (matches the timeline: `mame-to-cha` 2026-07-24, `oruwa-cafe` via
+     migration `0068`, 2026-08-14). D1 made no write (pure verification;
+     nothing to roll back). No further gates (D2-D7) were run.
+   - **Decision (2026-08-16): paused, not continued.** The Founder's
+     actual immediate goal is `oruwa-cafe` correct/safe and ready for
+     Cafe v2.2, not closing this Commercial-Launch-Readiness sub-gate —
+     the Provisioning Test is a prerequisite for selling to real future
+     customers, not for continuing feature work on the reference tenant.
+     Continuing to adapt the `mame-to-cha` D1-D7 system (or starting a
+     genuinely fresh tenant slug instead, given `mame-to-cha`'s
+     pre-existing partial state arguably undercuts "genuinely new") was
+     assessed as not worth the context/time cost right now. Resume this
+     only when Commercial Launch Readiness (not just `oruwa-cafe`/v2.2)
+     is actually the active goal — re-verify `mame-to-cha`'s state first
+     (it may have drifted further) before resuming D2.
+   - Housekeeping: no files were left behind (two scratch diagnostic
+     scripts used to debug the Cloud connection were deleted after use);
+     `git status` clean.
