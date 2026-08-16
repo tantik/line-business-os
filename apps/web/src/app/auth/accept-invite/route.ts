@@ -6,17 +6,24 @@ import { getWorkforceEmployeeInvitationById } from '@/lib/workforce/invitations'
 const SIGN_IN_ERROR_URL = '/sign-in?error=1';
 
 /**
- * Only this OTP type is ever legitimate for this callback -- never trust an
- * arbitrary client-supplied `type` query param verbatim. Deliberately
- * `'invite'` only, not also `'recovery'`: the Invite email template (Stage
- * 2) only ever produces `type=invite`, and this repo has no self-service
- * recovery flow that could ever produce a valid `type=recovery` token_hash
- * today (`/sign-in` states outright "password reset... not available
- * yet"). Accepting `'recovery'` here would be unused, unnecessary surface
- * on a security-sensitive auth callback -- add it back only alongside an
- * actual recovery flow, with its own explicit review at that time.
+ * Only these OTP types are ever legitimate for this callback -- never trust
+ * an arbitrary client-supplied `type` query param verbatim.
+ *
+ * `'invite'` -- the Invite email template (Stage 2) produces `type=invite`.
+ *
+ * `'recovery'` -- added for Defect C's Manager-triggered recovery action
+ * (`invite-employee`'s `action: 'recover'`, which calls
+ * `auth.resetPasswordForEmail`, itself explicitly reviewed and Founder-
+ * approved 2026-08-16). A recovery token proves the SAME thing an invite
+ * token does for this callback's purposes -- the caller controls this
+ * email address right now -- so it is handled identically below: verified,
+ * then routed to the same password-setup step, never straight to an
+ * authenticated page. This callback still only ever accepts a token for an
+ * invitation this route itself re-validates as pending/unexpired/owned by
+ * the now-authenticated caller (below) -- a recovery token alone is not
+ * enough to reach password setup for someone else's invitation.
  */
-const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite']);
+const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite', 'recovery']);
 
 function errorRedirect(origin: string): NextResponse {
   return NextResponse.redirect(new URL(SIGN_IN_ERROR_URL, origin));

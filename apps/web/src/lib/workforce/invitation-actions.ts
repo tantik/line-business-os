@@ -36,6 +36,37 @@ export async function inviteOrResendEmployee(formData: FormData): Promise<Workfo
   return inviteOrResendWorkforceEmployee(sessionData.session.access_token, tenantContext.data.activeTenant.tenantId, employeeId);
 }
 
+/**
+ * Defect C, Manager-triggered recovery (Founder-approved 2026-08-16): send
+ * a password-recovery email to a first-time hire whose Auth identity
+ * already exists but who never finished password setup. Same call shape as
+ * `inviteOrResendEmployee`, only the `action: 'recover'` flag differs --
+ * see `inviteOrResendWorkforceEmployee`'s own doc comment for why the
+ * normal resend path cannot recover this specific state.
+ */
+export async function recoverEmployeeAccess(formData: FormData): Promise<WorkforceWriteResult<InviteEmployeeResult>> {
+  const employeeId = formData.get('employeeId');
+  if (typeof employeeId !== 'string' || employeeId.length === 0) {
+    return { status: 'unexpected_error', message: 'Invalid input.' };
+  }
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+  if (sessionErr || !sessionData.session) {
+    return { status: 'unauthorized', message: 'Your session has expired. Please sign in again.' };
+  }
+
+  return inviteOrResendWorkforceEmployee(
+    sessionData.session.access_token,
+    tenantContext.data.activeTenant.tenantId,
+    employeeId,
+    'recover',
+  );
+}
+
 export async function revokeEmployeeInvitation(formData: FormData): Promise<WorkforceWriteResult<{ invitationId: string }>> {
   const invitationId = formData.get('invitationId');
   if (typeof invitationId !== 'string' || invitationId.length === 0) {

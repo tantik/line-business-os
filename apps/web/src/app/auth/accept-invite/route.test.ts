@@ -88,11 +88,11 @@ test('GET never redirects to /dashboard or any other authenticated page -- only 
   assert.ok(redirectCalls.some((c) => c.includes('/auth/accept-invite/set-password')), 'expected the success redirect to password setup');
 });
 
-test('ALLOWED_TOKEN_HASH_TYPES admits exactly `invite` -- `recovery` is deliberately excluded (no recovery flow exists to ever produce that token today)', () => {
+test('ALLOWED_TOKEN_HASH_TYPES admits exactly `invite` and `recovery` -- Defect C\'s Manager-triggered recovery action is the only producer of a `recovery` token here, and this callback still independently re-validates the invitation before granting anything', () => {
   const setLiteralMatch = SOURCE.match(/ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set\(\[([^\]]*)\]\)/);
   assert.ok(setLiteralMatch, 'expected to find the ALLOWED_TOKEN_HASH_TYPES literal');
   const members = setLiteralMatch![1]!.split(',').map((s) => s.trim().replace(/'/g, '')).filter(Boolean);
-  assert.deepEqual(members, ['invite']);
+  assert.deepEqual(members, ['invite', 'recovery']);
 });
 
 test('route.ts references no service_role path', () => {
