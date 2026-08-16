@@ -503,7 +503,8 @@ function ManagerDashboardBody({
         ) : staff.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffEmpty')}</p>
         ) : (
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 640, marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colName')}</th>
@@ -579,6 +580,7 @@ function ManagerDashboardBody({
               })}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -741,6 +743,7 @@ function ManagerDashboardBody({
         ) : shiftTypes.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftTypesEmpty')}</p>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
@@ -765,6 +768,7 @@ function ManagerDashboardBody({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -779,6 +783,7 @@ function ManagerDashboardBody({
               return <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesEmpty')}</p>;
             }
             return (
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
@@ -805,6 +810,7 @@ function ManagerDashboardBody({
                   ))}
                 </tbody>
               </table>
+              </div>
             );
           })()
         )}
@@ -822,6 +828,7 @@ function ManagerDashboardBody({
             {pendingCorrections.length === 0 ? (
               <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingCorrections')}</p>
             ) : (
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
@@ -876,11 +883,13 @@ function ManagerDashboardBody({
                   })}
                 </tbody>
               </table>
+              </div>
             )}
 
             {decidedCorrections.length > 0 ? (
               <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
@@ -916,6 +925,7 @@ function ManagerDashboardBody({
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             ) : null}
           </>
@@ -934,6 +944,7 @@ function ManagerDashboardBody({
             {pendingExchanges.length === 0 ? (
               <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingExchanges')}</p>
             ) : (
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
@@ -1002,11 +1013,13 @@ function ManagerDashboardBody({
                   })}
                 </tbody>
               </table>
+              </div>
             )}
 
             {decidedExchanges.length > 0 ? (
               <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
@@ -1034,6 +1047,7 @@ function ManagerDashboardBody({
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             ) : null}
           </>

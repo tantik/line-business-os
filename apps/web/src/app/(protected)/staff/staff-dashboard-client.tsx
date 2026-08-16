@@ -461,6 +461,7 @@ function StaffDashboardBody({
         ) : myRequestsThisWeek.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftPreferencesEmpty')}</p>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
@@ -485,6 +486,7 @@ function StaffDashboardBody({
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {shiftTypes === null ? (
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('shiftTypesUnavailable')}</p>
@@ -506,6 +508,7 @@ function StaffDashboardBody({
         ) : myAttendanceThisWeek.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('workReportsEmpty')}</p>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
@@ -534,6 +537,7 @@ function StaffDashboardBody({
               })}
             </tbody>
           </table>
+          </div>
         )}
         <WorkReportForm defaultWorkDate={periodStart} lang={lang} onSuccess={() => handleFormSuccess(t('workReportSubmitted'))} />
       </section>
@@ -557,6 +561,7 @@ function StaffDashboardBody({
         ) : myCorrectionsThisWeek.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('myCorrectionsEmpty')}</p>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
@@ -586,6 +591,7 @@ function StaffDashboardBody({
               })}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
