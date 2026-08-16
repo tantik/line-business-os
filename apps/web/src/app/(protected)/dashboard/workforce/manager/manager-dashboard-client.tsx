@@ -11,6 +11,7 @@ import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforc
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
@@ -18,6 +19,20 @@ import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { computeManagerAttention, type ManagerAttentionCategory } from '@/lib/workforce/manager-attention';
+import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import {
+  attentionCorrectionLabel,
+  attentionExchangeLabel,
+  attentionInventoryLabel,
+  autoDistributionCreatedMessage,
+  breakMinutesValue,
+  preferencesHeadingValue,
+  publishedCountMessage,
+  scheduleHeadingValue,
+  tManagerDashboard,
+} from './manager-dashboard-i18n';
 import {
   alertDanger,
   badgeStyle,
@@ -85,6 +100,10 @@ export interface ManagerDashboardClientProps {
   invitations: WorkforceEmployeeInvitation[] | null;
   shiftExchanges: WorkforceShiftExchange[] | null;
   exchangeAssignments: WorkforceShiftAssignment[] | null;
+  /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the Attention layer's inventory line; the real Inventory page/RLS remain the authorization boundary. */
+  inventoryEnabled: boolean;
+  /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). */
+  inventoryItems: InventoryItemStatus[] | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -95,7 +114,29 @@ function formatWeekday(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
 }
 
-export function ManagerDashboardClient({
+/**
+ * Outer wrapper: mounts the shared `LangProvider` (`@/lib/demo/cafe/i18n`,
+ * the same JA/EN mechanism the canonical Staff dashboard already uses)
+ * around the whole Manager page body -- Cafe v2.1 Mission 2's first adoption
+ * of it on this page (previously English-only, no lang mechanism at all).
+ * Split out because a component cannot call `useLang()` above its own
+ * `LangProvider` ancestor.
+ */
+export function ManagerDashboardClient(props: ManagerDashboardClientProps) {
+  return (
+    <LangProvider>
+      <ManagerDashboardBody {...props} />
+    </LangProvider>
+  );
+}
+
+const ATTENTION_ANCHOR: Record<ManagerAttentionCategory, string> = {
+  correction: '#correction-requests',
+  exchange: '#shift-exchange-requests',
+  inventory: '/dashboard/inventory',
+};
+
+function ManagerDashboardBody({
   locationId,
   timeZone,
   periodStart,
@@ -111,8 +152,12 @@ export function ManagerDashboardClient({
   invitations,
   shiftExchanges,
   exchangeAssignments,
+  inventoryEnabled,
+  inventoryItems,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [banner, setBanner] = useState<{
@@ -188,6 +233,32 @@ export function ManagerDashboardClient({
     [exchangeAssignments],
   );
 
+  // Server-computed per-item shortage status (`api.inventory_item_status`),
+  // same derivation the Inventory dashboard's own count badge already uses
+  // -- not a new business rule, just read here too. `null` (not 0) when the
+  // module is disabled or the read failed, so the Attention layer omits the
+  // line entirely instead of falsely claiming "0 items need restocking".
+  const inventoryShortageCount = useMemo(
+    () => (inventoryEnabled && inventoryItems ? inventoryItems.filter((i) => i.status === 'shortage').length : null),
+    [inventoryEnabled, inventoryItems],
+  );
+
+  const attentionItems = useMemo(
+    () =>
+      computeManagerAttention({
+        pendingCorrectionCount: pendingCorrections.length,
+        pendingExchangeCount: pendingExchanges.length,
+        inventoryShortageCount,
+      }),
+    [pendingCorrections.length, pendingExchanges.length, inventoryShortageCount],
+  );
+
+  const attentionLabel: Record<ManagerAttentionCategory, (count: number) => string> = {
+    correction: (count) => attentionCorrectionLabel[lang](count),
+    exchange: (count) => attentionExchangeLabel[lang](count),
+    inventory: (count) => attentionInventoryLabel[lang](count),
+  };
+
   const localAssignments = useMemo(
     () =>
       (assignments ?? []).map((a) => {
@@ -207,7 +278,7 @@ export function ManagerDashboardClient({
   }
 
   function handleSetActive(staffId: string, nextActive: boolean) {
-    if (!nextActive && !window.confirm('Deactivate this staff member?')) return;
+    if (!nextActive && !window.confirm(t('confirmDeactivate'))) return;
     setBanner(null);
     setPendingAction(`active-${staffId}`);
     startTransition(async () => {
@@ -216,7 +287,7 @@ export function ManagerDashboardClient({
       if (nextActive) formData.set('isActive', 'true');
       const result = await setEmployeeActive(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: nextActive ? 'Staff member activated.' : 'Staff member deactivated.' });
+        setBanner({ tone: 'success', message: nextActive ? t('staffActivated') : t('staffDeactivated') });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -240,12 +311,12 @@ export function ManagerDashboardClient({
         const r = result.data as RunAutoDistributionActionResult;
         setBanner({
           tone: 'success',
-          message: `Created ${r.draftCount} draft shift(s).`,
+          message: autoDistributionCreatedMessage[lang](r.draftCount),
           stats: [
-            { label: 'Draft shifts', value: r.draftCount },
-            { label: 'Shortages', value: r.shortages.length },
-            { label: 'Unplaced', value: r.unplaced.length },
-            { label: 'No preferences submitted', value: r.nonSubmitters.length },
+            { label: t('draftShiftsLabel'), value: r.draftCount },
+            { label: t('shortagesLabel'), value: r.shortages.length },
+            { label: t('unplacedLabel'), value: r.unplaced.length },
+            { label: t('nonSubmittersLabel'), value: r.nonSubmitters.length },
           ],
         });
         router.refresh();
@@ -257,7 +328,7 @@ export function ManagerDashboardClient({
   }
 
   function handlePublish() {
-    if (!window.confirm('Publish all draft shifts for this week? Staff will be able to see them.')) return;
+    if (!window.confirm(t('confirmPublish'))) return;
     setBanner(null);
     setPendingAction('publish');
     startTransition(async () => {
@@ -267,7 +338,7 @@ export function ManagerDashboardClient({
       formData.set('periodEnd', periodEnd);
       const result = await publishSchedule(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: `Published ${result.data.published} shift(s).` });
+        setBanner({ tone: 'success', message: publishedCountMessage[lang](result.data.published) });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -295,7 +366,7 @@ export function ManagerDashboardClient({
 
       const result = await updateShiftAssignment(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: 'Shift unassigned.' });
+        setBanner({ tone: 'success', message: t('shiftUnassigned') });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -313,7 +384,7 @@ export function ManagerDashboardClient({
       formData.set('decision', decision);
       const result = await decideCorrectionRequest(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: decision === 'approved' ? 'Correction approved.' : 'Correction rejected.' });
+        setBanner({ tone: 'success', message: decision === 'approved' ? t('correctionApproved') : t('correctionRejected') });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -331,7 +402,7 @@ export function ManagerDashboardClient({
       formData.set('decision', decision);
       const result = await decideShiftExchange(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: decision === 'approved' ? 'Shift exchange approved.' : 'Shift exchange rejected.' });
+        setBanner({ tone: 'success', message: decision === 'approved' ? t('exchangeApproved') : t('exchangeRejected') });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -342,6 +413,43 @@ export function ManagerDashboardClient({
 
   return (
     <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+        <PreviewLanguageToggle variant="dark" />
+      </div>
+
+      <section style={{ ...card, borderLeft: `3px solid ${attentionItems.length > 0 ? colors.warning : colors.success}` }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('attentionHeading')}</h2>
+        {attentionItems.length === 0 ? (
+          <p style={{ margin: '10px 0 0', ...mutedText }}>{t('attentionAllClear')}</p>
+        ) : (
+          <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {attentionItems.map((item) => (
+              <li
+                key={item.category}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '10px 12px',
+                  minHeight: 44,
+                  borderRadius: 8,
+                  background: colors.surfaceElevated,
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{attentionLabel[item.category](item.count)}</span>
+                <Link
+                  href={ATTENTION_ANCHOR[item.category]}
+                  style={{ ...buttonSecondary, textDecoration: 'none', minHeight: 36, display: 'inline-flex', alignItems: 'center' }}
+                >
+                  {t('attentionReview')}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {banner ? (
         <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>
           <div>{banner.message}</div>
@@ -371,10 +479,10 @@ export function ManagerDashboardClient({
 
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Staff</h2>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{t('staffHeading')}</h2>
           {staff !== null && !addingStaff ? (
             <button type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
-              + Add staff
+              {t('addStaff')}
             </button>
           ) : null}
         </div>
@@ -391,20 +499,20 @@ export function ManagerDashboardClient({
         ) : null}
 
         {staff === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Staff list is temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffUnavailable')}</p>
         ) : staff.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No staff added yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffEmpty')}</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Name</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Position</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Employment type</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>LINE</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colName')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colPosition')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colEmploymentType')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colLine')}</th>
                 <th style={{ ...tableHeaderCell, textAlign: 'left' }}>アクセス</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -433,7 +541,7 @@ export function ManagerDashboardClient({
                     <td style={tableCell}>{s.positionLabel ?? '-'}</td>
                     <td style={tableCell}>{s.employmentType ?? '-'}</td>
                     <td style={tableCell}>
-                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? 'Active' : 'Inactive'}</span>
+                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
                     </td>
                     <td style={tableCell}>
                       <LineLinkForm
@@ -453,7 +561,7 @@ export function ManagerDashboardClient({
                     <td style={tableCell}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingStaffId(s.staffId)}>
-                          Edit
+                          {t('edit')}
                         </button>
                         <button
                           type="button"
@@ -461,7 +569,7 @@ export function ManagerDashboardClient({
                           disabled={isPending}
                           onClick={() => handleSetActive(s.staffId, !s.isActive)}
                         >
-                          {togglingActive ? 'Saving...' : s.isActive ? 'Deactivate' : 'Activate'}
+                          {togglingActive ? t('saving') : s.isActive ? t('deactivate') : t('activate')}
                         </button>
                       </div>
                     </td>
@@ -475,34 +583,32 @@ export function ManagerDashboardClient({
 
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>
-            Weekly schedule ({periodStart} - {periodEnd})
-          </h2>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-              Prev week
+              {t('prevWeek')}
             </Link>
             <Link
               href="/dashboard/workforce/manager"
               style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
               aria-disabled={weekOffset === 0}
             >
-              This week
+              {t('thisWeek')}
             </Link>
             <Link href={`/dashboard/workforce/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-              Next week
+              {t('nextWeek')}
             </Link>
           </div>
         </div>
 
         {staff === null || staff.length === 0 ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>Add staff to see the weekly schedule.</p>
+          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
         ) : (
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
                   {dates.map((date) => (
                     <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
                       {formatWeekday(date)}
@@ -549,7 +655,7 @@ export function ManagerDashboardClient({
                           <td key={date} style={tableCell}>
                             {s.isActive ? (
                               <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCellKey(key)}>
-                                Assign
+                                {t('assign')}
                               </button>
                             ) : (
                               <span style={mutedText}>-</span>
@@ -567,11 +673,11 @@ export function ManagerDashboardClient({
                                 {shiftType?.code ?? 'Custom'}
                               </span>
                               <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
-                                {entry.assignment.published ? 'Published' : 'Draft'}
+                                {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
                               </span>
                             </div>
                             {entry.assignment.published ? (
-                              <span style={{ ...mutedText, fontSize: 12 }}>Published -- read-only</span>
+                              <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
                             ) : (
                               <div style={{ display: 'flex', gap: 4 }}>
                                 <button
@@ -580,7 +686,7 @@ export function ManagerDashboardClient({
                                   disabled={isPending}
                                   onClick={() => setEditingCellKey(key)}
                                 >
-                                  Edit
+                                  {t('edit')}
                                 </button>
                                 <button
                                   type="button"
@@ -588,7 +694,7 @@ export function ManagerDashboardClient({
                                   disabled={isPending}
                                   onClick={() => handleUnassign(entry)}
                                 >
-                                  {unassigning ? 'Unassigning...' : 'Unassign'}
+                                  {unassigning ? t('unassigning') : t('unassign')}
                                 </button>
                               </div>
                             )}
@@ -604,11 +710,8 @@ export function ManagerDashboardClient({
         )}
 
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
-          <h3 style={{ margin: 0, fontSize: 14 }}>Actions</h3>
-          <p style={{ margin: '8px 0 12px', ...mutedText }}>
-            Auto-distribution uses a fixed cafe default (1 staff for the AM window, 1 for the PM window, every day) --
-            there is no settings screen for this yet.
-          </p>
+          <h3 style={{ margin: 0, fontSize: 14 }}>{t('actionsHeading')}</h3>
+          <p style={{ margin: '8px 0 12px', ...mutedText }}>{t('autoDistributionDescription')}</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -616,7 +719,7 @@ export function ManagerDashboardClient({
               disabled={isPending}
               onClick={handleAutoDistribute}
             >
-              {pendingAction === 'auto-distribute' ? 'Running...' : 'Run auto-distribution'}
+              {pendingAction === 'auto-distribute' ? t('running') : t('runAutoDistribution')}
             </button>
             <button
               type="button"
@@ -624,26 +727,26 @@ export function ManagerDashboardClient({
               disabled={isPending}
               onClick={handlePublish}
             >
-              {pendingAction === 'publish' ? 'Publishing...' : 'Publish schedule'}
+              {pendingAction === 'publish' ? t('publishing') : t('publishSchedule')}
             </button>
           </div>
         </div>
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Shift types</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('shiftTypesHeading')}</h2>
         {shiftTypes === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Shift types are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftTypesUnavailable')}</p>
         ) : shiftTypes.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>No shift types configured yet.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftTypesEmpty')}</p>
         ) : (
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Code</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Label</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Time</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Break</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colCode')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colLabel')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTime')}</th>
+                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colBreak')}</th>
               </tr>
             </thead>
             <tbody>
@@ -656,7 +759,7 @@ export function ManagerDashboardClient({
                   <td style={tableCell}>
                     {st.startsAtLocal} - {st.endsAtLocal}
                   </td>
-                  <td style={tableCell}>{st.breakMinutes} min</td>
+                  <td style={tableCell}>{breakMinutesValue[lang](st.breakMinutes)}</td>
                 </tr>
               ))}
             </tbody>
@@ -665,22 +768,22 @@ export function ManagerDashboardClient({
       </section>
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Submitted shift preferences ({periodStart} - {periodEnd})</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{preferencesHeadingValue[lang](periodStart, periodEnd)}</h2>
         {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Shift preferences are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesUnavailable')}</p>
         ) : (
           (() => {
             const inPeriod = requests.filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd);
             if (inPeriod.length === 0) {
-              return <p style={{ margin: '8px 0 0', ...mutedText }}>No shift preferences submitted for this week yet.</p>;
+              return <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesEmpty')}</p>;
             }
             return (
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Preference</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colPreference')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -690,7 +793,7 @@ export function ManagerDashboardClient({
                       <td style={tableCell}>{r.workDate}</td>
                       <td style={tableCell}>
                         {r.isUnavailable ? (
-                          'Unavailable'
+                          t('unavailableValue')
                         ) : (
                           <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
                             {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
@@ -706,28 +809,28 @@ export function ManagerDashboardClient({
         )}
       </section>
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Correction requests</h2>
+      <section id="correction-requests" style={card}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('correctionsHeading')}</h2>
         {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Correction requests are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('correctionsUnavailable')}</p>
         ) : (
           <>
             <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Needs action
+              {t('needsActionEyebrow')}
             </p>
             {pendingCorrections.length === 0 ? (
-              <p style={{ margin: '8px 0 0', ...mutedText }}>No pending correction requests.</p>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingCorrections')}</p>
             ) : (
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Attendance</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Daily message</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -755,7 +858,7 @@ export function ManagerDashboardClient({
                               disabled={isPending}
                               onClick={() => handleDecideCorrection(r.requestId, 'approved')}
                             >
-                              {deciding ? 'Saving...' : 'Approve'}
+                              {deciding ? t('saving') : t('approve')}
                             </button>
                             <button
                               type="button"
@@ -763,7 +866,7 @@ export function ManagerDashboardClient({
                               disabled={isPending}
                               onClick={() => handleDecideCorrection(r.requestId, 'rejected')}
                             >
-                              {deciding ? 'Saving...' : 'Reject'}
+                              {deciding ? t('saving') : t('reject')}
                             </button>
                           </div>
                         </td>
@@ -776,17 +879,17 @@ export function ManagerDashboardClient({
 
             {decidedCorrections.length > 0 ? (
               <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>Recently decided</h3>
+                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
                 <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Staff</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Date</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Message</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Attendance</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Transportation</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Daily message</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -805,7 +908,7 @@ export function ManagerDashboardClient({
                           <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
                           <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                           <td style={tableCell}>
-                            <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status)}</span>
+                            <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
                           </td>
                         </tr>
                       );
@@ -818,26 +921,26 @@ export function ManagerDashboardClient({
         )}
       </section>
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>Shift exchange requests</h2>
+      <section id="shift-exchange-requests" style={card}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('exchangesHeading')}</h2>
         {shiftExchanges === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>Shift exchange requests are temporarily unavailable.</p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('exchangesUnavailable')}</p>
         ) : (
           <>
             <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Needs action
+              {t('needsActionEyebrow')}
             </p>
             {pendingExchanges.length === 0 ? (
-              <p style={{ margin: '8px 0 0', ...mutedText }}>No pending shift exchange requests.</p>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingExchanges')}</p>
             ) : (
               <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Requester</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Shift</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Request</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Reason</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Actions</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequest')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -849,9 +952,13 @@ export function ManagerDashboardClient({
                     const replacementName = e.replacementEmployeeId
                       ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId
                       : null;
-                    const requestedType = shiftTypes?.find((t) => t.shiftTypeId === e.requestedShiftTypeId);
+                    const requestedType = shiftTypes?.find((ty) => ty.shiftTypeId === e.requestedShiftTypeId);
                     const requestLabel =
-                      e.requestKind === 'cancel' ? 'Cancellation' : e.requestKind === 'change' ? 'Shift change' : 'Exchange';
+                      e.requestKind === 'cancel'
+                        ? t('requestKindCancellation')
+                        : e.requestKind === 'change'
+                          ? t('requestKindChange')
+                          : t('requestKindExchange');
                     // Mirrors `PreviewShiftExchangeManagerPanel`'s `canApprove`: an
                     // 'exchange' request has nothing to approve into until a
                     // colleague has accepted it (replacementEmployeeId set); the
@@ -863,7 +970,7 @@ export function ManagerDashboardClient({
                         <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
                         <td style={tableCell}>
                           {requestLabel}
-                          {e.requestKind === 'exchange' ? ` → ${replacementName ?? 'awaiting candidate'}` : ''}
+                          {e.requestKind === 'exchange' ? ` → ${replacementName ?? t('awaitingCandidate')}` : ''}
                           {e.requestKind === 'change' && requestedType
                             ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})`
                             : ''}
@@ -877,7 +984,7 @@ export function ManagerDashboardClient({
                               disabled={isPending || !canApprove}
                               onClick={() => handleDecideExchange(e.exchangeId, 'approved')}
                             >
-                              {deciding ? 'Saving...' : 'Approve'}
+                              {deciding ? t('saving') : t('approve')}
                             </button>
                             <button
                               type="button"
@@ -885,7 +992,7 @@ export function ManagerDashboardClient({
                               disabled={isPending}
                               onClick={() => handleDecideExchange(e.exchangeId, 'rejected')}
                             >
-                              {deciding ? 'Saving...' : 'Reject'}
+                              {deciding ? t('saving') : t('reject')}
                             </button>
                           </div>
                         </td>
@@ -898,14 +1005,14 @@ export function ManagerDashboardClient({
 
             {decidedExchanges.length > 0 ? (
               <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>Recently decided</h3>
+                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
                 <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
                   <thead>
                     <tr>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Requester</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Shift</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Reason</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>Status</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -919,7 +1026,7 @@ export function ManagerDashboardClient({
                           <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
                           <td style={tableCell}>{e.reason}</td>
                           <td style={tableCell}>
-                            <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status)}</span>
+                            <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status, lang)}</span>
                           </td>
                         </tr>
                       );
@@ -934,7 +1041,7 @@ export function ManagerDashboardClient({
 
       <p style={{ marginTop: 16 }}>
         <Link href="/dashboard/workforce" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
-          Back to Workforce
+          {t('backToWorkforce')}
         </Link>
       </p>
     </>
