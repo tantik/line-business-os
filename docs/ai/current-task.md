@@ -24,24 +24,27 @@ verified stage, active constraints, and the next gate.
   - Phase 2C (deletion of the superseded governance/state/history files
     Phase 2B marked SAFE_TO_DELETE, plus §4–6 of `docs/AI_PLAYBOOK.md`
     migrated to `docs/architecture/frontend-engineering-standards.md`) —
-    this mission.
+    complete, merged via PR #238.
 - `docs/project/*`, `scripts/project-handoff.ps1`, `docs/ai/project-context.md`,
   `docs/ai/agent-roles.md`, `docs/ai/oaes-integration-acceptance-report.md`,
-  and `docs/AI_PLAYBOOK.md` have been deleted (Phase 2C, 2026-08-15). Their
+  have been deleted (Phase 2C, 2026-08-15). Their
   still-valid content survives in `docs/ai/current-task.md` (this file),
   `docs/ai/review-checklists.md`, `docs/operations/risk-register.md`, and
   `docs/architecture/frontend-engineering-standards.md`. `docs/ai/current-task.md`
   is the single canonical mission-state mechanism going forward. Do not
-  recreate any of the deleted files under new names.
+  recreate any of the deleted files under new names. `docs/AI_PLAYBOOK.md`
+  remains tracked but is non-canonical and superseded/migrated; do not use it
+  as current mission or route authority.
 
 ## 2. Cafe product state
 
 Cafe Package v2.0 remains frozen (bug/security/accessibility/localization
 fixes and bounded release polish only; new features require a new Product
-Review). Cafe Package v2.1 is in Preview evidence closure on `dev`; **Cafe
-v2.1 Freeze has not been declared and this is not a Commercial Release.**
+Review). Cafe Package v2.1 is in **Final Founder Acceptance**; this is not a
+Commercial Release and Final Founder Acceptance has not been recorded.
 
 Verified baseline:
+
 - Base branch: `dev`. Local migrations extend through `0068` (committed);
   pgTAP test files extend through `0036` (directory listing, VERIFIED
   2026-08-15 — pass/fail counts NOT re-run this session, do not assume a
@@ -49,8 +52,9 @@ Verified baseline:
 - v2.0 authenticated acceptance: `docs/product/cafe-package-v2-acceptance-report.md`.
 - v2.1 evidence of record: `docs/product/cafe-package-v2-1-acceptance-report.md`,
   `docs/product/cafe-package-v2-1-founder-acceptance-audit.md`,
-  `docs/product/cafe-package-v2-1-final-live-founder-acceptance.md`. Do not
-  reuse v2.0 PASS results as proof of changed v2.1 surfaces.
+  `docs/product/cafe-package-v2-1-final-live-founder-acceptance.md`, and
+  `docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md`. Do not reuse
+  v2.0 PASS results as proof of changed v2.1 surfaces.
 - Production remains separately gated and was not enabled.
 
 ### 2.1 Canonical Staff surface (settled)
@@ -77,60 +81,35 @@ reference tenant (`docs/ai/ORUWA_CAFE_V2_1_REFERENCE_TENANT_REPORT_2026-08-14.md
 §33, `docs/ai/CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_HANDOFF_2026-08-15.md`
 §3). Do not reopen this result without new contradicting evidence.
 
-### 2.3 Open Cafe v2.1 items (future product mission — not this repository's
-current governance task)
+### 2.3 Whole-Product Gate and Final Bounded Closure
 
-Full detail, evidence, and citations:
-`docs/ai/CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_AUDIT_2026-08-15.md` §10–15.
+The Whole-Product Integrity & Completeness Gate completed after PR #240 with
+verdict `CAFE_V2_1_READY_AFTER_BOUNDED_FIXES`: **P0 = 0, P1 = 2**. Full
+evidence and the durable P2/P3 register are in
+`docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md`.
 
-- **P0 (Manager could not act on a Staff shift-exchange request) — CLOSED**
-  2026-08-15, commit `f476792` ("feat(cafe): canonical Manager UI to
-  approve/reject Staff shift-exchange requests"), on `dev`.
-- **P1, open**: no live one-tap clock-in/out on the canonical Staff surface
-  (manual time entry only); incomplete JA/EN localization on several Staff
-  sections (profile card, preferences table, work-report, correction-request
-  form); raw/untranslated `employmentType`/`attendance_status` values shown
-  to Staff; Staff location-fallback is lenient where the reference surface
-  fails closed.
-- **P2, open**: no modal/detail-overlay pattern on the canonical Staff page
-  (flat 7-section scroll); no mobile touch-target sizing; orphaned dead stub
-  `apps/web/src/app/workforce/page.tsx` with two dangling redirects;
-  `api.workforce_staff_roster` (migration `0061`) remains unused by any
-  application code — Founder decision needed (wire in or drop).
-- **Open defects** (`docs/ai/ORUWA_CAFE_V2_1_REFERENCE_TENANT_REPORT_2026-08-14.md`
-  §34, `docs/ai/CAFE_V2_1_STAFF_SURFACE_RECONCILIATION_HANDOFF_2026-08-15.md`
-  §4):
-  - **Defect A** (Low–Medium) — `/dashboard/admin` has no role/permission
-    gate (`requireTenantContext()` only). Currently inert (RLS empties reads,
-    every action is a disabled placeholder) but must be fixed before any real
-    privileged action is wired onto that route.
-  - **Defect B** (Low) — `listMyPendingWorkforceInvitations` relies solely on
-    RLS policy OR-composition to scope "my pending invitations," so a Manager
-    also sees (and can Accept) other people's pending invitations via
-    `PendingInvitationBanner`. No unauthorized write is possible
-    (`api.accept_employee_invitation` independently re-checks
-    `target_user_id`), but visibility should be scoped explicitly.
-  - **Defect C, recovery half** (Medium, onboarding-reliability blocker) — the
-    fresh-onboarding half is fixed (§2.2); no self-service recovery path
-    exists yet if a user's Auth token is consumed but password-setup/
-    acceptance never completes (closed tab, lost connection, any
-    interruption). `/sign-in` states outright "password reset... not
-    available yet." Must be resolved (self-service recovery flow, or a
-    formal Manager-triggered recovery action) before this invite flow is
-    relied on for real customer onboarding.
-- **Founder decision still needed**: Surface A's long-term retain-vs-retire
-  status once Surface B reaches parity on the P1/P2 items above.
+The only authorized implementation closure scope is:
 
-None of the open items above require DB/RLS/Auth changes. Closing them is a
-bounded, separately-scoped future product mission — do not start it as part
-of a governance/documentation mission, and do not start Cafe v2.2 before it
-closes.
+1. **F1** — localize the Manager Add/Edit Staff modal.
+2. **F2** — localize the Manager Shift Cell Editor.
+
+Implementation merged into `dev` through PR #241 (`ed1de927`); CI and Vercel
+passed. This confirms code delivery, not authenticated product acceptance.
+F1/F2 and Cafe v2.1 are not finally accepted until authenticated Preview QA,
+independent review, and Final Founder Acceptance complete.
+
+Known P2/P3 findings remain durable **Cafe Hardening / Deferred Debt**. They
+are not fixed, forgotten, or release blockers, and they are not automatically
+authorized as the next mission. Cafe Product Growth (Checklists, Manuals
+integration, report/problem lifecycle, lightweight Training, Weekly Review,
+Inventory improvements) is a separate post-v2.1 candidate category.
 
 ## 3. Founder decisions in force (not fully restated elsewhere)
 
 Staff identity/auth architecture (`docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-08-13.md`
 §3; the identity-shape invariants are also enforced in schema by migrations
 `0062`–`0064`):
+
 - One Auth user → at most one `workforce.employees` row **per tenant**
   (`unique (tenant_id, user_id) where user_id is not null`); the same person
   may be an employee in a different tenant.
@@ -141,12 +120,14 @@ Staff identity/auth architecture (`docs/ai/STAFF_AUTH_PROVISIONING_HANDOFF_2026-
   user, no new email is sent — the person accepts via the in-app
   `PendingInvitationBanner` on their next authenticated session. This is a
   deliberate architecture choice, not a gap (it does not, however, cover a
-  first-time hire stuck mid-onboarding — see Defect C, §2.3).
+  first-time hire stuck mid-onboarding — see Defect C in the Whole-Product
+  Gate §21).
 - No LINE Login in the Staff-auth-provisioning scope.
 
 Product/business (originally recorded in the now-deleted `docs/project/03_DECISIONS.md`;
 Founder-provided, evidence still pending — carried forward here as still-open
 constraints, not yet formal ADRs):
+
 - Platform subscription billing and merchant payments are treated as separate
   domains; do not mix SaaS entitlement with customer commerce without a
   formal source.
@@ -164,11 +145,10 @@ duplicated here.
 
 ## 5. Exact next gate
 
-1. This mission (Phase 2C) opens a PR into `dev` for review; merge remains a
-   human gate. This completes the ORUWA AI Governance Consolidation
-   (Phases 1, 2A, 2B, 2C).
-2. Cafe v2.1 Staff-surface reconciliation (§2.3) is a separate, future
-   product mission — Phase 1 (P0) is already closed; Phase 2 (P1) and Phase 3
-   (P2) from the reconciliation audit's §14 plan are not yet scheduled.
-3. Do not start Cafe v2.2 before the open Cafe v2.1 items in §2.3 close and a
-   Founder Freeze decision is recorded for v2.1.
+1. Run authenticated Preview QA for the merged F1/F2-only change set.
+2. Run independent review.
+3. Run Final Founder Acceptance. Declare Cafe v2.1 closed only if no P0/P1
+   regression remains.
+4. Do not automatically start Cafe Hardening, Product Growth, Platform
+   Foundation, or Cafe v2.2 after closure; each requires its own bounded
+   Product/Founder decision.
