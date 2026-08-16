@@ -282,8 +282,8 @@ retain-vs-retire timing (a product decision with no forcing function yet).
    `docs/foundation/platform-foundation-roadmap.md` §7/§10): Entitlements
    engine → Module Registry → Shared Navigation/Settings → Notifications →
    Event Bus.
-   - **Entitlements engine — done, 2026-08-16, local only, not merged/pushed
-     yet.** Re-verified the roadmap's characterization of
+   - **Entitlements engine — done, 2026-08-16, merged to `main` via PR #254.**
+     Re-verified the roadmap's characterization of
      `core.tenant_modules`/`core.module_code` against the actual repo before
      starting (still accurate — pure boolean toggle, no plan/limit/lifecycle
      model, no prior entitlements code anywhere). Added
@@ -310,8 +310,9 @@ retain-vs-retire timing (a product decision with no forcing function yet).
      scope for this step (deferred to Module Registry or later): wiring
      `has_module_access`/limits into any `apps/web` nav/guard/UI, an admin
      surface for assigning plans, actual pricing/Stripe. Per `CLAUDE.md`,
-     this migration has NOT been pushed to Supabase Cloud — that requires
-     separate explicit human approval, same as every prior migration.
+     this migration has NOT yet been pushed to Supabase Cloud — that
+     requires separate explicit human approval, same as every prior
+     migration; it is merged to `main` locally/in GitHub only.
    - Module Registry → Shared Navigation/Settings → Notifications →
      Event Bus: not started.
 3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
