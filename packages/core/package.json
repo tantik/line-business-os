@@ -8,7 +8,8 @@
     "./permissions": "./src/permissions.ts",
     "./tenant-context": "./src/tenant-context.ts",
     "./audit": "./src/audit.ts",
-    "./entitlements": "./src/entitlements.ts"
+    "./entitlements": "./src/entitlements.ts",
+    "./module-registry": "./src/module-registry.ts"
   },
   "scripts": {
     "lint": "eslint .",
