@@ -211,15 +211,33 @@ mobile items, in order:
   Not started, not yet root-caused (may just need a `display:flex` header
   container with sensible wrap, unlike the button-wrap bug this wasn't
   investigated in code, only observed visually).
-- **Staff surface (`/staff`) itself** was not audited this session beyond
-  confirming the manager test account has no staff profile there (expected
-  -- it's a Manager account). The actual Staff-role mobile view (WP-E in
-  the QA report's lettering, see §7 naming caveat) still needs its own
-  375px live audit signed in as `staff@mame-to-cha.test` before any code
-  changes -- do not assume the Manager fixes above (theme.ts, in
-  particular) haven't already improved it somewhat, since `theme.ts` is
-  shared; but the Staff-specific week-list/card layout and bottom nav the
-  original mission brief asked for is still unconfirmed either way.
+- **Staff surface (`/staff`) audited live at 375px this session, signed in
+  as `staff@mame-to-cha.test`** (田中 愛) -- **found already in
+  substantially better mobile shape than Manager was, no new blocking bug
+  found.** Unlike Manager, `/staff` was never table-heavy to begin with: the
+  profile card, shift-preference form, work-report form, and
+  correction-request form are all already single-column native forms
+  (native `<input type="date">`/`<input type="time">`, no custom
+  date/time-picker component) that render cleanly at 375px with no
+  overflow, and they benefit from PR #290's button/badge fix same as
+  Manager (shared `theme.ts`). The one read-only "公開シフト" (published
+  schedule) table stays a horizontally-scrollable table at 375px, same
+  pattern the Mame To Cha prototype itself uses for its own read-only
+  schedule view (confirmed acceptable in the §6-recommended parity audit
+  earlier this session) -- it's read-only (dashes/shift codes only, no
+  buttons), so the column-squeeze-causes-vertical-text bug that hit
+  Manager's editable grid doesn't apply here. **Remaining Staff-surface gap
+  is the same header/page-chrome issue already tracked above for Manager**
+  (JA/EN toggle renders separately from the title/nav/Sign-out block, not
+  in a single compact row like the prototype) -- not a new, Staff-specific
+  finding, covered by the header item above. No code change made this pass
+  for Staff; **the mission brief's original "WP-E" (Staff mobile,
+  week-list/card layout + bottom nav) can likely be considered
+  substantially already met** by the existing form-based design plus
+  PR #290, but a native-Japanese/product-owner visual sign-off against the
+  prototype side-by-side is still recommended before calling it fully
+  closed -- this was an engineering-side audit, not a design-parity
+  sign-off.
 
 ## 4. What is NOT done — the actual remaining scope
 
