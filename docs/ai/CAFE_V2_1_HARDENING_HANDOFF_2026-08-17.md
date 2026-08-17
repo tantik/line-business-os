@@ -280,17 +280,23 @@ assume scope beyond what's been asked.
    amendment path (reason required, audit before/after, staff notification,
    conflict recheck) — this needs a real design decision (a new RPC/status
    transition, not a quick UI patch) before implementation. Not started.
-3. **P2-5 — Inventory content i18n.** QA report claimed item names (`コーヒー豆`,
-   `牛乳`) stay Japanese even in EN UI mode. **Spot-checked live this
-   session on the `/inventory` page in JA mode and item names were already
-   in English** ("Coffee beans", "Matcha powder", "Water", "Ice", "Milk")
-   — this may mean it's already fixed (the tenant's data was re-entered in
-   English at some point) or that the QA report's claim was
-   tenant-data-specific and not a code bug at all. **Not confirmed either
-   way** — the next session should explicitly test switching JA→EN and
-   back, and check whether there's a genuine source/translation model gap
-   or whether this was already resolved by data, before doing any code
-   work here.
+3. ~~**P2-5 — Inventory content i18n.**~~ **CLOSED, confirmed not a code
+   bug, 2026-08-17→18 continuation session.** Checked
+   `apps/web/src/lib/inventory/items.ts`: `InventoryItem`/the underlying
+   `api.inventory_item_status` row expose a single plain `name: string` --
+   there is no `name_ja`/`name_en` (or any) translation field at all, unlike
+   Recipes which has a real bilingual content model (see the separate
+   `feat/cafe-v2-1-recipe-bilingual-translation` work). Live-toggled JA<->EN
+   on `/inventory`: every UI-chrome string (labels, buttons, "Target"/
+   "Reorder at"/"Shortage — need" etc.) correctly switches locale; item
+   names ("Coffee beans", "Matcha powder", "Water", "Ice", "Milk") stay
+   identical in both modes, exactly as expected given there is no field for
+   the UI to switch. **The QA report's claim reflected that tenant's data
+   at the time it was written (item names were literally typed in Japanese
+   by whoever entered them), not a translation bug** -- there was never a
+   language selector for item names to respect. No code change needed or
+   made. Do not re-open without a concrete repro showing a *field* that
+   fails to translate, not just non-English data.
 4. **P3 minor items**, none started: 44px hit-target sweep for plain
    links/checkboxes; page `<title>` per route (currently generic "LINE
    Business OS" everywhere); Recipe list has no distinct "Published" badge
