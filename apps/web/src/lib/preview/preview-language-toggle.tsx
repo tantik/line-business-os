@@ -27,7 +27,7 @@ export function PreviewLanguageToggle({ variant = 'light' }: { variant?: 'light'
     <div aria-label="Language" style={{ display: 'inline-flex', border: `1px solid ${borderColor}`, borderRadius: 999, overflow: 'hidden' }}>
       {(['ja', 'en'] as const).map((value) => (
         <button key={value} type="button" aria-pressed={lang === value} onClick={() => setLang(value)}
-          style={{ border: 0, padding: '7px 12px', background: lang === value ? demoColors.accent : 'transparent', color: lang === value ? '#fff' : inactiveColor, fontWeight: 700, cursor: 'pointer' }}>
+          style={{ border: 0, minHeight: 44, minWidth: 44, padding: '7px 12px', background: lang === value ? demoColors.accent : 'transparent', color: lang === value ? '#fff' : inactiveColor, fontWeight: 700, cursor: 'pointer' }}>
           {value.toUpperCase()}
         </button>
       ))}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
@@ -146,6 +146,20 @@ function InventoryDashboardBody({
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
   const [search, setSearch] = useState('');
+  const editTriggerRef = useRef<HTMLElement | null>(null);
+
+  function openEditor(target: 'new' | InventoryItemStatus) {
+    editTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setEditing(target);
+  }
+
+  function closeEditor() {
+    setEditing(null);
+    // Restore focus to whichever "Add item"/"Edit" button opened this inline
+    // form -- it isn't a true dialog (no focus trap), but leaving focus on
+    // the just-removed form controls drops it to <body>.
+    requestAnimationFrame(() => editTriggerRef.current?.focus());
+  }
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
   const normalizedSearch = search.trim().toLowerCase();
@@ -197,7 +211,7 @@ function InventoryDashboardBody({
           )}
         </p>
         {canManage ? (
-          <button type="button" style={buttonSecondary} onClick={() => setEditing('new')}>
+          <button type="button" style={buttonSecondary} onClick={() => openEditor('new')}>
             {t('addItem')}
           </button>
         ) : null}
@@ -211,10 +225,10 @@ function InventoryDashboardBody({
             item={editingItem}
             lang={lang}
             onSuccess={() => {
-              setEditing(null);
+              closeEditor();
               router.refresh();
             }}
-            onCancel={() => setEditing(null)}
+            onCancel={closeEditor}
           />
         </section>
       ) : null}
@@ -261,7 +275,7 @@ function InventoryDashboardBody({
                 locationTimezone={locationTimezone}
                 canManage={canManage}
                 staffNameById={staffNameById}
-                onEdit={() => setEditing(item)}
+                onEdit={() => openEditor(item)}
                 lang={lang}
                 t={t}
               />

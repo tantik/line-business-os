@@ -50,7 +50,11 @@ export const card: CSSProperties = {
 
 export const mutedText: CSSProperties = { color: colors.textMuted };
 
+/** WCAG 2.5.5 / mobile touch-target minimum (44x44 CSS px) shared by every clickable control below. */
+export const minTouchTarget = 44;
+
 export const buttonPrimary: CSSProperties = {
+  minHeight: minTouchTarget,
   padding: '10px 16px',
   background: colors.accent,
   color: '#FFFFFF',
@@ -62,6 +66,7 @@ export const buttonPrimary: CSSProperties = {
 };
 
 export const buttonSecondary: CSSProperties = {
+  minHeight: minTouchTarget,
   padding: '8px 14px',
   background: colors.surface,
   color: colors.textPrimary,
@@ -73,6 +78,7 @@ export const buttonSecondary: CSSProperties = {
 };
 
 export const buttonDisabled: CSSProperties = {
+  minHeight: minTouchTarget,
   padding: '8px 12px',
   background: colors.surfaceElevated,
   color: colors.textMuted,
@@ -91,6 +97,7 @@ export const input: CSSProperties = {
   display: 'block',
   width: '100%',
   boxSizing: 'border-box',
+  minHeight: minTouchTarget,
   marginTop: 4,
   padding: '10px 12px',
   background: colors.surface,
@@ -98,6 +105,17 @@ export const input: CSSProperties = {
   borderRadius: 8,
   color: colors.textPrimary,
   fontSize: 14,
+};
+
+/** Larger visible checkbox + a full min-touch-target clickable row (wrap in a <label>). */
+export const checkboxInput: CSSProperties = { width: 20, height: 20, cursor: 'pointer', flexShrink: 0 };
+
+export const checkboxLabel: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  minHeight: minTouchTarget,
+  cursor: 'pointer',
 };
 
 export const alertDanger: CSSProperties = {
