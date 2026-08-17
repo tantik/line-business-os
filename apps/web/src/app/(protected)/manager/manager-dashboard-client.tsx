@@ -220,14 +220,29 @@ function ManagerDashboardBody({
   }
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
-  const cellButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
+  // Same table/card dual-mount situation as editStaffButtonRefs above -- the
+  // schedule grid also renders a table (>=768px) and a day-grouped card list
+  // (<768px) for the same data at once.
+  const cellButtonRefs = useRef(new Map<string, { table: HTMLButtonElement | null; card: HTMLButtonElement | null }>());
+
+  function cellButtonRef(key: string, variant: 'table' | 'card') {
+    return (el: HTMLButtonElement | null) => {
+      const entry = cellButtonRefs.current.get(key) ?? { table: null, card: null };
+      entry[variant] = el;
+      cellButtonRefs.current.set(key, entry);
+    };
+  }
 
   function closeCellEditor(key: string) {
     setEditingCellKey(null);
     // Same focus-restoration convention as closeAddStaffForm/closeEditStaffForm
     // above -- the Shift Cell Editor isn't a true dialog either, so leaving
     // focus on the just-removed form controls drops it to <body>.
-    requestAnimationFrame(() => cellButtonRefs.current.get(key)?.focus());
+    requestAnimationFrame(() => {
+      const entry = cellButtonRefs.current.get(key);
+      const target = entry?.table?.offsetParent ? entry.table : entry?.card?.offsetParent ? entry.card : null;
+      target?.focus();
+    });
   }
 
   // Escape closes whichever inline Add/Edit form is currently open -- these
@@ -361,6 +376,90 @@ function ManagerDashboardBody({
 
   function cellKey(staffId: string, date: string) {
     return `${staffId}:${date}`;
+  }
+
+  // Shared by the table (>=768px, staff x date grid) and the day-grouped
+  // card list (<768px, one card per date) so the assign/edit/unassign logic
+  // for a single staff/date cell only exists once.
+  function renderScheduleCellContent(s: WorkforceStaffManageEntry, date: string, variant: 'table' | 'card') {
+    const key = cellKey(s.staffId, date);
+    const entry = assignmentFor(s.staffId, date);
+
+    if (editingCellKey === key) {
+      return (
+        <ShiftCellEditor
+          locationId={locationId}
+          workDate={date}
+          rowStaffId={s.staffId}
+          existing={
+            entry ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal } : undefined
+          }
+          staff={staff ?? []}
+          shiftTypes={shiftTypes ?? []}
+          onSuccess={() => {
+            closeCellEditor(key);
+            router.refresh();
+          }}
+          onCancel={() => closeCellEditor(key)}
+        />
+      );
+    }
+
+    if (!entry) {
+      return s.isActive ? (
+        <button
+          ref={cellButtonRef(key, variant)}
+          type="button"
+          style={buttonSecondary}
+          disabled={isPending}
+          onClick={() => setEditingCellKey(key)}
+        >
+          {t('assign')}
+        </button>
+      ) : (
+        <span style={mutedText}>-</span>
+      );
+    }
+
+    const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
+    const unassigning = pendingAction === `unassign-${entry.assignment.assignmentId}`;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>{shiftType?.code ?? 'Custom'}</span>
+          <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
+            {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
+          </span>
+        </div>
+        <span style={{ ...mutedText, fontSize: 12 }}>
+          {entry.startsAtLocal} - {entry.endsAtLocal}
+        </span>
+        {unavailableConflictCellKeys.has(key) ? <span style={badgeStyle('warning')}>{unavailableConflictBadgeLabel[lang]}</span> : null}
+        {entry.assignment.published ? (
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
+        ) : (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              ref={cellButtonRef(key, variant)}
+              type="button"
+              style={buttonSecondary}
+              disabled={isPending}
+              onClick={() => setEditingCellKey(key)}
+            >
+              {t('edit')}
+            </button>
+            <button
+              type="button"
+              style={isPending && unassigning ? buttonDisabled : buttonSecondary}
+              disabled={isPending}
+              onClick={() => handleUnassign(entry)}
+            >
+              {unassigning ? t('unassigning') : t('unassign')}
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   function handleSetActive(staffId: string, nextActive: boolean) {
@@ -783,7 +882,8 @@ function ManagerDashboardBody({
         {staff === null || staff.length === 0 ? (
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
         ) : (
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+          <>
+          <div className={styles.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
@@ -801,108 +901,35 @@ function ManagerDashboardBody({
                 {staff.map((s) => (
                   <tr key={s.staffId}>
                     <td style={tableCell}>{s.name}</td>
-                    {dates.map((date) => {
-                      const key = cellKey(s.staffId, date);
-                      const entry = assignmentFor(s.staffId, date);
-
-                      if (editingCellKey === key) {
-                        return (
-                          <td key={date} style={tableCell}>
-                            <ShiftCellEditor
-                              locationId={locationId}
-                              workDate={date}
-                              rowStaffId={s.staffId}
-                              existing={
-                                entry
-                                  ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal }
-                                  : undefined
-                              }
-                              staff={staff ?? []}
-                              shiftTypes={shiftTypes ?? []}
-                              onSuccess={() => {
-                                closeCellEditor(key);
-                                router.refresh();
-                              }}
-                              onCancel={() => closeCellEditor(key)}
-                            />
-                          </td>
-                        );
-                      }
-
-                      if (!entry) {
-                        return (
-                          <td key={date} style={tableCell}>
-                            {s.isActive ? (
-                              <button
-                                ref={(el) => {
-                                  cellButtonRefs.current.set(key, el);
-                                }}
-                                type="button"
-                                style={buttonSecondary}
-                                disabled={isPending}
-                                onClick={() => setEditingCellKey(key)}
-                              >
-                                {t('assign')}
-                              </button>
-                            ) : (
-                              <span style={mutedText}>-</span>
-                            )}
-                          </td>
-                        );
-                      }
-                      const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
-                      const unassigning = pendingAction === `unassign-${entry.assignment.assignmentId}`;
-                      return (
-                        <td key={date} style={tableCell}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>
-                                {shiftType?.code ?? 'Custom'}
-                              </span>
-                              <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
-                                {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
-                              </span>
-                            </div>
-                            <span style={{ ...mutedText, fontSize: 12 }}>
-                              {entry.startsAtLocal} - {entry.endsAtLocal}
-                            </span>
-                            {unavailableConflictCellKeys.has(key) ? (
-                              <span style={badgeStyle('warning')}>{unavailableConflictBadgeLabel[lang]}</span>
-                            ) : null}
-                            {entry.assignment.published ? (
-                              <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
-                            ) : (
-                              <div style={{ display: 'flex', gap: 4 }}>
-                                <button
-                                  ref={(el) => {
-                                    cellButtonRefs.current.set(key, el);
-                                  }}
-                                  type="button"
-                                  style={buttonSecondary}
-                                  disabled={isPending}
-                                  onClick={() => setEditingCellKey(key)}
-                                >
-                                  {t('edit')}
-                                </button>
-                                <button
-                                  type="button"
-                                  style={isPending && unassigning ? buttonDisabled : buttonSecondary}
-                                  disabled={isPending}
-                                  onClick={() => handleUnassign(entry)}
-                                >
-                                  {unassigning ? t('unassigning') : t('unassign')}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
+                    {dates.map((date) => (
+                      <td key={date} style={tableCell}>
+                        {renderScheduleCellContent(s, date, 'table')}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          <div className={styles.cardView} style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {dates.map((date) => (
+              <div key={date} style={{ ...card, marginTop: 0 }}>
+                <h3 style={{ margin: 0, fontSize: 14 }}>
+                  {formatWeekday(date)} {date.slice(5)}
+                </h3>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
+                  {staff.map((s) => (
+                    <div key={s.staffId} style={{ padding: '8px 0', borderTop: `1px solid ${colors.border}` }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{s.name}</div>
+                      {renderScheduleCellContent(s, date, 'card')}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
 
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
