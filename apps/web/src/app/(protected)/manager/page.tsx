@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
+import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
@@ -98,14 +99,17 @@ export default async function WorkforceManagerPage({
       if (!location) {
         return (
           <main style={pageStyle(1180)}>
-            <header>
-              <h1 style={{ margin: 0 }}>Workforce manager</h1>
-              <Link
-                href="/dashboard/workforce"
-                style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-              >
-                Back to Workforce
-              </Link>
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <h1 style={{ margin: 0 }}>Workforce manager</h1>
+                <Link
+                  href="/dashboard/workforce"
+                  style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+                >
+                  Back to Workforce
+                </Link>
+              </div>
+              <SignOutButton />
             </header>
             <section style={card}>
               <p style={{ margin: 0, ...mutedText }}>
@@ -180,17 +184,20 @@ export default async function WorkforceManagerPage({
 
       return (
         <main style={pageStyle(1180)}>
-          <header>
-            <h1 style={{ margin: 0 }}>Workforce manager</h1>
-            <p style={{ margin: '8px 0 0', ...mutedText }}>
-              {activeTenant.tenantName} - {location.locationName}
-            </p>
-            <Link
-              href="/dashboard/workforce"
-              style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-            >
-              Back to Workforce
-            </Link>
+          <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <h1 style={{ margin: 0 }}>Workforce manager</h1>
+              <p style={{ margin: '8px 0 0', ...mutedText }}>
+                {activeTenant.tenantName} - {location.locationName}
+              </p>
+              <Link
+                href="/dashboard/workforce"
+                style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+              >
+                Back to Workforce
+              </Link>
+            </div>
+            <SignOutButton />
           </header>
 
           <ManagerDashboardClient
