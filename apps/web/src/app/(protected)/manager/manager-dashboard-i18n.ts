@@ -120,6 +120,9 @@ interface ManagerDashboardDict {
   requestKindChange: string;
   requestKindExchange: string;
   awaitingCandidate: string;
+  // Page chrome
+  pageTitle: string;
+  signOut: string;
   // Footer
   backToWorkforce: string;
   // Banner messages
@@ -240,6 +243,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'Shift change',
     requestKindExchange: 'Exchange',
     awaitingCandidate: 'awaiting candidate',
+    pageTitle: 'Manager',
+    signOut: 'Sign out',
     backToWorkforce: 'Back to Workforce',
     staffActivated: 'Staff member activated.',
     staffDeactivated: 'Staff member deactivated.',
@@ -355,6 +360,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'シフト変更',
     requestKindExchange: '交換',
     awaitingCandidate: '交換相手を待っています',
+    pageTitle: 'マネージャー',
+    signOut: 'サインアウト',
     backToWorkforce: 'ワークフォースに戻る',
     staffActivated: 'スタッフを有効化しました。',
     staffDeactivated: 'スタッフを無効化しました。',

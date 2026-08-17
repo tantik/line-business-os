@@ -22,6 +22,7 @@ import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { computeManagerAttention, type ManagerAttentionCategory } from '@/lib/workforce/manager-attention';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { SignOutButton } from '@/components/sign-out-button';
 import {
   attentionCorrectionLabel,
   attentionExchangeLabel,
@@ -85,6 +86,8 @@ const DEFAULT_STAFFING_REQUIREMENTS = ([0, 1, 2, 3, 4, 5, 6] as const).flatMap((
 ]);
 
 export interface ManagerDashboardClientProps {
+  tenantName: string;
+  locationName: string;
   locationId: string;
   timeZone: string;
   periodStart: string;
@@ -148,6 +151,8 @@ const ATTENTION_ANCHOR: Record<ManagerAttentionCategory, string> = {
 };
 
 function ManagerDashboardBody({
+  tenantName,
+  locationName,
   locationId,
   timeZone,
   periodStart,
@@ -440,6 +445,19 @@ function ManagerDashboardBody({
 
   return (
     <>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {tenantName} - {locationName}
+          </p>
+          <Link href="/dashboard/workforce" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+            {t('backToWorkforce')}
+          </Link>
+        </div>
+        <SignOutButton label={t('signOut')} />
+      </header>
+
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
         <PreviewLanguageToggle variant="dark" />
       </div>
