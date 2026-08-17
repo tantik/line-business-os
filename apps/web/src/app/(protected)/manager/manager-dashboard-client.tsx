@@ -200,6 +200,15 @@ function ManagerDashboardBody({
   }
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
+  const cellButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
+
+  function closeCellEditor(key: string) {
+    setEditingCellKey(null);
+    // Same focus-restoration convention as closeAddStaffForm/closeEditStaffForm
+    // above -- the Shift Cell Editor isn't a true dialog either, so leaving
+    // focus on the just-removed form controls drops it to <body>.
+    requestAnimationFrame(() => cellButtonRefs.current.get(key)?.focus());
+  }
 
   // Escape closes whichever inline Add/Edit form is currently open -- these
   // aren't true dialogs (no overlay/focus trap), but a keyboard user still
@@ -210,7 +219,7 @@ function ManagerDashboardBody({
       if (event.key !== 'Escape') return;
       if (addingStaff) closeAddStaffForm();
       else if (editingStaffId) closeEditStaffForm(editingStaffId);
-      else if (editingCellKey) setEditingCellKey(null);
+      else if (editingCellKey) closeCellEditor(editingCellKey);
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -712,10 +721,10 @@ function ManagerDashboardBody({
                               staff={staff ?? []}
                               shiftTypes={shiftTypes ?? []}
                               onSuccess={() => {
-                                setEditingCellKey(null);
+                                closeCellEditor(key);
                                 router.refresh();
                               }}
-                              onCancel={() => setEditingCellKey(null)}
+                              onCancel={() => closeCellEditor(key)}
                             />
                           </td>
                         );
@@ -725,7 +734,15 @@ function ManagerDashboardBody({
                         return (
                           <td key={date} style={tableCell}>
                             {s.isActive ? (
-                              <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCellKey(key)}>
+                              <button
+                                ref={(el) => {
+                                  cellButtonRefs.current.set(key, el);
+                                }}
+                                type="button"
+                                style={buttonSecondary}
+                                disabled={isPending}
+                                onClick={() => setEditingCellKey(key)}
+                              >
                                 {t('assign')}
                               </button>
                             ) : (
@@ -755,6 +772,9 @@ function ManagerDashboardBody({
                             ) : (
                               <div style={{ display: 'flex', gap: 4 }}>
                                 <button
+                                  ref={(el) => {
+                                    cellButtonRefs.current.set(key, el);
+                                  }}
                                   type="button"
                                   style={buttonSecondary}
                                   disabled={isPending}
