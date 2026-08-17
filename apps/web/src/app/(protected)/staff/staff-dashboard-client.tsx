@@ -549,6 +549,7 @@ function StaffDashboardBody({
         <CorrectionRequestForm
           attendanceOptions={attendance ?? []}
           defaultWorkDate={periodStart}
+          timeZone={timeZone}
           lang={lang}
           onSuccess={() => handleFormSuccess(t('correctionRequestSubmitted'))}
         />

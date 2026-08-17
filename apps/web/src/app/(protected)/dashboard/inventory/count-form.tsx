@@ -29,14 +29,15 @@ export function CountForm({ locationId, itemId, unit, lang, onSuccess }: CountFo
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const formData = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const formData = new FormData(formEl);
     formData.set('locationId', locationId);
     formData.set('itemId', itemId);
 
     startTransition(async () => {
       const result = await recordInventoryStockCountAction(formData);
       if (result.status === 'success') {
-        (event.currentTarget as HTMLFormElement).reset();
+        formEl.reset();
         onSuccess();
       } else {
         setError(describeInventoryWriteError(result));
