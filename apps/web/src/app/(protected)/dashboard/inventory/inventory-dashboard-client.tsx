@@ -7,7 +7,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { badgeStyle, buttonSecondary, card, linkAccent, mutedText } from '@/lib/ui/theme';
+import { badgeStyle, buttonPrimary, buttonSecondary, card, input, linkAccent, mutedText } from '@/lib/ui/theme';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
 import { tInventoryDashboard } from './inventory-i18n';
@@ -131,8 +131,16 @@ function InventoryDashboardBody({ tenantName, locationName, locationId, items, c
   const t: T = (key) => tInventoryDashboard(lang, key);
   const router = useRouter();
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
+  const [search, setSearch] = useState('');
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleItems = items.filter(
+    (item) =>
+      (statusFilter === 'all' || (statusFilter === 'shortage' ? item.status === 'shortage' : item.status !== 'shortage')) &&
+      (normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch)),
+  );
   const editingItem =
     editing && editing !== 'new'
       ? {
@@ -203,18 +211,49 @@ function InventoryDashboardBody({ tenantName, locationName, locationId, items, c
           <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
         </section>
       ) : (
-        items.map((item) => (
-          <ItemRow
-            key={item.itemId}
-            item={item}
-            locationId={locationId}
-            canManage={canManage}
-            staffNameById={staffNameById}
-            onEdit={() => setEditing(item)}
-            lang={lang}
-            t={t}
-          />
-        ))
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['all', 'shortage', 'ok'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  style={statusFilter === value ? buttonPrimary : buttonSecondary}
+                  onClick={() => setStatusFilter(value)}
+                >
+                  {value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : t('filterOk')}
+                </button>
+              ))}
+            </div>
+            <input
+              style={{ ...input, flex: 1, minWidth: 160 }}
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchLabel')}
+            />
+          </div>
+
+          {visibleItems.length === 0 ? (
+            <section style={card}>
+              <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
+            </section>
+          ) : (
+            visibleItems.map((item) => (
+              <ItemRow
+                key={item.itemId}
+                item={item}
+                locationId={locationId}
+                canManage={canManage}
+                staffNameById={staffNameById}
+                onEdit={() => setEditing(item)}
+                lang={lang}
+                t={t}
+              />
+            ))
+          )}
+        </>
       )}
     </>
   );
