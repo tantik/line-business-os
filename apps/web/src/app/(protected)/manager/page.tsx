@@ -184,23 +184,9 @@ export default async function WorkforceManagerPage({
 
       return (
         <main style={pageStyle(1180)}>
-          <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-            <div>
-              <h1 style={{ margin: 0 }}>Workforce manager</h1>
-              <p style={{ margin: '8px 0 0', ...mutedText }}>
-                {activeTenant.tenantName} - {location.locationName}
-              </p>
-              <Link
-                href="/dashboard/workforce"
-                style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-              >
-                Back to Workforce
-              </Link>
-            </div>
-            <SignOutButton />
-          </header>
-
           <ManagerDashboardClient
+            tenantName={activeTenant.tenantName}
+            locationName={location.locationName}
             locationId={location.locationId}
             timeZone={location.timezone}
             periodStart={periodStart}

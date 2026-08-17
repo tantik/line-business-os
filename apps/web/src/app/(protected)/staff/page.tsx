@@ -209,18 +209,9 @@ export default async function WorkforceStaffPage({
 
       return (
         <main style={pageStyle(1000)}>
-          <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-            <div>
-              <h1 style={{ margin: 0 }}>Workforce staff</h1>
-              <p style={{ margin: '8px 0 0', ...mutedText }}>
-                {activeTenant.tenantName} - {location.locationName}
-              </p>
-              <BackLink />
-            </div>
-            <SignOutButton />
-          </header>
-
           <StaffDashboardClient
+            tenantName={activeTenant.tenantName}
+            locationName={location.locationName}
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}

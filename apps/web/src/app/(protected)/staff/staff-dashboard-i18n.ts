@@ -90,6 +90,16 @@ interface StaffDashboardDict {
   shiftPreferenceSubmitted: string;
   workReportSubmitted: string;
   correctionRequestSubmitted: string;
+  // Page chrome (header, profile card)
+  pageTitle: string;
+  backToWorkforce: string;
+  signOut: string;
+  profileHeading: string;
+  positionLabel: string;
+  employmentTypeLabel: string;
+  notSetLabel: string;
+  activeLabel: string;
+  inactiveLabel: string;
 }
 
 const dictionary: Record<Lang, StaffDashboardDict> = {
@@ -168,6 +178,15 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     shiftPreferenceSubmitted: 'Shift preference submitted.',
     workReportSubmitted: 'Work report submitted.',
     correctionRequestSubmitted: 'Correction request submitted.',
+    pageTitle: 'Staff',
+    backToWorkforce: 'Back to Workforce',
+    signOut: 'Sign out',
+    profileHeading: 'My staff profile',
+    positionLabel: 'Position',
+    employmentTypeLabel: 'Employment type',
+    notSetLabel: 'Not set',
+    activeLabel: 'Active',
+    inactiveLabel: 'Inactive',
   },
   ja: {
     scheduleHeading: '公開シフト',
@@ -243,6 +262,15 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     shiftPreferenceSubmitted: 'シフト希望を送信しました。',
     workReportSubmitted: '勤務報告を送信しました。',
     correctionRequestSubmitted: '修正依頼を送信しました。',
+    pageTitle: 'スタッフ',
+    backToWorkforce: 'ワークフォースに戻る',
+    signOut: 'サインアウト',
+    profileHeading: '自分のプロフィール',
+    positionLabel: '役職',
+    employmentTypeLabel: '雇用形態',
+    notSetLabel: '未設定',
+    activeLabel: '有効',
+    inactiveLabel: '無効',
   },
 };
 

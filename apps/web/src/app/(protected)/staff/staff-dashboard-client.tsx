@@ -23,6 +23,7 @@ import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { SignOutButton } from '@/components/sign-out-button';
 import { existingExchangeMessage, inventoryShortageLabel, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
 import {
   badgeStyle,
@@ -74,6 +75,8 @@ const alertSuccess = {
 } as const;
 
 export interface StaffDashboardClientProps {
+  tenantName: string;
+  locationName: string;
   timeZone: string;
   periodStart: string;
   periodEnd: string;
@@ -128,6 +131,8 @@ export function StaffDashboardClient(props: StaffDashboardClientProps) {
 }
 
 function StaffDashboardBody({
+  tenantName,
+  locationName,
   timeZone,
   periodStart,
   periodEnd,
@@ -278,23 +283,36 @@ function StaffDashboardBody({
 
   return (
     <>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {tenantName} - {locationName}
+          </p>
+          <Link href="/dashboard/workforce" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+            {t('backToWorkforce')}
+          </Link>
+        </div>
+        <SignOutButton label={t('signOut')} />
+      </header>
+
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>My staff profile</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{t('profileHeading')}</h2>
         <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Position</dt>
-            <dd style={{ margin: 0 }}>{profile.positionLabel ?? 'Not set'}</dd>
+            <dt style={{ ...mutedText, fontSize: 13 }}>{t('positionLabel')}</dt>
+            <dd style={{ margin: 0 }}>{profile.positionLabel ?? t('notSetLabel')}</dd>
           </div>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Employment type</dt>
+            <dt style={{ ...mutedText, fontSize: 13 }}>{t('employmentTypeLabel')}</dt>
             <dd style={{ margin: 0 }}>{profile.employmentType}</dd>
           </div>
           <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>Status</dt>
+            <dt style={{ ...mutedText, fontSize: 13 }}>{t('statusLabel')}</dt>
             <dd style={{ margin: 0 }}>
-              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? 'Active' : 'Inactive'}</span>
+              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? t('activeLabel') : t('inactiveLabel')}</span>
             </dd>
           </div>
         </dl>
