@@ -199,6 +199,12 @@ export const ShiftTable = memo(function ShiftTable({
                 {dates.map((date) => {
                   const assignment = assignmentMap.get(`${staff.id}:${date}`);
                   const shiftType = shiftTypeById.get(assignment?.shiftTypeId ?? '');
+                  // A custom shift (no shiftTypeId, or one that no longer resolves) still has a
+                  // real time on the assignment itself -- show that instead of a blank dash,
+                  // rather than silently dropping a shift that already counts toward scheduled
+                  // hours (Cafe v2.1 QA audit P1-6, 2026-08-17).
+                  const cellLabel =
+                    shiftType?.label ?? (assignment?.startTime && assignment?.endTime ? `${assignment.startTime}-${assignment.endTime}` : '－');
                   const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
@@ -227,7 +233,7 @@ export const ShiftTable = memo(function ShiftTable({
                         cursor: clickable ? 'pointer' : 'default',
                       }}
                     >
-                      <span style={shiftChipStyle(chip.background, chip.color, compact)}>{shiftType?.label ?? '－'}</span>
+                      <span style={shiftChipStyle(chip.background, chip.color, compact)}>{cellLabel}</span>
                       {showIndicator ? (
                         <span
                           title={report?.hasCorrectionRequest ? labels.correctionTooltip : labels.messageTooltip}
