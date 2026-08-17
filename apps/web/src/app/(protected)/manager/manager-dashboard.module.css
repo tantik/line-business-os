@@ -1,0 +1,25 @@
+/*
+ * Cafe v2.1 hardening mobile-parity mission: the Staff roster has no way to
+ * express "table below 768px, cards above" with the rest of this app's
+ * inline CSSProperties objects (they cannot express a media query at all).
+ * A CSS Module is the smallest addition that can -- both variants render on
+ * the server and only one is ever visible per viewport, so there is no
+ * layout-shift/hydration flash the way a JS matchMedia hook would cause.
+ */
+.tableView {
+  display: block;
+}
+
+.cardView {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .tableView {
+    display: none;
+  }
+
+  .cardView {
+    display: block;
+  }
+}

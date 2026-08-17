@@ -62,6 +62,7 @@ import {
   todayRowStyle,
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
+import styles from './manager-dashboard.module.css';
 import { StaffForm } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { ShiftCellEditor } from './shift-cell-editor';
@@ -195,11 +196,27 @@ function ManagerDashboardBody({
     requestAnimationFrame(() => addStaffButtonRef.current?.focus());
   }
 
-  const editStaffButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
+  // Table and card Edit buttons for the same staffId both render at once
+  // (CSS media query picks which is visible, see manager-dashboard.module.css)
+  // -- keep both refs so focus-restore targets whichever one is actually
+  // visible/focusable at close time, not whichever mounted last.
+  const editStaffButtonRefs = useRef(new Map<string, { table: HTMLButtonElement | null; card: HTMLButtonElement | null }>());
+
+  function editStaffButtonRef(staffId: string, variant: 'table' | 'card') {
+    return (el: HTMLButtonElement | null) => {
+      const entry = editStaffButtonRefs.current.get(staffId) ?? { table: null, card: null };
+      entry[variant] = el;
+      editStaffButtonRefs.current.set(staffId, entry);
+    };
+  }
 
   function closeEditStaffForm(staffId: string) {
     setEditingStaffId(null);
-    requestAnimationFrame(() => editStaffButtonRefs.current.get(staffId)?.focus());
+    requestAnimationFrame(() => {
+      const entry = editStaffButtonRefs.current.get(staffId);
+      const target = entry?.table?.offsetParent ? entry.table : entry?.card?.offsetParent ? entry.card : null;
+      target?.focus();
+    });
   }
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
@@ -590,7 +607,8 @@ function ManagerDashboardBody({
         ) : staff.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffEmpty')}</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <>
+          <div className={styles.tableView} style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 640, marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr>
@@ -650,9 +668,7 @@ function ManagerDashboardBody({
                     <td style={tableCell}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          ref={(el) => {
-                            editStaffButtonRefs.current.set(s.staffId, el);
-                          }}
+                          ref={editStaffButtonRef(s.staffId, 'table')}
                           type="button"
                           style={buttonSecondary}
                           disabled={isPending}
@@ -676,6 +692,71 @@ function ManagerDashboardBody({
             </tbody>
           </table>
           </div>
+
+          <div className={styles.cardView} style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {staff.map((s) => {
+              if (editingStaffId === s.staffId) {
+                return (
+                  <div key={s.staffId} style={{ ...card, marginTop: 0 }}>
+                    <StaffForm
+                      locationId={locationId}
+                      employee={s}
+                      onSuccess={() => {
+                        closeEditStaffForm(s.staffId);
+                        router.refresh();
+                      }}
+                      onCancel={() => closeEditStaffForm(s.staffId)}
+                    />
+                  </div>
+                );
+              }
+              const togglingActive = pendingAction === `active-${s.staffId}`;
+              const meta = [s.positionLabel, s.employmentType].filter(Boolean).join(' · ');
+              return (
+                <div key={s.staffId} style={{ ...card, marginTop: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <strong style={{ fontSize: 15 }}>{s.name}</strong>
+                    <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
+                  </div>
+                  {meta ? <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>{meta}</p> : null}
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <LineLinkForm
+                      employeeId={s.staffId}
+                      isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
+                      onSuccess={() => router.refresh()}
+                      lang={lang}
+                    />
+                    <InvitationCell
+                      hasAccountAccess={s.hasAccountAccess}
+                      employeeId={s.staffId}
+                      invitation={latestInvitationByEmployeeId.get(s.staffId) ?? null}
+                      onChange={() => router.refresh()}
+                    />
+                  </div>
+                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      ref={editStaffButtonRef(s.staffId, 'card')}
+                      type="button"
+                      style={{ ...buttonSecondary, flex: '1 1 auto' }}
+                      disabled={isPending}
+                      onClick={() => setEditingStaffId(s.staffId)}
+                    >
+                      {t('edit')}
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...(isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary), flex: '1 1 auto' }}
+                      disabled={isPending}
+                      onClick={() => handleSetActive(s.staffId, !s.isActive)}
+                    >
+                      {togglingActive ? t('saving') : s.isActive ? t('deactivate') : t('activate')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </section>
 
