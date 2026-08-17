@@ -236,6 +236,68 @@ export async function listWorkforceStaffForManager(
   }
 }
 
+/** Flat row shape returned by `api.workforce_staff_roster` (0061). `name_encrypted` arrives as PostgREST's hex bytea text (`\x...`), same convention as `ApiWorkforceStaffManageRow`. */
+interface ApiWorkforceStaffRosterRow {
+  employee_id: string;
+  tenant_id: string;
+  location_id: string | null;
+  name_encrypted: string;
+  is_active: boolean;
+}
+
+/** Staff-safe roster entry: real display name, decrypted server-side, plus nothing else (0061's own column minimization). */
+export interface WorkforceStaffRosterEntry {
+  employeeId: string;
+  tenantId: string;
+  locationId: string | null;
+  name: string;
+  isActive: boolean;
+}
+
+/**
+ * Staff-safe coworker roster, through `api.workforce_staff_roster` (0061):
+ * the caller's own row plus any active coworker in the caller's own
+ * tenant/location schedule scope, each with a real decrypted display name.
+ * RLS (`wf_employees_self_read` + `wf_employees_coworker_roster_read`, or
+ * the pre-existing staff.read/.manage policies for a Manager caller) is what
+ * actually restricts row visibility -- this never widens it. Lets the Staff
+ * dashboard show the caller's own name (Cafe v2.1 QA audit P2-7) and real
+ * coworker names in the schedule grid instead of synthesized "Staff N"
+ * placeholders.
+ */
+export async function listWorkforceStaffRoster(
+  supabase: SupabaseClient,
+  tenantId: string,
+): Promise<TenantAccessResult<WorkforceStaffRosterEntry[]>> {
+  const pii = readPiiEnv();
+  if (!pii.ok) return { status: 'config_error', message: `Missing PII protection env: ${pii.missing.join(', ')}` };
+
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_staff_roster')
+      .select('employee_id, tenant_id, location_id, name_encrypted, is_active')
+      .eq('tenant_id', tenantId);
+
+    if (error) return mapWorkforceReadError(error, 'read the staff roster');
+
+    const rows = (data ?? []) as ApiWorkforceStaffRosterRow[];
+    const entries = rows.map((row) => ({
+      employeeId: row.employee_id,
+      tenantId: row.tenant_id,
+      locationId: row.location_id,
+      name: decryptPII(byteaToBuffer(row.name_encrypted), pii.config.encryptionKey),
+      isActive: row.is_active,
+    }));
+    return { status: 'success', data: entries };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading the staff roster.',
+    };
+  }
+}
+
 export interface UpsertWorkforceEmployeeInput {
   /** Omit to create a new employee; provide to edit an existing one. */
   id?: string;

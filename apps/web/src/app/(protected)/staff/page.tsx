@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
+import { listWorkforceStaffRoster } from '@/lib/workforce/employees';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
@@ -178,6 +179,7 @@ export default async function WorkforceStaffPage({
         correctionRequestsResult,
         exchangesResult,
         inventoryItemsResult,
+        rosterResult,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
@@ -195,7 +197,17 @@ export default async function WorkforceStaffPage({
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
+        // Real display names for the caller's own profile header and the
+        // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
+        // 0061) -- RLS narrows this to the caller's own row plus active
+        // coworkers in the caller's own tenant/location schedule scope.
+        listWorkforceStaffRoster(supabase, activeTenant.tenantId),
       ]);
+
+      const staffNameById: Record<string, string> =
+        rosterResult.status === 'success'
+          ? Object.fromEntries(rosterResult.data.map((entry) => [entry.employeeId, entry.name]))
+          : {};
 
       // `listShiftAssignments` is shared with the manager view and returns
       // every employee's rows at this location -- narrow to this location and
@@ -217,6 +229,8 @@ export default async function WorkforceStaffPage({
             periodEnd={periodEnd}
             weekOffset={weekOffset}
             profile={profile}
+            displayName={staffNameById[profile.staffId] ?? null}
+            staffNameById={staffNameById}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
             assignments={locationAssignments}

@@ -97,6 +97,7 @@ interface StaffDashboardDict {
   backToWorkforce: string;
   signOut: string;
   profileHeading: string;
+  nameLabel: string;
   positionLabel: string;
   employmentTypeLabel: string;
   notSetLabel: string;
@@ -186,6 +187,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     backToWorkforce: 'Platform dashboard',
     signOut: 'Sign out',
     profileHeading: 'My staff profile',
+    nameLabel: 'Name',
     positionLabel: 'Position',
     employmentTypeLabel: 'Employment type',
     notSetLabel: 'Not set',
@@ -272,6 +274,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     backToWorkforce: 'プラットフォームダッシュボード',
     signOut: 'サインアウト',
     profileHeading: '自分のプロフィール',
+    nameLabel: '氏名',
     positionLabel: '役職',
     employmentTypeLabel: '雇用形態',
     notSetLabel: '未設定',
@@ -283,6 +286,13 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
 export const tStaffDashboard = makeTranslator(dictionary);
 
 /** Parameterized strings that don't fit `makeTranslator`'s fixed-string shape. */
+
+/** Header title including the caller's own real display name (Cafe v2.1 QA audit P2-7). Mirrors the Surface A reference's `{name} さん` pattern. */
+export const pageTitleWithName: Record<Lang, (name: string) => string> = {
+  en: (name) => `Staff — ${name}`,
+  ja: (name) => `スタッフ — ${name} さん`,
+};
+
 export const scheduledThisWeekValue: Record<Lang, (hours: string) => string> = {
   en: (hours) => `Scheduled this week: ${hours}h`,
   ja: (hours) => `今週の予定時間: ${hours}h`,
