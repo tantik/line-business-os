@@ -187,22 +187,23 @@ mobile items, in order:
    `offsetParent` (the actually-visible one) instead of whichever mounted
    last. Live-confirmed: cards render correctly, Edit opens the inline
    form, Cancel returns focus to the visible card's Edit button.
+3. **PR #293 (schedule grid → day-grouped card layout at <768px)** —
+   merged. The 週間スケジュール table was staff × date; at 375px only ~2 of
+   7 day columns fit in the horizontally-scrollable wrapper. Extracted the
+   per-cell assign/edit/unassign logic (previously inlined once inside the
+   table's `<td>` map) into `renderScheduleCellContent(staff, date,
+   variant)`, called from both the table (>=768px) and a new day-grouped
+   card list (<768px, one card per date, staff as rows inside it -- same
+   data, transposed) via the same `manager-dashboard.module.css` pattern
+   PR #291 introduced. Applied the same table/card dual-ref-map fix to
+   `cellButtonRefs` (keyed `{table, card}` per cell, `closeCellEditor()`
+   focuses whichever has a non-null `offsetParent`). Live-confirmed: all 7
+   day cards render, Assign opens `ShiftCellEditor` inline under the right
+   staff row, Cancel returns focus to the visible card's button (verified
+   via `document.activeElement`, not just visually).
 
 **Not yet started, found live during the same audit, still open:**
 
-- **Schedule grid (週間スケジュール) mobile layout.** At 375px only ~2 of 7
-  day columns fit in the horizontally-scrollable wrapper (`overflowX:
-  'auto'` div around the `<table style={{minWidth: 640}}>` in
-  `manager-dashboard-client.tsx`, roughly line 682+ as of this handoff --
-  re-check line numbers, they will have shifted). Row height is tall
-  (~106px pre-#290-fix, better now that assign/unassign buttons don't wrap,
-  but still not audited against the "~100px" QA acceptance target). This
-  needs the same kind of design decision the Staff table got (card-per-day
-  or card-per-staff-with-horizontal-day-scroll, or a genuinely different
-  mobile schedule UI) -- **budget a dedicated PR, don't bolt it onto
-  another change.** A branch `fix/cafe-v21-wp-d-schedule-grid-mobile` was
-  created off `origin/dev` for this at the end of this session but **no
-  code was written on it yet**.
 - **Header/page-chrome layout** (`/manager`, likely `/staff` too): title →
   subtitle → nav links → Sign-out button → JA/EN toggle all stack
   vertically with inconsistent spacing/alignment at 375px, unlike the
@@ -293,26 +294,47 @@ assume scope beyond what's been asked.
 
 ## 6. How to continue (recommended immediate next step)
 
+**Updated status (end of the 2026-08-17 continuation session):** Manager
+mobile layout is substantially fixed -- PR #290 (button/badge text-wrap,
+app-wide), PR #291 (Staff roster card layout), PR #293 (schedule-grid
+day-grouped card layout) all merged to `dev` and live-verified at 375px
+(including `document.activeElement` checks for focus-restore, not just
+screenshots). §3a has the full detail per-PR; don't re-do this work.
+
 1. Re-read `docs/ai/current-task.md` fresh (its "next gate" section is
    stale relative to this mission — this handoff supersedes it for Cafe
    work, but confirm nothing else changed).
-2. Pick up mobile redesign (§4.1) as the next branch:
-   `git checkout -b fix/cafe-v21-manager-mobile-redesign origin/dev` (or
-   whatever slug fits). Start with a **parity audit** (open the Mame To
-   Cha prototype and the canonical `/manager` side by side at 375px, screen
-   recording/screenshot both, build the actual difference table the
-   original mission brief §4 asked for) before writing any layout code —
-   this session skipped that formal audit step and went straight to
-   bounded fixes, which worked for the small items but mobile redesign is
-   too large to wing without it.
+2. Remaining Manager-surface mobile items, still open (see §3a for detail,
+   this is just the pointer):
+   - Header/page-chrome layout (title/subtitle/nav/Sign-out/JA-EN stacking)
+     -- not root-caused yet, needs its own look at the JSX, not just theme.ts.
+   - **Staff surface (`/staff`) itself has not been audited this session at
+     all** -- sign in as `staff@mame-to-cha.test` (not the Manager account)
+     and repeat the same live-375px-audit-then-fix loop before assuming any
+     Manager fix above (theme.ts in particular, since it's shared) carried
+     over. This is likely the next highest-value slice: the mission brief's
+     original "WP-E" (Staff mobile) is explicitly still unconfirmed.
 3. Follow the same per-PR discipline this session used: one bounded PR per
    WP, typecheck/lint/test/build every time, **live Preview QA before
-   merge** (not just "tests pass"), clean up any disposable test fixtures
-   created during QA.
+   merge** (not just "tests pass" -- for focus-restore specifically, check
+   `document.activeElement` via `evaluate_script`, don't just eyeball a
+   screenshot), clean up any disposable test fixtures created during QA.
 4. `gh pr checks <n>` then `gh pr view <n> --json comments -q
    '.comments[].body' | grep -oE "https://line-business-os[a-zA-Z0-9.-]*\.vercel\.app"`
-   reliably gets the Vercel preview URL for live-testing a PR before merge
-   (used successfully 4 times this session).
+   reliably gets the Vercel preview URL for live-testing a PR before merge.
+5. **Mobile viewport gotcha** (cost real time this session): chrome-devtools
+   MCP's `resize_page` changes the OS window size but **not**
+   `window.innerWidth` / CSS media-query evaluation on this Windows/Chrome
+   setup. Use `mcp__chrome-devtools__emulate` with
+   `viewport: "375x812x2,mobile,touch"` (or similar) for real mobile
+   emulation, then verify with `document.body.scrollWidth === 375` before
+   trusting any 375px screenshot/audit finding.
+6. If `gh pr merge --delete-branch` fails with `'dev' is already used by
+   worktree at 'D:/Dev/line-business-os-founder-audit'` -- that's cosmetic,
+   the merge itself already succeeded (`gh pr view <n> --json
+   state,mergedAt` confirms); just delete the remote branch manually
+   (`git push origin --delete <branch>`) and start the next branch fresh
+   off `origin/dev`.
 
 ---
 
