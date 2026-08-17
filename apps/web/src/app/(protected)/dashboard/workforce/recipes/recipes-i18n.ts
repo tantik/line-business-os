@@ -28,6 +28,39 @@ interface RecipesDict {
   noSteps: string;
   notesHeading: string;
   noNotes: string;
+  // Manager CRUD (Cafe v2.1 QA audit P1-2, 2026-08-17)
+  addRecipeButton: string;
+  editButton: string;
+  archiveButton: string;
+  restoreButton: string;
+  deleteForeverButton: string;
+  deleteForeverConfirm: string;
+  archivedBadge: string;
+  draftBadge: string;
+  newRecipeHeading: string;
+  editRecipeHeading: string;
+  formOriginalLanguageLabel: string;
+  formLanguageJa: string;
+  formLanguageEn: string;
+  formContentKindLabel: string;
+  formContentKindRecipe: string;
+  formContentKindInstruction: string;
+  formStatusLabel: string;
+  formStatusDraft: string;
+  formStatusPublished: string;
+  formStatusArchived: string;
+  formTitleLabel: string;
+  formDescriptionLabel: string;
+  formIngredientsLabel: string;
+  formStepsLabel: string;
+  formOnePerLineHint: string;
+  formNoteTitleLabel: string;
+  formNoteBodyLabel: string;
+  formSaving: string;
+  formSaveChanges: string;
+  formCreateRecipe: string;
+  formCancel: string;
+  languageChangeWarning: string;
 }
 
 const dictionary: Record<Lang, RecipesDict> = {
@@ -47,6 +80,38 @@ const dictionary: Record<Lang, RecipesDict> = {
     noSteps: 'No steps listed.',
     notesHeading: 'Notes',
     noNotes: 'No notes.',
+    addRecipeButton: '+ Add recipe',
+    editButton: 'Edit',
+    archiveButton: 'Archive',
+    restoreButton: 'Restore',
+    deleteForeverButton: 'Delete forever',
+    deleteForeverConfirm: 'Permanently delete this recipe? This cannot be undone.',
+    archivedBadge: 'Archived',
+    draftBadge: 'Draft',
+    newRecipeHeading: 'New recipe',
+    editRecipeHeading: 'Edit recipe',
+    formOriginalLanguageLabel: 'Original language',
+    formLanguageJa: 'Japanese',
+    formLanguageEn: 'English',
+    formContentKindLabel: 'Type',
+    formContentKindRecipe: 'Recipe',
+    formContentKindInstruction: 'Instruction',
+    formStatusLabel: 'Status',
+    formStatusDraft: 'Draft',
+    formStatusPublished: 'Published',
+    formStatusArchived: 'Archived',
+    formTitleLabel: 'Title',
+    formDescriptionLabel: 'Description',
+    formIngredientsLabel: 'Ingredients',
+    formStepsLabel: 'Steps',
+    formOnePerLineHint: 'One per line',
+    formNoteTitleLabel: 'Note title (optional)',
+    formNoteBodyLabel: 'Note body (optional)',
+    formSaving: 'Saving…',
+    formSaveChanges: 'Save changes',
+    formCreateRecipe: 'Create recipe',
+    formCancel: 'Cancel',
+    languageChangeWarning: "You are changing this recipe's original language. Existing content will not be deleted.",
   },
   ja: {
     pageTitle: 'レシピ',
@@ -64,6 +129,38 @@ const dictionary: Record<Lang, RecipesDict> = {
     noSteps: '手順が登録されていません。',
     notesHeading: 'メモ',
     noNotes: 'メモはありません。',
+    addRecipeButton: '+ レシピを追加',
+    editButton: '編集',
+    archiveButton: 'アーカイブ',
+    restoreButton: '復元',
+    deleteForeverButton: '完全に削除',
+    deleteForeverConfirm: 'このレシピを完全に削除しますか？元に戻せません。',
+    archivedBadge: 'アーカイブ済み',
+    draftBadge: '下書き',
+    newRecipeHeading: '新規レシピ',
+    editRecipeHeading: 'レシピを編集',
+    formOriginalLanguageLabel: '原文の言語',
+    formLanguageJa: '日本語',
+    formLanguageEn: '英語',
+    formContentKindLabel: '種類',
+    formContentKindRecipe: 'レシピ',
+    formContentKindInstruction: '手順書',
+    formStatusLabel: 'ステータス',
+    formStatusDraft: '下書き',
+    formStatusPublished: '公開済み',
+    formStatusArchived: 'アーカイブ済み',
+    formTitleLabel: 'タイトル',
+    formDescriptionLabel: '説明',
+    formIngredientsLabel: '材料',
+    formStepsLabel: '手順',
+    formOnePerLineHint: '1行に1つ',
+    formNoteTitleLabel: 'メモのタイトル（任意）',
+    formNoteBodyLabel: 'メモの内容（任意）',
+    formSaving: '保存中…',
+    formSaveChanges: '変更を保存',
+    formCreateRecipe: 'レシピを作成',
+    formCancel: 'キャンセル',
+    languageChangeWarning: 'このレシピの原文言語を変更しようとしています。既存のコンテンツは削除されません。',
   },
 };
 

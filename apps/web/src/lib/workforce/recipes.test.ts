@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getWorkforceRecipeDetail,
   groupRecipesByCategory,
+  hasRecipeManagerAccess,
   listWorkforceRecipes,
   permanentlyDeleteRecipe,
   setWorkforceRecipeArchived,
@@ -507,6 +508,46 @@ test('groupRecipesByCategory returns no uncategorized bucket when every recipe m
 
 test('groupRecipesByCategory handles empty input', () => {
   assert.deepEqual(groupRecipesByCategory([], []), []);
+});
+
+// -- hasRecipeManagerAccess -----------------------------------------------
+
+function throwingClient(): SupabaseClient {
+  const builder: Record<string, unknown> = {};
+  builder.schema = () => builder;
+  builder.rpc = () => {
+    throw new Error('network error');
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('hasRecipeManagerAccess returns true when api.has_permission_in_tenant reports the caller holds workforce.recipe.manage', async () => {
+  const { client } = recordingClient({ data: true, error: null });
+  assert.equal(await hasRecipeManagerAccess(client, 'tenant-a'), true);
+});
+
+test('hasRecipeManagerAccess returns false when the caller does not hold the permission (Staff)', async () => {
+  const { client } = recordingClient({ data: false, error: null });
+  assert.equal(await hasRecipeManagerAccess(client, 'tenant-a'), false);
+});
+
+test('hasRecipeManagerAccess fails closed to false on an RPC error', async () => {
+  const { client } = recordingClient({ data: null, error: { code: 'XX000', message: 'boom' } });
+  assert.equal(await hasRecipeManagerAccess(client, 'tenant-a'), false);
+});
+
+test('hasRecipeManagerAccess fails closed to false when the RPC call throws', async () => {
+  assert.equal(await hasRecipeManagerAccess(throwingClient(), 'tenant-a'), false);
+});
+
+test('hasRecipeManagerAccess calls api.has_permission_in_tenant with the workforce.recipe.manage key and tenant only -- no location, unlike hasManagerAccess', async () => {
+  const { client, calls } = recordingClient({ data: true, error: null });
+  await hasRecipeManagerAccess(client, 'tenant-a');
+
+  assert.deepEqual(calls.find((call) => call.method === 'schema')?.args, ['api']);
+  const rpcCall = calls.find((call) => call.method === 'rpc');
+  assert.equal(rpcCall?.args[0], 'has_permission_in_tenant');
+  assert.deepEqual(rpcCall?.args[1], { p_tenant_id: 'tenant-a', p_permission: 'workforce.recipe.manage' });
 });
 
 // -- source scan ---------------------------------------------------------
