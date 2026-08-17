@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { colors } from '@/lib/ui/theme';
 
 export const metadata: Metadata = {
-  title: 'LINE Business OS',
+  title: { default: 'LINE Business OS', template: '%s | LINE Business OS' },
   description: 'Multi-tenant SaaS platform for Japanese SMBs',
   icons: {
     icon: [

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
@@ -17,6 +18,8 @@ import { InventoryDashboardClient } from './inventory-dashboard-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { title: 'Inventory' };
 
 /**
  * Inventory / Daily Stock Check -- first capability of the reusable,

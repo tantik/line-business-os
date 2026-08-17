@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
@@ -16,6 +17,8 @@ import { RecipesListClient } from './recipes-list-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { title: 'Recipes' };
 
 /**
  * Recipe list, grouped by category. Reachable only when the tenant's
