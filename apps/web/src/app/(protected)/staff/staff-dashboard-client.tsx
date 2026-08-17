@@ -616,7 +616,7 @@ function StaffDashboardBody({
 
       <p style={{ marginTop: 16 }}>
         <Link href="/dashboard/workforce" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
-          Back to Workforce
+          {t('backToWorkforce')}
         </Link>
       </p>
     </>
