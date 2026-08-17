@@ -1,12 +1,18 @@
 'use client';
 
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
+import { setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { alertDanger, badgeStyle, buttonDisabled, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { buttonDanger } from '../../../../_ui/workforce-theme';
+import { describeWriteError } from '../../../../manager/error-copy';
+import { RecipeForm } from '../recipe-form';
 import { tRecipes } from '../recipes-i18n';
 
 export interface RecipeDetailClientProps {
@@ -16,6 +22,8 @@ export interface RecipeDetailClientProps {
   notes: WorkforceRecipeDetail['notes'];
   /** Every translatable field this recipe has, keyed for lookup by `field.key` -- see `resolveFieldDisplay`. */
   translationFields: RecipeTranslationField[];
+  /** Pure UX affordance (RLS is the real boundary regardless): whether to show Edit/Archive/Delete controls. */
+  canManage: boolean;
 }
 
 /**
@@ -33,9 +41,43 @@ export function RecipeDetailClient(props: RecipeDetailClientProps) {
   );
 }
 
-function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields }: RecipeDetailClientProps) {
+function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields, canManage }: RecipeDetailClientProps) {
   const { lang } = useLang();
+  const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  function handleSetArchived(archived: boolean) {
+    setError(null);
+    const formData = new FormData();
+    formData.set('recipeId', recipe.recipeId);
+    formData.set('archived', archived ? 'true' : 'false');
+    startTransition(async () => {
+      const result = await setRecipeArchived(formData);
+      if (result.status === 'success') {
+        router.refresh();
+      } else {
+        setError(describeWriteError(result));
+      }
+    });
+  }
+
+  function handleDeleteForever() {
+    if (!window.confirm(t('deleteForeverConfirm'))) return;
+    setError(null);
+    const formData = new FormData();
+    formData.set('recipeId', recipe.recipeId);
+    startTransition(async () => {
+      const result = await permanentlyDeleteRecipe(formData);
+      if (result.status === 'success') {
+        router.push('/dashboard/workforce/recipes');
+      } else {
+        setError(describeWriteError(result));
+      }
+    });
+  }
 
   const fieldByKey = new Map(translationFields.map((field) => [field.key, field]));
   /** Resolves one field's display text for the current `lang` -- falls back to the raw JA/EN column pair if this field somehow has no workspace entry (should not happen; defensive, not load-bearing). */
@@ -63,12 +105,51 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
         <PreviewLanguageToggle />
       </div>
       <header style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h1 style={{ margin: 0 }}>{title}</h1>
           {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
+          {recipe.status === 'draft' ? <span style={badgeStyle('neutral')}>{t('draftBadge')}</span> : null}
+          {recipe.status === 'archived' ? <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span> : null}
         </div>
         {description ? <p style={{ margin: '8px 0 0', ...mutedText }}>{description}</p> : null}
+        {error ? <div style={{ ...alertDanger, marginTop: 8 }}>{error}</div> : null}
+        {canManage ? (
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setEditing(true)}>
+              {t('editButton')}
+            </button>
+            {recipe.status === 'archived' ? (
+              <>
+                <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => handleSetArchived(false)}>
+                  {t('restoreButton')}
+                </button>
+                <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={handleDeleteForever}>
+                  {t('deleteForeverButton')}
+                </button>
+              </>
+            ) : (
+              <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => handleSetArchived(true)}>
+                {t('archiveButton')}
+              </button>
+            )}
+          </div>
+        ) : null}
       </header>
+
+      {canManage && editing ? (
+        <section style={card}>
+          <h2 style={{ margin: 0, fontSize: 15 }}>{t('editRecipeHeading')}</h2>
+          <RecipeForm
+            detail={{ recipe, ingredients, steps, notes }}
+            lang={lang}
+            onSuccess={() => {
+              setEditing(false);
+              router.refresh();
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </section>
+      ) : null}
 
       {recipe.contentKind === 'recipe' ? (
         <section style={card}>

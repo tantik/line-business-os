@@ -1,7 +1,7 @@
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { getWorkforceRecipeDetail } from '@/lib/workforce/recipes';
+import { getWorkforceRecipeDetail, hasRecipeManagerAccess } from '@/lib/workforce/recipes';
 import { listContentTranslationsForEntities } from '@/lib/content/translations';
 import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -50,7 +50,10 @@ export default async function WorkforceRecipeDetailPage({
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
 
-      const detailResult = await getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipeId);
+      const [detailResult, canManage] = await Promise.all([
+        getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipeId),
+        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+      ]);
 
       if (detailResult.status === 'unauthorized') return <UnauthorizedState />;
       if (detailResult.status !== 'success') return <ErrorState />;
@@ -75,7 +78,14 @@ export default async function WorkforceRecipeDetailPage({
       const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
 
       return (
-        <RecipeDetailClient recipe={recipe} ingredients={ingredients} steps={steps} notes={notes} translationFields={translationFields} />
+        <RecipeDetailClient
+          recipe={recipe}
+          ingredients={ingredients}
+          steps={steps}
+          notes={notes}
+          translationFields={translationFields}
+          canManage={canManage}
+        />
       );
     }
     case 'no_membership':

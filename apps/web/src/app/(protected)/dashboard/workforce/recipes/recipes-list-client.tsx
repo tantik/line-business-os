@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { RecipeForm } from './recipe-form';
 import { tRecipes } from './recipes-i18n';
 
 export interface RecipesListClientProps {
@@ -14,6 +17,8 @@ export interface RecipesListClientProps {
   groups: WorkforceRecipeGroup[] | null;
   /** Each recipe's title translation field, keyed by `recipeId` -- see `resolveFieldDisplay`. */
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  /** Pure UX affordance (RLS is the real boundary regardless): whether to show the Add-recipe control. */
+  canManage: boolean;
 }
 
 /**
@@ -31,9 +36,11 @@ export function RecipesListClient(props: RecipesListClientProps) {
   );
 }
 
-function RecipesListBody({ tenantName, groups, titleFieldByRecipeId }: RecipesListClientProps) {
+function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }: RecipesListClientProps) {
   const { lang } = useLang();
+  const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
+  const [adding, setAdding] = useState(false);
 
   function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
     const field = titleFieldByRecipeId[recipe.recipeId];
@@ -58,6 +65,28 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId }: RecipesLi
           {t('backToWorkforce')}
         </Link>
       </header>
+
+      {canManage ? (
+        <section style={card}>
+          {adding ? (
+            <>
+              <h2 style={{ margin: 0, fontSize: 15 }}>{t('newRecipeHeading')}</h2>
+              <RecipeForm
+                lang={lang}
+                onSuccess={() => {
+                  setAdding(false);
+                  router.refresh();
+                }}
+                onCancel={() => setAdding(false)}
+              />
+            </>
+          ) : (
+            <button type="button" style={buttonSecondary} onClick={() => setAdding(true)}>
+              {t('addRecipeButton')}
+            </button>
+          )}
+        </section>
+      ) : null}
 
       {groups === null ? (
         <section style={card}>
@@ -87,6 +116,11 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId }: RecipesLi
                     </Link>
                     {recipe.contentKind === 'instruction' ? (
                       <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('instructionBadge')}</span>
+                    ) : null}
+                    {recipe.status === 'draft' ? (
+                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('draftBadge')}</span>
+                    ) : recipe.status === 'archived' ? (
+                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('archivedBadge')}</span>
                     ) : null}
                   </li>
                 ))}

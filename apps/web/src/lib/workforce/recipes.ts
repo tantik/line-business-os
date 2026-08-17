@@ -175,6 +175,30 @@ export async function upsertWorkforceRecipe(
   }
 }
 
+/**
+ * Server-side gate for recipe management UI affordances (Add/Edit/Archive/
+ * Delete). Recipes are tenant-wide, not location-scoped (unlike Staff/
+ * schedule management, see `hasManagerAccess`), so this calls
+ * `api.has_permission_in_tenant` (0066) rather than `api.has_permission` --
+ * passing `null` as the latter's location would only match a tenant-wide
+ * role assignment, never a location-scoped Manager. A pre-check, not a
+ * substitute for RLS (`wf_recipes_*` policies, 0022, gate on the same
+ * `workforce.recipe.manage` permission regardless of this result). Any RPC
+ * error fails closed to `false`, never `true`.
+ */
+export async function hasRecipeManagerAccess(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.schema('api').rpc('has_permission_in_tenant', {
+      p_tenant_id: tenantId,
+      p_permission: 'workforce.recipe.manage',
+    });
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
 function compareRecipes(a: WorkforceRecipe, b: WorkforceRecipe): number {
   const kindPriority = Number(b.contentKind === 'instruction') - Number(a.contentKind === 'instruction');
   if (kindPriority !== 0) return kindPriority;

@@ -2,7 +2,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { groupRecipesByCategory, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -42,9 +42,10 @@ export default async function WorkforceRecipesPage() {
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
 
-      const [categoriesResult, recipesResult] = await Promise.all([
+      const [categoriesResult, recipesResult, canManage] = await Promise.all([
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
         listWorkforceRecipes(supabase, activeTenant.tenantId),
+        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
       ]);
 
       const groups =
@@ -80,7 +81,14 @@ export default async function WorkforceRecipesPage() {
             )
           : {};
 
-      return <RecipesListClient tenantName={activeTenant.tenantName} groups={groups} titleFieldByRecipeId={titleFieldByRecipeId} />;
+      return (
+        <RecipesListClient
+          tenantName={activeTenant.tenantName}
+          groups={groups}
+          titleFieldByRecipeId={titleFieldByRecipeId}
+          canManage={canManage}
+        />
+      );
     }
     case 'no_membership':
       return <NoTenantState />;
