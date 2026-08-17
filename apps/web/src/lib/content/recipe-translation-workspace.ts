@@ -63,7 +63,14 @@ function findTranslation(
   );
 }
 
-function makeField(
+/**
+ * Builds one `RecipeTranslationField` from a single source field's raw
+ * values. Exported so a caller that only needs one or two fields (e.g. a
+ * recipe list's title, without loading the whole recipe detail) can reuse
+ * the exact same existing/staleness resolution as the full workspace below,
+ * rather than re-deriving it.
+ */
+export function buildRecipeTranslationField(
   sourceEntityType: ContentSourceEntityType,
   sourceEntityId: string,
   sourceField: ContentSourceField,
@@ -109,13 +116,13 @@ export function buildRecipeTranslationWorkspace(
   const sections: RecipeTranslationSection[] = [
     {
       section: 'title',
-      fields: [makeField('workforce_recipe', recipe.recipeId, 'title', lang, titleSource, titleOther, translations)],
+      fields: [buildRecipeTranslationField('workforce_recipe', recipe.recipeId, 'title', lang, titleSource, titleOther, translations)],
     },
     {
       section: 'description',
       fields: descriptionSource
         ? [
-            makeField(
+            buildRecipeTranslationField(
               'workforce_recipe',
               recipe.recipeId,
               'description',
@@ -130,7 +137,7 @@ export function buildRecipeTranslationWorkspace(
     {
       section: 'ingredients',
       fields: ingredients.map((ingredient) =>
-        makeField(
+        buildRecipeTranslationField(
           'workforce_recipe_ingredient',
           ingredient.ingredientId,
           'label',
@@ -144,7 +151,7 @@ export function buildRecipeTranslationWorkspace(
     {
       section: 'steps',
       fields: steps.map((step) =>
-        makeField(
+        buildRecipeTranslationField(
           'workforce_recipe_step',
           step.stepId,
           'instruction',
@@ -158,7 +165,7 @@ export function buildRecipeTranslationWorkspace(
     {
       section: 'notes',
       fields: notes.flatMap((note) => [
-        makeField(
+        buildRecipeTranslationField(
           'workforce_recipe_note',
           note.noteId,
           'note_title',
@@ -167,7 +174,7 @@ export function buildRecipeTranslationWorkspace(
           isJa ? note.titleEn : note.titleJa,
           translations,
         ),
-        makeField(
+        buildRecipeTranslationField(
           'workforce_recipe_note',
           note.noteId,
           'note_body',
