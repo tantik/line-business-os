@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -177,6 +177,22 @@ function ManagerDashboardBody({
     stats?: { label: string; value: number }[];
   } | null>(null);
   const [addingStaff, setAddingStaff] = useState(false);
+  const addStaffButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeAddStaffForm() {
+    setAddingStaff(false);
+    // Restore focus to the control that opened this inline form -- it isn't
+    // a true dialog (no focus trap), but leaving focus on the just-removed
+    // form controls drops it to <body>, disorienting keyboard/screen-reader use.
+    requestAnimationFrame(() => addStaffButtonRef.current?.focus());
+  }
+
+  const editStaffButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
+
+  function closeEditStaffForm(staffId: string) {
+    setEditingStaffId(null);
+    requestAnimationFrame(() => editStaffButtonRefs.current.get(staffId)?.focus());
+  }
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
 
@@ -492,7 +508,7 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>{t('staffHeading')}</h2>
           {staff !== null && !addingStaff ? (
-            <button type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
+            <button ref={addStaffButtonRef} type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
               {t('addStaff')}
             </button>
           ) : null}
@@ -502,10 +518,10 @@ function ManagerDashboardBody({
           <StaffForm
             locationId={locationId}
             onSuccess={() => {
-              setAddingStaff(false);
+              closeAddStaffForm();
               router.refresh();
             }}
-            onCancel={() => setAddingStaff(false)}
+            onCancel={closeAddStaffForm}
           />
         ) : null}
 
@@ -537,10 +553,10 @@ function ManagerDashboardBody({
                           locationId={locationId}
                           employee={s}
                           onSuccess={() => {
-                            setEditingStaffId(null);
+                            closeEditStaffForm(s.staffId);
                             router.refresh();
                           }}
-                          onCancel={() => setEditingStaffId(null)}
+                          onCancel={() => closeEditStaffForm(s.staffId)}
                         />
                       </td>
                     </tr>
@@ -573,7 +589,15 @@ function ManagerDashboardBody({
                     </td>
                     <td style={tableCell}>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingStaffId(s.staffId)}>
+                        <button
+                          ref={(el) => {
+                            editStaffButtonRefs.current.set(s.staffId, el);
+                          }}
+                          type="button"
+                          style={buttonSecondary}
+                          disabled={isPending}
+                          onClick={() => setEditingStaffId(s.staffId)}
+                        >
                           {t('edit')}
                         </button>
                         <button

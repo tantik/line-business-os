@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { submitShiftPreference } from '@/lib/workforce/schedule-actions';
-import { alertDanger, buttonDisabled, buttonPrimary, input, mutedText } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, checkboxInput, checkboxLabel, input, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from './error-copy';
 import { tStaffDashboard } from './staff-dashboard-i18n';
 
@@ -51,8 +51,8 @@ export function ShiftPreferenceForm({ shiftTypes, defaultWorkDate, lang, onSucce
         <span style={{ ...mutedText, fontSize: 13 }}>{t('dateLabel')}</span>
         <input style={input} type="date" name="workDate" defaultValue={defaultWorkDate} required />
       </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="checkbox" checked={isUnavailable} onChange={(event) => setIsUnavailable(event.target.checked)} />
+      <label style={checkboxLabel}>
+        <input style={checkboxInput} type="checkbox" checked={isUnavailable} onChange={(event) => setIsUnavailable(event.target.checked)} />
         <span style={{ fontSize: 13 }}>{t('unavailableThisDayLabel')}</span>
       </label>
       {!isUnavailable ? (
