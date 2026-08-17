@@ -24,7 +24,7 @@ import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { existingExchangeMessage, inventoryShortageLabel, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
+import { existingExchangeMessage, inventoryShortageLabel, pageTitleWithName, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
 import {
   badgeStyle,
   buttonDisabled,
@@ -82,6 +82,10 @@ export interface StaffDashboardClientProps {
   periodEnd: string;
   weekOffset: number;
   profile: WorkforceMyStaffProfile;
+  /** The caller's own real display name, decrypted server-side via `api.workforce_staff_roster` (0061). `null` only if the roster read itself failed -- falls back to no name shown, never a placeholder. */
+  displayName: string | null;
+  /** Every visible coworker's (plus the caller's own) real display name, keyed by employee id -- same source as `displayName`, threaded through to the schedule grid so it can show real names instead of synthesized "Staff N" labels. */
+  staffNameById: Record<string, string>;
   shiftTypes: WorkforceShiftType[] | null;
   /** The caller's own `kind: 'preference'` shift requests (self-scoped by RLS), not date-filtered by the caller. */
   requests: WorkforceShiftRequest[] | null;
@@ -138,6 +142,8 @@ function StaffDashboardBody({
   periodEnd,
   weekOffset,
   profile,
+  displayName,
+  staffNameById,
   shiftTypes,
   requests,
   assignments,
@@ -201,8 +207,14 @@ function StaffDashboardBody({
   const dates = useMemo(() => dateRange(periodStart, periodEnd), [periodStart, periodEnd]);
 
   const staffList = useMemo(
-    () => buildStaffScheduleRoster(windowAssignments, profile.staffId, { me: t('meLabel'), colleaguePrefix: t('colleaguePrefixLabel') }),
-    [windowAssignments, profile.staffId, lang],
+    () =>
+      buildStaffScheduleRoster(
+        windowAssignments,
+        profile.staffId,
+        { me: t('meLabel'), colleaguePrefix: t('colleaguePrefixLabel') },
+        staffNameById,
+      ),
+    [windowAssignments, profile.staffId, lang, staffNameById],
   );
   const displayShiftTypes = useMemo(
     () => toStaffViewShiftTypes(shiftTypes ?? [], windowAssignments, dates, timeZone),
@@ -285,7 +297,7 @@ function StaffDashboardBody({
     <>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+          <h1 style={{ margin: 0 }}>{displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}</h1>
           <p style={{ margin: '8px 0 0', ...mutedText }}>
             {tenantName} - {locationName}
           </p>
@@ -306,6 +318,12 @@ function StaffDashboardBody({
       <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('profileHeading')}</h2>
         <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
+          {displayName ? (
+            <div>
+              <dt style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</dt>
+              <dd style={{ margin: 0 }}>{displayName}</dd>
+            </div>
+          ) : null}
           <div>
             <dt style={{ ...mutedText, fontSize: 13 }}>{t('positionLabel')}</dt>
             <dd style={{ margin: 0 }}>{profile.positionLabel ?? t('notSetLabel')}</dd>

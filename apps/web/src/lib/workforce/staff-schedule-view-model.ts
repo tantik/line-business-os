@@ -28,11 +28,13 @@ export interface StaffScheduleLabels {
   /** Row label for the signed-in caller's own row. */
   me: string;
   /**
-   * Prefix for a colleague's neutral, PII-free label (e.g. `"Staff"` renders
-   * as `"Staff #2"`). Other employees' encrypted names are deliberately not
-   * exposed to a Staff caller; the number is stable across renders/weeks
-   * because the roster is derived from the full preloaded assignment window,
-   * not just the currently displayed week (see `buildStaffScheduleRoster`).
+   * Fallback prefix for a colleague whose real name isn't available in
+   * `nameById` (e.g. `"Staff"` renders as `"Staff #2"`) -- should not happen
+   * in normal operation once `api.workforce_staff_roster` (0061) is wired in
+   * by the caller, but kept as a defensive fallback rather than a hard
+   * failure. The number is stable across renders/weeks because the roster is
+   * derived from the full preloaded assignment window, not just the
+   * currently displayed week (see `buildStaffScheduleRoster`).
    */
   colleaguePrefix: string;
 }
@@ -41,17 +43,25 @@ export interface StaffScheduleLabels {
  * Coworker roster with the caller's own row pinned first, derived from the
  * FULL preloaded multi-week assignment window rather than just the
  * currently displayed week. Scoping this to only the displayed week would
- * (a) let the same colleague get a different "Staff #N" number depending on
+ * (a) let the same colleague get a different fallback number depending on
  * which week happens to be open, and (b) drop a colleague with no shift in
  * the displayed week from the roster entirely - both read as "the schedule
  * shows the wrong person" under manual comparison against a stable,
  * week-independent roster (the exact regression this shape avoids, ported
  * from `preview-staff-schedule.tsx`).
+ *
+ * `nameById` supplies each employee's real display name (Cafe v2.1 QA audit
+ * P2-7/`api.workforce_staff_roster`, 0061: Staff members within the same
+ * schedule scope are not anonymous to each other -- a Founder decision, not
+ * the earlier "coworker names are PII-hidden from Staff" assumption this
+ * function used to encode). A missing entry falls back to the synthesized
+ * `colleaguePrefix` label rather than failing.
  */
 export function buildStaffScheduleRoster(
   windowAssignments: readonly WorkforceShiftAssignment[],
   ownStaffId: string,
   labels: StaffScheduleLabels,
+  nameById: Readonly<Record<string, string>> = {},
 ): StaffScheduleRosterEntry[] {
   const employeeIds = Array.from(
     new Set(
@@ -66,7 +76,7 @@ export function buildStaffScheduleRoster(
   let colleagueNumber = 0;
   return employeeIds.map((id) => ({
     id,
-    name: id === ownStaffId ? labels.me : `${labels.colleaguePrefix} ${++colleagueNumber}`,
+    name: id === ownStaffId ? labels.me : nameById[id] ?? `${labels.colleaguePrefix} ${++colleagueNumber}`,
     role: 'staff' as const,
   }));
 }
