@@ -85,7 +85,7 @@ function InventoryPreview({ enabled }: { enabled: boolean }) {
       <SectionHeader title="Inventory" description="Daily stock check for catalog items across your locations." />
       {enabled ? (
         <Link
-          href="/dashboard/inventory"
+          href="/inventory"
           style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}
         >
           Open Inventory

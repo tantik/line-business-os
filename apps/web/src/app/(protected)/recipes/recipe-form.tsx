@@ -6,7 +6,7 @@ import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { upsertRecipe } from '@/lib/workforce/recipe-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
-import { describeWriteError } from '../../../manager/error-copy';
+import { describeWriteError } from '../manager/error-copy';
 import { tRecipes } from './recipes-i18n';
 
 export interface RecipeFormProps {

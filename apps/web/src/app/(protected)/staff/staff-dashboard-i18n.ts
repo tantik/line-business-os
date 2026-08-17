@@ -92,6 +92,8 @@ interface StaffDashboardDict {
   correctionRequestSubmitted: string;
   // Page chrome (header, profile card)
   pageTitle: string;
+  navRecipes: string;
+  navInventory: string;
   backToWorkforce: string;
   signOut: string;
   profileHeading: string;
@@ -179,7 +181,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     workReportSubmitted: 'Work report submitted.',
     correctionRequestSubmitted: 'Correction request submitted.',
     pageTitle: 'Staff',
-    backToWorkforce: 'Back to Workforce',
+    navRecipes: 'Recipes',
+    navInventory: 'Inventory',
+    backToWorkforce: 'Platform dashboard',
     signOut: 'Sign out',
     profileHeading: 'My staff profile',
     positionLabel: 'Position',
@@ -263,7 +267,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     workReportSubmitted: '勤務報告を送信しました。',
     correctionRequestSubmitted: '修正依頼を送信しました。',
     pageTitle: 'スタッフ',
-    backToWorkforce: 'ワークフォースに戻る',
+    navRecipes: 'レシピ',
+    navInventory: '在庫',
+    backToWorkforce: 'プラットフォームダッシュボード',
     signOut: 'サインアウト',
     profileHeading: '自分のプロフィール',
     positionLabel: '役職',

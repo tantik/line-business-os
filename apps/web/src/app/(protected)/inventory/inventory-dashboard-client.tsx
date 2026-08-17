@@ -7,6 +7,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { SignOutButton } from '@/components/sign-out-button';
 import { badgeStyle, buttonPrimary, buttonSecondary, card, input, linkAccent, mutedText } from '@/lib/ui/theme';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
@@ -202,12 +203,18 @@ function InventoryDashboardBody({
       <header>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <PreviewLanguageToggle />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PreviewLanguageToggle />
+            <SignOutButton label={t('signOut')} />
+          </div>
         </div>
         <p style={{ margin: '8px 0 0', ...mutedText }}>
           {t('pageDescription')} {tenantName} — {locationName}.
         </p>
-        <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+        <Link
+          href={canManage ? '/manager' : '/staff'}
+          style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+        >
           {t('backToDashboard')}
         </Link>
       </header>

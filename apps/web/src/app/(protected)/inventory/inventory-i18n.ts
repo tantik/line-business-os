@@ -15,6 +15,7 @@ interface InventoryDashboardDict {
   pageTitle: string;
   pageDescription: string;
   backToDashboard: string;
+  signOut: string;
   unavailable: string;
   itemsSufficient: string;
   itemsShortage: string;
@@ -56,7 +57,8 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
   en: {
     pageTitle: 'Inventory',
     pageDescription: 'Daily stock check for',
-    backToDashboard: 'Back to dashboard',
+    backToDashboard: 'Back',
+    signOut: 'Sign out',
     unavailable: 'Inventory is temporarily unavailable.',
     itemsSufficient: 'All items sufficient',
     itemsShortage: 'item(s) need restocking',
@@ -96,7 +98,8 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
   ja: {
     pageTitle: '在庫',
     pageDescription: '日次在庫確認 -',
-    backToDashboard: 'ダッシュボードに戻る',
+    backToDashboard: '戻る',
+    signOut: 'サインアウト',
     unavailable: '在庫情報は一時的に利用できません。',
     itemsSufficient: 'すべての商品が十分です',
     itemsShortage: '件の商品が要補充です',

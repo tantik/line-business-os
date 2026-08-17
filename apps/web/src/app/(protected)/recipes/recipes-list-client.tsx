@@ -8,6 +8,7 @@ import type { RecipeTranslationField } from '@/lib/content/recipe-translation-wo
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { SignOutButton } from '@/components/sign-out-button';
 import { badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { RecipeForm } from './recipe-form';
 import { tRecipes } from './recipes-i18n';
@@ -53,13 +54,16 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
       <header>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <PreviewLanguageToggle />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PreviewLanguageToggle />
+            <SignOutButton label={t('signOut')} />
+          </div>
         </div>
         <p style={{ margin: '8px 0 0', ...mutedText }}>
           {t('pageDescription')} {tenantName}.
         </p>
         <Link
-          href="/dashboard/workforce"
+          href={canManage ? '/manager' : '/staff'}
           style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
         >
           {t('backToWorkforce')}
@@ -111,7 +115,7 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
               <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
                 {group.recipes.map((recipe) => (
                   <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8 }}>
-                    <Link href={`/dashboard/workforce/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
+                    <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
                       {recipeTitle(recipe)}
                     </Link>
                     {recipe.contentKind === 'instruction' ? (

@@ -144,7 +144,7 @@ function WorkforceLandingBody({ tenantName, canAccessManager, profileResult }: W
           <h2 style={{ margin: 0, fontSize: 16 }}>{t('recipesHeading')}</h2>
         </div>
         <p style={{ margin: '8px 0 0', ...mutedText }}>{t('recipesDescription')}</p>
-        <Link href="/dashboard/workforce/recipes" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
+        <Link href="/recipes" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
           {t('viewRecipes')}
         </Link>
       </section>

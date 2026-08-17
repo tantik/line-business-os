@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
  * two architecture decisions so a future edit can't silently regress them:
  *
  * 1. Inventory: the canonical Staff page reuses the existing, already-real
- *    `/dashboard/inventory` page (shared Staff+Manager, RLS-scoped) via a
+ *    `/inventory` page (shared Staff+Manager, RLS-scoped) via a
  *    read-only shortage summary + link, rather than duplicating a second
  *    write-capable Inventory UI inside the Workforce Staff page. This test
  *    fails if someone later copies a write action in directly instead.
@@ -25,16 +25,16 @@ test('staff page.tsx reads Inventory item status (read-only) for the entry-point
   assert.match(PAGE_SOURCE, /listInventoryItemStatus/, 'must read inventory item status for the shortage summary');
 });
 
-test('staff page.tsx never imports an Inventory write/mutation action -- writes stay on the canonical /dashboard/inventory page', () => {
+test('staff page.tsx never imports an Inventory write/mutation action -- writes stay on the canonical /inventory page', () => {
   assert.doesNotMatch(
     PAGE_SOURCE,
     /recordInventoryStockCount|inventory\/count-actions|inventory\/manager-actions/,
-    'the Staff page must not duplicate Inventory write actions; it only reads for display and links to /dashboard/inventory for the real write UI',
+    'the Staff page must not duplicate Inventory write actions; it only reads for display and links to /inventory for the real write UI',
   );
 });
 
-test('staff-dashboard-client.tsx links to the canonical /dashboard/inventory page rather than embedding a duplicate count-entry form', () => {
-  assert.match(CLIENT_SOURCE, /href="\/dashboard\/inventory"/, 'must link to the canonical Inventory page');
+test('staff-dashboard-client.tsx links to the canonical /inventory page rather than embedding a duplicate count-entry form', () => {
+  assert.match(CLIENT_SOURCE, /href="\/inventory"/, 'must link to the canonical Inventory page');
   assert.doesNotMatch(
     CLIENT_SOURCE,
     /CountForm|ItemForm|recordInventoryStockCountAction/,

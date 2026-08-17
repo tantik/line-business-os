@@ -289,9 +289,14 @@ function StaffDashboardBody({
           <p style={{ margin: '8px 0 0', ...mutedText }}>
             {tenantName} - {locationName}
           </p>
-          <Link href="/dashboard/workforce" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
-            {t('backToWorkforce')}
-          </Link>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+            <Link href="/recipes" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+              {t('navRecipes')}
+            </Link>
+            <Link href="/inventory" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+              {t('navInventory')}
+            </Link>
+          </nav>
         </div>
         <SignOutButton label={t('signOut')} />
       </header>
@@ -447,7 +452,7 @@ function StaffDashboardBody({
             <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{t('inventoryDescription')}</p>
           </div>
           {inventoryEnabled ? (
-            <Link href="/dashboard/inventory" style={{ ...buttonSecondary, textDecoration: 'none' }}>
+            <Link href="/inventory" style={{ ...buttonSecondary, textDecoration: 'none' }}>
               {t('inventoryOpen')}
               {inventoryItems ? ` (${inventoryItems.filter((i) => i.status === 'shortage').length})` : ''}
             </Link>
