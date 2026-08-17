@@ -431,3 +431,13 @@ export const attentionInventoryLabel: Record<Lang, (count: number) => string> = 
   en: (count) => `${count} inventory item(s) need restocking`,
   ja: (count) => `${count}件の商品が要補充です`,
 };
+
+export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} shift(s) assigned to a staff member who marked that day Unavailable`,
+  ja: (count) => `${count}件のシフトが、その日「不可」と回答したスタッフに割り当てられています`,
+};
+
+export const unavailableConflictBadgeLabel: Record<Lang, string> = {
+  en: '⚠ Unavailable',
+  ja: '⚠ 不可',
+};
