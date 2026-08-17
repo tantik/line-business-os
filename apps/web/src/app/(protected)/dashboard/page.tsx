@@ -1,5 +1,5 @@
 import { requireTenantContext } from '@/lib/tenant/context';
-import { signOut } from '@/lib/auth/actions';
+import { SignOutButton } from '@/components/sign-out-button';
 import { TenantSwitcher } from '@/components/tenant-switcher';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantLocations } from '@/lib/tenant/locations';
@@ -26,17 +26,6 @@ import {
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
-
-/** Minimal sign-out control; posts to the `signOut` Server Action. */
-function SignOutButton() {
-  return (
-    <form action={signOut}>
-      <button type="submit" style={buttonSecondary}>
-        Sign out
-      </button>
-    </form>
-  );
-}
 
 function DashboardCard({ children }: { children: ReactNode }) {
   return <section style={card}>{children}</section>;
