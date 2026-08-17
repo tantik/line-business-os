@@ -109,7 +109,8 @@ export function parseSubmitCorrectionRequestInput(formData: FormData): SubmitCor
 }
 
 // ============================================================================
-// Preview-specific correction-request validity contract (FA-02)
+// Strict correction-request validity contract (originally FA-02, Mame To Cha
+// preview; now the canonical Staff correction-request contract too)
 // ============================================================================
 
 export interface PreviewSubmitCorrectionRequestFormInput extends Omit<SubmitCorrectionRequestFormInput, 'message'> {
@@ -117,21 +118,17 @@ export interface PreviewSubmitCorrectionRequestFormInput extends Omit<SubmitCorr
 }
 
 /**
- * FA-02 fix: the Mame To Cha preview correction-request form requires (1) at
- * least one meaningful correction field (clock-in, clock-out, or break) and
- * (2) a non-blank reason - both required simultaneously, not either/or.
- * Layered strictly on top of the existing, more permissive
+ * Requires (1) at least one meaningful correction field (clock-in, clock-out,
+ * or break) and (2) a non-blank reason - both required simultaneously, not
+ * either/or. Layered strictly on top of the more permissive
  * `parseSubmitCorrectionRequestInput` (never a second reimplementation of its
- * date/time/uuid parsing - the dashboard's own correction-request form, which
- * has no time/break fields at all and reuses that same base parser, must keep
- * its existing looser contract unchanged). This stricter function is the
- * single preview validity contract, reused unchanged by both the client form
- * (pre-submit check, for immediate inline feedback) and
- * `previewSubmitCorrectionRequest` (the authoritative server boundary) - see
- * `PreviewCorrectionRequestForm` and `staff-attendance-actions.ts`. Before
- * this fix, every field was independently optional on this path, so an
- * all-blank submission (no time change, no reason) parsed successfully and
- * reached the database as an unactionable `Details: -` request.
+ * date/time/uuid parsing). Originally written for the since-deleted Mame To
+ * Cha preview form (Surface A, retired PR #266); adopted by the canonical
+ * `submitCorrectionRequest` server action (attendance-actions.ts) once the
+ * canonical Staff dashboard form gained matching time/break fields (Cafe
+ * v2.1 QA audit, P1-4, 2026-08-17) - without this, an all-blank submission
+ * (no time change, no reason) parsed successfully and reached the database
+ * as an unactionable `Details: -` request that Approve had nothing to apply.
  */
 export function parsePreviewSubmitCorrectionRequestInput(formData: FormData): PreviewSubmitCorrectionRequestFormInput | null {
   const base = parseSubmitCorrectionRequestInput(formData);
