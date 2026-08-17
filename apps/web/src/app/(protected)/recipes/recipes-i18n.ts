@@ -17,6 +17,7 @@ interface RecipesDict {
   pageDescription: string;
   backToWorkforce: string;
   backToRecipes: string;
+  signOut: string;
   unavailable: string;
   noRecipesYet: string;
   noRecipesInCategory: string;
@@ -67,8 +68,9 @@ const dictionary: Record<Lang, RecipesDict> = {
   en: {
     pageTitle: 'Recipes',
     pageDescription: 'Published recipes for',
-    backToWorkforce: 'Back to Workforce',
+    backToWorkforce: 'Back',
     backToRecipes: 'Back to recipes',
+    signOut: 'Sign out',
     unavailable: 'Recipes are temporarily unavailable.',
     noRecipesYet: 'No recipes available yet.',
     noRecipesInCategory: 'No recipes in this category yet.',
@@ -116,8 +118,9 @@ const dictionary: Record<Lang, RecipesDict> = {
   ja: {
     pageTitle: 'レシピ',
     pageDescription: '公開中のレシピ -',
-    backToWorkforce: 'ワークフォースに戻る',
+    backToWorkforce: '戻る',
     backToRecipes: 'レシピ一覧に戻る',
+    signOut: 'サインアウト',
     unavailable: 'レシピは一時的に利用できません。',
     noRecipesYet: 'まだ利用可能なレシピがありません。',
     noRecipesInCategory: 'このカテゴリにはまだレシピがありません。',

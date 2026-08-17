@@ -123,6 +123,8 @@ interface ManagerDashboardDict {
   // Page chrome
   pageTitle: string;
   signOut: string;
+  navRecipes: string;
+  navInventory: string;
   // Footer
   backToWorkforce: string;
   // Banner messages
@@ -245,7 +247,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     awaitingCandidate: 'awaiting candidate',
     pageTitle: 'Manager',
     signOut: 'Sign out',
-    backToWorkforce: 'Back to Workforce',
+    navRecipes: 'Recipes',
+    navInventory: 'Inventory',
+    backToWorkforce: 'Platform dashboard',
     staffActivated: 'Staff member activated.',
     staffDeactivated: 'Staff member deactivated.',
     shiftUnassigned: 'Shift unassigned.',
@@ -362,7 +366,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     awaitingCandidate: '交換相手を待っています',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
-    backToWorkforce: 'ワークフォースに戻る',
+    navRecipes: 'レシピ',
+    navInventory: '在庫',
+    backToWorkforce: 'プラットフォームダッシュボード',
     staffActivated: 'スタッフを有効化しました。',
     staffDeactivated: 'スタッフを無効化しました。',
     shiftUnassigned: 'シフトの割り当てを解除しました。',

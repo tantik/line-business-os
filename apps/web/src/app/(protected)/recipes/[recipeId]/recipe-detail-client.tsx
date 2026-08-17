@@ -9,9 +9,10 @@ import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { SignOutButton } from '@/components/sign-out-button';
 import { alertDanger, badgeStyle, buttonDisabled, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
-import { buttonDanger } from '../../../../_ui/workforce-theme';
-import { describeWriteError } from '../../../../manager/error-copy';
+import { buttonDanger } from '../../_ui/workforce-theme';
+import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
 import { tRecipes } from '../recipes-i18n';
 
@@ -72,7 +73,7 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
     startTransition(async () => {
       const result = await permanentlyDeleteRecipe(formData);
       if (result.status === 'success') {
-        router.push('/dashboard/workforce/recipes');
+        router.push('/recipes');
       } else {
         setError(describeWriteError(result));
       }
@@ -99,10 +100,13 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <Link href="/dashboard/workforce/recipes" style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}>
+        <Link href="/recipes" style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}>
           {t('backToRecipes')}
         </Link>
-        <PreviewLanguageToggle />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PreviewLanguageToggle />
+          <SignOutButton label={t('signOut')} />
+        </div>
       </div>
       <header style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
