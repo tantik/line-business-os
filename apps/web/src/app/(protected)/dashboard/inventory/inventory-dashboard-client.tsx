@@ -16,6 +16,8 @@ export interface InventoryDashboardClientProps {
   tenantName: string;
   locationName: string;
   locationId: string;
+  /** Location's IANA timezone, used to render `countedAt` consistently between server and client (avoids a hydration mismatch). */
+  locationTimezone: string;
   items: InventoryItemStatus[];
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show catalog management controls. */
   canManage: boolean;
@@ -42,6 +44,7 @@ function StatusBadge({ item, t }: { item: InventoryItemStatus; t: T }) {
 function ItemRow({
   item,
   locationId,
+  locationTimezone,
   canManage,
   staffNameById,
   onEdit,
@@ -50,6 +53,7 @@ function ItemRow({
 }: {
   item: InventoryItemStatus;
   locationId: string;
+  locationTimezone: string;
   canManage: boolean;
   staffNameById: Record<string, string>;
   onEdit: () => void;
@@ -70,7 +74,8 @@ function ItemRow({
           </p>
           {item.countedAt ? (
             <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
-              {t('lastUpdatedLabel')} {new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
+              {t('lastUpdatedLabel')}{' '}
+              {new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone })}
               {canManage && item.countedByStaffId
                 ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}`
                 : ''}
@@ -126,7 +131,15 @@ export function InventoryDashboardClient(props: InventoryDashboardClientProps) {
   );
 }
 
-function InventoryDashboardBody({ tenantName, locationName, locationId, items, canManage, staffNameById }: InventoryDashboardClientProps) {
+function InventoryDashboardBody({
+  tenantName,
+  locationName,
+  locationId,
+  locationTimezone,
+  items,
+  canManage,
+  staffNameById,
+}: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
   const router = useRouter();
@@ -245,6 +258,7 @@ function InventoryDashboardBody({ tenantName, locationName, locationId, items, c
                 key={item.itemId}
                 item={item}
                 locationId={locationId}
+                locationTimezone={locationTimezone}
                 canManage={canManage}
                 staffNameById={staffNameById}
                 onEdit={() => setEditing(item)}
