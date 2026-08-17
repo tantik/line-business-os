@@ -202,15 +202,37 @@ mobile items, in order:
    staff row, Cancel returns focus to the visible card's button (verified
    via `document.activeElement`, not just visually).
 
-**Not yet started, found live during the same audit, still open:**
+4. **PR #296 (Manager header: group JA/EN toggle with Sign-out)** —
+   merged. Manager's language toggle rendered in its own
+   `justifyContent:'flex-end'` div below the header, disconnected from
+   title/nav/Sign-out -- at 375px this left a large empty gap before it
+   floated alone at the right edge. Root-caused by comparing against
+   Recipes/Inventory, which already group the toggle with Sign-out inside
+   the header row (`alignItems:'center', gap:8`) -- Manager was the only
+   outlier of the 3 checked (Recipes, Inventory, Manager; Staff's toggle is
+   intentionally elsewhere, near the schedule section's own controls, and
+   does not have this bug). Fixed by moving the toggle into the same button
+   group as `SignOutButton`, matching the established pattern. Live-verified
+   at 375px: toggle and Sign-out render together right after the nav links,
+   no orphaned gap.
 
-- **Header/page-chrome layout** (`/manager`, likely `/staff` too): title →
-  subtitle → nav links → Sign-out button → JA/EN toggle all stack
-  vertically with inconsistent spacing/alignment at 375px, unlike the
-  prototype's compact single-row-ish header with a circular avatar mark.
-  Not started, not yet root-caused (may just need a `display:flex` header
-  container with sensible wrap, unlike the button-wrap bug this wasn't
-  investigated in code, only observed visually).
+**Manager mobile-parity redesign (WP-D) is now substantially complete** as
+of PR #296 -- button/badge wrap (#290), Staff roster cards (#291), schedule
+grid cards (#293), and header chrome (#296) all merged and live-verified at
+375px. Staff (WP-E) was audited and found to need no equivalent code work
+(see below). Remaining known gaps, none blocking:
+
+- `workforce-landing-client.tsx` and `admin-dashboard-client.tsx` headers
+  were **not checked** for the same orphaned-toggle pattern PR #296 fixed on
+  Manager -- both are lower-priority surfaces (workforce-landing is the
+  superseded pre-`/manager`/`/staff` shell per `current-task.md` §2.1;
+  admin is internal tooling, not customer-facing Cafe product) but worth a
+  quick check if picking up more polish work.
+- No formal side-by-side screenshot diff against the Mame To Cha prototype
+  was produced (the original mission brief's "difference table" ask) --
+  this session's audit was live-interactive (chrome-devtools MCP snapshots/
+  screenshots reviewed inline) rather than a saved artifact. If the Founder
+  specifically wants a retained visual diff document, that's still open.
 - **Staff surface (`/staff`) audited live at 375px this session, signed in
   as `staff@mame-to-cha.test`** (田中 愛) -- **found already in
   substantially better mobile shape than Manager was, no new blocking bug
@@ -246,20 +268,13 @@ should confirm priority with the Founder if unclear, per the mission's own
 instruction that the agent picks the implementation but should not silently
 assume scope beyond what's been asked.
 
-1. **Mobile redesign, Manager (`WP-D`) and Staff (`WP-E` — a different
-   "WP-E" than the Staff-name fix above; the QA report's WP lettering and
-   this session's PR branch names diverged, see the "naming caveat" in §7)**.
-   **Not started at all.** This is the single largest remaining item and
-   was explicitly called out in both the QA report and the Founder's
-   mission brief as needing a *deliberate* mobile structure (card layout
-   for Manager staff/schedule at `<768px`, week-list/card layout + bottom
-   nav for Staff), not a shrunk desktop table. Reference:
-   `https://preview.oruwa.jp/mame-to-cha/manager` and
-   `.../mame-to-cha/` at 375px viewport. QA report §5 "P2-2"/"P2-3" and §10
-   "WP-D"/"WP-E" have the detailed acceptance criteria (no vertical
-   Japanese-name columns, no cell taller than ~100px from wrapping, 44px
-   touch targets, etc.). Budget multiple hours/PRs for this, not one.
-2. **P2-9 — published-shift amendment/cancel workflow.** Currently a
+1. ~~**Mobile redesign, Manager (`WP-D`) and Staff (`WP-E`).**~~ **DONE as
+   of the 2026-08-17→18 continuation session** -- see §3a for full detail
+   (PRs #290, #291, #293, #296) and the small remaining polish items listed
+   there (workforce-landing/admin headers unchecked, no saved visual-diff
+   artifact). Do not re-start this from scratch; re-read §3a first.
+2. **P2-9 — published-shift amendment/cancel workflow.** **Now the single
+   largest remaining item.** Currently a
    published shift is fully read-only in the Manager schedule grid ("公開済み
    -- 変更不可" / "Published -- read-only"). QA report wants a *safe*
    amendment path (reason required, audit before/after, staff notification,
@@ -312,28 +327,44 @@ assume scope beyond what's been asked.
 
 ## 6. How to continue (recommended immediate next step)
 
-**Updated status (end of the 2026-08-17 continuation session):** Manager
-mobile layout is substantially fixed -- PR #290 (button/badge text-wrap,
+**Updated status (end of the 2026-08-17→18 continuation session):**
+Manager+Staff mobile-parity redesign (§4 item 1, formerly the single
+largest remaining item) is **done** -- PR #290 (button/badge text-wrap,
 app-wide), PR #291 (Staff roster card layout), PR #293 (schedule-grid
-day-grouped card layout) all merged to `dev` and live-verified at 375px
-(including `document.activeElement` checks for focus-restore, not just
-screenshots). §3a has the full detail per-PR; don't re-do this work.
+day-grouped card layout), PR #296 (Manager header chrome) all merged to
+`dev` and live-verified at 375px (including `document.activeElement`
+checks for focus-restore, not just screenshots). §3a has the full detail
+per-PR; don't re-do this work. **P2-9 (published-shift amendment/cancel
+workflow) is now the next largest item** -- see §4 item 2.
 
 1. Re-read `docs/ai/current-task.md` fresh (its "next gate" section is
    stale relative to this mission — this handoff supersedes it for Cafe
    work, but confirm nothing else changed).
-2. Remaining Manager-surface mobile items, still open (see §3a for detail,
-   this is just the pointer):
-   - Header/page-chrome layout (title/subtitle/nav/Sign-out/JA-EN stacking)
-     -- not root-caused yet, needs its own look at the JSX, not just theme.ts.
-   - **Staff surface (`/staff`) itself has not been audited this session at
-     all** -- sign in as `staff@mame-to-cha.test` (not the Manager account)
-     and repeat the same live-375px-audit-then-fix loop before assuming any
-     Manager fix above (theme.ts in particular, since it's shared) carried
-     over. This is likely the next highest-value slice: the mission brief's
-     original "WP-E" (Staff mobile) is explicitly still unconfirmed.
-3. Follow the same per-PR discipline this session used: one bounded PR per
-   WP, typecheck/lint/test/build every time, **live Preview QA before
+2. **P2-9 needs a real design decision before any code**: what RPC/status
+   transition represents "amend a published shift" (a new status distinct
+   from draft/published? a reason-required mutation on the existing
+   published row plus an audit trail table/column? re-open to draft then
+   re-publish?), what "staff notification" means given this codebase has no
+   notification/email infra beyond the Supabase Auth invite emails (check
+   `docs/foundation/platform-foundation-roadmap.md` -- Notifications engine
+   is still Horizon C/not built), and what "conflict recheck" reuses from
+   the existing `computeUnavailableConflictCellKeys` (PR #288) machinery.
+   **If this genuinely requires a new migration** (new column/status/audit
+   table), write and locally-test it, but do **not** run `supabase db push`
+   /`db pull`/`migration repair` against Supabase Cloud without explicit
+   Founder approval -- that is one of `CLAUDE.md`'s four hard-gated
+   constraints and is not covered by the routine commit/push/PR/merge
+   authority already granted for this mission. Flag the migration clearly
+   and wait for approval before pushing it; local schema work and app code
+   can still proceed and be reviewed.
+3. Lower-priority items after P2-9, in the order §4 lists them: P2-5
+   (Inventory i18n -- needs re-confirmation, may already be a non-issue),
+   P3 minor items (44px sweep, page titles, Recipe Published badge, Back-
+   link audit, noindex), auto-distribution preview/undo, disposable-fixture
+   cleanup script. These are individually small and bounded -- good
+   candidates if P2-9's design decision needs Founder input before coding.
+4. Follow the same per-PR discipline this session used: one bounded PR per
+   item, typecheck/lint/test/build every time, **live Preview QA before
    merge** (not just "tests pass" -- for focus-restore specifically, check
    `document.activeElement` via `evaluate_script`, don't just eyeball a
    screenshot), clean up any disposable test fixtures created during QA.
