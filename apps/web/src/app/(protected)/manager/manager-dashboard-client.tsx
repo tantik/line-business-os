@@ -114,17 +114,6 @@ function formatWeekday(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
 }
 
-/** Renders the requested clock-in/out/break a correction's `details` carries (see `submitCorrectionRequest`/`decideCorrectionRequest`, shift-requests.ts), so Manager sees what will actually be applied on approval -- not just the free-text reason. */
-function formatRequestedCorrectionChange(details: Record<string, unknown>): string {
-  const clockIn = typeof details.clockInLocal === 'string' ? details.clockInLocal : null;
-  const clockOut = typeof details.clockOutLocal === 'string' ? details.clockOutLocal : null;
-  const breakMinutes = typeof details.actualBreakMinutes === 'number' ? details.actualBreakMinutes : null;
-  const parts: string[] = [];
-  if (clockIn || clockOut) parts.push(`${clockIn ?? '-'} - ${clockOut ?? '-'}`);
-  if (breakMinutes !== null) parts.push(`${breakMinutes}min break`);
-  return parts.length > 0 ? parts.join(', ') : '-';
-}
-
 /**
  * Outer wrapper: mounts the shared `LangProvider` (`@/lib/demo/cafe/i18n`,
  * the same JA/EN mechanism the canonical Staff dashboard already uses)
@@ -847,7 +836,6 @@ function ManagerDashboardBody({
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
                     <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
@@ -868,7 +856,6 @@ function ManagerDashboardBody({
                             ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
                             : '-'}
                         </td>
-                        <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
                         <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
                         <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                         <td style={tableCell}>
@@ -910,7 +897,6 @@ function ManagerDashboardBody({
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
                       <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
@@ -929,7 +915,6 @@ function ManagerDashboardBody({
                               ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
                               : '-'}
                           </td>
-                          <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
                           <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
                           <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
                           <td style={tableCell}>
