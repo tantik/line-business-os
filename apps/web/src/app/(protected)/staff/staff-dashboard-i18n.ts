@@ -77,6 +77,10 @@ interface StaffDashboardDict {
   correctionRequestDescription: string;
   relatedWorkReportLabel: string;
   relatedWorkReportNone: string;
+  currentClockTimesLabel: string;
+  requestedClockInLabel: string;
+  requestedClockOutLabel: string;
+  requestedBreakLabel: string;
   correctionMessageLabel: string;
   submitCorrectionRequest: string;
   myCorrectionsHeading: string;
@@ -151,7 +155,11 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
       "If a submitted work report is wrong, describe the correction here -- your manager reviews it separately.",
     relatedWorkReportLabel: 'Related work report (optional)',
     relatedWorkReportNone: 'None',
-    correctionMessageLabel: 'Message',
+    currentClockTimesLabel: 'Current clock-in / clock-out',
+    requestedClockInLabel: 'Requested clock-in (optional)',
+    requestedClockOutLabel: 'Requested clock-out (optional)',
+    requestedBreakLabel: 'Requested break minutes (optional)',
+    correctionMessageLabel: 'Reason',
     submitCorrectionRequest: 'Submit correction request',
     myCorrectionsHeading: 'My correction requests this week',
     myCorrectionsUnavailable: 'Your correction requests are temporarily unavailable.',
@@ -222,7 +230,11 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     correctionRequestDescription: '提出した勤務報告に誤りがある場合は、ここに修正内容を記入してください。マネージャーが別途確認します。',
     relatedWorkReportLabel: '関連する勤務報告（任意）',
     relatedWorkReportNone: 'なし',
-    correctionMessageLabel: 'メッセージ',
+    currentClockTimesLabel: '現在の出勤・退勤時刻',
+    requestedClockInLabel: '希望する出勤時刻（任意）',
+    requestedClockOutLabel: '希望する退勤時刻（任意）',
+    requestedBreakLabel: '希望する休憩時間（分・任意）',
+    correctionMessageLabel: '理由',
     submitCorrectionRequest: '修正依頼を提出',
     myCorrectionsHeading: '今週の修正依頼',
     myCorrectionsUnavailable: '修正依頼は一時的に利用できません。',

@@ -9,7 +9,7 @@ import { submitCorrectionRequest as submitCorrectionRequestWrite, decideCorrecti
 import { localDateTimeToUtcIso } from './timezone';
 import {
   parseDecideCorrectionRequestInput,
-  parseSubmitCorrectionRequestInput,
+  parsePreviewSubmitCorrectionRequestInput as parseStrictSubmitCorrectionRequestInput,
   parseSubmitWorkReportInput,
 } from './attendance-input';
 import type { WorkforceWriteResult } from './result-types';
@@ -66,7 +66,7 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
 }
 
 export async function submitCorrectionRequest(formData: FormData): Promise<WorkforceWriteResult<WorkforceShiftRequest>> {
-  const input = parseSubmitCorrectionRequestInput(formData);
+  const input = parseStrictSubmitCorrectionRequestInput(formData);
   if (!input) return INVALID_INPUT_RESULT;
 
   const tenantContext = await requireTenantContext();
@@ -79,12 +79,18 @@ export async function submitCorrectionRequest(formData: FormData): Promise<Workf
   if (myProfile.status !== 'success') return myProfile;
   if (!myProfile.data) return NO_STAFF_PROFILE_RESULT;
 
+  const details: Record<string, unknown> = {};
+  if (input.message) details.message = input.message;
+  if (input.clockInLocal !== undefined) details.clockInLocal = input.clockInLocal;
+  if (input.clockOutLocal !== undefined) details.clockOutLocal = input.clockOutLocal;
+  if (input.actualBreakMinutes !== null) details.actualBreakMinutes = input.actualBreakMinutes;
+
   return submitCorrectionRequestWrite(supabase, tenantId, {
     employeeId: myProfile.data.staffId,
     locationId: myProfile.data.locationId,
     workDate: input.workDate,
     attendanceId: input.attendanceId,
-    details: input.message ? { message: input.message } : {},
+    details,
   });
 }
 
