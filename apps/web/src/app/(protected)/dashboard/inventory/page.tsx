@@ -105,6 +105,7 @@ export default async function InventoryPage() {
               tenantName={activeTenant.tenantName}
               locationName={location.locationName}
               locationId={location.locationId}
+              locationTimezone={location.timezone}
               items={itemsResult.data}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}

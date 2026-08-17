@@ -44,6 +44,12 @@ interface InventoryDashboardDict {
   sortOrderLabel: string;
   saveChangesButton: string;
   cancelButton: string;
+  filterAll: string;
+  filterShortage: string;
+  filterOk: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  noItemsMatchFilter: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -80,6 +86,12 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     sortOrderLabel: 'Sort order',
     saveChangesButton: 'Save changes',
     cancelButton: 'Cancel',
+    filterAll: 'All',
+    filterShortage: 'Need reorder',
+    filterOk: 'OK',
+    searchLabel: 'Search',
+    searchPlaceholder: 'Search items…',
+    noItemsMatchFilter: 'No items match this filter.',
   },
   ja: {
     pageTitle: '在庫',
@@ -114,6 +126,12 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     sortOrderLabel: '表示順',
     saveChangesButton: '変更を保存',
     cancelButton: 'キャンセル',
+    filterAll: 'すべて',
+    filterShortage: '要補充',
+    filterOk: 'OK',
+    searchLabel: '検索',
+    searchPlaceholder: '商品を検索…',
+    noItemsMatchFilter: '該当する商品がありません。',
   },
 };
 

@@ -7,7 +7,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { badgeStyle, buttonSecondary, card, linkAccent, mutedText } from '@/lib/ui/theme';
+import { badgeStyle, buttonPrimary, buttonSecondary, card, input, linkAccent, mutedText } from '@/lib/ui/theme';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
 import { tInventoryDashboard } from './inventory-i18n';
@@ -16,6 +16,8 @@ export interface InventoryDashboardClientProps {
   tenantName: string;
   locationName: string;
   locationId: string;
+  /** Location's IANA timezone, used to render `countedAt` consistently between server and client (avoids a hydration mismatch). */
+  locationTimezone: string;
   items: InventoryItemStatus[];
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show catalog management controls. */
   canManage: boolean;
@@ -42,6 +44,7 @@ function StatusBadge({ item, t }: { item: InventoryItemStatus; t: T }) {
 function ItemRow({
   item,
   locationId,
+  locationTimezone,
   canManage,
   staffNameById,
   onEdit,
@@ -50,6 +53,7 @@ function ItemRow({
 }: {
   item: InventoryItemStatus;
   locationId: string;
+  locationTimezone: string;
   canManage: boolean;
   staffNameById: Record<string, string>;
   onEdit: () => void;
@@ -70,7 +74,8 @@ function ItemRow({
           </p>
           {item.countedAt ? (
             <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
-              {t('lastUpdatedLabel')} {new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
+              {t('lastUpdatedLabel')}{' '}
+              {new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone })}
               {canManage && item.countedByStaffId
                 ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}`
                 : ''}
@@ -126,13 +131,29 @@ export function InventoryDashboardClient(props: InventoryDashboardClientProps) {
   );
 }
 
-function InventoryDashboardBody({ tenantName, locationName, locationId, items, canManage, staffNameById }: InventoryDashboardClientProps) {
+function InventoryDashboardBody({
+  tenantName,
+  locationName,
+  locationId,
+  locationTimezone,
+  items,
+  canManage,
+  staffNameById,
+}: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
   const router = useRouter();
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
+  const [search, setSearch] = useState('');
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleItems = items.filter(
+    (item) =>
+      (statusFilter === 'all' || (statusFilter === 'shortage' ? item.status === 'shortage' : item.status !== 'shortage')) &&
+      (normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch)),
+  );
   const editingItem =
     editing && editing !== 'new'
       ? {
@@ -203,18 +224,50 @@ function InventoryDashboardBody({ tenantName, locationName, locationId, items, c
           <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
         </section>
       ) : (
-        items.map((item) => (
-          <ItemRow
-            key={item.itemId}
-            item={item}
-            locationId={locationId}
-            canManage={canManage}
-            staffNameById={staffNameById}
-            onEdit={() => setEditing(item)}
-            lang={lang}
-            t={t}
-          />
-        ))
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['all', 'shortage', 'ok'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  style={statusFilter === value ? buttonPrimary : buttonSecondary}
+                  onClick={() => setStatusFilter(value)}
+                >
+                  {value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : t('filterOk')}
+                </button>
+              ))}
+            </div>
+            <input
+              style={{ ...input, flex: 1, minWidth: 160 }}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchLabel')}
+            />
+          </div>
+
+          {visibleItems.length === 0 ? (
+            <section style={card}>
+              <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
+            </section>
+          ) : (
+            visibleItems.map((item) => (
+              <ItemRow
+                key={item.itemId}
+                item={item}
+                locationId={locationId}
+                locationTimezone={locationTimezone}
+                canManage={canManage}
+                staffNameById={staffNameById}
+                onEdit={() => setEditing(item)}
+                lang={lang}
+                t={t}
+              />
+            ))
+          )}
+        </>
       )}
     </>
   );
