@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
@@ -160,6 +160,18 @@ function InventoryDashboardBody({
     // the just-removed form controls drops it to <body>.
     requestAnimationFrame(() => editTriggerRef.current?.focus());
   }
+
+  // Escape closes the inline Add/Edit item form -- not a true dialog (no
+  // overlay/focus trap), but a keyboard user still expects Escape to back
+  // out of an open form, same as a real dialog would.
+  useEffect(() => {
+    if (!editing) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeEditor();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editing]);
 
   const shortageCount = items.filter((i) => i.status === 'shortage').length;
   const normalizedSearch = search.trim().toLowerCase();

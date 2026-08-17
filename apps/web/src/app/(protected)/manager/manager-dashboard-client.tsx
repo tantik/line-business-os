@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -200,6 +200,21 @@ function ManagerDashboardBody({
   }
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
+
+  // Escape closes whichever inline Add/Edit form is currently open -- these
+  // aren't true dialogs (no overlay/focus trap), but a keyboard user still
+  // expects Escape to back out of an open form, same as a real dialog would.
+  useEffect(() => {
+    if (!addingStaff && !editingStaffId && !editingCellKey) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (addingStaff) closeAddStaffForm();
+      else if (editingStaffId) closeEditStaffForm(editingStaffId);
+      else if (editingCellKey) setEditingCellKey(null);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [addingStaff, editingStaffId, editingCellKey]);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
