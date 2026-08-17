@@ -19,7 +19,7 @@ import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { computeManagerAttention, type ManagerAttentionCategory } from '@/lib/workforce/manager-attention';
+import { computeManagerAttention, computeUnavailableConflictCellKeys, type ManagerAttentionCategory } from '@/lib/workforce/manager-attention';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -27,12 +27,14 @@ import {
   attentionCorrectionLabel,
   attentionExchangeLabel,
   attentionInventoryLabel,
+  attentionUnavailableConflictLabel,
   autoDistributionCreatedMessage,
   breakMinutesValue,
   preferencesHeadingValue,
   publishedCountMessage,
   scheduleHeadingValue,
   tManagerDashboard,
+  unavailableConflictBadgeLabel,
 } from './manager-dashboard-i18n';
 import {
   alertDanger,
@@ -147,6 +149,7 @@ export function ManagerDashboardClient(props: ManagerDashboardClientProps) {
 const ATTENTION_ANCHOR: Record<ManagerAttentionCategory, string> = {
   correction: '#correction-requests',
   exchange: '#shift-exchange-requests',
+  unavailable_conflict: '#weekly-schedule',
   inventory: '/inventory',
 };
 
@@ -299,19 +302,10 @@ function ManagerDashboardBody({
     [inventoryEnabled, inventoryItems],
   );
 
-  const attentionItems = useMemo(
-    () =>
-      computeManagerAttention({
-        pendingCorrectionCount: pendingCorrections.length,
-        pendingExchangeCount: pendingExchanges.length,
-        inventoryShortageCount,
-      }),
-    [pendingCorrections.length, pendingExchanges.length, inventoryShortageCount],
-  );
-
   const attentionLabel: Record<ManagerAttentionCategory, (count: number) => string> = {
     correction: (count) => attentionCorrectionLabel[lang](count),
     exchange: (count) => attentionExchangeLabel[lang](count),
+    unavailable_conflict: (count) => attentionUnavailableConflictLabel[lang](count),
     inventory: (count) => attentionInventoryLabel[lang](count),
   };
 
@@ -323,6 +317,25 @@ function ManagerDashboardBody({
         return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
       }),
     [assignments, timeZone],
+  );
+
+  // Cafe v2.1 QA audit P2-10: employee/date pairs with both a submitted
+  // Unavailable preference and a currently assigned (draft or published)
+  // shift -- previously publishable with no warning at all.
+  const unavailableConflictCellKeys = useMemo(
+    () => computeUnavailableConflictCellKeys(requests ?? [], localAssignments.map((a) => ({ employeeId: a.assignment.employeeId, workDate: a.workDate }))),
+    [requests, localAssignments],
+  );
+
+  const attentionItems = useMemo(
+    () =>
+      computeManagerAttention({
+        pendingCorrectionCount: pendingCorrections.length,
+        pendingExchangeCount: pendingExchanges.length,
+        unavailableConflictCount: unavailableConflictCellKeys.size,
+        inventoryShortageCount,
+      }),
+    [pendingCorrections.length, pendingExchanges.length, unavailableConflictCellKeys, inventoryShortageCount],
   );
 
   function assignmentFor(staffId: string, date: string) {
@@ -666,7 +679,7 @@ function ManagerDashboardBody({
         )}
       </section>
 
-      <section style={primaryCard}>
+      <section id="weekly-schedule" style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -772,6 +785,9 @@ function ManagerDashboardBody({
                             <span style={{ ...mutedText, fontSize: 12 }}>
                               {entry.startsAtLocal} - {entry.endsAtLocal}
                             </span>
+                            {unavailableConflictCellKeys.has(key) ? (
+                              <span style={badgeStyle('warning')}>{unavailableConflictBadgeLabel[lang]}</span>
+                            ) : null}
                             {entry.assignment.published ? (
                               <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
                             ) : (
