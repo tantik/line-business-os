@@ -148,6 +148,78 @@ varying slightly by branch base — always 0 fail), and
 
 ---
 
+## 3a. Mobile-redesign progress (this continuation session, still 2026-08-17)
+
+Parity audit performed live at 375px (chrome-devtools MCP, mobile viewport
+emulation `375x812x2,mobile,touch` — plain window resize does **not**
+change `window.innerWidth`/CSS media-query results on this Windows/Chrome
+setup, only `emulate({viewport: ...})` does; don't rely on `resize_page`
+alone for mobile QA) against the canonical `/manager` signed in as
+`manager@mame-to-cha.test`. Root cause found and fixed for two of the
+mobile items, in order:
+
+1. **PR #290 (button/badge text-wrapping app-wide)** — merged. Every shared
+   button/badge style in `apps/web/src/lib/ui/theme.ts`
+   (`buttonPrimary`/`buttonSecondary`/`buttonDisabled`/`badgeStyle`) had no
+   `whiteSpace`/`flexShrink` protection, so inside any `display:flex` row
+   under space pressure (headers, the Attention panel, table action cells)
+   labels shrank to min-content and wrapped one character per line — CJK
+   labels (サインアウト, 確認する, 割り当て) collapsed into unreadable
+   vertical stacks, and English ones ("Sign out") wrapped word-by-word too.
+   Fixed at the shared theme source; live-confirmed on the Attention panel,
+   header Sign-out, and schedule-grid assign/unassign buttons.
+2. **PR #291 (Staff roster → card layout at <768px)** — merged. The Staff
+   table was a fixed 7-column `<table>`; at 375px the auto table-layout
+   squeezed `positionLabel`/`employmentType` columns to min-content and CJK
+   text (no word boundaries) wrapped one character per line inside the
+   cell -- same underlying class of bug as #1 but on plain `<td>` text, not
+   buttons, so the theme fix alone didn't cover it. Added
+   `apps/web/src/app/(protected)/manager/manager-dashboard.module.css` --
+   **the first CSS file/CSS Module in this codebase** (everything else is
+   inline `CSSProperties` via `theme.ts`, which cannot express a media
+   query at all) -- with `.tableView`/`.cardView` classes toggled by a
+   `max-width: 767px` query. Both the table and the new stacked-card markup
+   render server-side for every request; only one is visible per viewport,
+   so there's no JS `matchMedia` flash. Preserved the PR #286 Edit-button
+   focus-restore pattern: since table and card variants both mount at once
+   now, `editStaffButtonRefs` keys `{table, card}` per staffId and
+   `closeEditStaffForm()` focuses whichever one has a non-null
+   `offsetParent` (the actually-visible one) instead of whichever mounted
+   last. Live-confirmed: cards render correctly, Edit opens the inline
+   form, Cancel returns focus to the visible card's Edit button.
+
+**Not yet started, found live during the same audit, still open:**
+
+- **Schedule grid (週間スケジュール) mobile layout.** At 375px only ~2 of 7
+  day columns fit in the horizontally-scrollable wrapper (`overflowX:
+  'auto'` div around the `<table style={{minWidth: 640}}>` in
+  `manager-dashboard-client.tsx`, roughly line 682+ as of this handoff --
+  re-check line numbers, they will have shifted). Row height is tall
+  (~106px pre-#290-fix, better now that assign/unassign buttons don't wrap,
+  but still not audited against the "~100px" QA acceptance target). This
+  needs the same kind of design decision the Staff table got (card-per-day
+  or card-per-staff-with-horizontal-day-scroll, or a genuinely different
+  mobile schedule UI) -- **budget a dedicated PR, don't bolt it onto
+  another change.** A branch `fix/cafe-v21-wp-d-schedule-grid-mobile` was
+  created off `origin/dev` for this at the end of this session but **no
+  code was written on it yet**.
+- **Header/page-chrome layout** (`/manager`, likely `/staff` too): title →
+  subtitle → nav links → Sign-out button → JA/EN toggle all stack
+  vertically with inconsistent spacing/alignment at 375px, unlike the
+  prototype's compact single-row-ish header with a circular avatar mark.
+  Not started, not yet root-caused (may just need a `display:flex` header
+  container with sensible wrap, unlike the button-wrap bug this wasn't
+  investigated in code, only observed visually).
+- **Staff surface (`/staff`) itself** was not audited this session beyond
+  confirming the manager test account has no staff profile there (expected
+  -- it's a Manager account). The actual Staff-role mobile view (WP-E in
+  the QA report's lettering, see §7 naming caveat) still needs its own
+  375px live audit signed in as `staff@mame-to-cha.test` before any code
+  changes -- do not assume the Manager fixes above (theme.ts, in
+  particular) haven't already improved it somewhat, since `theme.ts` is
+  shared; but the Staff-specific week-list/card layout and bottom nav the
+  original mission brief asked for is still unconfirmed either way.
+
 ## 4. What is NOT done — the actual remaining scope
 
 Ordered roughly by size, not necessarily by priority — the next session
