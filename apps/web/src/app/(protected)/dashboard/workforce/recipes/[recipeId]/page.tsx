@@ -2,6 +2,8 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { getWorkforceRecipeDetail } from '@/lib/workforce/recipes';
+import { listContentTranslationsForEntities } from '@/lib/content/translations';
+import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
 import {
   ErrorState,
   MissingConfigState,
@@ -56,7 +58,25 @@ export default async function WorkforceRecipeDetailPage({
 
       const { recipe, ingredients, steps, notes } = detailResult.data;
 
-      return <RecipeDetailClient recipe={recipe} ingredients={ingredients} steps={steps} notes={notes} />;
+      // Every field this recipe can carry a translation for, in one query --
+      // `content_translations` rows for the recipe itself plus each
+      // ingredient/step/note. Feeds `resolveFieldDisplay` client-side so an
+      // EN viewer actually sees the saved English translation instead of the
+      // JA source (Cafe v2.1 QA audit P1-3, 2026-08-17: previously nothing
+      // read this table at all, so switching to EN only translated page
+      // chrome, never recipe content).
+      const translationsResult = await listContentTranslationsForEntities(supabase, activeTenant.tenantId, [
+        { sourceEntityType: 'workforce_recipe', sourceEntityId: recipe.recipeId },
+        ...ingredients.map((i) => ({ sourceEntityType: 'workforce_recipe_ingredient' as const, sourceEntityId: i.ingredientId })),
+        ...steps.map((s) => ({ sourceEntityType: 'workforce_recipe_step' as const, sourceEntityId: s.stepId })),
+        ...notes.map((n) => ({ sourceEntityType: 'workforce_recipe_note' as const, sourceEntityId: n.noteId })),
+      ]);
+      const translations = translationsResult.status === 'success' ? translationsResult.data : [];
+      const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
+
+      return (
+        <RecipeDetailClient recipe={recipe} ingredients={ingredients} steps={steps} notes={notes} translationFields={translationFields} />
+      );
     }
     case 'no_membership':
       return <NoTenantState />;

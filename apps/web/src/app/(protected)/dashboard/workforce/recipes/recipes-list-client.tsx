@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
+import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
+import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { badgeStyle, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
@@ -10,6 +12,8 @@ import { tRecipes } from './recipes-i18n';
 export interface RecipesListClientProps {
   tenantName: string;
   groups: WorkforceRecipeGroup[] | null;
+  /** Each recipe's title translation field, keyed by `recipeId` -- see `resolveFieldDisplay`. */
+  titleFieldByRecipeId: Record<string, RecipeTranslationField>;
 }
 
 /**
@@ -27,9 +31,15 @@ export function RecipesListClient(props: RecipesListClientProps) {
   );
 }
 
-function RecipesListBody({ tenantName, groups }: RecipesListClientProps) {
+function RecipesListBody({ tenantName, groups, titleFieldByRecipeId }: RecipesListClientProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
+
+  function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
+    const field = titleFieldByRecipeId[recipe.recipeId];
+    if (!field) return recipe.titleJa || recipe.titleEn || recipe.recipeId;
+    return resolveFieldDisplay(field, lang).text || recipe.recipeId;
+  }
 
   return (
     <>
@@ -73,7 +83,7 @@ function RecipesListBody({ tenantName, groups }: RecipesListClientProps) {
                 {group.recipes.map((recipe) => (
                   <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8 }}>
                     <Link href={`/dashboard/workforce/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
-                      {recipe.titleJa || recipe.titleEn || recipe.recipeId}
+                      {recipeTitle(recipe)}
                     </Link>
                     {recipe.contentKind === 'instruction' ? (
                       <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('instructionBadge')}</span>
