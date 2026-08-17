@@ -613,12 +613,11 @@ function ManagerDashboardBody({
             </Link>
           </nav>
         </div>
-        <SignOutButton label={t('signOut')} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <PreviewLanguageToggle variant="dark" />
+          <SignOutButton label={t('signOut')} />
+        </div>
       </header>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <PreviewLanguageToggle variant="dark" />
-      </div>
 
       <section style={{ ...card, borderLeft: `3px solid ${attentionItems.length > 0 ? colors.warning : colors.success}` }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('attentionHeading')}</h2>
