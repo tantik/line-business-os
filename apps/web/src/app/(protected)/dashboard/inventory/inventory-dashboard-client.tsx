@@ -227,7 +227,7 @@ function InventoryDashboardBody({ tenantName, locationName, locationId, items, c
             </div>
             <input
               style={{ ...input, flex: 1, minWidth: 160 }}
-              type="search"
+              type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('searchPlaceholder')}
