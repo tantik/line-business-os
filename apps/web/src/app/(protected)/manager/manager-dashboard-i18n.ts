@@ -101,6 +101,7 @@ interface ManagerDashboardDict {
   noPendingCorrections: string;
   colMessage: string;
   colAttendance: string;
+  colRequested: string;
   colTransportation: string;
   colDailyMessage: string;
   approve: string;
@@ -221,6 +222,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     noPendingCorrections: 'No pending correction requests.',
     colMessage: 'Message',
     colAttendance: 'Attendance',
+    colRequested: 'Requested change',
     colTransportation: 'Transportation',
     colDailyMessage: 'Daily message',
     approve: 'Approve',
@@ -335,6 +337,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     noPendingCorrections: '保留中の修正依頼はありません。',
     colMessage: 'メッセージ',
     colAttendance: '勤怠',
+    colRequested: '希望する変更',
     colTransportation: '交通費',
     colDailyMessage: '当日のメッセージ',
     approve: '承認',
