@@ -53,6 +53,16 @@ export const mutedText: CSSProperties = { color: colors.textMuted };
 /** WCAG 2.5.5 / mobile touch-target minimum (44x44 CSS px) shared by every clickable control below. */
 export const minTouchTarget = 44;
 
+/**
+ * `whiteSpace: 'nowrap'` + `flexShrink: 0` on every button style below is
+ * load-bearing, not decoration: a button placed in a `display: flex` row
+ * (headers, Attention-panel rows, table-cell action groups) otherwise
+ * shrinks to its min-content width under space pressure, and since CJK text
+ * has no word boundaries, that min-content width can be a single character
+ * -- collapsing "サインアウト"/"確認する" into an unreadable vertical
+ * one-character-per-line stack at narrow (mobile) widths. Cafe v2.1
+ * hardening mobile-parity audit, 2026-08-17.
+ */
 export const buttonPrimary: CSSProperties = {
   minHeight: minTouchTarget,
   padding: '10px 16px',
@@ -63,6 +73,8 @@ export const buttonPrimary: CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 export const buttonSecondary: CSSProperties = {
@@ -75,6 +87,8 @@ export const buttonSecondary: CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 export const buttonDisabled: CSSProperties = {
@@ -86,6 +100,8 @@ export const buttonDisabled: CSSProperties = {
   borderRadius: 8,
   fontSize: 14,
   cursor: 'not-allowed',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 export const linkAccent: CSSProperties = {
@@ -157,5 +173,6 @@ export function badgeStyle(tone: BadgeTone): CSSProperties {
     color: t.color,
     fontSize: 12,
     lineHeight: 1.5,
+    whiteSpace: 'nowrap',
   };
 }
