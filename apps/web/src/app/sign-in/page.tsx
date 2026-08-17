@@ -1,5 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
+import { DASHBOARD_PATH, resolvePostLoginPath } from '@/lib/auth/post-login-redirect';
+import { getActiveTenantContext } from '@/lib/tenant/context';
+import { createClient } from '@/lib/supabase/server';
 import { sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { alertDanger, mutedText, pageStyle } from '@/lib/ui/theme';
 import { SignInForm } from './SignInForm';
@@ -13,7 +16,8 @@ import { SignInForm } from './SignInForm';
  * is a small client component only so it can track a local `isSubmitting`
  * flag for the pending/disabled button state; it does not intercept or
  * replace the submission itself. Already authenticated visitors are sent
- * straight to the dashboard. A generic error is shown when `?error=1` is
+ * straight to their role's primary workspace (`resolvePostLoginPath`), same
+ * as a fresh sign-in. A generic error is shown when `?error=1` is
  * present (set by the action on bad input or failed auth) - we never reveal
  * which field was wrong or echo the auth error.
  *
@@ -31,7 +35,16 @@ export default async function SignInPage({
   const safeReturnTo = sanitizePreviewReturnTo(params?.returnTo);
 
   const user = await getCurrentUser();
-  if (user) redirect(safeReturnTo ?? '/dashboard');
+  if (user) {
+    if (safeReturnTo) redirect(safeReturnTo);
+    let destination: string = DASHBOARD_PATH;
+    const tenantContext = await getActiveTenantContext({ user });
+    if (tenantContext.status === 'success') {
+      const supabase = await createClient();
+      destination = await resolvePostLoginPath(supabase, tenantContext.data.activeTenant.tenantId);
+    }
+    redirect(destination);
+  }
 
   const hasError = Boolean(params?.error);
 

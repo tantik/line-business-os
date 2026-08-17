@@ -3,9 +3,11 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getActiveTenantContext } from '@/lib/tenant/context';
 import { SIGN_IN_PATH } from './require-user';
 import { parseCredentials } from './credentials';
 import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/return-to';
+import { DASHBOARD_PATH, resolvePostLoginPath } from './post-login-redirect';
 
 /**
  * Server Actions for the minimal email/password auth flow.
@@ -27,9 +29,6 @@ import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/ret
  *   authenticated, redirect to /sign-in" check), so the redirect appears to do
  *   nothing until a manual reload forces a fresh fetch.
  */
-
-/** Where a successful sign-in lands. The protected layout re-checks auth. */
-const DASHBOARD_PATH = '/dashboard';
 
 export async function signIn(formData: FormData): Promise<void> {
   // Re-sanitize server-side rather than trusting the hidden form field as-is -
@@ -58,7 +57,17 @@ export async function signIn(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/', 'layout');
-  redirect(safeReturnTo ?? DASHBOARD_PATH);
+  if (safeReturnTo) redirect(safeReturnTo);
+
+  // No explicit destination (e.g. an invite deep link) was requested: land
+  // on the caller's role-appropriate workspace instead of the generic
+  // `/dashboard` shell every sign-in previously used regardless of role.
+  let destination: string = DASHBOARD_PATH;
+  const tenantContext = await getActiveTenantContext();
+  if (tenantContext.status === 'success') {
+    destination = await resolvePostLoginPath(supabase, tenantContext.data.activeTenant.tenantId);
+  }
+  redirect(destination);
 }
 
 export async function signOut(): Promise<void> {
