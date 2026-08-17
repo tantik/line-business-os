@@ -173,7 +173,27 @@ test('toStaffViewAssignments only includes published rows within the displayed d
     ['2026-08-10', '2026-08-11'],
     'Asia/Tokyo',
   );
-  assert.deepEqual(result, [{ staffId: 'staff-1', date: '2026-08-10', shiftTypeId: 'am' }]);
+  assert.deepEqual(result, [
+    { staffId: 'staff-1', date: '2026-08-10', shiftTypeId: 'am', startTime: '08:00', endTime: '14:00' },
+  ]);
+});
+
+test('toStaffViewAssignments carries the assignment\'s own local start/end time even with no shiftTypeId -- a custom shift is still real and must not disappear from the grid (Cafe v2.1 QA audit P1-6, 2026-08-17)', () => {
+  const result = toStaffViewAssignments(
+    [
+      assignment({
+        employeeId: 'staff-1',
+        shiftTypeId: null,
+        startsAt: '2026-08-10T01:00:00.000Z', // 2026-08-10 10:00 JST
+        endsAt: '2026-08-10T05:30:00.000Z', // 2026-08-10 14:30 JST
+      }),
+    ],
+    ['2026-08-10'],
+    'Asia/Tokyo',
+  );
+  assert.deepEqual(result, [
+    { staffId: 'staff-1', date: '2026-08-10', shiftTypeId: null, startTime: '10:00', endTime: '14:30' },
+  ]);
 });
 
 test('toStaffViewShiftTypes includes active types plus any inactive type still referenced in the displayed week', () => {

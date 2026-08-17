@@ -690,6 +690,9 @@ function ManagerDashboardBody({
                                 {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
                               </span>
                             </div>
+                            <span style={{ ...mutedText, fontSize: 12 }}>
+                              {entry.startsAtLocal} - {entry.endsAtLocal}
+                            </span>
                             {entry.assignment.published ? (
                               <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
                             ) : (

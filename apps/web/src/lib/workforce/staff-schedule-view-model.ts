@@ -109,10 +109,13 @@ export function toStaffViewAssignments(
     if (!assignment.published || !assignment.employeeId) continue;
     const start = utcIsoToLocalDateTime(assignment.startsAt, timeZone);
     if (!dates.includes(start.workDate)) continue;
+    const end = utcIsoToLocalDateTime(assignment.endsAt, timeZone);
     displayAssignments.push({
       staffId: assignment.employeeId,
       date: start.workDate,
       shiftTypeId: assignment.shiftTypeId,
+      startTime: start.localTime,
+      endTime: end.localTime,
     });
   }
   return displayAssignments;

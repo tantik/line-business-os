@@ -32,6 +32,17 @@ export interface ShiftAssignment {
   staffId: string;
   date: string;
   shiftTypeId: ShiftTypeId | null;
+  /**
+   * The assignment's own local start/end time, independent of `shiftTypeId`.
+   * A custom shift (no `shiftTypeId`) still has a real time -- without this,
+   * a renderer that only knows how to look up `shiftTypeId` in the shift-type
+   * catalog has nothing to show for it and silently renders empty, even
+   * though the shift is real and already counted in scheduled-hours totals
+   * (Cafe v2.1 QA audit P1-6, 2026-08-17). Optional so existing demo-only
+   * callers that never set it are unaffected.
+   */
+  startTime?: string;
+  endTime?: string;
 }
 
 /** Demo-only work-time correction request a staff member can attach to a past shift report. */
