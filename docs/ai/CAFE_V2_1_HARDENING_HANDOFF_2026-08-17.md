@@ -333,13 +333,49 @@ assume scope beyond what's been asked.
      destination -- the QA report's original complaint predates the IA
      reconciliation (PR #246) that made `/manager`/`/staff` canonical, and
      may already be stale.
-5. **Auto-distribution preview/undo contract** (QA report WP-G item,
-   distinct from the P2-10 conflict-warning work also called "WP-G" in this
-   session — see naming caveat below) — not started, not scoped in detail
-   yet.
+5. ~~**Auto-distribution preview/undo contract**~~ (QA report WP-G item,
+   distinct from the P2-10 conflict-warning work also called "WP-G" earlier
+   in this session — see naming caveat below). **Undo half DONE, PR #304**;
+   **preview half deliberately not attempted, still open.**
+   - **Undo**: `runAutoDistribution` already `.select('assignment_id')`ed
+     its inserted rows (only the count was used); now returns those ids as
+     `createdAssignmentIds`. New `unassignDraftShiftAssignments` bulk-nulls
+     `employee_id` on exactly those ids (filtered to `published = false`,
+     defense in depth) -- same practical effect as clicking "Unassign" on
+     each cell by hand, deliberately not a DELETE, so **no new
+     migration/grant/Cloud push was needed at all**. Manager dashboard shows
+     an "Undo auto-distribution" button next to the result banner whenever
+     `draftCount > 0` (local component state, not persistent).
+   - **Verification caveat, be honest about this**: unit-tested both
+     directions (insert-returns-ids, unassign-filters-correctly, 2 new
+     tests) and the *negative* path (`draftCount === 0` -> no Undo button,
+     no error) was confirmed live twice on Preview (current week and
+     `weekOffset=-8`/`+8`). **The positive path (a real Undo click
+     reverting real drafts) was NOT exercised live** -- this shared
+     Preview tenant's AM/PM staffing requirement (1+1/day, hardcoded
+     default) is already satisfied by other sessions' accumulated
+     published fixtures across the *entire* reachable ±8-week range, so
+     every attempted run produced `draftCount: 0` and never reached the
+     positive branch. Manually clearing a published shift to force a gap
+     was deliberately avoided (§1's "don't touch other people's fixtures"
+     rule) rather than risk-testing around it. **If this needs stronger
+     verification before being trusted**: either test against a
+     fresh/emptier tenant, or temporarily raise
+     `DEFAULT_STAFFING_REQUIREMENTS`
+     (`manager-dashboard-client.tsx`) for a manual local check, then revert.
+   - **Preview** (showing the proposed distribution *before* writing
+     anything) needs `runAutoDistribution`'s single fetch+compute+insert
+     Server Action split into two: a preview step returning the proposed
+     draft list without inserting, and a confirm step that inserts exactly
+     what was shown. That's real surgery, not attempted this pass.
 6. **Disposable acceptance-fixture manifest/cleanup script** (QA report's
-   own "WP-H") — not started. Not urgent; this session's live QA cleaned up
-   after itself manually each time instead.
+   own "WP-H") — not started. Not urgent; every session including this one
+   (see §1's fixture-hygiene note) has cleaned up its own fixtures manually
+   instead. Given how much accumulated fixture noise now exists in this
+   shared Preview tenant (see the auto-distribution verification caveat
+   just above -- it's dense enough to make some testing scenarios hard to
+   reach), this may be worth prioritizing sooner than "not urgent" implies
+   if the next session hits a similar wall.
 
 ---
 
@@ -364,15 +400,19 @@ assume scope beyond what's been asked.
 
 **Updated status (end of the 2026-08-17→18 continuation session):** Of
 §4's original 6 items, **1 (mobile redesign), 3 (P2-5 Inventory i18n), and
-4 (P3 minor items) are now fully DONE and closed.** Remaining: **2 (P2-9,
-published-shift amendment) is the single largest remaining item and the
-right next thing to pick up**; 5 (auto-distribution preview/undo) and 6
-(disposable-fixture cleanup script) remain not-started/low-priority. This
-session merged 13 PRs total (#290, #291, #293, #296, #299, #300, #301,
-#302 code + #292, #294, #295, #297, #298 docs-only handoff updates), every
-one typecheck/lint/test/build green and live-Preview-QA verified before
-merge -- see §3a and §4 for full per-PR detail. Don't re-derive or re-do
-any of this from the QA report; treat this handoff as current.
+4 (P3 minor items) are fully DONE; 5 (auto-distribution preview/undo) is
+half done** (Undo shipped, PR #304; Preview still open, needs a bigger
+refactor). Remaining: **2 (P2-9, published-shift amendment) is the single
+largest remaining item and needs a Founder design checkpoint before any
+code**; the Preview half of item 5 and item 6 (disposable-fixture cleanup
+script) are the next-best bounded work if P2-9 is blocked on that input.
+This session merged 14 PRs total (#290, #291, #293, #296, #299, #300,
+#301, #302, #304 code + #292, #294, #295, #297, #298, #303 docs-only
+handoff updates), every one typecheck/lint/test/build green, with live-
+Preview-QA before merge for every PR except #304's positive-path Undo
+click (see §4 item 5's verification caveat -- honestly documented there,
+not swept under the rug). Don't re-derive or re-do any of this from the QA
+report; treat this handoff as current.
 
 1. Re-read `docs/ai/current-task.md` fresh (its "next gate" section is
    stale relative to this mission — this handoff supersedes it for Cafe
@@ -397,10 +437,14 @@ any of this from the QA report; treat this handoff as current.
    can't be made without Founder input, don't guess and build the wrong
    thing** -- fall back to item 3 below instead.
 3. Lower-priority items after P2-9, in the order §4 lists them:
-   auto-distribution preview/undo contract (not scoped in detail yet --
-   read the QA report's own WP-G section first), disposable-fixture
-   manifest/cleanup script (not urgent, this and the prior session both
-   cleaned up manually instead). Both are individually small and bounded.
+   auto-distribution **Preview** (Undo is already done, PR #304 -- this is
+   the harder remaining half, needs `runAutoDistribution` split into a
+   preview-then-confirm two-step, see §4 item 5), disposable-fixture
+   manifest/cleanup script (§4 item 6 now flags this as possibly worth
+   doing *sooner* than "not urgent" -- the shared Preview tenant is dense
+   enough with old fixtures that it blocked live-verifying PR #304's
+   positive Undo path; a cleanup pass could unblock that kind of testing
+   for future sessions too). Both are individually small and bounded.
 4. Follow the same per-PR discipline this session used: one bounded PR per
    item, typecheck/lint/test/build every time, **live Preview QA before
    merge** (not just "tests pass" -- for focus-restore specifically, check
