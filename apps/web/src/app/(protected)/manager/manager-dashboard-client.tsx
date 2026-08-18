@@ -17,6 +17,7 @@ import type { RecipeTranslationField } from '@/lib/content/recipe-translation-wo
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, undoAutoDistribution, publishSchedule } from '@/lib/workforce/schedule-actions';
+import { estimatedLabourCostSoFar } from '@/lib/workforce/labour-cost';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
@@ -76,6 +77,20 @@ const alertSuccess = {
   borderRadius: 8,
   padding: '8px 12px',
   fontSize: 14,
+} as const;
+
+/** Small circular "?" info button (WP A6/A7 section-help popups). */
+const helpButtonStyle = {
+  width: 24,
+  height: 24,
+  borderRadius: 999,
+  border: `1px solid ${colors.border}`,
+  background: colors.surfaceElevated,
+  color: colors.textPrimary,
+  fontSize: 13,
+  lineHeight: 1,
+  cursor: 'pointer',
+  flexShrink: 0,
 } as const;
 
 /**
@@ -205,6 +220,7 @@ function ManagerDashboardBody({
   const [editingCell, setEditingCell] = useState<{ staffId: string; date: string } | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
+  const [labourCostHelpOpen, setLabourCostHelpOpen] = useState(false);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
@@ -316,6 +332,23 @@ function ManagerDashboardBody({
         shiftTypeById,
       ),
     [shiftTypes, localAssignments, dates, shiftTypeById],
+  );
+
+  // WP A7: estimated labour cost = hours already worked as of now, for the
+  // displayed week -- not the full theoretical week (deliberate, see
+  // labour-cost.ts's own doc comment). `asOfIso` is computed once per mount,
+  // same SSR/hydration-tolerant pattern this file already uses for `todayIso`.
+  const asOfIso = useMemo(() => new Date().toISOString(), []);
+  const labourCost = useMemo(
+    () =>
+      estimatedLabourCostSoFar(
+        (staff ?? []).map((s) => ({ staffId: s.staffId, name: s.name, isActive: s.isActive, hourlyWageYen: s.hourlyWageYen })),
+        attendance ?? [],
+        periodStart,
+        periodEnd,
+        asOfIso,
+      ),
+    [staff, attendance, periodStart, periodEnd, asOfIso],
   );
 
   const attentionItems = useMemo(
@@ -626,23 +659,7 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
-            <button
-              type="button"
-              aria-label={t('scheduleHelpAriaLabel')}
-              onClick={() => setScheduleHelpOpen(true)}
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 999,
-                border: `1px solid ${colors.border}`,
-                background: colors.surfaceElevated,
-                color: colors.textPrimary,
-                fontSize: 13,
-                lineHeight: 1,
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
+            <button type="button" aria-label={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} style={helpButtonStyle}>
               ?
             </button>
           </div>
@@ -757,8 +774,52 @@ function ManagerDashboardBody({
         )}
       </section>
 
+      <section style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{t('labourCostHeading')}</h2>
+          <button type="button" aria-label={t('labourCostHelpAriaLabel')} onClick={() => setLabourCostHelpOpen(true)} style={helpButtonStyle}>
+            ?
+          </button>
+        </div>
+        {labourCost.perStaff.length === 0 ? (
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('labourCostEmpty')}</p>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colName')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupWorkedHours')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupHourlyWage')}</th>
+                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupEarnedSoFar')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {labourCost.perStaff.map((entry) => (
+                    <tr key={entry.staffId}>
+                      <td style={tableCell}>{entry.name}</td>
+                      <td style={tableCell}>{entry.workedHours}</td>
+                      <td style={tableCell}>{entry.hourlyWageYen ?? '-'}</td>
+                      <td style={tableCell}>{entry.estimatedCostYen ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ margin: '12px 0 0', fontWeight: 600 }}>
+              {t('labourCostTotal')}: {labourCost.totalCostYen ?? '-'}
+            </p>
+          </>
+        )}
+      </section>
+
       <Modal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} title={t('scheduleHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</div>
+      </Modal>
+
+      <Modal open={labourCostHelpOpen} onClose={() => setLabourCostHelpOpen(false)} title={t('labourCostHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('labourCostHelpBody')}</div>
       </Modal>
 
       <StaffNameDetailPopup

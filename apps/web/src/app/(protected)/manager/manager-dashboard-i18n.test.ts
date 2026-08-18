@@ -39,6 +39,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'scheduleHelpAriaLabel', 'scheduleHelpTitle', 'scheduleHelpBody',
   'staffNamePopupTitlePrefix', 'staffNamePopupMonth', 'staffNamePopupWorkedHours', 'staffNamePopupHourlyWage',
   'staffNamePopupEarnedSoFar', 'staffNamePopupCopyReport', 'staffNamePopupCopied', 'staffNamePopupCopyFailed',
+  'labourCostHeading', 'labourCostHelpAriaLabel', 'labourCostHelpTitle', 'labourCostHelpBody', 'labourCostEmpty', 'labourCostTotal',
   'shiftTypesHeading', 'shiftTypesUnavailable', 'shiftTypesEmpty', 'colCode', 'colLabel', 'colTime', 'colBreak',
   'fieldEmployee', 'fieldShiftType', 'shiftTypeCustom', 'fieldStart', 'fieldEnd', 'fieldBreakMinutes', 'save',
   'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
