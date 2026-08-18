@@ -13,7 +13,7 @@ import {
   NoTenantState,
   UnauthorizedState,
 } from '@/components/states';
-import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { InventoryDashboardClient } from './inventory-dashboard-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
@@ -67,7 +67,7 @@ export default async function InventoryPage() {
           <main style={pageStyle(880)}>
             <header>
               <h1 style={{ margin: 0 }}>Inventory</h1>
-              <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+              <Link href="/dashboard" style={{ ...backLink, marginTop: 12 }}>
                 Back to dashboard
               </Link>
             </header>
@@ -117,7 +117,7 @@ export default async function InventoryPage() {
             <>
               <header>
                 <h1 style={{ margin: 0 }}>Inventory</h1>
-                <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+                <Link href="/dashboard" style={{ ...backLink, marginTop: 12 }}>
                   Back to dashboard
                 </Link>
               </header>

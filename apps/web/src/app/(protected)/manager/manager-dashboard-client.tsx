@@ -38,13 +38,13 @@ import {
 } from './manager-dashboard-i18n';
 import {
   alertDanger,
+  backLink,
   badgeStyle,
   buttonDisabled,
   buttonPrimary,
   buttonSecondary,
   card,
   colors,
-  linkAccent,
   mutedText,
   tableCell,
   tableHeaderCell,
@@ -605,10 +605,10 @@ function ManagerDashboardBody({
             {tenantName} - {locationName}
           </p>
           <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-            <Link href="/recipes" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+            <Link href="/recipes" style={backLink}>
               {t('navRecipes')}
             </Link>
-            <Link href="/inventory" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+            <Link href="/inventory" style={backLink}>
               {t('navInventory')}
             </Link>
           </nav>
@@ -1278,7 +1278,7 @@ function ManagerDashboardBody({
       </section>
 
       <p style={{ marginTop: 16 }}>
-        <Link href="/dashboard/workforce" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+        <Link href="/dashboard/workforce" style={backLink}>
           {t('backToWorkforce')}
         </Link>
       </p>

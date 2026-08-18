@@ -22,7 +22,7 @@ import {
   NoTenantState,
   UnauthorizedState,
 } from '@/components/states';
-import { card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { StaffDashboardClient } from './staff-dashboard-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
@@ -44,7 +44,7 @@ function BackLink() {
   return (
     <Link
       href="/dashboard/workforce"
-      style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
+      style={{ ...backLink, marginTop: 12 }}
     >
       Back to Workforce
     </Link>

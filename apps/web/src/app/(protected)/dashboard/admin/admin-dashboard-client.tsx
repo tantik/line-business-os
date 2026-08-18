@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { TenantAdminMember } from '@/lib/tenant/admin-members';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { card, colors, linkAccent, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
+import { backLink, card, colors, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
 import { membershipStatusLabel, tAdminDashboard, tenantKindLabel } from './admin-i18n';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 
@@ -117,7 +117,7 @@ function AdminDashboardBody({ tenantName, tenantSlug, members }: AdminDashboardC
           <PreviewLanguageToggle />
         </div>
         <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 15, lineHeight: '1.5' }}>{t('pageDescription')}</p>
-        <Link href="/dashboard" style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}>
+        <Link href="/dashboard" style={{ ...backLink, marginTop: 12 }}>
           {t('backToDashboard')}
         </Link>
       </header>
