@@ -56,3 +56,16 @@ enabled = false
 # PII_ENCRYPTION_KEY so decryption of an employee's email succeeds.
 [functions.invite-employee]
 verify_jwt = true
+
+# Track B (LINE LIFF login): deliberately false, not an oversight. The caller
+# has no Supabase session yet at this point in the flow -- that's the whole
+# problem this function solves -- so the platform's generic
+# any-valid-Supabase-JWT gate cannot apply here. This function performs its
+# own strong authentication instead: the LINE ID token itself, verified
+# server-side against LINE's live JWKS (see supabase/functions/liff-entry/
+# index.ts's header comment for the full security model). Local secrets
+# (functions/.env, gitignored): PII_ENCRYPTION_KEY and PII_HASH_PEPPER must
+# match apps/web's own values, same requirement as invite-employee's
+# PII_ENCRYPTION_KEY above.
+[functions.liff-entry]
+verify_jwt = false

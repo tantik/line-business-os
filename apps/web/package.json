@@ -17,6 +17,7 @@
     "@line-os/db": "workspace:*",
     "@line-os/ui": "workspace:*",
     "@line-os/workforce": "workspace:*",
+    "@line/liff": "^2.30.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "next": "^15.0.0",
