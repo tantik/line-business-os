@@ -20,6 +20,13 @@ interface ManagerDashboardDict {
   attentionHeading: string;
   attentionAllClear: string;
   attentionReview: string;
+  // Attention layer -- compact card-row titles (short, distinct from the
+  // full-sentence attentionXxxLabel functions in this file, which are used
+  // as the card's aria-label so screen readers still get the full sentence)
+  attentionCorrectionTitle: string;
+  attentionExchangeTitle: string;
+  attentionUnavailableConflictTitle: string;
+  attentionInventoryTitle: string;
   // Staff section
   staffHeading: string;
   addStaff: string;
@@ -156,6 +163,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionHeading: 'Needs attention',
     attentionAllClear: 'Nothing needs your attention right now.',
     attentionReview: 'Review',
+    attentionCorrectionTitle: 'Attendance corrections',
+    attentionExchangeTitle: 'Shift exchanges',
+    attentionUnavailableConflictTitle: 'Unavailable conflicts',
+    attentionInventoryTitle: 'Inventory shortage',
     staffHeading: 'Staff',
     addStaff: '+ Add staff',
     staffUnavailable: 'Staff list is temporarily unavailable.',
@@ -278,6 +289,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionHeading: '要確認',
     attentionAllClear: '現在、対応が必要な項目はありません。',
     attentionReview: '確認する',
+    attentionCorrectionTitle: '勤怠修正',
+    attentionExchangeTitle: 'シフト交換',
+    attentionUnavailableConflictTitle: '不可との重複',
+    attentionInventoryTitle: '在庫不足',
     staffHeading: 'スタッフ',
     addStaff: '+ スタッフを追加',
     staffUnavailable: 'スタッフ一覧は一時的に利用できません。',
