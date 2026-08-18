@@ -29,9 +29,13 @@ interface ManagerDashboardDict {
   attentionInventoryTitle: string;
   // Staff section
   staffHeading: string;
+  manageStaff: string;
   addStaff: string;
   staffUnavailable: string;
   staffEmpty: string;
+  searchStaffPlaceholder: string;
+  filterAll: string;
+  noStaffMatch: string;
   colName: string;
   colPosition: string;
   colEmploymentType: string;
@@ -168,9 +172,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionUnavailableConflictTitle: 'Unavailable conflicts',
     attentionInventoryTitle: 'Inventory shortage',
     staffHeading: 'Staff',
+    manageStaff: 'Manage staff',
     addStaff: '+ Add staff',
     staffUnavailable: 'Staff list is temporarily unavailable.',
     staffEmpty: 'No staff added yet.',
+    searchStaffPlaceholder: 'Search by name, position, or employment type',
+    filterAll: 'All',
+    noStaffMatch: 'No staff match your search.',
     colName: 'Name',
     colPosition: 'Position',
     colEmploymentType: 'Employment type',
@@ -294,9 +302,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionUnavailableConflictTitle: '不可との重複',
     attentionInventoryTitle: '在庫不足',
     staffHeading: 'スタッフ',
+    manageStaff: 'スタッフ管理',
     addStaff: '+ スタッフを追加',
     staffUnavailable: 'スタッフ一覧は一時的に利用できません。',
     staffEmpty: 'まだスタッフが追加されていません。',
+    searchStaffPlaceholder: '氏名・役職・雇用形態で検索',
+    filterAll: 'すべて',
+    noStaffMatch: '該当するスタッフが見つかりません。',
     colName: '氏名',
     colPosition: '役職',
     colEmploymentType: '雇用形態',
@@ -439,6 +451,12 @@ export const autoDistributionCreatedMessage: Record<Lang, (count: number) => str
 export const publishedCountMessage: Record<Lang, (count: number) => string> = {
   en: (count) => `Published ${count} shift(s).`,
   ja: (count) => `${count}件のシフトを公開しました。`,
+};
+
+/** Compact "N active / M total" summary shown on the Staff section header, next to the Manage-staff popup trigger (WP A4). */
+export const staffSummaryLabel: Record<Lang, (activeCount: number, totalCount: number) => string> = {
+  en: (activeCount, totalCount) => `${activeCount} active / ${totalCount} total`,
+  ja: (activeCount, totalCount) => `有効 ${activeCount}名 / 全 ${totalCount}名`,
 };
 
 export const attentionCorrectionLabel: Record<Lang, (count: number) => string> = {
