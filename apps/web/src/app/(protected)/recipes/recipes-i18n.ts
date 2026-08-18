@@ -38,6 +38,7 @@ interface RecipesDict {
   deleteForeverConfirm: string;
   archivedBadge: string;
   draftBadge: string;
+  publishedBadge: string;
   newRecipeHeading: string;
   editRecipeHeading: string;
   formOriginalLanguageLabel: string;
@@ -90,6 +91,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     deleteForeverConfirm: 'Permanently delete this recipe? This cannot be undone.',
     archivedBadge: 'Archived',
     draftBadge: 'Draft',
+    publishedBadge: 'Published',
     newRecipeHeading: 'New recipe',
     editRecipeHeading: 'Edit recipe',
     formOriginalLanguageLabel: 'Original language',
@@ -140,6 +142,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     deleteForeverConfirm: 'このレシピを完全に削除しますか？元に戻せません。',
     archivedBadge: 'アーカイブ済み',
     draftBadge: '下書き',
+    publishedBadge: '公開中',
     newRecipeHeading: '新規レシピ',
     editRecipeHeading: 'レシピを編集',
     formOriginalLanguageLabel: '原文の言語',
