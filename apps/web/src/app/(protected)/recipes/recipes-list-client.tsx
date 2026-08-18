@@ -125,6 +125,8 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
                       <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('draftBadge')}</span>
                     ) : recipe.status === 'archived' ? (
                       <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('archivedBadge')}</span>
+                    ) : recipe.status === 'published' ? (
+                      <span style={{ ...badgeStyle('active'), marginLeft: 8 }}>{t('publishedBadge')}</span>
                     ) : null}
                   </li>
                 ))}
