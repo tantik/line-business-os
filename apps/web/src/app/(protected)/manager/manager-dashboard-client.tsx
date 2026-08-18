@@ -28,7 +28,6 @@ import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import {
   autoDistributionCreatedMessage,
-  breakMinutesValue,
   preferencesHeadingValue,
   publishedCountMessage,
   scheduleHeadingValue,
@@ -42,6 +41,8 @@ import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
+import { SettingsSection } from './settings-section';
+import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { Modal } from '@/components/shared/design-kit';
 import {
   alertDanger,
@@ -132,6 +133,8 @@ export interface ManagerDashboardClientProps {
   recipeGroups: WorkforceRecipeGroup[] | null;
   recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
   recipeCanManage: boolean;
+  /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
+  scheduleSettings: WorkforceScheduleSettings | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -193,6 +196,7 @@ function ManagerDashboardBody({
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeCanManage,
+  scheduleSettings,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -229,6 +233,9 @@ function ManagerDashboardBody({
     () => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])),
     [shiftTypes],
   );
+  // WP A8: passed to shiftChipColors so active shift types never collide on
+  // the same chip tone (position-based, not hash-based).
+  const activeShiftTypeIds = useMemo(() => (shiftTypes ?? []).filter((st) => st.isActive).map((st) => st.shiftTypeId), [shiftTypes]);
   const staffById = useMemo(() => new Map((staff ?? []).map((s) => [s.staffId, s])), [staff]);
   const isLineLinkedByEmployeeId = useMemo(
     () => new Map((lineLinks ?? []).filter((l) => l.isActive).map((l) => [l.employeeId, true])),
@@ -392,7 +399,7 @@ function ManagerDashboardBody({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId))}>{shiftType?.code ?? 'Custom'}</span>
+          <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId, activeShiftTypeIds))}>{shiftType?.code ?? 'Custom'}</span>
           <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
             {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
           </span>
@@ -703,7 +710,7 @@ function ManagerDashboardBody({
         {weekLegendTypes.length > 0 ? (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             {weekLegendTypes.map((st) => (
-              <span key={st.shiftTypeId} style={shiftChipStyle(shiftChipColors(st.shiftTypeId))}>
+              <span key={st.shiftTypeId} style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
                 {st.code} {st.startsAtLocal}-{st.endsAtLocal}
               </span>
             ))}
@@ -855,41 +862,13 @@ function ManagerDashboardBody({
         }}
       />
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('shiftTypesHeading')}</h2>
-        {shiftTypes === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftTypesUnavailable')}</p>
-        ) : shiftTypes.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftTypesEmpty')}</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colCode')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTime')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colBreak')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shiftTypes.map((st) => (
-                <tr key={st.shiftTypeId}>
-                  <td style={tableCell}>
-                    <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId))}>{st.code}</span>
-                  </td>
-                  <td style={tableCell}>{st.labelJa || st.labelEn || '-'}</td>
-                  <td style={tableCell}>
-                    {st.startsAtLocal} - {st.endsAtLocal}
-                  </td>
-                  <td style={tableCell}>{breakMinutesValue[lang](st.breakMinutes)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </section>
+      <SettingsSection
+        locationId={locationId}
+        settings={scheduleSettings}
+        shiftTypes={shiftTypes}
+        onShiftTypesChanged={() => router.refresh()}
+        lang={lang}
+      />
 
       <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{preferencesHeadingValue[lang](periodStart, periodEnd)}</h2>
@@ -920,7 +899,7 @@ function ManagerDashboardBody({
                         {r.isUnavailable ? (
                           t('unavailableValue')
                         ) : (
-                          <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
+                          <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId, activeShiftTypeIds))}>
                             {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
                           </span>
                         )}

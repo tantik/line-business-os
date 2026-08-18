@@ -40,17 +40,42 @@ export const buttonDanger: CSSProperties = {
   cursor: 'pointer',
 };
 
+// WP A8: `colors.accent`/`colors.success` are the SAME hex value in this
+// palette (`@/lib/ui/theme.ts`), so a naive 3rd "success" tone here would be
+// visually indistinguishable from the 1st -- found via the position-based
+// no-collision test below actually failing. `colors.danger`/`dangerMuted`
+// is the only other genuinely distinct hue in the palette; repurposing it
+// for a shift-type chip is no different from `warning` already being reused
+// below for a plain, non-error visual category.
 const CHIP_TONES: ReadonlyArray<{ background: string; color: string }> = [
   { background: colors.accentMuted, color: colors.accent },
   { background: 'rgba(184, 134, 59, 0.14)', color: colors.warning },
-  { background: colors.successMuted, color: colors.success },
+  { background: colors.dangerMuted, color: colors.danger },
 ];
 
 const UNSET_CHIP_TONE = { background: colors.surfaceElevated, color: colors.textMuted };
 
-/** Deterministic tone for a shift type id, so the same shift code always renders the same chip color. */
-export function shiftChipColors(shiftTypeId: string | null | undefined): { background: string; color: string } {
+/**
+ * Deterministic tone for a shift type id, so the same shift code always
+ * renders the same chip color. When `allActiveShiftTypeIds` is supplied
+ * (WP A8), the tone is picked by the id's stable position in that list
+ * instead of a raw hash -- this guarantees no two currently-active shift
+ * types collide on the same tone as long as there are no more active types
+ * than `CHIP_TONES` has entries (today: 3), rather than leaving it to hash
+ * chance. Falls back to the hash when the id isn't in the list (an
+ * assignment referencing a since-deactivated type not passed in) or when no
+ * list is given at all (existing call sites stay unchanged/backward
+ * compatible).
+ */
+export function shiftChipColors(
+  shiftTypeId: string | null | undefined,
+  allActiveShiftTypeIds?: readonly string[],
+): { background: string; color: string } {
   if (!shiftTypeId) return UNSET_CHIP_TONE;
+  if (allActiveShiftTypeIds && allActiveShiftTypeIds.length > 0) {
+    const index = allActiveShiftTypeIds.indexOf(shiftTypeId);
+    if (index !== -1) return CHIP_TONES[index % CHIP_TONES.length] ?? UNSET_CHIP_TONE;
+  }
   let hash = 0;
   for (let i = 0; i < shiftTypeId.length; i += 1) {
     hash = (hash * 31 + shiftTypeId.charCodeAt(i)) >>> 0;

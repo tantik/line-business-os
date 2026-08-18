@@ -152,10 +152,47 @@ export interface UpsertWorkforceShiftTypeInput {
   endsAtLocal: string;
 }
 
+/**
+ * A shift type's own `labelJa` is what a Manager actually recognizes it by
+ * (`shiftTypeDisplayLabel`'s primary field) -- two active types with the
+ * same trimmed, case-folded label are indistinguishable in every selector/
+ * legend in this app. Checked application-side (no DB unique constraint,
+ * matching the plan's "cheap check, not a DB constraint" framing) against
+ * only the OTHER active types in the same tenant/location -- re-saving a
+ * type's own unchanged label, or reusing a deactivated type's old label,
+ * must never self-reject. WP A8.
+ */
+async function findDuplicateActiveLabel(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  labelJa: string,
+  excludeShiftTypeId: string | undefined,
+): Promise<boolean> {
+  const normalized = labelJa.trim().toLowerCase();
+  if (!normalized) return false;
+  const { data, error } = await supabase
+    .schema('api')
+    .from('workforce_shift_types')
+    .select('shift_type_id, label_ja')
+    .eq('tenant_id', tenantId)
+    .eq('location_id', locationId)
+    .eq('is_active', true);
+  if (error || !data) return false;
+  return (data as { shift_type_id: string; label_ja: string }[]).some(
+    (row) => row.shift_type_id !== excludeShiftTypeId && row.label_ja.trim().toLowerCase() === normalized,
+  );
+}
+
 export async function upsertWorkforceShiftType(
   supabase: SupabaseClient,
   input: UpsertWorkforceShiftTypeInput,
 ): Promise<WorkforceWriteResult<WorkforceShiftType>> {
+  const isDuplicate = await findDuplicateActiveLabel(supabase, input.tenantId, input.locationId, input.labelJa, input.shiftTypeId);
+  if (isDuplicate) {
+    return { status: 'duplicate', message: 'An active shift type with this name already exists.' };
+  }
+
   const values = {
     tenant_id: input.tenantId,
     location_id: input.locationId,

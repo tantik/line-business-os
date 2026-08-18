@@ -106,6 +106,29 @@ interface ManagerDashboardDict {
   labourCostHelpBody: string;
   labourCostEmpty: string;
   labourCostTotal: string;
+  // Settings section (A8)
+  settingsCardTitle: string;
+  settingsHelpBody: string;
+  requiredHeadcountHeading: string;
+  maxWorkHoursLabel: string;
+  weekdayAriaSuffix: string;
+  nameLabel: string;
+  optionalNameLabel: string;
+  startTimeLabel: string;
+  endTimeLabel: string;
+  addShiftType: string;
+  deactivateShiftTypeButton: string;
+  confirmDeactivateShiftTypeTitle: string;
+  confirmDeactivateShiftTypeBody: string;
+  showDeactivatedShiftTypes: string;
+  hideDeactivatedShiftTypes: string;
+  deactivatedShiftTypesHeading: string;
+  deactivatedShiftTypesEmpty: string;
+  reactivate: string;
+  savingStatus: string;
+  savedStatus: string;
+  saveErrorStatus: string;
+  duplicateShiftTypeName: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -267,6 +290,30 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'This is the cost of hours already worked this week, as of now -- not the full theoretical week. An in-progress shift counts up to the current time; a shift with no clock-in yet counts as zero.',
     labourCostEmpty: 'No active staff to show yet.',
     labourCostTotal: 'Total',
+    settingsCardTitle: 'Settings',
+    settingsHelpBody:
+      'These settings control auto-distribution (required staff per weekday) and the max monthly hours guardrail. Shift types define the reusable start/end/break templates offered when assigning a shift.',
+    requiredHeadcountHeading: 'Required staff per shift, by weekday',
+    maxWorkHoursLabel: 'Max staff working hours / month',
+    weekdayAriaSuffix: ' required headcount',
+    nameLabel: 'Name',
+    optionalNameLabel: 'Name (optional)',
+    startTimeLabel: 'Start time',
+    endTimeLabel: 'End time',
+    addShiftType: 'Add shift type',
+    deactivateShiftTypeButton: 'Deactivate',
+    confirmDeactivateShiftTypeTitle: 'Deactivate this shift type?',
+    confirmDeactivateShiftTypeBody:
+      'Deactivating will remove it from the choices offered when creating new shifts. Past shift records are preserved, and you can reactivate it anytime.',
+    showDeactivatedShiftTypes: 'Show deactivated shift types',
+    hideDeactivatedShiftTypes: 'Hide deactivated shift types',
+    deactivatedShiftTypesHeading: 'Deactivated shift types',
+    deactivatedShiftTypesEmpty: 'No deactivated shift types.',
+    reactivate: 'Reactivate',
+    savingStatus: 'Saving...',
+    savedStatus: 'Saved',
+    saveErrorStatus: 'Could not save',
+    duplicateShiftTypeName: 'An active shift type with this name already exists.',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -417,6 +464,29 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'これは今週すでに勤務した時間分の、現時点での費用です -- 週全体の理論値ではありません。進行中のシフトは現在時刻までを計上し、まだ出勤していないシフトはゼロとして扱われます。',
     labourCostEmpty: '表示できる有効なスタッフがまだいません。',
     labourCostTotal: '合計',
+    settingsCardTitle: '設定',
+    settingsHelpBody:
+      'ここでの設定は自動割り当て（曜日ごとの必要人数）と月間最大勤務時間の上限に反映されます。シフト種別は、シフト割り当て時に選べる開始・終了・休憩のテンプレートです。',
+    requiredHeadcountHeading: '曜日ごとの各シフト必要人数',
+    maxWorkHoursLabel: 'スタッフ最大勤務時間 / 月',
+    weekdayAriaSuffix: '曜日の必要人数',
+    nameLabel: '名称',
+    optionalNameLabel: '名称（任意）',
+    startTimeLabel: '開始時刻',
+    endTimeLabel: '終了時刻',
+    addShiftType: 'シフト種別を追加',
+    deactivateShiftTypeButton: '無効化',
+    confirmDeactivateShiftTypeTitle: 'このシフト種別を無効化しますか？',
+    confirmDeactivateShiftTypeBody: '無効化すると、新しいシフト作成時の選択肢に表示されなくなります。過去のシフト記録は保持され、いつでも再度有効化できます。',
+    showDeactivatedShiftTypes: '無効化したシフト種別を表示',
+    hideDeactivatedShiftTypes: '無効化したシフト種別を隠す',
+    deactivatedShiftTypesHeading: '無効化済みのシフト種別',
+    deactivatedShiftTypesEmpty: '無効化されたシフト種別はありません。',
+    reactivate: '再開',
+    savingStatus: '保存中…',
+    savedStatus: '保存しました',
+    saveErrorStatus: '保存できませんでした',
+    duplicateShiftTypeName: '同じ名称の有効なシフト種別がすでに存在します。',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',
