@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
@@ -16,6 +17,11 @@ import { RecipeDetailClient } from './recipe-detail-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+// Static, not per-recipe: a dynamic title would need its own `generateMetadata`
+// data fetch, duplicating the page body's `getWorkforceRecipeDetail` call
+// (frontend-engineering-standards.md §2 -- no duplicate fetches per request).
+export const metadata: Metadata = { title: 'Recipe' };
 
 /**
  * Recipe detail (ingredients, steps, notes). Reachable only when the

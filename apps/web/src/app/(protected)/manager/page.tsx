@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -28,6 +29,8 @@ import { ManagerDashboardClient } from './manager-dashboard-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { title: 'Manager' };
 
 /** Sanity cap on how far a manager can navigate the weekly view, not a business rule. */
 const MAX_WEEK_OFFSET = 8;

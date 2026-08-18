@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -26,6 +27,8 @@ import { StaffDashboardClient } from './staff-dashboard-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { title: 'Staff' };
 
 /** Sanity cap on how far a staff member can navigate the weekly view, not a business rule. */
 const MAX_WEEK_OFFSET = 8;
