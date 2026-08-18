@@ -53,7 +53,7 @@ function parseWeekOffset(raw: string | undefined): number {
 export default async function WorkforceManagerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ weekOffset?: string }>;
+  searchParams: Promise<{ weekOffset?: string; popup?: string }>;
 }) {
   const result = await requireTenantContext();
 
@@ -133,8 +133,9 @@ export default async function WorkforceManagerPage({
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
       if (!managerAccess) return <UnauthorizedState />;
 
-      const { weekOffset: rawWeekOffset } = await searchParams;
+      const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
+      const initialPopup = rawPopup === 'inventory' ? 'inventory' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
@@ -204,6 +205,7 @@ export default async function WorkforceManagerPage({
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
+            initialPopup={initialPopup}
           />
         </main>
       );
