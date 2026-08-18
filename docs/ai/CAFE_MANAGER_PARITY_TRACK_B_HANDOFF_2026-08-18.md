@@ -8,6 +8,86 @@ handoff, unless explicitly marked INFERRED or UNKNOWN.
 
 ---
 
+## 0. CORRECTIONS from the B1 schema check (read before §5) — 2026-08-19
+
+The session that executed B1 ("Schema check") found two things this
+original handoff got wrong. Both are corrected here rather than by
+rewriting the sections below, so the history stays legible.
+
+1. **§3/§5 called Track B "not started at all" and B3 ("staff identity
+   linking flow") "the highest-risk part," still to build.** This was
+   wrong. `workforce.employee_line_links` (migration `0029`) +
+   `api.bind_workforce_employee_line_user`/`unbind_workforce_employee_line_user`
+   RPCs (`0031`) + the Manager-facing `LineLinkForm` component
+   (`apps/web/src/app/(protected)/manager/line-link-form.tsx`, live inside
+   the already-merged A4 Manage-staff popup since PR #246/#309) already
+   fully implement the manager-approved LINE-identity-linking data layer
+   the architecture doc's §8.6 calls for. A manager can already bind a raw
+   LINE user id to an employee, encrypted + blind-indexed, one active
+   binding per employee, RLS-gated on `workforce.staff.manage`. **B1
+   required no new migration. B3 as originally scoped is DONE, not a
+   remaining step.** What a manager cannot yet do is discover an
+   employee's LINE user id automatically (they must be told it out of
+   band) — a UX gap, not a missing data layer, and not blocking B2/B4.
+
+2. **§5's B2 said the LIFF backend belongs in `apps/api/src/line/
+   liff-entry.controller.ts`.** This contradicts an explicit precedent
+   already in the repo: `supabase/functions/invite-employee/index.ts`'s
+   own header comment states "`apps/api` is an explicit local-only dev
+   spike, never deployed — neither is an acceptable home" for any call
+   requiring the Supabase Auth Admin API / `service_role`. Since
+   resolving a LIFF login ultimately requires `auth.admin.generateLink`
+   (see below), the same rule applies here. **The LIFF backend is a new
+   Supabase Edge Function, `supabase/functions/liff-entry/index.ts`
+   (implemented this session), mirroring `invite-employee`'s security
+   model — not an `apps/api` controller.**
+
+**Corrected B2 design, implemented this session** (see
+`supabase/functions/liff-entry/index.ts` for the full, commented
+implementation):
+
+- Verifies the LINE ID token's signature via `jose`'s `createRemoteJWKSet`
+  against LINE's live JWKS (`https://api.line.me/oauth2/v2.1/certs`) and
+  its issuer — never trusts a client-supplied claim.
+- Resolves **tenant from the token's own `aud` claim** (the LINE Login
+  Channel id) against `core.line_channels.channel_id` — not from a
+  client-supplied `tenantId`. The original handoff's request-shape sketch
+  didn't specify this and would have left room for a client to claim any
+  tenant; there is no tenant field in the request body at all now.
+- Resolves the employee via `workforce.employee_line_links`'s blind-index
+  hash (Web-Crypto HMAC-SHA256 reimplementation of `packages/db/src/crypto.ts`'s
+  `blindIndex`, same reason `invite-employee` reimplements `decryptPII`:
+  Edge Functions can't import this repo's pnpm workspace packages).
+- Rejects (never auto-creates) an employee with no `employees.user_id` yet
+  (`employee_not_onboarded`) — LIFF is an **alternate entry method into an
+  existing account**, not an identity-bootstrap path. An employee must
+  have completed the normal invite/password-setup flow at least once
+  before LIFF login works for them. This is a deliberate scope decision,
+  made to avoid introducing a second, passwordless identity-creation path
+  alongside the existing invite chain — reopen only with a new explicit
+  Founder/architecture decision, not silently.
+- On success, returns only an opaque, single-use magic-link `tokenHash`
+  (via `auth.admin.generateLink({ type: 'magiclink', email })`) — never an
+  access/refresh token pair, never the LINE user id. The client is
+  expected to hand that `tokenHash` to a new apps/web route (B4, not yet
+  built) that calls `supabase.auth.verifyOtp({ token_hash, type:
+  'magiclink' })` — **the exact same token_hash/verifyOtp pattern already
+  proven** by `apps/web/src/app/auth/accept-invite/route.ts`, not a new
+  bespoke session-minting mechanism.
+
+**Known gaps, documented rather than silently assumed away:** no Deno
+test harness exists in this repo (same as `invite-employee` — zero
+automated tests, Deno CLI not installed locally either, so this file has
+NOT been type-checked or run, only carefully hand-reviewed against
+`jose`'s v5 API and `invite-employee`'s proven patterns); no per-IP rate
+limiting on this unauthenticated endpoint (acceptable pre-deployment, a
+real gap to close before any tenant goes live on this path).
+
+**B4 (`apps/web/src/app/liff-entry/page.tsx` + a new `/auth/liff-callback`
+route calling `verifyOtp`) is the next step, not done this session.**
+
+---
+
 ## 1. Roles (read before doing anything)
 
 You are AI CTO / Technical Orchestrator (strategy, architecture, security,
