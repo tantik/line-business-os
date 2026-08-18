@@ -716,7 +716,7 @@ function ManagerDashboardBody({
             </table>
           </div>
 
-          <div className={styles.cardView} style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className={styles.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {dates.map((date) => (
               <div key={date} style={{ ...card, marginTop: 0 }}>
                 <h3 style={{ margin: 0, fontSize: 14 }}>

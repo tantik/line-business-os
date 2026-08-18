@@ -19,7 +19,16 @@
     display: none;
   }
 
+  /*
+   * `flex`, not `block`: every .cardView call site's own inline `style`
+   * only sets flexDirection/gap, not display -- see manage-staff-popup.tsx
+   * and manager-dashboard-client.tsx's weekly-schedule section. An inline
+   * `display: 'flex'` on those call sites used to override this rule's own
+   * `display: none` above 767px too (inline style always wins over a CSS
+   * Module class), silently double-rendering the table AND the card list
+   * on desktop -- caught live during WP A4 Preview QA, 2026-08-18.
+   */
   .cardView {
-    display: block;
+    display: flex;
   }
 }

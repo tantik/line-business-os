@@ -263,7 +263,7 @@ export function ManageStaffPopup({
             </table>
           </div>
 
-          <div className={styles.cardView} style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className={styles.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {filteredStaff.map((s) => {
               if (editingStaffId === s.staffId) {
                 return (
