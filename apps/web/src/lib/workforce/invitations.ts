@@ -97,16 +97,27 @@ export async function getWorkforceEmployeeInvitationById(
   }
 }
 
-/** Self-scoped, any tenant: powers the "you have a pending invitation" banner (RLS: wf_employee_invitations_self_read). */
+/**
+ * Self-scoped, any tenant: powers the "you have a pending invitation"
+ * banner. Calls `api.my_pending_employee_invitations()` (0069) rather than
+ * selecting `api.workforce_employee_invitations` filtered only by
+ * `status = 'pending'` -- that used to rely entirely on RLS to scope "mine",
+ * but `wf_employee_invitations_manager_read`/`_self_read` (0064) are two
+ * permissive SELECT policies on the same table, which Postgres combines
+ * with OR, not AND -- so any Manager (who by definition holds
+ * `workforce.staff.manage` in their own tenant) saw EVERY pending
+ * invitation in that tenant, not just their own (found live, Cafe Manager
+ * parity mission Gate 1 re-investigation, 2026-08-18: `manager@oruwa-
+ * cafe.test`'s banner rendered a different identity's own pending
+ * invitation). The RPC filters by `core.current_user_id()`
+ * unconditionally, so this can never leak another identity's invitation
+ * again regardless of what other permissions the caller holds.
+ */
 export async function listMyPendingWorkforceInvitations(
   supabase: SupabaseClient,
 ): Promise<TenantAccessResult<WorkforceEmployeeInvitation[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('workforce_employee_invitations')
-      .select(SELECT)
-      .eq('status', 'pending');
+    const { data, error } = await supabase.schema('api').rpc('my_pending_employee_invitations');
     if (error) return mapWorkforceReadError(error, 'read your pending invitations');
     const rows = (data ?? []) as ApiWorkforceEmployeeInvitationRow[];
     return {
