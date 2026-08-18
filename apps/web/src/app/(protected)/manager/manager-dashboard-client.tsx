@@ -711,7 +711,7 @@ function ManagerDashboardBody({
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             {weekLegendTypes.map((st) => (
               <span key={st.shiftTypeId} style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
-                {st.code} {st.startsAtLocal}-{st.endsAtLocal}
+                {shiftTypeDisplayLabel(st)} {st.startsAtLocal}-{st.endsAtLocal}
               </span>
             ))}
           </div>
