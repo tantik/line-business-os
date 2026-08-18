@@ -146,17 +146,18 @@ export function mapDraftAssignmentToInsertRow(
 
 export type ShiftAssignmentInsertRow = ReturnType<typeof mapDraftAssignmentToInsertRow>;
 
-/** Bulk-insert draft shift assignments (`published: false`) produced by `autoDistribute()`. */
+/** Bulk-insert draft shift assignments (`published: false`) produced by `autoDistribute()`. Returns the new rows' ids so the caller can offer a same-session "Undo" (see `unassignDraftShiftAssignments`). */
 export async function insertDraftShiftAssignments(
   supabase: SupabaseClient,
   rows: ShiftAssignmentInsertRow[],
-): Promise<WorkforceWriteResult<{ inserted: number }>> {
-  if (rows.length === 0) return { status: 'success', data: { inserted: 0 } };
+): Promise<WorkforceWriteResult<{ inserted: number; assignmentIds: string[] }>> {
+  if (rows.length === 0) return { status: 'success', data: { inserted: 0, assignmentIds: [] } };
 
   try {
     const { data, error } = await supabase.schema('api').from('workforce_shift_assignments').insert(rows).select('assignment_id');
     if (error) return mapWorkforceWriteError(error, 'insert draft shift assignments');
-    return { status: 'success', data: { inserted: (data ?? []).length } };
+    const assignmentIds = (data ?? []).map((row) => (row as { assignment_id: string }).assignment_id);
+    return { status: 'success', data: { inserted: assignmentIds.length, assignmentIds } };
   } catch (err) {
     return {
       status: 'unexpected_error',
@@ -299,6 +300,43 @@ export async function publishShiftAssignments(
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error publishing this schedule.',
+    };
+  }
+}
+
+/**
+ * "Undo" for a same-session `runAutoDistribution` run: clears `employee_id`
+ * on exactly the given assignment ids, single round trip. Same practical
+ * effect as clicking the existing per-cell "Unassign" button on each one
+ * (the cell reverts to empty/assignable, matching how unassign already
+ * works everywhere else in this app) -- deliberately not a DELETE, so this
+ * needs no new grant/migration. `published = false` is filtered here too,
+ * defense in depth: even if a stale/reused id were passed in, this can
+ * never touch an already-published row.
+ */
+export async function unassignDraftShiftAssignments(
+  supabase: SupabaseClient,
+  tenantId: string,
+  assignmentIds: string[],
+): Promise<WorkforceWriteResult<{ unassigned: number }>> {
+  if (assignmentIds.length === 0) return { status: 'success', data: { unassigned: 0 } };
+
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_assignments')
+      .update({ employee_id: null })
+      .eq('tenant_id', tenantId)
+      .eq('published', false)
+      .in('assignment_id', assignmentIds)
+      .select('assignment_id');
+
+    if (error) return mapWorkforceWriteError(error, 'undo this auto-distribution run');
+    return { status: 'success', data: { unassigned: (data ?? []).length } };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error undoing this auto-distribution run.',
     };
   }
 }

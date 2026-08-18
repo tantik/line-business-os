@@ -8,6 +8,7 @@ import {
   mapDraftAssignmentToInsertRow,
   publishShiftAssignments,
   toAutoDistributeExistingAssignment,
+  unassignDraftShiftAssignments,
   updateShiftAssignment,
   type WorkforceShiftAssignment,
 } from './shift-assignments.js';
@@ -103,15 +104,15 @@ test('getShiftAssignmentById narrows by tenant and assignment id', async () => {
 test('insertDraftShiftAssignments skips the network call for an empty draft set', async () => {
   const { client, calls } = recordingClient({ data: [], error: null });
   const result = await insertDraftShiftAssignments(client, []);
-  assert.deepEqual(result, { status: 'success', data: { inserted: 0 } });
+  assert.deepEqual(result, { status: 'success', data: { inserted: 0, assignmentIds: [] } });
   assert.equal(calls.length, 0);
 });
 
-test('insertDraftShiftAssignments reports the inserted count', async () => {
+test('insertDraftShiftAssignments reports the inserted count and the new rows\' ids', async () => {
   const { client } = recordingClient({ data: [{ assignment_id: 'a1' }, { assignment_id: 'a2' }], error: null });
   const rows = [mapDraftAssignmentToInsertRow(draft, TENANT_ID, 'loc-1', 'Asia/Tokyo')];
   const result = await insertDraftShiftAssignments(client, rows);
-  assert.deepEqual(result, { status: 'success', data: { inserted: 2 } });
+  assert.deepEqual(result, { status: 'success', data: { inserted: 2, assignmentIds: ['a1', 'a2'] } });
 });
 
 test('createShiftAssignment inserts a single published:false row for a specific employee/date/shift-type', async () => {
@@ -225,4 +226,20 @@ test('publishShiftAssignments reports the published count and filters published=
   const result = await publishShiftAssignments(client, TENANT_ID, 'loc-1', '2026-08-01T00:00:00.000Z', '2026-08-08T00:00:00.000Z');
   assert.deepEqual(result, { status: 'success', data: { published: 1 } });
   assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+});
+
+test('unassignDraftShiftAssignments skips the network call for an empty id list', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  const result = await unassignDraftShiftAssignments(client, TENANT_ID, []);
+  assert.deepEqual(result, { status: 'success', data: { unassigned: 0 } });
+  assert.equal(calls.length, 0);
+});
+
+test('unassignDraftShiftAssignments reports the count, filters published=false, and scopes to the given ids', async () => {
+  const { client, calls } = recordingClient({ data: [{ assignment_id: 'a1' }, { assignment_id: 'a2' }], error: null });
+  const result = await unassignDraftShiftAssignments(client, TENANT_ID, ['a1', 'a2']);
+  assert.deepEqual(result, { status: 'success', data: { unassigned: 2 } });
+  assert.ok(calls.some((c) => c.method === 'update' && (c.args[0] as { employee_id: unknown }).employee_id === null));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+  assert.ok(calls.some((c) => c.method === 'in' && c.args[0] === 'assignment_id' && (c.args[1] as unknown[]).length === 2));
 });

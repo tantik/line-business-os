@@ -69,6 +69,9 @@ interface ManagerDashboardDict {
   autoDistributionDescription: string;
   runAutoDistribution: string;
   running: string;
+  undoAutoDistribution: string;
+  undoing: string;
+  autoDistributionUndone: string;
   publishSchedule: string;
   publishing: string;
   confirmPublish: string;
@@ -199,6 +202,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'Auto-distribution uses a fixed cafe default (1 staff for the AM window, 1 for the PM window, every day) -- there is no settings screen for this yet.',
     runAutoDistribution: 'Run auto-distribution',
     running: 'Running...',
+    undoAutoDistribution: 'Undo auto-distribution',
+    undoing: 'Undoing...',
+    autoDistributionUndone: 'Auto-distribution undone -- the draft shifts it created are unassigned again.',
     publishSchedule: 'Publish schedule',
     publishing: 'Publishing...',
     confirmPublish: 'Publish all draft shifts for this week? Staff will be able to see them.',
@@ -318,6 +324,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       '自動割り当ては、カフェの固定デフォルト（毎日AM枠1名・PM枠1名）を使用します -- 設定画面はまだありません。',
     runAutoDistribution: '自動割り当てを実行',
     running: '実行中...',
+    undoAutoDistribution: '自動割り当てを元に戻す',
+    undoing: '元に戻しています...',
+    autoDistributionUndone: '自動割り当てを元に戻しました -- 作成された下書きシフトは未割り当てに戻りました。',
     publishSchedule: 'スケジュールを公開',
     publishing: '公開中...',
     confirmPublish: '今週の下書きシフトをすべて公開しますか？スタッフに表示されるようになります。',
