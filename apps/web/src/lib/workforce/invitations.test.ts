@@ -66,6 +66,23 @@ test('listMyPendingWorkforceInvitations filters out expired rows client-side', a
   }
 });
 
+/**
+ * Regression guard (0069): this read must go through the
+ * `my_pending_employee_invitations` RPC -- which unconditionally filters by
+ * `core.current_user_id()` server-side -- and never back to a bare
+ * `.from('workforce_employee_invitations').select(...).eq('status', ...)`
+ * read, which relied entirely on RLS and leaked other identities' pending
+ * invitations to any Manager caller (wf_employee_invitations_manager_read/
+ * _self_read are OR'd, not AND'd).
+ */
+test('listMyPendingWorkforceInvitations calls api.my_pending_employee_invitations, not a bare status-filtered select', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  await listMyPendingWorkforceInvitations(client);
+  assert.deepEqual(calls[0], { method: 'schema', args: ['api'] });
+  assert.deepEqual(calls[1], { method: 'rpc', args: ['my_pending_employee_invitations'] });
+  assert.ok(!calls.some((c) => c.method === 'from'), 'must not read the table/view directly');
+});
+
 test('revokeWorkforceEmployeeInvitation updates status/revoked_at and narrows by invitation_id', async () => {
   const { client, calls } = recordingClient({ data: { invitation_id: 'inv-1' }, error: null });
   const result = await revokeWorkforceEmployeeInvitation(client, 'inv-1');
