@@ -10,4 +10,6 @@ export interface RunAutoDistributionActionResult {
   unplaced: UnplacedEmployee[];
   nonSubmitters: NonSubmitter[];
   draftCount: number;
+  /** Every assignment id this run just inserted -- lets the client offer a same-session "Undo" without a separate query. Empty when draftCount is 0. */
+  createdAssignmentIds: string[];
 }

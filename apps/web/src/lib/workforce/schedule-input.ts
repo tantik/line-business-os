@@ -303,3 +303,34 @@ export function parseRunAutoDistributionInput(raw: unknown): RunAutoDistribution
     overwriteExisting: obj.overwriteExisting === true,
   };
 }
+
+/** Sanity cap matching a single auto-distribution run's realistic size, not a business rule. */
+const MAX_UNDO_ASSIGNMENT_IDS = 500;
+
+export interface UndoAutoDistributionActionInput {
+  assignmentIds: string[];
+}
+
+/**
+ * Same "plain object input" convention as `parseRunAutoDistributionInput`
+ * above -- a variable-length array of ids has no natural `<form>` shape.
+ * `assignmentIds` come back from that same action's own response
+ * (`createdAssignmentIds`), never user-typed, but are still parsed/bounded
+ * here rather than trusted as-is.
+ */
+export function parseUndoAutoDistributionInput(raw: unknown): UndoAutoDistributionActionInput | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+
+  if (!Array.isArray(obj.assignmentIds) || obj.assignmentIds.length === 0 || obj.assignmentIds.length > MAX_UNDO_ASSIGNMENT_IDS) {
+    return null;
+  }
+  const assignmentIds: string[] = [];
+  for (const item of obj.assignmentIds) {
+    const id = parseUuid(item);
+    if (!id) return null;
+    assignmentIds.push(id);
+  }
+
+  return { assignmentIds };
+}

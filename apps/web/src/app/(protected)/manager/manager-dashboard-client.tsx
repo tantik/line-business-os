@@ -14,7 +14,7 @@ import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
-import { runAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
+import { runAutoDistribution, undoAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
@@ -184,7 +184,10 @@ function ManagerDashboardBody({
     tone: 'success' | 'error';
     message: string;
     stats?: { label: string; value: number }[];
+    /** Set only right after a successful auto-distribution run with draftCount > 0 -- lets the banner offer a same-session "Undo" (WP-G). Cleared on any other banner-setting action, on Undo itself, and never persisted/reloaded. */
+    undoAssignmentIds?: string[];
   } | null>(null);
+  const [undoingAutoDistribute, setUndoingAutoDistribute] = useState(false);
   const [addingStaff, setAddingStaff] = useState(false);
   const addStaffButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -503,12 +506,27 @@ function ManagerDashboardBody({
             { label: t('unplacedLabel'), value: r.unplaced.length },
             { label: t('nonSubmittersLabel'), value: r.nonSubmitters.length },
           ],
+          undoAssignmentIds: r.createdAssignmentIds.length > 0 ? r.createdAssignmentIds : undefined,
         });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
       }
       setPendingAction(null);
+    });
+  }
+
+  function handleUndoAutoDistribute(assignmentIds: string[]) {
+    setUndoingAutoDistribute(true);
+    startTransition(async () => {
+      const result = await undoAutoDistribution({ assignmentIds });
+      if (result.status === 'success') {
+        setBanner({ tone: 'success', message: t('autoDistributionUndone') });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setUndoingAutoDistribute(false);
     });
   }
 
@@ -675,6 +693,16 @@ function ManagerDashboardBody({
                 </span>
               ))}
             </div>
+          ) : null}
+          {banner.undoAssignmentIds ? (
+            <button
+              type="button"
+              style={{ ...(undoingAutoDistribute ? buttonDisabled : buttonSecondary), marginTop: 8 }}
+              disabled={undoingAutoDistribute}
+              onClick={() => handleUndoAutoDistribute(banner.undoAssignmentIds!)}
+            >
+              {undoingAutoDistribute ? t('undoing') : t('undoAutoDistribution')}
+            </button>
           ) : null}
         </div>
       ) : null}

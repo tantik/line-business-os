@@ -13,6 +13,7 @@ import {
   listShiftAssignments,
   mapDraftAssignmentToInsertRow,
   toAutoDistributeExistingAssignment,
+  unassignDraftShiftAssignments,
   updateShiftAssignment as updateShiftAssignmentWrite,
   publishShiftAssignments,
   type WorkforceShiftAssignment,
@@ -25,6 +26,7 @@ import {
   parsePublishScheduleInput,
   parseRunAutoDistributionInput,
   parseSubmitShiftPreferenceInput,
+  parseUndoAutoDistributionInput,
   parseUpdateShiftAssignmentInput,
 } from './schedule-input';
 import type { WorkforceShiftRequest } from './shift-requests';
@@ -211,8 +213,30 @@ export async function runAutoDistribution(input: unknown): Promise<WorkforceWrit
       unplaced: result.unplaced,
       nonSubmitters: result.nonSubmitters,
       draftCount: insertResult.data.inserted,
+      createdAssignmentIds: insertResult.data.assignmentIds,
     },
   };
+}
+
+/**
+ * Same-session "Undo" for `runAutoDistribution`: nulls `employee_id` on
+ * exactly the assignment ids that run just created (returned to the client
+ * as `createdAssignmentIds`), not a general-purpose bulk-unassign endpoint.
+ * `unassignDraftShiftAssignments` itself is tenant-scoped and filters to
+ * `published = false`, and RLS (`wf_shifts_manage`, `workforce.shift.write`)
+ * remains the real authorization boundary regardless.
+ */
+export async function undoAutoDistribution(input: unknown): Promise<WorkforceWriteResult<{ unassigned: number }>> {
+  const parsed = parseUndoAutoDistributionInput(input);
+  if (!parsed) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  return unassignDraftShiftAssignments(supabase, tenantId, parsed.assignmentIds);
 }
 
 export async function updateShiftAssignment(formData: FormData): Promise<WorkforceWriteResult<WorkforceShiftAssignment>> {

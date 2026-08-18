@@ -295,6 +295,10 @@ export async function previewRunAutoDistribution(
       unplaced: result.unplaced,
       nonSubmitters: result.nonSubmitters,
       draftCount: insertResult.data.inserted,
+      // The Undo button is a canonical-app-only affordance (`/manager`, PR
+      // WP-G) -- the preview/demo surface doesn't wire it up, but still
+      // satisfies the shared result type.
+      createdAssignmentIds: insertResult.data.assignmentIds,
     },
   };
 }
