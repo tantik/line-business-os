@@ -86,6 +86,19 @@ interface ManagerDashboardDict {
   publishSchedule: string;
   publishing: string;
   confirmPublish: string;
+  confirmUnassignShift: string;
+  scheduleHelpAriaLabel: string;
+  scheduleHelpTitle: string;
+  scheduleHelpBody: string;
+  // Staff-name detail popup (A6)
+  staffNamePopupTitlePrefix: string;
+  staffNamePopupMonth: string;
+  staffNamePopupWorkedHours: string;
+  staffNamePopupHourlyWage: string;
+  staffNamePopupEarnedSoFar: string;
+  staffNamePopupCopyReport: string;
+  staffNamePopupCopied: string;
+  staffNamePopupCopyFailed: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -227,6 +240,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     publishSchedule: 'Publish schedule',
     publishing: 'Publishing...',
     confirmPublish: 'Publish all draft shifts for this week? Staff will be able to see them.',
+    confirmUnassignShift: 'Remove this staff member from this shift?',
+    scheduleHelpAriaLabel: 'About the shift schedule',
+    scheduleHelpTitle: 'About the shift schedule',
+    scheduleHelpBody:
+      'Assign staff to open cells, then use "Run auto-distribution" to fill remaining shifts automatically. Nothing is visible to staff until you press "Publish schedule".',
+    staffNamePopupTitlePrefix: 'Staff',
+    staffNamePopupMonth: 'Month',
+    staffNamePopupWorkedHours: 'Worked hours (this month)',
+    staffNamePopupHourlyWage: 'Hourly rate',
+    staffNamePopupEarnedSoFar: 'Earned so far',
+    staffNamePopupCopyReport: 'Copy monthly report',
+    staffNamePopupCopied: 'Copied.',
+    staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -357,6 +383,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     publishSchedule: 'スケジュールを公開',
     publishing: '公開中...',
     confirmPublish: '今週の下書きシフトをすべて公開しますか？スタッフに表示されるようになります。',
+    confirmUnassignShift: 'このシフトからスタッフの割り当てを解除しますか？',
+    scheduleHelpAriaLabel: 'シフトスケジュールについて',
+    scheduleHelpTitle: 'シフトスケジュールについて',
+    scheduleHelpBody:
+      '空いているセルにスタッフを割り当てるか、「自動割り当てを実行」で残りのシフトを自動的に埋めます。「スケジュールを公開」を押すまでスタッフには表示されません。',
+    staffNamePopupTitlePrefix: 'スタッフ',
+    staffNamePopupMonth: '対象月',
+    staffNamePopupWorkedHours: '実働時間（今月）',
+    staffNamePopupHourlyWage: '時給',
+    staffNamePopupEarnedSoFar: '現時点の概算支給額',
+    staffNamePopupCopyReport: '月次レポートをコピー',
+    staffNamePopupCopied: 'コピーしました。',
+    staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',

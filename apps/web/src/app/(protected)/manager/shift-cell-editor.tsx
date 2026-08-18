@@ -6,8 +6,9 @@ import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
-import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
+import { Modal, ConfirmDialog } from '@/components/shared/design-kit';
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
@@ -44,7 +45,13 @@ export interface ShiftCellEditorProps {
   onCancel: () => void;
 }
 
-/** Manual per-cell shift editing: assign into an empty cell, or reassign/edit-time an existing draft cell. Unassign stays a separate one-click action in the parent (unchanged from Slice 2A). */
+/**
+ * Manual per-cell shift editing: assign into an empty cell, or reassign/
+ * edit-time an existing draft cell. Pure form -- rendering it inside a Modal
+ * (`ShiftCellEditorModal` below) and handling Unassign are the caller's job
+ * (WP A6; Unassign moved out of the always-visible per-cell button into this
+ * popup, see `ShiftCellEditorModal`).
+ */
 export function ShiftCellEditor({
   locationId,
   workDate,
@@ -154,5 +161,116 @@ export function ShiftCellEditor({
         </button>
       </div>
     </form>
+  );
+}
+
+export interface ShiftCellEditorModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  locationId: string;
+  workDate: string;
+  existing?: ShiftCellEditorProps['existing'];
+  rowStaffId: string;
+  staff: WorkforceStaffManageEntry[];
+  shiftTypes: WorkforceShiftType[];
+  /** `'saved'` covers both assign and edit -- the parent shows no banner for either today (matches the pre-A6 inline-editor behavior, which only ever banner'd Unassign). `'unassigned'` gets the parent's existing "shift unassigned" banner. */
+  onSuccess: (kind: 'saved' | 'unassigned') => void;
+}
+
+/**
+ * WP A6: the Shift-schedule grid's Assign/Edit button now opens this Modal
+ * instead of swapping the cell's own content inline. Unassign moved here too
+ * (from an always-visible per-cell button) behind a `ConfirmDialog`, using
+ * the exact same `updateShiftAssignment(employeeId: '')` call the old
+ * per-cell button made -- no new server action. Focus-restore and Escape are
+ * both handled by `Modal`/`ConfirmDialog` themselves; this component no
+ * longer needs its own ref-map or keydown listener.
+ */
+export function ShiftCellEditorModal({
+  open,
+  onClose,
+  title,
+  locationId,
+  workDate,
+  existing,
+  rowStaffId,
+  staff,
+  shiftTypes,
+  onSuccess,
+}: ShiftCellEditorModalProps) {
+  const { lang } = useLang();
+  const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
+  const [isUnassignPending, startUnassignTransition] = useTransition();
+  const [confirmUnassignOpen, setConfirmUnassignOpen] = useState(false);
+  const [unassignError, setUnassignError] = useState<string | null>(null);
+
+  function handleUnassignConfirmed() {
+    if (!existing) return;
+    setUnassignError(null);
+    startUnassignTransition(async () => {
+      const formData = new FormData();
+      formData.set('assignmentId', existing.assignment.assignmentId);
+      formData.set('locationId', locationId);
+      formData.set('employeeId', '');
+      if (existing.assignment.shiftTypeId) formData.set('shiftTypeId', existing.assignment.shiftTypeId);
+      formData.set('workDate', workDate);
+      formData.set('startsAtLocal', existing.startsAtLocal);
+      formData.set('endsAtLocal', existing.endsAtLocal);
+      formData.set('breakMinutes', String(existing.assignment.breakMinutes));
+      if (existing.assignment.role) formData.set('role', existing.assignment.role);
+      if (existing.assignment.notes) formData.set('notes', existing.assignment.notes);
+      if (existing.assignment.published) formData.set('published', 'true');
+
+      const result = await updateShiftAssignment(formData);
+      if (result.status === 'success') {
+        setConfirmUnassignOpen(false);
+        onSuccess('unassigned');
+      } else {
+        setUnassignError(localizedEditorError(result, t));
+      }
+    });
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={title} closeLabel={t('cancel')}>
+      <ShiftCellEditor
+        locationId={locationId}
+        workDate={workDate}
+        existing={existing}
+        rowStaffId={rowStaffId}
+        staff={staff}
+        shiftTypes={shiftTypes}
+        onSuccess={() => onSuccess('saved')}
+        onCancel={onClose}
+      />
+
+      {existing && !existing.assignment.published ? (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+          {unassignError ? <div style={alertDanger}>{unassignError}</div> : null}
+          <button
+            type="button"
+            style={isUnassignPending ? buttonDisabled : buttonSecondary}
+            disabled={isUnassignPending}
+            onClick={() => setConfirmUnassignOpen(true)}
+          >
+            {isUnassignPending ? t('unassigning') : t('unassign')}
+          </button>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmUnassignOpen}
+        title={t('unassign')}
+        confirmLabel={t('unassign')}
+        cancelLabel={t('cancel')}
+        pending={isUnassignPending}
+        danger
+        onConfirm={handleUnassignConfirmed}
+        onCancel={() => setConfirmUnassignOpen(false)}
+      >
+        {t('confirmUnassignShift')}
+      </ConfirmDialog>
+    </Modal>
   );
 }

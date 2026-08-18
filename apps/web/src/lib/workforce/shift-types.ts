@@ -47,6 +47,30 @@ export function shiftTypeDisplayLabel(shiftType: Pick<WorkforceShiftType, 'label
   return shiftType.labelJa || shiftType.labelEn || shiftType.code;
 }
 
+/**
+ * Shift types to show in a week's legend: every currently-active type, plus
+ * any type actually used by an assignment in that week even if it has since
+ * been deactivated (an old assignment referencing a now-inactive type must
+ * still be explainable, not show an unlabeled chip). Pure/sync -- callers
+ * already have `activeTypes` (their own `isActive` filter), the week's
+ * assignments (just the `shiftTypeId`s), and a full id-keyed map to resolve a
+ * used-but-inactive type's own record.
+ */
+export function shiftTypesForWeekLegend(
+  activeTypes: WorkforceShiftType[],
+  weekAssignments: { shiftTypeId: string | null }[],
+  allTypesById: Map<string, WorkforceShiftType>,
+): WorkforceShiftType[] {
+  const byId = new Map<string, WorkforceShiftType>();
+  for (const st of activeTypes) byId.set(st.shiftTypeId, st);
+  for (const a of weekAssignments) {
+    if (!a.shiftTypeId || byId.has(a.shiftTypeId)) continue;
+    const st = allTypesById.get(a.shiftTypeId);
+    if (st) byId.set(a.shiftTypeId, st);
+  }
+  return Array.from(byId.values()).sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+}
+
 const SHIFT_TYPE_SELECT =
   'shift_type_id, tenant_id, location_id, code, label_ja, label_en, starts_at_local, ends_at_local, break_minutes, is_custom, sort_order, is_active';
 
