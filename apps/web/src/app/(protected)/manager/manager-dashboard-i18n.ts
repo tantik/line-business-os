@@ -99,6 +99,13 @@ interface ManagerDashboardDict {
   staffNamePopupCopyReport: string;
   staffNamePopupCopied: string;
   staffNamePopupCopyFailed: string;
+  // Estimated labour cost (A7)
+  labourCostHeading: string;
+  labourCostHelpAriaLabel: string;
+  labourCostHelpTitle: string;
+  labourCostHelpBody: string;
+  labourCostEmpty: string;
+  labourCostTotal: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -253,6 +260,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: 'Copy monthly report',
     staffNamePopupCopied: 'Copied.',
     staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
+    labourCostHeading: 'Estimated labour cost',
+    labourCostHelpAriaLabel: 'About estimated labour cost',
+    labourCostHelpTitle: 'About estimated labour cost',
+    labourCostHelpBody:
+      'This is the cost of hours already worked this week, as of now -- not the full theoretical week. An in-progress shift counts up to the current time; a shift with no clock-in yet counts as zero.',
+    labourCostEmpty: 'No active staff to show yet.',
+    labourCostTotal: 'Total',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -396,6 +410,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: '月次レポートをコピー',
     staffNamePopupCopied: 'コピーしました。',
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
+    labourCostHeading: '概算人件費',
+    labourCostHelpAriaLabel: '概算人件費について',
+    labourCostHelpTitle: '概算人件費について',
+    labourCostHelpBody:
+      'これは今週すでに勤務した時間分の、現時点での費用です -- 週全体の理論値ではありません。進行中のシフトは現在時刻までを計上し、まだ出勤していないシフトはゼロとして扱われます。',
+    labourCostEmpty: '表示できる有効なスタッフがまだいません。',
+    labourCostTotal: '合計',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',
