@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel } from './workforce-theme.js';
+import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel, shiftChipColors } from './workforce-theme.js';
 
 test('attendanceStatusLabel maps every workforce.attendance_status enum value to an English label by default', () => {
   assert.equal(attendanceStatusLabel('present'), 'Present');
@@ -52,4 +52,31 @@ test('exchangeStatusLabel returns Japanese labels when lang is ja', () => {
 test('exchangeStatusLabel falls back to the raw value for an unrecognized status, never throws', () => {
   assert.equal(exchangeStatusLabel('unknown_future_status'), 'unknown_future_status');
   assert.equal(exchangeStatusLabel('unknown_future_status', 'ja'), 'unknown_future_status');
+});
+
+// WP A8: with the active-ids list supplied, no two ids among the first
+// CHIP_TONES.length (3) active shift types ever collide on the same tone --
+// deterministic by position, not hash chance.
+test('shiftChipColors: with allActiveShiftTypeIds, distinct active ids never collide up to the tone-palette size', () => {
+  const ids = ['type-a', 'type-b', 'type-c'];
+  const tones = ids.map((id) => shiftChipColors(id, ids));
+  assert.notDeepEqual(tones[0], tones[1]);
+  assert.notDeepEqual(tones[1], tones[2]);
+  assert.notDeepEqual(tones[0], tones[2]);
+});
+
+test('shiftChipColors: same id always resolves to the same tone given the same active-ids list', () => {
+  const ids = ['type-a', 'type-b'];
+  assert.deepEqual(shiftChipColors('type-b', ids), shiftChipColors('type-b', ids));
+});
+
+test('shiftChipColors: an id not present in allActiveShiftTypeIds falls back to the hash-based tone', () => {
+  const withoutList = shiftChipColors('deactivated-type');
+  const notInList = shiftChipColors('deactivated-type', ['type-a', 'type-b']);
+  assert.deepEqual(notInList, withoutList);
+});
+
+test('shiftChipColors: null/undefined id and no list both keep their pre-A8 behavior', () => {
+  assert.deepEqual(shiftChipColors(null), shiftChipColors(null, ['type-a']));
+  assert.deepEqual(shiftChipColors('type-a'), shiftChipColors('type-a'));
 });

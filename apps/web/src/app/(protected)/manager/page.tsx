@@ -9,6 +9,7 @@ import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceEmployeeInvitations } from '@/lib/workforce/invitations';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
+import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
@@ -169,6 +170,7 @@ export default async function WorkforceManagerPage({
         recipeCategoriesResult,
         recipesResult,
         recipeCanManage,
+        scheduleSettingsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -195,6 +197,10 @@ export default async function WorkforceManagerPage({
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
         listWorkforceRecipes(supabase, activeTenant.tenantId),
         hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+        // Settings section (WP A8) -- per-weekday staffing requirements + max
+        // monthly hours. Already had full schema/read/write support
+        // (schedule-settings.ts); no migration needed.
+        getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
       ]);
 
       const recipeGroups =
@@ -253,6 +259,7 @@ export default async function WorkforceManagerPage({
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeCanManage={recipeCanManage}
+            scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
           />
         </main>
       );

@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWorkforceShiftTypeById, listWorkforceShiftTypes, shiftTypeDisplayLabel, shiftTypesForWeekLegend } from './shift-types.js';
+import { getWorkforceShiftTypeById, listWorkforceShiftTypes, shiftTypeDisplayLabel, shiftTypesForWeekLegend, upsertWorkforceShiftType } from './shift-types.js';
 import type { WorkforceShiftType } from './shift-types.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
+const LOCATION_ID = 'loc-1';
 
 function makeType(overrides: Partial<WorkforceShiftType>): WorkforceShiftType {
   return {
@@ -105,4 +106,38 @@ test('shiftTypesForWeekLegend sorts by sortOrder then code and never duplicates 
   const result = shiftTypesForWeekLegend([b, a], [{ shiftTypeId: 'a' }, { shiftTypeId: 'a' }], allTypesById);
 
   assert.deepEqual(result.map((t) => t.shiftTypeId), ['a', 'b']);
+});
+
+const SAVED_ROW = {
+  shift_type_id: 'new-id', tenant_id: TENANT_ID, location_id: LOCATION_ID, code: 'CUSTOM_1', label_ja: '早番', label_en: null,
+  starts_at_local: '09:00:00', ends_at_local: '13:00:00', break_minutes: 0, is_custom: true, sort_order: 1, is_active: true,
+};
+
+test('upsertWorkforceShiftType (A8) rejects a duplicate active label, case/whitespace-insensitive', async () => {
+  const { client } = recordingClient({
+    data: [{ shift_type_id: 'existing-id', label_ja: ' 早番 ' }],
+    error: null,
+  });
+  const result = await upsertWorkforceShiftType(client, { tenantId: TENANT_ID, locationId: LOCATION_ID, labelJa: '早番', startsAtLocal: '09:00', endsAtLocal: '13:00' });
+  assert.equal(result.status, 'duplicate');
+});
+
+test('upsertWorkforceShiftType (A8) allows re-saving a type\'s own unchanged label (excluded from the collision check)', async () => {
+  const { client } = recordingClient([
+    { data: [{ shift_type_id: 'shift-1', label_ja: '早番' }], error: null },
+    { data: SAVED_ROW, error: null },
+  ]);
+  const result = await upsertWorkforceShiftType(client, {
+    shiftTypeId: 'shift-1', tenantId: TENANT_ID, locationId: LOCATION_ID, labelJa: '早番', startsAtLocal: '09:00', endsAtLocal: '13:00',
+  });
+  assert.equal(result.status, 'success');
+});
+
+test('upsertWorkforceShiftType (A8) proceeds when no active type shares the label', async () => {
+  const { client } = recordingClient([
+    { data: [{ shift_type_id: 'other-id', label_ja: '遅番' }], error: null },
+    { data: SAVED_ROW, error: null },
+  ]);
+  const result = await upsertWorkforceShiftType(client, { tenantId: TENANT_ID, locationId: LOCATION_ID, labelJa: '早番', startsAtLocal: '09:00', endsAtLocal: '13:00' });
+  assert.equal(result.status, 'success');
 });
