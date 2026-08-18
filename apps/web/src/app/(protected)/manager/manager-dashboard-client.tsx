@@ -12,6 +12,8 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
+import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
+import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, undoAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
@@ -36,6 +38,7 @@ import {
 import { AttentionPanel } from './attention-panel';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
+import { RecipesPopup } from './recipes-popup';
 import {
   alertDanger,
   backLink,
@@ -106,8 +109,12 @@ export interface ManagerDashboardClientProps {
   inventoryEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
   inventoryItems: InventoryItemStatus[] | null;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` visit). Only 'inventory' is recognized so far. */
-  initialPopup: 'inventory' | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` or `/recipes` visit). */
+  initialPopup: 'inventory' | 'recipes' | null;
+  /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
+  recipeGroups: WorkforceRecipeGroup[] | null;
+  recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  recipeCanManage: boolean;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -166,6 +173,9 @@ function ManagerDashboardBody({
   inventoryEnabled,
   inventoryItems,
   initialPopup,
+  recipeGroups,
+  recipeTitleFieldByRecipeId,
+  recipeCanManage,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -186,6 +196,7 @@ function ManagerDashboardBody({
   // handles returning focus here on every close path.
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
+  const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   // Same table/card dual-mount situation as editStaffButtonRefs above -- the
   // schedule grid also renders a table (>=768px) and a day-grouped card list
@@ -585,9 +596,9 @@ function ManagerDashboardBody({
             {tenantName} - {locationName}
           </p>
           <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-            <Link href="/recipes" style={backLink}>
+            <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setRecipesPopupOpen(true)}>
               {t('navRecipes')}
-            </Link>
+            </button>
             {inventoryEnabled ? (
               <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setInventoryPopupOpen(true)}>
                 {t('navInventory')}
@@ -686,6 +697,16 @@ function ManagerDashboardBody({
         locationTimezone={timeZone}
         items={inventoryItems}
         staffNameById={staffNameById}
+      />
+
+      <RecipesPopup
+        open={recipesPopupOpen}
+        onClose={() => setRecipesPopupOpen(false)}
+        tenantName={tenantName}
+        groups={recipeGroups}
+        titleFieldByRecipeId={recipeTitleFieldByRecipeId}
+        canManage={recipeCanManage}
+        onChange={() => router.refresh()}
       />
 
       <section id="weekly-schedule" style={primaryCard}>

@@ -5,15 +5,22 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import {
   getWorkforceRecipeDetail,
+  hasRecipeManagerAccess,
   permanentlyDeleteRecipe as permanentlyDeleteRecipeWrite,
   setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
+  type WorkforceRecipeDetail,
   type WorkforceRecipe,
 } from './recipes';
 import { parseUpsertRecipeInput } from './recipe-input';
 import type { WorkforceWriteResult } from './result-types';
+import type { TenantAccessResult } from '@/lib/tenant/types';
 import { listContentTranslationsForEntities, setMachineContentTranslation } from '@/lib/content/translations';
-import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
+import {
+  buildRecipeTranslationWorkspace,
+  flattenRecipeTranslationFields,
+  type RecipeTranslationField,
+} from '@/lib/content/recipe-translation-workspace';
 import { resolveContentTranslationProvider } from '@/lib/content/translation-provider-factory';
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -158,4 +165,55 @@ export async function permanentlyDeleteRecipe(
 
   const supabase = await createClient();
   return permanentlyDeleteRecipeWrite(supabase, tenantContext.data.activeTenant.tenantId, recipeId);
+}
+
+export interface RecipeDetailForPopup {
+  recipe: WorkforceRecipeDetail['recipe'];
+  ingredients: WorkforceRecipeDetail['ingredients'];
+  steps: WorkforceRecipeDetail['steps'];
+  notes: WorkforceRecipeDetail['notes'];
+  translationFields: RecipeTranslationField[];
+  canManage: boolean;
+}
+
+/**
+ * Lazy, on-demand recipe-detail read for the Manager Recipes popup (WP
+ * A5b): the popup only fetches one recipe's full detail (ingredients/
+ * steps/notes/translations) when the caller actually clicks into it from
+ * the list, mirroring exactly what `/recipes/[recipeId]/page.tsx` already
+ * fetches server-side -- same two reads (`getWorkforceRecipeDetail` +
+ * `listContentTranslationsForEntities`), just callable from a client
+ * component instead of a page's own request. `data: null` covers "recipe
+ * id does not exist, belongs to another tenant, or is filtered out by
+ * RLS" identically to the page's own `NotFoundState` handling -- these are
+ * indistinguishable at the query layer.
+ */
+export async function getRecipeDetailForPopup(recipeId: string): Promise<TenantAccessResult<RecipeDetailForPopup | null>> {
+  if (typeof recipeId !== 'string' || !recipeId.trim()) return { status: 'unexpected_error', message: 'Invalid input.' };
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const { activeTenant } = tenantContext.data;
+
+  const [detailResult, canManage] = await Promise.all([
+    getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipeId),
+    hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+  ]);
+
+  if (detailResult.status !== 'success') return detailResult;
+  if (detailResult.data === null) return { status: 'success', data: null };
+
+  const { recipe, ingredients, steps, notes } = detailResult.data;
+  const translationsResult = await listContentTranslationsForEntities(supabase, activeTenant.tenantId, [
+    { sourceEntityType: 'workforce_recipe', sourceEntityId: recipe.recipeId },
+    ...ingredients.map((i) => ({ sourceEntityType: 'workforce_recipe_ingredient' as const, sourceEntityId: i.ingredientId })),
+    ...steps.map((s) => ({ sourceEntityType: 'workforce_recipe_step' as const, sourceEntityId: s.stepId })),
+    ...notes.map((n) => ({ sourceEntityType: 'workforce_recipe_note' as const, sourceEntityId: n.noteId })),
+  ]);
+  const translations = translationsResult.status === 'success' ? translationsResult.data : [];
+  const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
+
+  return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage } };
 }

@@ -20,6 +20,21 @@ export interface RecipesListClientProps {
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show the Add-recipe control. */
   canManage: boolean;
+  /**
+   * True only when rendered inside the Manager dashboard's Recipes popup
+   * (WP A5b) -- skips this component's own page-level header, and swaps
+   * each recipe row's `<Link href="/recipes/[id]">` for a button calling
+   * `onSelectRecipe` (a same-popup view swap, not a page navigation) since
+   * the popup renders list and detail as two views of the same `Modal`,
+   * matching the Founder's "popups look like one component" direction.
+   * Defaults false -- the standalone `/recipes` page's own behavior is
+   * completely unchanged.
+   */
+  embedded?: boolean;
+  /** Required when `embedded` is true; ignored otherwise. */
+  onSelectRecipe?: (recipeId: string) => void;
+  /** Required when `embedded` is true: called instead of `router.refresh()` after adding a recipe, since the popup's list data was fetched by the Manager page, not this component's own page. */
+  onChange?: () => void;
 }
 
 /**
@@ -37,7 +52,15 @@ export function RecipesListClient(props: RecipesListClientProps) {
   );
 }
 
-function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }: RecipesListClientProps) {
+export function RecipesListBody({
+  tenantName,
+  groups,
+  titleFieldByRecipeId,
+  canManage,
+  embedded = false,
+  onSelectRecipe,
+  onChange,
+}: RecipesListClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
@@ -51,21 +74,23 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
 
   return (
     <>
-      <header>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+      {!embedded ? (
+        <header>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PreviewLanguageToggle />
+              <SignOutButton label={t('signOut')} />
+            </div>
           </div>
-        </div>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {t('pageDescription')} {tenantName}.
-        </p>
-        <Link href={canManage ? '/manager' : '/staff'} style={{ ...backLink, marginTop: 12 }}>
-          {t('backToWorkforce')}
-        </Link>
-      </header>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {t('pageDescription')} {tenantName}.
+          </p>
+          <Link href={canManage ? '/manager' : '/staff'} style={{ ...backLink, marginTop: 12 }}>
+            {t('backToWorkforce')}
+          </Link>
+        </header>
+      ) : null}
 
       {canManage ? (
         <section style={card}>
@@ -76,7 +101,8 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
                 lang={lang}
                 onSuccess={() => {
                   setAdding(false);
-                  router.refresh();
+                  if (embedded) onChange?.();
+                  else router.refresh();
                 }}
                 onCancel={() => setAdding(false)}
               />
@@ -112,9 +138,19 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
               <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
                 {group.recipes.map((recipe) => (
                   <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8 }}>
-                    <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
-                      {recipeTitle(recipe)}
-                    </Link>
+                    {embedded ? (
+                      <button
+                        type="button"
+                        style={{ ...linkAccent, textDecoration: 'underline', background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
+                        onClick={() => onSelectRecipe?.(recipe.recipeId)}
+                      >
+                        {recipeTitle(recipe)}
+                      </button>
+                    ) : (
+                      <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
+                        {recipeTitle(recipe)}
+                      </Link>
+                    )}
                     {recipe.contentKind === 'instruction' ? (
                       <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('instructionBadge')}</span>
                     ) : null}

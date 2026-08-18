@@ -25,6 +25,25 @@ export interface RecipeDetailClientProps {
   translationFields: RecipeTranslationField[];
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show Edit/Archive/Delete controls. */
   canManage: boolean;
+  /**
+   * True only when rendered inside the Manager dashboard's Recipes popup
+   * (WP A5b) -- skips this component's own page-level language-toggle/
+   * sign-out, and swaps the "back to recipes" `<Link>` for a same-popup
+   * `onBack` callback (a view swap back to the list, not a page
+   * navigation), matching the Founder's "popups look like one component"
+   * direction. Defaults false -- the standalone `/recipes/[recipeId]`
+   * page's own behavior is completely unchanged.
+   */
+  embedded?: boolean;
+  /** Required when `embedded` is true; ignored otherwise. */
+  onBack?: () => void;
+  /**
+   * Required when `embedded` is true: called instead of `router.refresh()`
+   * after a successful archive/restore/edit, since this data was fetched
+   * client-side by the popup wrapper (WP A5b), not by a server component
+   * `router.refresh()` would re-render.
+   */
+  onChange?: () => void;
 }
 
 /**
@@ -42,7 +61,17 @@ export function RecipeDetailClient(props: RecipeDetailClientProps) {
   );
 }
 
-function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields, canManage }: RecipeDetailClientProps) {
+export function RecipeDetailBody({
+  recipe,
+  ingredients,
+  steps,
+  notes,
+  translationFields,
+  canManage,
+  embedded = false,
+  onBack,
+  onChange,
+}: RecipeDetailClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
@@ -58,7 +87,8 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
     startTransition(async () => {
       const result = await setRecipeArchived(formData);
       if (result.status === 'success') {
-        router.refresh();
+        if (embedded) onChange?.();
+        else router.refresh();
       } else {
         setError(describeWriteError(result));
       }
@@ -73,7 +103,12 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
     startTransition(async () => {
       const result = await permanentlyDeleteRecipe(formData);
       if (result.status === 'success') {
-        router.push('/recipes');
+        if (embedded) {
+          onChange?.();
+          onBack?.();
+        } else {
+          router.push('/recipes');
+        }
       } else {
         setError(describeWriteError(result));
       }
@@ -100,13 +135,21 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <Link href="/recipes" style={backLink}>
-          {t('backToRecipes')}
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <PreviewLanguageToggle />
-          <SignOutButton label={t('signOut')} />
-        </div>
+        {embedded ? (
+          <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={onBack}>
+            {t('backToRecipes')}
+          </button>
+        ) : (
+          <Link href="/recipes" style={backLink}>
+            {t('backToRecipes')}
+          </Link>
+        )}
+        {!embedded ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PreviewLanguageToggle />
+            <SignOutButton label={t('signOut')} />
+          </div>
+        ) : null}
       </div>
       <header style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -148,7 +191,8 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
             lang={lang}
             onSuccess={() => {
               setEditing(false);
-              router.refresh();
+              if (embedded) onChange?.();
+              else router.refresh();
             }}
             onCancel={() => setEditing(false)}
           />

@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
+import { listTenantLocations } from '@/lib/tenant/locations';
+import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -44,6 +47,24 @@ export default async function WorkforceRecipesPage() {
         );
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
+
+      // Manager-role visitors (same hasManagerAccess gate as `/manager`
+      // itself) are sent into the Manager dashboard's Recipes popup (WP
+      // A5b) instead of this standalone page -- same reasoning as the
+      // Inventory redirect (WP A5a): `/recipes` is shared by both Manager
+      // and Staff, so Staff-role visitors must see this exact page
+      // unchanged. If no single active location can be resolved, this
+      // check is skipped entirely (fails open to "just show the page",
+      // not "block access") -- recipes are tenant-wide, not
+      // location-scoped, so a location-resolution hiccup here should never
+      // stop a Manager from reaching their recipes at all.
+      const locationsResult = await listTenantLocations(supabase);
+      const activeTenantLocations =
+        locationsResult.status === 'success' ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId && l.isActive) : [];
+      if (activeTenantLocations.length === 1) {
+        const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, activeTenantLocations[0]!.locationId);
+        if (managerAccess) redirect('/manager?popup=recipes');
+      }
 
       const [categoriesResult, recipesResult, canManage] = await Promise.all([
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
