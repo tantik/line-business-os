@@ -19,7 +19,7 @@ import { InventoryDashboardClient } from './inventory-dashboard-client';
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Inventory' };
+export const metadata: Metadata = { title: 'Inventory', robots: { index: false, follow: false } };
 
 /**
  * Inventory / Daily Stock Check -- first capability of the reusable,

@@ -30,7 +30,7 @@ import { ManagerDashboardClient } from './manager-dashboard-client';
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Manager' };
+export const metadata: Metadata = { title: 'Manager', robots: { index: false, follow: false } };
 
 /** Sanity cap on how far a manager can navigate the weekly view, not a business rule. */
 const MAX_WEEK_OFFSET = 8;

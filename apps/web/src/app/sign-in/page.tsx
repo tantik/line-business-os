@@ -27,7 +27,7 @@ import { SignInForm } from './SignInForm';
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Sign in' };
+export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: false } };
 
 export default async function SignInPage({
   searchParams,

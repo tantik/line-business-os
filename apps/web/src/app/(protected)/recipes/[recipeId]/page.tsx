@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 // Static, not per-recipe: a dynamic title would need its own `generateMetadata`
 // data fetch, duplicating the page body's `getWorkforceRecipeDetail` call
 // (frontend-engineering-standards.md §2 -- no duplicate fetches per request).
-export const metadata: Metadata = { title: 'Recipe' };
+export const metadata: Metadata = { title: 'Recipe', robots: { index: false, follow: false } };
 
 /**
  * Recipe detail (ingredients, steps, notes). Reachable only when the
