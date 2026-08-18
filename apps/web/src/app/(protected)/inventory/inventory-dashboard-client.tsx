@@ -24,6 +24,18 @@ export interface InventoryDashboardClientProps {
   canManage: boolean;
   /** Manager-only decrypted staff-id -> display-name map (see page.tsx). Always empty for a non-manager caller -- staff never see another employee's name here. */
   staffNameById: Record<string, string>;
+  /**
+   * True only when rendered inside the Manager dashboard's Inventory popup
+   * (WP A5) -- skips this component's own page-level `<header>` (title,
+   * language toggle, sign-out, back-link), since the popup already sits
+   * inside the Manager page's own header/chrome. `useLang()` still resolves
+   * correctly without an embedded `LangProvider`: the popup renders
+   * `InventoryDashboardBody` directly inside the Manager page's own
+   * `LangProvider`, not through the default-exported `InventoryDashboardClient`
+   * wrapper below. Defaults false -- the standalone `/inventory` page's own
+   * behavior is completely unchanged.
+   */
+  embedded?: boolean;
 }
 
 type T = (key: Parameters<typeof tInventoryDashboard>[1]) => string;
@@ -132,7 +144,7 @@ export function InventoryDashboardClient(props: InventoryDashboardClientProps) {
   );
 }
 
-function InventoryDashboardBody({
+export function InventoryDashboardBody({
   tenantName,
   locationName,
   locationId,
@@ -140,6 +152,7 @@ function InventoryDashboardBody({
   items,
   canManage,
   staffNameById,
+  embedded = false,
 }: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
@@ -200,23 +213,25 @@ function InventoryDashboardBody({
 
   return (
     <>
-      <header>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+      {!embedded ? (
+        <header>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PreviewLanguageToggle />
+              <SignOutButton label={t('signOut')} />
+            </div>
           </div>
-        </div>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {t('pageDescription')} {tenantName} — {locationName}.
-        </p>
-        <Link href={canManage ? '/manager' : '/staff'} style={{ ...backLink, marginTop: 12 }}>
-          {t('backToDashboard')}
-        </Link>
-      </header>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {t('pageDescription')} {tenantName} — {locationName}.
+          </p>
+          <Link href={canManage ? '/manager' : '/staff'} style={{ ...backLink, marginTop: 12 }}>
+            {t('backToDashboard')}
+          </Link>
+        </header>
+      ) : null}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: embedded ? 0 : 16 }}>
         <p style={{ margin: 0, ...mutedText }}>
           {shortageCount > 0 ? (
             <span style={badgeStyle('warning')}>

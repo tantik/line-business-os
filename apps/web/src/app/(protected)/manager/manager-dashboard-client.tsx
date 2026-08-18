@@ -35,6 +35,7 @@ import {
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
 import { ManageStaffPopup } from './manage-staff-popup';
+import { InventoryPopup } from './inventory-popup';
 import {
   alertDanger,
   backLink,
@@ -103,8 +104,10 @@ export interface ManagerDashboardClientProps {
   exchangeAssignments: WorkforceShiftAssignment[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the Attention layer's inventory line; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
-  /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). */
+  /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
   inventoryItems: InventoryItemStatus[] | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` visit). Only 'inventory' is recognized so far. */
+  initialPopup: 'inventory' | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -162,6 +165,7 @@ function ManagerDashboardBody({
   exchangeAssignments,
   inventoryEnabled,
   inventoryItems,
+  initialPopup,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -181,6 +185,7 @@ function ManagerDashboardBody({
   // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
   // handles returning focus here on every close path.
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
+  const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   // Same table/card dual-mount situation as editStaffButtonRefs above -- the
   // schedule grid also renders a table (>=768px) and a day-grouped card list
@@ -248,6 +253,13 @@ function ManagerDashboardBody({
   const attendanceById = useMemo(
     () => new Map((attendance ?? []).map((a) => [a.attendanceId, a])),
     [attendance],
+  );
+  // The Inventory popup's "counted by" label needs the same decrypted
+  // staffId -> name map the Staff section already has as `staff` -- no
+  // separate fetch, just reshaped here.
+  const staffNameById = useMemo(
+    () => Object.fromEntries((staff ?? []).map((s) => [s.staffId, s.name])),
+    [staff],
   );
 
   const pendingCorrections = useMemo(
@@ -576,9 +588,11 @@ function ManagerDashboardBody({
             <Link href="/recipes" style={backLink}>
               {t('navRecipes')}
             </Link>
-            <Link href="/inventory" style={backLink}>
-              {t('navInventory')}
-            </Link>
+            {inventoryEnabled ? (
+              <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setInventoryPopupOpen(true)}>
+                {t('navInventory')}
+              </button>
+            ) : null}
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -661,6 +675,17 @@ function ManagerDashboardBody({
         onSetActive={handleSetActive}
         onChange={() => router.refresh()}
         lang={lang}
+      />
+
+      <InventoryPopup
+        open={inventoryPopupOpen}
+        onClose={() => setInventoryPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        locationTimezone={timeZone}
+        items={inventoryItems}
+        staffNameById={staffNameById}
       />
 
       <section id="weekly-schedule" style={primaryCard}>

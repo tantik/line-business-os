@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
+import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import {
   ErrorState,
   MissingConfigState,
@@ -77,6 +79,15 @@ export default async function InventoryPage() {
           </main>
         );
       }
+
+      // Manager-role visitors (same gate as `/manager` itself) are sent into
+      // the Manager dashboard's Inventory popup (WP A5a) instead of this
+      // standalone page -- consolidates their entry point without touching
+      // Staff's experience: `/inventory` remains this exact page,
+      // unchanged, for anyone `hasManagerAccess` returns false for. A bare
+      // deep link/bookmark/QR code still works either way.
+      const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
+      if (managerAccess) redirect('/manager?popup=inventory');
 
       const [itemsResult, canManage] = await Promise.all([
         listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId),
