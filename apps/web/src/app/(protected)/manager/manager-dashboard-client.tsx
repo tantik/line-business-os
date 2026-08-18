@@ -19,15 +19,11 @@ import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { computeManagerAttention, computeUnavailableConflictCellKeys, type ManagerAttentionCategory } from '@/lib/workforce/manager-attention';
+import { computeManagerAttention, computeUnavailableConflictCellKeys } from '@/lib/workforce/manager-attention';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import {
-  attentionCorrectionLabel,
-  attentionExchangeLabel,
-  attentionInventoryLabel,
-  attentionUnavailableConflictLabel,
   autoDistributionCreatedMessage,
   breakMinutesValue,
   preferencesHeadingValue,
@@ -36,6 +32,7 @@ import {
   tManagerDashboard,
   unavailableConflictBadgeLabel,
 } from './manager-dashboard-i18n';
+import { AttentionPanel } from './attention-panel';
 import {
   alertDanger,
   backLink,
@@ -146,13 +143,6 @@ export function ManagerDashboardClient(props: ManagerDashboardClientProps) {
     </LangProvider>
   );
 }
-
-const ATTENTION_ANCHOR: Record<ManagerAttentionCategory, string> = {
-  correction: '#correction-requests',
-  exchange: '#shift-exchange-requests',
-  unavailable_conflict: '#weekly-schedule',
-  inventory: '/inventory',
-};
 
 function ManagerDashboardBody({
   tenantName,
@@ -336,13 +326,6 @@ function ManagerDashboardBody({
     () => (inventoryEnabled && inventoryItems ? inventoryItems.filter((i) => i.status === 'shortage').length : null),
     [inventoryEnabled, inventoryItems],
   );
-
-  const attentionLabel: Record<ManagerAttentionCategory, (count: number) => string> = {
-    correction: (count) => attentionCorrectionLabel[lang](count),
-    exchange: (count) => attentionExchangeLabel[lang](count),
-    unavailable_conflict: (count) => attentionUnavailableConflictLabel[lang](count),
-    inventory: (count) => attentionInventoryLabel[lang](count),
-  };
 
   const localAssignments = useMemo(
     () =>
@@ -637,38 +620,7 @@ function ManagerDashboardBody({
         </div>
       </header>
 
-      <section style={{ ...card, borderLeft: `3px solid ${attentionItems.length > 0 ? colors.warning : colors.success}` }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('attentionHeading')}</h2>
-        {attentionItems.length === 0 ? (
-          <p style={{ margin: '10px 0 0', ...mutedText }}>{t('attentionAllClear')}</p>
-        ) : (
-          <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {attentionItems.map((item) => (
-              <li
-                key={item.category}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '10px 12px',
-                  minHeight: 44,
-                  borderRadius: 8,
-                  background: colors.surfaceElevated,
-                }}
-              >
-                <span style={{ fontSize: 14 }}>{attentionLabel[item.category](item.count)}</span>
-                <Link
-                  href={ATTENTION_ANCHOR[item.category]}
-                  style={{ ...buttonSecondary, textDecoration: 'none', minHeight: 36, display: 'inline-flex', alignItems: 'center' }}
-                >
-                  {t('attentionReview')}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <AttentionPanel items={attentionItems} lang={lang} />
 
       {banner ? (
         <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>
