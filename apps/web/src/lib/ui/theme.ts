@@ -109,6 +109,25 @@ export const linkAccent: CSSProperties = {
   textDecoration: 'none',
 };
 
+/**
+ * A standalone single-purpose navigational link ("Back", "Recipes"/"Inventory"
+ * nav items) styled as underlined text but functioning like a button --
+ * `linkAccent` alone has no minimum tap height (`min-height` is a no-op on
+ * `display: inline`, and every call site was repeating the same
+ * `display:'inline-block', fontSize:14, textDecoration:'underline'` trio to
+ * work around it). Not for a link embedded inline inside a sentence/content
+ * row (e.g. a title next to badges in a list) -- WCAG 2.5.5 exempts those,
+ * and forcing this box model there would misalign the row.
+ */
+export const backLink: CSSProperties = {
+  ...linkAccent,
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: minTouchTarget,
+  fontSize: 14,
+  textDecoration: 'underline',
+};
+
 export const input: CSSProperties = {
   display: 'block',
   width: '100%',

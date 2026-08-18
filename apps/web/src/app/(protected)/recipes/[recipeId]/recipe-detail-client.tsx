@@ -10,7 +10,7 @@ import { setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/reci
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { alertDanger, badgeStyle, buttonDisabled, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { alertDanger, backLink, badgeStyle, buttonDisabled, buttonSecondary, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
@@ -100,7 +100,7 @@ function RecipeDetailBody({ recipe, ingredients, steps, notes, translationFields
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <Link href="/recipes" style={{ ...linkAccent, display: 'inline-block', fontSize: 14, textDecoration: 'underline' }}>
+        <Link href="/recipes" style={backLink}>
           {t('backToRecipes')}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

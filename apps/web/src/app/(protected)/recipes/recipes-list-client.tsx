@@ -9,7 +9,7 @@ import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { backLink, badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { RecipeForm } from './recipe-form';
 import { tRecipes } from './recipes-i18n';
 
@@ -62,10 +62,7 @@ function RecipesListBody({ tenantName, groups, titleFieldByRecipeId, canManage }
         <p style={{ margin: '8px 0 0', ...mutedText }}>
           {t('pageDescription')} {tenantName}.
         </p>
-        <Link
-          href={canManage ? '/manager' : '/staff'}
-          style={{ ...linkAccent, display: 'inline-block', marginTop: 12, fontSize: 14, textDecoration: 'underline' }}
-        >
+        <Link href={canManage ? '/manager' : '/staff'} style={{ ...backLink, marginTop: 12 }}>
           {t('backToWorkforce')}
         </Link>
       </header>

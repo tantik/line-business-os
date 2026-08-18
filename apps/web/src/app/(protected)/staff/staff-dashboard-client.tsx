@@ -26,12 +26,12 @@ import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { existingExchangeMessage, inventoryShortageLabel, pageTitleWithName, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
 import {
+  backLink,
   badgeStyle,
   buttonDisabled,
   buttonSecondary,
   card,
   colors,
-  linkAccent,
   mutedText,
   tableCell,
   tableHeaderCell,
@@ -302,10 +302,10 @@ function StaffDashboardBody({
             {tenantName} - {locationName}
           </p>
           <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-            <Link href="/recipes" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+            <Link href="/recipes" style={backLink}>
               {t('navRecipes')}
             </Link>
-            <Link href="/inventory" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+            <Link href="/inventory" style={backLink}>
               {t('navInventory')}
             </Link>
           </nav>
@@ -638,7 +638,7 @@ function StaffDashboardBody({
       </section>
 
       <p style={{ marginTop: 16 }}>
-        <Link href="/dashboard/workforce" style={{ ...linkAccent, fontSize: 14, textDecoration: 'underline' }}>
+        <Link href="/dashboard/workforce" style={backLink}>
           {t('backToWorkforce')}
         </Link>
       </p>
