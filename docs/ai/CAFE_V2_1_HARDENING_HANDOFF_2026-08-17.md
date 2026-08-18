@@ -297,13 +297,42 @@ assume scope beyond what's been asked.
    language selector for item names to respect. No code change needed or
    made. Do not re-open without a concrete repro showing a *field* that
    fails to translate, not just non-English data.
-4. **P3 minor items**, none started: 44px hit-target sweep for plain
-   links/checkboxes; page `<title>` per route (currently generic "LINE
-   Business OS" everywhere); Recipe list has no distinct "Published" badge
-   (only Draft/Archived are shown); `Back to Workforce`/`Back to dashboard`
-   inconsistency (already partially addressed by PR #285's role-aware Back
-   link, but not audited end-to-end); explicit `noindex` policy for the
-   authenticated app.
+4. ~~**P3 minor items.**~~ **All DONE, 2026-08-17→18 continuation session:**
+   - PR #299 -- per-route page `<title>` (Manager/Staff/Recipes/Recipe
+     detail/Inventory/Sign in), root layout `title.template`. Recipe detail
+     stays a static "Recipe" title (not the recipe's own name) deliberately
+     -- a dynamic title needs its own `generateMetadata` fetch that would
+     duplicate the page body's existing data read.
+   - PR #300 -- Recipes list now shows a distinct green "Published"/"公開中"
+     badge; previously only Draft/Archived got a badge at all, so a
+     published recipe (a real, selectable status) looked identical to
+     "nothing to say about this recipe."
+   - PR #301 -- 44px touch target for every standalone nav/Back link
+     (`backLink` shared style in `theme.ts`; 15 call sites across
+     Manager/Staff/Recipes/Inventory/Admin). Deliberately left the Recipe
+     list's inline per-row title link alone (WCAG 2.5.5 exempts a link
+     embedded in a content row/sentence; forcing the box model there would
+     misalign the row) and left `lib/preview/**` (Surface A reference code)
+     untouched, out of scope.
+   - PR #302 -- `robots.ts` (disallows `/manager`, `/staff`, `/recipes`,
+     `/inventory`, `/sign-in`, `/dashboard`, `/auth`) plus per-route
+     `robots: { index: false, follow: false }` metadata on the same routes.
+     Public marketing/demo surfaces (`/`, `/booking`, `/demo/cafe/**`,
+     `/mame-to-cha/**`) deliberately left crawlable -- blocking those is a
+     product/marketing call, not this mission's to make.
+   - **`Back to Workforce`/`Back to dashboard` consistency: audited, found
+     NOT actually inconsistent, no code change needed.** `/dashboard/workforce`
+     (`workforce-landing-client.tsx`) is a real, still-functional hub page
+     offering "Open Manager Dashboard"/"Open Staff Dashboard" cards, not a
+     dead/orphaned route -- so Manager's and Staff's own "Back to Workforce"
+     links pointing there, while Recipes'/Inventory's role-aware Back links
+     point directly to `/manager` or `/staff` (their immediate parent
+     surface), is a coherent two-level hierarchy (Recipes/Inventory ->
+     parent Manager/Staff; Manager/Staff -> Workforce module hub), not a bug.
+     Do not "fix" this without a specific, concrete repro of a wrong/broken
+     destination -- the QA report's original complaint predates the IA
+     reconciliation (PR #246) that made `/manager`/`/staff` canonical, and
+     may already be stale.
 5. **Auto-distribution preview/undo contract** (QA report WP-G item,
    distinct from the P2-10 conflict-warning work also called "WP-G" in this
    session — see naming caveat below) — not started, not scoped in detail
@@ -333,15 +362,17 @@ assume scope beyond what's been asked.
 
 ## 6. How to continue (recommended immediate next step)
 
-**Updated status (end of the 2026-08-17→18 continuation session):**
-Manager+Staff mobile-parity redesign (§4 item 1, formerly the single
-largest remaining item) is **done** -- PR #290 (button/badge text-wrap,
-app-wide), PR #291 (Staff roster card layout), PR #293 (schedule-grid
-day-grouped card layout), PR #296 (Manager header chrome) all merged to
-`dev` and live-verified at 375px (including `document.activeElement`
-checks for focus-restore, not just screenshots). §3a has the full detail
-per-PR; don't re-do this work. **P2-9 (published-shift amendment/cancel
-workflow) is now the next largest item** -- see §4 item 2.
+**Updated status (end of the 2026-08-17→18 continuation session):** Of
+§4's original 6 items, **1 (mobile redesign), 3 (P2-5 Inventory i18n), and
+4 (P3 minor items) are now fully DONE and closed.** Remaining: **2 (P2-9,
+published-shift amendment) is the single largest remaining item and the
+right next thing to pick up**; 5 (auto-distribution preview/undo) and 6
+(disposable-fixture cleanup script) remain not-started/low-priority. This
+session merged 13 PRs total (#290, #291, #293, #296, #299, #300, #301,
+#302 code + #292, #294, #295, #297, #298 docs-only handoff updates), every
+one typecheck/lint/test/build green and live-Preview-QA verified before
+merge -- see §3a and §4 for full per-PR detail. Don't re-derive or re-do
+any of this from the QA report; treat this handoff as current.
 
 1. Re-read `docs/ai/current-task.md` fresh (its "next gate" section is
    stale relative to this mission — this handoff supersedes it for Cafe
@@ -362,29 +393,43 @@ workflow) is now the next largest item** -- see §4 item 2.
    constraints and is not covered by the routine commit/push/PR/merge
    authority already granted for this mission. Flag the migration clearly
    and wait for approval before pushing it; local schema work and app code
-   can still proceed and be reviewed.
-3. Lower-priority items after P2-9, in the order §4 lists them: P2-5
-   (Inventory i18n -- needs re-confirmation, may already be a non-issue),
-   P3 minor items (44px sweep, page titles, Recipe Published badge, Back-
-   link audit, noindex), auto-distribution preview/undo, disposable-fixture
-   cleanup script. These are individually small and bounded -- good
-   candidates if P2-9's design decision needs Founder input before coding.
+   can still proceed and be reviewed. **If a design decision genuinely
+   can't be made without Founder input, don't guess and build the wrong
+   thing** -- fall back to item 3 below instead.
+3. Lower-priority items after P2-9, in the order §4 lists them:
+   auto-distribution preview/undo contract (not scoped in detail yet --
+   read the QA report's own WP-G section first), disposable-fixture
+   manifest/cleanup script (not urgent, this and the prior session both
+   cleaned up manually instead). Both are individually small and bounded.
 4. Follow the same per-PR discipline this session used: one bounded PR per
    item, typecheck/lint/test/build every time, **live Preview QA before
    merge** (not just "tests pass" -- for focus-restore specifically, check
    `document.activeElement` via `evaluate_script`, don't just eyeball a
    screenshot), clean up any disposable test fixtures created during QA.
-4. `gh pr checks <n>` then `gh pr view <n> --json comments -q
+5. **Local git-branch hygiene, learned the hard way this session**: always
+   `git fetch origin dev` immediately before `git checkout -b <name>
+   origin/dev` -- a stale local `origin/dev` ref silently bases a new
+   branch on an old commit. Worse, `git checkout <old-branch-name>` to
+   "go back" after deleting a branch can land you on a *different*,
+   much-earlier stale local branch from earlier in the same session (this
+   happened once here -- cost a moment of confusion, no actual damage since
+   nothing was committed/pushed from the stale state). If a file's content
+   looks unexpectedly reverted mid-session, check `git log --oneline -3`
+   and `git status` before editing anything further -- don't assume the
+   working tree matches what you just merged. `origin/dev` itself is always
+   the source of truth; recover with `git fetch origin dev && git checkout
+   -B <fresh-name> origin/dev`.
+6. `gh pr checks <n>` then `gh pr view <n> --json comments -q
    '.comments[].body' | grep -oE "https://line-business-os[a-zA-Z0-9.-]*\.vercel\.app"`
    reliably gets the Vercel preview URL for live-testing a PR before merge.
-5. **Mobile viewport gotcha** (cost real time this session): chrome-devtools
+7. **Mobile viewport gotcha** (cost real time this session): chrome-devtools
    MCP's `resize_page` changes the OS window size but **not**
    `window.innerWidth` / CSS media-query evaluation on this Windows/Chrome
    setup. Use `mcp__chrome-devtools__emulate` with
    `viewport: "375x812x2,mobile,touch"` (or similar) for real mobile
    emulation, then verify with `document.body.scrollWidth === 375` before
    trusting any 375px screenshot/audit finding.
-6. If `gh pr merge --delete-branch` fails with `'dev' is already used by
+8. If `gh pr merge --delete-branch` fails with `'dev' is already used by
    worktree at 'D:/Dev/line-business-os-founder-audit'` -- that's cosmetic,
    the merge itself already succeeded (`gh pr view <n> --json
    state,mergedAt` confirms); just delete the remote branch manually
