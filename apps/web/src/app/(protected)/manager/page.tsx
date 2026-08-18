@@ -17,6 +17,10 @@ import { listInventoryItemStatus } from '@/lib/inventory/items';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
+import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
+import { groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { listContentTranslationsForField } from '@/lib/content/translations';
+import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
   ErrorState,
   MissingConfigState,
@@ -135,7 +139,7 @@ export default async function WorkforceManagerPage({
 
       const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
-      const initialPopup = rawPopup === 'inventory' ? 'inventory' : null;
+      const initialPopup = rawPopup === 'inventory' ? 'inventory' : rawPopup === 'recipes' ? 'recipes' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
@@ -162,6 +166,9 @@ export default async function WorkforceManagerPage({
         shiftExchangesResult,
         exchangeAssignmentsResult,
         inventoryItemsResult,
+        recipeCategoriesResult,
+        recipesResult,
+        recipeCanManage,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -181,7 +188,44 @@ export default async function WorkforceManagerPage({
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
+        // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
+        // `/recipes/page.tsx` itself makes; recipe detail (ingredients/
+        // steps/notes/translations) is fetched lazily, client-side, only
+        // once the caller actually opens a specific recipe.
+        listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
+        listWorkforceRecipes(supabase, activeTenant.tenantId),
+        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
       ]);
+
+      const recipeGroups =
+        recipeCategoriesResult.status === 'success' && recipesResult.status === 'success'
+          ? groupRecipesByCategory(recipeCategoriesResult.data, recipesResult.data)
+          : null;
+      // Title-only translation lookup, same as `/recipes/page.tsx` -- bounded
+      // to one field across every recipe rather than loading each recipe's
+      // full content just to show a list row.
+      const recipeTitleTranslationsResult =
+        recipesResult.status === 'success'
+          ? await listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title')
+          : null;
+      const recipeTitleTranslations = recipeTitleTranslationsResult?.status === 'success' ? recipeTitleTranslationsResult.data : [];
+      const recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField> =
+        recipesResult.status === 'success'
+          ? Object.fromEntries(
+              recipesResult.data.map((recipe) => [
+                recipe.recipeId,
+                buildRecipeTranslationField(
+                  'workforce_recipe',
+                  recipe.recipeId,
+                  'title',
+                  recipe.originalLanguage,
+                  (recipe.originalLanguage === 'ja' ? recipe.titleJa : recipe.titleEn) ?? '',
+                  recipe.originalLanguage === 'ja' ? recipe.titleEn : recipe.titleJa,
+                  recipeTitleTranslations,
+                ),
+              ]),
+            )
+          : {};
 
       return (
         <main style={pageStyle(1180)}>
@@ -206,6 +250,9 @@ export default async function WorkforceManagerPage({
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             initialPopup={initialPopup}
+            recipeGroups={recipeGroups}
+            recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
+            recipeCanManage={recipeCanManage}
           />
         </main>
       );
