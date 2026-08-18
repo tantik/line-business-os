@@ -369,13 +369,28 @@ assume scope beyond what's been asked.
      draft list without inserting, and a confirm step that inserts exactly
      what was shown. That's real surgery, not attempted this pass.
 6. **Disposable acceptance-fixture manifest/cleanup script** (QA report's
-   own "WP-H") — not started. Not urgent; every session including this one
-   (see §1's fixture-hygiene note) has cleaned up its own fixtures manually
-   instead. Given how much accumulated fixture noise now exists in this
+   own "WP-H") — **investigated this session, deliberately not built.**
+   This needs direct Supabase service-role or `psql` access to the Cloud
+   dev project (`pehcoenozjtsjdvjietj`) to identify and delete fixture rows
+   across the shared tenant -- this session's only DB access path all
+   along was the authenticated web UI (browser automation, RLS-scoped to
+   whichever role was signed in), never a service-role/direct-DB
+   connection. Writing an untested script with real delete capability
+   against a shared live database, with no way to verify it first, would
+   violate this same session's own "test before shipping" discipline used
+   for every other change -- so it wasn't attempted. **This is blocked on
+   infrastructure/credential access, not a design decision** -- distinct
+   from P2-9's blocker. A session with that access configured could safely
+   build: (a) a read-only "identify candidates" query/script first
+   (matching the known disposable patterns from §1 -- `QA-` prefixes,
+   `1111`/`222`/`55`/`eeee`/`wwww`-style staff rows, etc.), reviewed before
+   any write capability is added, (b) only then a gated delete mode
+   requiring explicit confirmation per row or batch, never a silent bulk
+   delete. Given how much accumulated fixture noise now exists in this
    shared Preview tenant (see the auto-distribution verification caveat
    just above -- it's dense enough to make some testing scenarios hard to
-   reach), this may be worth prioritizing sooner than "not urgent" implies
-   if the next session hits a similar wall.
+   reach), this is worth prioritizing sooner than "not urgent" implies, but
+   only once someone has the right access to do it safely.
 
 ---
 
