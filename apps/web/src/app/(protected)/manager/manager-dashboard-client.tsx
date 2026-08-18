@@ -29,10 +29,12 @@ import {
   preferencesHeadingValue,
   publishedCountMessage,
   scheduleHeadingValue,
+  staffSummaryLabel,
   tManagerDashboard,
   unavailableConflictBadgeLabel,
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
+import { ManageStaffPopup } from './manage-staff-popup';
 import {
   alertDanger,
   backLink,
@@ -47,7 +49,6 @@ import {
   tableHeaderCell,
 } from '@/lib/ui/theme';
 import {
-  buttonDanger,
   correctionStatusBadgeStyle,
   correctionStatusLabel,
   exchangeStatusBadgeStyle,
@@ -60,10 +61,7 @@ import {
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import styles from './manager-dashboard.module.css';
-import { StaffForm } from './staff-form';
-import { LineLinkForm } from './line-link-form';
 import { ShiftCellEditor } from './shift-cell-editor';
-import { InvitationCell } from './invitation-cell';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,
@@ -178,40 +176,11 @@ function ManagerDashboardBody({
     undoAssignmentIds?: string[];
   } | null>(null);
   const [undoingAutoDistribute, setUndoingAutoDistribute] = useState(false);
-  const [addingStaff, setAddingStaff] = useState(false);
-  const addStaffButtonRef = useRef<HTMLButtonElement>(null);
-
-  function closeAddStaffForm() {
-    setAddingStaff(false);
-    // Restore focus to the control that opened this inline form -- it isn't
-    // a true dialog (no focus trap), but leaving focus on the just-removed
-    // form controls drops it to <body>, disorienting keyboard/screen-reader use.
-    requestAnimationFrame(() => addStaffButtonRef.current?.focus());
-  }
-
-  // Table and card Edit buttons for the same staffId both render at once
-  // (CSS media query picks which is visible, see manager-dashboard.module.css)
-  // -- keep both refs so focus-restore targets whichever one is actually
-  // visible/focusable at close time, not whichever mounted last.
-  const editStaffButtonRefs = useRef(new Map<string, { table: HTMLButtonElement | null; card: HTMLButtonElement | null }>());
-
-  function editStaffButtonRef(staffId: string, variant: 'table' | 'card') {
-    return (el: HTMLButtonElement | null) => {
-      const entry = editStaffButtonRefs.current.get(staffId) ?? { table: null, card: null };
-      entry[variant] = el;
-      editStaffButtonRefs.current.set(staffId, entry);
-    };
-  }
-
-  function closeEditStaffForm(staffId: string) {
-    setEditingStaffId(null);
-    requestAnimationFrame(() => {
-      const entry = editStaffButtonRefs.current.get(staffId);
-      const target = entry?.table?.offsetParent ? entry.table : entry?.card?.offsetParent ? entry.card : null;
-      target?.focus();
-    });
-  }
-  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  // Add/Edit-staff state, focus-restore ref-maps, and their Escape handling
+  // now live inside `ManageStaffPopup` (WP A4) -- this button just opens the
+  // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
+  // handles returning focus here on every close path.
+  const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   // Same table/card dual-mount situation as editStaffButtonRefs above -- the
   // schedule grid also renders a table (>=768px) and a day-grouped card list
@@ -238,20 +207,18 @@ function ManagerDashboardBody({
     });
   }
 
-  // Escape closes whichever inline Add/Edit form is currently open -- these
-  // aren't true dialogs (no overlay/focus trap), but a keyboard user still
-  // expects Escape to back out of an open form, same as a real dialog would.
+  // Escape closes the inline Shift-cell editor -- it isn't a true dialog (no
+  // overlay/focus trap), but a keyboard user still expects Escape to back
+  // out of an open form, same as a real dialog would.
   useEffect(() => {
-    if (!addingStaff && !editingStaffId && !editingCellKey) return;
+    if (!editingCellKey) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape') return;
-      if (addingStaff) closeAddStaffForm();
-      else if (editingStaffId) closeEditStaffForm(editingStaffId);
-      else if (editingCellKey) closeCellEditor(editingCellKey);
+      if (editingCellKey) closeCellEditor(editingCellKey);
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [addingStaff, editingStaffId, editingCellKey]);
+  }, [editingCellKey]);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
@@ -660,183 +627,41 @@ function ManagerDashboardBody({
       ) : null}
 
       <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>{t('staffHeading')}</h2>
-          {staff !== null && !addingStaff ? (
-            <button ref={addStaffButtonRef} type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
-              {t('addStaff')}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16 }}>{t('staffHeading')}</h2>
+            {staff !== null && staff.length > 0 ? (
+              <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>
+                {staffSummaryLabel[lang](staff.filter((s) => s.isActive).length, staff.length)}
+              </p>
+            ) : null}
+          </div>
+          {staff !== null ? (
+            <button type="button" style={buttonSecondary} onClick={() => setStaffPopupOpen(true)}>
+              {t('manageStaff')}
             </button>
           ) : null}
         </div>
-
-        {addingStaff ? (
-          <StaffForm
-            locationId={locationId}
-            onSuccess={() => {
-              closeAddStaffForm();
-              router.refresh();
-            }}
-            onCancel={closeAddStaffForm}
-          />
-        ) : null}
-
         {staff === null ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffUnavailable')}</p>
         ) : staff.length === 0 ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffEmpty')}</p>
-        ) : (
-          <>
-          <div className={styles.tableView} style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 640, marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colName')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colPosition')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colEmploymentType')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colLine')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>アクセス</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staff.map((s) => {
-                if (editingStaffId === s.staffId) {
-                  return (
-                    <tr key={s.staffId}>
-                      <td colSpan={7} style={tableCell}>
-                        <StaffForm
-                          locationId={locationId}
-                          employee={s}
-                          onSuccess={() => {
-                            closeEditStaffForm(s.staffId);
-                            router.refresh();
-                          }}
-                          onCancel={() => closeEditStaffForm(s.staffId)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                }
-                const togglingActive = pendingAction === `active-${s.staffId}`;
-                return (
-                  <tr key={s.staffId}>
-                    <td style={tableCell}>{s.name}</td>
-                    <td style={tableCell}>{s.positionLabel ?? '-'}</td>
-                    <td style={tableCell}>{s.employmentType ?? '-'}</td>
-                    <td style={tableCell}>
-                      <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
-                    </td>
-                    <td style={tableCell}>
-                      <LineLinkForm
-                        employeeId={s.staffId}
-                        isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
-                        onSuccess={() => router.refresh()}
-                        lang={lang}
-                      />
-                    </td>
-                    <td style={tableCell}>
-                      <InvitationCell
-                        hasAccountAccess={s.hasAccountAccess}
-                        employeeId={s.staffId}
-                        invitation={latestInvitationByEmployeeId.get(s.staffId) ?? null}
-                        onChange={() => router.refresh()}
-                      />
-                    </td>
-                    <td style={tableCell}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          ref={editStaffButtonRef(s.staffId, 'table')}
-                          type="button"
-                          style={buttonSecondary}
-                          disabled={isPending}
-                          onClick={() => setEditingStaffId(s.staffId)}
-                        >
-                          {t('edit')}
-                        </button>
-                        <button
-                          type="button"
-                          style={isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary}
-                          disabled={isPending}
-                          onClick={() => handleSetActive(s.staffId, !s.isActive)}
-                        >
-                          {togglingActive ? t('saving') : s.isActive ? t('deactivate') : t('activate')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-
-          <div className={styles.cardView} style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {staff.map((s) => {
-              if (editingStaffId === s.staffId) {
-                return (
-                  <div key={s.staffId} style={{ ...card, marginTop: 0 }}>
-                    <StaffForm
-                      locationId={locationId}
-                      employee={s}
-                      onSuccess={() => {
-                        closeEditStaffForm(s.staffId);
-                        router.refresh();
-                      }}
-                      onCancel={() => closeEditStaffForm(s.staffId)}
-                    />
-                  </div>
-                );
-              }
-              const togglingActive = pendingAction === `active-${s.staffId}`;
-              const meta = [s.positionLabel, s.employmentType].filter(Boolean).join(' · ');
-              return (
-                <div key={s.staffId} style={{ ...card, marginTop: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                    <strong style={{ fontSize: 15 }}>{s.name}</strong>
-                    <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
-                  </div>
-                  {meta ? <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>{meta}</p> : null}
-                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <LineLinkForm
-                      employeeId={s.staffId}
-                      isLinked={isLineLinkedByEmployeeId.get(s.staffId) ?? false}
-                      onSuccess={() => router.refresh()}
-                      lang={lang}
-                    />
-                    <InvitationCell
-                      hasAccountAccess={s.hasAccountAccess}
-                      employeeId={s.staffId}
-                      invitation={latestInvitationByEmployeeId.get(s.staffId) ?? null}
-                      onChange={() => router.refresh()}
-                    />
-                  </div>
-                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                      ref={editStaffButtonRef(s.staffId, 'card')}
-                      type="button"
-                      style={{ ...buttonSecondary, flex: '1 1 auto' }}
-                      disabled={isPending}
-                      onClick={() => setEditingStaffId(s.staffId)}
-                    >
-                      {t('edit')}
-                    </button>
-                    <button
-                      type="button"
-                      style={{ ...(isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary), flex: '1 1 auto' }}
-                      disabled={isPending}
-                      onClick={() => handleSetActive(s.staffId, !s.isActive)}
-                    >
-                      {togglingActive ? t('saving') : s.isActive ? t('deactivate') : t('activate')}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          </>
-        )}
+        ) : null}
       </section>
+
+      <ManageStaffPopup
+        open={staffPopupOpen}
+        onClose={() => setStaffPopupOpen(false)}
+        locationId={locationId}
+        staff={staff}
+        isLineLinkedByEmployeeId={isLineLinkedByEmployeeId}
+        latestInvitationByEmployeeId={latestInvitationByEmployeeId}
+        isPending={isPending}
+        pendingAction={pendingAction}
+        onSetActive={handleSetActive}
+        onChange={() => router.refresh()}
+        lang={lang}
+      />
 
       <section id="weekly-schedule" style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>

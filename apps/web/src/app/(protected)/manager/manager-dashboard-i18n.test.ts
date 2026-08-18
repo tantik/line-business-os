@@ -9,6 +9,7 @@ import {
   preferencesHeadingValue,
   publishedCountMessage,
   scheduleHeadingValue,
+  staffSummaryLabel,
   tManagerDashboard,
 } from './manager-dashboard-i18n.js';
 
@@ -25,7 +26,8 @@ const LANGS = ['ja', 'en'] as const;
 
 const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'attentionHeading', 'attentionAllClear', 'attentionReview',
-  'staffHeading', 'addStaff', 'staffUnavailable', 'staffEmpty', 'colName', 'colPosition', 'colEmploymentType',
+  'staffHeading', 'manageStaff', 'addStaff', 'staffUnavailable', 'staffEmpty', 'searchStaffPlaceholder', 'filterAll',
+  'noStaffMatch', 'colName', 'colPosition', 'colEmploymentType',
   'colStatus', 'colLine', 'colActions', 'statusActive', 'statusInactive', 'edit', 'activate', 'deactivate',
   'saving', 'confirmDeactivate',
   'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition', 'fieldEmploymentType',
@@ -97,4 +99,10 @@ test('attention label helpers interpolate their counts and differ by language', 
     assert.match(helper.ja(3), /3/);
     assert.notEqual(helper.en(3), helper.ja(3));
   }
+});
+
+test('staffSummaryLabel interpolates both counts and differs by language', () => {
+  assert.match(staffSummaryLabel.en(4, 5), /4/);
+  assert.match(staffSummaryLabel.en(4, 5), /5/);
+  assert.notEqual(staffSummaryLabel.en(4, 5), staffSummaryLabel.ja(4, 5));
 });
