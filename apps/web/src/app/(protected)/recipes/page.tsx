@@ -18,7 +18,7 @@ import { RecipesListClient } from './recipes-list-client';
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Recipes' };
+export const metadata: Metadata = { title: 'Recipes', robots: { index: false, follow: false } };
 
 /**
  * Recipe list, grouped by category. Reachable only when the tenant's
