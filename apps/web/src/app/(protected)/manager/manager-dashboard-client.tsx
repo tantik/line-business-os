@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -14,9 +14,9 @@ import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
-import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
-import { runAutoDistribution, undoAutoDistribution, publishSchedule, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
+import { runAutoDistribution, undoAutoDistribution, publishSchedule } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
@@ -39,6 +39,9 @@ import { AttentionPanel } from './attention-panel';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
+import { ShiftCellEditorModal } from './shift-cell-editor';
+import { StaffNameDetailPopup } from './staff-name-detail-popup';
+import { Modal } from '@/components/shared/design-kit';
 import {
   alertDanger,
   backLink,
@@ -65,7 +68,6 @@ import {
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import styles from './manager-dashboard.module.css';
-import { ShiftCellEditor } from './shift-cell-editor';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,
@@ -197,44 +199,12 @@ function ManagerDashboardBody({
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
-  const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
-  // Same table/card dual-mount situation as editStaffButtonRefs above -- the
-  // schedule grid also renders a table (>=768px) and a day-grouped card list
-  // (<768px) for the same data at once.
-  const cellButtonRefs = useRef(new Map<string, { table: HTMLButtonElement | null; card: HTMLButtonElement | null }>());
-
-  function cellButtonRef(key: string, variant: 'table' | 'card') {
-    return (el: HTMLButtonElement | null) => {
-      const entry = cellButtonRefs.current.get(key) ?? { table: null, card: null };
-      entry[variant] = el;
-      cellButtonRefs.current.set(key, entry);
-    };
-  }
-
-  function closeCellEditor(key: string) {
-    setEditingCellKey(null);
-    // Same focus-restoration convention as closeAddStaffForm/closeEditStaffForm
-    // above -- the Shift Cell Editor isn't a true dialog either, so leaving
-    // focus on the just-removed form controls drops it to <body>.
-    requestAnimationFrame(() => {
-      const entry = cellButtonRefs.current.get(key);
-      const target = entry?.table?.offsetParent ? entry.table : entry?.card?.offsetParent ? entry.card : null;
-      target?.focus();
-    });
-  }
-
-  // Escape closes the inline Shift-cell editor -- it isn't a true dialog (no
-  // overlay/focus trap), but a keyboard user still expects Escape to back
-  // out of an open form, same as a real dialog would.
-  useEffect(() => {
-    if (!editingCellKey) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return;
-      if (editingCellKey) closeCellEditor(editingCellKey);
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editingCellKey]);
+  // WP A6: the cell editor is now a design-kit `Modal` (`ShiftCellEditorModal`),
+  // which handles its own focus-restore/Escape internally -- no more
+  // ref-map/requestAnimationFrame bookkeeping here.
+  const [editingCell, setEditingCell] = useState<{ staffId: string; date: string } | null>(null);
+  const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+  const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
@@ -335,6 +305,19 @@ function ManagerDashboardBody({
     [requests, localAssignments],
   );
 
+  // WP A6: legend row above the schedule grid -- every active shift type
+  // plus any type this displayed week still references even if it has since
+  // been deactivated.
+  const weekLegendTypes = useMemo(
+    () =>
+      shiftTypesForWeekLegend(
+        (shiftTypes ?? []).filter((st) => st.isActive),
+        localAssignments.filter((a) => dates.includes(a.workDate)).map((a) => ({ shiftTypeId: a.assignment.shiftTypeId })),
+        shiftTypeById,
+      ),
+    [shiftTypes, localAssignments, dates, shiftTypeById],
+  );
+
   const attentionItems = useMemo(
     () =>
       computeManagerAttention({
@@ -355,41 +338,16 @@ function ManagerDashboardBody({
   }
 
   // Shared by the table (>=768px, staff x date grid) and the day-grouped
-  // card list (<768px, one card per date) so the assign/edit/unassign logic
-  // for a single staff/date cell only exists once.
-  function renderScheduleCellContent(s: WorkforceStaffManageEntry, date: string, variant: 'table' | 'card') {
+  // card list (<768px, one card per date) so the assign/edit logic for a
+  // single staff/date cell only exists once. Unassign moved into
+  // `ShiftCellEditorModal` (WP A6); this just opens that Modal now.
+  function renderScheduleCellContent(s: WorkforceStaffManageEntry, date: string) {
     const key = cellKey(s.staffId, date);
     const entry = assignmentFor(s.staffId, date);
 
-    if (editingCellKey === key) {
-      return (
-        <ShiftCellEditor
-          locationId={locationId}
-          workDate={date}
-          rowStaffId={s.staffId}
-          existing={
-            entry ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal } : undefined
-          }
-          staff={staff ?? []}
-          shiftTypes={shiftTypes ?? []}
-          onSuccess={() => {
-            closeCellEditor(key);
-            router.refresh();
-          }}
-          onCancel={() => closeCellEditor(key)}
-        />
-      );
-    }
-
     if (!entry) {
       return s.isActive ? (
-        <button
-          ref={cellButtonRef(key, variant)}
-          type="button"
-          style={buttonSecondary}
-          disabled={isPending}
-          onClick={() => setEditingCellKey(key)}
-        >
+        <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
           {t('assign')}
         </button>
       ) : (
@@ -398,7 +356,6 @@ function ManagerDashboardBody({
     }
 
     const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
-    const unassigning = pendingAction === `unassign-${entry.assignment.assignmentId}`;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -414,25 +371,9 @@ function ManagerDashboardBody({
         {entry.assignment.published ? (
           <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
         ) : (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              ref={cellButtonRef(key, variant)}
-              type="button"
-              style={buttonSecondary}
-              disabled={isPending}
-              onClick={() => setEditingCellKey(key)}
-            >
-              {t('edit')}
-            </button>
-            <button
-              type="button"
-              style={isPending && unassigning ? buttonDisabled : buttonSecondary}
-              disabled={isPending}
-              onClick={() => handleUnassign(entry)}
-            >
-              {unassigning ? t('unassigning') : t('unassign')}
-            </button>
-          </div>
+          <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
+            {t('edit')}
+          </button>
         )}
       </div>
     );
@@ -515,34 +456,6 @@ function ManagerDashboardBody({
       const result = await publishSchedule(formData);
       if (result.status === 'success') {
         setBanner({ tone: 'success', message: publishedCountMessage[lang](result.data.published) });
-        router.refresh();
-      } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
-      }
-      setPendingAction(null);
-    });
-  }
-
-  function handleUnassign(entry: (typeof localAssignments)[number]) {
-    setBanner(null);
-    setPendingAction(`unassign-${entry.assignment.assignmentId}`);
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('assignmentId', entry.assignment.assignmentId);
-      formData.set('locationId', locationId);
-      formData.set('employeeId', '');
-      if (entry.assignment.shiftTypeId) formData.set('shiftTypeId', entry.assignment.shiftTypeId);
-      formData.set('workDate', entry.workDate);
-      formData.set('startsAtLocal', entry.startsAtLocal);
-      formData.set('endsAtLocal', entry.endsAtLocal);
-      formData.set('breakMinutes', String(entry.assignment.breakMinutes));
-      if (entry.assignment.role) formData.set('role', entry.assignment.role);
-      if (entry.assignment.notes) formData.set('notes', entry.assignment.notes);
-      if (entry.assignment.published) formData.set('published', 'true');
-
-      const result = await updateShiftAssignment(formData);
-      if (result.status === 'success') {
-        setBanner({ tone: 'success', message: t('shiftUnassigned') });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result) });
@@ -711,7 +624,28 @@ function ManagerDashboardBody({
 
       <section id="weekly-schedule" style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
+            <button
+              type="button"
+              aria-label={t('scheduleHelpAriaLabel')}
+              onClick={() => setScheduleHelpOpen(true)}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 999,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceElevated,
+                color: colors.textPrimary,
+                fontSize: 13,
+                lineHeight: 1,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              ?
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href={`/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
               {t('prevWeek')}
@@ -728,6 +662,36 @@ function ManagerDashboardBody({
             </Link>
           </div>
         </div>
+
+        <p style={{ margin: '8px 0 0', ...mutedText }}>{t('autoDistributionDescription')}</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+          <button
+            type="button"
+            style={isPending ? buttonDisabled : buttonPrimary}
+            disabled={isPending}
+            onClick={handleAutoDistribute}
+          >
+            {pendingAction === 'auto-distribute' ? t('running') : t('runAutoDistribution')}
+          </button>
+          <button
+            type="button"
+            style={isPending ? buttonDisabled : buttonSecondary}
+            disabled={isPending}
+            onClick={handlePublish}
+          >
+            {pendingAction === 'publish' ? t('publishing') : t('publishSchedule')}
+          </button>
+        </div>
+
+        {weekLegendTypes.length > 0 ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            {weekLegendTypes.map((st) => (
+              <span key={st.shiftTypeId} style={shiftChipStyle(shiftChipColors(st.shiftTypeId))}>
+                {st.code} {st.startsAtLocal}-{st.endsAtLocal}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         {staff === null || staff.length === 0 ? (
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
@@ -750,10 +714,14 @@ function ManagerDashboardBody({
               <tbody>
                 {staff.map((s) => (
                   <tr key={s.staffId}>
-                    <td style={tableCell}>{s.name}</td>
+                    <td style={tableCell}>
+                      <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => setStaffDetailId(s.staffId)}>
+                        {s.name}
+                      </button>
+                    </td>
                     {dates.map((date) => (
                       <td key={date} style={tableCell}>
-                        {renderScheduleCellContent(s, date, 'table')}
+                        {renderScheduleCellContent(s, date)}
                       </td>
                     ))}
                   </tr>
@@ -771,8 +739,14 @@ function ManagerDashboardBody({
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
                   {staff.map((s) => (
                     <div key={s.staffId} style={{ padding: '8px 0', borderTop: `1px solid ${colors.border}` }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{s.name}</div>
-                      {renderScheduleCellContent(s, date, 'card')}
+                      <button
+                        type="button"
+                        style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}
+                        onClick={() => setStaffDetailId(s.staffId)}
+                      >
+                        {s.name}
+                      </button>
+                      {renderScheduleCellContent(s, date)}
                     </div>
                   ))}
                 </div>
@@ -781,30 +755,44 @@ function ManagerDashboardBody({
           </div>
           </>
         )}
-
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
-          <h3 style={{ margin: 0, fontSize: 14 }}>{t('actionsHeading')}</h3>
-          <p style={{ margin: '8px 0 12px', ...mutedText }}>{t('autoDistributionDescription')}</p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              style={isPending ? buttonDisabled : buttonPrimary}
-              disabled={isPending}
-              onClick={handleAutoDistribute}
-            >
-              {pendingAction === 'auto-distribute' ? t('running') : t('runAutoDistribution')}
-            </button>
-            <button
-              type="button"
-              style={isPending ? buttonDisabled : buttonSecondary}
-              disabled={isPending}
-              onClick={handlePublish}
-            >
-              {pendingAction === 'publish' ? t('publishing') : t('publishSchedule')}
-            </button>
-          </div>
-        </div>
       </section>
+
+      <Modal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} title={t('scheduleHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</div>
+      </Modal>
+
+      <StaffNameDetailPopup
+        open={staffDetailId !== null}
+        onClose={() => setStaffDetailId(null)}
+        staffEntry={staffDetailId ? (staffById.get(staffDetailId) ?? null) : null}
+        attendance={attendance ?? []}
+        monthPrefix={todayIso.slice(0, 7)}
+        lang={lang}
+      />
+
+      <ShiftCellEditorModal
+        open={editingCell !== null}
+        onClose={() => setEditingCell(null)}
+        title={editingCell ? `${staffById.get(editingCell.staffId)?.name ?? ''} - ${editingCell.date}` : ''}
+        locationId={locationId}
+        workDate={editingCell?.date ?? ''}
+        existing={
+          editingCell
+            ? (() => {
+                const entry = assignmentFor(editingCell.staffId, editingCell.date);
+                return entry ? { assignment: entry.assignment, startsAtLocal: entry.startsAtLocal, endsAtLocal: entry.endsAtLocal } : undefined;
+              })()
+            : undefined
+        }
+        rowStaffId={editingCell?.staffId ?? ''}
+        staff={staff ?? []}
+        shiftTypes={shiftTypes ?? []}
+        onSuccess={(kind) => {
+          setEditingCell(null);
+          if (kind === 'unassigned') setBanner({ tone: 'success', message: t('shiftUnassigned') });
+          router.refresh();
+        }}
+      />
 
       <section style={card}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('shiftTypesHeading')}</h2>

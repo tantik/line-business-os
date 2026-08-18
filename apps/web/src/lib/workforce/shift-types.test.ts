@@ -1,9 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWorkforceShiftTypeById, listWorkforceShiftTypes, shiftTypeDisplayLabel } from './shift-types.js';
+import { getWorkforceShiftTypeById, listWorkforceShiftTypes, shiftTypeDisplayLabel, shiftTypesForWeekLegend } from './shift-types.js';
+import type { WorkforceShiftType } from './shift-types.js';
 import { recordingClient } from './test-helpers.js';
 
 const TENANT_ID = 'tenant-a';
+
+function makeType(overrides: Partial<WorkforceShiftType>): WorkforceShiftType {
+  return {
+    shiftTypeId: 'st-1',
+    tenantId: TENANT_ID,
+    locationId: 'loc-1',
+    code: 'AM',
+    labelJa: '早番',
+    labelEn: null,
+    startsAtLocal: '09:00',
+    endsAtLocal: '13:00',
+    breakMinutes: 0,
+    isCustom: false,
+    sortOrder: 1,
+    isActive: true,
+    ...overrides,
+  };
+}
 
 // F05 regression: an auto-generated custom shift type's `code` is an
 // internal `CUSTOM_<timestamp>` identifier, never a customer-facing label -
@@ -49,4 +68,41 @@ test('getWorkforceShiftTypeById narrows by tenant and shift type id', async () =
   assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'tenant_id' && call.args[1] === TENANT_ID));
   assert.ok(calls.some((call) => call.method === 'eq' && call.args[0] === 'shift_type_id' && call.args[1] === 'shift-1'));
   assert.ok(calls.some((call) => call.method === 'maybeSingle'));
+});
+
+test('shiftTypesForWeekLegend returns active types plus any inactive type still referenced in the week', () => {
+  const active = makeType({ shiftTypeId: 'am', code: 'AM', sortOrder: 1 });
+  const inactiveButUsed = makeType({ shiftTypeId: 'old', code: 'OLD', isActive: false, sortOrder: 2 });
+  const inactiveUnused = makeType({ shiftTypeId: 'unused', code: 'UNUSED', isActive: false, sortOrder: 3 });
+  const allTypesById = new Map([
+    ['am', active],
+    ['old', inactiveButUsed],
+    ['unused', inactiveUnused],
+  ]);
+
+  const result = shiftTypesForWeekLegend([active], [{ shiftTypeId: 'am' }, { shiftTypeId: 'old' }], allTypesById);
+
+  assert.deepEqual(result.map((t) => t.shiftTypeId), ['am', 'old']);
+});
+
+test('shiftTypesForWeekLegend drops an inactive type not referenced in the displayed week', () => {
+  const active = makeType({ shiftTypeId: 'am' });
+  const allTypesById = new Map([['am', active]]);
+
+  const result = shiftTypesForWeekLegend([active], [{ shiftTypeId: null }], allTypesById);
+
+  assert.deepEqual(result.map((t) => t.shiftTypeId), ['am']);
+});
+
+test('shiftTypesForWeekLegend sorts by sortOrder then code and never duplicates an already-active type', () => {
+  const b = makeType({ shiftTypeId: 'b', code: 'B', sortOrder: 2 });
+  const a = makeType({ shiftTypeId: 'a', code: 'A', sortOrder: 1 });
+  const allTypesById = new Map([
+    ['a', a],
+    ['b', b],
+  ]);
+
+  const result = shiftTypesForWeekLegend([b, a], [{ shiftTypeId: 'a' }, { shiftTypeId: 'a' }], allTypesById);
+
+  assert.deepEqual(result.map((t) => t.shiftTypeId), ['a', 'b']);
 });
