@@ -36,6 +36,7 @@ import {
   unavailableConflictBadgeLabel,
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
+import { BrandBadge } from './brand-badge';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
@@ -544,24 +545,27 @@ function ManagerDashboardBody({
   return (
     <>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <p style={{ margin: '8px 0 0', ...mutedText }}>
-            {tenantName} - {locationName}
-          </p>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-            <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setRecipesPopupOpen(true)}>
-              {t('navRecipes')}
-            </button>
-            {inventoryEnabled ? (
-              <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setInventoryPopupOpen(true)}>
-                {t('navInventory')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <BrandBadge label={tenantName} />
+          <div>
+            <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+            <p style={{ margin: '4px 0 0', ...mutedText }}>
+              {tenantName} - {locationName}
+            </p>
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+              <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setRecipesPopupOpen(true)}>
+                {t('navRecipes')}
               </button>
-            ) : null}
-          </nav>
+              {inventoryEnabled ? (
+                <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setInventoryPopupOpen(true)}>
+                  {t('navInventory')}
+                </button>
+              ) : null}
+            </nav>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <PreviewLanguageToggle variant="dark" />
+          <PreviewLanguageToggle />
           <SignOutButton label={t('signOut')} />
         </div>
       </header>
