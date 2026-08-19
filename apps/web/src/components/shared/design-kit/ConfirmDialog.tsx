@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { buttonPrimary, buttonSecondary, colors } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 /**
@@ -84,11 +85,12 @@ export function ConfirmDialog({
         <h3 id="shared-confirm-dialog-title" style={{ margin: 0, fontSize: 18 }}>{title}</h3>
         <div style={{ marginTop: 10, color: colors.textMuted, fontSize: 13.5, lineHeight: 1.55 }}>{children}</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button type="button" style={buttonSecondary} disabled={pending} onClick={onCancel}>
+          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} disabled={pending} onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
             type="button"
+            className={danger ? hoverStyles.buttonDanger : hoverStyles.buttonPrimary}
             style={danger ? { ...buttonPrimary, background: colors.danger } : buttonPrimary}
             disabled={pending}
             onClick={onConfirm}
