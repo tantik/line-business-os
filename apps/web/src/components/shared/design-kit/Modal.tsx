@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { colors } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 interface ModalProps {
@@ -111,6 +112,7 @@ export function Modal({ open, onClose, title, children, footer, width = 'min(960
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
+            className={hoverStyles.iconButton}
             style={{
               width: 32,
               height: 32,

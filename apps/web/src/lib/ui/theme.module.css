@@ -1,0 +1,52 @@
+/*
+ * WP A10 (Cafe Manager parity mission): hover states for the shared button
+ * styles in theme.ts. A CSS Module because CSSProperties (this app's
+ * existing inline-style convention) cannot express `:hover` at all.
+ * color/shadow/opacity only -- never a layout-affecting property (size,
+ * padding, position) -- so hovering a button never shifts surrounding
+ * layout. Applied via an additional `className` alongside each button's
+ * existing `style=` prop, never replacing it (the inline style keeps
+ * owning color/spacing/etc.; the class only ever adds a `:hover` rule
+ * inline styles cannot express).
+ *
+ * Imported directly by each consuming `.tsx` component (`import hoverStyles
+ * from '@/lib/ui/theme.module.css'`), NOT re-exported through `theme.ts`
+ * itself -- `theme.ts` is a plain token/style-object module imported by many
+ * non-component files, including several run directly under this repo's
+ * Node test runner (`node --test`, no webpack/Next pipeline), which cannot
+ * parse a `.css` import at all. Importing this module from `theme.ts` broke
+ * `workforce-theme.test.ts` (and would have broken every other test file
+ * that transitively imports `theme.ts`) -- caught by actually running the
+ * test suite before committing, not assumed safe.
+ *
+ * Scope note: infrastructure + the shared design-kit (Modal/ConfirmDialog)
+ * only in this pass. Retrofitting the ~250 other existing button-style call
+ * sites across ~68 files was found, at execution time, to be roughly 4x the
+ * plan's original "~65 call sites" estimate -- large enough that a blind
+ * mechanical pass (sed-style) risks corrupting JSX in files this session
+ * has not read, with no automated check that would catch a silently-missed
+ * site (typecheck can't verify a class name was actually added). Deferred
+ * as a separate, explicitly-scoped follow-up, same call already made for
+ * WP A2's similar mechanical retrofit earlier in this mission -- fold into
+ * whichever future PR next touches each individual file, rather than one
+ * large blind pass.
+ */
+
+.buttonPrimary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 2px 6px rgba(54, 43, 31, 0.18);
+}
+
+.buttonSecondary:hover:not(:disabled) {
+  background: rgba(54, 43, 31, 0.04);
+}
+
+.buttonDanger:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 2px 6px rgba(193, 80, 63, 0.18);
+}
+
+/* Modal's own × close button -- not one of the buttonPrimary/Secondary/Danger variants above, just its own small icon-button style. */
+.iconButton:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
