@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
-import { setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/recipe-actions';
+import { getRecipeDetailForPopup, setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -61,12 +61,15 @@ export function RecipeDetailClient(props: RecipeDetailClientProps) {
   );
 }
 
+/** WP C1: same interval/shape as `recipes-list-client.tsx`'s list poll, matching the Staff dashboard schedule poll this pattern originates from. */
+const RECIPE_DETAIL_POLL_INTERVAL_MS = 2500;
+
 export function RecipeDetailBody({
-  recipe,
-  ingredients,
-  steps,
-  notes,
-  translationFields,
+  recipe: initialRecipe,
+  ingredients: initialIngredients,
+  steps: initialSteps,
+  notes: initialNotes,
+  translationFields: initialTranslationFields,
   canManage,
   embedded = false,
   onBack,
@@ -78,6 +81,49 @@ export function RecipeDetailBody({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [recipe, setRecipe] = useState(initialRecipe);
+  const [ingredients, setIngredients] = useState(initialIngredients);
+  const [steps, setSteps] = useState(initialSteps);
+  const [notes, setNotes] = useState(initialNotes);
+  const [translationFields, setTranslationFields] = useState(initialTranslationFields);
+
+  useEffect(() => {
+    setRecipe(initialRecipe);
+    setIngredients(initialIngredients);
+    setSteps(initialSteps);
+    setNotes(initialNotes);
+    setTranslationFields(initialTranslationFields);
+  }, [initialRecipe, initialIngredients, initialSteps, initialNotes, initialTranslationFields]);
+
+  // WP C1 (Track C, live-sync): skip while embedded (Manager's popup already
+  // refreshes itself via onChange) or while a manage-only edit form is open
+  // (never overwrite content the caller is actively editing out from under
+  // them).
+  useEffect(() => {
+    if (embedded || editing) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const result = await getRecipeDetailForPopup(recipe.recipeId);
+        if (cancelled || result.status !== 'success' || !result.data) return;
+        setRecipe(result.data.recipe);
+        setIngredients(result.data.ingredients);
+        setSteps(result.data.steps);
+        setNotes(result.data.notes);
+        setTranslationFields(result.data.translationFields);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(poll, RECIPE_DETAIL_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [embedded, editing, recipe.recipeId]);
 
   function handleSetArchived(archived: boolean) {
     setError(null);

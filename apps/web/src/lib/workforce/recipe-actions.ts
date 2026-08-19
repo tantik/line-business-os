@@ -5,18 +5,23 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import {
   getWorkforceRecipeDetail,
+  groupRecipesByCategory,
   hasRecipeManagerAccess,
+  listWorkforceRecipes,
   permanentlyDeleteRecipe as permanentlyDeleteRecipeWrite,
   setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
   type WorkforceRecipeDetail,
+  type WorkforceRecipeGroup,
   type WorkforceRecipe,
 } from './recipes';
+import { listWorkforceRecipeCategories } from './recipe-categories';
 import { parseUpsertRecipeInput } from './recipe-input';
 import type { WorkforceWriteResult } from './result-types';
 import type { TenantAccessResult } from '@/lib/tenant/types';
-import { listContentTranslationsForEntities, setMachineContentTranslation } from '@/lib/content/translations';
+import { listContentTranslationsForEntities, listContentTranslationsForField, setMachineContentTranslation } from '@/lib/content/translations';
 import {
+  buildRecipeTranslationField,
   buildRecipeTranslationWorkspace,
   flattenRecipeTranslationFields,
   type RecipeTranslationField,
@@ -216,4 +221,61 @@ export async function getRecipeDetailForPopup(recipeId: string): Promise<TenantA
   const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
 
   return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage } };
+}
+
+export interface RecipesListForPoll {
+  groups: WorkforceRecipeGroup[] | null;
+  titleFieldByRecipeId: Record<string, RecipeTranslationField>;
+}
+
+/**
+ * WP C1 (Track C, live-sync): re-reads the recipe list, grouped by category
+ * plus title translation fields -- identical shape/fetch to
+ * `recipes/page.tsx`'s own initial load, just callable from a client
+ * component's poll instead of a page request. Used by `RecipesListBody`'s
+ * 2.5s poll (same interval/visibility/in-flight pattern already proven on
+ * the Staff dashboard's schedule poll) so a Manager's recipe edit appears
+ * for a Staff member with the list already open, without a reload.
+ */
+export async function getRecipesListForPoll(): Promise<TenantAccessResult<RecipesListForPoll>> {
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const { activeTenant } = tenantContext.data;
+
+  const [categoriesResult, recipesResult] = await Promise.all([
+    listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
+    listWorkforceRecipes(supabase, activeTenant.tenantId),
+  ]);
+
+  const groups =
+    categoriesResult.status === 'success' && recipesResult.status === 'success'
+      ? groupRecipesByCategory(categoriesResult.data, recipesResult.data)
+      : null;
+
+  const titleTranslationsResult =
+    recipesResult.status === 'success'
+      ? await listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title')
+      : null;
+  const titleTranslations = titleTranslationsResult?.status === 'success' ? titleTranslationsResult.data : [];
+  const titleFieldByRecipeId: Record<string, RecipeTranslationField> =
+    recipesResult.status === 'success'
+      ? Object.fromEntries(
+          recipesResult.data.map((recipe) => [
+            recipe.recipeId,
+            buildRecipeTranslationField(
+              'workforce_recipe',
+              recipe.recipeId,
+              'title',
+              recipe.originalLanguage,
+              (recipe.originalLanguage === 'ja' ? recipe.titleJa : recipe.titleEn) ?? '',
+              recipe.originalLanguage === 'ja' ? recipe.titleEn : recipe.titleJa,
+              titleTranslations,
+            ),
+          ]),
+        )
+      : {};
+
+  return { status: 'success', data: { groups, titleFieldByRecipeId } };
 }
