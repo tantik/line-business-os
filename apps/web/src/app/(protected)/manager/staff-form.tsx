@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { upsertEmployee } from '@/lib/workforce/staff-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
@@ -83,10 +84,10 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
         <input style={input} name="employmentType" defaultValue={employee?.employmentType ?? ''} maxLength={40} />
       </label>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
+        <button type="submit" className={hoverStyles.buttonPrimary} style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
           {isPending ? t('saving') : employee ? t('saveChanges') : t('addStaffSubmit')}
         </button>
-        <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancel')}
         </button>
       </div>

@@ -44,6 +44,7 @@ import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { Modal } from '@/components/shared/design-kit';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import {
   alertDanger,
   backLink,
@@ -387,7 +388,7 @@ function ManagerDashboardBody({
 
     if (!entry) {
       return s.isActive ? (
-        <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
           {t('assign')}
         </button>
       ) : (
@@ -411,7 +412,7 @@ function ManagerDashboardBody({
         {entry.assignment.published ? (
           <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
         ) : (
-          <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
+          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
             {t('edit')}
           </button>
         )}
@@ -594,6 +595,7 @@ function ManagerDashboardBody({
           {banner.undoAssignmentIds ? (
             <button
               type="button"
+              className={hoverStyles.buttonSecondary}
               style={{ ...(undoingAutoDistribute ? buttonDisabled : buttonSecondary), marginTop: 8 }}
               disabled={undoingAutoDistribute}
               onClick={() => handleUndoAutoDistribute(banner.undoAssignmentIds!)}
@@ -615,7 +617,7 @@ function ManagerDashboardBody({
             ) : null}
           </div>
           {staff !== null ? (
-            <button type="button" style={buttonSecondary} onClick={() => setStaffPopupOpen(true)}>
+            <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setStaffPopupOpen(true)}>
               {t('manageStaff')}
             </button>
           ) : null}
@@ -666,12 +668,12 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
-            <button type="button" aria-label={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} style={helpButtonStyle}>
+            <button type="button" className={hoverStyles.iconButton} aria-label={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} style={helpButtonStyle}>
               ?
             </button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/manager?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
+            <Link href={`/manager?weekOffset=${weekOffset - 1}`} className={hoverStyles.buttonSecondary} style={buttonSecondary}>
               {t('prevWeek')}
             </Link>
             <Link
@@ -681,7 +683,7 @@ function ManagerDashboardBody({
             >
               {t('thisWeek')}
             </Link>
-            <Link href={`/manager?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
+            <Link href={`/manager?weekOffset=${weekOffset + 1}`} className={hoverStyles.buttonSecondary} style={buttonSecondary}>
               {t('nextWeek')}
             </Link>
           </div>
@@ -691,6 +693,7 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
           <button
             type="button"
+            className={hoverStyles.buttonPrimary}
             style={isPending ? buttonDisabled : buttonPrimary}
             disabled={isPending}
             onClick={handleAutoDistribute}
@@ -699,6 +702,7 @@ function ManagerDashboardBody({
           </button>
           <button
             type="button"
+            className={hoverStyles.buttonSecondary}
             style={isPending ? buttonDisabled : buttonSecondary}
             disabled={isPending}
             onClick={handlePublish}
@@ -784,7 +788,7 @@ function ManagerDashboardBody({
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>{t('labourCostHeading')}</h2>
-          <button type="button" aria-label={t('labourCostHelpAriaLabel')} onClick={() => setLabourCostHelpOpen(true)} style={helpButtonStyle}>
+          <button type="button" className={hoverStyles.iconButton} aria-label={t('labourCostHelpAriaLabel')} onClick={() => setLabourCostHelpOpen(true)} style={helpButtonStyle}>
             ?
           </button>
         </div>
@@ -962,6 +966,7 @@ function ManagerDashboardBody({
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button
                               type="button"
+                              className={hoverStyles.buttonPrimary}
                               style={isPending ? buttonDisabled : buttonPrimary}
                               disabled={isPending}
                               onClick={() => handleDecideCorrection(r.requestId, 'approved')}
@@ -970,6 +975,7 @@ function ManagerDashboardBody({
                             </button>
                             <button
                               type="button"
+                              className={hoverStyles.buttonSecondary}
                               style={isPending ? buttonDisabled : buttonSecondary}
                               disabled={isPending}
                               onClick={() => handleDecideCorrection(r.requestId, 'rejected')}
@@ -1094,6 +1100,7 @@ function ManagerDashboardBody({
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button
                               type="button"
+                              className={hoverStyles.buttonPrimary}
                               style={isPending || !canApprove ? buttonDisabled : buttonPrimary}
                               disabled={isPending || !canApprove}
                               onClick={() => handleDecideExchange(e.exchangeId, 'approved')}
@@ -1102,6 +1109,7 @@ function ManagerDashboardBody({
                             </button>
                             <button
                               type="button"
+                              className={hoverStyles.buttonSecondary}
                               style={isPending ? buttonDisabled : buttonSecondary}
                               disabled={isPending}
                               onClick={() => handleDecideExchange(e.exchangeId, 'rejected')}

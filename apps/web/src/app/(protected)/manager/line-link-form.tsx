@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { bindEmployeeLineUser, unbindEmployeeLineUser } from '@/lib/workforce/staff-actions';
 import { alertDanger, buttonDisabled, buttonSecondary, input } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { describeWriteError } from './error-copy';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
@@ -60,7 +61,7 @@ export function LineLinkForm({ employeeId, isLinked, onSuccess, lang }: LineLink
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {error ? <div style={alertDanger}>{error}</div> : null}
-        <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleUnbind}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleUnbind}>
           {isPending ? t('unbinding') : t('unbindLine')}
         </button>
       </div>
@@ -79,7 +80,7 @@ export function LineLinkForm({ employeeId, isLinked, onSuccess, lang }: LineLink
           maxLength={128}
           required
         />
-        <button type="submit" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending}>
+        <button type="submit" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending}>
           {isPending ? t('binding') : t('bind')}
         </button>
       </div>
