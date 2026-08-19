@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
+import { getRecipesListForPoll } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { backLink, badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
 import { RecipeForm } from './recipe-form';
 import { tRecipes } from './recipes-i18n';
+
+/**
+ * WP C1 (Track C, live-sync): matches the Staff dashboard's schedule poll
+ * exactly (`staff-dashboard-client.tsx`'s `SCHEDULE_POLL_INTERVAL_MS`) --
+ * same value, same Page-Visibility-gated/in-flight-guarded shape. Not a
+ * shared exported constant (neither of the two existing poll
+ * implementations was, either); kept file-local like its precedents.
+ */
+const RECIPES_POLL_INTERVAL_MS = 2500;
 
 export interface RecipesListClientProps {
   tenantName: string;
@@ -65,9 +75,43 @@ export function RecipesListBody({
   const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   const [adding, setAdding] = useState(false);
+  const [liveGroups, setLiveGroups] = useState(groups);
+  const [liveTitleFieldByRecipeId, setLiveTitleFieldByRecipeId] = useState(titleFieldByRecipeId);
+
+  useEffect(() => {
+    setLiveGroups(groups);
+    setLiveTitleFieldByRecipeId(titleFieldByRecipeId);
+  }, [groups, titleFieldByRecipeId]);
+
+  // Only the standalone page polls -- `embedded` (Manager's popup, WP A5b)
+  // already refreshes itself via `onChange` after its own writes, and a
+  // second independent poll inside an already-open Modal risks a confusing
+  // race with that popup's own state.
+  useEffect(() => {
+    if (embedded) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const result = await getRecipesListForPoll();
+        if (cancelled || result.status !== 'success') return;
+        setLiveGroups(result.data.groups);
+        setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(poll, RECIPES_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [embedded]);
 
   function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
-    const field = titleFieldByRecipeId[recipe.recipeId];
+    const field = liveTitleFieldByRecipeId[recipe.recipeId];
     if (!field) return recipe.titleJa || recipe.titleEn || recipe.recipeId;
     return resolveFieldDisplay(field, lang).text || recipe.recipeId;
   }
@@ -115,16 +159,16 @@ export function RecipesListBody({
         </section>
       ) : null}
 
-      {groups === null ? (
+      {liveGroups === null ? (
         <section style={card}>
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('unavailable')}</p>
         </section>
-      ) : groups.every((group) => group.recipes.length === 0) ? (
+      ) : liveGroups.every((group) => group.recipes.length === 0) ? (
         <section style={card}>
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noRecipesYet')}</p>
         </section>
       ) : (
-        groups.map((group) => (
+        liveGroups.map((group) => (
           <section key={group.category?.categoryId ?? 'uncategorized'} style={card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h2 style={{ margin: 0, fontSize: 16 }}>
