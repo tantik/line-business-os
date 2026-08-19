@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { inviteOrResendEmployee, recoverEmployeeAccess, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
+import { ConfirmDialog } from '@/components/shared/design-kit';
 import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 
@@ -66,6 +67,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [recoverySent, setRecoverySent] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'recover' | 'revoke' | null>(null);
 
   function handleInviteOrResend() {
     setError(null);
@@ -83,7 +85,6 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
   }
 
   function handleRecover() {
-    if (!window.confirm('このスタッフにパスワード再設定メールを送信しますか？')) return;
     setError(null);
     setRecoverySent(false);
     const formData = new FormData();
@@ -100,7 +101,6 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
 
   function handleRevoke() {
     if (!invitation) return;
-    if (!window.confirm('この招待を取り消しますか？')) return;
     setError(null);
     setRecoverySent(false);
     const formData = new FormData();
@@ -139,17 +139,48 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
         {isPending ? '送信中…' : isPendingInvite || isExpired ? '再送信' : '招待する'}
       </button>
       {isPendingInvite || isExpired ? (
-        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRecover}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('recover')}>
           アクセスを回復
         </button>
       ) : null}
       {isPendingInvite ? (
-        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRevoke}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('revoke')}>
           取り消す
         </button>
       ) : null}
       {recoverySent ? <span style={{ ...mutedText, color: colors.success, fontSize: 12 }}>復旧メールを送信しました。</span> : null}
       {error ? <span style={{ ...mutedText, color: colors.dangerText, fontSize: 12 }}>{error}</span> : null}
+
+      <ConfirmDialog
+        open={confirmAction === 'recover'}
+        title="このスタッフにパスワード再設定メールを送信しますか？"
+        confirmLabel="送信する"
+        cancelLabel="キャンセル"
+        pending={isPending}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          setConfirmAction(null);
+          handleRecover();
+        }}
+      >
+        スタッフはメールに記載されたリンクからパスワードを再設定できます。
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmAction === 'revoke'}
+        title="この招待を取り消しますか？"
+        confirmLabel="取り消す"
+        cancelLabel="キャンセル"
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          setConfirmAction(null);
+          handleRevoke();
+        }}
+      >
+        取り消した招待は無効になります。必要であれば再送信できます。
+      </ConfirmDialog>
     </div>
   );
 }

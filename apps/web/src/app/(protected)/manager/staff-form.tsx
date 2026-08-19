@@ -3,9 +3,11 @@
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import { upsertEmployee } from '@/lib/workforce/staff-actions';
-import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import { deleteEmployee, upsertEmployee } from '@/lib/workforce/staff-actions';
+import { ConfirmDialog } from '@/components/shared/design-kit';
+import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { buttonDanger } from '../_ui/workforce-theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
@@ -37,6 +39,26 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [isDeletePending, startDeleteTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  function handleDelete() {
+    if (!employee) return;
+    setDeleteError(null);
+    const formData = new FormData();
+    formData.set('staffId', employee.staffId);
+    startDeleteTransition(async () => {
+      const result = await deleteEmployee(formData);
+      if (result.status === 'success') {
+        setConfirmDeleteOpen(false);
+        onSuccess();
+      } else {
+        setConfirmDeleteOpen(false);
+        setDeleteError(result.status === 'blocked_by_history' ? t('staffBlockedByHistory') : localizedFormError(result, t));
+      }
+    });
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,6 +113,38 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
           {t('cancel')}
         </button>
       </div>
+
+      {employee ? (
+        <div style={{ marginTop: 4, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
+          {deleteError ? <div style={alertDanger}>{deleteError}</div> : null}
+          <button
+            type="button"
+            className={hoverStyles.buttonDanger}
+            style={isDeletePending ? buttonDisabled : buttonDanger}
+            disabled={isDeletePending}
+            onClick={() => setConfirmDeleteOpen(true)}
+          >
+            {isDeletePending ? t('deletingStaff') : t('deleteStaffButton')}
+          </button>
+          {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard (0056) produces on an actual blocked attempt, so the two never disagree. The button stays enabled; this only makes the outcome predictable. */}
+          {employee.hasProtectedHistory ? (
+            <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('staffBlockedByHistory')}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title={t('confirmDeleteStaffTitle')}
+        confirmLabel={t('deleteStaffButton')}
+        cancelLabel={t('cancel')}
+        pending={isDeletePending}
+        danger
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleDelete}
+      >
+        {t('confirmDeleteStaffBody')}
+      </ConfirmDialog>
     </form>
   );
 }
