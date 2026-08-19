@@ -253,11 +253,23 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-19 pointer (read first, this section below is now stale relative
-to it):** the Founder-directed **Cafe Manager Parity + Design-Kit mission**
-(started 2026-08-18, not described anywhere in this file) ran to full
-completion across all three of its tracks (A: visual/UX parity + design-kit,
-B: LINE LIFF login architecture, C: live-sync + notification stub) — see
+**2026-08-19 pointer, latest first (read before treating the rest of this
+section as current):** immediately after the Cafe Manager Parity mission
+below closed, Founder live-QA'd its result against the legacy Mame To Cha
+reference and opened a new, larger **Cafe Manager UI/UX Parity mission**
+(13 Work Packages, Manager surface first, Staff surface as a later follow-
+up, then Cafe v2.1 formally closes, then Platform Foundation per the
+already-agreed sequencing below) — see
+`docs/ai/CAFE_MANAGER_UIUX_PARITY_MISSION_2026-08-19.md` for full state,
+roles, the approved plan file location, and exactly which Work Package is
+next. Read that handoff first; it supersedes this section's "what's next"
+until it says otherwise.
+
+**2026-08-19 pointer (older, still useful context):** the Founder-directed
+**Cafe Manager Parity + Design-Kit mission** (started 2026-08-18, not
+described anywhere in this file) ran to full completion across all three of
+its tracks (A: visual/UX parity + design-kit, B: LINE LIFF login
+architecture, C: live-sync + notification stub) — see
 `docs/ai/CAFE_MANAGER_PARITY_MISSION_COMPLETE_HANDOFF_2026-08-19.md` for the
 full, current state, what was deferred and why, and the genuinely open
 "what's next" question this file's own §5 text below does not yet reflect.
