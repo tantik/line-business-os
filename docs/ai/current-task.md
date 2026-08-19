@@ -253,6 +253,17 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-19 pointer (read first, this section below is now stale relative
+to it):** the Founder-directed **Cafe Manager Parity + Design-Kit mission**
+(started 2026-08-18, not described anywhere in this file) ran to full
+completion across all three of its tracks (A: visual/UX parity + design-kit,
+B: LINE LIFF login architecture, C: live-sync + notification stub) — see
+`docs/ai/CAFE_MANAGER_PARITY_MISSION_COMPLETE_HANDOFF_2026-08-19.md` for the
+full, current state, what was deferred and why, and the genuinely open
+"what's next" question this file's own §5 text below does not yet reflect.
+A fresh session should read that handoff before treating the rest of this
+section as the current plan of record.
+
 **Cafe v2.1 (bounded, §2.3) is closed.** Preview QA, independent review, and
 Final Founder Acceptance for F1/F2 all complete as of 2026-08-16. **Cafe
 Commercial Launch Readiness (§2.4) step 1 is complete as of 2026-08-16**:
