@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { bindEmployeeLineUser, unbindEmployeeLineUser } from '@/lib/workforce/staff-actions';
+import { ConfirmDialog } from '@/components/shared/design-kit';
 import { alertDanger, buttonDisabled, buttonSecondary, input } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { describeWriteError } from './error-copy';
@@ -21,6 +22,7 @@ export function LineLinkForm({ employeeId, isLinked, onSuccess, lang }: LineLink
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [rawLineUserId, setRawLineUserId] = useState('');
+  const [confirmUnbindOpen, setConfirmUnbindOpen] = useState(false);
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
 
   function handleBind(event: FormEvent<HTMLFormElement>) {
@@ -42,7 +44,6 @@ export function LineLinkForm({ employeeId, isLinked, onSuccess, lang }: LineLink
   }
 
   function handleUnbind() {
-    if (!window.confirm(t('confirmUnbindLine'))) return;
     setError(null);
     const formData = new FormData();
     formData.set('employeeId', employeeId);
@@ -61,9 +62,24 @@ export function LineLinkForm({ employeeId, isLinked, onSuccess, lang }: LineLink
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {error ? <div style={alertDanger}>{error}</div> : null}
-        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleUnbind}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setConfirmUnbindOpen(true)}>
           {isPending ? t('unbinding') : t('unbindLine')}
         </button>
+        <ConfirmDialog
+          open={confirmUnbindOpen}
+          title={t('confirmUnbindLine')}
+          confirmLabel={t('unbindLine')}
+          cancelLabel={t('cancel')}
+          pending={isPending}
+          danger
+          onCancel={() => setConfirmUnbindOpen(false)}
+          onConfirm={() => {
+            setConfirmUnbindOpen(false);
+            handleUnbind();
+          }}
+        >
+          {''}
+        </ConfirmDialog>
       </div>
     );
   }

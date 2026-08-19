@@ -2,13 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
+import { parseUuid } from './validation';
 import {
   parseBindEmployeeLineUserInput,
   parseSetEmployeeActiveInput,
   parseUnbindEmployeeLineUserInput,
   parseUpsertEmployeeInput,
 } from './employees-input';
-import { setWorkforceEmployeeActive, upsertWorkforceEmployee, type WorkforceEmployeeActiveState, type WorkforceStaffManageEntry } from './employees';
+import {
+  permanentlyDeleteEmployee,
+  setWorkforceEmployeeActive,
+  upsertWorkforceEmployee,
+  type WorkforceEmployeeActiveState,
+  type WorkforceStaffManageEntry,
+} from './employees';
 import {
   bindEmployeeLineUser as bindEmployeeLineUserWrite,
   unbindEmployeeLineUser as unbindEmployeeLineUserWrite,
@@ -59,6 +66,18 @@ export async function setEmployeeActive(formData: FormData): Promise<WorkforceWr
 
   const supabase = await createClient();
   return setWorkforceEmployeeActive(supabase, tenantContext.data.activeTenant.tenantId, input.staffId, input.isActive);
+}
+
+/** Manager-only: permanently (physically) remove a staff profile. Distinct from `setEmployeeActive(..., false)` (the normal "Deactivate" path, which soft-deactivates and always preserves history) -- this refuses when the employee has any shift/attendance/request/exchange history, via the guarded `api.permanently_delete_employee` RPC (0056). */
+export async function deleteEmployee(formData: FormData): Promise<WorkforceWriteResult<{ staffId: string }>> {
+  const staffId = parseUuid(formData.get('staffId'));
+  if (!staffId) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return permanentlyDeleteEmployee(supabase, tenantContext.data.activeTenant.tenantId, staffId);
 }
 
 export async function bindEmployeeLineUser(formData: FormData): Promise<WorkforceWriteResult<WorkforceEmployeeLineLinkBinding>> {

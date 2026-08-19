@@ -102,9 +102,9 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 
 | WP | Title | Status |
 |----|-------|--------|
-| WP-1 | Header brand badge + language-toggle contrast fix | **DONE — PR #325, awaiting CI + Founder Preview QA** |
-| WP-2 | Recipes/Inventory nav buttons: real buttons + hover | **DONE — PR #325, same PR as WP-1** |
-| WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | Not started |
+| WP-1 | Header brand badge + language-toggle contrast fix | **MERGED — PR #325 (2026-08-19, by Founder), Claude live-QA'd on 2026-08-20 (desktop + 375px)** |
+| WP-2 | Recipes/Inventory nav buttons: real buttons + hover | **MERGED — PR #325, same PR as WP-1** |
+| WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | In progress — branch `fix/cafe-manager-staff-confirm-dialogs` off `origin/dev` |
 | WP-4 | Recipes: full-width form + remove "Original language" field | Not started |
 | WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | Not started |
 | WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | Not started |
@@ -181,10 +181,19 @@ Matches the house style already used for PR #324/#325:
 ```
 pnpm -F web typecheck && pnpm -F web lint && pnpm -F web test && pnpm -F web build
 ```
-All four must pass locally before push. Every WP with a live UI surface
-needs live Founder Preview QA (desktop + mobile 375px) against
-`https://preview.oruwa.jp/manager` before merge — the reference site is a
-visual guide only, never a data source. WP-3/5/6/7's new destructive
+All four must pass locally before push.
+
+**Process clarified 2026-08-20 (Founder, verbatim)**: Founder does NOT do
+per-PR live QA on ephemeral Vercel PR-preview URLs. Founder only checks the
+persistent `https://preview.oruwa.jp/manager` deployment, once, as the
+**final acceptance gate after every WP in this mission is merged and
+deployed there** ("я финальная проверка"). For each individual WP/PR in
+between, **Claude does its own live Preview QA** (chrome-devtools MCP
+against the PR's Vercel preview deployment URL — get it from
+`gh pr view <n> --json comments` or the Vercel GitHub-bot PR comment) before
+merging — desktop + mobile 375px, sign in as
+`manager@oruwa-cafe.test`/`NewTestSmoke456!`. The reference site
+(`mame-to-cha/manager`) is a visual guide only, never a data source. WP-3/5/6/7's new destructive
 actions (permanent-delete employee/recipe/inventory-item) need a dedicated
 manual QA pass confirming `ConfirmDialog` actually blocks accidental
 clicks, and the blocked-by-history case shows its inline warning *before*

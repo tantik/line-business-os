@@ -44,7 +44,7 @@ import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
-import { Modal } from '@/components/shared/design-kit';
+import { ConfirmDialog, Modal } from '@/components/shared/design-kit';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
   alertDanger,
@@ -225,6 +225,7 @@ function ManagerDashboardBody({
   // ref-map/requestAnimationFrame bookkeeping here.
   const [editingCell, setEditingCell] = useState<{ staffId: string; date: string } | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+  const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   const [labourCostHelpOpen, setLabourCostHelpOpen] = useState(false);
 
@@ -422,7 +423,14 @@ function ManagerDashboardBody({
   }
 
   function handleSetActive(staffId: string, nextActive: boolean) {
-    if (!nextActive && !window.confirm(t('confirmDeactivate'))) return;
+    if (!nextActive) {
+      setConfirmDeactivateStaffId(staffId);
+      return;
+    }
+    performSetActive(staffId, true);
+  }
+
+  function performSetActive(staffId: string, nextActive: boolean) {
     setBanner(null);
     setPendingAction(`active-${staffId}`);
     startTransition(async () => {
@@ -646,6 +654,23 @@ function ManagerDashboardBody({
         onChange={() => router.refresh()}
         lang={lang}
       />
+
+      <ConfirmDialog
+        open={confirmDeactivateStaffId !== null}
+        title={t('confirmDeactivate')}
+        confirmLabel={t('deactivate')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmDeactivateStaffId(null)}
+        onConfirm={() => {
+          const staffId = confirmDeactivateStaffId;
+          setConfirmDeactivateStaffId(null);
+          if (staffId) performSetActive(staffId, false);
+        }}
+      >
+        {confirmDeactivateStaffId ? staffById.get(confirmDeactivateStaffId)?.name ?? '' : ''}
+      </ConfirmDialog>
 
       <InventoryPopup
         open={inventoryPopupOpen}

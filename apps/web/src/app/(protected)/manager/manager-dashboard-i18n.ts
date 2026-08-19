@@ -49,6 +49,12 @@ interface ManagerDashboardDict {
   deactivate: string;
   saving: string;
   confirmDeactivate: string;
+  deleteStaffButton: string;
+  deletingStaff: string;
+  confirmDeleteStaffTitle: string;
+  confirmDeleteStaffBody: string;
+  staffDeleted: string;
+  staffBlockedByHistory: string;
   // Staff form (Add/Edit modal)
   fieldName: string;
   fieldFamilyName: string;
@@ -235,6 +241,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivate: 'Deactivate',
     saving: 'Saving...',
     confirmDeactivate: 'Deactivate this staff member?',
+    deleteStaffButton: 'Delete permanently',
+    deletingStaff: 'Deleting...',
+    confirmDeleteStaffTitle: 'Permanently delete this staff member?',
+    confirmDeleteStaffBody: 'This cannot be undone — their profile will be permanently removed.',
+    staffDeleted: 'Staff member permanently deleted.',
+    staffBlockedByHistory: 'This staff member has shift, attendance, or request history, so they cannot be permanently deleted. Use Deactivate instead.',
     fieldName: 'Name',
     fieldFamilyName: 'Family name',
     fieldGivenName: 'Given name',
@@ -409,6 +421,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivate: '無効化',
     saving: '保存中...',
     confirmDeactivate: 'このスタッフを無効化しますか？',
+    deleteStaffButton: '完全に削除',
+    deletingStaff: '削除中...',
+    confirmDeleteStaffTitle: 'このスタッフを完全に削除しますか？',
+    confirmDeleteStaffBody: 'この操作は取り消せません -- プロフィールは完全に削除されます。',
+    staffDeleted: 'スタッフを完全に削除しました。',
+    staffBlockedByHistory: 'このスタッフにはシフト・勤怠・申請などの履歴があるため完全に削除できません。「無効化」をご利用ください。',
     fieldName: '氏名',
     fieldFamilyName: '姓',
     fieldGivenName: '名',
