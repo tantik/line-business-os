@@ -6,6 +6,7 @@ import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { Modal } from '@/components/shared/design-kit';
 import { badgeStyle, buttonDisabled, buttonSecondary, card, colors, input, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
@@ -153,7 +154,7 @@ export function ManageStaffPopup({
           </div>
         </div>
         {staff !== null && !addingStaff ? (
-          <button ref={addStaffButtonRef} type="button" style={buttonSecondary} onClick={() => setAddingStaff(true)}>
+          <button ref={addStaffButtonRef} type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setAddingStaff(true)}>
             {t('addStaff')}
           </button>
         ) : null}
@@ -240,6 +241,7 @@ export function ManageStaffPopup({
                           <button
                             ref={editStaffButtonRef(s.staffId, 'table')}
                             type="button"
+                            className={hoverStyles.buttonSecondary}
                             style={buttonSecondary}
                             disabled={isPending}
                             onClick={() => setEditingStaffId(s.staffId)}
@@ -248,6 +250,7 @@ export function ManageStaffPopup({
                           </button>
                           <button
                             type="button"
+                            className={s.isActive ? hoverStyles.buttonDanger : hoverStyles.buttonSecondary}
                             style={isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary}
                             disabled={isPending}
                             onClick={() => onSetActive(s.staffId, !s.isActive)}
@@ -307,6 +310,7 @@ export function ManageStaffPopup({
                     <button
                       ref={editStaffButtonRef(s.staffId, 'card')}
                       type="button"
+                      className={hoverStyles.buttonSecondary}
                       style={{ ...buttonSecondary, flex: '1 1 auto' }}
                       disabled={isPending}
                       onClick={() => setEditingStaffId(s.staffId)}
@@ -315,6 +319,7 @@ export function ManageStaffPopup({
                     </button>
                     <button
                       type="button"
+                      className={s.isActive ? hoverStyles.buttonDanger : hoverStyles.buttonSecondary}
                       style={{ ...(isPending && togglingActive ? buttonDisabled : s.isActive ? buttonDanger : buttonSecondary), flex: '1 1 auto' }}
                       disabled={isPending}
                       onClick={() => onSetActive(s.staffId, !s.isActive)}

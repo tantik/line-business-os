@@ -7,6 +7,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { Modal, ConfirmDialog } from '@/components/shared/design-kit';
 import { describeWriteError } from './error-copy';
@@ -153,10 +154,10 @@ export function ShiftCellEditor({
       </label>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
+        <button type="submit" className={hoverStyles.buttonPrimary} style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
           {isPending ? t('saving') : existing ? t('save') : t('assign')}
         </button>
-        <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancel')}
         </button>
       </div>
@@ -250,6 +251,7 @@ export function ShiftCellEditorModal({
           {unassignError ? <div style={alertDanger}>{unassignError}</div> : null}
           <button
             type="button"
+            className={hoverStyles.buttonSecondary}
             style={isUnassignPending ? buttonDisabled : buttonSecondary}
             disabled={isUnassignPending}
             onClick={() => setConfirmUnassignOpen(true)}

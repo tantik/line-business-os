@@ -6,6 +6,7 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { Modal } from '@/components/shared/design-kit';
 import { badgeStyle, buttonPrimary, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
@@ -89,7 +90,7 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
           </dl>
 
           <div>
-            <button type="button" style={buttonPrimary} onClick={handleCopy}>
+            <button type="button" className={hoverStyles.buttonPrimary} style={buttonPrimary} onClick={handleCopy}>
               {t('staffNamePopupCopyReport')}
             </button>
             {copyState === 'copied' ? (

@@ -6,6 +6,7 @@ import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-setting
 import { saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { buttonPrimary, buttonSecondary, card, input, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
@@ -149,6 +150,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('settingsCardTitle')}</h2>
         <button
           type="button"
+          className={hoverStyles.iconButton}
           aria-label={t('settingsCardTitle')}
           onClick={() => setHelpOpen(true)}
           style={{ width: 24, height: 24, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
@@ -224,13 +226,14 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
                     </label>
                     <button
                       type="button"
+                      className={hoverStyles.buttonPrimary}
                       style={buttonPrimary}
                       disabled={isPending}
                       onClick={() => saveShiftType({ shiftTypeId: st.shiftTypeId, labelJa: editLabel, startsAtLocal: editStart, endsAtLocal: editEnd })}
                     >
                       {t('save')}
                     </button>
-                    <button type="button" style={buttonSecondary} onClick={() => setEditingId(null)}>
+                    <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setEditingId(null)}>
                       {t('cancel')}
                     </button>
                   </div>
@@ -279,6 +282,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
           </label>
           <button
             type="button"
+            className={hoverStyles.buttonPrimary}
             style={buttonPrimary}
             disabled={isPending}
             onClick={() => saveShiftType({ labelJa: newLabel || `${newStart}-${newEnd}`, startsAtLocal: newStart, endsAtLocal: newEnd })}

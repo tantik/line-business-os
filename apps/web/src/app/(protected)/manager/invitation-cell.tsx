@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { inviteOrResendEmployee, recoverEmployeeAccess, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 
 /**
  * JA-only per Founder direction: localize the NEW Staff Auth Provisioning
@@ -130,6 +131,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
       ) : null}
       <button
         type="button"
+        className={hoverStyles.buttonSecondary}
         style={isPending ? buttonDisabled : buttonSecondary}
         disabled={isPending}
         onClick={handleInviteOrResend}
@@ -137,12 +139,12 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
         {isPending ? '送信中…' : isPendingInvite || isExpired ? '再送信' : '招待する'}
       </button>
       {isPendingInvite || isExpired ? (
-        <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRecover}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRecover}>
           アクセスを回復
         </button>
       ) : null}
       {isPendingInvite ? (
-        <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRevoke}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={handleRevoke}>
           取り消す
         </button>
       ) : null}
