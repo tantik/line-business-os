@@ -13,6 +13,7 @@ import {
   type WorkforceShiftExchange,
 } from './shift-exchanges';
 import type { WorkforceWriteResult } from './result-types';
+import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 
 /**
  * Server Actions for the shift-exchange/change/cancel workflow -- canonical-
@@ -115,5 +116,18 @@ export async function decideShiftExchange(formData: FormData): Promise<Workforce
   if (tenantContext.status !== 'success') return tenantContext;
 
   const supabase = await createClient();
-  return decideShiftExchangeWrite(supabase, exchangeId, decision);
+  const result = await decideShiftExchangeWrite(supabase, exchangeId, decision);
+  if (result.status === 'success') {
+    // WP C2: inert today, never affects this write's own result either way.
+    // targetStaffId is null here -- resolving the requester's employeeId
+    // would need an extra query this thin action doesn't otherwise make;
+    // not worth adding for a stub with no real recipient yet.
+    queueLineNotification({
+      type: 'shift_exchange_decision',
+      tenantId: tenantContext.data.activeTenant.tenantId,
+      targetStaffId: null,
+      payload: { exchangeId: result.data.exchangeId, decision },
+    });
+  }
+  return result;
 }

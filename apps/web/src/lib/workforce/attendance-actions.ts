@@ -13,6 +13,7 @@ import {
   parseSubmitWorkReportInput,
 } from './attendance-input';
 import type { WorkforceWriteResult } from './result-types';
+import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 
 /**
  * Server Actions for attendance / work reports + correction requests. Thin
@@ -102,5 +103,16 @@ export async function decideCorrectionRequest(formData: FormData): Promise<Workf
   if (tenantContext.status !== 'success') return tenantContext;
 
   const supabase = await createClient();
-  return decideCorrectionRequestWrite(supabase, tenantContext.data.activeTenant.tenantId, input.requestId, input.decision);
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+  const result = await decideCorrectionRequestWrite(supabase, tenantId, input.requestId, input.decision);
+  if (result.status === 'success') {
+    // WP C2: inert today, never affects this write's own result either way.
+    queueLineNotification({
+      type: 'correction_decision',
+      tenantId,
+      targetStaffId: result.data.employeeId,
+      payload: { requestId: result.data.requestId, decision: input.decision },
+    });
+  }
+  return result;
 }

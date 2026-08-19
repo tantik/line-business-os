@@ -29,6 +29,7 @@ import {
 import { resolveContentTranslationProvider } from '@/lib/content/translation-provider-factory';
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 
 /**
  * Server Actions for Manager recipe CRUD (Cafe v2.1 QA audit P1-2,
@@ -93,6 +94,9 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
   // trigger with it; the canonical Manager recipe CRUD (`upsertWorkforceRecipe`
   // via this action) never had one.
   await autoTranslateRecipe(supabase, tenantId, saved.data.recipeId);
+
+  // WP C2: inert today, never affects this write's own result either way.
+  queueLineNotification({ type: 'recipe_updated', tenantId, targetStaffId: null, payload: { recipeId: saved.data.recipeId } });
 
   return saved;
 }
