@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
+import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 import { getMyWorkforceStaffProfile } from './staff-profile';
 import { listWorkforceStaffDirectory } from './employees';
 import { listWorkforceShiftTypes } from './shift-types';
@@ -311,5 +312,15 @@ export async function publishSchedule(formData: FormData): Promise<WorkforceWrit
   const fromIso = localDateTimeToUtcIso(input.periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(input.periodEnd, 1), '00:00', location.timezone);
 
-  return publishShiftAssignments(supabase, tenantId, input.locationId, fromIso, toIsoExclusive);
+  const result = await publishShiftAssignments(supabase, tenantId, input.locationId, fromIso, toIsoExclusive);
+  if (result.status === 'success') {
+    // WP C2: inert today, never affects this write's own result either way.
+    queueLineNotification({
+      type: 'schedule_published',
+      tenantId,
+      targetStaffId: null,
+      payload: { locationId: input.locationId, periodStart: input.periodStart, periodEnd: input.periodEnd, published: result.data.published },
+    });
+  }
+  return result;
 }
