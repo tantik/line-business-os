@@ -142,8 +142,8 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | **MERGED — PR #333 (2026-08-20).** `computeUnderstaffedDateKeys`/`computePendingCorrectionCellKeys` added to `manager-attention.ts` (pure, reuses `scheduleSettings`/`localAssignments`/`pendingCorrections`, no new fetch). Live-QA'd (desktop + 375px): understaffed marker confirmed correct against real data. Per-cell correction marker's live verification was deferred at merge time (no pending-correction fixture existed yet) — **closed out 2026-08-20 once WP-10 landed**: created a real past-day pending correction (田中美咲, 2026-08-18) + a matching draft assignment via the live Manager UI on `preview.oruwa.jp/manager`, confirmed the "!" marker renders correctly next to the Draft badge, and confirmed the understaffed marker correctly disappeared from that date once the assignment existed. Week-nav "jankiness" root-caused (full RSC page navigation remounts the whole page on every Prev/Next click, not a slow query) but NOT fixed -- flagged as a future follow-up, not folded into WP-8. |
 | WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | **MERGED — PR #335 (2026-08-20).** New shared `HelpIconButton` (`components/shared/design-kit`) unifies schedule's bordered-circle vs Settings' transparent "?" styles; `Modal` gained a `titleAdornment` slot to host it; wired into Manage Staff/Recipes/Inventory popups, which previously had no help affordance at all (each got a new small help Modal, JA/EN copy). `PendingOverlay`/`LoadingButton` wired into `StaffForm`/`RecipeForm`/`ItemForm` (the three Add/Edit forms still using a bare `isPending` ternary); `CountForm`'s inline autosave indicator left as-is (different, already-visible pending pattern). New temporary `lib/ui/popup-timing.ts` instrumentation measured real popup-open times live on Preview: Manage Staff 16ms, Recipes 5ms, Inventory 12ms -- all well under 100ms, confirming these three popups are NOT the source of the Founder's "slow to open" complaint (matches the Explore-phase prediction). Live-QA'd desktop 1440px + mobile 375px, all three popups + their new help modals + nested-modal-in-modal rendering, no regressions. |
 | WP-10 | QA seed-data script for `oruwa-cafe` tenant | **MERGED — PRs #337/#338/#339 (2026-08-20).** New `packages/db/scripts/oruwa-cafe-fixture.ts` (pure typed manifest + plan builder, 10 unit tests) + `oruwa-cafe-fixture-write.ts` (dry-run-by-default executor, `--confirm-apply` to write for real, rerun-safe via per-item ownership markers). Required four small additive grant-only migrations (`0075`-`0078`) discovered live: `service_role` had never been granted any access to this codebase's custom schemas before (schema `api` USAGE, underlying base-table SELECT/INSERT, two SECURITY DEFINER function EXECUTE grants, schema `core` USAGE) — this fixture tool was the first thing to ever call `.schema('api')` as `service_role`. Also fixed two bugs found live: `api.workforce_staff_directory`'s own `WHERE core.has_permission(...)` clause always returns zero rows for a service-role caller (no acting user) regardless of grants, so employee-roster reads (and the stock-count RPC) go through an authenticated manager-test-account session instead; and the `pendingShiftExchange` fixture's `reason` text used the wrong marker constant, breaking rerun-idempotency for that one item (now fixed + regression-tested — but a harmless duplicate shift-exchange pair from before the fix is still live in `oruwa-cafe`, left as-is). **Fully executed against the linked Cloud dev project** (with Founder approval at each schema-change step) — the full fixture set is live: 2 shift assignments, 3 shift requests, 1(+1 duplicate) shift exchange, 2 inventory items. Used immediately to close out WP-8's deferred per-cell-marker verification (see WP-8 row). Execution note for a future session: this AI sandbox cannot read `.env.cloud.local`/`.env.local` (blocked by permission settings) — running `--confirm-apply` requires the Founder to source real Cloud credentials into their own PowerShell session and run the `pnpm` command themselves; see PR #337's body for the exact commands. |
-| WP-11 | Correction/Exchange requests: convert always-visible sections to popups triggered from `AttentionPanel` | **NOT STARTED — start here.** |
-| WP-12 | Settings section: side-by-side diff pass vs. reference | Not started |
+| WP-11 | Correction/Exchange requests: convert always-visible sections to popups triggered from `AttentionPanel` | **MERGED — PR #341 (2026-08-20).** New `CorrectionRequestsPopup`/`ShiftExchangeRequestsPopup`, triggered from `AttentionPanel`'s correction/exchange cards (now buttons, not anchor links) instead of the previous always-visible `#correction-requests`/`#shift-exchange-requests` sections (removed). `unavailable_conflict`/`inventory` cards unchanged. `.slice(0,10)` cap on decided items replaced with a real "Show/Hide archive" toggle. Both popups get WP-9's `HelpIconButton`/help-Modal pattern + popup-timing instrumentation. Live-QA'd desktop + 375px against WP-10's real seed data (2 pending corrections, 2 pending shift-exchanges); confirmed no regression to WP-8's understaffed/per-cell-correction markers. |
+| WP-12 | Settings section: side-by-side diff pass vs. reference | **NOT STARTED — start here.** |
 | WP-13 | Shift-preference deadline/reminder (YELLOW-tier, schema change, last, separate Founder approval) | Not started — do not start without a dedicated CTO extra-review pass first |
 
 **Locked decisions (Founder answered via AskUserQuestion during planning,
@@ -171,14 +171,14 @@ all chose the recommended option — do not re-ask these)**:
 
 ## 5. Repository / git / DB state (VERIFIED at handoff time, 2026-08-20)
 
-- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-10
+- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-11
   are merged into `dev` (PRs #325–#329, #331, #333, #335, #337, #338, #339,
-  all squash-merged, all feature branches deleted; PR #330 and #334 were
-  docs-only handoff-doc updates, also merged). Local working tree was last on
-  `fix/api-service-role-grants` (WP-10's final branch, merged/deleted by the
-  time you read this) — a fresh session should
+  #341, all squash-merged, all feature branches deleted; PR #330, #334, #340
+  were docs-only handoff-doc updates, also merged). Local working tree was
+  last on `fix/cafe-manager-attention-popups` (WP-11's branch, merged/deleted
+  by the time you read this) — a fresh session should
   `git fetch origin dev && git checkout -B <new-branch> origin/dev` before
-  starting WP-11, same pattern as every prior WP. Note: `gh pr merge
+  starting WP-12, same pattern as every prior WP. Note: `gh pr merge
   --delete-branch` can fail locally with a git worktree error ("'dev' is
   already used by worktree at ...") if another local worktree elsewhere on
   disk has `dev` checked out (this repo has several sibling worktrees under
@@ -287,39 +287,35 @@ stay untracked.
 1. Read the plan file in full:
    `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md` — pay
    particular attention to its "Founder's report" section (§2 above calls
-   this "the review the Founder did") and the WP-11 section under "Final
+   this "the review the Founder did") and the WP-12 section under "Final
    Plan".
-2. `git fetch origin dev && git checkout -B fix/cafe-manager-attention-popups origin/dev`
-   (or similar naming) and start WP-11: convert the always-visible
-   Correction-requests/Shift-exchange-requests sections into `Modal`-wrapped
-   popups triggered from `AttentionPanel`'s cards. Per the plan file's WP-11
-   section (verify citations against current code first, they may have
-   drifted) — both sections are already isolated JSX blocks with all
-   state/handlers in scope; `AttentionPanel`'s own doc comment already flags
-   this exact conversion as deliberately deferred. Extend the `.slice(0,10)`
-   cap on `decidedCorrections`/`decidedExchanges` into a full "Archive"
-   toggle inside each popup.
-   Seed data now exists for both (WP-10, PRs #337-#339): 2 pending
-   corrections + 1(+1 duplicate) pending shift-exchange are live in
-   `oruwa-cafe` — use these to visually verify the new popups instead of
-   creating fixtures by hand.
+2. `git fetch origin dev && git checkout -B fix/cafe-manager-settings-diff origin/dev`
+   (or similar naming) and start WP-12: Settings section side-by-side diff
+   pass vs. the reference (`preview-settings-card.tsx`). Per the plan file's
+   WP-12 section (verify citations against current code first, they may have
+   drifted) — this is the smallest real gap in the whole mission:
+   `settings-section.tsx` already structurally matches the reference (same
+   headings, same 600ms-debounced autosave, help-button style already
+   unified via WP-9). Diff-and-patch only, not a rebuild — actually open
+   both side by side (canonical `/manager`'s Settings section vs.
+   `preview.oruwa.jp/mame-to-cha/manager`'s) before assuming what, if
+   anything, differs.
    Note: WP-10's fixture tool did NOT end up covering the
    "pending/expired invitation" item the plan originally scoped (needed to
    exercise WP-3's resend/recover-access UI) -- `workforce.employee_invitations`
    has no INSERT policy at all (Edge-Function-only by design) and creating
    one would have meant minting a real Supabase Auth user, judged
-   disproportionate for a QA fixture. Not blocking for WP-11; if a future WP
+   disproportionate for a QA fixture. Not blocking for WP-12; if a future WP
    needs it, an existing pending invitation could instead be UPDATE-backdated
    (`expires_at` into the past) via service-role, same trick used nowhere yet
    in this codebase — flag as a possible future addition to
    `oruwa-cafe-fixture.ts`, not a gap to fix now.
-3. Work through WP-12 through WP-13 in order after WP-11, one PR per WP (most
+3. Work through WP-13 after WP-12 (most WPs
    are independently PR-sized per the plan file's own "ship as separate
    PRs" note — WP-1/WP-2 combining into one PR was the exception, not the
    norm). WP-13 is YELLOW-tier (schema change) and needs a dedicated CTO
    extra-review pass (DECISION/REASON/RISK/MITIGATION/ROLLBACK) before
-   implementation — don't start it casually even once WP-11 through WP-12
-   are done.
+   implementation — don't start it casually even once WP-12 is done.
 4. For each WP: implement → run the 4-command verification (§6) → commit
    (explicit paths only) → push → open PR → wait for CI green → do your own
    live Preview QA (§1) → merge (standing authority) → delete branch →
