@@ -50,3 +50,25 @@
 .iconButton:hover:not(:disabled) {
   filter: brightness(1.08);
 }
+
+/*
+ * A mouse click that focuses a button (Chrome/Edge do this by default)
+ * otherwise leaves the browser's default black focus ring showing after
+ * the click -- most visible on the two-state toggle buttons (e.g. the
+ * Recipes Archive/Draft filter) where it reads as a stray leftover border.
+ * `:focus-visible` still shows a real (app-colored, not browser-default)
+ * ring for actual keyboard navigation, so this does not remove the
+ * accessibility affordance -- only the mouse-click residue.
+ */
+.buttonPrimary:focus:not(:focus-visible),
+.buttonSecondary:focus:not(:focus-visible),
+.buttonDanger:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.buttonPrimary:focus-visible,
+.buttonSecondary:focus-visible,
+.buttonDanger:focus-visible {
+  outline: 2px solid #4f7a52;
+  outline-offset: 2px;
+}

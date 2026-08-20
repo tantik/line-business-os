@@ -32,8 +32,10 @@ type View = { kind: 'list' } | { kind: 'detail'; recipeId: string; startEditing:
  * separate pages (`/recipes`, `/recipes/[recipeId]`) -- as two views of the
  * SAME design-kit `Modal`, per the Founder's explicit direction that every
  * popup should look like one component, not a page navigation dressed up
- * as one. Clicking a recipe swaps the Modal's content to its detail (with
- * a "back to recipes" control that swaps back), instead of navigating away.
+ * as one. Clicking a recipe swaps the Modal's content to its detail;
+ * closing the Modal (× or Escape) from detail view goes back to the list
+ * instead of actually closing the popup -- see `handleClose` -- so there is
+ * no separate in-body "back" control to duplicate that.
  *
  * The list is fetched once, server-side, by `/manager/page.tsx` (same
  * reads `/recipes/page.tsx` itself makes). Recipe detail (ingredients/
@@ -77,10 +79,16 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     setDetailError(null);
   }
 
-  // Reset to the list every time the popup fully closes, so the next open
-  // never flashes a stale detail view from a previous session.
+  // The Modal's × (and Escape) now means "back" while viewing a recipe's
+  // detail -- same destination the old in-body "Back to recipes" link used
+  // to reach, now removed as a redundant second control -- and only
+  // actually closes the whole popup from the list view. Reset to the list
+  // on a real close so the next open never flashes a stale detail view.
   function handleClose() {
-    backToList();
+    if (view.kind === 'detail') {
+      backToList();
+      return;
+    }
     onClose();
   }
 
@@ -107,7 +115,18 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           onChange={onChange}
         />
       ) : isPending && !detail ? (
-        <Skeleton />
+        <div style={{ display: 'grid', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Skeleton circle width={64} height={64} />
+            <div style={{ flex: 1, display: 'grid', gap: 8 }}>
+              <Skeleton height={20} width="55%" />
+              <Skeleton height={14} width="80%" />
+            </div>
+          </div>
+          <Skeleton height={90} />
+          <Skeleton height={90} />
+          <Skeleton height={60} />
+        </div>
       ) : detailError ? (
         <p style={mutedText}>{detailError}</p>
       ) : detail ? (
