@@ -3,7 +3,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from './items-input';
-import { setInventoryItemActive, upsertInventoryItem, type InventoryItem } from './items';
+import { parseUuid } from './validation';
+import { permanentlyDeleteInventoryItem, setInventoryItemActive, upsertInventoryItem, type InventoryItem } from './items';
 import type { InventoryWriteResult } from './result-types';
 
 /**
@@ -46,4 +47,15 @@ export async function setInventoryItemActiveAction(formData: FormData): Promise<
 
   const supabase = await createClient();
   return setInventoryItemActive(supabase, tenantContext.data.activeTenant.tenantId, input.itemId, input.isActive);
+}
+
+export async function deleteInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<{ itemId: string }>> {
+  const itemId = parseUuid(formData.get('itemId'));
+  if (!itemId) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return permanentlyDeleteInventoryItem(supabase, tenantContext.data.activeTenant.tenantId, itemId);
 }

@@ -18,6 +18,8 @@ const KEYS: Parameters<typeof tInventoryDashboard>[1][] = [
   'lastUpdatedLabel', 'unknownStaffLabel', 'editButton', 'deactivateButton', 'reactivateButton',
   'actualQuantityLabel', 'saveCountButton', 'savingButton', 'nameLabel', 'targetQuantityLabel',
   'reorderPointLabel', 'unitLabel', 'sortOrderLabel', 'saveChangesButton', 'cancelButton',
+  'savingStatus', 'savedStatus', 'saveErrorStatus', 'deleteButton', 'deletingButton',
+  'confirmDeactivateItemTitle', 'confirmDeleteItemTitle', 'confirmDeleteItemBody',
 ];
 
 test('tInventoryDashboard returns a non-empty string for every key in both languages', () => {

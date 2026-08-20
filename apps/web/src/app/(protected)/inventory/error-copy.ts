@@ -9,6 +9,8 @@ export function describeInventoryWriteError(result: Exclude<InventoryWriteResult
       return 'Please sign in again.';
     case 'no_membership':
       return 'You are not a member of this workspace.';
+    case 'blocked_by_history':
+      return 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.';
     case 'unauthorized':
       return result.message;
     default:
