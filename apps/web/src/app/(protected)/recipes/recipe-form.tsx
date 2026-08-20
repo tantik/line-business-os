@@ -41,9 +41,11 @@ export function RecipeForm({ detail, lang, onSuccess, onCancel }: RecipeFormProp
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
 
   const recipe = detail?.recipe;
-  const isJa = (recipe?.originalLanguage ?? 'ja') === 'ja';
-  const [originalLanguage, setOriginalLanguage] = useState<'ja' | 'en'>(recipe?.originalLanguage ?? 'ja');
-  const languageChanged = Boolean(recipe && originalLanguage !== recipe.originalLanguage);
+  // Source language locks at creation (defaults JA) and is never editable
+  // afterward -- there is no UI path to change it once set (Cafe Manager
+  // UI/UX Parity mission, WP-4 locked decision).
+  const originalLanguage = recipe?.originalLanguage ?? 'ja';
+  const isJa = originalLanguage === 'ja';
 
   const sourceTitle = recipe ? (isJa ? recipe.titleJa : recipe.titleEn) ?? '' : '';
   const sourceDescription = recipe ? (isJa ? recipe.descriptionJa : recipe.descriptionEn) ?? '' : '';
@@ -64,7 +66,6 @@ export function RecipeForm({ detail, lang, onSuccess, onCancel }: RecipeFormProp
     setError(null);
     const formData = new FormData(event.currentTarget);
     if (recipe) formData.set('recipeId', recipe.recipeId);
-    if (languageChanged) formData.set('confirmLanguageChange', 'true');
 
     startTransition(async () => {
       const result = await upsertRecipe(formData);
@@ -77,23 +78,11 @@ export function RecipeForm({ detail, lang, onSuccess, onCancel }: RecipeFormProp
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 480 }}>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
       {error ? <div style={alertDanger}>{error}</div> : null}
-      {languageChanged ? <div style={alertDanger}>{t('languageChangeWarning')}</div> : null}
+      <input type="hidden" name="originalLanguage" value={originalLanguage} />
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 13 }}>{t('formOriginalLanguageLabel')}</span>
-          <select
-            style={input}
-            name="originalLanguage"
-            value={originalLanguage}
-            onChange={(e) => setOriginalLanguage(e.target.value === 'en' ? 'en' : 'ja')}
-          >
-            <option value="ja">{t('formLanguageJa')}</option>
-            <option value="en">{t('formLanguageEn')}</option>
-          </select>
-        </label>
         <label style={{ flex: 1 }}>
           <span style={{ ...mutedText, fontSize: 13 }}>{t('formContentKindLabel')}</span>
           <select style={input} name="contentKind" defaultValue={recipe?.contentKind ?? 'recipe'}>
