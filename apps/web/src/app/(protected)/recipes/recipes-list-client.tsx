@@ -11,7 +11,8 @@ import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ConfirmDialog } from '@/components/shared/design-kit';
-import { alertDanger, backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { ThumbnailImage } from '@/components/media/ThumbnailImage';
+import { alertDanger, backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, mutedText, pageStyle } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { describeWriteError } from '../manager/error-copy';
@@ -28,8 +29,6 @@ import { tRecipes } from './recipes-i18n';
 const RECIPES_POLL_INTERVAL_MS = 2500;
 
 type StatusFilter = 'published' | 'draft' | 'archived';
-
-const smallButton = { padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
 export interface RecipesListClientProps {
   tenantName: string;
@@ -262,55 +261,74 @@ export function RecipesListBody({
         ) : visibleRecipes.length === 0 ? (
           <p style={{ margin: 0, ...mutedText }}>{search.trim() ? t('noRecipesMatchSearch') : t('noRecipesYet')}</p>
         ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-            {visibleRecipes.map((recipe) => (
-              <li
-                key={recipe.recipeId}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}
-              >
-                {liveMediaUrlByRecipeId[recipe.recipeId] ? (
-                  <img
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+            {visibleRecipes.map((recipe) => {
+              function openDetail() {
+                if (embedded) onSelectRecipe?.(recipe.recipeId);
+                else router.push(`/recipes/${recipe.recipeId}`);
+              }
+              return (
+                <li
+                  key={recipe.recipeId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={openDetail}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openDetail();
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '9px 10px',
+                    borderRadius: 8,
+                    background: colors.surfaceElevated,
+                    flexWrap: 'wrap',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <ThumbnailImage
                     src={liveMediaUrlByRecipeId[recipe.recipeId]}
                     alt=""
-                    style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                    size={44}
+                    background={colors.surface}
+                    fallback={recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}
                   />
-                ) : null}
-                {embedded ? (
-                  <button
-                    type="button"
-                    style={{ ...linkAccent, textDecoration: 'underline', background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
-                    onClick={() => onSelectRecipe?.(recipe.recipeId)}
-                  >
-                    {recipeTitle(recipe)}
-                  </button>
-                ) : (
-                  <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
-                    {recipeTitle(recipe)}
-                  </Link>
-                )}
-                {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
-                {canManage ? (
-                  <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      className={hoverStyles.buttonSecondary}
-                      style={{ ...buttonSecondary, ...smallButton }}
-                      onClick={() => (embedded ? onSelectRecipe?.(recipe.recipeId, true) : router.push(editHref(recipe.recipeId)))}
-                    >
-                      {t('editButton')}
-                    </button>
-                    <button
-                      type="button"
-                      className={hoverStyles.buttonSecondary}
-                      style={{ ...buttonDanger, ...smallButton }}
-                      onClick={() => setConfirmDeleteId(recipe.recipeId)}
-                    >
-                      {t('deleteButton')}
-                    </button>
+                  <div style={{ minWidth: 140, flex: '1 1 160px' }}>
+                    <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipeTitle(recipe)}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <span style={recipe.status === 'published' ? badgeStyle('active') : badgeStyle('neutral')}>
+                        {recipe.status === 'published' ? t('publishedBadge') : recipe.status === 'archived' ? t('archivedBadge') : t('draftBadge')}
+                      </span>
+                      {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
+                    </div>
                   </div>
-                ) : null}
-              </li>
-            ))}
+                  {canManage ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={(event) => event.stopPropagation()}>
+                      <button
+                        type="button"
+                        className={hoverStyles.buttonSecondary}
+                        style={buttonSecondary}
+                        onClick={() => (embedded ? onSelectRecipe?.(recipe.recipeId, true) : router.push(editHref(recipe.recipeId)))}
+                      >
+                        {t('editButton')}
+                      </button>
+                      <button
+                        type="button"
+                        className={hoverStyles.buttonSecondary}
+                        style={buttonDanger}
+                        onClick={() => setConfirmDeleteId(recipe.recipeId)}
+                      >
+                        {t('deleteButton')}
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
