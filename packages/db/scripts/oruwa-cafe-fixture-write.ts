@@ -31,25 +31,31 @@
  * (§8-9, §15) -- re-verify against that file (or Supabase Studio) if this
  * tool ever reports "tenant not found"-shaped errors.
  *
- * WRITE PATH SPLIT (two different auth modes, for two different reasons):
+ * AUTH MODE SPLIT (two different callers, for two different reasons):
  *   - `shift_requests` / `shift_assignments` / `shift_exchanges` /
  *     `inventory_items` all insert through their `api.*` view using the
  *     SERVICE-ROLE client, which bypasses RLS entirely -- necessary because
  *     `shift_requests`/`shift_exchanges`' own insert RLS is scoped to
  *     "the employee inserting their own row" (`is_own_employee`), and this
  *     tool has no staff login to act as; only a service-role bypass can
- *     seed these on a staff member's behalf.
- *   - `inventory.stock_counts` (via the `api.record_inventory_stock_count`
- *     RPC) is different: it stamps `counted_by = core.current_user_id()`,
- *     and `core.current_user_id()` has EXECUTE granted only to
- *     `authenticated` (not `service_role` -- see `0014_core_helper_
- *     execute_hardening.sql`), and the RLS check requires
- *     `counted_by = core.current_user_id()` to literally be the caller. So
- *     this one write signs in as the manager test account
- *     (`manager@oruwa-cafe.test`, the same identity already used for every
- *     live-QA pass in this mission) via a real password sign-in, then calls
- *     the RPC as that authenticated user -- exactly how the app itself
- *     records a stock count, not a bypass.
+ *     seed these on a staff member's behalf. Migrations 0075-0077 grant
+ *     service_role the schema/table/EXECUTE access this needs (it had none
+ *     before -- this is the first tool in the codebase to ever call
+ *     `.schema('api')` as service_role).
+ *   - Reading the active employee roster (`api.workforce_staff_directory`)
+ *     and recording a stock count (`api.record_inventory_stock_count` RPC)
+ *     both need a real AUTHENTICATED caller instead, for two different
+ *     reasons: `workforce_staff_directory`'s own view definition (not just
+ *     RLS) filters rows by `core.has_permission(...)`, which evaluates
+ *     against the CALLING user's own role assignment -- service_role has no
+ *     acting user, so that predicate is always false for it regardless of
+ *     any schema/table grant. The stock-count RPC stamps
+ *     `counted_by = core.current_user_id()`, which resolves from the JWT and
+ *     is likewise meaningless for a service-role call. Both sign in as the
+ *     manager test account (`manager@oruwa-cafe.test`, the same identity
+ *     already used for every live-QA pass in this mission) via a real
+ *     password sign-in -- exactly how the app itself would resolve these,
+ *     not a bypass.
  */
 import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
@@ -76,10 +82,37 @@ interface StockCountToRecord {
   actualQuantity: number;
 }
 
+let cachedManagerClient: ReturnType<typeof createUserClient> | null = null;
+
+/** Signs in as the manager test account once per process run and returns an authenticated client -- see this file's module doc comment for why some reads/writes need a real acting user instead of the service-role client. */
+async function getManagerClient(): Promise<ReturnType<typeof createUserClient>> {
+  if (cachedManagerClient) return cachedManagerClient;
+  const env = serverEnv();
+  const managerPassword = process.env.ORUWA_CAFE_MANAGER_PASSWORD;
+  if (!managerPassword) {
+    throw new Error(
+      'ORUWA_CAFE_MANAGER_PASSWORD env var is required (used to read the active employee roster and, on --confirm-apply, to record the fixture inventory shortage item\'s stock count -- see this file\'s module doc comment for why a service-role call cannot do either).',
+    );
+  }
+  const signInClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
+    email: ORUWA_CAFE_MANAGER_EMAIL,
+    password: managerPassword,
+  });
+  if (signInError || !signInData.session) {
+    throw new Error(`Failed to sign in as the manager test account: ${signInError?.message ?? 'no session returned'}`);
+  }
+  cachedManagerClient = createUserClient(signInData.session.access_token);
+  return cachedManagerClient;
+}
+
 async function resolveContext(): Promise<OruwaCafeFixtureContext> {
   const supabase = createServiceClient();
+  const managerClient = await getManagerClient();
 
-  const { data: employees, error: employeesError } = await supabase
+  const { data: employees, error: employeesError } = await managerClient
     .schema('api')
     .from('workforce_staff_directory')
     .select('staff_id')
@@ -249,28 +282,9 @@ async function applyPlan(plan: OruwaCafeFixturePlan): Promise<void> {
   }
 
   if (stockCountsToRecord.length > 0) {
-    const env = serverEnv();
-    const managerPassword = process.env.ORUWA_CAFE_MANAGER_PASSWORD;
-    if (!managerPassword) {
-      throw new Error(
-        'ORUWA_CAFE_MANAGER_PASSWORD env var is required to record the fixture inventory shortage item\'s initial stock count ' +
-          '(inventory.stock_counts.counted_by must be a real authenticated caller -- see this file\'s module doc comment).',
-      );
-    }
-    const signInClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({
-      email: ORUWA_CAFE_MANAGER_EMAIL,
-      password: managerPassword,
-    });
-    if (signInError || !signInData.session) {
-      throw new Error(`Failed to sign in as the manager test account for the stock-count fixture: ${signInError?.message ?? 'no session returned'}`);
-    }
-    const userClient = createUserClient(signInData.session.access_token);
-
+    const managerClient = await getManagerClient();
     for (const count of stockCountsToRecord) {
-      const { error } = await userClient.schema('api').rpc('record_inventory_stock_count', {
+      const { error } = await managerClient.schema('api').rpc('record_inventory_stock_count', {
         p_tenant_id: ORUWA_CAFE_TENANT_ID,
         p_location_id: ORUWA_CAFE_LOCATION_ID,
         p_item_id: count.itemId,
@@ -279,7 +293,6 @@ async function applyPlan(plan: OruwaCafeFixturePlan): Promise<void> {
       if (error) throw new Error(`Failed to record fixture stock count for item ${count.itemId}: ${error.message}`);
       console.log(`  recorded stock count ${count.actualQuantity} for item ${count.itemId}`);
     }
-    await signInClient.auth.signOut();
   }
 }
 

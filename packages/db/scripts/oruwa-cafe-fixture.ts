@@ -124,7 +124,7 @@ export const ORUWA_CAFE_FIXTURE: OruwaCafeFixtureManifest = {
     workDateOffsetDays: 4,
     startsAtLocal: '13:00',
     endsAtLocal: '18:00',
-    reason: `QA fixture (${FIXTURE_OWNERSHIP_MARKER}): sample shift exchange request for Manager popup review.`,
+    reason: `QA fixture (${FIXTURE_ITEM_MARKERS.pendingShiftExchange}): sample shift exchange request for Manager popup review.`,
   },
   inventoryShortageItem: {
     name: 'QAフィクスチャー：抹茶パウダー',

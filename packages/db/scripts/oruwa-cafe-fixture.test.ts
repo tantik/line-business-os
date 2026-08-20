@@ -80,6 +80,13 @@ test('buildOruwaCafeFixturePlan links the shift-exchange insert to its own fresh
   assert.equal(exchange.requestKind, 'exchange');
 });
 
+test('the manifest\'s pendingShiftExchange.reason actually contains its own item marker (regression: a rerun must be able to detect this fixture from reason text alone)', () => {
+  assert.ok(
+    ORUWA_CAFE_FIXTURE.pendingShiftExchange.reason.includes(FIXTURE_ITEM_MARKERS.pendingShiftExchange),
+    'reason text must include FIXTURE_ITEM_MARKERS.pendingShiftExchange, not just the bare FIXTURE_OWNERSHIP_MARKER, or the executor\'s alreadySeeded check silently always misses and duplicates this fixture on every rerun',
+  );
+});
+
 test('buildOruwaCafeFixturePlan plans both inventory items when neither exists yet', () => {
   const plan = buildOruwaCafeFixturePlan(ORUWA_CAFE_FIXTURE, baseContext());
   assert.equal(plan.inventoryItemInserts.length, 2);
