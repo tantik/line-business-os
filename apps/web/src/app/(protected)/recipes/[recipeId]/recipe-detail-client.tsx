@@ -11,7 +11,16 @@ import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ConfirmDialog, LightboxTrigger } from '@/components/shared/design-kit';
-import { alertDanger, backLink, badgeStyle, buttonDisabled, buttonSecondary, card, mutedText, pageStyle } from '@/lib/ui/theme';
+import {
+  alertDanger,
+  backLink,
+  badgeStyle,
+  buttonDisabled,
+  buttonSecondary,
+  card,
+  mutedText,
+  pageStyle,
+} from '@/lib/ui/theme';
 import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
@@ -110,7 +119,14 @@ export function RecipeDetailBody({
     setNotes(initialNotes);
     setTranslationFields(initialTranslationFields);
     setMediaUrl(initialMediaUrl);
-  }, [initialRecipe, initialIngredients, initialSteps, initialNotes, initialTranslationFields, initialMediaUrl]);
+  }, [
+    initialRecipe,
+    initialIngredients,
+    initialSteps,
+    initialNotes,
+    initialTranslationFields,
+    initialMediaUrl,
+  ]);
 
   // WP C1 (Track C, live-sync): skip while embedded (Manager's popup already
   // refreshes itself via onChange) or while a manage-only edit form is open
@@ -176,21 +192,43 @@ export function RecipeDetailBody({
     return resolveFieldDisplay(field, lang).text;
   }
 
-  const title = displayText('workforce_recipe', recipe.recipeId, 'title', recipe.titleJa, recipe.titleEn) || recipe.recipeId;
-  const description = displayText('workforce_recipe', recipe.recipeId, 'description', recipe.descriptionJa, recipe.descriptionEn);
+  const title =
+    displayText('workforce_recipe', recipe.recipeId, 'title', recipe.titleJa, recipe.titleEn) ||
+    recipe.recipeId;
+  const description = displayText(
+    'workforce_recipe',
+    recipe.recipeId,
+    'description',
+    recipe.descriptionJa,
+    recipe.descriptionEn,
+  );
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        {embedded ? (
-          <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={onBack}>
-            {t('backToRecipes')}
-          </button>
-        ) : (
-          <Link href="/recipes" style={backLink}>
-            {t('backToRecipes')}
-          </Link>
-        )}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        {!editing ? (
+          embedded ? (
+            <button
+              type="button"
+              style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+              onClick={onBack}
+            >
+              {t('backToRecipes')}
+            </button>
+          ) : (
+            <Link href="/recipes" style={backLink}>
+              {t('backToRecipes')}
+            </Link>
+          )
+        ) : null}
         {!embedded ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <PreviewLanguageToggle />
@@ -201,14 +239,24 @@ export function RecipeDetailBody({
       <header style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           {mediaUrl ? (
-            <LightboxTrigger src={mediaUrl} alt={title} thumbnailStyle={{ width: 64, height: 64, flexShrink: 0 }} />
+            <LightboxTrigger
+              src={mediaUrl}
+              alt={title}
+              thumbnailStyle={{ width: 64, height: 64, flexShrink: 0 }}
+            />
           ) : null}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h1 style={{ margin: 0 }}>{title}</h1>
-              {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
-              {recipe.status === 'draft' ? <span style={badgeStyle('neutral')}>{t('draftBadge')}</span> : null}
-              {recipe.status === 'archived' ? <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span> : null}
+              {recipe.contentKind === 'instruction' ? (
+                <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span>
+              ) : null}
+              {recipe.status === 'draft' ? (
+                <span style={badgeStyle('neutral')}>{t('draftBadge')}</span>
+              ) : null}
+              {recipe.status === 'archived' ? (
+                <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span>
+              ) : null}
             </div>
             {description ? <p style={{ margin: '8px 0 0', ...mutedText }}>{description}</p> : null}
           </div>
@@ -216,10 +264,20 @@ export function RecipeDetailBody({
         {error ? <div style={{ ...alertDanger, marginTop: 8 }}>{error}</div> : null}
         {canManage ? (
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setEditing(true)}>
+            <button
+              type="button"
+              style={isPending ? buttonDisabled : buttonSecondary}
+              disabled={isPending}
+              onClick={() => setEditing(true)}
+            >
               {t('editButton')}
             </button>
-            <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
+            <button
+              type="button"
+              style={isPending ? buttonDisabled : buttonDanger}
+              disabled={isPending}
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
               {t('deleteButton')}
             </button>
           </div>
@@ -259,55 +317,85 @@ export function RecipeDetailBody({
         </section>
       ) : null}
 
-      {recipe.contentKind === 'recipe' ? (
-        <section style={card}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>{t('ingredientsHeading')}</h2>
-          {ingredients.length === 0 ? (
-            <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noIngredients')}</p>
-          ) : (
-            <ul style={{ margin: '12px 0 0', paddingLeft: 20 }}>
-              {ingredients.map((ingredient) => (
-                <li key={ingredient.ingredientId}>
-                  {displayText('workforce_recipe_ingredient', ingredient.ingredientId, 'label', ingredient.labelJa, ingredient.labelEn)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      {!editing ? (
+        <>
+          {recipe.contentKind === 'recipe' ? (
+            <section style={card}>
+              <h2 style={{ margin: 0, fontSize: 16 }}>{t('ingredientsHeading')}</h2>
+              {ingredients.length === 0 ? (
+                <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noIngredients')}</p>
+              ) : (
+                <ul style={{ margin: '12px 0 0', paddingLeft: 20 }}>
+                  {ingredients.map((ingredient) => (
+                    <li key={ingredient.ingredientId}>
+                      {displayText(
+                        'workforce_recipe_ingredient',
+                        ingredient.ingredientId,
+                        'label',
+                        ingredient.labelJa,
+                        ingredient.labelEn,
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ) : null}
+
+          <section style={card}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>{t('stepsHeading')}</h2>
+            {steps.length === 0 ? (
+              <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noSteps')}</p>
+            ) : (
+              <ol style={{ margin: '12px 0 0', paddingLeft: 20 }}>
+                {steps.map((step) => (
+                  <li key={step.stepId}>
+                    {displayText(
+                      'workforce_recipe_step',
+                      step.stepId,
+                      'instruction',
+                      step.instructionJa,
+                      step.instructionEn,
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section style={card}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>{t('notesHeading')}</h2>
+            {notes.length === 0 ? (
+              <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noNotes')}</p>
+            ) : (
+              <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
+                {notes.map((note) => (
+                  <li key={note.noteId} style={{ marginTop: 8 }}>
+                    <strong>
+                      {displayText(
+                        'workforce_recipe_note',
+                        note.noteId,
+                        'note_title',
+                        note.titleJa,
+                        note.titleEn,
+                      )}
+                    </strong>
+                    <p style={{ margin: '4px 0 0' }}>
+                      {displayText(
+                        'workforce_recipe_note',
+                        note.noteId,
+                        'note_body',
+                        note.bodyJa,
+                        note.bodyEn,
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
       ) : null}
-
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('stepsHeading')}</h2>
-        {steps.length === 0 ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noSteps')}</p>
-        ) : (
-          <ol style={{ margin: '12px 0 0', paddingLeft: 20 }}>
-            {steps.map((step) => (
-              <li key={step.stepId}>
-                {displayText('workforce_recipe_step', step.stepId, 'instruction', step.instructionJa, step.instructionEn)}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('notesHeading')}</h2>
-        {notes.length === 0 ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noNotes')}</p>
-        ) : (
-          <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
-            {notes.map((note) => (
-              <li key={note.noteId} style={{ marginTop: 8 }}>
-                <strong>{displayText('workforce_recipe_note', note.noteId, 'note_title', note.titleJa, note.titleEn)}</strong>
-                <p style={{ margin: '4px 0 0' }}>
-                  {displayText('workforce_recipe_note', note.noteId, 'note_body', note.bodyJa, note.bodyEn)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </>
   );
 }
