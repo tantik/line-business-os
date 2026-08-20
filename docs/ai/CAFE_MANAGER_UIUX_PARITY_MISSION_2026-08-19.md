@@ -107,7 +107,7 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | **MERGED — PR #326 (2026-08-19), Claude live-QA'd (desktop + 375px)** |
 | WP-4 | Recipes: full-width form + remove "Original language" field | **MERGED — PR #327 (2026-08-20), Claude live-QA'd (desktop + 375px)** |
 | WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20), Claude live-QA'd (real delete verified against a disposable QA fixture recipe)** |
-| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | Not started |
+| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **BLOCKED — PR #329 open, not merged.** UI/action code complete (typecheck/lint/test/build green, live-verified except the actual upload). Live QA found a pre-existing RLS bug in migration `0052`'s `recipe-media` Storage policies: they don't handle tenant-wide recipes (`location_id IS NULL`), so the upload always fails RLS for one. Needs a new migration (YELLOW tier, Founder sign-off + Supabase Cloud push required) before this WP can close. See PR #329's comment for full root-cause writeup. |
 | WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | Not started |
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | Not started |
 | WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | Not started |
