@@ -46,6 +46,7 @@ import {
   todayIsoInTimeZone,
   todayRowStyle,
 } from '../_ui/workforce-theme';
+import { EntryPointsCard } from '../_ui/entry-points-card';
 import { ShiftPreferenceForm } from './shift-preference-form';
 import { WorkReportForm } from './work-report-form';
 import { CorrectionRequestForm } from './correction-request-form';
@@ -295,23 +296,33 @@ function StaffDashboardBody({
 
   return (
     <>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+          paddingBottom: 20,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
         <div>
           <h1 style={{ margin: 0 }}>{displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}</h1>
           <p style={{ margin: '8px 0 0', ...mutedText }}>
             {tenantName} - {locationName}
           </p>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-            <Link href="/recipes" style={backLink}>
-              {t('navRecipes')}
-            </Link>
-            <Link href="/inventory" style={backLink}>
-              {t('navInventory')}
-            </Link>
-          </nav>
         </div>
         <SignOutButton label={t('signOut')} />
       </header>
+
+      <EntryPointsCard
+        heading={t('entryPointsHeading')}
+        buttons={[
+          { key: 'recipes', label: t('navRecipes'), href: '/recipes' },
+          { key: 'inventory', label: t('navInventory'), href: '/inventory' },
+        ]}
+      />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
 

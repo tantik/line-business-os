@@ -27,6 +27,8 @@ interface ManagerDashboardDict {
   attentionExchangeTitle: string;
   attentionUnavailableConflictTitle: string;
   attentionInventoryTitle: string;
+  // Entry-points card (Recipes/Inventory/Manage staff)
+  entryPointsHeading: string;
   // Staff section
   staffHeading: string;
   manageStaff: string;
@@ -229,6 +231,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'Shift exchanges',
     attentionUnavailableConflictTitle: 'Unavailable conflicts',
     attentionInventoryTitle: 'Inventory shortage',
+    entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
     manageStaff: 'Manage staff',
     addStaff: '+ Add staff',
@@ -418,6 +421,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'シフト交換',
     attentionUnavailableConflictTitle: '不可との重複',
     attentionInventoryTitle: '在庫不足',
+    entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
     manageStaff: 'スタッフ管理',
     addStaff: '+ スタッフを追加',

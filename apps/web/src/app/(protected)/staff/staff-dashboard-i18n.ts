@@ -94,6 +94,7 @@ interface StaffDashboardDict {
   pageTitle: string;
   navRecipes: string;
   navInventory: string;
+  entryPointsHeading: string;
   backToWorkforce: string;
   signOut: string;
   profileHeading: string;
@@ -184,6 +185,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     pageTitle: 'Staff',
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
+    entryPointsHeading: 'Staff & recipe & Inventory management',
     backToWorkforce: 'Platform dashboard',
     signOut: 'Sign out',
     profileHeading: 'My staff profile',
@@ -271,6 +273,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     pageTitle: 'スタッフ',
     navRecipes: 'レシピ',
     navInventory: '在庫',
+    entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     backToWorkforce: 'プラットフォームダッシュボード',
     signOut: 'サインアウト',
     profileHeading: '自分のプロフィール',

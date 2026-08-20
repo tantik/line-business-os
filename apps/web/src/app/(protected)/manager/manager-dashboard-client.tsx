@@ -41,6 +41,7 @@ import {
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
 import { BrandBadge } from './brand-badge';
+import { EntryPointsCard } from '../_ui/entry-points-card';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
@@ -563,7 +564,17 @@ function ManagerDashboardBody({
 
   return (
     <>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+          paddingBottom: 20,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <BrandBadge label={tenantName} />
           <div>
@@ -571,32 +582,6 @@ function ManagerDashboardBody({
             <p style={{ margin: '4px 0 0', ...mutedText }}>
               {tenantName} - {locationName}
             </p>
-            <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={hoverStyles.buttonSecondary}
-                style={buttonSecondary}
-                onClick={() => {
-                  markPopupTriggerClick('recipes');
-                  setRecipesPopupOpen(true);
-                }}
-              >
-                {t('navRecipes')}
-              </button>
-              {inventoryEnabled ? (
-                <button
-                  type="button"
-                  className={hoverStyles.buttonSecondary}
-                  style={buttonSecondary}
-                  onClick={() => {
-                    markPopupTriggerClick('inventory');
-                    setInventoryPopupOpen(true);
-                  }}
-                >
-                  {t('navInventory')}
-                </button>
-              ) : null}
-            </nav>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -604,6 +589,45 @@ function ManagerDashboardBody({
           <SignOutButton label={t('signOut')} />
         </div>
       </header>
+
+      <EntryPointsCard
+        heading={t('entryPointsHeading')}
+        subtitle={staff === null ? t('staffUnavailable') : staff.length === 0 ? t('staffEmpty') : staffSummaryLabel[lang](staff.filter((s) => s.isActive).length, staff.length)}
+        buttons={[
+          {
+            key: 'recipes',
+            label: t('navRecipes'),
+            onClick: () => {
+              markPopupTriggerClick('recipes');
+              setRecipesPopupOpen(true);
+            },
+          },
+          ...(inventoryEnabled
+            ? [
+                {
+                  key: 'inventory',
+                  label: t('navInventory'),
+                  onClick: () => {
+                    markPopupTriggerClick('inventory');
+                    setInventoryPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
+          ...(staff !== null
+            ? [
+                {
+                  key: 'manage-staff',
+                  label: t('manageStaff'),
+                  onClick: () => {
+                    markPopupTriggerClick('manage-staff');
+                    setStaffPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <AttentionPanel
         items={attentionItems}
@@ -655,37 +679,6 @@ function ManagerDashboardBody({
           ) : null}
         </div>
       ) : null}
-
-      <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 16 }}>{t('staffHeading')}</h2>
-            {staff !== null && staff.length > 0 ? (
-              <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>
-                {staffSummaryLabel[lang](staff.filter((s) => s.isActive).length, staff.length)}
-              </p>
-            ) : null}
-          </div>
-          {staff !== null ? (
-            <button
-              type="button"
-              className={hoverStyles.buttonSecondary}
-              style={buttonSecondary}
-              onClick={() => {
-                markPopupTriggerClick('manage-staff');
-                setStaffPopupOpen(true);
-              }}
-            >
-              {t('manageStaff')}
-            </button>
-          ) : null}
-        </div>
-        {staff === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffUnavailable')}</p>
-        ) : staff.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('staffEmpty')}</p>
-        ) : null}
-      </section>
 
       <ManageStaffPopup
         open={staffPopupOpen}
