@@ -68,6 +68,10 @@ interface RecipesDict {
   formSaveChanges: string;
   formCreateRecipe: string;
   formCancel: string;
+  // WP-9: shared "?" help affordance on the Manager Recipes popup
+  popupHelpAriaLabel: string;
+  popupHelpTitle: string;
+  popupHelpBody: string;
 }
 
 const dictionary: Record<Lang, RecipesDict> = {
@@ -126,6 +130,10 @@ const dictionary: Record<Lang, RecipesDict> = {
     formSaveChanges: 'Save changes',
     formCreateRecipe: 'Create recipe',
     formCancel: 'Cancel',
+    popupHelpAriaLabel: 'About recipes',
+    popupHelpTitle: 'About recipes',
+    popupHelpBody:
+      'Recipes and instructions are shared reference material for staff. Draft items are only visible to managers; publish a recipe to make it visible to staff. Archiving hides a recipe without deleting it -- use "Delete forever" only once you are sure it will never be needed again.',
   },
   ja: {
     pageTitle: 'レシピ',
@@ -182,6 +190,10 @@ const dictionary: Record<Lang, RecipesDict> = {
     formSaveChanges: '変更を保存',
     formCreateRecipe: 'レシピを作成',
     formCancel: 'キャンセル',
+    popupHelpAriaLabel: 'レシピについて',
+    popupHelpTitle: 'レシピについて',
+    popupHelpBody:
+      'レシピ・手順書はスタッフ向けの共有資料です。下書きはマネージャーのみ閲覧でき、公開するとスタッフにも表示されます。アーカイブすると削除せずに一覧から隠せます -- 「完全に削除」は今後二度と必要ないと確信できる場合のみ使用してください。',
   },
 };
 

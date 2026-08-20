@@ -6,6 +6,7 @@ import type { InventoryItem } from '@/lib/inventory/items';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
 import { upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
+import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
 import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
@@ -43,7 +44,8 @@ export function ItemForm({ locationId, item, lang, onSuccess, onCancel }: ItemFo
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+      <PendingOverlay visible={isPending} message={t('savingButton')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</span>
@@ -92,9 +94,9 @@ export function ItemForm({ locationId, item, lang, onSuccess, onCancel }: ItemFo
         <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} />
       </label>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? t('savingButton') : item ? t('saveChangesButton') : t('addItemButton')}
-        </button>
+        <LoadingButton type="submit" pending={isPending} pendingLabel={t('savingButton')} style={buttonPrimary} pendingStyle={buttonDisabled}>
+          {item ? t('saveChangesButton') : t('addItemButton')}
+        </LoadingButton>
         <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancelButton')}
         </button>

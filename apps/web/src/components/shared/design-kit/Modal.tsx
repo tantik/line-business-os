@@ -12,6 +12,8 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  /** Rendered immediately after the title text in the sticky header (e.g. a `HelpIconButton`) -- kept separate from `title` (a plain string, also used as the dialog's `aria-label`) rather than widening `title` to `ReactNode`. */
+  titleAdornment?: ReactNode;
   /** CSS width value. Default fits a single-column form; pass a wider value
    * (e.g. `'min(1400px, 96vw)'`) for list/table-heavy popups (Manage staff,
    * Manage recipes, Inventory, the Shift schedule's cell/staff popups). */
@@ -30,7 +32,7 @@ interface ModalProps {
  * every module/package can reuse the same popup shell instead of each
  * building its own.
  */
-export function Modal({ open, onClose, title, children, footer, width = 'min(960px, 94vw)', closeLabel = 'Close' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, titleAdornment, width = 'min(960px, 94vw)', closeLabel = 'Close' }: ModalProps) {
   // FA-05: restore focus to whatever opened this dialog on every close path
   // (Escape below, backdrop click, and the close button) - see
   // `useRestoreFocusOnClose` for why a single `open`-prop watcher covers all
@@ -107,7 +109,10 @@ export function Modal({ open, onClose, title, children, footer, width = 'min(960
             borderBottom: `1px solid ${colors.border}`,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{title}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{title}</h2>
+            {titleAdornment}
+          </div>
           <button
             type="button"
             onClick={onClose}

@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { upsertRecipe } from '@/lib/workforce/recipe-actions';
+import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from '../manager/error-copy';
 import { tRecipes } from './recipes-i18n';
@@ -89,7 +90,8 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+      <PendingOverlay visible={isPending} message={t('formSaving')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
       <input type="hidden" name="originalLanguage" value={originalLanguage} />
 
@@ -219,9 +221,9 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
       </label>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? t('formSaving') : recipe ? t('formSaveChanges') : t('formCreateRecipe')}
-        </button>
+        <LoadingButton type="submit" pending={isPending} pendingLabel={t('formSaving')} style={buttonPrimary} pendingStyle={buttonDisabled}>
+          {recipe ? t('formSaveChanges') : t('formCreateRecipe')}
+        </LoadingButton>
         <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('formCancel')}
         </button>

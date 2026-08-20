@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
-import { Modal } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
+import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { InventoryDashboardBody } from '../inventory/inventory-dashboard-client';
 import { tInventoryDashboard } from '../inventory/inventory-i18n';
 
@@ -50,9 +52,18 @@ export function InventoryPopup({
 }: InventoryPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
+  usePopupOpenTiming(open, 'inventory');
+  const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <Modal open={open} onClose={onClose} title={t('pageTitle')} width="min(1100px, 96vw)" closeLabel={t('backToDashboard')}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('pageTitle')}
+      titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
+      width="min(1100px, 96vw)"
+      closeLabel={t('backToDashboard')}
+    >
       {items === null ? (
         <p>{t('unavailable')}</p>
       ) : (
@@ -67,6 +78,10 @@ export function InventoryPopup({
           embedded
         />
       )}
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('cancelButton')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
+      </Modal>
     </Modal>
   );
 }

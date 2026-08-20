@@ -59,6 +59,10 @@ interface InventoryDashboardDict {
   searchLabel: string;
   searchPlaceholder: string;
   noItemsMatchFilter: string;
+  // WP-9: shared "?" help affordance on the Manager Inventory popup
+  popupHelpAriaLabel: string;
+  popupHelpTitle: string;
+  popupHelpBody: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -110,6 +114,10 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     searchLabel: 'Search',
     searchPlaceholder: 'Search items…',
     noItemsMatchFilter: 'No items match this filter.',
+    popupHelpAriaLabel: 'About inventory',
+    popupHelpTitle: 'About inventory',
+    popupHelpBody:
+      'The actual quantity autosaves as you type -- there is no separate Save button. "Reorder at" is the threshold below which an item shows as a shortage; "Target" is the amount a full restock should bring it back up to. Deactivating hides an item from the daily count without deleting its history.',
   },
   ja: {
     pageTitle: '在庫',
@@ -159,6 +167,10 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     searchLabel: '検索',
     searchPlaceholder: '商品を検索…',
     noItemsMatchFilter: '該当する商品がありません。',
+    popupHelpAriaLabel: '在庫について',
+    popupHelpTitle: '在庫について',
+    popupHelpBody:
+      '実数は入力すると自動的に保存されます -- 保存ボタンはありません。「発注点」はこれを下回ると不足として表示されるしきい値、「目標」は補充で戻すべき量です。無効化すると履歴を削除せずに日次カウントから非表示になります。',
   },
 };
 

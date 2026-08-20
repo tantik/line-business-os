@@ -48,7 +48,8 @@ import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
-import { ConfirmDialog, Modal } from '@/components/shared/design-kit';
+import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
   alertDanger,
@@ -84,20 +85,6 @@ const alertSuccess = {
   borderRadius: 8,
   padding: '8px 12px',
   fontSize: 14,
-} as const;
-
-/** Small circular "?" info button (WP A6/A7 section-help popups). */
-const helpButtonStyle = {
-  width: 24,
-  height: 24,
-  borderRadius: 999,
-  border: `1px solid ${colors.border}`,
-  background: colors.surfaceElevated,
-  color: colors.textPrimary,
-  fontSize: 13,
-  lineHeight: 1,
-  cursor: 'pointer',
-  flexShrink: 0,
 } as const;
 
 /** WP-8: red "!" marker, shared shape for both the understaffed-day column header and the per-cell pending-correction indicator. */
@@ -595,11 +582,27 @@ function ManagerDashboardBody({
               {tenantName} - {locationName}
             </p>
             <nav style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-              <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setRecipesPopupOpen(true)}>
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={buttonSecondary}
+                onClick={() => {
+                  markPopupTriggerClick('recipes');
+                  setRecipesPopupOpen(true);
+                }}
+              >
                 {t('navRecipes')}
               </button>
               {inventoryEnabled ? (
-                <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setInventoryPopupOpen(true)}>
+                <button
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  style={buttonSecondary}
+                  onClick={() => {
+                    markPopupTriggerClick('inventory');
+                    setInventoryPopupOpen(true);
+                  }}
+                >
                   {t('navInventory')}
                 </button>
               ) : null}
@@ -663,7 +666,15 @@ function ManagerDashboardBody({
             ) : null}
           </div>
           {staff !== null ? (
-            <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setStaffPopupOpen(true)}>
+            <button
+              type="button"
+              className={hoverStyles.buttonSecondary}
+              style={buttonSecondary}
+              onClick={() => {
+                markPopupTriggerClick('manage-staff');
+                setStaffPopupOpen(true);
+              }}
+            >
               {t('manageStaff')}
             </button>
           ) : null}
@@ -732,9 +743,7 @@ function ManagerDashboardBody({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
-            <button type="button" className={hoverStyles.iconButton} aria-label={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} style={helpButtonStyle}>
-              ?
-            </button>
+            <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href={`/manager?weekOffset=${weekOffset - 1}`} className={hoverStyles.buttonSecondary} style={buttonSecondary}>

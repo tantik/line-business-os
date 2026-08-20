@@ -8,7 +8,7 @@ import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/dem
 import { buttonPrimary, buttonSecondary, card, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
-import { Modal, ConfirmDialog } from '@/components/shared/design-kit';
+import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
@@ -148,15 +148,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('settingsCardTitle')}</h2>
-        <button
-          type="button"
-          className={hoverStyles.iconButton}
-          aria-label={t('settingsCardTitle')}
-          onClick={() => setHelpOpen(true)}
-          style={{ width: 24, height: 24, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
-        >
-          ?
-        </button>
+        <HelpIconButton ariaLabel={t('settingsCardTitle')} onClick={() => setHelpOpen(true)} />
       </div>
 
       <div style={{ marginTop: 18 }}>

@@ -4,9 +4,10 @@ import { useRef, useState } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { Modal } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { badgeStyle, buttonDisabled, buttonSecondary, card, colors, input, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
@@ -65,9 +66,11 @@ export function ManageStaffPopup({
   lang,
 }: ManageStaffPopupProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
+  usePopupOpenTiming(open, 'manage-staff');
   const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('active');
   const [query, setQuery] = useState('');
   const [addingStaff, setAddingStaff] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const addStaffButtonRef = useRef<HTMLButtonElement>(null);
   // Table and card Edit buttons for the same staffId both render at once
@@ -119,7 +122,14 @@ export function ManageStaffPopup({
   const filteredStaff = staff ? filterStaffEntries(staff, { status: statusFilter, query }) : [];
 
   return (
-    <Modal open={open} onClose={handleModalClose} title={t('staffHeading')} width="min(1100px, 96vw)" closeLabel={t('cancel')}>
+    <Modal
+      open={open}
+      onClose={handleModalClose}
+      title={t('staffHeading')}
+      titleAdornment={<HelpIconButton ariaLabel={t('staffPopupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
+      width="min(1100px, 96vw)"
+      closeLabel={t('cancel')}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <input
@@ -333,6 +343,10 @@ export function ManageStaffPopup({
           </div>
         </>
       )}
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('staffPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('staffPopupHelpBody')}</div>
+      </Modal>
     </Modal>
   );
 }
