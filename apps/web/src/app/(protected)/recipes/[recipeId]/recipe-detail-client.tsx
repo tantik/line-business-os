@@ -10,6 +10,7 @@ import { getRecipeDetailForPopup, setRecipeArchived, permanentlyDeleteRecipe } f
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
+import { ConfirmDialog } from '@/components/shared/design-kit';
 import { alertDanger, backLink, badgeStyle, buttonDisabled, buttonSecondary, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
@@ -81,6 +82,7 @@ export function RecipeDetailBody({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [recipe, setRecipe] = useState(initialRecipe);
   const [ingredients, setIngredients] = useState(initialIngredients);
   const [steps, setSteps] = useState(initialSteps);
@@ -142,7 +144,6 @@ export function RecipeDetailBody({
   }
 
   function handleDeleteForever() {
-    if (!window.confirm(t('deleteForeverConfirm'))) return;
     setError(null);
     const formData = new FormData();
     formData.set('recipeId', recipe.recipeId);
@@ -216,7 +217,7 @@ export function RecipeDetailBody({
                 <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => handleSetArchived(false)}>
                   {t('restoreButton')}
                 </button>
-                <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={handleDeleteForever}>
+                <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
                   {t('deleteForeverButton')}
                 </button>
               </>
@@ -228,6 +229,22 @@ export function RecipeDetailBody({
           </div>
         ) : null}
       </header>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title={t('deleteForeverConfirm')}
+        confirmLabel={t('deleteForeverButton')}
+        cancelLabel={t('formCancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          handleDeleteForever();
+        }}
+      >
+        {title}
+      </ConfirmDialog>
 
       {canManage && editing ? (
         <section style={card}>
