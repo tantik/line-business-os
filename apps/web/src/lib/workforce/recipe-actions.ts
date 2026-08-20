@@ -118,7 +118,7 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
     const upload = await supabase.storage.from('recipe-media').upload(nextMediaPath, photo, {
       contentType: photo.type, cacheControl: '3600', upsert: false,
     });
-    if (upload.error) return { status: 'unexpected_error', message: `Could not upload the photo: ${upload.error.message}` };
+    if (upload.error) return { status: 'unexpected_error', message: 'Could not upload the photo.' };
     const mediaSaved = await upsertWorkforceRecipe(supabase, tenantId, locationResult.data, { ...input, recipeId: saved.data.recipeId, mediaPath: nextMediaPath });
     if (mediaSaved.status !== 'success') {
       await supabase.storage.from('recipe-media').remove([nextMediaPath]);
