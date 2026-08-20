@@ -41,9 +41,6 @@ interface RecipesDict {
   publishedBadge: string;
   newRecipeHeading: string;
   editRecipeHeading: string;
-  formOriginalLanguageLabel: string;
-  formLanguageJa: string;
-  formLanguageEn: string;
   formContentKindLabel: string;
   formContentKindRecipe: string;
   formContentKindInstruction: string;
@@ -62,7 +59,6 @@ interface RecipesDict {
   formSaveChanges: string;
   formCreateRecipe: string;
   formCancel: string;
-  languageChangeWarning: string;
 }
 
 const dictionary: Record<Lang, RecipesDict> = {
@@ -94,9 +90,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     publishedBadge: 'Published',
     newRecipeHeading: 'New recipe',
     editRecipeHeading: 'Edit recipe',
-    formOriginalLanguageLabel: 'Original language',
-    formLanguageJa: 'Japanese',
-    formLanguageEn: 'English',
     formContentKindLabel: 'Type',
     formContentKindRecipe: 'Recipe',
     formContentKindInstruction: 'Instruction',
@@ -115,7 +108,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     formSaveChanges: 'Save changes',
     formCreateRecipe: 'Create recipe',
     formCancel: 'Cancel',
-    languageChangeWarning: "You are changing this recipe's original language. Existing content will not be deleted.",
   },
   ja: {
     pageTitle: 'レシピ',
@@ -145,9 +137,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     publishedBadge: '公開中',
     newRecipeHeading: '新規レシピ',
     editRecipeHeading: 'レシピを編集',
-    formOriginalLanguageLabel: '原文の言語',
-    formLanguageJa: '日本語',
-    formLanguageEn: '英語',
     formContentKindLabel: '種類',
     formContentKindRecipe: 'レシピ',
     formContentKindInstruction: '手順書',
@@ -166,7 +155,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     formSaveChanges: '変更を保存',
     formCreateRecipe: 'レシピを作成',
     formCancel: 'キャンセル',
-    languageChangeWarning: 'このレシピの原文言語を変更しようとしています。既存のコンテンツは削除されません。',
   },
 };
 
