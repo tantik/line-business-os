@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeManagerAttention, computeUnavailableConflictCellKeys } from './manager-attention.js';
+import {
+  computeManagerAttention,
+  computeUnavailableConflictCellKeys,
+  computePendingCorrectionCellKeys,
+  computeUnderstaffedDateKeys,
+} from './manager-attention.js';
 
 test('computeManagerAttention returns an empty list when nothing needs action (the calm state)', () => {
   const items = computeManagerAttention({
@@ -95,5 +100,54 @@ test('computeUnavailableConflictCellKeys does not cross-match different dates fo
     [{ employeeId: 'emp-1', workDate: '2026-08-17', kind: 'preference', isUnavailable: true }],
     [{ employeeId: 'emp-1', workDate: '2026-08-18' }],
   );
+  assert.deepEqual([...keys], []);
+});
+
+test('computePendingCorrectionCellKeys flags a pending correction on a past day', () => {
+  const keys = computePendingCorrectionCellKeys(
+    [{ employeeId: 'emp-1', workDate: '2026-08-17' }],
+    '2026-08-20',
+  );
+  assert.deepEqual([...keys], ['emp-1:2026-08-17']);
+});
+
+test('computePendingCorrectionCellKeys ignores a pending correction on today or a future day', () => {
+  const keys = computePendingCorrectionCellKeys(
+    [
+      { employeeId: 'emp-1', workDate: '2026-08-20' },
+      { employeeId: 'emp-2', workDate: '2026-08-21' },
+    ],
+    '2026-08-20',
+  );
+  assert.deepEqual([...keys], []);
+});
+
+test('computeUnderstaffedDateKeys flags a date whose assigned headcount is below that weekday\'s required count', () => {
+  // 2026-08-17 is a Monday -> Monday-first index 0.
+  const keys = computeUnderstaffedDateKeys(
+    ['2026-08-17'],
+    [2, 1, 1, 1, 1, 1, 1],
+    ['emp-1:2026-08-17'].map(() => '2026-08-17'),
+  );
+  assert.deepEqual([...keys], ['2026-08-17']);
+});
+
+test('computeUnderstaffedDateKeys does not flag a date meeting or exceeding its required headcount', () => {
+  const keys = computeUnderstaffedDateKeys(
+    ['2026-08-17'],
+    [1, 1, 1, 1, 1, 1, 1],
+    ['2026-08-17', '2026-08-17'],
+  );
+  assert.deepEqual([...keys], []);
+});
+
+test('computeUnderstaffedDateKeys defaults to requiring 1/day when no Settings row has been saved (null)', () => {
+  const keys = computeUnderstaffedDateKeys(['2026-08-17'], null, []);
+  assert.deepEqual([...keys], ['2026-08-17']);
+});
+
+test('computeUnderstaffedDateKeys maps Sunday to the last (index 6) requirement slot, not index 0', () => {
+  // 2026-08-16 is a Sunday.
+  const keys = computeUnderstaffedDateKeys(['2026-08-16'], [1, 1, 1, 1, 1, 1, 0], []);
   assert.deepEqual([...keys], []);
 });

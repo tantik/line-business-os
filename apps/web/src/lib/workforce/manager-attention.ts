@@ -93,3 +93,61 @@ export function computeUnavailableConflictCellKeys(
   }
   return conflicts;
 }
+
+/** Minimal shape `computePendingCorrectionCellKeys` needs from a pending correction request. */
+export interface PendingCorrectionRequestInput {
+  employeeId: string;
+  workDate: string;
+}
+
+/**
+ * `${employeeId}:${workDate}` keys for pending corrections on a PAST day
+ * (`workDate < todayIso`) -- the schedule grid's "!" marker (WP-8). The
+ * caller passes only already-`status === 'pending'` rows (same
+ * `pendingCorrections` derivation the Manager dashboard already has); this
+ * function just adds the past-day guard, mirroring
+ * `computeUnavailableConflictCellKeys`'s shape.
+ */
+export function computePendingCorrectionCellKeys(
+  pendingCorrections: readonly PendingCorrectionRequestInput[],
+  todayIso: string,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const r of pendingCorrections) {
+    if (r.workDate < todayIso) keys.add(`${r.employeeId}:${r.workDate}`);
+  }
+  return keys;
+}
+
+/** Monday-first weekday index (0=Mon..6=Sun) matching `requiredHeadcountByWeekday`'s own indexing (see `settings-section.tsx`'s `WEEKDAY_LABELS_MON_FIRST`) -- NOT `Date#getUTCDay()`'s Sunday-first convention. */
+function mondayFirstWeekdayIndex(isoDate: string): number {
+  const sundayFirst = new Date(`${isoDate}T00:00:00.000Z`).getUTCDay();
+  return (sundayFirst + 6) % 7;
+}
+
+/**
+ * ISO dates (from the displayed week's `dates`) where the count of
+ * assignments on that date is below the Settings-configured required
+ * headcount for that weekday (WP-8's understaffed-day "!" marker). Pure
+ * frontend derivation: `requiredHeadcountByWeekday` and `assignments` are
+ * both already loaded by the Manager dashboard, no new fetch. Defaults to
+ * requiring 1 staff/day when no Settings row has been saved yet, matching
+ * `settings-section.tsx`'s own `[1,1,1,1,1,1,1]` fallback.
+ */
+export function computeUnderstaffedDateKeys(
+  dates: readonly string[],
+  requiredHeadcountByWeekday: readonly number[] | null,
+  assignmentWorkDates: readonly string[],
+): Set<string> {
+  const required = requiredHeadcountByWeekday ?? [1, 1, 1, 1, 1, 1, 1];
+  const assignedCountByDate = new Map<string, number>();
+  for (const workDate of assignmentWorkDates) {
+    assignedCountByDate.set(workDate, (assignedCountByDate.get(workDate) ?? 0) + 1);
+  }
+  const understaffed = new Set<string>();
+  for (const date of dates) {
+    const requiredForDay = required[mondayFirstWeekdayIndex(date)] ?? 0;
+    if ((assignedCountByDate.get(date) ?? 0) < requiredForDay) understaffed.add(date);
+  }
+  return understaffed;
+}

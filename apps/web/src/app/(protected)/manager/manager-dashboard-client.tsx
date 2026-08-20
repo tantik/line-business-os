@@ -17,12 +17,16 @@ import type { RecipeTranslationField } from '@/lib/content/recipe-translation-wo
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { runAutoDistribution, undoAutoDistribution, publishSchedule } from '@/lib/workforce/schedule-actions';
-import { estimatedLabourCostSoFar } from '@/lib/workforce/labour-cost';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { computeManagerAttention, computeUnavailableConflictCellKeys } from '@/lib/workforce/manager-attention';
+import {
+  computeManagerAttention,
+  computePendingCorrectionCellKeys,
+  computeUnavailableConflictCellKeys,
+  computeUnderstaffedDateKeys,
+} from '@/lib/workforce/manager-attention';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -95,6 +99,25 @@ const helpButtonStyle = {
   cursor: 'pointer',
   flexShrink: 0,
 } as const;
+
+/** WP-8: red "!" marker, shared shape for both the understaffed-day column header and the per-cell pending-correction indicator. */
+const dangerMarkerStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 18,
+  height: 18,
+  borderRadius: 999,
+  background: colors.danger,
+  color: '#fff',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1,
+  flexShrink: 0,
+} as const;
+
+const pendingCorrectionMarkerStyle = dangerMarkerStyle;
+const understaffedMarkerStyle = dangerMarkerStyle;
 
 /**
  * Cafe v0.1 MVP default staffing requirement (Slice 2A): 1 headcount for the
@@ -229,7 +252,6 @@ function ManagerDashboardBody({
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
   const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
-  const [labourCostHelpOpen, setLabourCostHelpOpen] = useState(false);
 
   const dates = useMemo(() => weekDates(periodStart), [periodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
@@ -346,21 +368,26 @@ function ManagerDashboardBody({
     [shiftTypes, localAssignments, dates, shiftTypeById],
   );
 
-  // WP A7: estimated labour cost = hours already worked as of now, for the
-  // displayed week -- not the full theoretical week (deliberate, see
-  // labour-cost.ts's own doc comment). `asOfIso` is computed once per mount,
-  // same SSR/hydration-tolerant pattern this file already uses for `todayIso`.
-  const asOfIso = useMemo(() => new Date().toISOString(), []);
-  const labourCost = useMemo(
+  // WP-8: understaffed-day "!" marker (column header) -- dates in the
+  // displayed week whose assigned headcount is below the Settings-configured
+  // required headcount for that weekday. Pure frontend, reuses data already
+  // loaded (scheduleSettings, localAssignments) -- no new fetch.
+  const understaffedDateKeys = useMemo(
     () =>
-      estimatedLabourCostSoFar(
-        (staff ?? []).map((s) => ({ staffId: s.staffId, name: s.name, isActive: s.isActive, hourlyWageYen: s.hourlyWageYen })),
-        attendance ?? [],
-        periodStart,
-        periodEnd,
-        asOfIso,
+      computeUnderstaffedDateKeys(
+        dates,
+        scheduleSettings?.requiredHeadcountByWeekday ?? null,
+        localAssignments.filter((a) => dates.includes(a.workDate)).map((a) => a.workDate),
       ),
-    [staff, attendance, periodStart, periodEnd, asOfIso],
+    [dates, scheduleSettings, localAssignments],
+  );
+
+  // WP-8: per-cell "!" marker for a PAST day with a pending correction
+  // request awaiting Manager review -- same `pendingCorrections` data the
+  // Attention layer and the always-visible corrections section already use.
+  const pendingCorrectionCellKeys = useMemo(
+    () => computePendingCorrectionCellKeys(pendingCorrections, todayIso),
+    [pendingCorrections, todayIso],
   );
 
   const attentionItems = useMemo(
@@ -408,6 +435,11 @@ function ManagerDashboardBody({
           <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
             {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
           </span>
+          {pendingCorrectionCellKeys.has(key) ? (
+            <span role="img" aria-label={t('pendingCorrectionCellAriaLabel')} title={t('pendingCorrectionCellAriaLabel')} style={pendingCorrectionMarkerStyle}>
+              !
+            </span>
+          ) : null}
         </div>
         <span style={{ ...mutedText, fontSize: 12 }}>
           {entry.startsAtLocal} - {entry.endsAtLocal}
@@ -764,9 +796,21 @@ function ManagerDashboardBody({
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
                   {dates.map((date) => (
                     <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
-                      {formatWeekday(date)}
-                      <br />
-                      {date.slice(5)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span>
+                          {formatWeekday(date)}
+                          <br />
+                          {date.slice(5)}
+                        </span>
+                        {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed. */}
+                        <span style={{ width: 18, height: 18, flexShrink: 0 }}>
+                          {understaffedDateKeys.has(date) ? (
+                            <span role="img" aria-label={t('understaffedDayAriaLabel')} title={t('understaffedDayAriaLabel')} style={understaffedMarkerStyle}>
+                              !
+                            </span>
+                          ) : null}
+                        </span>
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -793,8 +837,13 @@ function ManagerDashboardBody({
           <div className={styles.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {dates.map((date) => (
               <div key={date} style={{ ...card, marginTop: 0 }}>
-                <h3 style={{ margin: 0, fontSize: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {formatWeekday(date)} {date.slice(5)}
+                  {understaffedDateKeys.has(date) ? (
+                    <span role="img" aria-label={t('understaffedDayAriaLabel')} title={t('understaffedDayAriaLabel')} style={understaffedMarkerStyle}>
+                      !
+                    </span>
+                  ) : null}
                 </h3>
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
                   {staff.map((s) => (
@@ -817,52 +866,8 @@ function ManagerDashboardBody({
         )}
       </section>
 
-      <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>{t('labourCostHeading')}</h2>
-          <button type="button" className={hoverStyles.iconButton} aria-label={t('labourCostHelpAriaLabel')} onClick={() => setLabourCostHelpOpen(true)} style={helpButtonStyle}>
-            ?
-          </button>
-        </div>
-        {labourCost.perStaff.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('labourCostEmpty')}</p>
-        ) : (
-          <>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colName')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupWorkedHours')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupHourlyWage')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('staffNamePopupEarnedSoFar')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {labourCost.perStaff.map((entry) => (
-                    <tr key={entry.staffId}>
-                      <td style={tableCell}>{entry.name}</td>
-                      <td style={tableCell}>{entry.workedHours}</td>
-                      <td style={tableCell}>{entry.hourlyWageYen ?? '-'}</td>
-                      <td style={tableCell}>{entry.estimatedCostYen ?? '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p style={{ margin: '12px 0 0', fontWeight: 600 }}>
-              {t('labourCostTotal')}: {labourCost.totalCostYen ?? '-'}
-            </p>
-          </>
-        )}
-      </section>
-
       <Modal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} title={t('scheduleHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</div>
-      </Modal>
-
-      <Modal open={labourCostHelpOpen} onClose={() => setLabourCostHelpOpen(false)} title={t('labourCostHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
-        <div style={{ whiteSpace: 'pre-line' }}>{t('labourCostHelpBody')}</div>
       </Modal>
 
       <StaffNameDetailPopup
