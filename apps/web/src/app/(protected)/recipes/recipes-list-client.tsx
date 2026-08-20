@@ -1,16 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
-import { getRecipesListForPoll } from '@/lib/workforce/recipe-actions';
+import { deleteRecipe, getRecipesListForPoll } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { backLink, badgeStyle, buttonSecondary, card, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import { ConfirmDialog } from '@/components/shared/design-kit';
+import { alertDanger, backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, linkAccent, mutedText, pageStyle } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
+import { buttonDanger } from '../_ui/workforce-theme';
+import { describeWriteError } from '../manager/error-copy';
 import { RecipeForm } from './recipe-form';
 import { tRecipes } from './recipes-i18n';
 
@@ -23,6 +27,10 @@ import { tRecipes } from './recipes-i18n';
  */
 const RECIPES_POLL_INTERVAL_MS = 2500;
 
+type StatusFilter = 'published' | 'draft' | 'archived';
+
+const smallButton = { padding: '6px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
+
 export interface RecipesListClientProps {
   tenantName: string;
   groups: WorkforceRecipeGroup[] | null;
@@ -30,7 +38,7 @@ export interface RecipesListClientProps {
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
   /** Signed thumbnail URL for each recipe that has a photo, keyed by `recipeId` (WP-6). */
   mediaUrlByRecipeId: Record<string, string>;
-  /** Pure UX affordance (RLS is the real boundary regardless): whether to show the Add-recipe control. */
+  /** Pure UX affordance (RLS is the real boundary regardless): whether to show the manage toolbar (filter/search-adjacent Add-recipe control, description) and each row's Edit/Delete buttons. */
   canManage: boolean;
   /**
    * True only when rendered inside the Manager dashboard's Recipes popup
@@ -43,9 +51,9 @@ export interface RecipesListClientProps {
    * completely unchanged.
    */
   embedded?: boolean;
-  /** Required when `embedded` is true; ignored otherwise. */
-  onSelectRecipe?: (recipeId: string) => void;
-  /** Required when `embedded` is true: called instead of `router.refresh()` after adding a recipe, since the popup's list data was fetched by the Manager page, not this component's own page. */
+  /** Required when `embedded` is true; ignored otherwise. `startEditing` opens straight into the pre-filled edit form (a row's own "Edit" button) instead of the read view (a row's title/thumbnail). */
+  onSelectRecipe?: (recipeId: string, startEditing?: boolean) => void;
+  /** Required when `embedded` is true: called instead of `router.refresh()` after adding/deleting a recipe, since the popup's list data was fetched by the Manager page, not this component's own page. */
   onChange?: () => void;
 }
 
@@ -78,6 +86,17 @@ export function RecipesListBody({
   const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   const [adding, setAdding] = useState(false);
+  // Manager-only Archive/Draft toggle (mutually exclusive; neither pressed
+  // means "Published", the default view everyone -- including Staff, who
+  // never sees this toggle at all -- gets). Recipes module redesign,
+  // Cafe Manager UI/UX Parity mission, 2026-08-20 (Founder direction):
+  // replaces the old category-grouped list (每 category header, no status
+  // filter) -- status now organizes the list instead of category.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('published');
+  const [search, setSearch] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, startDeleteTransition] = useTransition();
   const [liveGroups, setLiveGroups] = useState(groups);
   const [liveTitleFieldByRecipeId, setLiveTitleFieldByRecipeId] = useState(titleFieldByRecipeId);
   const [liveMediaUrlByRecipeId, setLiveMediaUrlByRecipeId] = useState(mediaUrlByRecipeId);
@@ -122,6 +141,44 @@ export function RecipesListBody({
     return resolveFieldDisplay(field, lang).text || recipe.recipeId;
   }
 
+  const allRecipes = useMemo(() => liveGroups?.flatMap((group) => group.recipes) ?? null, [liveGroups]);
+
+  // Staff (canManage=false) never sees anything but Published, regardless of
+  // `statusFilter` (which only Manager's toolbar can ever change) -- matches
+  // the pre-existing "Draft recipes are not visible on Staff" rule.
+  const effectiveStatusFilter: StatusFilter = canManage ? statusFilter : 'published';
+
+  const visibleRecipes = useMemo(() => {
+    if (allRecipes === null) return null;
+    const searchLower = search.trim().toLowerCase();
+    return allRecipes.filter((recipe) => {
+      if (recipe.status !== effectiveStatusFilter) return false;
+      if (!searchLower) return true;
+      return recipeTitle(recipe).toLowerCase().includes(searchLower);
+    });
+  }, [allRecipes, effectiveStatusFilter, search, liveTitleFieldByRecipeId, lang]);
+
+  const confirmDeleteTarget = confirmDeleteId ? allRecipes?.find((r) => r.recipeId === confirmDeleteId) ?? null : null;
+
+  function handleDelete(recipeId: string) {
+    setDeleteError(null);
+    const formData = new FormData();
+    formData.set('recipeId', recipeId);
+    startDeleteTransition(async () => {
+      const result = await deleteRecipe(formData);
+      if (result.status === 'success') {
+        if (embedded) onChange?.();
+        else router.refresh();
+      } else {
+        setDeleteError(describeWriteError(result));
+      }
+    });
+  }
+
+  function editHref(recipeId: string): string {
+    return `/recipes/${recipeId}?edit=1`;
+  }
+
   return (
     <>
       {!embedded ? (
@@ -158,73 +215,122 @@ export function RecipesListBody({
               />
             </>
           ) : (
-            <button type="button" style={buttonSecondary} onClick={() => setAdding(true)}>
-              {t('addRecipeButton')}
-            </button>
+            <>
+              <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('manageDescription')}</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                <button
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  style={statusFilter === 'archived' ? { ...buttonSecondary, background: colors.accentMuted, borderColor: colors.accent } : buttonSecondary}
+                  onClick={() => setStatusFilter((current) => (current === 'archived' ? 'published' : 'archived'))}
+                >
+                  {t('filterArchive')}
+                </button>
+                <button
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  style={statusFilter === 'draft' ? { ...buttonSecondary, background: colors.accentMuted, borderColor: colors.accent } : buttonSecondary}
+                  onClick={() => setStatusFilter((current) => (current === 'draft' ? 'published' : 'draft'))}
+                >
+                  {t('filterDraft')}
+                </button>
+                <button type="button" className={hoverStyles.buttonPrimary} style={{ ...buttonPrimary, marginLeft: 'auto' }} onClick={() => setAdding(true)}>
+                  {t('addRecipeButton')}
+                </button>
+              </div>
+            </>
           )}
         </section>
       ) : null}
 
-      {liveGroups === null ? (
-        <section style={card}>
-          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('unavailable')}</p>
-        </section>
-      ) : liveGroups.every((group) => group.recipes.length === 0) ? (
-        <section style={card}>
-          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noRecipesYet')}</p>
-        </section>
-      ) : (
-        liveGroups.map((group) => (
-          <section key={group.category?.categoryId ?? 'uncategorized'} style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h2 style={{ margin: 0, fontSize: 16 }}>
-                {group.category ? group.category.labelJa || group.category.labelEn : t('uncategorized')}
-              </h2>
-              {group.recipes.length > 0 ? <span style={badgeStyle('neutral')}>{group.recipes.length}</span> : null}
-            </div>
-            {group.recipes.length === 0 ? (
-              <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noRecipesInCategory')}</p>
-            ) : (
-              <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
-                {group.recipes.map((recipe) => (
-                  <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {liveMediaUrlByRecipeId[recipe.recipeId] ? (
-                      <img
-                        src={liveMediaUrlByRecipeId[recipe.recipeId]}
-                        alt=""
-                        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : null}
-                    {embedded ? (
-                      <button
-                        type="button"
-                        style={{ ...linkAccent, textDecoration: 'underline', background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
-                        onClick={() => onSelectRecipe?.(recipe.recipeId)}
-                      >
-                        {recipeTitle(recipe)}
-                      </button>
-                    ) : (
-                      <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
-                        {recipeTitle(recipe)}
-                      </Link>
-                    )}
-                    {recipe.contentKind === 'instruction' ? (
-                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('instructionBadge')}</span>
-                    ) : null}
-                    {recipe.status === 'draft' ? (
-                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('draftBadge')}</span>
-                    ) : recipe.status === 'archived' ? (
-                      <span style={{ ...badgeStyle('neutral'), marginLeft: 8 }}>{t('archivedBadge')}</span>
-                    ) : recipe.status === 'published' ? (
-                      <span style={{ ...badgeStyle('active'), marginLeft: 8 }}>{t('publishedBadge')}</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))
-      )}
+      <div style={{ marginTop: 16 }}>
+        <input
+          type="search"
+          style={input}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchPlaceholder')}
+          value={search}
+          onChange={(event) => setSearch(event.currentTarget.value)}
+        />
+      </div>
+
+      {deleteError ? <div style={{ ...alertDanger, marginTop: 12 }}>{deleteError}</div> : null}
+
+      <section style={{ ...card, marginTop: 16 }}>
+        {visibleRecipes === null ? (
+          <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
+        ) : visibleRecipes.length === 0 ? (
+          <p style={{ margin: 0, ...mutedText }}>{search.trim() ? t('noRecipesMatchSearch') : t('noRecipesYet')}</p>
+        ) : (
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+            {visibleRecipes.map((recipe) => (
+              <li
+                key={recipe.recipeId}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}
+              >
+                {liveMediaUrlByRecipeId[recipe.recipeId] ? (
+                  <img
+                    src={liveMediaUrlByRecipeId[recipe.recipeId]}
+                    alt=""
+                    style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                  />
+                ) : null}
+                {embedded ? (
+                  <button
+                    type="button"
+                    style={{ ...linkAccent, textDecoration: 'underline', background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+                    onClick={() => onSelectRecipe?.(recipe.recipeId)}
+                  >
+                    {recipeTitle(recipe)}
+                  </button>
+                ) : (
+                  <Link href={`/recipes/${recipe.recipeId}`} style={{ ...linkAccent, textDecoration: 'underline' }}>
+                    {recipeTitle(recipe)}
+                  </Link>
+                )}
+                {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
+                {canManage ? (
+                  <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonSecondary}
+                      style={{ ...buttonSecondary, ...smallButton }}
+                      onClick={() => (embedded ? onSelectRecipe?.(recipe.recipeId, true) : router.push(editHref(recipe.recipeId)))}
+                    >
+                      {t('editButton')}
+                    </button>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonSecondary}
+                      style={{ ...buttonDanger, ...smallButton }}
+                      onClick={() => setConfirmDeleteId(recipe.recipeId)}
+                    >
+                      {t('deleteButton')}
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title={t('deleteConfirmTitle')}
+        confirmLabel={t('deleteButton')}
+        cancelLabel={t('formCancel')}
+        pending={isDeleting}
+        danger
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          const id = confirmDeleteId;
+          setConfirmDeleteId(null);
+          if (id) handleDelete(id);
+        }}
+      >
+        {confirmDeleteTarget ? recipeTitle(confirmDeleteTarget) : ''}
+      </ConfirmDialog>
     </>
   );
 }

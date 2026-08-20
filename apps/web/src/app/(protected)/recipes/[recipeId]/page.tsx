@@ -34,10 +34,13 @@ export const metadata: Metadata = { title: 'Recipe', robots: { index: false, fol
  */
 export default async function WorkforceRecipeDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ recipeId: string }>;
+  searchParams: Promise<{ edit?: string }>;
 }) {
   const { recipeId } = await params;
+  const { edit } = await searchParams;
   const result = await requireTenantContext();
 
   switch (result.status) {
@@ -93,6 +96,7 @@ export default async function WorkforceRecipeDetailPage({
           translationFields={translationFields}
           canManage={canManage}
           mediaUrl={mediaUrlMap[recipe.recipeId] ?? null}
+          initialEditing={edit === '1'}
         />
       );
     }

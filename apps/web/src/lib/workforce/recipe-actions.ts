@@ -229,6 +229,40 @@ export async function permanentlyDeleteRecipe(
   return result;
 }
 
+/**
+ * Recipes module redesign (Cafe Manager UI/UX Parity mission, 2026-08-20,
+ * Founder direction): the UI's single "Delete" action (list row and detail
+ * view alike, any status) archives-then-hard-deletes in one server round
+ * trip, rather than requiring the Manager to archive a recipe first as a
+ * separate step. Reuses the existing archive/permanent-delete plumbing
+ * unchanged (`setWorkforceRecipeArchived`, `permanentlyDeleteRecipeWrite`,
+ * including its `status === 'archived'` guard) -- this action just chains
+ * them, it does not loosen that guard. A recipe can still be moved to
+ * `archived` on its own (without deletion) via the edit form's status
+ * select; this action is only for "actually gone."
+ */
+export async function deleteRecipe(
+  formData: FormData,
+): Promise<WorkforceWriteResult<{ recipeId: string; mediaPath: string | null }>> {
+  const recipeId = formData.get('recipeId');
+  if (typeof recipeId !== 'string' || !recipeId.trim()) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  const archiveResult = await setWorkforceRecipeArchived(supabase, tenantId, recipeId, true);
+  if (archiveResult.status !== 'success') return archiveResult;
+
+  const result = await permanentlyDeleteRecipeWrite(supabase, tenantId, recipeId);
+  if (result.status === 'success' && result.data.mediaPath) {
+    await supabase.storage.from('recipe-media').remove([result.data.mediaPath]);
+  }
+  return result;
+}
+
 export interface RecipeDetailForPopup {
   recipe: WorkforceRecipeDetail['recipe'];
   ingredients: WorkforceRecipeDetail['ingredients'];

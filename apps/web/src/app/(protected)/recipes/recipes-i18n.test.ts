@@ -11,8 +11,10 @@ import { tRecipes } from './recipes-i18n.js';
 const LANGS = ['ja', 'en'] as const;
 const KEYS: Parameters<typeof tRecipes>[1][] = [
   'pageTitle', 'pageDescription', 'backToWorkforce', 'backToRecipes', 'unavailable', 'noRecipesYet',
-  'noRecipesInCategory', 'uncategorized', 'instructionBadge', 'ingredientsHeading', 'noIngredients',
+  'noRecipesMatchSearch', 'searchPlaceholder', 'manageDescription', 'filterArchive', 'filterDraft',
+  'instructionBadge', 'ingredientsHeading', 'noIngredients',
   'stepsHeading', 'noSteps', 'notesHeading', 'noNotes',
+  'editButton', 'deleteButton', 'deleteConfirmTitle',
   'popupHelpAriaLabel', 'popupHelpTitle', 'popupHelpBody',
 ];
 

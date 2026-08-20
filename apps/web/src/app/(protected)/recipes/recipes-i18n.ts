@@ -20,8 +20,11 @@ interface RecipesDict {
   signOut: string;
   unavailable: string;
   noRecipesYet: string;
-  noRecipesInCategory: string;
-  uncategorized: string;
+  noRecipesMatchSearch: string;
+  searchPlaceholder: string;
+  manageDescription: string;
+  filterArchive: string;
+  filterDraft: string;
   instructionBadge: string;
   ingredientsHeading: string;
   noIngredients: string;
@@ -32,10 +35,8 @@ interface RecipesDict {
   // Manager CRUD (Cafe v2.1 QA audit P1-2, 2026-08-17)
   addRecipeButton: string;
   editButton: string;
-  archiveButton: string;
-  restoreButton: string;
-  deleteForeverButton: string;
-  deleteForeverConfirm: string;
+  deleteButton: string;
+  deleteConfirmTitle: string;
   archivedBadge: string;
   draftBadge: string;
   publishedBadge: string;
@@ -82,9 +83,12 @@ const dictionary: Record<Lang, RecipesDict> = {
     backToRecipes: 'Back to recipes',
     signOut: 'Sign out',
     unavailable: 'Recipes are temporarily unavailable.',
-    noRecipesYet: 'No recipes available yet.',
-    noRecipesInCategory: 'No recipes in this category yet.',
-    uncategorized: 'Uncategorized',
+    noRecipesYet: 'No recipes yet.',
+    noRecipesMatchSearch: 'No recipes match your search.',
+    searchPlaceholder: 'Search by recipe name',
+    manageDescription: "Manage this store's recipes and manuals. Instructions appear at the top of the staff screen.",
+    filterArchive: 'Archive',
+    filterDraft: 'Draft',
     instructionBadge: 'ⓘ Instruction',
     ingredientsHeading: 'Ingredients',
     noIngredients: 'No ingredients listed.',
@@ -94,10 +98,8 @@ const dictionary: Record<Lang, RecipesDict> = {
     noNotes: 'No notes.',
     addRecipeButton: '+ Add recipe',
     editButton: 'Edit',
-    archiveButton: 'Archive',
-    restoreButton: 'Restore',
-    deleteForeverButton: 'Delete forever',
-    deleteForeverConfirm: 'Permanently delete this recipe? This cannot be undone.',
+    deleteButton: 'Delete',
+    deleteConfirmTitle: 'Delete this recipe? This cannot be undone.',
     archivedBadge: 'Archived',
     draftBadge: 'Draft',
     publishedBadge: 'Published',
@@ -133,7 +135,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpAriaLabel: 'About recipes',
     popupHelpTitle: 'About recipes',
     popupHelpBody:
-      'Recipes and instructions are shared reference material for staff. Draft items are only visible to managers; publish a recipe to make it visible to staff. Archiving hides a recipe without deleting it -- use "Delete forever" only once you are sure it will never be needed again.',
+      'Recipes and instructions are shared reference material for staff. Draft items are only visible to managers; publish a recipe to make it visible to staff. Use the Archive/Draft buttons above the list to browse by status, and Delete only once you are sure a recipe will never be needed again.',
   },
   ja: {
     pageTitle: 'レシピ',
@@ -142,9 +144,12 @@ const dictionary: Record<Lang, RecipesDict> = {
     backToRecipes: 'レシピ一覧に戻る',
     signOut: 'サインアウト',
     unavailable: 'レシピは一時的に利用できません。',
-    noRecipesYet: 'まだ利用可能なレシピがありません。',
-    noRecipesInCategory: 'このカテゴリにはまだレシピがありません。',
-    uncategorized: '未分類',
+    noRecipesYet: 'まだレシピがありません。',
+    noRecipesMatchSearch: '検索条件に一致するレシピがありません。',
+    searchPlaceholder: 'レシピ名で検索',
+    manageDescription: 'この店舗のレシピ・マニュアルを管理します。手順はスタッフ画面の上部に表示されます。',
+    filterArchive: 'アーカイブ',
+    filterDraft: '下書き',
     instructionBadge: 'ⓘ 手順書',
     ingredientsHeading: '材料',
     noIngredients: '材料が登録されていません。',
@@ -154,10 +159,8 @@ const dictionary: Record<Lang, RecipesDict> = {
     noNotes: 'メモはありません。',
     addRecipeButton: '+ レシピを追加',
     editButton: '編集',
-    archiveButton: 'アーカイブ',
-    restoreButton: '復元',
-    deleteForeverButton: '完全に削除',
-    deleteForeverConfirm: 'このレシピを完全に削除しますか？元に戻せません。',
+    deleteButton: '削除',
+    deleteConfirmTitle: 'このレシピを削除しますか？元に戻せません。',
     archivedBadge: 'アーカイブ済み',
     draftBadge: '下書き',
     publishedBadge: '公開中',
@@ -193,7 +196,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpAriaLabel: 'レシピについて',
     popupHelpTitle: 'レシピについて',
     popupHelpBody:
-      'レシピ・手順書はスタッフ向けの共有資料です。下書きはマネージャーのみ閲覧でき、公開するとスタッフにも表示されます。アーカイブすると削除せずに一覧から隠せます -- 「完全に削除」は今後二度と必要ないと確信できる場合のみ使用してください。',
+      'レシピ・手順書はスタッフ向けの共有資料です。下書きはマネージャーのみ閲覧でき、公開するとスタッフにも表示されます。一覧上部のアーカイブ・下書きボタンでステータス別に絞り込めます。削除は今後二度と必要ないと確信できる場合のみ使用してください。',
   },
 };
 
