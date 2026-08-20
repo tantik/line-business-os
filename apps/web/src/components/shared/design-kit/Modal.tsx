@@ -83,7 +83,7 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
         style={{
           width: '100%',
           maxWidth: width,
-          maxHeight: '96vh',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

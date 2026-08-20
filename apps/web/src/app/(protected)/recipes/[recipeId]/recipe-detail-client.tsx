@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
-import { getRecipeDetailForPopup, setRecipeArchived, permanentlyDeleteRecipe } from '@/lib/workforce/recipe-actions';
+import { getRecipeDetailForPopup, deleteRecipe } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -42,11 +42,20 @@ export interface RecipeDetailClientProps {
   onBack?: () => void;
   /**
    * Required when `embedded` is true: called instead of `router.refresh()`
-   * after a successful archive/restore/edit, since this data was fetched
-   * client-side by the popup wrapper (WP A5b), not by a server component
+   * after a successful delete/edit, since this data was fetched client-side
+   * by the popup wrapper (WP A5b), not by a server component
    * `router.refresh()` would re-render.
    */
   onChange?: () => void;
+  /**
+   * Recipes module redesign (2026-08-20): opens straight into the edit form
+   * instead of the read view -- set when this detail view was reached via a
+   * list row's own "Edit" button (`RecipesListBody`), which has no full
+   * `WorkforceRecipeDetail` to edit with yet (only the list's summary
+   * fields), so it opens detail-with-editing-preset rather than duplicating
+   * the lazy detail fetch itself.
+   */
+  initialEditing?: boolean;
 }
 
 /**
@@ -78,13 +87,14 @@ export function RecipeDetailBody({
   embedded = false,
   onBack,
   onChange,
+  initialEditing = false,
 }: RecipeDetailClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [recipe, setRecipe] = useState(initialRecipe);
   const [ingredients, setIngredients] = useState(initialIngredients);
@@ -133,28 +143,12 @@ export function RecipeDetailBody({
     };
   }, [embedded, editing, recipe.recipeId]);
 
-  function handleSetArchived(archived: boolean) {
-    setError(null);
-    const formData = new FormData();
-    formData.set('recipeId', recipe.recipeId);
-    formData.set('archived', archived ? 'true' : 'false');
-    startTransition(async () => {
-      const result = await setRecipeArchived(formData);
-      if (result.status === 'success') {
-        if (embedded) onChange?.();
-        else router.refresh();
-      } else {
-        setError(describeWriteError(result));
-      }
-    });
-  }
-
-  function handleDeleteForever() {
+  function handleDelete() {
     setError(null);
     const formData = new FormData();
     formData.set('recipeId', recipe.recipeId);
     startTransition(async () => {
-      const result = await permanentlyDeleteRecipe(formData);
+      const result = await deleteRecipe(formData);
       if (result.status === 'success') {
         if (embedded) {
           onChange?.();
@@ -225,35 +219,24 @@ export function RecipeDetailBody({
             <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setEditing(true)}>
               {t('editButton')}
             </button>
-            {recipe.status === 'archived' ? (
-              <>
-                <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => handleSetArchived(false)}>
-                  {t('restoreButton')}
-                </button>
-                <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
-                  {t('deleteForeverButton')}
-                </button>
-              </>
-            ) : (
-              <button type="button" style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => handleSetArchived(true)}>
-                {t('archiveButton')}
-              </button>
-            )}
+            <button type="button" style={isPending ? buttonDisabled : buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
+              {t('deleteButton')}
+            </button>
           </div>
         ) : null}
       </header>
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title={t('deleteForeverConfirm')}
-        confirmLabel={t('deleteForeverButton')}
+        title={t('deleteConfirmTitle')}
+        confirmLabel={t('deleteButton')}
         cancelLabel={t('formCancel')}
         pending={isPending}
         danger
         onCancel={() => setConfirmDeleteOpen(false)}
         onConfirm={() => {
           setConfirmDeleteOpen(false);
-          handleDeleteForever();
+          handleDelete();
         }}
       >
         {title}

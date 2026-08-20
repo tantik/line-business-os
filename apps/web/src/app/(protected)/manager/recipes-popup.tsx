@@ -24,7 +24,7 @@ export interface RecipesPopupProps {
   onChange: () => void;
 }
 
-type View = { kind: 'list' } | { kind: 'detail'; recipeId: string };
+type View = { kind: 'list' } | { kind: 'detail'; recipeId: string; startEditing: boolean };
 
 /**
  * Manage-recipes popup (WP A5b, Cafe Manager parity mission): wraps the
@@ -52,10 +52,10 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   const [isPending, startTransition] = useTransition();
   const [helpOpen, setHelpOpen] = useState(false);
 
-  function openRecipe(recipeId: string) {
+  function openRecipe(recipeId: string, startEditing = false) {
     setDetailError(null);
     setDetail(null);
-    setView({ kind: 'detail', recipeId });
+    setView({ kind: 'detail', recipeId, startEditing });
     startTransition(async () => {
       const result = await getRecipeDetailForPopup(recipeId);
       if (result.status === 'success' && result.data) {
@@ -122,6 +122,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           embedded
           onBack={backToList}
           onChange={refreshDetail}
+          initialEditing={view.kind === 'detail' && view.startEditing}
         />
       ) : null}
 
