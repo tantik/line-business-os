@@ -39,6 +39,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'runAutoDistribution', 'running', 'publishSchedule', 'publishing', 'confirmPublish', 'confirmUnassignShift',
   'scheduleHelpAriaLabel', 'scheduleHelpTitle', 'scheduleHelpBody',
   'understaffedDayAriaLabel', 'pendingCorrectionCellAriaLabel',
+  'staffPopupHelpAriaLabel', 'staffPopupHelpTitle', 'staffPopupHelpBody',
   'staffNamePopupTitlePrefix', 'staffNamePopupMonth', 'staffNamePopupWorkedHours', 'staffNamePopupHourlyWage',
   'staffNamePopupEarnedSoFar', 'staffNamePopupCopyReport', 'staffNamePopupCopied', 'staffNamePopupCopyFailed',
   'settingsCardTitle', 'settingsHelpBody', 'requiredHeadcountHeading', 'maxWorkHoursLabel', 'weekdayAriaSuffix', 'nameLabel', 'optionalNameLabel',

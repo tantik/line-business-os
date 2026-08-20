@@ -99,6 +99,10 @@ interface ManagerDashboardDict {
   // WP-8: understaffed-day column marker + past-day pending-correction cell marker
   understaffedDayAriaLabel: string;
   pendingCorrectionCellAriaLabel: string;
+  // WP-9: shared "?" help affordance on the Manage Staff popup
+  staffPopupHelpAriaLabel: string;
+  staffPopupHelpTitle: string;
+  staffPopupHelpBody: string;
   // Staff-name detail popup (A6)
   staffNamePopupTitlePrefix: string;
   staffNamePopupMonth: string;
@@ -285,6 +289,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'Assign staff to open cells, then use "Run auto-distribution" to fill remaining shifts automatically. Nothing is visible to staff until you press "Publish schedule".',
     understaffedDayAriaLabel: 'Understaffed -- below the required headcount for this day',
     pendingCorrectionCellAriaLabel: 'This shift has a pending correction request awaiting your review',
+    staffPopupHelpAriaLabel: 'About staff management',
+    staffPopupHelpTitle: 'About staff management',
+    staffPopupHelpBody:
+      'Deactivating a staff member hides them from scheduling without deleting their history; reactivate anytime. Deleting a staff member is permanent and only allowed once they have no protected shift/attendance history.',
     staffNamePopupTitlePrefix: 'Staff',
     staffNamePopupMonth: 'Month',
     staffNamePopupWorkedHours: 'Worked hours (this month)',
@@ -460,6 +468,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       '空いているセルにスタッフを割り当てるか、「自動割り当てを実行」で残りのシフトを自動的に埋めます。「スケジュールを公開」を押すまでスタッフには表示されません。',
     understaffedDayAriaLabel: '人員不足 -- この日の必要人数を下回っています',
     pendingCorrectionCellAriaLabel: 'このシフトには確認待ちの修正申請があります',
+    staffPopupHelpAriaLabel: 'スタッフ管理について',
+    staffPopupHelpTitle: 'スタッフ管理について',
+    staffPopupHelpBody:
+      '無効化すると履歴を削除せずにシフト作成の対象から外れます -- いつでも再度有効化できます。削除は完全かつ元に戻せず、保護対象のシフト・勤怠履歴がない場合のみ実行できます。',
     staffNamePopupTitlePrefix: 'スタッフ',
     staffNamePopupMonth: '対象月',
     staffNamePopupWorkedHours: '実働時間（今月）',

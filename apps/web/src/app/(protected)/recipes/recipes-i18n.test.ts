@@ -13,6 +13,7 @@ const KEYS: Parameters<typeof tRecipes>[1][] = [
   'pageTitle', 'pageDescription', 'backToWorkforce', 'backToRecipes', 'unavailable', 'noRecipesYet',
   'noRecipesInCategory', 'uncategorized', 'instructionBadge', 'ingredientsHeading', 'noIngredients',
   'stepsHeading', 'noSteps', 'notesHeading', 'noNotes',
+  'popupHelpAriaLabel', 'popupHelpTitle', 'popupHelpBody',
 ];
 
 test('tRecipes returns a non-empty string for every key in both languages', () => {

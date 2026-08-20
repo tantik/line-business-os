@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { deleteEmployee, upsertEmployee } from '@/lib/workforce/staff-actions';
 import { ConfirmDialog } from '@/components/shared/design-kit';
+import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
@@ -79,7 +80,8 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+      <PendingOverlay visible={isPending} message={t('saving')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldName')}</span>
@@ -106,9 +108,9 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
         <input style={input} name="employmentType" defaultValue={employee?.employmentType ?? ''} maxLength={40} />
       </label>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className={hoverStyles.buttonPrimary} style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? t('saving') : employee ? t('saveChanges') : t('addStaffSubmit')}
-        </button>
+        <LoadingButton type="submit" pending={isPending} pendingLabel={t('saving')} style={buttonPrimary} pendingStyle={buttonDisabled} className={hoverStyles.buttonPrimary}>
+          {employee ? t('saveChanges') : t('addStaffSubmit')}
+        </LoadingButton>
         <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancel')}
         </button>
@@ -117,15 +119,17 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
       {employee ? (
         <div style={{ marginTop: 4, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
           {deleteError ? <div style={alertDanger}>{deleteError}</div> : null}
-          <button
+          <LoadingButton
             type="button"
+            pending={isDeletePending}
+            pendingLabel={t('deletingStaff')}
+            style={buttonDanger}
+            pendingStyle={buttonDisabled}
             className={hoverStyles.buttonDanger}
-            style={isDeletePending ? buttonDisabled : buttonDanger}
-            disabled={isDeletePending}
             onClick={() => setConfirmDeleteOpen(true)}
           >
-            {isDeletePending ? t('deletingStaff') : t('deleteStaffButton')}
-          </button>
+            {t('deleteStaffButton')}
+          </LoadingButton>
           {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard (0056) produces on an actual blocked attempt, so the two never disagree. The button stays enabled; this only makes the outcome predictable. */}
           {employee.hasProtectedHistory ? (
             <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('staffBlockedByHistory')}</p>

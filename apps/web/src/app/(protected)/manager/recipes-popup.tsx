@@ -3,9 +3,10 @@
 import { useState, useTransition } from 'react';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
-import { Modal, Skeleton } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal, Skeleton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { mutedText } from '@/lib/ui/theme';
+import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { getRecipeDetailForPopup, type RecipeDetailForPopup } from '@/lib/workforce/recipe-actions';
 import { RecipesListBody } from '../recipes/recipes-list-client';
 import { RecipeDetailBody } from '../recipes/[recipeId]/recipe-detail-client';
@@ -44,10 +45,12 @@ type View = { kind: 'list' } | { kind: 'detail'; recipeId: string };
 export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRecipeId, mediaUrlByRecipeId, canManage, onChange }: RecipesPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
+  usePopupOpenTiming(open, 'recipes');
   const [view, setView] = useState<View>({ kind: 'list' });
   const [detail, setDetail] = useState<RecipeDetailForPopup | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   function openRecipe(recipeId: string) {
     setDetailError(null);
@@ -84,7 +87,14 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   const title = view.kind === 'list' ? t('pageTitle') : detail ? detail.recipe.titleJa || detail.recipe.titleEn || '' : t('pageTitle');
 
   return (
-    <Modal open={open} onClose={handleClose} title={title} width="min(1100px, 96vw)" closeLabel={t('backToWorkforce')}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={title}
+      titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
+      width="min(1100px, 96vw)"
+      closeLabel={t('backToWorkforce')}
+    >
       {view.kind === 'list' ? (
         <RecipesListBody
           tenantName={tenantName}
@@ -114,6 +124,10 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           onChange={refreshDetail}
         />
       ) : null}
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
+      </Modal>
     </Modal>
   );
 }
