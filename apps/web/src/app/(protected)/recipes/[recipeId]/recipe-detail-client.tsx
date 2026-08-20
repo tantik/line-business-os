@@ -214,20 +214,10 @@ export function RecipeDetailBody({
           flexWrap: 'wrap',
         }}
       >
-        {!editing ? (
-          embedded ? (
-            <button
-              type="button"
-              style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
-              onClick={onBack}
-            >
-              {t('backToRecipes')}
-            </button>
-          ) : (
-            <Link href="/recipes" style={backLink}>
-              {t('backToRecipes')}
-            </Link>
-          )
+        {!editing && !embedded ? (
+          <Link href="/recipes" style={backLink}>
+            {t('backToRecipes')}
+          </Link>
         ) : null}
         {!embedded ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
