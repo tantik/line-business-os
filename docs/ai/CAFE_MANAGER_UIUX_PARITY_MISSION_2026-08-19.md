@@ -140,8 +140,8 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **MERGED — PR #329 (2026-08-20).** Included migration `0074_recipe_media_tenant_wide_fix.sql` — see §5 for the full story. |
 | WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | **MERGED — PR #331 (2026-08-20).** `CountForm` autosave (600ms debounce, matches `settings-section.tsx`'s convention); `ConfirmDialog` added to Deactivate only (Reactivate stays a direct action — verified against the reference `preview-inventory-manager-panel.tsx`, which does the same); permanent-Delete wired to the previously-unused `permanentlyDeleteInventoryItem` RPC, offered regardless of active/inactive state (matches reference). Claude live-QA'd end-to-end including the RPC's `blocked_by_history` guard on an item with real stock-count history (desktop + 375px). |
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | **MERGED — PR #333 (2026-08-20).** `computeUnderstaffedDateKeys`/`computePendingCorrectionCellKeys` added to `manager-attention.ts` (pure, reuses `scheduleSettings`/`localAssignments`/`pendingCorrections`, no new fetch). Live-QA'd (desktop + 375px): understaffed marker confirmed correct against real data (Mon met by an existing published shift, Tue-Sun correctly flagged). Per-cell correction marker NOT live-verified -- no pending correction exists in the Preview tenant and no staff-login credentials are documented in this mission's test-account list; covered by unit tests only (see PR body). Re-verify visually once WP-10 seed data lands. Week-nav "jankiness" root-caused (full RSC page navigation remounts the whole page on every Prev/Next click, not a slow query -- `page.tsx`'s reads are already parallel and `loading.tsx` already has a skeleton) but NOT fixed -- real fix is a larger architecture change, flagged as a future follow-up, not folded into WP-8. |
-| WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | **NOT STARTED — start here.** |
-| WP-10 | QA seed-data script for `oruwa-cafe` tenant | Not started |
+| WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | **MERGED — PR #335 (2026-08-20).** New shared `HelpIconButton` (`components/shared/design-kit`) unifies schedule's bordered-circle vs Settings' transparent "?" styles; `Modal` gained a `titleAdornment` slot to host it; wired into Manage Staff/Recipes/Inventory popups, which previously had no help affordance at all (each got a new small help Modal, JA/EN copy). `PendingOverlay`/`LoadingButton` wired into `StaffForm`/`RecipeForm`/`ItemForm` (the three Add/Edit forms still using a bare `isPending` ternary); `CountForm`'s inline autosave indicator left as-is (different, already-visible pending pattern). New temporary `lib/ui/popup-timing.ts` instrumentation measured real popup-open times live on Preview: Manage Staff 16ms, Recipes 5ms, Inventory 12ms -- all well under 100ms, confirming these three popups are NOT the source of the Founder's "slow to open" complaint (matches the Explore-phase prediction). Live-QA'd desktop 1440px + mobile 375px, all three popups + their new help modals + nested-modal-in-modal rendering, no regressions. |
+| WP-10 | QA seed-data script for `oruwa-cafe` tenant | **NOT STARTED — start here.** |
 | WP-11 | Correction/Exchange requests: convert always-visible sections to popups triggered from `AttentionPanel` | Not started |
 | WP-12 | Settings section: side-by-side diff pass vs. reference | Not started |
 | WP-13 | Shift-preference deadline/reminder (YELLOW-tier, schema change, last, separate Founder approval) | Not started — do not start without a dedicated CTO extra-review pass first |
@@ -171,14 +171,14 @@ all chose the recommended option — do not re-ask these)**:
 
 ## 5. Repository / git / DB state (VERIFIED at handoff time, 2026-08-20)
 
-- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-8
-  are merged into `dev` (PRs #325–#329, #331, #333, all squash-merged, all
-  feature branches deleted; PR #330 was a docs-only handoff-doc update,
-  also merged). Local working tree was last on
-  `fix/cafe-manager-schedule-grid` (WP-8's branch, merged/deleted by the
+- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-9
+  are merged into `dev` (PRs #325–#329, #331, #333, #335, all squash-merged,
+  all feature branches deleted; PR #330 and #334 were docs-only handoff-doc
+  updates, also merged). Local working tree was last on
+  `fix/cafe-manager-loading-help-icon` (WP-9's branch, merged/deleted by the
   time you read this) — a fresh session should
   `git fetch origin dev && git checkout -B <new-branch> origin/dev` before
-  starting WP-9, same pattern as every prior WP. Note: `gh pr merge
+  starting WP-10, same pattern as every prior WP. Note: `gh pr merge
   --delete-branch` can fail locally with a git worktree error ("'dev' is
   already used by worktree at ...") if another local worktree elsewhere on
   disk has `dev` checked out (this repo has several sibling worktrees under
@@ -287,27 +287,28 @@ stay untracked.
 1. Read the plan file in full:
    `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md` — pay
    particular attention to its "Founder's report" section (§2 above calls
-   this "the review the Founder did") and the WP-9 section under "Final
+   this "the review the Founder did") and the WP-10 section under "Final
    Plan".
-2. `git fetch origin dev && git checkout -B fix/cafe-manager-loading-help-icon origin/dev`
-   (or similar naming) and start WP-9: cross-cutting loading indicators
-   (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed
-   instrumentation. Per the plan file's WP-9 section (verify citations
-   against current code first, they may have drifted) — wire
-   `components/ui/loading/{BrandLoader,PendingOverlay,LoadingButton}.tsx`
-   into Staff/Recipe/Inventory forms; extract one shared `HelpIconButton`
-   from the existing `helpButtonStyle`/`hoverStyles.iconButton` pattern
-   (WP-8 already deleted the one divergent bordered-circle instance —
-   Settings' transparent/no-border style is now the only other style to
-   unify); add lightweight timing instrumentation per popup before touching
-   popup-open speed, per the locked decision (measure first, don't add
-   Modal animation as a blind fix).
-   Note: WP-8 (PR #333, merged 2026-08-20) already investigated but did NOT
-   fix the week-nav "jankiness" — root cause is a full RSC page navigation
-   on every Prev/Next-week click (remounts the whole page, not a slow
-   query); a real fix is a separate, larger follow-up, out of scope for both
-   WP-8 and WP-9.
-3. Work through WP-10 through WP-13 in order after WP-9, one PR per WP (most
+2. `git fetch origin dev && git checkout -B feat/cafe-oruwa-qa-seed-data origin/dev`
+   (or similar naming) and start WP-10: QA seed-data script for the
+   `oruwa-cafe` tenant. Per the plan file's WP-10 section (verify citations
+   against current code first, they may have drifted) — no seed/fixture
+   tooling exists for this tenant at all today. New
+   `packages/db/scripts/oruwa-cafe-fixture.ts`, adapted from
+   `packages/db/scripts/mame-to-cha-fixture.ts`'s typed-manifest +
+   write/rehearsal-script architecture (different tenant; that script
+   doesn't cover inventory or shift-exchange fixtures either — real new
+   coverage here). Manifest should cover: an understaffed day (to exercise
+   WP-8's understaffed "!" marker — the current live tenant already shows
+   this organically most days, but a script should still seed it
+   deterministically), a pending correction on a PAST day (to exercise
+   WP-8's per-cell "!" marker — this one could NOT be live-verified during
+   WP-8/WP-9 because no such row exists yet, see those WPs' PR bodies),
+   pending shift-exchanges, inventory shortage + uncounted items, and a
+   pending/expired invitation (to exercise WP-3's resend/recover-access UI).
+   Once WP-10 ships, go back and do the still-outstanding live-QA check for
+   WP-8's per-cell correction marker.
+3. Work through WP-11 through WP-13 in order after WP-10, one PR per WP (most
    are independently PR-sized per the plan file's own "ship as separate
    PRs" note — WP-1/WP-2 combining into one PR was the exception, not the
    norm). WP-13 is YELLOW-tier (schema change) and needs a dedicated CTO
