@@ -1,11 +1,15 @@
-# CAFE_MANAGER_UIUX_PARITY_MISSION (started 2026-08-19)
+# CAFE_MANAGER_UIUX_PARITY_MISSION (started 2026-08-19, updated 2026-08-20)
 
 Durable handoff for a **fresh** Claude Code session continuing this
 workstream. This file, git, and the repository's own tests/docs are the
 source of truth — not any prior chat's conversational memory. Read this
 file fully before doing anything. Everything below is VERIFIED against
-tool output in the session that wrote this handoff, unless explicitly
-marked INFERRED/OPEN QUESTION.
+tool output in the session that wrote/updated this handoff, unless
+explicitly marked INFERRED/OPEN QUESTION.
+
+**If you are a fresh session starting from this file: start at §7 ("Next
+step for a fresh session"). Read §1–§6 first for full context, but §7 is
+where you actually begin.**
 
 ---
 
@@ -36,7 +40,26 @@ verbatim text again, but the short version below is sufficient to operate:
   history rewrites — those need explicit Founder approval (RED tier).
   Schema changes (new migration) are YELLOW tier — do the extra internal
   DECISION/REASON/RISK/MITIGATION/ROLLBACK review before proceeding, don't
-  automatically escalate to Founder unless the risk can't be bounded.
+  automatically escalate to Founder unless the risk can't be bounded (WP-6
+  did exactly this for a real Storage-RLS bug fix — see §5 — as the
+  reference example of how a YELLOW-tier mid-mission fix should be handled:
+  investigate, explain the finding precisely, ask before pushing to
+  Supabase Cloud, then verify live afterward).
+- **Live Preview QA process (clarified 2026-08-20, Founder verbatim)**:
+  Founder does NOT do per-PR live QA on ephemeral Vercel PR-preview URLs.
+  Founder only checks the persistent `https://preview.oruwa.jp/manager`
+  deployment, once, as the **final acceptance gate after every WP in this
+  mission is merged and deployed there** ("я финальная проверка"). For
+  each individual WP/PR in between, **you do your own live Preview QA**
+  (chrome-devtools MCP against that PR's own Vercel preview deployment URL
+  — get it from `gh pr view <n> --json comments` or the Vercel GitHub-bot
+  PR comment) before merging — desktop + mobile 375px, sign in as
+  `manager@oruwa-cafe.test` / `NewTestSmoke456!`. The reference site
+  (`mame-to-cha/manager`, account `manager@mame-to-cha.test` /
+  `LocalSmoke123!`) is a visual guide only, never a data source — never
+  write test data there, it's a shared Preview DB other work also depends
+  on. Do not wait for Founder sign-off before merging an individual WP; do
+  wait if something in live QA looks genuinely wrong.
 - Respond to the Founder in Russian (their working language this session).
 
 ---
@@ -45,33 +68,40 @@ verbatim text again, but the short version below is sufficient to operate:
 
 Founder did live QA of PR #324 (a small, already-merged hover-state
 retrofit for the Manager surface) by comparing
-`https://preview.oruwa.jp/manager` (canonical, account
-`manager@oruwa-cafe.test` / `NewTestSmoke456!`) side-by-side with the
+`https://preview.oruwa.jp/manager` (canonical) side-by-side with the
 legacy **Mame To Cha** reference prototype at
-`https://preview.oruwa.jp/mame-to-cha/manager` (account
-`manager@mame-to-cha.test` / `LocalSmoke123!`), 10 screenshots. The hover
+`https://preview.oruwa.jp/mame-to-cha/manager`, 10 screenshots. The hover
 fix itself was fine, but the side-by-side comparison surfaced a much larger
 design/functionality gap between canonical and the reference. **Founder's
 instruction**: canonical Manager must look equal to or better than the
 reference (better only if justified), Manager first — Founder personally
-verifies live — then the identical treatment gets applied to `/staff`
-afterward, **then Cafe v2.1 formally closes**, then Platform Foundation per
-the plan already agreed 2026-08-16 (see `docs/ai/current-task.md` §5).
+verifies live once everything is merged and deployed — then the identical
+treatment gets applied to `/staff` afterward, **then Cafe v2.1 formally
+closes**, then Platform Foundation per the plan already agreed 2026-08-16
+(see `docs/ai/current-task.md` §5).
 
 This grew from "finish a small hover fix" into a proper 13-Work-Package
 redesign mission — planned via the full Explore → Plan → AskUserQuestion →
 ExitPlanMode workflow (not ad-hoc), because of its size. **The full,
-detailed plan (all research findings + all 13 Work Packages + Founder's
-locked decisions) lives in the approved plan file**:
+detailed plan — Founder's original verbatim QA report (§"Founder's report"
+in that file — this is "the review the Founder did" that every WP traces
+back to; re-read it before marking any WP done, don't rely on this
+handoff's paraphrase alone), all research findings, and all 13 Work
+Packages with exact files/line-numbers + Founder's locked decisions — lives
+in the approved plan file**:
 
 `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md`
 
 **Read that file in full before starting any new Work Package.** It is the
 single most information-dense artifact from this mission — this handoff
-summarizes it and adds current git/PR state, but does not repeat every
+summarizes status and adds current git/PR state, but does not repeat every
 file/line-number detail already in the plan file. Do not re-derive the
 Explore-phase findings by re-exploring the codebase; they are already
-captured there with exact file paths and line numbers.
+captured there. **Caveat**: some file/line-number citations in that plan
+file may have drifted since WP-1–6 landed (e.g. WP-6 already fixed things
+the plan's Explore phase flagged as gaps) — verify against current code
+before assuming a citation is still accurate, per this project's own
+memory-freshness discipline.
 
 ---
 
@@ -82,9 +112,9 @@ captured there with exact file paths and line numbers.
 route components it embeds). Staff gets an identical follow-up pass as a
 **separate future mission** after the Founder approves the Manager result
 in full — several pieces built during this mission (full-width
-`RecipeForm`, `LightboxTrigger` wiring, shared `HelpIconButton`,
-`ConfirmDialog`/`LoadingButton` retrofits) are shared components, so
-Staff's future pass reuses them for free and should be scoped much smaller.
+`RecipeForm`, `LightboxTrigger` wiring, `ConfirmDialog` retrofits) are
+shared components, so Staff's future pass reuses them for free and should
+be scoped much smaller.
 
 Do not restore `%5Fclient-preview/mame-to-cha/**` or `mame-to-cha/**` route
 trees as production backend — they are read-only visual/pattern references
@@ -102,13 +132,13 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 
 | WP | Title | Status |
 |----|-------|--------|
-| WP-1 | Header brand badge + language-toggle contrast fix | **MERGED — PR #325 (2026-08-19, by Founder), Claude live-QA'd on 2026-08-20 (desktop + 375px)** |
+| WP-1 | Header brand badge + language-toggle contrast fix | **MERGED — PR #325 (2026-08-19)** |
 | WP-2 | Recipes/Inventory nav buttons: real buttons + hover | **MERGED — PR #325, same PR as WP-1** |
-| WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | **MERGED — PR #326 (2026-08-19), Claude live-QA'd (desktop + 375px)** |
-| WP-4 | Recipes: full-width form + remove "Original language" field | **MERGED — PR #327 (2026-08-20), Claude live-QA'd (desktop + 375px)** |
-| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20), Claude live-QA'd (real delete verified against a disposable QA fixture recipe)** |
-| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **MERGED — PR #329 (2026-08-20).** Included migration `0074_recipe_media_tenant_wide_fix.sql` (Founder-approved, pushed to Supabase Cloud dev project) fixing a pre-existing RLS bug in `0052`'s `recipe-media` Storage policies that never handled tenant-wide recipes. Also discovered and reconciled (via `migration repair --status reverted`) unrelated pre-existing drift: remote already had versions 0060 and 0070-0073 applied (0070-0073 = an unmerged Platform Foundation branch's migrations, 0060 = an older known gap) with no local files — untouched otherwise. Claude live-QA'd end-to-end: upload, thumbnail, lightbox, all working on a real tenant-wide recipe (desktop + 375px). |
-| WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | Not started |
+| WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | **MERGED — PR #326 (2026-08-19)** |
+| WP-4 | Recipes: full-width form + remove "Original language" field | **MERGED — PR #327 (2026-08-20)** |
+| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20)** |
+| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **MERGED — PR #329 (2026-08-20).** Included migration `0074_recipe_media_tenant_wide_fix.sql` — see §5 for the full story. |
+| WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | **NOT STARTED — start here.** |
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | Not started |
 | WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | Not started |
 | WP-10 | QA seed-data script for `oruwa-cafe` tenant | Not started |
@@ -124,11 +154,13 @@ all chose the recommended option — do not re-ask these)**:
   locks at creation time (defaults JA), no UI path to change it after
   creation — this is a real behavior change, call it out in the PR body.
 - WP-6: Lightbox is built fresh on top of the existing-but-unused
-  `LightboxTrigger` component (confirmed: no working lightbox exists
-  anywhere in the repo, including the reference prototype, despite the
-  Founder's screenshot impression — it only has a small static thumbnail).
-  "Remove image" is a soft delete (clears the form field; the Storage
-  object is only actually removed on Save, so it's undoable pre-save).
+  `LightboxTrigger` component. "Remove image" is a soft delete (clears the
+  form field; the Storage object is only actually removed on Save, so it's
+  undoable pre-save).
+- WP-7: Founder's stated preference — keep the current inline-quantity-
+  in-card layout as-is (the reference's inline-quantity pattern Founder was
+  picturing actually lives on the reference's *staff* panel, not the
+  manager one — no layout change needed here, confirmed already liked).
 - WP-9: Do **not** add Modal-open/close animation as a blind fix for the
   "popups open slowly" complaint — the reference has zero animation too,
   deliberately (its own `ConfirmDialog` comment says speed over polish).
@@ -137,108 +169,143 @@ all chose the recommended option — do not re-ask these)**:
 
 ---
 
-## 5. Repository / git state (VERIFIED at handoff time)
+## 5. Repository / git / DB state (VERIFIED at handoff time, 2026-08-20)
 
-- Repo: `D:\Dev\line-business-os`. Base branch: `dev`.
-- **PR #325** (branch `fix/cafe-manager-header-nav-parity`, off a fresh
-  `origin/dev`, HEAD `5e0db83`) — WP-1 + WP-2 combined, open against `dev`.
-  `typecheck && lint && test (1141/1141) && build` all passed locally
-  before push; GitHub Actions CI was still running (`pending`) and Vercel
-  Preview was still deploying at handoff time — **check
-  `gh pr checks 325` before assuming green**, don't assume it finished.
-  **Not merged yet — needs Founder live Preview QA on `/manager` first**
-  (standing merge authority requires green checks + live Preview QA for UI
-  changes, per `feedback_merge_authority` memory — this is a UI change).
-- Files changed in PR #325: new
-  `apps/web/src/app/(protected)/manager/brand-badge.tsx`; modified
-  `apps/web/src/app/(protected)/manager/manager-dashboard-client.tsx`
-  (header block + nav buttons only — see PR diff for exact lines).
-- **Prior PR #324** (A10 hover-state retrofit for 13 files in
-  `(protected)/manager/`, unrelated to this mission except that it's what
-  triggered the Founder's side-by-side comparison that started this
-  mission) — already merged to `dev` before this mission began.
-- **Two untracked files still sitting in the repo root**, unrelated to
-  this mission, decision still pending from before this mission started:
+- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-6
+  are merged into `dev` (PRs #325–#329, all squash-merged, all feature
+  branches deleted). Local working tree was last on
+  `fix/cafe-manager-recipe-photo-lightbox` (now merged/deleted) — a fresh
+  session should `git fetch origin dev && git checkout -B <new-branch>
+  origin/dev` before starting WP-7, same pattern as every prior WP.
+- **Prior PR #324** (A10 hover-state retrofit, unrelated to this mission
+  except that it's what triggered the Founder's side-by-side comparison
+  that started this mission) — already merged to `dev` before this mission
+  began.
+- **Two untracked files sitting in the repo root**, unrelated to this
+  mission, decision still pending from before this mission started:
   `ORUWA_CAFE_V2_1_FINAL_INDEPENDENT_QA_2026-08-17.md` and
   `ORUWA_CAFE_V2_1_FULL_QA_AUDIT_2026-08-17.md`. These are **not**
   disposable — they were the working reference for an earlier hardening
   mission (see `docs/ai/CAFE_V2_1_HARDENING_HANDOFF_2026-08-17.md`, which
   explicitly says "do not delete"). Founder was mid-decision on
   read/commit-to-docs/delete/leave-as-is when this UI/UX mission
-  interrupted that conversation. Do not delete them; ask the Founder to
-  resume that decision once this mission's more urgent work is further
-  along, or handle it opportunistically if a natural pause occurs.
+  interrupted that conversation. **Do not `git add -A` on this repo** — a
+  broad add will pick these up by accident (this happened once already
+  during WP-6, caught and reverted before it reached `dev`). Stage files by
+  explicit path only. Do not delete them; ask the Founder to resume that
+  decision once this mission's more urgent work is further along.
 - Test accounts: `manager@oruwa-cafe.test` / `NewTestSmoke456!` (canonical,
   read/write), `manager@mame-to-cha.test` / `LocalSmoke123!` (reference,
-  read-only comparison use only — never write test data there, it's a
-  shared Preview DB other work also depends on).
-- **Migration/DB drift discovered 2026-08-20 while pushing WP-6's
-  migration `0074`**: the linked Supabase Cloud dev project already had
-  versions 0060 and 0070-0073 applied with **no corresponding local file
-  in this repo or in `origin/dev`**. Investigated (`supabase db dump
-  --schema storage`, `--schema supabase_migrations`): 0070-0073 are 5
-  "Platform Foundation critical path" migrations (Module Registry, Shared
-  Nav/Settings, Notifications engine, Event Bus) — someone pushed them
-  directly to Cloud from an unmerged branch/session, matching the same
-  pattern as the older, already-known 0060 gap (see the prior commit
-  `fix(supabase): restore local 0061 migration file to match applied
-  Preview state`). Reconciled locally via `supabase migration repair
-  --status reverted 0060 0070 0071 0072 0073` (tracking-table-only, no
-  schema objects touched) so `db push` wasn't blocked — did **not** create
-  or guess content for those 5 files. **Whoever eventually merges the
-  Platform Foundation branch must re-apply/repair those versions properly
-  against actual content** — this repair only unblocked WP-6's own push,
-  it does not resolve the Platform Foundation branch's own migration
-  history for whoever picks that back up.
+  read-only comparison use only).
+- **WP-6's Storage RLS bug fix (migration `0074`)** — the full story, so a
+  fresh session doesn't need to re-derive it: `0052`'s `recipe-media`
+  Storage policies (`recipe_media_select/insert/delete`) gated on
+  `r.location_id = (storage.foldername(name))[2]::uuid`, which is `NULL`
+  (never true in Postgres) for a **tenant-wide recipe**
+  (`workforce.recipes.location_id IS NULL` — a real, by-design case; see
+  `0022`'s own RLS policies on `workforce.recipes`, which already branch on
+  this explicitly). Every photo upload/read/delete on a tenant-wide recipe
+  was silently denied by RLS regardless of the caller's actual permissions.
+  Found live testing WP-6's upload flow against `カフェラテ` (an existing
+  tenant-wide recipe). Fixed via migration `0074_recipe_media_tenant_wide_fix.sql`,
+  mirroring `0022`'s tenant-wide branch pattern
+  (`location_id is null` + `has_permission_in_tenant` vs `location_id is
+  not null` + `has_permission(..., location_id)`). Founder approved the
+  push explicitly (YELLOW tier); applied to the linked Supabase Cloud
+  `line-business-os-dev` project; verified live end-to-end (upload,
+  thumbnail, lightbox) afterward.
+- **Migration/DB drift discovered while pushing `0074`** (see project
+  memory `project_migration_drift_platform_foundation` for the full
+  writeup — read it if you touch migrations again): the linked Supabase
+  Cloud dev project already had migration versions **0060** and **0070–0073**
+  applied with **no corresponding local file in this repo or in
+  `origin/dev`**. Investigated read-only (`supabase db dump --schema
+  supabase_migrations`): 0070–0073 are 5 legitimate, already-planned
+  **"Platform Foundation critical path"** migrations (Module Registry,
+  Shared Navigation + Shared Settings, Notifications engine, Event Bus —
+  matches `docs/foundation/platform-foundation-roadmap.md`'s own sequencing
+  exactly), pushed directly to Cloud from an unmerged branch/session,
+  never committed to git. 0060 is an older, separately-known gap (see the
+  earlier commit `fix(supabase): restore local 0061 migration file to
+  match applied Preview state`, which fixed 0061 but apparently not 0060).
+  **This is needed, legitimate, already-sanctioned work — not something to
+  revert or worry about** — just not yet reconciled with git. To unblock
+  WP-6's own push, ran `supabase migration repair --status reverted 0060
+  0070 0071 0072 0073` — this **only** edits the migration-history tracking
+  table; it does **not** touch the actual schema objects those migrations
+  created (they still exist and still work — Module Registry tables,
+  Notifications outbox, etc., are all live in the DB). **Whoever eventually
+  merges the Platform Foundation branch must properly reconcile those 5
+  versions** (their own files + `migration repair --status applied` once
+  those files exist, not fresh `CREATE` statements that would collide with
+  the already-existing objects) — this repair only unblocked WP-6, it does
+  not fix Platform Foundation's own migration history. Not this mission's
+  job to fix further; just flag it if you touch migrations again, and do
+  not be alarmed if `supabase migration list` still shows this asymmetry.
 
 ---
 
 ## 6. Verification pattern to follow for every future WP
 
-Matches the house style already used for PR #324/#325:
+Matches the house style already used for every merged WP in this mission:
 ```
 pnpm -F web typecheck && pnpm -F web lint && pnpm -F web test && pnpm -F web build
 ```
-All four must pass locally before push.
+All four must pass locally before push. Every WP with a live UI surface
+gets your own live Preview QA (desktop + mobile 375px) against that PR's
+own Vercel preview deployment before merging — see §1's Live Preview QA
+process note. WP-3/5/6/7's new destructive actions (permanent-delete
+employee/recipe/inventory-item) need a dedicated manual QA pass confirming
+`ConfirmDialog` actually blocks accidental clicks, and the
+blocked-by-history case shows its inline warning *before* the click where
+applicable, not only on failure (WP-3/WP-5 already did this — WP-7 needs
+the same treatment for inventory items, RPC `permanentlyDeleteInventoryItem`
+already exists/tested per the plan file). See plan file's "Verification"
+section for the full checklist including WP-8/WP-10/WP-13 sequencing notes
+(ship WP-10's seed data before or alongside WP-8's QA pass so the new "!"
+markers have something to show).
 
-**Process clarified 2026-08-20 (Founder, verbatim)**: Founder does NOT do
-per-PR live QA on ephemeral Vercel PR-preview URLs. Founder only checks the
-persistent `https://preview.oruwa.jp/manager` deployment, once, as the
-**final acceptance gate after every WP in this mission is merged and
-deployed there** ("я финальная проверка"). For each individual WP/PR in
-between, **Claude does its own live Preview QA** (chrome-devtools MCP
-against the PR's Vercel preview deployment URL — get it from
-`gh pr view <n> --json comments` or the Vercel GitHub-bot PR comment) before
-merging — desktop + mobile 375px, sign in as
-`manager@oruwa-cafe.test`/`NewTestSmoke456!`. The reference site
-(`mame-to-cha/manager`) is a visual guide only, never a data source. WP-3/5/6/7's new destructive
-actions (permanent-delete employee/recipe/inventory-item) need a dedicated
-manual QA pass confirming `ConfirmDialog` actually blocks accidental
-clicks, and the blocked-by-history case shows its inline warning *before*
-the click where applicable, not only on failure. See plan file's
-"Verification" section for the full checklist including WP-8/WP-10/WP-13
-sequencing notes (ship WP-10's seed data before or alongside WP-8's QA
-pass so the new "!" markers have something to show).
+**Git hygiene reminder** (from a real WP-6 slip, caught before it landed):
+stage files by explicit path (`git add <path> <path>`), never `git add -A`
+or `git add .` — this repo has untracked files in its root (§5) that must
+stay untracked.
 
 ---
 
 ## 7. Next step for a fresh session
 
 1. Read the plan file in full:
-   `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md`.
-2. Check PR #325's current CI/Vercel status (`gh pr checks 325`) and ask
-   the Founder whether they've done the live Preview QA yet. If approved,
-   merge it (standing authority, no need to re-ask), then start a fresh
-   branch off `origin/dev` for WP-3 (`git fetch origin dev && git checkout
-   -B fix/cafe-manager-staff-confirm-dialogs origin/dev`, or similar
-   naming per WP).
-3. Work through WP-3 onward in order, one PR per WP (WP-1/WP-2 were
-   combined into one PR because both were tiny — don't assume every future
-   WP combines with its neighbor; most are independently PR-sized per the
-   plan file's own "ship as separate PRs" note).
-4. Keep this handoff file and `docs/ai/current-task.md`'s pointer (§8
+   `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md` — pay
+   particular attention to its "Founder's report" section (§2 above calls
+   this "the review the Founder did") and the WP-7 section under "Final
+   Plan".
+2. `git fetch origin dev && git checkout -B fix/cafe-manager-inventory-autosave origin/dev`
+   (or similar naming) and start WP-7: Inventory autosave + ConfirmDialog +
+   permanent-delete. Per the plan file: replace `count-form.tsx`'s explicit
+   "Save count" button with debounced autosave-on-input; add `ConfirmDialog`
+   gating to Deactivate/Reactivate (currently zero confirmation, not even
+   `window.confirm`); wire a new Delete action against the existing, tested,
+   unwired `permanentlyDeleteInventoryItem` RPC (`lib/inventory/items.ts:254`
+   — verify this line number is still accurate, plan-file citations can
+   drift). Tighten card spacing toward reference density. Per the locked
+   decision above, do NOT change the inline-quantity-in-card layout —
+   Founder already confirmed liking it as-is.
+3. Work through WP-8 onward in order after WP-7, one PR per WP (most are
+   independently PR-sized per the plan file's own "ship as separate PRs"
+   note — WP-1/WP-2 combining into one PR was the exception, not the norm).
+4. For each WP: implement → run the 4-command verification (§6) → commit
+   (explicit paths only) → push → open PR → wait for CI green → do your own
+   live Preview QA (§1) → merge (standing authority) → delete branch →
+   update this handoff's §4 table and this §7 pointer → move to next WP.
+5. Keep this handoff file and `docs/ai/current-task.md`'s pointer (§8
    below) updated as WPs land, so a context-compaction or a fresh session
-   mid-mission never loses track of which WP is next.
+   mid-mission never loses track of which WP is next. Update §5's "Base
+   branch" bullet point with the new current-branch state each time you
+   hand off.
+6. If you touch any Supabase migration in a future WP (only WP-13 is
+   expected to need one), re-read §5's migration-drift note and project
+   memory `project_migration_drift_platform_foundation` first, and run
+   `supabase migration list` before `db push` to check for new drift.
 
 ---
 
