@@ -12,7 +12,18 @@ import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ConfirmDialog } from '@/components/shared/design-kit';
 import { ThumbnailImage } from '@/components/media/ThumbnailImage';
-import { alertDanger, backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, mutedText, pageStyle } from '@/lib/ui/theme';
+import {
+  alertDanger,
+  backLink,
+  badgeStyle,
+  buttonPrimary,
+  buttonSecondary,
+  card,
+  colors,
+  input,
+  mutedText,
+  pageStyle,
+} from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { describeWriteError } from '../manager/error-copy';
@@ -140,7 +151,10 @@ export function RecipesListBody({
     return resolveFieldDisplay(field, lang).text || recipe.recipeId;
   }
 
-  const allRecipes = useMemo(() => liveGroups?.flatMap((group) => group.recipes) ?? null, [liveGroups]);
+  const allRecipes = useMemo(
+    () => liveGroups?.flatMap((group) => group.recipes) ?? null,
+    [liveGroups],
+  );
 
   // Staff (canManage=false) never sees anything but Published, regardless of
   // `statusFilter` (which only Manager's toolbar can ever change) -- matches
@@ -157,7 +171,9 @@ export function RecipesListBody({
     });
   }, [allRecipes, effectiveStatusFilter, search, liveTitleFieldByRecipeId, lang]);
 
-  const confirmDeleteTarget = confirmDeleteId ? allRecipes?.find((r) => r.recipeId === confirmDeleteId) ?? null : null;
+  const confirmDeleteTarget = confirmDeleteId
+    ? (allRecipes?.find((r) => r.recipeId === confirmDeleteId) ?? null)
+    : null;
 
   function handleDelete(recipeId: string) {
     setDeleteError(null);
@@ -182,7 +198,15 @@ export function RecipesListBody({
     <>
       {!embedded ? (
         <header>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
             <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <PreviewLanguageToggle />
@@ -199,139 +223,198 @@ export function RecipesListBody({
       ) : null}
 
       {canManage ? (
-        <section style={card}>
-          {adding ? (
-            <>
-              <h2 style={{ margin: 0, fontSize: 15 }}>{t('newRecipeHeading')}</h2>
-              <RecipeForm
-                lang={lang}
-                onSuccess={() => {
-                  setAdding(false);
-                  if (embedded) onChange?.();
-                  else router.refresh();
-                }}
-                onCancel={() => setAdding(false)}
-              />
-            </>
-          ) : (
-            <>
-              <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('manageDescription')}</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button
-                  type="button"
-                  className={hoverStyles.buttonSecondary}
-                  style={statusFilter === 'archived' ? { ...buttonSecondary, background: colors.accentMuted, borderColor: colors.accent } : buttonSecondary}
-                  onClick={() => setStatusFilter((current) => (current === 'archived' ? 'published' : 'archived'))}
-                >
-                  {t('filterArchive')}
-                </button>
-                <button
-                  type="button"
-                  className={hoverStyles.buttonSecondary}
-                  style={statusFilter === 'draft' ? { ...buttonSecondary, background: colors.accentMuted, borderColor: colors.accent } : buttonSecondary}
-                  onClick={() => setStatusFilter((current) => (current === 'draft' ? 'published' : 'draft'))}
-                >
-                  {t('filterDraft')}
-                </button>
-                <button type="button" className={hoverStyles.buttonPrimary} style={{ ...buttonPrimary, marginLeft: 'auto' }} onClick={() => setAdding(true)}>
-                  {t('addRecipeButton')}
-                </button>
-              </div>
-            </>
-          )}
-        </section>
+        adding ? (
+          <section style={card}>
+            <h2 style={{ margin: 0, fontSize: 15 }}>{t('newRecipeHeading')}</h2>
+            <RecipeForm
+              lang={lang}
+              onSuccess={() => {
+                setAdding(false);
+                if (embedded) onChange?.();
+                else router.refresh();
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          </section>
+        ) : (
+          <div>
+            <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('manageDescription')}</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={
+                  statusFilter === 'archived'
+                    ? {
+                        ...buttonSecondary,
+                        background: colors.accentMuted,
+                        borderColor: colors.accent,
+                      }
+                    : buttonSecondary
+                }
+                onClick={() =>
+                  setStatusFilter((current) => (current === 'archived' ? 'published' : 'archived'))
+                }
+              >
+                {t('filterArchive')}
+              </button>
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={
+                  statusFilter === 'draft'
+                    ? {
+                        ...buttonSecondary,
+                        background: colors.accentMuted,
+                        borderColor: colors.accent,
+                      }
+                    : buttonSecondary
+                }
+                onClick={() =>
+                  setStatusFilter((current) => (current === 'draft' ? 'published' : 'draft'))
+                }
+              >
+                {t('filterDraft')}
+              </button>
+              <button
+                type="button"
+                className={hoverStyles.buttonPrimary}
+                style={{ ...buttonPrimary, marginLeft: 'auto' }}
+                onClick={() => setAdding(true)}
+              >
+                {t('addRecipeButton')}
+              </button>
+            </div>
+          </div>
+        )
       ) : null}
 
-      <div style={{ marginTop: 16 }}>
-        <input
-          type="search"
-          style={input}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('searchPlaceholder')}
-          value={search}
-          onChange={(event) => setSearch(event.currentTarget.value)}
-        />
-      </div>
+      {!adding ? (
+        <>
+          <div style={{ marginTop: 16 }}>
+            <input
+              type="search"
+              style={input}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchPlaceholder')}
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+            />
+          </div>
 
-      {deleteError ? <div style={{ ...alertDanger, marginTop: 12 }}>{deleteError}</div> : null}
+          {deleteError ? <div style={{ ...alertDanger, marginTop: 12 }}>{deleteError}</div> : null}
 
-      <section style={{ ...card, marginTop: 16 }}>
-        {visibleRecipes === null ? (
-          <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
-        ) : visibleRecipes.length === 0 ? (
-          <p style={{ margin: 0, ...mutedText }}>{search.trim() ? t('noRecipesMatchSearch') : t('noRecipesYet')}</p>
-        ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
-            {visibleRecipes.map((recipe) => {
-              function openDetail() {
-                if (embedded) onSelectRecipe?.(recipe.recipeId);
-                else router.push(`/recipes/${recipe.recipeId}`);
-              }
-              return (
-                <li
-                  key={recipe.recipeId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={openDetail}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      openDetail();
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '9px 10px',
-                    borderRadius: 8,
-                    background: colors.surfaceElevated,
-                    flexWrap: 'wrap',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <ThumbnailImage
-                    src={liveMediaUrlByRecipeId[recipe.recipeId]}
-                    alt=""
-                    size={44}
-                    background={colors.surface}
-                    fallback={recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}
-                  />
-                  <div style={{ minWidth: 140, flex: '1 1 160px' }}>
-                    <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recipeTitle(recipe)}</strong>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                      <span style={recipe.status === 'published' ? badgeStyle('active') : badgeStyle('neutral')}>
-                        {recipe.status === 'published' ? t('publishedBadge') : recipe.status === 'archived' ? t('archivedBadge') : t('draftBadge')}
-                      </span>
-                      {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
-                    </div>
-                  </div>
-                  {canManage ? (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={(event) => event.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={hoverStyles.buttonSecondary}
-                        style={buttonSecondary}
-                        onClick={() => (embedded ? onSelectRecipe?.(recipe.recipeId, true) : router.push(editHref(recipe.recipeId)))}
-                      >
-                        {t('editButton')}
-                      </button>
-                      <button
-                        type="button"
-                        className={hoverStyles.buttonSecondary}
-                        style={buttonDanger}
-                        onClick={() => setConfirmDeleteId(recipe.recipeId)}
-                      >
-                        {t('deleteButton')}
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+          <section style={{ ...card, marginTop: 16 }}>
+            {visibleRecipes === null ? (
+              <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
+            ) : visibleRecipes.length === 0 ? (
+              <p style={{ margin: 0, ...mutedText }}>
+                {search.trim() ? t('noRecipesMatchSearch') : t('noRecipesYet')}
+              </p>
+            ) : (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+                {visibleRecipes.map((recipe) => {
+                  function openDetail() {
+                    if (embedded) onSelectRecipe?.(recipe.recipeId);
+                    else router.push(`/recipes/${recipe.recipeId}`);
+                  }
+                  return (
+                    <li
+                      key={recipe.recipeId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={openDetail}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openDetail();
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '9px 10px',
+                        borderRadius: 8,
+                        background: colors.surfaceElevated,
+                        flexWrap: 'wrap',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ThumbnailImage
+                        src={liveMediaUrlByRecipeId[recipe.recipeId]}
+                        alt=""
+                        size={44}
+                        background={colors.surface}
+                        fallback={recipe.contentKind === 'instruction' ? '🛠️' : '🍵'}
+                      />
+                      <div style={{ minWidth: 140, flex: '1 1 160px' }}>
+                        <strong
+                          style={{
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {recipeTitle(recipe)}
+                        </strong>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}
+                        >
+                          <span
+                            style={
+                              recipe.status === 'published'
+                                ? badgeStyle('active')
+                                : badgeStyle('neutral')
+                            }
+                          >
+                            {recipe.status === 'published'
+                              ? t('publishedBadge')
+                              : recipe.status === 'archived'
+                                ? t('archivedBadge')
+                                : t('draftBadge')}
+                          </span>
+                          {recipe.contentKind === 'instruction' ? (
+                            <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {canManage ? (
+                        <div
+                          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className={hoverStyles.buttonSecondary}
+                            style={buttonSecondary}
+                            onClick={() =>
+                              embedded
+                                ? onSelectRecipe?.(recipe.recipeId, true)
+                                : router.push(editHref(recipe.recipeId))
+                            }
+                          >
+                            {t('editButton')}
+                          </button>
+                          <button
+                            type="button"
+                            className={hoverStyles.buttonSecondary}
+                            style={buttonDanger}
+                            onClick={() => setConfirmDeleteId(recipe.recipeId)}
+                          >
+                            {t('deleteButton')}
+                          </button>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : null}
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
