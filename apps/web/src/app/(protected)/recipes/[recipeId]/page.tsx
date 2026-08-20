@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { getWorkforceRecipeDetail, hasRecipeManagerAccess } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, getWorkforceRecipeDetail, hasRecipeManagerAccess } from '@/lib/workforce/recipes';
 import { listContentTranslationsForEntities } from '@/lib/content/translations';
 import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -82,6 +82,7 @@ export default async function WorkforceRecipeDetailPage({
       ]);
       const translations = translationsResult.status === 'success' ? translationsResult.data : [];
       const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
+      const mediaUrlMap = await createRecipeMediaUrlMap(supabase, [recipe]);
 
       return (
         <RecipeDetailClient
@@ -91,6 +92,7 @@ export default async function WorkforceRecipeDetailPage({
           notes={notes}
           translationFields={translationFields}
           canManage={canManage}
+          mediaUrl={mediaUrlMap[recipe.recipeId] ?? null}
         />
       );
     }

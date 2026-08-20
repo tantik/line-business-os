@@ -106,7 +106,7 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-2 | Recipes/Inventory nav buttons: real buttons + hover | **MERGED — PR #325, same PR as WP-1** |
 | WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | **MERGED — PR #326 (2026-08-19), Claude live-QA'd (desktop + 375px)** |
 | WP-4 | Recipes: full-width form + remove "Original language" field | **MERGED — PR #327 (2026-08-20), Claude live-QA'd (desktop + 375px)** |
-| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | Not started |
+| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20), Claude live-QA'd (real delete verified against a disposable QA fixture recipe)** |
 | WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | Not started |
 | WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | Not started |
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | Not started |

@@ -6,7 +6,7 @@ import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -104,12 +104,15 @@ export default async function WorkforceRecipesPage() {
               ]),
             )
           : {};
+      const mediaUrlByRecipeId =
+        recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
       return (
         <RecipesListClient
           tenantName={activeTenant.tenantName}
           groups={groups}
           titleFieldByRecipeId={titleFieldByRecipeId}
+          mediaUrlByRecipeId={mediaUrlByRecipeId}
           canManage={canManage}
         />
       );

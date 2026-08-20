@@ -50,6 +50,15 @@ interface RecipesDict {
   formStatusArchived: string;
   formTitleLabel: string;
   formDescriptionLabel: string;
+  formPhotoLabel: string;
+  formChooseImage: string;
+  formReplaceImage: string;
+  formRemoveImage: string;
+  formUndoRemoveImage: string;
+  formPhotoHint: string;
+  formPhotoWillBeRemoved: string;
+  formPhotoTooLarge: string;
+  formPhotoDimensionsInvalid: string;
   formIngredientsLabel: string;
   formStepsLabel: string;
   formOnePerLineHint: string;
@@ -99,6 +108,15 @@ const dictionary: Record<Lang, RecipesDict> = {
     formStatusArchived: 'Archived',
     formTitleLabel: 'Title',
     formDescriptionLabel: 'Description',
+    formPhotoLabel: 'Photo',
+    formChooseImage: 'Choose image',
+    formReplaceImage: 'Replace image',
+    formRemoveImage: 'Remove image',
+    formUndoRemoveImage: 'Undo remove',
+    formPhotoHint: 'JPEG, PNG or WebP, up to 2 MB and 4096×4096',
+    formPhotoWillBeRemoved: 'Will be removed when saved',
+    formPhotoTooLarge: 'Choose an image up to 2 MB.',
+    formPhotoDimensionsInvalid: 'Image dimensions must be at most 4096×4096.',
     formIngredientsLabel: 'Ingredients',
     formStepsLabel: 'Steps',
     formOnePerLineHint: 'One per line',
@@ -146,6 +164,15 @@ const dictionary: Record<Lang, RecipesDict> = {
     formStatusArchived: 'アーカイブ済み',
     formTitleLabel: 'タイトル',
     formDescriptionLabel: '説明',
+    formPhotoLabel: '写真',
+    formChooseImage: '画像を選択',
+    formReplaceImage: '画像を差し替え',
+    formRemoveImage: '画像を削除',
+    formUndoRemoveImage: '削除を取り消す',
+    formPhotoHint: 'JPEG・PNG・WebP、最大2MB・4096×4096',
+    formPhotoWillBeRemoved: '保存時に削除されます',
+    formPhotoTooLarge: '画像は2MB以下にしてください。',
+    formPhotoDimensionsInvalid: '画像は4096×4096以下にしてください。',
     formIngredientsLabel: '材料',
     formStepsLabel: '手順',
     formOnePerLineHint: '1行に1つ',

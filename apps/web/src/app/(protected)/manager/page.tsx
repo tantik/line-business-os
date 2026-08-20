@@ -19,7 +19,7 @@ import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -232,6 +232,8 @@ export default async function WorkforceManagerPage({
               ]),
             )
           : {};
+      const recipeMediaUrlByRecipeId =
+        recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
       return (
         <main style={pageStyle(1180)}>
@@ -258,6 +260,7 @@ export default async function WorkforceManagerPage({
             initialPopup={initialPopup}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
+            recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
             scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
           />
