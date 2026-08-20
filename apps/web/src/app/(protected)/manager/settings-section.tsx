@@ -5,7 +5,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
-import { buttonPrimary, buttonSecondary, card, input, mutedText } from '@/lib/ui/theme';
+import { buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
@@ -203,7 +203,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
               const label = st.labelJa || st.labelEn || st.code;
               if (editingId === st.shiftTypeId) {
                 return (
-                  <div key={st.shiftTypeId} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', padding: '8px 10px', borderRadius: 8 }}>
+                  <div key={st.shiftTypeId} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
                     <label style={{ fontSize: 11, ...mutedText }}>
                       {t('nameLabel')}
                       <input value={editLabel} onChange={(event) => setEditLabel(event.currentTarget.value)} style={{ ...input, width: 110 }} />
@@ -232,14 +232,14 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
                 );
               }
               return (
-                <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8 }}>
+                <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
                   <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
                     {label} ({st.startsAtLocal}-{st.endsAtLocal})
                   </span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       type="button"
-                      style={{ ...smallButton, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                      style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
                       onClick={() => {
                         setEditingId(st.shiftTypeId);
                         setEditLabel(label);
@@ -249,7 +249,12 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
                     >
                       {t('edit')}
                     </button>
-                    <button type="button" disabled={isPending} style={{ ...smallButton, border: 'none', background: 'transparent', cursor: isPending ? 'wait' : 'pointer' }} onClick={() => setConfirmDeactivateId(st.shiftTypeId)}>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, color: colors.dangerText, cursor: isPending ? 'wait' : 'pointer' }}
+                      onClick={() => setConfirmDeactivateId(st.shiftTypeId)}
+                    >
                       {t('deactivateShiftTypeButton')}
                     </button>
                   </div>
@@ -283,7 +288,11 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
           </button>
         </div>
 
-        <button type="button" style={{ ...smallButton, marginTop: 12, border: 'none', background: 'transparent', cursor: 'pointer' }} onClick={() => setShowInactive((value) => !value)}>
+        <button
+          type="button"
+          style={{ ...smallButton, marginTop: 12, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+          onClick={() => setShowInactive((value) => !value)}
+        >
           {showInactive ? t('hideDeactivatedShiftTypes') : t('showDeactivatedShiftTypes')}
         </button>
 
@@ -297,11 +306,16 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
                 {inactiveShiftTypes.map((st) => {
                   const label = st.labelJa || st.labelEn || st.code;
                   return (
-                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, opacity: 0.7 }}>
+                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
                       <span>
                         {label} ({st.startsAtLocal}-{st.endsAtLocal})
                       </span>
-                      <button type="button" disabled={isPending} style={{ ...smallButton, border: 'none', background: 'transparent', cursor: isPending ? 'wait' : 'pointer' }} onClick={() => setActive(st.shiftTypeId, true)}>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, cursor: isPending ? 'wait' : 'pointer' }}
+                        onClick={() => setActive(st.shiftTypeId, true)}
+                      >
                         {t('reactivate')}
                       </button>
                     </div>
@@ -333,6 +347,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
             <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
           </>
         ) : null}
+        {feedback && !feedback.ok ? <p style={{ margin: '10px 0 0', color: colors.dangerText, fontSize: 12 }}>{feedback.text}</p> : null}
       </ConfirmDialog>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('settingsCardTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
