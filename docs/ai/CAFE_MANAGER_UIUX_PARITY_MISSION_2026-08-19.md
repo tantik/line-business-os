@@ -139,8 +139,8 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20)** |
 | WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **MERGED — PR #329 (2026-08-20).** Included migration `0074_recipe_media_tenant_wide_fix.sql` — see §5 for the full story. |
 | WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | **MERGED — PR #331 (2026-08-20).** `CountForm` autosave (600ms debounce, matches `settings-section.tsx`'s convention); `ConfirmDialog` added to Deactivate only (Reactivate stays a direct action — verified against the reference `preview-inventory-manager-panel.tsx`, which does the same); permanent-Delete wired to the previously-unused `permanentlyDeleteInventoryItem` RPC, offered regardless of active/inactive state (matches reference). Claude live-QA'd end-to-end including the RPC's `blocked_by_history` guard on an item with real stock-count history (desktop + 375px). |
-| WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | **NOT STARTED — start here.** |
-| WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | Not started |
+| WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | **MERGED — PR #333 (2026-08-20).** `computeUnderstaffedDateKeys`/`computePendingCorrectionCellKeys` added to `manager-attention.ts` (pure, reuses `scheduleSettings`/`localAssignments`/`pendingCorrections`, no new fetch). Live-QA'd (desktop + 375px): understaffed marker confirmed correct against real data (Mon met by an existing published shift, Tue-Sun correctly flagged). Per-cell correction marker NOT live-verified -- no pending correction exists in the Preview tenant and no staff-login credentials are documented in this mission's test-account list; covered by unit tests only (see PR body). Re-verify visually once WP-10 seed data lands. Week-nav "jankiness" root-caused (full RSC page navigation remounts the whole page on every Prev/Next click, not a slow query -- `page.tsx`'s reads are already parallel and `loading.tsx` already has a skeleton) but NOT fixed -- real fix is a larger architecture change, flagged as a future follow-up, not folded into WP-8. |
+| WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | **NOT STARTED — start here.** |
 | WP-10 | QA seed-data script for `oruwa-cafe` tenant | Not started |
 | WP-11 | Correction/Exchange requests: convert always-visible sections to popups triggered from `AttentionPanel` | Not started |
 | WP-12 | Settings section: side-by-side diff pass vs. reference | Not started |
@@ -171,14 +171,22 @@ all chose the recommended option — do not re-ask these)**:
 
 ## 5. Repository / git / DB state (VERIFIED at handoff time, 2026-08-20)
 
-- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-7
-  are merged into `dev` (PRs #325–#329, #331, all squash-merged, all
+- Repo: `D:\Dev\line-business-os`. Base branch: `dev`. WP-1 through WP-8
+  are merged into `dev` (PRs #325–#329, #331, #333, all squash-merged, all
   feature branches deleted; PR #330 was a docs-only handoff-doc update,
   also merged). Local working tree was last on
-  `docs-cafe-manager-handoff-wp7` (a docs-only branch off `origin/dev`,
-  merged/deleted by the time you read this) — a fresh session should
+  `fix/cafe-manager-schedule-grid` (WP-8's branch, merged/deleted by the
+  time you read this) — a fresh session should
   `git fetch origin dev && git checkout -B <new-branch> origin/dev` before
-  starting WP-8, same pattern as every prior WP.
+  starting WP-9, same pattern as every prior WP. Note: `gh pr merge
+  --delete-branch` can fail locally with a git worktree error ("'dev' is
+  already used by worktree at ...") if another local worktree elsewhere on
+  disk has `dev` checked out (this repo has several sibling worktrees under
+  `D:\Dev\line-business-os-*` from other missions/sessions) -- the merge on
+  GitHub itself still succeeds despite the local error; verify with `gh pr
+  view <n> --json state,mergedAt` and delete the remote branch manually
+  (`git push origin --delete <branch>`) rather than assuming the merge
+  failed.
 - **Prior PR #324** (A10 hover-state retrofit, unrelated to this mission
   except that it's what triggered the Founder's side-by-side comparison
   that started this mission) — already merged to `dev` before this mission
@@ -279,38 +287,27 @@ stay untracked.
 1. Read the plan file in full:
    `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md` — pay
    particular attention to its "Founder's report" section (§2 above calls
-   this "the review the Founder did") and the WP-8 section under "Final
+   this "the review the Founder did") and the WP-9 section under "Final
    Plan".
-2. `git fetch origin dev && git checkout -B fix/cafe-manager-schedule-grid origin/dev`
-   (or similar naming) and start WP-8: Shift schedule grid — understaffed
-   "!" marker, per-cell correction "!", remove Estimated-labour-cost
-   section. Per the plan file (verify these citations against current code
-   first, they may have drifted):
-   - Add a fixed-height "!" slot to each date column header
-     (`manager-dashboard-client.tsx` ~line 734) shown when a day's assigned
-     headcount is below the required count from Settings — reserve the
-     height so the header never jumps between weeks.
-   - Add a per-cell "!" for past days with a pending correction: new
-     `computePendingCorrectionCellKeys(pendingCorrections, todayIso)` in
-     `lib/workforce/manager-attention.ts`, same shape as the existing
-     `computeUnavailableConflictCellKeys` (~lines 79-95), using the
-     already-available `pendingCorrections` prop (already filtered to
-     `status === 'pending'`) plus a `workDate < todayIso` guard — pure
-     frontend, no new fetch/prop/migration needed.
-   - Delete the "Estimated labour cost" section outright: the JSX block
-     (~lines 788-826), its `labourCostHelpOpen` state (~line 228), its
-     `labourCost` `useMemo` (~line 350 — confirm no other consumer before
-     deleting), and its help `Modal` (~line 832).
-   - Investigate the week-nav "jankiness" complaint (currently
-     `?weekOffset=` `Link`-based full page navigation) before deciding on a
-     fix — don't assume the cause, the plan file explicitly flags this as
-     unresolved/needs-investigation, not a known root cause.
-   - WP-8's new "!" markers need seed data to actually show anything in
-     Preview QA — WP-10 (seed-data script) is not done yet. If WP-8 lands
-     before WP-10, you may need to manually create a pending correction and
-     an understaffed day via the UI/existing actions to verify the markers
-     render, rather than skipping verification.
-3. Work through WP-9 through WP-13 in order after WP-8, one PR per WP (most
+2. `git fetch origin dev && git checkout -B fix/cafe-manager-loading-help-icon origin/dev`
+   (or similar naming) and start WP-9: cross-cutting loading indicators
+   (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed
+   instrumentation. Per the plan file's WP-9 section (verify citations
+   against current code first, they may have drifted) — wire
+   `components/ui/loading/{BrandLoader,PendingOverlay,LoadingButton}.tsx`
+   into Staff/Recipe/Inventory forms; extract one shared `HelpIconButton`
+   from the existing `helpButtonStyle`/`hoverStyles.iconButton` pattern
+   (WP-8 already deleted the one divergent bordered-circle instance —
+   Settings' transparent/no-border style is now the only other style to
+   unify); add lightweight timing instrumentation per popup before touching
+   popup-open speed, per the locked decision (measure first, don't add
+   Modal animation as a blind fix).
+   Note: WP-8 (PR #333, merged 2026-08-20) already investigated but did NOT
+   fix the week-nav "jankiness" — root cause is a full RSC page navigation
+   on every Prev/Next-week click (remounts the whole page, not a slow
+   query); a real fix is a separate, larger follow-up, out of scope for both
+   WP-8 and WP-9.
+3. Work through WP-10 through WP-13 in order after WP-9, one PR per WP (most
    are independently PR-sized per the plan file's own "ship as separate
    PRs" note — WP-1/WP-2 combining into one PR was the exception, not the
    norm). WP-13 is YELLOW-tier (schema change) and needs a dedicated CTO
