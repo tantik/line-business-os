@@ -31,6 +31,25 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
   inventory: (count, lang) => attentionInventoryLabel[lang](count),
 };
 
+const attentionCardStyle = {
+  flex: '1 1 160px',
+  minWidth: 160,
+  maxWidth: 260,
+  textDecoration: 'none',
+  color: colors.textPrimary,
+  border: `1px solid ${colors.border}`,
+  borderRadius: 8,
+  padding: '10px 12px',
+  background: colors.surfaceElevated,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: 4,
+  minHeight: 64,
+  cursor: 'pointer',
+  font: 'inherit',
+  textAlign: 'left' as const,
+};
+
 /**
  * Compact, fixed-size row of attention trigger cards (one per non-empty
  * category), replacing the previous vertically-growing list -- matches the
@@ -39,13 +58,24 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
  * already omits zero-count categories, so this component never needs its
  * own empty-item filtering.
  *
- * Each card still links to the same anchor/route the previous list did
- * (`#correction-requests`, `#shift-exchange-requests`, `#weekly-schedule`,
- * `/inventory`) -- relocating that content into a popup (as the full parity
- * spec eventually wants) is deliberately deferred to a later WP, not bundled
- * into this visual-only change.
+ * `correction`/`exchange` cards open the popup this WP added
+ * (`onOpenCorrections`/`onOpenExchanges`) instead of navigating to an
+ * anchor -- this component's own prior doc comment flagged that relocation
+ * as deliberately deferred; WP-11 is that follow-up.
+ * `unavailable_conflict`/`inventory` still link to their existing
+ * anchor/route (`#weekly-schedule`, `/inventory`), unchanged.
  */
-export function AttentionPanel({ items, lang }: { items: ManagerAttentionItem[]; lang: Lang }) {
+export function AttentionPanel({
+  items,
+  lang,
+  onOpenCorrections,
+  onOpenExchanges,
+}: {
+  items: ManagerAttentionItem[];
+  lang: Lang;
+  onOpenCorrections: () => void;
+  onOpenExchanges: () => void;
+}) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
 
   return (
@@ -55,31 +85,37 @@ export function AttentionPanel({ items, lang }: { items: ManagerAttentionItem[];
         <p style={{ margin: '10px 0 0', ...mutedText }}>{t('attentionAllClear')}</p>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
-          {items.map((item) => (
-            <Link
-              key={item.category}
-              href={ATTENTION_ANCHOR[item.category]}
-              aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
-              style={{
-                flex: '1 1 160px',
-                minWidth: 160,
-                maxWidth: 260,
-                textDecoration: 'none',
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 8,
-                padding: '10px 12px',
-                background: colors.surfaceElevated,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                minHeight: 64,
-              }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{t(ATTENTION_TITLE_KEY[item.category])}</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: colors.warning }}>{item.count}</span>
-            </Link>
-          ))}
+          {items.map((item) => {
+            const label = (
+              <>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t(ATTENTION_TITLE_KEY[item.category])}</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: colors.warning }}>{item.count}</span>
+              </>
+            );
+            if (item.category === 'correction' || item.category === 'exchange') {
+              return (
+                <button
+                  key={item.category}
+                  type="button"
+                  aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
+                  style={attentionCardStyle}
+                  onClick={item.category === 'correction' ? onOpenCorrections : onOpenExchanges}
+                >
+                  {label}
+                </button>
+              );
+            }
+            return (
+              <Link
+                key={item.category}
+                href={ATTENTION_ANCHOR[item.category]}
+                aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
+                style={attentionCardStyle}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </div>
       )}
     </section>
