@@ -96,6 +96,9 @@ interface ManagerDashboardDict {
   scheduleHelpAriaLabel: string;
   scheduleHelpTitle: string;
   scheduleHelpBody: string;
+  // WP-8: understaffed-day column marker + past-day pending-correction cell marker
+  understaffedDayAriaLabel: string;
+  pendingCorrectionCellAriaLabel: string;
   // Staff-name detail popup (A6)
   staffNamePopupTitlePrefix: string;
   staffNamePopupMonth: string;
@@ -105,13 +108,6 @@ interface ManagerDashboardDict {
   staffNamePopupCopyReport: string;
   staffNamePopupCopied: string;
   staffNamePopupCopyFailed: string;
-  // Estimated labour cost (A7)
-  labourCostHeading: string;
-  labourCostHelpAriaLabel: string;
-  labourCostHelpTitle: string;
-  labourCostHelpBody: string;
-  labourCostEmpty: string;
-  labourCostTotal: string;
   // Settings section (A8)
   settingsCardTitle: string;
   settingsHelpBody: string;
@@ -287,6 +283,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     scheduleHelpTitle: 'About the shift schedule',
     scheduleHelpBody:
       'Assign staff to open cells, then use "Run auto-distribution" to fill remaining shifts automatically. Nothing is visible to staff until you press "Publish schedule".',
+    understaffedDayAriaLabel: 'Understaffed -- below the required headcount for this day',
+    pendingCorrectionCellAriaLabel: 'This shift has a pending correction request awaiting your review',
     staffNamePopupTitlePrefix: 'Staff',
     staffNamePopupMonth: 'Month',
     staffNamePopupWorkedHours: 'Worked hours (this month)',
@@ -295,13 +293,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: 'Copy monthly report',
     staffNamePopupCopied: 'Copied.',
     staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
-    labourCostHeading: 'Estimated labour cost',
-    labourCostHelpAriaLabel: 'About estimated labour cost',
-    labourCostHelpTitle: 'About estimated labour cost',
-    labourCostHelpBody:
-      'This is the cost of hours already worked this week, as of now -- not the full theoretical week. An in-progress shift counts up to the current time; a shift with no clock-in yet counts as zero.',
-    labourCostEmpty: 'No active staff to show yet.',
-    labourCostTotal: 'Total',
     settingsCardTitle: 'Settings',
     settingsHelpBody:
       'These settings control auto-distribution (required staff per weekday) and the max monthly hours guardrail. Shift types define the reusable start/end/break templates offered when assigning a shift.',
@@ -467,6 +458,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     scheduleHelpTitle: 'シフトスケジュールについて',
     scheduleHelpBody:
       '空いているセルにスタッフを割り当てるか、「自動割り当てを実行」で残りのシフトを自動的に埋めます。「スケジュールを公開」を押すまでスタッフには表示されません。',
+    understaffedDayAriaLabel: '人員不足 -- この日の必要人数を下回っています',
+    pendingCorrectionCellAriaLabel: 'このシフトには確認待ちの修正申請があります',
     staffNamePopupTitlePrefix: 'スタッフ',
     staffNamePopupMonth: '対象月',
     staffNamePopupWorkedHours: '実働時間（今月）',
@@ -475,13 +468,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: '月次レポートをコピー',
     staffNamePopupCopied: 'コピーしました。',
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
-    labourCostHeading: '概算人件費',
-    labourCostHelpAriaLabel: '概算人件費について',
-    labourCostHelpTitle: '概算人件費について',
-    labourCostHelpBody:
-      'これは今週すでに勤務した時間分の、現時点での費用です -- 週全体の理論値ではありません。進行中のシフトは現在時刻までを計上し、まだ出勤していないシフトはゼロとして扱われます。',
-    labourCostEmpty: '表示できる有効なスタッフがまだいません。',
-    labourCostTotal: '合計',
     settingsCardTitle: '設定',
     settingsHelpBody:
       'ここでの設定は自動割り当て（曜日ごとの必要人数）と月間最大勤務時間の上限に反映されます。シフト種別は、シフト割り当て時に選べる開始・終了・休憩のテンプレートです。',
