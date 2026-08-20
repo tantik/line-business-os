@@ -106,8 +106,8 @@ Ordered cheap/safe/high-value first; WP-13 is the one YELLOW-tier
 | WP-2 | Recipes/Inventory nav buttons: real buttons + hover | **MERGED — PR #325, same PR as WP-1** |
 | WP-3 | Manage Staff: ConfirmDialog everywhere + permanent-delete UI | **MERGED — PR #326 (2026-08-19), Claude live-QA'd (desktop + 375px)** |
 | WP-4 | Recipes: full-width form + remove "Original language" field | **MERGED — PR #327 (2026-08-20), Claude live-QA'd (desktop + 375px)** |
-| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | Not started |
-| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | Not started |
+| WP-5 | Recipes: "Delete" (replacing "Archive") + ConfirmDialog | **MERGED — PR #328 (2026-08-20), Claude live-QA'd (real delete verified against a disposable QA fixture recipe)** |
+| WP-6 | Recipe photo upload + Lightbox (built fresh on `LightboxTrigger`) | **MERGED — PR #329 (2026-08-20).** Included migration `0074_recipe_media_tenant_wide_fix.sql` (Founder-approved, pushed to Supabase Cloud dev project) fixing a pre-existing RLS bug in `0052`'s `recipe-media` Storage policies that never handled tenant-wide recipes. Also discovered and reconciled (via `migration repair --status reverted`) unrelated pre-existing drift: remote already had versions 0060 and 0070-0073 applied (0070-0073 = an unmerged Platform Foundation branch's migrations, 0060 = an older known gap) with no local files — untouched otherwise. Claude live-QA'd end-to-end: upload, thumbnail, lightbox, all working on a real tenant-wide recipe (desktop + 375px). |
 | WP-7 | Inventory: autosave + ConfirmDialog + permanent-delete | Not started |
 | WP-8 | Schedule grid: understaffed "!" marker, per-cell correction "!", remove Estimated-labour-cost section | Not started |
 | WP-9 | Cross-cutting: loading indicators (`PendingOverlay`/`LoadingButton`) + shared `HelpIconButton` + popup-speed instrumentation | Not started |
@@ -172,6 +172,24 @@ all chose the recommended option — do not re-ask these)**:
   read/write), `manager@mame-to-cha.test` / `LocalSmoke123!` (reference,
   read-only comparison use only — never write test data there, it's a
   shared Preview DB other work also depends on).
+- **Migration/DB drift discovered 2026-08-20 while pushing WP-6's
+  migration `0074`**: the linked Supabase Cloud dev project already had
+  versions 0060 and 0070-0073 applied with **no corresponding local file
+  in this repo or in `origin/dev`**. Investigated (`supabase db dump
+  --schema storage`, `--schema supabase_migrations`): 0070-0073 are 5
+  "Platform Foundation critical path" migrations (Module Registry, Shared
+  Nav/Settings, Notifications engine, Event Bus) — someone pushed them
+  directly to Cloud from an unmerged branch/session, matching the same
+  pattern as the older, already-known 0060 gap (see the prior commit
+  `fix(supabase): restore local 0061 migration file to match applied
+  Preview state`). Reconciled locally via `supabase migration repair
+  --status reverted 0060 0070 0071 0072 0073` (tracking-table-only, no
+  schema objects touched) so `db push` wasn't blocked — did **not** create
+  or guess content for those 5 files. **Whoever eventually merges the
+  Platform Foundation branch must re-apply/repair those versions properly
+  against actual content** — this repair only unblocked WP-6's own push,
+  it does not resolve the Platform Foundation branch's own migration
+  history for whoever picks that back up.
 
 ---
 

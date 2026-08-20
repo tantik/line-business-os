@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import {
+  createRecipeMediaUrlMap,
   getWorkforceRecipeDetail,
   groupRecipesByCategory,
   hasRecipeManagerAccess,
@@ -43,6 +44,10 @@ import { queueLineNotification } from '@/lib/notifications/queue-line-notificati
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
 
+/** Matches the reference preview implementation's own client-side hint (2MB) -- see `recipe-form.tsx`'s matching dimension check. */
+const MAX_RECIPE_PHOTO_BYTES = 2 * 1024 * 1024;
+const RECIPE_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
 /**
  * Recipes are tenant-wide content, not per-caller like a staff profile, so
  * there is no "my own recipe location" to resolve the way
@@ -71,6 +76,12 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
   const input = parseUpsertRecipeInput(formData);
   if (!input) return INVALID_INPUT_RESULT;
 
+  const photo = formData.get('photo');
+  if (photo instanceof File && photo.size > 0 &&
+      (photo.size > MAX_RECIPE_PHOTO_BYTES || !RECIPE_PHOTO_MIME_TYPES.includes(photo.type as (typeof RECIPE_PHOTO_MIME_TYPES)[number]))) {
+    return INVALID_INPUT_RESULT;
+  }
+
   const tenantContext = await requireTenantContext();
   if (tenantContext.status !== 'success') return tenantContext;
 
@@ -80,8 +91,43 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
   const locationResult = await resolveSoleActiveLocationId(supabase, tenantId);
   if (locationResult.status !== 'success') return locationResult;
 
+  // WP-6 (Cafe Manager UI/UX Parity mission): recipe photo. Ported from the
+  // reference preview implementation (`previewUpsertRecipe`) -- this Server
+  // Action has no Storage access of its own until now, so it owns the same
+  // upload-after-insert + old-photo-cleanup responsibility that action
+  // already had. A brand-new recipe's Storage path embeds its own
+  // `recipeId`, which only exists after the first insert, hence the
+  // two-step upsert (once without media, again with the uploaded path) --
+  // unavoidable for create, kept uniform for edit too.
+  let previousMediaPath: string | null = null;
+  if (input.recipeId) {
+    const existing = await getWorkforceRecipeDetail(supabase, tenantId, input.recipeId);
+    if (existing.status !== 'success') return existing;
+    if (!existing.data) return { status: 'not_found' };
+    previousMediaPath = existing.data.recipe.mediaPath ?? null;
+  }
+  input.mediaPath = formData.get('removePhoto') === 'true' ? null : previousMediaPath;
+
   const saved = await upsertWorkforceRecipe(supabase, tenantId, locationResult.data, input);
   if (saved.status !== 'success') return saved;
+
+  let nextMediaPath = input.mediaPath;
+  if (photo instanceof File && photo.size > 0) {
+    const extension = photo.type === 'image/png' ? 'png' : photo.type === 'image/webp' ? 'webp' : 'jpg';
+    nextMediaPath = `${tenantId}/${locationResult.data}/${saved.data.recipeId}/${crypto.randomUUID()}.${extension}`;
+    const upload = await supabase.storage.from('recipe-media').upload(nextMediaPath, photo, {
+      contentType: photo.type, cacheControl: '3600', upsert: false,
+    });
+    if (upload.error) return { status: 'unexpected_error', message: 'Could not upload the photo.' };
+    const mediaSaved = await upsertWorkforceRecipe(supabase, tenantId, locationResult.data, { ...input, recipeId: saved.data.recipeId, mediaPath: nextMediaPath });
+    if (mediaSaved.status !== 'success') {
+      await supabase.storage.from('recipe-media').remove([nextMediaPath]);
+      return mediaSaved;
+    }
+  }
+  if (previousMediaPath && previousMediaPath !== nextMediaPath) {
+    await supabase.storage.from('recipe-media').remove([previousMediaPath]);
+  }
 
   // Auto-translation (Cafe v2.1 QA audit P1-3, 2026-08-17): fires ONLY here,
   // once per Save, never on page view/open -- direction is always this
@@ -173,7 +219,14 @@ export async function permanentlyDeleteRecipe(
   if (tenantContext.status !== 'success') return tenantContext;
 
   const supabase = await createClient();
-  return permanentlyDeleteRecipeWrite(supabase, tenantContext.data.activeTenant.tenantId, recipeId);
+  const result = await permanentlyDeleteRecipeWrite(supabase, tenantContext.data.activeTenant.tenantId, recipeId);
+  // Storage removal is best-effort (matches previewPermanentlyDeleteRecipe):
+  // the row is already gone by this point, and a Storage failure must never
+  // be reported back as if the delete itself failed.
+  if (result.status === 'success' && result.data.mediaPath) {
+    await supabase.storage.from('recipe-media').remove([result.data.mediaPath]);
+  }
+  return result;
 }
 
 export interface RecipeDetailForPopup {
@@ -183,6 +236,8 @@ export interface RecipeDetailForPopup {
   notes: WorkforceRecipeDetail['notes'];
   translationFields: RecipeTranslationField[];
   canManage: boolean;
+  /** Signed URL for the recipe's `mediaPath`, if any -- `null` when it has no photo. */
+  mediaUrl: string | null;
 }
 
 /**
@@ -223,13 +278,15 @@ export async function getRecipeDetailForPopup(recipeId: string): Promise<TenantA
   ]);
   const translations = translationsResult.status === 'success' ? translationsResult.data : [];
   const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
+  const mediaUrlMap = await createRecipeMediaUrlMap(supabase, [recipe]);
 
-  return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage } };
+  return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage, mediaUrl: mediaUrlMap[recipe.recipeId] ?? null } };
 }
 
 export interface RecipesListForPoll {
   groups: WorkforceRecipeGroup[] | null;
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  mediaUrlByRecipeId: Record<string, string>;
 }
 
 /**
@@ -281,5 +338,7 @@ export async function getRecipesListForPoll(): Promise<TenantAccessResult<Recipe
         )
       : {};
 
-  return { status: 'success', data: { groups, titleFieldByRecipeId } };
+  const mediaUrlByRecipeId = recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
+
+  return { status: 'success', data: { groups, titleFieldByRecipeId, mediaUrlByRecipeId } };
 }

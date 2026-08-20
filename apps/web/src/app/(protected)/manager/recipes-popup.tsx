@@ -17,6 +17,7 @@ export interface RecipesPopupProps {
   tenantName: string;
   groups: WorkforceRecipeGroup[] | null;
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  mediaUrlByRecipeId: Record<string, string>;
   canManage: boolean;
   /** Refreshes the Manager page's own server-fetched recipe list (e.g. `router.refresh()`) -- needed after add/archive/delete since that data isn't re-fetched by this popup's own lazy detail fetch. */
   onChange: () => void;
@@ -40,7 +41,7 @@ type View = { kind: 'list' } | { kind: 'detail'; recipeId: string };
  * fetching every recipe's full detail upfront would be wasteful for a
  * list that can grow arbitrarily large.
  */
-export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRecipeId, canManage, onChange }: RecipesPopupProps) {
+export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRecipeId, mediaUrlByRecipeId, canManage, onChange }: RecipesPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   const [view, setView] = useState<View>({ kind: 'list' });
@@ -89,6 +90,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           tenantName={tenantName}
           groups={groups}
           titleFieldByRecipeId={titleFieldByRecipeId}
+          mediaUrlByRecipeId={mediaUrlByRecipeId}
           canManage={canManage}
           embedded
           onSelectRecipe={openRecipe}
@@ -106,6 +108,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           notes={detail.notes}
           translationFields={detail.translationFields}
           canManage={detail.canManage}
+          mediaUrl={detail.mediaUrl}
           embedded
           onBack={backToList}
           onChange={refreshDetail}

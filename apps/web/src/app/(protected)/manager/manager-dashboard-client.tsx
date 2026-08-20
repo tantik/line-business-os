@@ -134,6 +134,7 @@ export interface ManagerDashboardClientProps {
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
   recipeGroups: WorkforceRecipeGroup[] | null;
   recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  recipeMediaUrlByRecipeId: Record<string, string>;
   recipeCanManage: boolean;
   /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
   scheduleSettings: WorkforceScheduleSettings | null;
@@ -197,6 +198,7 @@ function ManagerDashboardBody({
   initialPopup,
   recipeGroups,
   recipeTitleFieldByRecipeId,
+  recipeMediaUrlByRecipeId,
   recipeCanManage,
   scheduleSettings,
 }: ManagerDashboardClientProps) {
@@ -689,6 +691,7 @@ function ManagerDashboardBody({
         tenantName={tenantName}
         groups={recipeGroups}
         titleFieldByRecipeId={recipeTitleFieldByRecipeId}
+        mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
         canManage={recipeCanManage}
         onChange={() => router.refresh()}
       />

@@ -10,7 +10,7 @@ import { getRecipeDetailForPopup, setRecipeArchived, permanentlyDeleteRecipe } f
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { ConfirmDialog } from '@/components/shared/design-kit';
+import { ConfirmDialog, LightboxTrigger } from '@/components/shared/design-kit';
 import { alertDanger, backLink, badgeStyle, buttonDisabled, buttonSecondary, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
@@ -26,6 +26,8 @@ export interface RecipeDetailClientProps {
   translationFields: RecipeTranslationField[];
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show Edit/Archive/Delete controls. */
   canManage: boolean;
+  /** Signed URL for the recipe's photo (WP-6), if any -- `null` when it has none. */
+  mediaUrl: string | null;
   /**
    * True only when rendered inside the Manager dashboard's Recipes popup
    * (WP A5b) -- skips this component's own page-level language-toggle/
@@ -72,6 +74,7 @@ export function RecipeDetailBody({
   notes: initialNotes,
   translationFields: initialTranslationFields,
   canManage,
+  mediaUrl: initialMediaUrl,
   embedded = false,
   onBack,
   onChange,
@@ -88,6 +91,7 @@ export function RecipeDetailBody({
   const [steps, setSteps] = useState(initialSteps);
   const [notes, setNotes] = useState(initialNotes);
   const [translationFields, setTranslationFields] = useState(initialTranslationFields);
+  const [mediaUrl, setMediaUrl] = useState(initialMediaUrl);
 
   useEffect(() => {
     setRecipe(initialRecipe);
@@ -95,7 +99,8 @@ export function RecipeDetailBody({
     setSteps(initialSteps);
     setNotes(initialNotes);
     setTranslationFields(initialTranslationFields);
-  }, [initialRecipe, initialIngredients, initialSteps, initialNotes, initialTranslationFields]);
+    setMediaUrl(initialMediaUrl);
+  }, [initialRecipe, initialIngredients, initialSteps, initialNotes, initialTranslationFields, initialMediaUrl]);
 
   // WP C1 (Track C, live-sync): skip while embedded (Manager's popup already
   // refreshes itself via onChange) or while a manage-only edit form is open
@@ -116,6 +121,7 @@ export function RecipeDetailBody({
         setSteps(result.data.steps);
         setNotes(result.data.notes);
         setTranslationFields(result.data.translationFields);
+        setMediaUrl(result.data.mediaUrl);
       } finally {
         inFlight = false;
       }
@@ -199,13 +205,20 @@ export function RecipeDetailBody({
         ) : null}
       </div>
       <header style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{title}</h1>
-          {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
-          {recipe.status === 'draft' ? <span style={badgeStyle('neutral')}>{t('draftBadge')}</span> : null}
-          {recipe.status === 'archived' ? <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span> : null}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          {mediaUrl ? (
+            <LightboxTrigger src={mediaUrl} alt={title} thumbnailStyle={{ width: 64, height: 64, flexShrink: 0 }} />
+          ) : null}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0 }}>{title}</h1>
+              {recipe.contentKind === 'instruction' ? <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span> : null}
+              {recipe.status === 'draft' ? <span style={badgeStyle('neutral')}>{t('draftBadge')}</span> : null}
+              {recipe.status === 'archived' ? <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span> : null}
+            </div>
+            {description ? <p style={{ margin: '8px 0 0', ...mutedText }}>{description}</p> : null}
+          </div>
         </div>
-        {description ? <p style={{ margin: '8px 0 0', ...mutedText }}>{description}</p> : null}
         {error ? <div style={{ ...alertDanger, marginTop: 8 }}>{error}</div> : null}
         {canManage ? (
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -251,6 +264,7 @@ export function RecipeDetailBody({
           <h2 style={{ margin: 0, fontSize: 15 }}>{t('editRecipeHeading')}</h2>
           <RecipeForm
             detail={{ recipe, ingredients, steps, notes }}
+            mediaUrl={mediaUrl}
             lang={lang}
             onSuccess={() => {
               setEditing(false);

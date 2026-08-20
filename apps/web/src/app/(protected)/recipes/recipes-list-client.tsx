@@ -28,6 +28,8 @@ export interface RecipesListClientProps {
   groups: WorkforceRecipeGroup[] | null;
   /** Each recipe's title translation field, keyed by `recipeId` -- see `resolveFieldDisplay`. */
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  /** Signed thumbnail URL for each recipe that has a photo, keyed by `recipeId` (WP-6). */
+  mediaUrlByRecipeId: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show the Add-recipe control. */
   canManage: boolean;
   /**
@@ -66,6 +68,7 @@ export function RecipesListBody({
   tenantName,
   groups,
   titleFieldByRecipeId,
+  mediaUrlByRecipeId,
   canManage,
   embedded = false,
   onSelectRecipe,
@@ -77,11 +80,13 @@ export function RecipesListBody({
   const [adding, setAdding] = useState(false);
   const [liveGroups, setLiveGroups] = useState(groups);
   const [liveTitleFieldByRecipeId, setLiveTitleFieldByRecipeId] = useState(titleFieldByRecipeId);
+  const [liveMediaUrlByRecipeId, setLiveMediaUrlByRecipeId] = useState(mediaUrlByRecipeId);
 
   useEffect(() => {
     setLiveGroups(groups);
     setLiveTitleFieldByRecipeId(titleFieldByRecipeId);
-  }, [groups, titleFieldByRecipeId]);
+    setLiveMediaUrlByRecipeId(mediaUrlByRecipeId);
+  }, [groups, titleFieldByRecipeId, mediaUrlByRecipeId]);
 
   // Only the standalone page polls -- `embedded` (Manager's popup, WP A5b)
   // already refreshes itself via `onChange` after its own writes, and a
@@ -99,6 +104,7 @@ export function RecipesListBody({
         if (cancelled || result.status !== 'success') return;
         setLiveGroups(result.data.groups);
         setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
+        setLiveMediaUrlByRecipeId(result.data.mediaUrlByRecipeId);
       } finally {
         inFlight = false;
       }
@@ -181,7 +187,14 @@ export function RecipesListBody({
             ) : (
               <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none' }}>
                 {group.recipes.map((recipe) => (
-                  <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8 }}>
+                  <li key={recipe.recipeId} style={{ marginTop: 4, borderRadius: 6, padding: '6px 8px', marginLeft: -8, marginRight: -8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {liveMediaUrlByRecipeId[recipe.recipeId] ? (
+                      <img
+                        src={liveMediaUrlByRecipeId[recipe.recipeId]}
+                        alt=""
+                        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    ) : null}
                     {embedded ? (
                       <button
                         type="button"
