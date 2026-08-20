@@ -292,49 +292,193 @@ stay untracked.
 **WP-1 through WP-12 are all done and merged. WP-13 is DEFERRED** (Founder
 decision 2026-08-20: all LINE-related work, including WP-13's reminder-
 delivery half, waits until Cafe v2.2 closes — not a rejection, explicitly
-out of scope for now). This mission has no more actionable WPs until v2.2
-closes and the Founder re-opens WP-13.
+out of scope for now).
 
-1. **The real next step is the Founder's one-time final live-QA acceptance
-   pass** against `https://preview.oruwa.jp/manager` (per §1/§2) — WP-1
-   through WP-12 constitute the full Manager-surface visual/functional
-   parity deliverable this mission was scoped to produce; WP-13 being
-   deferred does not block this. Tell the Founder it's ready; do not assume
-   silent approval — wait for their actual pass/fail.
-2. Once the Founder accepts: per `docs/ai/current-task.md` §5's sequencing,
-   move to the Staff-surface follow-up mission (identical treatment applied
-   to `/staff`, reusing the shared components this mission already built —
-   full-width `RecipeForm`, `LightboxTrigger` wiring, `ConfirmDialog`
-   retrofits, design-kit `Modal`/`HelpIconButton`/`PendingOverlay` — so it
-   should be scoped much smaller than this mission was). Do not start the
-   Staff pass on your own initiative before the Founder has actually
-   reviewed the Manager result.
-3. Once Cafe v2.2 closes (separate track, not this mission's job — see
-   project memory `project_v2_2_and_provisioning_plan`) and the Founder
-   explicitly re-opens WP-13: read the plan file
-   (`C:\Users\User\.claude\plans\glittery-conjuring-beacon.md`)'s WP-13
-   section under "Final Plan" first (verify citations against current code,
-   they may have drifted by then). It is YELLOW-tier (schema change) and
-   needs a dedicated CTO extra-review pass (DECISION/REASON/RISK/
-   MITIGATION/ROLLBACK write-up) before implementation. Explicit open
-   questions needing fresh Founder sign-off before writing code: what
-   "deadline" is measured relative to, and whether an in-app-only reminder
-   is acceptable for v1 given LINE delivery still isn't live at that point
-   either (v2.2 closing doesn't itself make LINE delivery live — that's a
-   separate Track B/C milestone). Do not guess these — ask. Implement → run
-   the 4-command verification (§6) → commit (explicit paths only) → push →
-   open PR **against `dev`, and verify `gh pr view <n> --json baseRefName`
-   confirms it** (`gh pr create` defaults to `main`, not the local branch's
-   tracked upstream — WP-12's PR #343 and its own docs-follow-up PR #344
-   both had to be corrected this way) → wait for CI green → do your own live
-   Preview QA (§1) → merge (standing authority) → delete branch → update
-   this handoff's §4 table and this §7 pointer. If it touches a migration,
-   re-read §5's migration-drift note and project memory
-   `project_migration_drift_platform_foundation` first, and run `supabase
-   migration list` before `db push`.
-4. Keep this handoff file and `docs/ai/current-task.md`'s pointer (§8
-   below) updated as state changes, so a context-compaction or a fresh
-   session never loses track of what's actually next.
+**Superseded by §9 below as of 2026-08-20 (same day, later in the
+session):** the Founder's "final live-QA pass" this section originally
+pointed to did happen, live, side-by-side against the Mame To Cha
+reference — but instead of a clean pass/fail, it surfaced concrete
+additional gaps, which the Founder is directing as new bounded PRs
+module-by-module (Entry-points card done, Recipes module done, Inventory
+and Manage-staff next). **Read §9 first** — it is the current state and
+the actual next step; the numbered list below is historical context for
+how this mission's original WP-1–12 scope closed out, not a live todo
+list anymore.
+
+1. WP-1 through WP-12 constitute the full Manager-surface visual/
+   functional parity deliverable this mission was originally scoped to
+   produce. The Founder's live QA against them is what produced the
+   Recipes-module work in §9 — not a separate, later event.
+2. Staff-surface follow-up mission (identical treatment applied to
+   `/staff`) is still correctly sequenced after Manager is fully accepted
+   — not started, not to be pulled forward. Several components built
+   during the §9 work (`EntryPointsCard`, the redesigned Recipes list/
+   detail bodies) are already shared with Staff's code paths where
+   Staff-relevant, so that future pass should be smaller than originally
+   scoped.
+3. WP-13 stays deferred until Cafe v2.2 closes and the Founder explicitly
+   re-opens it (YELLOW-tier, schema change — needs a dedicated CTO
+   extra-review pass first; see the plan file
+   `C:\Users\User\.claude\plans\glittery-conjuring-beacon.md`'s WP-13
+   section, verify citations against current code first).
+
+---
+
+## 9. Post-acceptance module-by-module redesign (started 2026-08-20, same session as §7's "final pass")
+
+**Read this section first in a fresh session — it is current, §7 above is
+historical.**
+
+The Founder's live side-by-side QA of the merged WP-1–12 result against
+the Mame To Cha reference (`https://preview.oruwa.jp/mame-to-cha/manager`)
+found real, concrete gaps beyond what WP-1–12 covered — not a pass/fail
+verdict, a new punch list. Founder is directing these as their own bounded
+PRs, **one functional module at a time**: Entry-points card first, then
+Recipes (fully closed), with **Inventory and Manage-staff explicitly
+named as next** by the Founder. Do not start Inventory/Manage-staff
+without re-confirming scope with the Founder first if any ambiguity comes
+up — follow the same AskUserQuestion-before-guessing pattern used for
+Recipes (see below), it worked well.
+
+### 9.1 Entry-points card (Blocks 1–2) — DONE, merged PR #346
+
+Header gets a bottom border for visual separation; Recipes/Inventory nav
+buttons moved out of the header into a new shared `EntryPointsCard`
+component (`apps/web/src/app/(protected)/_ui/entry-points-card.tsx`) —
+one card, 3 buttons on Manager (Recipes/Inventory/Manage staff, all
+already-existing popups just relocated), 2 buttons on Staff (Recipes/
+Inventory, unchanged full-page `<Link>`s — Staff does not get popups in
+this pass, that stays the deferred Staff-surface follow-up mission's
+scope). The old standalone Manager "Staff" section was deleted; its
+"N active / M total" summary is now `EntryPointsCard`'s subtitle.
+
+### 9.2 Recipes module — DONE, fully closed, 4 PRs (#347–#350)
+
+This was the big one — effectively a full rebuild of the Recipes
+list+detail experience per the Founder's own reference screenshots and a
+back-and-forth refinement loop. Read this subsection fully before
+touching Recipes again; it is dense with "why," not just "what."
+
+**PR #347 — core redesign**: flat list (dropped category grouping —
+status now organizes the list instead of `groupRecipesByCategory`'s
+category headers, which read as visual noise once status filtering
+existed), new Manager-only toolbar (description text + mutually-exclusive
+**Archive**/**Draft** filter buttons, default/neither-pressed view is
+Published-only — same default Staff always sees regardless of the
+toggle) + **Add recipe**, new search box (shared by Manager and Staff,
+unlike the toolbar). Each row gets its own **Edit**/**Delete** buttons
+directly on the item (previously only reachable after opening detail).
+New `deleteRecipe` Server Action (`recipe-actions.ts`) chains the
+pre-existing `setWorkforceRecipeArchived` + `permanentlyDeleteRecipe`
+into one call — **does not loosen the underlying hard-delete RPC's
+`status === 'archived'` guard**, just satisfies it server-side in the
+same action, so the UI's one "Delete" button (any status, one
+confirmation) never needs a visible "archive first" step. This was a
+direct Founder call via AskUserQuestion (recommended option chosen) —
+if a future session needs to touch delete semantics again, re-read this
+paragraph before assuming the RPC itself changed.
+
+**PR #348 — row visual, pixel-match to reference**: each row now uses the
+shared `ThumbnailImage` (`@/components/media/ThumbnailImage`, 44px, emoji
+fallback per `contentKind` — 🍵 recipe / 🛠️ instruction) with title +
+status badge stacked below, matching the reference's row layout exactly.
+**Whole row is clickable** (`role="button"`, opens the same detail popup
+as before) — Edit/Delete buttons sit in their own wrapper `<div>` with
+`onClick={(e) => e.stopPropagation()}` so they never also trigger the
+row's own open-detail handler. This pattern (clickable container +
+`stopPropagation` on the nested interactive controls) is the correct,
+tested solution if a future row-with-nested-actions pattern is needed
+elsewhere — don't reinvent it.
+
+**PR #349 — decluttering the Add/Edit popups**: Add-recipe form no longer
+shows the search box + existing recipe list below it while open (they
+were unconditionally rendered before, a real bug — now wrapped in
+`{!adding ? (...) : null}`). Edit form no longer shows the read-only
+Ingredients/Steps/Notes sections below it (`{!editing ? (...) : null}` —
+they duplicated the form's own fields). The toolbar section (description
++ filter/add buttons) dropped its `card`-style border/padding — flows
+directly in the popup body now, matching the Founder's reference
+screenshot, instead of looking like a separate boxed card.
+
+**PR #350 — close behavior, focus ring, loading skeleton**: the popup's
+× (and Escape) now goes back to the list when viewing a recipe's detail,
+instead of fully closing the whole popup — implemented in
+`RecipesPopup.handleClose` (`recipes-popup.tsx`) by branching on
+`view.kind`: `'detail'` → `backToList()` only; `'list'` → the real
+`onClose()`. This replaced the old in-body "Back to recipes" link
+(removed entirely from the embedded/popup case — **kept** for the
+standalone non-embedded `/recipes/[recipeId]` page, which has no Modal ×
+to substitute for it). Archive/Draft filter buttons (and every
+`buttonPrimary`/`Secondary`/`Danger` app-wide, fixed at the shared
+`theme.module.css` level) no longer show the browser's default black
+focus ring lingering after a mouse click — `:focus-visible` still shows a
+real, app-colored ring for actual keyboard navigation, so this is not an
+accessibility regression. Loading state replaced the bare `<Skeleton/>`
+(which at its default 16px height rendered as one thin bar, read as a
+stray progress indicator) with a shape mirroring the actual detail layout
+(avatar+title+description, then three content blocks) — the underlying
+fetch latency itself (a client-triggered `getRecipeDetailForPopup` Server
+Action round trip against Vercel Preview) was **not** changed; explained
+to the Founder as intentional lazy-fetch-per-recipe design (avoids
+loading every recipe's full content just for the list) plus normal
+Preview-environment latency, not something this pass restructured.
+
+### 9.3 Next: Inventory module, then Manage-staff module
+
+Founder named these explicitly as next, same pattern as Recipes: expect a
+similar side-by-side comparison against the reference's Inventory/Staff
+management popups, likely a similar back-and-forth refinement loop (core
+redesign → visual pixel-match → decluttering/behavior polish). Start by
+asking the Founder for their reference screenshot(s)/expectations the
+same way this session did for Recipes, rather than guessing the target
+shape from the existing preview components alone — the Recipes loop
+repeatedly found real gaps between what the preview reference component
+already had and what the Founder actually wanted (e.g., the delete
+semantics in 9.2 were **not** what the reference did, they were a
+Founder-specific decision). Do not assume Inventory/Manage-staff will
+mirror their own `lib/preview/*` reference components 1:1.
+
+### 9.4 Process notes worth carrying forward
+
+- **`gh pr create` defaults to base `main`**, not the local branch's
+  tracked upstream. Every PR in this session (#346–#350) was opened
+  against `dev` explicitly via `--base dev`, and each was double-checked
+  with `gh pr view <n> --json baseRefName` before proceeding — do this
+  every time, don't assume the flag alone is enough without verifying.
+- **`gh pr merge --delete-branch` reliably fails locally** with `fatal:
+  'dev' is already used by worktree at 'D:/Dev/line-business-os-founder-audit'`
+  because of a sibling worktree elsewhere on disk. The merge on GitHub
+  itself still succeeds regardless — verify with `gh pr view <n> --json
+  state,mergedAt`, then delete the remote branch manually (`git push
+  origin --delete <branch>`). This happened on every single PR this
+  session; it is expected, not a failure to investigate.
+- **chrome-devtools MCP browser can go stale mid-session** (`take_screenshot`
+  timing out, or "browser already running" on `navigate_page`/`new_page`).
+  If a screenshot call times out, just retry it once — it usually
+  succeeds on the second call. If the browser needs a full reset, find
+  and kill the orphaned `chrome.exe` processes whose command line
+  contains `chrome-devtools-mcp\chrome-profile` (PowerShell: `Get-CimInstance
+  Win32_Process -Filter "name='chrome.exe'" | Where-Object { $_.CommandLine
+  -like '*chrome-devtools-mcp*' }`), then retry — don't kill unrelated
+  Chrome windows the user has open.
+- **No Staff-role test credentials available this session** —
+  `manager@oruwa-cafe.test` is a manager identity with no `workforce.employees`
+  row, so `/staff` 404s ("no staff profile") for it. Staff-side changes
+  (the `EntryPointsCard` 2-button variant, the shared Recipes list/detail
+  bodies Staff's `/recipes` route also renders) were verified by code
+  review + the full typecheck/lint/test/build pass, not live-clicked as
+  Staff. If a future session needs to live-QA the Staff surface, ask the
+  Founder for a Staff test login, or check whether one now exists in
+  `oruwa-cafe-fixture.ts`'s output before assuming it still doesn't.
+- **House verification pattern held for every PR this session**:
+  `pnpm -F web typecheck && pnpm -F web lint && pnpm -F web test && pnpm
+  -F web build`, all green, before every push; live Preview QA (desktop
+  1440px at minimum — mobile 375px spot-checked on most but not literally
+  every PR this session, given time pressure near session end) via
+  chrome-devtools MCP against that PR's own Vercel deployment before
+  merging; standing merge authority used throughout, no PR waited on
+  Founder sign-off before merging (only the *content* direction came from
+  the Founder, per-message, same as always).
 
 ---
 
