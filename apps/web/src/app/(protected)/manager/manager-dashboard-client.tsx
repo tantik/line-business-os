@@ -46,6 +46,8 @@ import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
+import { CorrectionRequestsPopup } from './correction-requests-popup';
+import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
@@ -65,10 +67,6 @@ import {
   tableHeaderCell,
 } from '@/lib/ui/theme';
 import {
-  correctionStatusBadgeStyle,
-  correctionStatusLabel,
-  exchangeStatusBadgeStyle,
-  exchangeStatusLabel,
   primaryCard,
   shiftChipColors,
   shiftChipStyle,
@@ -158,17 +156,6 @@ function formatWeekday(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
 }
 
-/** Renders the requested clock-in/out/break a correction's `details` carries (see `submitCorrectionRequest`/`decideCorrectionRequest`, shift-requests.ts), so Manager sees what will actually be applied on approval -- not just the free-text reason. */
-function formatRequestedCorrectionChange(details: Record<string, unknown>): string {
-  const clockIn = typeof details.clockInLocal === 'string' ? details.clockInLocal : null;
-  const clockOut = typeof details.clockOutLocal === 'string' ? details.clockOutLocal : null;
-  const breakMinutes = typeof details.actualBreakMinutes === 'number' ? details.actualBreakMinutes : null;
-  const parts: string[] = [];
-  if (clockIn || clockOut) parts.push(`${clockIn ?? '-'} - ${clockOut ?? '-'}`);
-  if (breakMinutes !== null) parts.push(`${breakMinutes}min break`);
-  return parts.length > 0 ? parts.join(', ') : '-';
-}
-
 /**
  * Outer wrapper: mounts the shared `LangProvider` (`@/lib/demo/cafe/i18n`,
  * the same JA/EN mechanism the canonical Staff dashboard already uses)
@@ -232,6 +219,9 @@ function ManagerDashboardBody({
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
+  // WP-11: Correction/Exchange requests moved from always-visible sections into popups, triggered from AttentionPanel's cards.
+  const [correctionsPopupOpen, setCorrectionsPopupOpen] = useState(false);
+  const [exchangesPopupOpen, setExchangesPopupOpen] = useState(false);
   // WP A6: the cell editor is now a design-kit `Modal` (`ShiftCellEditorModal`),
   // which handles its own focus-restore/Escape internally -- no more
   // ref-map/requestAnimationFrame bookkeeping here.
@@ -284,12 +274,11 @@ function ManagerDashboardBody({
     () => (correctionRequests ?? []).filter((r) => r.status === 'pending'),
     [correctionRequests],
   );
+  // WP-11: unsliced -- CorrectionRequestsPopup itself caps to the most-recent
+  // 10 by default and offers an "Archive" toggle to see the rest, instead of
+  // this component silently discarding anything past 10.
   const decidedCorrections = useMemo(
-    () =>
-      (correctionRequests ?? [])
-        .filter((r) => r.status !== 'pending')
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, 10),
+    () => (correctionRequests ?? []).filter((r) => r.status !== 'pending').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [correctionRequests],
   );
 
@@ -301,12 +290,13 @@ function ManagerDashboardBody({
     () => (shiftExchanges ?? []).filter((e) => e.status === 'open' || e.status === 'accepted'),
     [shiftExchanges],
   );
+  // WP-11: unsliced -- ShiftExchangeRequestsPopup itself caps to the
+  // most-recent 10 by default and offers an "Archive" toggle for the rest.
   const decidedExchanges = useMemo(
     () =>
       (shiftExchanges ?? [])
         .filter((e) => e.status === 'approved' || e.status === 'rejected' || e.status === 'cancelled')
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, 10),
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [shiftExchanges],
   );
   const exchangeAssignmentById = useMemo(
@@ -615,7 +605,18 @@ function ManagerDashboardBody({
         </div>
       </header>
 
-      <AttentionPanel items={attentionItems} lang={lang} />
+      <AttentionPanel
+        items={attentionItems}
+        lang={lang}
+        onOpenCorrections={() => {
+          markPopupTriggerClick('correction-requests');
+          setCorrectionsPopupOpen(true);
+        }}
+        onOpenExchanges={() => {
+          markPopupTriggerClick('shift-exchange-requests');
+          setExchangesPopupOpen(true);
+        }}
+      />
 
       {banner ? (
         <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>
@@ -964,251 +965,34 @@ function ManagerDashboardBody({
         )}
       </section>
 
-      <section id="correction-requests" style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('correctionsHeading')}</h2>
-        {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('correctionsUnavailable')}</p>
-        ) : (
-          <>
-            <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {t('needsActionEyebrow')}
-            </p>
-            {pendingCorrections.length === 0 ? (
-              <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingCorrections')}</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingCorrections.map((r) => {
-                    const deciding = pendingAction === `decide-${r.requestId}`;
-                    const message = typeof r.details.message === 'string' ? r.details.message : '-';
-                    const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
-                    return (
-                      <tr key={r.requestId}>
-                        <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                        <td style={tableCell}>{r.workDate}</td>
-                        <td style={tableCell}>{message}</td>
-                        <td style={tableCell}>
-                          {relatedAttendance
-                            ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                            : '-'}
-                        </td>
-                        <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
-                        <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
-                        <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
-                        <td style={tableCell}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              type="button"
-                              className={hoverStyles.buttonPrimary}
-                              style={isPending ? buttonDisabled : buttonPrimary}
-                              disabled={isPending}
-                              onClick={() => handleDecideCorrection(r.requestId, 'approved')}
-                            >
-                              {deciding ? t('saving') : t('approve')}
-                            </button>
-                            <button
-                              type="button"
-                              className={hoverStyles.buttonSecondary}
-                              style={isPending ? buttonDisabled : buttonSecondary}
-                              disabled={isPending}
-                              onClick={() => handleDecideCorrection(r.requestId, 'rejected')}
-                            >
-                              {deciding ? t('saving') : t('reject')}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
+      <CorrectionRequestsPopup
+        open={correctionsPopupOpen}
+        onClose={() => setCorrectionsPopupOpen(false)}
+        pendingCorrections={pendingCorrections}
+        decidedCorrections={decidedCorrections}
+        staffById={staffById}
+        attendanceById={attendanceById}
+        timeZone={timeZone}
+        isPending={isPending}
+        pendingAction={pendingAction}
+        onDecide={handleDecideCorrection}
+        lang={lang}
+      />
 
-            {decidedCorrections.length > 0 ? (
-              <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
-                <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {decidedCorrections.map((r) => {
-                      const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
-                      return (
-                        <tr key={r.requestId}>
-                          <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                          <td style={tableCell}>{r.workDate}</td>
-                          <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
-                          <td style={tableCell}>
-                            {relatedAttendance
-                              ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                              : '-'}
-                          </td>
-                          <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
-                          <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
-                          <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
-                          <td style={tableCell}>
-                            <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-            ) : null}
-          </>
-        )}
-      </section>
-
-      <section id="shift-exchange-requests" style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('exchangesHeading')}</h2>
-        {shiftExchanges === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('exchangesUnavailable')}</p>
-        ) : (
-          <>
-            <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {t('needsActionEyebrow')}
-            </p>
-            {pendingExchanges.length === 0 ? (
-              <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingExchanges')}</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequest')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingExchanges.map((e) => {
-                    const deciding = pendingAction === `decide-exchange-${e.exchangeId}`;
-                    const shift = exchangeAssignmentById.get(e.shiftId);
-                    const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-                    const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
-                    const replacementName = e.replacementEmployeeId
-                      ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId
-                      : null;
-                    const requestedType = shiftTypes?.find((ty) => ty.shiftTypeId === e.requestedShiftTypeId);
-                    const requestLabel =
-                      e.requestKind === 'cancel'
-                        ? t('requestKindCancellation')
-                        : e.requestKind === 'change'
-                          ? t('requestKindChange')
-                          : t('requestKindExchange');
-                    // Mirrors `PreviewShiftExchangeManagerPanel`'s `canApprove`: an
-                    // 'exchange' request has nothing to approve into until a
-                    // colleague has accepted it (replacementEmployeeId set); the
-                    // RPC itself also rejects an approve without one.
-                    const canApprove = e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId);
-                    return (
-                      <tr key={e.exchangeId}>
-                        <td style={tableCell}>{requesterName}</td>
-                        <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
-                        <td style={tableCell}>
-                          {requestLabel}
-                          {e.requestKind === 'exchange' ? ` → ${replacementName ?? t('awaitingCandidate')}` : ''}
-                          {e.requestKind === 'change' && requestedType
-                            ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})`
-                            : ''}
-                        </td>
-                        <td style={tableCell}>{e.reason}</td>
-                        <td style={tableCell}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              type="button"
-                              className={hoverStyles.buttonPrimary}
-                              style={isPending || !canApprove ? buttonDisabled : buttonPrimary}
-                              disabled={isPending || !canApprove}
-                              onClick={() => handleDecideExchange(e.exchangeId, 'approved')}
-                            >
-                              {deciding ? t('saving') : t('approve')}
-                            </button>
-                            <button
-                              type="button"
-                              className={hoverStyles.buttonSecondary}
-                              style={isPending ? buttonDisabled : buttonSecondary}
-                              disabled={isPending}
-                              onClick={() => handleDecideExchange(e.exchangeId, 'rejected')}
-                            >
-                              {deciding ? t('saving') : t('reject')}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-            )}
-
-            {decidedExchanges.length > 0 ? (
-              <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
-                <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
-                      <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {decidedExchanges.map((e) => {
-                      const shift = exchangeAssignmentById.get(e.shiftId);
-                      const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-                      const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
-                      return (
-                        <tr key={e.exchangeId}>
-                          <td style={tableCell}>{requesterName}</td>
-                          <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
-                          <td style={tableCell}>{e.reason}</td>
-                          <td style={tableCell}>
-                            <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status, lang)}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-              </div>
-            ) : null}
-          </>
-        )}
-      </section>
+      <ShiftExchangeRequestsPopup
+        open={exchangesPopupOpen}
+        onClose={() => setExchangesPopupOpen(false)}
+        pendingExchanges={pendingExchanges}
+        decidedExchanges={decidedExchanges}
+        staffById={staffById}
+        exchangeAssignmentById={exchangeAssignmentById}
+        shiftTypes={shiftTypes}
+        timeZone={timeZone}
+        isPending={isPending}
+        pendingAction={pendingAction}
+        onDecide={handleDecideExchange}
+        lang={lang}
+      />
 
       <p style={{ marginTop: 16 }}>
         <Link href="/dashboard/workforce" style={backLink}>

@@ -24,6 +24,17 @@ export const primaryCard: CSSProperties = {
   borderLeft: `3px solid ${colors.accent}`,
 };
 
+/** Renders the requested clock-in/out/break a correction's `details` carries (see `submitCorrectionRequest`/`decideCorrectionRequest`, shift-requests.ts), so Manager sees what will actually be applied on approval -- not just the free-text reason. */
+export function formatRequestedCorrectionChange(details: Record<string, unknown>): string {
+  const clockIn = typeof details.clockInLocal === 'string' ? details.clockInLocal : null;
+  const clockOut = typeof details.clockOutLocal === 'string' ? details.clockOutLocal : null;
+  const breakMinutes = typeof details.actualBreakMinutes === 'number' ? details.actualBreakMinutes : null;
+  const parts: string[] = [];
+  if (clockIn || clockOut) parts.push(`${clockIn ?? '-'} - ${clockOut ?? '-'}`);
+  if (breakMinutes !== null) parts.push(`${breakMinutes}min break`);
+  return parts.length > 0 ? parts.join(', ') : '-';
+}
+
 /** Subtle row tint for the table row matching today's date. */
 export const todayRowStyle: CSSProperties = {
   background: colors.accentMuted,

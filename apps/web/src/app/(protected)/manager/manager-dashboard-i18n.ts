@@ -171,6 +171,12 @@ interface ManagerDashboardDict {
   reject: string;
   recentlyDecided: string;
   colStatus2: string;
+  // WP-11: shared "Archive" toggle (Correction requests + Shift exchange requests popups)
+  showArchiveButton: string;
+  hideArchiveButton: string;
+  correctionsPopupHelpAriaLabel: string;
+  correctionsPopupHelpTitle: string;
+  correctionsPopupHelpBody: string;
   // Shift exchange requests
   exchangesHeading: string;
   exchangesUnavailable: string;
@@ -183,6 +189,9 @@ interface ManagerDashboardDict {
   requestKindChange: string;
   requestKindExchange: string;
   awaitingCandidate: string;
+  exchangesPopupHelpAriaLabel: string;
+  exchangesPopupHelpTitle: string;
+  exchangesPopupHelpBody: string;
   // Page chrome
   pageTitle: string;
   signOut: string;
@@ -357,6 +366,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     reject: 'Reject',
     recentlyDecided: 'Recently decided',
     colStatus2: 'Status',
+    showArchiveButton: 'Show archive',
+    hideArchiveButton: 'Hide archive',
+    correctionsPopupHelpAriaLabel: 'About correction requests',
+    correctionsPopupHelpTitle: 'About correction requests',
+    correctionsPopupHelpBody:
+      'Staff submit these when their actual clock-in/out or break differs from what was recorded. Approving applies the requested change to their attendance record; rejecting leaves the original record untouched. "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
     exchangesHeading: 'Shift exchange requests',
     exchangesUnavailable: 'Shift exchange requests are temporarily unavailable.',
     noPendingExchanges: 'No pending shift exchange requests.',
@@ -368,6 +383,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'Shift change',
     requestKindExchange: 'Exchange',
     awaitingCandidate: 'awaiting candidate',
+    exchangesPopupHelpAriaLabel: 'About shift exchange requests',
+    exchangesPopupHelpTitle: 'About shift exchange requests',
+    exchangesPopupHelpBody:
+      'Staff request these to change, cancel, or exchange a published shift with a colleague. An Exchange request has nothing to approve until a colleague accepts it (shown as "awaiting candidate" until then). "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
     pageTitle: 'Manager',
     signOut: 'Sign out',
     navRecipes: 'Recipes',
@@ -535,6 +554,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     reject: '却下',
     recentlyDecided: '最近対応した項目',
     colStatus2: 'ステータス',
+    showArchiveButton: 'アーカイブを表示',
+    hideArchiveButton: 'アーカイブを隠す',
+    correctionsPopupHelpAriaLabel: '修正依頼について',
+    correctionsPopupHelpTitle: '修正依頼について',
+    correctionsPopupHelpBody:
+      '実際の出退勤や休憩が記録と異なる場合にスタッフが申請します。承認すると勤怠記録に反映され、却下すると元の記録は変更されません。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
     exchangesHeading: 'シフト交換リクエスト',
     exchangesUnavailable: 'シフト交換リクエストは一時的に利用できません。',
     noPendingExchanges: '保留中のシフト交換リクエストはありません。',
@@ -546,6 +571,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'シフト変更',
     requestKindExchange: '交換',
     awaitingCandidate: '交換相手を待っています',
+    exchangesPopupHelpAriaLabel: 'シフト交換リクエストについて',
+    exchangesPopupHelpTitle: 'シフト交換リクエストについて',
+    exchangesPopupHelpBody:
+      '公開済みのシフトの変更・キャンセル・同僚との交換をスタッフが申請します。交換リクエストは同僚が承諾するまで承認できません（それまでは「交換相手を待っています」と表示）。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
     navRecipes: 'レシピ',
