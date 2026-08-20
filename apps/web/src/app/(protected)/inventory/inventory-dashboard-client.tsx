@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
-import { setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
+import { deleteInventoryItemAction, setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { backLink, badgeStyle, buttonPrimary, buttonSecondary, card, input, mutedText } from '@/lib/ui/theme';
+import { ConfirmDialog } from '@/components/shared/design-kit';
+import { backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
+import { buttonDanger } from '../_ui/workforce-theme';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
+import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
 
 export interface InventoryDashboardClientProps {
@@ -75,6 +78,36 @@ function ItemRow({
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [confirmToggleActive, setConfirmToggleActive] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function setActive(nextActive: boolean) {
+    setIsPending(true);
+    const formData = new FormData();
+    formData.set('itemId', item.itemId);
+    formData.set('isActive', nextActive ? 'true' : 'false');
+    setInventoryItemActiveAction(formData).finally(() => {
+      setIsPending(false);
+      router.refresh();
+    });
+  }
+
+  function handleDelete() {
+    setDeleteError(null);
+    setIsPending(true);
+    const formData = new FormData();
+    formData.set('itemId', item.itemId);
+    deleteInventoryItemAction(formData).then((result) => {
+      setIsPending(false);
+      setConfirmDeleteOpen(false);
+      if (result.status === 'success') {
+        router.refresh();
+      } else {
+        setDeleteError(describeInventoryWriteError(result));
+      }
+    });
+  }
 
   return (
     <div style={card}>
@@ -94,30 +127,26 @@ function ItemRow({
                 : ''}
             </p>
           ) : null}
+          {deleteError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{deleteError}</p> : null}
         </div>
         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <StatusBadge item={item} t={t} />
           {canManage ? (
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button type="button" style={buttonSecondary} onClick={onEdit}>
                 {t('editButton')}
               </button>
-              <button
-                type="button"
-                style={buttonSecondary}
-                disabled={isPending}
-                onClick={() => {
-                  setIsPending(true);
-                  const formData = new FormData();
-                  formData.set('itemId', item.itemId);
-                  formData.set('isActive', item.isActive ? 'false' : 'true');
-                  setInventoryItemActiveAction(formData).finally(() => {
-                    setIsPending(false);
-                    router.refresh();
-                  });
-                }}
-              >
-                {item.isActive ? t('deactivateButton') : t('reactivateButton')}
+              {item.isActive ? (
+                <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmToggleActive(true)}>
+                  {t('deactivateButton')}
+                </button>
+              ) : (
+                <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setActive(true)}>
+                  {t('reactivateButton')}
+                </button>
+              )}
+              <button type="button" style={buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
+                {t('deleteButton')}
               </button>
             </div>
           ) : null}
@@ -126,6 +155,35 @@ function ItemRow({
       {item.isActive ? (
         <CountForm locationId={locationId} itemId={item.itemId} unit={item.unit} lang={lang} onSuccess={() => router.refresh()} />
       ) : null}
+
+      <ConfirmDialog
+        open={confirmToggleActive}
+        title={t('confirmDeactivateItemTitle')}
+        confirmLabel={t('deactivateButton')}
+        cancelLabel={t('cancelButton')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmToggleActive(false)}
+        onConfirm={() => {
+          setConfirmToggleActive(false);
+          setActive(false);
+        }}
+      >
+        {item.name}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title={t('confirmDeleteItemTitle')}
+        confirmLabel={t('deleteButton')}
+        cancelLabel={t('cancelButton')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleDelete}
+      >
+        {t('confirmDeleteItemBody')}
+      </ConfirmDialog>
     </div>
   );
 }

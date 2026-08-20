@@ -38,6 +38,14 @@ interface InventoryDashboardDict {
   actualQuantityLabel: string;
   saveCountButton: string;
   savingButton: string;
+  savingStatus: string;
+  savedStatus: string;
+  saveErrorStatus: string;
+  deleteButton: string;
+  deletingButton: string;
+  confirmDeactivateItemTitle: string;
+  confirmDeleteItemTitle: string;
+  confirmDeleteItemBody: string;
   nameLabel: string;
   targetQuantityLabel: string;
   reorderPointLabel: string;
@@ -81,6 +89,14 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     actualQuantityLabel: 'Actual quantity',
     saveCountButton: 'Save count',
     savingButton: 'Saving...',
+    savingStatus: 'Saving...',
+    savedStatus: 'Saved',
+    saveErrorStatus: 'Could not save',
+    deleteButton: 'Delete permanently',
+    deletingButton: 'Deleting...',
+    confirmDeactivateItemTitle: 'Deactivate this item?',
+    confirmDeleteItemTitle: 'Permanently delete this item?',
+    confirmDeleteItemBody: 'This cannot be undone — the item will be permanently removed.',
     nameLabel: 'Name',
     targetQuantityLabel: 'Target quantity',
     reorderPointLabel: 'Reorder point',
@@ -122,6 +138,14 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     actualQuantityLabel: '実数',
     saveCountButton: 'カウントを保存',
     savingButton: '保存中...',
+    savingStatus: '保存中...',
+    savedStatus: '保存しました',
+    saveErrorStatus: '保存できませんでした',
+    deleteButton: '完全に削除',
+    deletingButton: '削除中...',
+    confirmDeactivateItemTitle: 'この商品を無効化しますか？',
+    confirmDeleteItemTitle: 'この商品を完全に削除しますか？',
+    confirmDeleteItemBody: 'この操作は取り消せません -- 商品は完全に削除されます。',
     nameLabel: '名前',
     targetQuantityLabel: '目標数量',
     reorderPointLabel: '発注点',
