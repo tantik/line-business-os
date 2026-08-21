@@ -57,10 +57,7 @@ interface ManagerDashboardDict {
   confirmDeleteStaffBody: string;
   staffDeleted: string;
   staffBlockedByHistory: string;
-  // 2026-08-21 redesign: compact row summary badges (LINE/access), read-only
-  // -- distinct from InvitationCell's own interactive button copy, which
-  // stays JA-only per Founder direction (F4); this popup's surrounding
-  // chrome is bilingual like everywhere else, so these get real EN copy too.
+  // 2026-08-21 redesign: compact row summary badges (LINE/access), read-only.
   lineLinkedShort: string;
   lineNotLinkedShort: string;
   accessActiveShort: string;
@@ -69,6 +66,30 @@ interface ManagerDashboardDict {
   accessNoneShort: string;
   accessSectionHeading: string;
   dangerZoneHeading: string;
+  // 2026-08-21: InvitationCell's own interactive copy -- previously JA-only
+  // per an older, now-superseded Founder scope decision (F4) made back when
+  // the surrounding Manager dashboard was still English-only; the whole
+  // popup is bilingual now, so a JA-only cell inside it just reads as a
+  // missing translation instead of a deliberate choice. Founder confirmed
+  // 2026-08-21: localize it like everything else around it.
+  inviteButton: string;
+  resendButton: string;
+  sendingStatus: string;
+  recoverAccessButton: string;
+  revokeInvitationButton: string;
+  recoveryEmailSentMessage: string;
+  confirmRecoverAccessTitle: string;
+  confirmRecoverAccessBody: string;
+  confirmSendButton: string;
+  confirmRevokeInvitationTitle: string;
+  confirmRevokeInvitationBody: string;
+  inviteErrorNotFound: string;
+  inviteErrorDuplicate: string;
+  inviteErrorGeneric: string;
+  revokeErrorNotFound: string;
+  revokeErrorGeneric: string;
+  recoverErrorGeneric: string;
+  errorUnauthorizedAction: string;
   // Staff form (Add/Edit modal)
   fieldName: string;
   fieldFamilyName: string;
@@ -279,6 +300,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessNoneShort: 'No access',
     accessSectionHeading: 'Account access',
     dangerZoneHeading: 'Danger zone',
+    inviteButton: 'Invite',
+    resendButton: 'Resend',
+    sendingStatus: 'Sending…',
+    recoverAccessButton: 'Recover access',
+    revokeInvitationButton: 'Revoke',
+    recoveryEmailSentMessage: 'Recovery email sent.',
+    confirmRecoverAccessTitle: 'Send this staff member a password-reset email?',
+    confirmRecoverAccessBody: 'They can reset their password using the link in the email.',
+    confirmSendButton: 'Send',
+    confirmRevokeInvitationTitle: 'Revoke this invitation?',
+    confirmRevokeInvitationBody: 'The revoked invitation becomes invalid. You can resend it later if needed.',
+    inviteErrorNotFound: 'Staff member not found.',
+    inviteErrorDuplicate: 'This staff member already has account access.',
+    inviteErrorGeneric: 'Could not send the invitation. Please try again.',
+    revokeErrorNotFound: 'This invitation no longer exists.',
+    revokeErrorGeneric: 'Could not revoke the invitation. Please try again.',
+    recoverErrorGeneric: 'Could not send the recovery email. Please try again.',
+    errorUnauthorizedAction: 'You do not have permission to do this.',
     fieldName: 'Name',
     fieldFamilyName: 'Family name',
     fieldGivenName: 'Given name',
@@ -477,6 +516,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessNoneShort: 'アクセスなし',
     accessSectionHeading: 'アカウントアクセス',
     dangerZoneHeading: '危険な操作',
+    inviteButton: '招待する',
+    resendButton: '再送信',
+    sendingStatus: '送信中…',
+    recoverAccessButton: 'アクセスを回復',
+    revokeInvitationButton: '取り消す',
+    recoveryEmailSentMessage: '復旧メールを送信しました。',
+    confirmRecoverAccessTitle: 'このスタッフにパスワード再設定メールを送信しますか？',
+    confirmRecoverAccessBody: 'スタッフはメールに記載されたリンクからパスワードを再設定できます。',
+    confirmSendButton: '送信する',
+    confirmRevokeInvitationTitle: 'この招待を取り消しますか？',
+    confirmRevokeInvitationBody: '取り消した招待は無効になります。必要であれば再送信できます。',
+    inviteErrorNotFound: '従業員が見つかりません。',
+    inviteErrorDuplicate: 'この従業員はすでにアクセス権を持っています。',
+    inviteErrorGeneric: '招待を送信できませんでした。もう一度お試しください。',
+    revokeErrorNotFound: 'この招待はすでに存在しません。',
+    revokeErrorGeneric: '取り消せませんでした。もう一度お試しください。',
+    recoverErrorGeneric: '復旧メールを送信できませんでした。もう一度お試しください。',
+    errorUnauthorizedAction: 'この操作を行う権限がありません。',
     fieldName: '氏名',
     fieldFamilyName: '姓',
     fieldGivenName: '名',
