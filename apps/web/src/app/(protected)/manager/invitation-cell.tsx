@@ -3,40 +3,39 @@
 import { useState, useTransition } from 'react';
 import { inviteOrResendEmployee, recoverEmployeeAccess, revokeEmployeeInvitation } from '@/lib/workforce/invitation-actions';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
+import type { Lang } from '@/lib/demo/cafe/i18n';
 import { ConfirmDialog } from '@/components/shared/design-kit';
 import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { tManagerDashboard } from './manager-dashboard-i18n';
 
-/**
- * JA-only per Founder direction: localize the NEW Staff Auth Provisioning
- * concepts (this cell) without touching the surrounding Manager dashboard's
- * existing English copy (see the local implementation report §11's own
- * scope note -- this file is the follow-up, not a reversal of that call).
- */
-// Fixed JA copy per status -- never pass through the underlying result's
-// `message` (shared infra text, written in English across this codebase's
-// existing screens; surfacing it here would produce mixed-language errors).
-function describeInviteError(result: { status: string }): string {
+type T = (key: Parameters<typeof tManagerDashboard>[1]) => string;
+
+// Never passes through the underlying result's own `message` (shared infra
+// text, written in English across this codebase's existing screens;
+// surfacing it here would produce mixed-language errors) -- always one of
+// this fixed, localized set instead.
+function describeInviteError(result: { status: string }, t: T): string {
   switch (result.status) {
     case 'not_found':
-      return '従業員が見つかりません。';
+      return t('inviteErrorNotFound');
     case 'duplicate':
-      return 'この従業員はすでにアクセス権を持っています。';
+      return t('inviteErrorDuplicate');
     case 'unauthorized':
-      return 'この操作を行う権限がありません。';
+      return t('errorUnauthorizedAction');
     default:
-      return '招待を送信できませんでした。もう一度お試しください。';
+      return t('inviteErrorGeneric');
   }
 }
 
-function describeRevokeError(result: { status: string }): string {
+function describeRevokeError(result: { status: string }, t: T): string {
   switch (result.status) {
     case 'not_found':
-      return 'この招待はすでに存在しません。';
+      return t('revokeErrorNotFound');
     case 'unauthorized':
-      return 'この操作を行う権限がありません。';
+      return t('errorUnauthorizedAction');
     default:
-      return '取り消せませんでした。もう一度お試しください。';
+      return t('revokeErrorGeneric');
   }
 }
 
@@ -46,12 +45,12 @@ function describeRevokeError(result: { status: string }): string {
  * button itself is never shown before a first invite anyway, but the
  * Edge Function still enforces it server-side).
  */
-function describeRecoverError(result: { status: string }): string {
+function describeRecoverError(result: { status: string }, t: T): string {
   switch (result.status) {
     case 'unauthorized':
-      return 'この操作を行う権限がありません。';
+      return t('errorUnauthorizedAction');
     default:
-      return '復旧メールを送信できませんでした。もう一度お試しください。';
+      return t('recoverErrorGeneric');
   }
 }
 
@@ -61,9 +60,19 @@ export interface InvitationCellProps {
   /** The employee's single current invitation row, if any (manager view only ever needs the latest -- see manager-dashboard-client.tsx's own selection). */
   invitation: WorkforceEmployeeInvitation | null;
   onChange: () => void;
+  lang: Lang;
 }
 
-export function InvitationCell({ hasAccountAccess, employeeId, invitation, onChange }: InvitationCellProps) {
+/**
+ * 2026-08-21: fully bilingual now. Previously JA-only per an older Founder
+ * scope decision (F4) made when the surrounding Manager dashboard was still
+ * English-only -- the whole popup this cell lives in is bilingual today
+ * (see manage-staff-popup.tsx's own redesign), so a JA-only cell inside it
+ * read as a missing translation rather than a deliberate choice. Founder
+ * confirmed 2026-08-21: localize it like everything else around it.
+ */
+export function InvitationCell({ hasAccountAccess, employeeId, invitation, onChange, lang }: InvitationCellProps) {
+  const t: T = (key) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [recoverySent, setRecoverySent] = useState(false);
@@ -79,7 +88,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
       if (result.status === 'success') {
         onChange();
       } else {
-        setError(describeInviteError(result));
+        setError(describeInviteError(result, t));
       }
     });
   }
@@ -94,7 +103,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
       if (result.status === 'success') {
         setRecoverySent(true);
       } else {
-        setError(describeRecoverError(result));
+        setError(describeRecoverError(result, t));
       }
     });
   }
@@ -110,13 +119,13 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
       if (result.status === 'success') {
         onChange();
       } else {
-        setError(describeRevokeError(result));
+        setError(describeRevokeError(result, t));
       }
     });
   }
 
   if (hasAccountAccess) {
-    return <span style={badgeStyle('active')}>アクセス有効</span>;
+    return <span style={badgeStyle('active')}>{t('accessActiveShort')}</span>;
   }
 
   const isPendingInvite = invitation && invitation.status === 'pending' && !invitation.isExpired;
@@ -125,9 +134,9 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {isPendingInvite ? (
-        <span style={badgeStyle('neutral')}>招待中</span>
+        <span style={badgeStyle('neutral')}>{t('accessPendingShort')}</span>
       ) : isExpired ? (
-        <span style={badgeStyle('inactive')}>期限切れ</span>
+        <span style={badgeStyle('inactive')}>{t('accessExpiredShort')}</span>
       ) : null}
       <button
         type="button"
@@ -136,26 +145,26 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
         disabled={isPending}
         onClick={handleInviteOrResend}
       >
-        {isPending ? '送信中…' : isPendingInvite || isExpired ? '再送信' : '招待する'}
+        {isPending ? t('sendingStatus') : isPendingInvite || isExpired ? t('resendButton') : t('inviteButton')}
       </button>
       {isPendingInvite || isExpired ? (
         <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('recover')}>
-          アクセスを回復
+          {t('recoverAccessButton')}
         </button>
       ) : null}
       {isPendingInvite ? (
         <button type="button" className={hoverStyles.buttonSecondary} style={isPending ? buttonDisabled : buttonSecondary} disabled={isPending} onClick={() => setConfirmAction('revoke')}>
-          取り消す
+          {t('revokeInvitationButton')}
         </button>
       ) : null}
-      {recoverySent ? <span style={{ ...mutedText, color: colors.success, fontSize: 12 }}>復旧メールを送信しました。</span> : null}
+      {recoverySent ? <span style={{ ...mutedText, color: colors.success, fontSize: 12 }}>{t('recoveryEmailSentMessage')}</span> : null}
       {error ? <span style={{ ...mutedText, color: colors.dangerText, fontSize: 12 }}>{error}</span> : null}
 
       <ConfirmDialog
         open={confirmAction === 'recover'}
-        title="このスタッフにパスワード再設定メールを送信しますか？"
-        confirmLabel="送信する"
-        cancelLabel="キャンセル"
+        title={t('confirmRecoverAccessTitle')}
+        confirmLabel={t('confirmSendButton')}
+        cancelLabel={t('cancel')}
         pending={isPending}
         onCancel={() => setConfirmAction(null)}
         onConfirm={() => {
@@ -163,14 +172,14 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
           handleRecover();
         }}
       >
-        スタッフはメールに記載されたリンクからパスワードを再設定できます。
+        {t('confirmRecoverAccessBody')}
       </ConfirmDialog>
 
       <ConfirmDialog
         open={confirmAction === 'revoke'}
-        title="この招待を取り消しますか？"
-        confirmLabel="取り消す"
-        cancelLabel="キャンセル"
+        title={t('confirmRevokeInvitationTitle')}
+        confirmLabel={t('revokeInvitationButton')}
+        cancelLabel={t('cancel')}
         pending={isPending}
         danger
         onCancel={() => setConfirmAction(null)}
@@ -179,7 +188,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
           handleRevoke();
         }}
       >
-        取り消した招待は無効になります。必要であれば再送信できます。
+        {t('confirmRevokeInvitationBody')}
       </ConfirmDialog>
     </div>
   );

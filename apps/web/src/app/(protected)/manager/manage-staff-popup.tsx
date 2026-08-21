@@ -41,7 +41,7 @@ const FILTER_TABS: { value: StaffStatusFilter; labelKey: 'statusActive' | 'statu
   { value: 'all', labelKey: 'filterAll' },
 ];
 
-/** Read-only summary for the compact row -- distinct from `InvitationCell`, which stays the interactive (and Founder-decided JA-only) bind/invite control, only ever rendered inside the detail view below. */
+/** Read-only summary for the compact row -- distinct from `InvitationCell`, the interactive bind/invite control only ever rendered inside the detail view below (now bilingual too, see invitation-cell.tsx). */
 function accessBadge(
   hasAccountAccess: boolean,
   invitation: WorkforceEmployeeInvitation | null,
@@ -247,6 +247,7 @@ export function ManageStaffPopup({
               employeeId={detailStaff.staffId}
               invitation={latestInvitationByEmployeeId.get(detailStaff.staffId) ?? null}
               onChange={onChange}
+              lang={lang}
             />
           </section>
 

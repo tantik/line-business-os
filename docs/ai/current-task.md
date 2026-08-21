@@ -194,8 +194,11 @@ Sequence (recommended):
      the `%5Fclient-preview/mame-to-cha/**` reference surface now that
      Surface B has closed the P1/P2 gaps that motivated keeping it as a
      UX/acceptance reference — a product decision, not a code change by
-     itself). `F4` (`InvitationCell` JA-only) is intentional per Founder
-     direction, no action needed.
+     itself). `F4` (`InvitationCell` JA-only) was intentional per an earlier
+     Founder scope decision, but is now superseded: the Founder asked
+     2026-08-21 (during the Cafe Manager UI/UX Parity mission's Manage
+     Staff redesign) for `InvitationCell` to be localized like the rest of
+     the now-bilingual Manage Staff popup, closed the same day.
 2. Platform Foundation critical path (per the already-accepted document;
    this work is not blocked by step 1 and could run in parallel, but
    sequential is preferred here to avoid re-creating the "audit → fix →
