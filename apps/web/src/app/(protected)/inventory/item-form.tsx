@@ -8,6 +8,7 @@ import { INVENTORY_UNITS } from '@/lib/inventory/validation';
 import { upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, input, mutedText } from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
 
@@ -44,7 +45,7 @@ export function ItemForm({ locationId, item, lang, onSuccess, onCancel }: ItemFo
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <PendingOverlay visible={isPending} message={t('savingButton')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
@@ -94,10 +95,17 @@ export function ItemForm({ locationId, item, lang, onSuccess, onCancel }: ItemFo
         <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} />
       </label>
       <div style={{ display: 'flex', gap: 8 }}>
-        <LoadingButton type="submit" pending={isPending} pendingLabel={t('savingButton')} style={buttonPrimary} pendingStyle={buttonDisabled}>
+        <LoadingButton
+          type="submit"
+          pending={isPending}
+          pendingLabel={t('savingButton')}
+          style={buttonPrimary}
+          pendingStyle={buttonDisabled}
+          className={hoverStyles.buttonPrimary}
+        >
           {item ? t('saveChangesButton') : t('addItemButton')}
         </LoadingButton>
-        <button type="button" style={buttonSecondary} onClick={onCancel} disabled={isPending}>
+        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancelButton')}
         </button>
       </div>

@@ -63,6 +63,27 @@ interface InventoryDashboardDict {
   popupHelpAriaLabel: string;
   popupHelpTitle: string;
   popupHelpBody: string;
+  // 2026-08-21 redesign: table columns, sort, footer summary, •••-menu, autosave hint.
+  colItem: string;
+  colTarget: string;
+  colReorderAt: string;
+  colCurrent: string;
+  colActualQuantity: string;
+  colStatus: string;
+  colShortage: string;
+  colActions: string;
+  statusInactiveLabel: string;
+  statusShortageBadge: string;
+  sortLabel: string;
+  sortNameAsc: string;
+  sortShortageFirst: string;
+  moreActionsAriaLabel: string;
+  clearActualQuantityAriaLabel: string;
+  pressEnterToSaveHint: string;
+  footerTotalItems: string;
+  footerNeedRestocking: string;
+  footerSufficient: string;
+  footerTip: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -100,7 +121,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     deletingButton: 'Deleting...',
     confirmDeactivateItemTitle: 'Deactivate this item?',
     confirmDeleteItemTitle: 'Permanently delete this item?',
-    confirmDeleteItemBody: 'This cannot be undone — the item will be permanently removed.',
+    confirmDeleteItemBody: 'This only works for an item with no stock-count history. This cannot be undone.',
     nameLabel: 'Name',
     targetQuantityLabel: 'Target quantity',
     reorderPointLabel: 'Reorder point',
@@ -118,6 +139,26 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     popupHelpTitle: 'About inventory',
     popupHelpBody:
       'The actual quantity autosaves as you type -- there is no separate Save button. "Reorder at" is the threshold below which an item shows as a shortage; "Target" is the amount a full restock should bring it back up to. Deactivating hides an item from the daily count without deleting its history.',
+    colItem: 'Item',
+    colTarget: 'Target',
+    colReorderAt: 'Reorder at',
+    colCurrent: 'Current',
+    colActualQuantity: 'Actual quantity',
+    colStatus: 'Status',
+    colShortage: 'Shortage',
+    colActions: 'Actions',
+    statusInactiveLabel: 'Deactivated',
+    statusShortageBadge: 'Shortage',
+    sortLabel: 'Sort',
+    sortNameAsc: 'Name (A–Z)',
+    sortShortageFirst: 'Shortage first',
+    moreActionsAriaLabel: 'More actions',
+    clearActualQuantityAriaLabel: 'Clear',
+    pressEnterToSaveHint: 'Press Enter to save',
+    footerTotalItems: 'Total items',
+    footerNeedRestocking: 'Need restocking',
+    footerSufficient: 'Sufficient',
+    footerTip: 'Tip: enter the actual quantity and press Enter (or just wait a moment) to save.',
   },
   ja: {
     pageTitle: '在庫',
@@ -153,7 +194,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     deletingButton: '削除中...',
     confirmDeactivateItemTitle: 'この商品を無効化しますか？',
     confirmDeleteItemTitle: 'この商品を完全に削除しますか？',
-    confirmDeleteItemBody: 'この操作は取り消せません -- 商品は完全に削除されます。',
+    confirmDeleteItemBody: 'カウント履歴がない商品のみ削除できます。この操作は取り消せません。',
     nameLabel: '名前',
     targetQuantityLabel: '目標数量',
     reorderPointLabel: '発注点',
@@ -171,6 +212,26 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     popupHelpTitle: '在庫について',
     popupHelpBody:
       '実数は入力すると自動的に保存されます -- 保存ボタンはありません。「発注点」はこれを下回ると不足として表示されるしきい値、「目標」は補充で戻すべき量です。無効化すると履歴を削除せずに日次カウントから非表示になります。',
+    colItem: '商品',
+    colTarget: '目標',
+    colReorderAt: '発注点',
+    colCurrent: '現在庫',
+    colActualQuantity: '実数',
+    colStatus: 'ステータス',
+    colShortage: '不足数',
+    colActions: '操作',
+    statusInactiveLabel: '無効化済み',
+    statusShortageBadge: '不足',
+    sortLabel: '並び替え',
+    sortNameAsc: '名前 (A–Z)',
+    sortShortageFirst: '不足を優先',
+    moreActionsAriaLabel: 'その他の操作',
+    clearActualQuantityAriaLabel: 'クリア',
+    pressEnterToSaveHint: 'Enterキーで保存',
+    footerTotalItems: '登録商品数',
+    footerNeedRestocking: '要補充',
+    footerSufficient: '十分',
+    footerTip: 'ヒント: 実数を入力してEnterキー(または少し待つだけ)で保存されます。',
   },
 };
 

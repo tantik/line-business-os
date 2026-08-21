@@ -14,7 +14,7 @@ import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
 import { StaffForm } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { InvitationCell } from './invitation-cell';
-import styles from './manager-dashboard.module.css';
+import styles from '@/lib/ui/responsive-table.module.css';
 
 export interface ManageStaffPopupProps {
   open: boolean;

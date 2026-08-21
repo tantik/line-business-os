@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { HelpIconButton, Modal, Skeleton } from '@/components/shared/design-kit';
@@ -53,14 +53,34 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [helpOpen, setHelpOpen] = useState(false);
+  // Hover-prefetch cache (2026-08-21 perf pass): keyed by recipeId, holds a
+  // detail fetch that started before the manager actually clicked. Session
+  // life span only (a plain ref, not persisted) -- correctness never
+  // depends on it being warm, `openRecipe` below falls back to its normal
+  // fetch whenever the cache has no entry yet (touch/keyboard-only use,
+  // or a click that beat the hover fetch to the punch).
+  const detailCacheRef = useRef(new Map<string, RecipeDetailForPopup>());
+
+  function prefetchRecipe(recipeId: string) {
+    if (detailCacheRef.current.has(recipeId)) return;
+    getRecipeDetailForPopup(recipeId).then((result) => {
+      if (result.status === 'success' && result.data) detailCacheRef.current.set(recipeId, result.data);
+    });
+  }
 
   function openRecipe(recipeId: string, startEditing = false) {
     setDetailError(null);
-    setDetail(null);
     setView({ kind: 'detail', recipeId, startEditing });
+    const cached = detailCacheRef.current.get(recipeId);
+    if (cached) {
+      setDetail(cached);
+      return;
+    }
+    setDetail(null);
     startTransition(async () => {
       const result = await getRecipeDetailForPopup(recipeId);
       if (result.status === 'success' && result.data) {
+        detailCacheRef.current.set(recipeId, result.data);
         setDetail(result.data);
       } else {
         setDetailError(t('unavailable'));
@@ -69,7 +89,13 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   }
 
   function refreshDetail() {
-    if (view.kind === 'detail') openRecipe(view.recipeId);
+    // Invalidate first: after an edit/translate/etc. save, the prefetch
+    // cache's entry for this recipe is now stale, and `openRecipe` would
+    // otherwise happily serve it back out instead of refetching.
+    if (view.kind === 'detail') {
+      detailCacheRef.current.delete(view.recipeId);
+      openRecipe(view.recipeId);
+    }
     onChange();
   }
 
@@ -112,6 +138,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           canManage={canManage}
           embedded
           onSelectRecipe={openRecipe}
+          onHoverRecipe={prefetchRecipe}
           onChange={onChange}
         />
       ) : isPending && !detail ? (

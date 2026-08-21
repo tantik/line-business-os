@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { colors } from '@/lib/ui/theme';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: { default: 'LINE Business OS', template: '%s | LINE Business OS' },
