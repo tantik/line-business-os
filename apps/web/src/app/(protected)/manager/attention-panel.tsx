@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { ManagerAttentionCategory, ManagerAttentionItem, ManagerAttentionQueueItem } from '@/lib/workforce/manager-attention';
-import { computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
+import { ATTENTION_SEVERITY_BY_CATEGORY, computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
+import { Modal } from '@/components/shared/design-kit';
 import { buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
@@ -12,17 +12,11 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionRequireActionCompact,
   attentionSummarySubtitle,
   attentionUnavailableConflictLabel,
   tManagerDashboard,
 } from './manager-dashboard-i18n';
-
-const ATTENTION_ANCHOR: Record<ManagerAttentionCategory, string> = {
-  correction: '#correction-requests',
-  exchange: '#shift-exchange-requests',
-  unavailable_conflict: '#weekly-schedule',
-  inventory: '/inventory',
-};
 
 const ATTENTION_TITLE_KEY: Record<ManagerAttentionCategory, 'attentionCorrectionTitle' | 'attentionExchangeTitle' | 'attentionUnavailableConflictTitle' | 'attentionInventoryTitle'> = {
   correction: 'attentionCorrectionTitle',
@@ -42,8 +36,6 @@ const chipStyle = {
   flex: '1 1 140px',
   minWidth: 120,
   maxWidth: 220,
-  textDecoration: 'none',
-  color: colors.textPrimary,
   border: `1px solid ${colors.border}`,
   borderRadius: 8,
   padding: '8px 10px',
@@ -53,7 +45,17 @@ const chipStyle = {
   gap: 2,
   cursor: 'pointer',
   font: 'inherit',
+  color: colors.textPrimary,
   textAlign: 'left' as const,
+};
+
+const reviewAllChipStyle = {
+  ...chipStyle,
+  flex: '0 0 auto' as const,
+  minWidth: 'auto',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontWeight: 600,
 };
 
 const queueItemStyle = {
@@ -68,35 +70,29 @@ const queueItemStyle = {
   gap: 10,
 };
 
-const MAX_VISIBLE_QUEUE_ITEMS = 5;
+type Translate = (key: Parameters<typeof tManagerDashboard>[1]) => string;
 
 /**
- * Manager Attention UX Reconciliation (2026-08-21): replaces the previous
- * count-only card row with a three-level Action Queue --
+ * Manager Attention UX Compactness Correction (2026-08-21): the previous
+ * pass (Manager Attention UX Reconciliation) made every category chip
+ * consistent but also left a permanently-visible Level-3 item feed under
+ * the chips, duplicating the same information the chips/counts already
+ * summarize and pushing Weekly Schedule far down the page. This rewrite
+ * keeps the Level 1 (total + require-action count) and Level 2 (category
+ * chips) summary always visible, but Level 3 (concrete who/what/when
+ * items) now only renders on demand, inside a popup -- either a single
+ * category's popup (clicking that chip) or the consolidated "Review all"
+ * popup (grouped by the same action-required/warning severity already
+ * computed for the Level-1 summary, not a new classification).
  *
- * Level 1: total + "N require action / M warnings" summary
- *   (`computeManagerAttentionSummary`, `attentionSummarySubtitle`).
- * Level 2: the original per-category chips, now a consistent filter/summary
- *   row -- clicking any chip opens the same destination the mission's own
- *   §13 requires ("click category -> unified view for that category"):
- *   correction/exchange chips open their existing popups, inventory opens
- *   the existing `InventoryPopup` (previously this chip full-page-navigated
- *   to `/inventory` instead, the exact "Inventory opens its own workflow"
- *   inconsistency the mission's problem statement (§1) names), and
- *   unavailable-conflict still scrolls to the schedule grid (no single
- *   popup makes sense for an aggregate of conflicts across different
- *   dates).
- * Level 3: concrete "who/what/when" cards (`queueItems`, from
- *   `buildManagerAttentionQueue`) -- capped at `MAX_VISIBLE_QUEUE_ITEMS`,
- *   "View all N" expands in place (no new modal/framework, per §13/§14).
- *   Each item's own action button routes to the exact same canonical
- *   workflow the chip does for correction/exchange/inventory, or to
- *   `onViewShift` (schedule week/cell deep-link) for a conflict -- Attention
- *   still owns presentation only, no new approval/business logic.
- *
- * All business data (counts, queue items) is computed upstream by
- * `manager-attention.ts`'s pure functions from state the dashboard already
- * loads; this component only renders it.
+ * Corrections/Exchanges/Inventory chips are unchanged: they still open the
+ * existing dedicated `CorrectionRequestsPopup`/`ShiftExchangeRequestsPopup`/
+ * `InventoryPopup` (owned by the parent, passed down as callbacks) --
+ * those already are the compact, decision-oriented per-category view the
+ * mission asks for. Unavailable-conflict has no such dedicated popup yet
+ * (it previously only linked to `#weekly-schedule`), so this component adds
+ * a small self-contained one using the same `queueItems` data already
+ * passed in -- no new fetch, no new business rule.
  */
 export function AttentionPanel({
   items,
@@ -117,14 +113,126 @@ export function AttentionPanel({
   onOpenInventory: () => void;
   onViewShift: (employeeId: string, workDate: string) => void;
 }) {
-  const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
-  const [expanded, setExpanded] = useState(false);
+  const t: Translate = (key) => tManagerDashboard(lang, key);
+  const [conflictsOpen, setConflictsOpen] = useState(false);
+  const [reviewAllOpen, setReviewAllOpen] = useState(false);
   const summary = computeManagerAttentionSummary(items);
-  const visibleQueueItems = expanded ? queueItems : queueItems.slice(0, MAX_VISIBLE_QUEUE_ITEMS);
 
   function staffName(employeeId: string) {
     return staffNameById[employeeId] ?? employeeId;
   }
+
+  function handleViewShiftAndClose(employeeId: string, workDate: string) {
+    setConflictsOpen(false);
+    setReviewAllOpen(false);
+    onViewShift(employeeId, workDate);
+  }
+
+  function renderCorrectionItem(qi: Extract<ManagerAttentionQueueItem, { category: 'correction' }>) {
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemCorrectionTitle')}</div>
+          <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)} · {qi.workDate}</div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionWaitingDecision')}</div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonPrimary}
+          style={{ ...buttonPrimary, padding: '6px 14px' }}
+          onClick={() => {
+            setReviewAllOpen(false);
+            onOpenCorrections();
+          }}
+        >
+          {t('attentionReview')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderExchangeItem(qi: Extract<ManagerAttentionQueueItem, { category: 'exchange' }>) {
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemExchangeTitle')}</div>
+          <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)}{qi.workDate ? ` · ${qi.workDate}` : ''}</div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{qi.canApprove ? t('attentionWaitingDecision') : t('attentionReplacementNotSelected')}</div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonPrimary}
+          style={{ ...buttonPrimary, padding: '6px 14px' }}
+          onClick={() => {
+            setReviewAllOpen(false);
+            onOpenExchanges();
+          }}
+        >
+          {t('attentionReview')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderConflictItem(qi: Extract<ManagerAttentionQueueItem, { category: 'unavailable_conflict' }>) {
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemConflictTitle')}</div>
+          <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)} · {qi.workDate}</div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionConflictSummary')}</div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, padding: '6px 14px' }}
+          onClick={() => handleViewShiftAndClose(qi.employeeId, qi.workDate)}
+        >
+          {t('attentionViewShift')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderInventoryItem(qi: Extract<ManagerAttentionQueueItem, { category: 'inventory' }>) {
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemInventoryTitle')}</div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{attentionInventoryShortageSummary[lang](qi.shortageCount)}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+            {qi.topItems.map((it) => (
+              <div key={it.itemId} style={{ fontSize: 12 }}>
+                {it.name}: {it.actualQuantity ?? '-'} / {t('attentionTargetWord')} {it.requiredQuantity}
+              </div>
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, padding: '6px 14px' }}
+          onClick={() => {
+            setReviewAllOpen(false);
+            onOpenInventory();
+          }}
+        >
+          {t('attentionOpenInventory')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderQueueItem(qi: ManagerAttentionQueueItem) {
+    if (qi.category === 'correction') return renderCorrectionItem(qi);
+    if (qi.category === 'exchange') return renderExchangeItem(qi);
+    if (qi.category === 'unavailable_conflict') return renderConflictItem(qi);
+    return renderInventoryItem(qi);
+  }
+
+  const conflictItems = queueItems.filter((qi): qi is Extract<ManagerAttentionQueueItem, { category: 'unavailable_conflict' }> => qi.category === 'unavailable_conflict');
+  const actionRequiredItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'action_required');
+  const warningItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'warning');
 
   return (
     <section style={{ ...card, borderLeft: `3px solid ${items.length > 0 ? colors.warning : colors.success}` }}>
@@ -137,7 +245,7 @@ export function AttentionPanel({
         <p style={{ margin: '10px 0 0', ...mutedText }}>✓ {t('attentionAllClear')}</p>
       ) : (
         <>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
+          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionRequireActionCompact[lang](summary.actionRequiredCount)}</p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
             {items.map((item) => {
@@ -147,111 +255,46 @@ export function AttentionPanel({
                   <span style={{ fontSize: 18, fontWeight: 700, color: colors.warning }}>{item.count}</span>
                 </>
               );
-              if (item.category === 'correction' || item.category === 'exchange' || item.category === 'inventory') {
-                const onClick = item.category === 'correction' ? onOpenCorrections : item.category === 'exchange' ? onOpenExchanges : onOpenInventory;
-                return (
-                  <button key={item.category} type="button" aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)} style={chipStyle} onClick={onClick}>
-                    {label}
-                  </button>
-                );
-              }
+              const onClick =
+                item.category === 'correction'
+                  ? onOpenCorrections
+                  : item.category === 'exchange'
+                    ? onOpenExchanges
+                    : item.category === 'inventory'
+                      ? onOpenInventory
+                      : () => setConflictsOpen(true);
               return (
-                <Link
-                  key={item.category}
-                  href={ATTENTION_ANCHOR[item.category]}
-                  aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
-                  style={chipStyle}
-                >
+                <button key={item.category} type="button" aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)} style={chipStyle} onClick={onClick}>
                   {label}
-                </Link>
+                </button>
               );
             })}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-            {visibleQueueItems.map((qi) => {
-              if (qi.category === 'correction') {
-                return (
-                  <div key={qi.id} style={queueItemStyle}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemCorrectionTitle')}</div>
-                      <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)} · {qi.workDate}</div>
-                      <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionWaitingDecision')}</div>
-                    </div>
-                    <button type="button" className={hoverStyles.buttonPrimary} style={{ ...buttonPrimary, padding: '6px 14px' }} onClick={onOpenCorrections}>
-                      {t('attentionReview')}
-                    </button>
-                  </div>
-                );
-              }
-              if (qi.category === 'exchange') {
-                return (
-                  <div key={qi.id} style={queueItemStyle}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemExchangeTitle')}</div>
-                      <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)}{qi.workDate ? ` · ${qi.workDate}` : ''}</div>
-                      <div style={{ ...mutedText, fontSize: 12 }}>{qi.canApprove ? t('attentionWaitingDecision') : t('attentionReplacementNotSelected')}</div>
-                      {!qi.canApprove ? <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionReplacementRequiredReason')}</div> : null}
-                    </div>
-                    <button type="button" className={hoverStyles.buttonPrimary} style={{ ...buttonPrimary, padding: '6px 14px' }} onClick={onOpenExchanges}>
-                      {t('attentionReview')}
-                    </button>
-                  </div>
-                );
-              }
-              if (qi.category === 'unavailable_conflict') {
-                return (
-                  <div key={qi.id} style={queueItemStyle}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemConflictTitle')}</div>
-                      <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)} · {qi.workDate}</div>
-                      <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionConflictSummary')}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className={hoverStyles.buttonSecondary}
-                      style={{ ...buttonSecondary, padding: '6px 14px' }}
-                      onClick={() => onViewShift(qi.employeeId, qi.workDate)}
-                    >
-                      {t('attentionViewShift')}
-                    </button>
-                  </div>
-                );
-              }
-              // qi.category === 'inventory'
-              return (
-                <div key={qi.id} style={queueItemStyle}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemInventoryTitle')}</div>
-                    <div style={{ ...mutedText, fontSize: 12 }}>{attentionInventoryShortageSummary[lang](qi.shortageCount)}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                      {qi.topItems.map((it) => (
-                        <div key={it.itemId} style={{ fontSize: 12 }}>
-                          {it.name}: {it.actualQuantity ?? '-'} / {t('attentionTargetWord')} {it.requiredQuantity}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, padding: '6px 14px' }} onClick={onOpenInventory}>
-                    {t('attentionOpenInventory')}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {queueItems.length > MAX_VISIBLE_QUEUE_ITEMS ? (
-            <button
-              type="button"
-              className={hoverStyles.buttonSecondary}
-              style={{ ...buttonSecondary, padding: '6px 14px', marginTop: 10 }}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? t('attentionShowLess') : `${t('attentionViewAll')} ${queueItems.length}`}
+            <button type="button" style={reviewAllChipStyle} onClick={() => setReviewAllOpen(true)}>
+              {t('attentionReviewAll')}
             </button>
-          ) : null}
+          </div>
         </>
       )}
+
+      <Modal open={conflictsOpen} onClose={() => setConflictsOpen(false)} title={t('attentionConflictsPopupTitle')} width="min(700px, 96vw)" closeLabel={t('cancel')}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{conflictItems.map((qi) => renderConflictItem(qi))}</div>
+      </Modal>
+
+      <Modal open={reviewAllOpen} onClose={() => setReviewAllOpen(false)} title={t('attentionReviewAllTitle')} width="min(760px, 96vw)" closeLabel={t('cancel')}>
+        <p style={{ margin: 0, ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
+        {actionRequiredItems.length > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ margin: '0 0 8px', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('needsActionEyebrow')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{actionRequiredItems.map((qi) => renderQueueItem(qi))}</div>
+          </div>
+        ) : null}
+        {warningItems.length > 0 ? (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ margin: '0 0 8px', ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('attentionWarningsGroupHeading')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{warningItems.map((qi) => renderQueueItem(qi))}</div>
+          </div>
+        ) : null}
+      </Modal>
     </section>
   );
 }

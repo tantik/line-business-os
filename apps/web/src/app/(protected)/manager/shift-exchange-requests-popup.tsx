@@ -97,6 +97,10 @@ export function ShiftExchangeRequestsPopup({
                   <div>
                     <div style={{ fontWeight: 600 }}>{requesterName}</div>
                     <div style={mutedText}>{shiftLocal ? `${shiftLocal.workDate} · ${shiftLocal.localTime}` : '-'}</div>
+                    {/* Two pending requests can otherwise look identical (same requester, shift date/time, reason) when they reference different underlying shifts -- shows each request's own submission time so a Manager can tell them apart without guessing. */}
+                    <div style={{ ...mutedText, fontSize: 12 }}>
+                      {t('attentionSubmittedAtPrefix')} {utcIsoToLocalDateTime(e.createdAt, timeZone).workDate} {utcIsoToLocalDateTime(e.createdAt, timeZone).localTime}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button

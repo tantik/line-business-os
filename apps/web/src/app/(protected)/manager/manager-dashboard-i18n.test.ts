@@ -5,6 +5,7 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionRequireActionCompact,
   attentionSummarySubtitle,
   autoDistributionCreatedMessage,
   breakMinutesValue,
@@ -64,10 +65,11 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'backToWorkforce',
   'staffActivated', 'staffDeactivated', 'shiftUnassigned', 'correctionApproved', 'correctionRejected',
   'exchangeApproved', 'exchangeRejected', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
-  'attentionViewAll', 'attentionShowLess', 'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
+  'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
   'attentionItemConflictTitle', 'attentionItemInventoryTitle', 'attentionWaitingDecision', 'attentionConflictSummary',
   'attentionReplacementNotSelected', 'attentionReplacementRequiredReason', 'attentionViewShift', 'attentionOpenInventory',
-  'attentionTargetWord',
+  'attentionTargetWord', 'attentionSubmittedAtPrefix', 'attentionConflictsPopupTitle', 'attentionReviewAll',
+  'attentionReviewAllTitle', 'attentionWarningsGroupHeading',
 ];
 
 test('tManagerDashboard returns a non-empty string for every key in both languages', () => {
@@ -143,4 +145,10 @@ test('attentionSummarySubtitle omits a zero half instead of claiming "0 warnings
 test('attentionInventoryShortageSummary interpolates the count and differs by language', () => {
   assert.match(attentionInventoryShortageSummary.en(3), /3/);
   assert.notEqual(attentionInventoryShortageSummary.en(3), attentionInventoryShortageSummary.ja(3));
+});
+
+test('attentionRequireActionCompact interpolates the count, differs by language, and never mentions warnings', () => {
+  assert.match(attentionRequireActionCompact.en(4), /4/);
+  assert.notEqual(attentionRequireActionCompact.en(4), attentionRequireActionCompact.ja(4));
+  assert.doesNotMatch(attentionRequireActionCompact.en(4), /warning/i);
 });

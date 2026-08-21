@@ -28,10 +28,8 @@ interface ManagerDashboardDict {
   attentionUnavailableConflictTitle: string;
   attentionInventoryTitle: string;
   // Attention layer -- Manager Attention UX Reconciliation (2026-08-21):
-  // Level-1 summary, Level-3 concrete queue items, and the per-category
-  // action targets ("View shift" / "Open Inventory").
-  attentionViewAll: string;
-  attentionShowLess: string;
+  // Level-1 summary and the per-category action targets ("View shift" /
+  // "Open Inventory"). Individual queue-item card fields.
   attentionItemCorrectionTitle: string;
   attentionItemExchangeTitle: string;
   attentionItemConflictTitle: string;
@@ -43,6 +41,15 @@ interface ManagerDashboardDict {
   attentionViewShift: string;
   attentionOpenInventory: string;
   attentionTargetWord: string;
+  attentionSubmittedAtPrefix: string;
+  // Attention UX Compactness Correction (2026-08-21): the always-visible
+  // Level-3 item feed was replaced by two on-demand surfaces -- a
+  // conflicts-only popup (opened from the "Unavailable conflicts" chip) and
+  // a single "Review all" popup grouping every category by severity.
+  attentionConflictsPopupTitle: string;
+  attentionReviewAll: string;
+  attentionReviewAllTitle: string;
+  attentionWarningsGroupHeading: string;
   // Entry-points card (Recipes/Inventory/Manage staff)
   entryPointsHeading: string;
   // Staff section
@@ -280,8 +287,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'Shift exchanges',
     attentionUnavailableConflictTitle: 'Unavailable conflicts',
     attentionInventoryTitle: 'Inventory shortage',
-    attentionViewAll: 'View all',
-    attentionShowLess: 'Show less',
     attentionItemCorrectionTitle: 'Attendance correction',
     attentionItemExchangeTitle: 'Shift exchange',
     attentionItemConflictTitle: 'Schedule conflict',
@@ -293,6 +298,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionViewShift: 'View shift',
     attentionOpenInventory: 'Open Inventory',
     attentionTargetWord: 'target',
+    attentionSubmittedAtPrefix: 'Submitted',
+    attentionConflictsPopupTitle: 'Unavailable conflicts',
+    attentionReviewAll: 'Review all',
+    attentionReviewAllTitle: 'All attention items',
+    attentionWarningsGroupHeading: 'Warnings',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
     manageStaff: 'Manage staff',
@@ -509,8 +519,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'シフト交換',
     attentionUnavailableConflictTitle: '不可との重複',
     attentionInventoryTitle: '在庫不足',
-    attentionViewAll: 'すべて表示',
-    attentionShowLess: '表示を減らす',
     attentionItemCorrectionTitle: '勤怠修正',
     attentionItemExchangeTitle: 'シフト交換',
     attentionItemConflictTitle: 'スケジュールの重複',
@@ -522,6 +530,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionViewShift: 'シフトを見る',
     attentionOpenInventory: '在庫を開く',
     attentionTargetWord: '目標',
+    attentionSubmittedAtPrefix: '申請日時',
+    attentionConflictsPopupTitle: '不可との重複',
+    attentionReviewAll: 'すべて確認',
+    attentionReviewAllTitle: 'すべての要確認項目',
+    attentionWarningsGroupHeading: '注意事項',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
     manageStaff: 'スタッフ管理',
@@ -804,6 +817,20 @@ export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number
     if (warningCount > 0) parts.push(`注意事項 ${warningCount}件`);
     return parts.join(' · ');
   },
+};
+
+/**
+ * Compact single-line Level-1 subtitle for the main Manager Dashboard, e.g.
+ * "4 require action" -- Attention UX Compactness Correction (2026-08-21):
+ * deliberately omits the warning count here (unlike `attentionSummarySubtitle`,
+ * which still carries the full "N require action · M warnings" breakdown
+ * used inside the "Review all" popup) so the always-visible dashboard line
+ * surfaces only the single number a Manager most needs at a glance; the
+ * full breakdown is one click away, not duplicated on the dashboard itself.
+ */
+export const attentionRequireActionCompact: Record<Lang, (actionRequiredCount: number) => string> = {
+  en: (actionRequiredCount) => `${actionRequiredCount} require action`,
+  ja: (actionRequiredCount) => `対応が必要 ${actionRequiredCount}件`,
 };
 
 /** "N items require restocking" for the single collapsed Inventory queue item. */
