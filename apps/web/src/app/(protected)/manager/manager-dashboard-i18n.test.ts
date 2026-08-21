@@ -31,6 +31,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'colStatus', 'colLine', 'colActions', 'statusActive', 'statusInactive', 'edit', 'activate', 'deactivate',
   'saving', 'confirmDeactivate', 'deleteStaffButton', 'deletingStaff', 'confirmDeleteStaffTitle', 'confirmDeleteStaffBody',
   'staffDeleted', 'staffBlockedByHistory',
+  'lineLinkedShort', 'lineNotLinkedShort', 'accessActiveShort', 'accessPendingShort', 'accessExpiredShort', 'accessNoneShort', 'accessSectionHeading',
   'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition', 'fieldEmploymentType',
   'addStaffSubmit', 'saveChanges', 'cancel',
   'errorNotFound', 'errorNotAuthenticated', 'errorNoMembership', 'errorStaleReference',
