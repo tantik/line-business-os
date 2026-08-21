@@ -256,8 +256,21 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-19 pointer, latest first (read before treating the rest of this
-section as current):** immediately after the Cafe Manager Parity mission
+**2026-08-21 pointer, latest first (read before treating the rest of this
+section as current):** the Cafe Manager UI/UX Parity mission's post-
+acceptance module-by-module redesign (Entry-points, Recipes, Inventory,
+Manage Staff — 8 PRs, #346–#350 and #352–#355) is done and **Founder-
+accepted "for now, for v2.1"** ("пока это принимаем для 2.1") as of
+2026-08-21. See
+`docs/ai/CAFE_MANAGER_UIUX_PARITY_MISSION_2026-08-19.md` §9.6 for the full
+close-out note — in short: nothing further in that mission is pre-
+authorized to start (not WP-13, not the Staff-surface follow-up, not
+Platform Foundation) until the Founder directs the next piece of work in a
+fresh session. Do not assume this acceptance by itself means "Cafe v2.1 is
+formally closed" (§2.3/§2.4 below track that larger, separate claim) or
+that Platform Foundation is now authorized to start — ask, don't guess.
+
+**2026-08-19 pointer (older, still useful context):** immediately after the Cafe Manager Parity mission
 below closed, Founder live-QA'd its result against the legacy Mame To Cha
 reference and opened a new, larger **Cafe Manager UI/UX Parity mission**
 (13 Work Packages, Manager surface first, Staff surface as a later follow-

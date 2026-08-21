@@ -1,4 +1,4 @@
-# CAFE_MANAGER_UIUX_PARITY_MISSION (started 2026-08-19, updated 2026-08-20)
+# CAFE_MANAGER_UIUX_PARITY_MISSION (started 2026-08-19, updated 2026-08-21)
 
 Durable handoff for a **fresh** Claude Code session continuing this
 workstream. This file, git, and the repository's own tests/docs are the
@@ -7,9 +7,11 @@ file fully before doing anything. Everything below is VERIFIED against
 tool output in the session that wrote/updated this handoff, unless
 explicitly marked INFERRED/OPEN QUESTION.
 
-**If you are a fresh session starting from this file: start at §7 ("Next
-step for a fresh session"). Read §1–§6 first for full context, but §7 is
-where you actually begin.**
+**If you are a fresh session starting from this file: start at §9.6
+("Status as of 2026-08-21 — accepted for v2.1, mission paused here").
+Read §1–§6 first for full context if you need mission background/roles/
+verification pattern, but §9 (not §7) is the current status — §7 is
+historical, superseded the moment §9 was added.**
 
 ---
 
@@ -423,22 +425,96 @@ to the Founder as intentional lazy-fetch-per-recipe design (avoids
 loading every recipe's full content just for the list) plus normal
 Preview-environment latency, not something this pass restructured.
 
-### 9.3 Next: Inventory module, then Manage-staff module
+### 9.3 Inventory module — DONE, merged PR #352 (2026-08-21)
 
-Founder named these explicitly as next, same pattern as Recipes: expect a
-similar side-by-side comparison against the reference's Inventory/Staff
-management popups, likely a similar back-and-forth refinement loop (core
-redesign → visual pixel-match → decluttering/behavior polish). Start by
-asking the Founder for their reference screenshot(s)/expectations the
-same way this session did for Recipes, rather than guessing the target
-shape from the existing preview components alone — the Recipes loop
-repeatedly found real gaps between what the preview reference component
-already had and what the Founder actually wanted (e.g., the delete
-semantics in 9.2 were **not** what the reference did, they were a
-Founder-specific decision). Do not assume Inventory/Manage-staff will
-mirror their own `lib/preview/*` reference components 1:1.
+Same pattern as Recipes: Founder supplied live screenshots of the current
+(cluttered) state plus a rough target look, not just a written spec —
+follow-up questions filled the rest via `AskUserQuestion` rather than
+guessing. Delivered in one PR (typecheck/lint/test/build green, live
+Preview QA before merge):
 
-### 9.4 Process notes worth carrying forward
+- Add/Edit item is a real popup (nested `Modal`), not the old inline
+  section that pushed the list down.
+- Desktop table / mobile card layout via a new shared
+  `lib/ui/responsive-table.module.css` (promoted out of the old
+  `manager-dashboard.module.css`, which only ever held this one pattern —
+  Manage Staff's own table/card split was repointed at the same shared
+  file in the same PR, no behavior change there).
+- Rare/dangerous row actions (Deactivate, Delete permanently) moved behind
+  a new shared `•••` `ActionsMenu` design-kit component (portal-rendered,
+  not inline-`position:absolute`, because every call site lives inside a
+  `Modal` whose body scrolls with `overflow-y:auto` — an inline-positioned
+  dropdown would get clipped near the bottom edge). Edit stays its own
+  always-visible pencil button (frequent, non-destructive action).
+- Filter chips show live counts, added a Sort control, added a footer
+  summary bar (`Total items` / `Need restocking` / `Sufficient`).
+- App-wide button hover/focus/pressed consistency: a new
+  `apps/web/src/app/globals.css` fallback layered *under* the existing
+  per-variant `theme.module.css` hover classes (those only ever covered
+  the design-kit + a handful of retrofitted call sites, never all ~250
+  inline-styled buttons app-wide) — global element selectors lose
+  specificity to any more-specific class, so this is additive, not a
+  conflict. Recipes' Archive/Draft toggle also fixed here: the "selected"
+  state used to change `borderColor` to the accent color, which read as a
+  stuck focus ring after a mouse click — now background-tint only.
+- Recipes popup: added hover/focus prefetch of `getRecipeDetailForPopup`
+  (cached per recipeId in a `useRef` Map, invalidated on save) to mask
+  most of the detail-open round trip — the fetch itself is unchanged by
+  design (lazy per-recipe fetch, not a bug).
+
+### 9.4 Manage Staff module — DONE, merged PR #353, #354, #355 (2026-08-21)
+
+Three PRs, same session, each Founder-directed from a live screenshot +
+follow-up correction rather than a written spec up front:
+
+- **PR #353 (core redesign)**: replaced the old always-expanded table/
+  card list (every row showing a full `LineLinkForm` + `InvitationCell`
+  inline — ~7 columns of controls permanently on screen, the Founder's
+  own "not compact, not beautiful" complaint with a live screenshot) with
+  a compact row (avatar-initial circle, name, meta, 3 read-only summary
+  badges: status/LINE-linked/access) that opens a detail popup on click —
+  same list↔detail-swap-inside-one-`Modal` shape §9.2 established for
+  Recipes. No lazy fetch needed unlike Recipes:
+  `WorkforceStaffManageEntry` already carries every field client-side, so
+  the detail view just looks the row up by id from the already-loaded
+  array. Deactivate/Reactivate moved into a `•••` `ActionsMenu` (reused
+  from Inventory); Delete permanently stayed inside the detail popup via
+  the existing, tested `StaffForm` delete flow.
+- **PR #354 (polish, same-day Founder follow-up)**: removed the row `•••`
+  menu entirely — Founder's own words, "everything will be in the popup
+  anyway" — Deactivate/Reactivate moved *again*, this time into the
+  detail popup itself. Widened the popup to match Recipes'
+  `min(1100px, 96vw)` (was 720px). Reorganized into one flowing layout:
+  fields (Name, then Family name/Given name side by side, Email, Position
+  — "Employment type" temporarily hidden per Founder direction, kept as a
+  hidden input so an edit-and-save never silently wipes an existing
+  value) → LINE section → account-access actions → danger zone (Delete
+  permanently, then Deactivate/Reactivate, under a red heading) → Save/
+  Cancel at the very bottom. **Reusable pattern**: `StaffForm` now renders
+  ONLY the fields `<form>` (takes a `formId` prop); the actual Save button
+  lives in the parent popup and submits that form via the standard HTML
+  `form="..."` button attribute — needed because `LineLinkForm` is itself
+  a `<form>` and HTML forbids nesting `<form>` elements, so a single
+  visual flow spanning fields + LINE + access + danger-zone + Save cannot
+  be one literal nested-form tree. **Any future popup that needs one
+  visual flow across multiple independent forms/actions should reuse this
+  `formId` + external `form="..."` button pattern, not rediscover it.**
+- **PR #355 (i18n follow-up, same day)**: Founder spotted, live on the
+  EN-toggled popup, that `InvitationCell` (Resend/Recover access/Revoke,
+  Invited/Expired badges) stayed Japanese-only — this was `F4` in
+  `docs/ai/current-task.md`, an intentional-at-the-time Founder scope
+  decision from when the surrounding dashboard was still English-only.
+  That context no longer applies now that the whole popup is bilingual;
+  Founder confirmed localizing it. Fully bilingual now, same `lang` prop +
+  `tManagerDashboard` mechanism as `LineLinkForm`/`StaffForm`.
+  `current-task.md`'s F4 note updated to record the supersession. **This
+  exact pattern — an older "left untranslated because the surrounding UI
+  wasn't bilingual yet" decision going stale once that surrounding UI
+  *is* bilingual — may recur elsewhere in this codebase. Worth a quick
+  grep for other "JA-only per Founder direction" comments if a future
+  session is asked to chase down bilingual-consistency gaps.**
+
+### 9.5 Process notes worth carrying forward
 
 - **`gh pr create` defaults to base `main`**, not the local branch's
   tracked upstream. Every PR in this session (#346–#350) was opened
@@ -479,6 +555,59 @@ mirror their own `lib/preview/*` reference components 1:1.
   merging; standing merge authority used throughout, no PR waited on
   Founder sign-off before merging (only the *content* direction came from
   the Founder, per-message, same as always).
+
+### 9.6 Status as of 2026-08-21 — accepted for v2.1, mission paused here
+
+**Founder direction, verbatim intent: "пока это принимаем для 2.1"
+("for now, we accept this for [Cafe] 2.1")** — the module-by-module
+redesign (Entry-points, Recipes, Inventory, Manage Staff — §9.1–§9.4, 8
+PRs total: #346–#350, #352, #353, #354, #355, all merged to `dev`, all
+live-QA'd on their own PR preview before merge) is accepted as sufficient
+for Cafe v2.1 at this point. This is the natural pause point for a fresh
+session to resume from.
+
+**What this does and does NOT mean**:
+- It does NOT mean the mission's original 13 Work Packages (§4) are all
+  done — WP-13 (shift-preference deadline/reminder) is still explicitly
+  **deferred**, unchanged from its original YELLOW-tier scope note (schema
+  change, needs its own extra review + Founder sign-off on open design
+  questions before starting). WP-1–12 were already merged before this
+  module-by-module redesign phase even started (§4 table, all "MERGED").
+- It does NOT mean Staff surface's own follow-up pass (§3, "separate
+  future mission") is authorized to start.
+- It does NOT itself declare "Cafe v2.1 is formally closed" — that is a
+  distinct, larger claim tracked in `docs/ai/current-task.md` §2.3/§2.4/§5
+  (Cafe Commercial Launch Readiness gate), which this mission's
+  module-by-module redesign was one input into (the "visual/UX
+  reconciliation of the canonical surface" item under §2.4 step 1) but
+  does not by itself resolve. A fresh session should not assume v2.1
+  closure or Platform Foundation start from this file alone — check
+  `docs/ai/current-task.md` fresh, per that file's own discipline.
+- It DOES mean: no further module redesign (Inventory/Manage-staff/
+  Recipes/Entry-points) work is pre-authorized right now. If the Founder
+  opens a new chat and says "what's next" without further context, the
+  honest answer is "nothing in this mission is pre-authorized to start —
+  ask what they want next" (could be: more polish on an already-redesigned
+  module if they spot something live, the deferred WP-13, the Staff
+  surface follow-up, or something outside this mission entirely like
+  Platform Foundation). Do not guess and start implementing.
+
+**Recurring pattern worth knowing before touching this popup family
+again** (Manager `Modal`-based popups: Recipes/Inventory/Manage-staff):
+Founder's real-world QA process for this whole mission was consistently
+"live screenshot of the actual popup + a short correction in chat," not a
+written spec up front, across all three modules and every follow-up PR
+(§9.2–§9.4). Expect the same shape for any future polish request on these
+popups — ask for a screenshot/description rather than guessing the target
+visual from the code alone if anything is ambiguous, same as every WP in
+this mission already did.
+
+**Verification state**: every PR above passed the full house gate
+(`pnpm -F web typecheck && pnpm -F web lint && pnpm -F web test && pnpm
+-F web build`, all green) and got live Preview QA via chrome-devtools MCP
+against that PR's own Vercel deployment before merge — not just against
+the shared `preview.oruwa.jp` reference. No known regression, no P0/P1
+open from this work as of this pause point.
 
 ---
 
