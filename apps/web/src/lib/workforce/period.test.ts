@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWeekOffsetWindow, getWeekPeriod } from './period.js';
+import { getWeekOffsetWindow, getWeekPeriod, weekOffsetForWorkDate } from './period.js';
 
 const TZ = 'Asia/Tokyo';
 
@@ -69,4 +69,18 @@ test('getWeekOffsetWindow covers exactly every week exposed by a bounded navigat
 test('getWeekOffsetWindow rejects a reversed or non-integer window', () => {
   assert.throws(() => getWeekOffsetWindow('2026-08-05T00:00:00.000Z', TZ, 2, 1), RangeError);
   assert.throws(() => getWeekOffsetWindow('2026-08-05T00:00:00.000Z', TZ, -0.5, 1), RangeError);
+});
+
+test('weekOffsetForWorkDate returns 0 for a date in the same week as today', () => {
+  assert.equal(weekOffsetForWorkDate('2026-08-05', '2026-08-03'), 0);
+  assert.equal(weekOffsetForWorkDate('2026-08-03', '2026-08-09'), 0);
+});
+
+test('weekOffsetForWorkDate returns a positive offset for a future week', () => {
+  assert.equal(weekOffsetForWorkDate('2026-08-05', '2026-08-12'), 1);
+  assert.equal(weekOffsetForWorkDate('2026-08-05', '2026-08-24'), 3);
+});
+
+test('weekOffsetForWorkDate returns a negative offset for a past week', () => {
+  assert.equal(weekOffsetForWorkDate('2026-08-05', '2026-07-27'), -1);
 });

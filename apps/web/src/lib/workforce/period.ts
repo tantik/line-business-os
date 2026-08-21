@@ -8,10 +8,24 @@ import { addIsoDays, utcIsoToLocalDateTime } from './timezone';
  * = Saturday), matching `auto-distribute.ts`'s `weekdayOfIsoDate`.
  */
 
-function mondayOf(workDate: string): string {
+export function mondayOf(workDate: string): string {
   const weekday = new Date(`${workDate}T00:00:00.000Z`).getUTCDay();
   const daysSinceMonday = weekday === 0 ? 6 : weekday - 1;
   return addIsoDays(workDate, -daysSinceMonday);
+}
+
+/**
+ * How many whole weeks (`weekOffset`, same convention as `getWeekPeriod`)
+ * separate the week containing `targetWorkDate` from the week containing
+ * `todayWorkDate` -- lets a Manager Attention "View shift" action compute the
+ * `?weekOffset=` a schedule conflict actually lives in, instead of the
+ * Manager having to manually page through weeks to find it.
+ */
+export function weekOffsetForWorkDate(todayWorkDate: string, targetWorkDate: string): number {
+  const todayMonday = mondayOf(todayWorkDate);
+  const targetMonday = mondayOf(targetWorkDate);
+  const diffDays = (Date.parse(`${targetMonday}T00:00:00.000Z`) - Date.parse(`${todayMonday}T00:00:00.000Z`)) / (24 * 60 * 60 * 1000);
+  return Math.round(diffDays / 7);
 }
 
 /**

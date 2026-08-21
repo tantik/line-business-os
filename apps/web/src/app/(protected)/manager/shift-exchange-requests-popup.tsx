@@ -76,71 +76,71 @@ export function ShiftExchangeRequestsPopup({
       {pendingExchanges.length === 0 ? (
         <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingExchanges')}</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequest')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingExchanges.map((e) => {
-                const deciding = pendingAction === `decide-exchange-${e.exchangeId}`;
-                const shift = exchangeAssignmentById.get(e.shiftId);
-                const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-                const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
-                const replacementName = e.replacementEmployeeId ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId : null;
-                const requestedType = shiftTypes?.find((ty) => ty.shiftTypeId === e.requestedShiftTypeId);
-                const requestLabel =
-                  e.requestKind === 'cancel' ? t('requestKindCancellation') : e.requestKind === 'change' ? t('requestKindChange') : t('requestKindExchange');
-                // Mirrors `PreviewShiftExchangeManagerPanel`'s `canApprove`: an
-                // 'exchange' request has nothing to approve into until a
-                // colleague has accepted it (replacementEmployeeId set); the
-                // RPC itself also rejects an approve without one.
-                const canApprove = e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId);
-                return (
-                  <tr key={e.exchangeId}>
-                    <td style={tableCell}>{requesterName}</td>
-                    <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
-                    <td style={tableCell}>
-                      {requestLabel}
-                      {e.requestKind === 'exchange' ? ` → ${replacementName ?? t('awaitingCandidate')}` : ''}
-                      {e.requestKind === 'change' && requestedType
-                        ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})`
-                        : ''}
-                    </td>
-                    <td style={tableCell}>{e.reason}</td>
-                    <td style={tableCell}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          className={hoverStyles.buttonPrimary}
-                          style={isPending || !canApprove ? buttonDisabled : buttonPrimary}
-                          disabled={isPending || !canApprove}
-                          onClick={() => onDecide(e.exchangeId, 'approved')}
-                        >
-                          {deciding ? t('saving') : t('approve')}
-                        </button>
-                        <button
-                          type="button"
-                          className={hoverStyles.buttonSecondary}
-                          style={isPending ? buttonDisabled : buttonSecondary}
-                          disabled={isPending}
-                          onClick={() => onDecide(e.exchangeId, 'rejected')}
-                        >
-                          {deciding ? t('saving') : t('reject')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+          {pendingExchanges.map((e) => {
+            const deciding = pendingAction === `decide-exchange-${e.exchangeId}`;
+            const shift = exchangeAssignmentById.get(e.shiftId);
+            const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
+            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
+            const replacementName = e.replacementEmployeeId ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId : null;
+            const requestedType = shiftTypes?.find((ty) => ty.shiftTypeId === e.requestedShiftTypeId);
+            const requestLabel =
+              e.requestKind === 'cancel' ? t('requestKindCancellation') : e.requestKind === 'change' ? t('requestKindChange') : t('requestKindExchange');
+            // Mirrors `PreviewShiftExchangeManagerPanel`'s `canApprove`: an
+            // 'exchange' request has nothing to approve into until a
+            // colleague has accepted it (replacementEmployeeId set); the
+            // RPC itself also rejects an approve without one.
+            const canApprove = e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId);
+            return (
+              <div key={e.exchangeId} style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{requesterName}</div>
+                    <div style={mutedText}>{shiftLocal ? `${shiftLocal.workDate} · ${shiftLocal.localTime}` : '-'}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonPrimary}
+                      style={isPending || !canApprove ? buttonDisabled : buttonPrimary}
+                      disabled={isPending || !canApprove}
+                      onClick={() => onDecide(e.exchangeId, 'approved')}
+                    >
+                      {deciding ? t('saving') : t('approve')}
+                    </button>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonSecondary}
+                      style={isPending ? buttonDisabled : buttonSecondary}
+                      disabled={isPending}
+                      onClick={() => onDecide(e.exchangeId, 'rejected')}
+                    >
+                      {deciding ? t('saving') : t('reject')}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ ...mutedText, fontSize: 12 }}>{t('colRequest')}</div>
+                  <div style={{ fontSize: 14 }}>
+                    {requestLabel}
+                    {e.requestKind === 'exchange' ? ` → ${replacementName ?? t('awaitingCandidate')}` : ''}
+                    {e.requestKind === 'change' && requestedType
+                      ? ` → ${shiftTypeDisplayLabel(requestedType)} (${requestedType.startsAtLocal.slice(0, 5)}–${requestedType.endsAtLocal.slice(0, 5)})`
+                      : ''}
+                  </div>
+                </div>
+                {e.reason ? (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ ...mutedText, fontSize: 12 }}>{t('colReason')}</div>
+                    <div style={{ fontSize: 14 }}>{e.reason}</div>
+                  </div>
+                ) : null}
+                {!canApprove ? (
+                  <div style={{ marginTop: 8, fontSize: 13, color: colors.warning }}>{t('attentionReplacementRequiredReason')}</div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
 

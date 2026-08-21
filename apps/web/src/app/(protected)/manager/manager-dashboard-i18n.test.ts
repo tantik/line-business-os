@@ -4,6 +4,8 @@ import {
   attentionCorrectionLabel,
   attentionExchangeLabel,
   attentionInventoryLabel,
+  attentionInventoryShortageSummary,
+  attentionSummarySubtitle,
   autoDistributionCreatedMessage,
   breakMinutesValue,
   preferencesHeadingValue,
@@ -62,6 +64,10 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'backToWorkforce',
   'staffActivated', 'staffDeactivated', 'shiftUnassigned', 'correctionApproved', 'correctionRejected',
   'exchangeApproved', 'exchangeRejected', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
+  'attentionViewAll', 'attentionShowLess', 'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
+  'attentionItemConflictTitle', 'attentionItemInventoryTitle', 'attentionWaitingDecision', 'attentionConflictSummary',
+  'attentionReplacementNotSelected', 'attentionReplacementRequiredReason', 'attentionViewShift', 'attentionOpenInventory',
+  'attentionTargetWord',
 ];
 
 test('tManagerDashboard returns a non-empty string for every key in both languages', () => {
@@ -121,4 +127,20 @@ test('staffSummaryLabel interpolates both counts and differs by language', () =>
   assert.match(staffSummaryLabel.en(4, 5), /4/);
   assert.match(staffSummaryLabel.en(4, 5), /5/);
   assert.notEqual(staffSummaryLabel.en(4, 5), staffSummaryLabel.ja(4, 5));
+});
+
+test('attentionSummarySubtitle shows both halves when both counts are positive, and differs by language', () => {
+  assert.match(attentionSummarySubtitle.en(3, 6), /3/);
+  assert.match(attentionSummarySubtitle.en(3, 6), /6/);
+  assert.notEqual(attentionSummarySubtitle.en(3, 6), attentionSummarySubtitle.ja(3, 6));
+});
+
+test('attentionSummarySubtitle omits a zero half instead of claiming "0 warnings"', () => {
+  assert.doesNotMatch(attentionSummarySubtitle.en(3, 0), /warning/);
+  assert.doesNotMatch(attentionSummarySubtitle.en(0, 5), /action/);
+});
+
+test('attentionInventoryShortageSummary interpolates the count and differs by language', () => {
+  assert.match(attentionInventoryShortageSummary.en(3), /3/);
+  assert.notEqual(attentionInventoryShortageSummary.en(3), attentionInventoryShortageSummary.ja(3));
 });
