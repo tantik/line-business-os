@@ -34,11 +34,14 @@ test('StaffForm uses the existing Manager useLang/tManagerDashboard mechanism, n
   assert.doesNotMatch(SOURCE, /LangProvider/, 'StaffForm must not introduce its own LangProvider');
 });
 
+// 2026-08-21 polish pass: "Employment type" is temporarily removed from the
+// visible form (Founder direction) -- it survives only as a hidden input so
+// an edit-and-save never silently wipes an existing value, so
+// 'fieldEmploymentType' is deliberately not rendered via t(...) here
+// anymore. Save/Cancel also moved out of this form into the parent popup's
+// own bottom action bar (see staff-form.tsx's module doc comment).
 test('StaffForm renders every system/chrome label through t(...), not a hardcoded English literal', () => {
-  for (const key of [
-    'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition', 'fieldEmploymentType',
-    'saving', 'saveChanges', 'addStaffSubmit', 'cancel',
-  ]) {
+  for (const key of ['fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition']) {
     assert.ok(new RegExp(`t\\('${key}'\\)`).test(SOURCE), `StaffForm must render the '${key}' key via t(...)`);
   }
   for (const hardcoded of ['>Name<', '>Email<', '>Cancel<', '>Save changes<', '>Add staff<', "'Saving...'"]) {

@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceEmployeeInvitation } from '@/lib/workforce/invitations';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { ActionsMenu, ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { LoadingButton } from '@/components/ui/loading';
 import type { BadgeTone } from '@/lib/ui/theme';
-import { badgeStyle, buttonPrimary, colors, input, mutedText } from '@/lib/ui/theme';
+import { alertDanger, badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
+import { buttonDanger } from '../_ui/workforce-theme';
+import { deleteEmployee } from '@/lib/workforce/staff-actions';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
-import { StaffForm } from './staff-form';
+import { StaffForm, localizedFormError } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { InvitationCell } from './invitation-cell';
 
@@ -87,16 +90,11 @@ function StaffAvatar({ name }: { name: string }) {
  * needs, so `detail` view just looks the row up by id from the already-
  * loaded `staff` array.
  *
- * Deactivate/Reactivate moved off the row (previously an always-visible
- * danger-colored button) into a `•••` `ActionsMenu`, matching the Inventory
- * module's row-actions spec: frequent/central action (here: opening the
- * detail popup, which owns the actual identity/LINE/access edits) stays a
- * direct row interaction; rare/binary-state actions go behind `•••`.
- * "Delete permanently" stays inside the detail popup only (via the
- * existing, tested `StaffForm`'s own delete flow, including its
- * `hasProtectedHistory` pre-emptive hint) -- not duplicated into the row
- * menu, since it already has real context there that a bare row action
- * would lack.
+ * 2026-08-21 follow-up polish (same session): the row itself carries no
+ * actions at all now, not even a `•••` -- every row click opens the detail
+ * popup, and Deactivate/Reactivate (plus the existing Delete-permanently,
+ * via `StaffForm`) live there instead. Popup width matched to Recipes'
+ * `min(1100px, 96vw)` (was a narrower `720px` in the first pass).
  */
 export function ManageStaffPopup({
   open,
@@ -118,12 +116,48 @@ export function ManageStaffPopup({
   const [view, setView] = useState<View>({ kind: 'list' });
   const [confirmToggleActiveId, setConfirmToggleActiveId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Lifted from `StaffForm`: the actual Save button now lives in this
+  // popup's own bottom action bar (see the `formId`/`form=` doc comment on
+  // `StaffFormProps`), so it needs to know the fields-form's pending/error
+  // state to render correctly.
+  const [formPending, setFormPending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  // Delete-permanently, moved out of `StaffForm` into this popup's danger
+  // zone (see the module doc comment).
+  const [isDeletePending, startDeleteTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const filteredStaff = staff ? filterStaffEntries(staff, { status: statusFilter, query }) : [];
   const detailStaff = view.kind === 'detail' ? (staff ?? []).find((s) => s.staffId === view.staffId) ?? null : null;
 
+  function openDetail(staffId: string) {
+    setFormError(null);
+    setFormPending(false);
+    setDeleteError(null);
+    setConfirmDeleteOpen(false);
+    setView({ kind: 'detail', staffId });
+  }
+
   function backToList() {
     setView({ kind: 'list' });
+  }
+
+  function handleDelete(staffId: string) {
+    setDeleteError(null);
+    const formData = new FormData();
+    formData.set('staffId', staffId);
+    startDeleteTransition(async () => {
+      const result = await deleteEmployee(formData);
+      if (result.status === 'success') {
+        setConfirmDeleteOpen(false);
+        backToList();
+        onChange();
+      } else {
+        setConfirmDeleteOpen(false);
+        setDeleteError(result.status === 'blocked_by_history' ? t('staffBlockedByHistory') : localizedFormError(result, t));
+      }
+    });
   }
 
   // Same shape as the Recipes popup's own `handleClose`: the Modal's single
@@ -145,18 +179,29 @@ export function ManageStaffPopup({
       onClose={handleModalClose}
       title={title}
       titleAdornment={view.kind === 'list' ? <HelpIconButton ariaLabel={t('staffPopupHelpAriaLabel')} onClick={() => setHelpOpen(true)} /> : undefined}
-      width="min(720px, 96vw)"
+      width="min(1100px, 96vw)"
       closeLabel={t('cancel')}
     >
       {view.kind === 'add' ? (
-        <StaffForm
-          locationId={locationId}
-          onSuccess={() => {
-            backToList();
-            onChange();
-          }}
-          onCancel={backToList}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <StaffForm locationId={locationId} formId="staff-form-new" onSuccess={() => { backToList(); onChange(); }} onPendingChange={setFormPending} onErrorChange={setFormError} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <LoadingButton
+              type="submit"
+              form="staff-form-new"
+              pending={formPending}
+              pendingLabel={t('saving')}
+              style={buttonPrimary}
+              pendingStyle={buttonDisabled}
+              className={hoverStyles.buttonPrimary}
+            >
+              {t('addStaffSubmit')}
+            </LoadingButton>
+            <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={backToList} disabled={formPending}>
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
       ) : view.kind === 'detail' && detailStaff ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -176,11 +221,13 @@ export function ManageStaffPopup({
           <StaffForm
             locationId={locationId}
             employee={detailStaff}
+            formId={`staff-form-${detailStaff.staffId}`}
             onSuccess={() => {
               backToList();
               onChange();
             }}
-            onCancel={backToList}
+            onPendingChange={setFormPending}
+            onErrorChange={setFormError}
           />
 
           <section>
@@ -202,6 +249,80 @@ export function ManageStaffPopup({
               onChange={onChange}
             />
           </section>
+
+          <section style={{ paddingTop: 4, borderTop: `1px solid ${colors.border}` }}>
+            <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
+            {deleteError ? <div style={{ ...alertDanger, marginBottom: 8 }}>{deleteError}</div> : null}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <LoadingButton
+                type="button"
+                pending={isDeletePending}
+                pendingLabel={t('deletingStaff')}
+                style={buttonDanger}
+                pendingStyle={buttonDisabled}
+                className={hoverStyles.buttonDanger}
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                {t('deleteStaffButton')}
+              </LoadingButton>
+              {detailStaff.isActive ? (
+                <button
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  style={pendingAction === `active-${detailStaff.staffId}` ? buttonDisabled : buttonSecondary}
+                  disabled={isPending}
+                  onClick={() => setConfirmToggleActiveId(detailStaff.staffId)}
+                >
+                  {pendingAction === `active-${detailStaff.staffId}` ? t('saving') : t('deactivate')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  style={pendingAction === `active-${detailStaff.staffId}` ? buttonDisabled : buttonSecondary}
+                  disabled={isPending}
+                  onClick={() => onSetActive(detailStaff.staffId, true)}
+                >
+                  {pendingAction === `active-${detailStaff.staffId}` ? t('saving') : t('activate')}
+                </button>
+              )}
+            </div>
+            {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard produces on an actual blocked attempt, so the two never disagree. */}
+            {detailStaff.hasProtectedHistory ? <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('staffBlockedByHistory')}</p> : null}
+          </section>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+            {formError ? <div style={alertDanger}>{formError}</div> : null}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <LoadingButton
+                type="submit"
+                form={`staff-form-${detailStaff.staffId}`}
+                pending={formPending}
+                pendingLabel={t('saving')}
+                style={buttonPrimary}
+                pendingStyle={buttonDisabled}
+                className={hoverStyles.buttonPrimary}
+              >
+                {t('saveChanges')}
+              </LoadingButton>
+              <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={backToList} disabled={formPending}>
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+
+          <ConfirmDialog
+            open={confirmDeleteOpen}
+            title={t('confirmDeleteStaffTitle')}
+            confirmLabel={t('deleteStaffButton')}
+            cancelLabel={t('cancel')}
+            pending={isDeletePending}
+            danger
+            onCancel={() => setConfirmDeleteOpen(false)}
+            onConfirm={() => handleDelete(detailStaff.staffId)}
+          >
+            {t('confirmDeleteStaffBody')}
+          </ConfirmDialog>
         </div>
       ) : (
         <>
@@ -258,7 +379,6 @@ export function ManageStaffPopup({
           ) : (
             <ul style={{ margin: '16px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
               {filteredStaff.map((s) => {
-                const togglingActive = pendingAction === `active-${s.staffId}`;
                 const meta = [s.positionLabel, s.employmentType].filter(Boolean).join(' · ');
                 const access = accessBadge(s.hasAccountAccess, latestInvitationByEmployeeId.get(s.staffId) ?? null, t);
                 return (
@@ -266,11 +386,11 @@ export function ManageStaffPopup({
                     key={s.staffId}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setView({ kind: 'detail', staffId: s.staffId })}
+                    onClick={() => openDetail(s.staffId)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        setView({ kind: 'detail', staffId: s.staffId });
+                        openDetail(s.staffId);
                       }
                     }}
                     style={{
@@ -300,24 +420,6 @@ export function ManageStaffPopup({
                         {isLineLinkedByEmployeeId.get(s.staffId) ? t('lineLinkedShort') : t('lineNotLinkedShort')}
                       </span>
                       <span style={badgeStyle(access.tone)}>{access.label}</span>
-                    </div>
-                    <div onClick={(event) => event.stopPropagation()}>
-                      <ActionsMenu
-                        triggerLabel={`${t('colActions')} — ${s.name}`}
-                        items={[
-                          s.isActive
-                            ? {
-                                label: togglingActive ? t('saving') : t('deactivate'),
-                                onClick: () => setConfirmToggleActiveId(s.staffId),
-                                disabled: isPending,
-                              }
-                            : {
-                                label: togglingActive ? t('saving') : t('activate'),
-                                onClick: () => onSetActive(s.staffId, true),
-                                disabled: isPending,
-                              },
-                        ]}
-                      />
                     </div>
                   </li>
                 );
