@@ -1,0 +1,36 @@
+/*
+ * Shared "table below 768px, cards above" responsive pattern -- promoted out
+ * of `manager-dashboard.module.css` (originally added for the Cafe v2.1
+ * hardening mobile-parity mission, Manage Staff + Weekly Schedule) so every
+ * module that needs the same desktop-table/mobile-card split reuses one
+ * canonical class pair instead of each carrying its own copy (ORUWA design
+ * system charter, 2026-08-21: consolidate repeated patterns to one
+ * primitive). Both variants render on the server and only one is ever
+ * visible per viewport, so there is no layout-shift/hydration flash the way
+ * a JS matchMedia hook would cause.
+ */
+.tableView {
+  display: block;
+}
+
+.cardView {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .tableView {
+    display: none;
+  }
+
+  /*
+   * `flex`, not `block`: every .cardView call site's own inline `style`
+   * only sets flexDirection/gap, not display. An inline `display: 'flex'`
+   * on those call sites would override this rule's own `display: none`
+   * above 767px too (inline style always wins over a CSS Module class),
+   * silently double-rendering the table AND the card list on desktop --
+   * caught live during WP A4 Preview QA, 2026-08-18.
+   */
+  .cardView {
+    display: flex;
+  }
+}

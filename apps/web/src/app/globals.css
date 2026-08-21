@@ -1,0 +1,47 @@
+/*
+ * App-wide interaction-state safety net (ORUWA design system charter,
+ * 2026-08-21: "every button must have hover, nothing should look stuck
+ * after a click"). `theme.module.css`'s per-variant hover/focus rules
+ * (`.buttonPrimary`, `.buttonSecondary`, `.buttonDanger`, `.iconButton`)
+ * are the precise, correct treatment but only apply where a component
+ * explicitly imports that CSS Module and adds the matching `className` --
+ * true today for the shared design-kit (Modal/ConfirmDialog/ActionsMenu/
+ * HelpIconButton) and a growing set of retrofitted call sites, but not yet
+ * for every one of the ~250 inline-styled `<button>` elements across the
+ * app (tracked as a deferred mechanical retrofit, see theme.module.css's
+ * own doc comment).
+ *
+ * These plain-element rules are a global fallback, not a replacement: a
+ * `.buttonPrimary:hover` etc. class selector has higher specificity than
+ * the bare `button:hover` here, so any button that already carries the
+ * precise per-variant class keeps using that styling untouched. Every
+ * other button in the app -- including ones this pass never touched --
+ * gets a consistent, subtle hover/pressed/focus treatment instead of none
+ * at all, without a large blind file-by-file JSX retrofit.
+ */
+button:not(:disabled) {
+  transition: filter 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.92);
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #4f7a52;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none !important;
+  }
+}

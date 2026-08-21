@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
@@ -8,9 +8,21 @@ import { deleteInventoryItemAction, setInventoryItemActiveAction } from '@/lib/i
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { ConfirmDialog } from '@/components/shared/design-kit';
-import { backLink, badgeStyle, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
-import { buttonDanger } from '../_ui/workforce-theme';
+import { ActionsMenu, ConfirmDialog, Modal } from '@/components/shared/design-kit';
+import {
+  backLink,
+  badgeStyle,
+  buttonPrimary,
+  buttonSecondary,
+  card,
+  colors,
+  input,
+  mutedText,
+  tableCell,
+  tableHeaderCell,
+} from '@/lib/ui/theme';
+import hoverStyles from '@/lib/ui/theme.module.css';
+import responsiveTable from '@/lib/ui/responsive-table.module.css';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
 import { describeInventoryWriteError } from './error-copy';
@@ -42,31 +54,27 @@ export interface InventoryDashboardClientProps {
 }
 
 type T = (key: Parameters<typeof tInventoryDashboard>[1]) => string;
+type SortKey = 'name' | 'shortage';
 
 function StatusBadge({ item, t }: { item: InventoryItemStatus; t: T }) {
+  if (!item.isActive) {
+    return <span style={badgeStyle('inactive')}>{t('statusInactiveLabel')}</span>;
+  }
   if (item.status === 'unknown') {
     return <span style={badgeStyle('neutral')}>{t('statusNotCounted')}</span>;
   }
   if (item.status === 'shortage') {
-    return (
-      <span style={badgeStyle('warning')} aria-label={`${t('statusShortageLabel')} ${item.shortageQuantity} ${item.unit}`}>
-        ⚠ {t('statusShortageLabel')} {item.shortageQuantity} {item.unit}
-      </span>
-    );
+    return <span style={badgeStyle('warning')}>⚠ {t('statusShortageBadge')}</span>;
   }
   return <span style={badgeStyle('active')}>{t('statusSufficient')}</span>;
 }
 
-function ItemRow({
-  item,
-  locationId,
-  locationTimezone,
-  canManage,
-  staffNameById,
-  onEdit,
-  lang,
-  t,
-}: {
+function formatLastUpdated(item: InventoryItemStatus, lang: ReturnType<typeof useLang>['lang'], locationTimezone: string) {
+  if (!item.countedAt) return null;
+  return new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone });
+}
+
+interface RowProps {
   item: InventoryItemStatus;
   locationId: string;
   locationTimezone: string;
@@ -75,12 +83,14 @@ function ItemRow({
   onEdit: () => void;
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
-}) {
-  const router = useRouter();
+  onChanged: () => void;
+}
+
+function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>) {
   const [isPending, setIsPending] = useState(false);
   const [confirmToggleActive, setConfirmToggleActive] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
 
   function setActive(nextActive: boolean) {
     setIsPending(true);
@@ -89,12 +99,12 @@ function ItemRow({
     formData.set('isActive', nextActive ? 'true' : 'false');
     setInventoryItemActiveAction(formData).finally(() => {
       setIsPending(false);
-      router.refresh();
+      onChanged();
     });
   }
 
   function handleDelete() {
-    setDeleteError(null);
+    setRowError(null);
     setIsPending(true);
     const formData = new FormData();
     formData.set('itemId', item.itemId);
@@ -102,60 +112,137 @@ function ItemRow({
       setIsPending(false);
       setConfirmDeleteOpen(false);
       if (result.status === 'success') {
-        router.refresh();
+        onChanged();
       } else {
-        setDeleteError(describeInventoryWriteError(result));
+        setRowError(describeInventoryWriteError(result));
       }
     });
   }
 
+  return {
+    isPending,
+    confirmToggleActive,
+    setConfirmToggleActive,
+    confirmDeleteOpen,
+    setConfirmDeleteOpen,
+    rowError,
+    setActive,
+    handleDelete,
+  };
+}
+
+function TableRow({ item, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+  const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
+    useRowActions({ item, onChanged });
+  const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
+  const belowReorder = item.isActive && item.status === 'shortage';
+
   return (
-    <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 16 }}>{item.name}</h3>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
-            {t('targetLabel')} {item.requiredQuantity} {item.unit} · {t('reorderAtLabel')} {item.reorderPoint} {item.unit} ·{' '}
-            {t('currentLabel')} {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
-          </p>
-          {item.countedAt ? (
-            <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
-              {t('lastUpdatedLabel')}{' '}
-              {new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone })}
-              {canManage && item.countedByStaffId
-                ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}`
-                : ''}
-            </p>
-          ) : null}
-          {deleteError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{deleteError}</p> : null}
-        </div>
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-          <StatusBadge item={item} t={t} />
-          {canManage ? (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <button type="button" style={buttonSecondary} onClick={onEdit}>
-                {t('editButton')}
-              </button>
-              {item.isActive ? (
-                <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setConfirmToggleActive(true)}>
-                  {t('deactivateButton')}
-                </button>
-              ) : (
-                <button type="button" style={buttonSecondary} disabled={isPending} onClick={() => setActive(true)}>
-                  {t('reactivateButton')}
-                </button>
-              )}
-              <button type="button" style={buttonDanger} disabled={isPending} onClick={() => setConfirmDeleteOpen(true)}>
-                {t('deleteButton')}
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-      {item.isActive ? (
-        <CountForm locationId={locationId} itemId={item.itemId} unit={item.unit} lang={lang} onSuccess={() => router.refresh()} />
+    <tr style={{ opacity: item.isActive ? 1 : 0.6 }}>
+      {/* `border` on a plain `<tr>` doesn't paint under `border-collapse`; the shortage marker has to live on the cell itself. */}
+      <td style={{ ...tableCell, borderLeft: belowReorder ? `3px solid ${colors.danger}` : '3px solid transparent' }}>
+        <div style={{ fontWeight: 600 }}>{item.name}</div>
+        {lastUpdated ? (
+          <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>
+            {t('lastUpdatedLabel')} {lastUpdated}
+            {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
+          </div>
+        ) : null}
+        {rowError ? <div style={{ marginTop: 4, fontSize: 12, color: colors.dangerText }}>{rowError}</div> : null}
+      </td>
+      <td style={tableCell}>
+        {item.requiredQuantity} {item.unit}
+      </td>
+      <td style={tableCell}>
+        {item.reorderPoint} {item.unit}
+      </td>
+      <td style={{ ...tableCell, color: belowReorder ? colors.dangerText : colors.textPrimary, fontWeight: belowReorder ? 600 : 400 }}>
+        {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+      </td>
+      <td style={tableCell}>
+        {item.isActive ? (
+          <CountForm
+            locationId={locationId}
+            itemId={item.itemId}
+            itemName={item.name}
+            unit={item.unit}
+            initialValue={item.actualQuantity}
+            lang={lang}
+            onSuccess={onChanged}
+          />
+        ) : (
+          <span style={mutedText}>—</span>
+        )}
+      </td>
+      <td style={tableCell}>
+        <StatusBadge item={item} t={t} />
+      </td>
+      <td style={{ ...tableCell, color: belowReorder ? colors.dangerText : colors.textMuted }}>
+        {belowReorder ? `−${item.shortageQuantity} ${item.unit}` : '—'}
+      </td>
+      {canManage ? (
+        <td style={tableCell}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              type="button"
+              aria-label={`${t('editButton')} ${item.name}`}
+              className={hoverStyles.iconButton}
+              style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+              onClick={onEdit}
+            >
+              ✎
+            </button>
+            <ActionsMenu
+              triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+              items={[
+                item.isActive
+                  ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
+                  : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
+                { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+              ]}
+            />
+          </div>
+        </td>
       ) : null}
 
+      <RowConfirmDialogs
+        item={item}
+        t={t}
+        isPending={isPending}
+        confirmToggleActive={confirmToggleActive}
+        setConfirmToggleActive={setConfirmToggleActive}
+        confirmDeleteOpen={confirmDeleteOpen}
+        setConfirmDeleteOpen={setConfirmDeleteOpen}
+        setActive={setActive}
+        handleDelete={handleDelete}
+      />
+    </tr>
+  );
+}
+
+function RowConfirmDialogs({
+  item,
+  t,
+  isPending,
+  confirmToggleActive,
+  setConfirmToggleActive,
+  confirmDeleteOpen,
+  setConfirmDeleteOpen,
+  setActive,
+  handleDelete,
+}: {
+  item: InventoryItemStatus;
+  t: T;
+  isPending: boolean;
+  confirmToggleActive: boolean;
+  setConfirmToggleActive: (v: boolean) => void;
+  confirmDeleteOpen: boolean;
+  setConfirmDeleteOpen: (v: boolean) => void;
+  setActive: (v: boolean) => void;
+  handleDelete: () => void;
+}) {
+  return (
+    <>
       <ConfirmDialog
         open={confirmToggleActive}
         title={t('confirmDeactivateItemTitle')}
@@ -184,6 +271,84 @@ function ItemRow({
       >
         {t('confirmDeleteItemBody')}
       </ConfirmDialog>
+    </>
+  );
+}
+
+function ItemCard({ item, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+  const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
+    useRowActions({ item, onChanged });
+  const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
+  const belowReorder = item.isActive && item.status === 'shortage';
+
+  return (
+    <div style={{ ...card, marginTop: 0, opacity: item.isActive ? 1 : 0.6, borderLeft: belowReorder ? `3px solid ${colors.danger}` : card.border }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16 }}>{item.name}</h3>
+          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
+            {t('targetLabel')} {item.requiredQuantity} {item.unit} · {t('reorderAtLabel')} {item.reorderPoint} {item.unit} ·{' '}
+            {t('currentLabel')} {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+          </p>
+          {lastUpdated ? (
+            <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
+              {t('lastUpdatedLabel')} {lastUpdated}
+              {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
+            </p>
+          ) : null}
+          {rowError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{rowError}</p> : null}
+        </div>
+        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+          <StatusBadge item={item} t={t} />
+          {canManage ? (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                aria-label={`${t('editButton')} ${item.name}`}
+                className={hoverStyles.iconButton}
+                style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+                onClick={onEdit}
+              >
+                ✎
+              </button>
+              <ActionsMenu
+                triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+                items={[
+                  item.isActive
+                    ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
+                    : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
+                  { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                ]}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {item.isActive ? (
+        <div style={{ marginTop: 10 }}>
+          <CountForm
+            locationId={locationId}
+            itemId={item.itemId}
+            itemName={item.name}
+            unit={item.unit}
+            initialValue={item.actualQuantity}
+            lang={lang}
+            onSuccess={onChanged}
+          />
+        </div>
+      ) : null}
+
+      <RowConfirmDialogs
+        item={item}
+        t={t}
+        isPending={isPending}
+        confirmToggleActive={confirmToggleActive}
+        setConfirmToggleActive={setConfirmToggleActive}
+        confirmDeleteOpen={confirmDeleteOpen}
+        setConfirmDeleteOpen={setConfirmDeleteOpen}
+        setActive={setActive}
+        handleDelete={handleDelete}
+      />
     </div>
   );
 }
@@ -215,8 +380,12 @@ export function InventoryDashboardBody({
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
   const router = useRouter();
+  // 2026-08-21 redesign: Add/Edit is a real popup (`Modal`), not an inline
+  // section pushing the list down -- matches the Recipes module and the
+  // Founder's explicit "should be a popup, not expand at the top" direction.
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
   const [search, setSearch] = useState('');
   const editTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -227,31 +396,33 @@ export function InventoryDashboardBody({
 
   function closeEditor() {
     setEditing(null);
-    // Restore focus to whichever "Add item"/"Edit" button opened this inline
-    // form -- it isn't a true dialog (no focus trap), but leaving focus on
-    // the just-removed form controls drops it to <body>.
     requestAnimationFrame(() => editTriggerRef.current?.focus());
   }
 
-  // Escape closes the inline Add/Edit item form -- not a true dialog (no
-  // overlay/focus trap), but a keyboard user still expects Escape to back
-  // out of an open form, same as a real dialog would.
-  useEffect(() => {
-    if (!editing) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') closeEditor();
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editing]);
+  function refresh() {
+    router.refresh();
+  }
 
-  const shortageCount = items.filter((i) => i.status === 'shortage').length;
+  const activeItems = items.filter((i) => i.isActive);
+  const shortageCount = activeItems.filter((i) => i.status === 'shortage').length;
+  const okCount = activeItems.filter((i) => i.status !== 'shortage').length;
   const normalizedSearch = search.trim().toLowerCase();
-  const visibleItems = items.filter(
-    (item) =>
-      (statusFilter === 'all' || (statusFilter === 'shortage' ? item.status === 'shortage' : item.status !== 'shortage')) &&
-      (normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch)),
-  );
+  const searchFiltered = items.filter((item) => normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch));
+  const visibleItems = searchFiltered
+    .filter(
+      (item) =>
+        statusFilter === 'all' || (statusFilter === 'shortage' ? item.isActive && item.status === 'shortage' : item.isActive && item.status !== 'shortage'),
+    )
+    .slice()
+    .sort((a, b) => {
+      if (sortKey === 'shortage') {
+        const aShortage = a.isActive && a.status === 'shortage' ? 1 : 0;
+        const bShortage = b.isActive && b.status === 'shortage' ? 1 : 0;
+        if (aShortage !== bShortage) return bShortage - aShortage;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
   const editingItem =
     editing && editing !== 'new'
       ? {
@@ -268,6 +439,8 @@ export function InventoryDashboardBody({
           updatedAt: '',
         }
       : undefined;
+
+  const rowProps = { locationId, locationTimezone, canManage, staffNameById, lang, t, onChanged: refresh };
 
   return (
     <>
@@ -289,89 +462,138 @@ export function InventoryDashboardBody({
         </header>
       ) : null}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: embedded ? 0 : 16 }}>
-        <p style={{ margin: 0, ...mutedText }}>
-          {shortageCount > 0 ? (
-            <span style={badgeStyle('warning')}>
-              {shortageCount} {t('itemsShortage')}
-            </span>
-          ) : (
-            <span style={badgeStyle('active')}>{t('itemsSufficient')}</span>
-          )}
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: embedded ? 0 : 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {(['all', 'shortage', 'ok'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={statusFilter === value}
+              className={hoverStyles.buttonSecondary}
+              style={statusFilter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary}
+              onClick={() => setStatusFilter(value)}
+            >
+              {value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : t('filterOk')}{' '}
+              ({value === 'all' ? items.length : value === 'shortage' ? shortageCount : okCount})
+            </button>
+          ))}
+        </div>
         {canManage ? (
-          <button type="button" style={buttonSecondary} onClick={() => openEditor('new')}>
+          <button type="button" className={hoverStyles.buttonPrimary} style={buttonPrimary} onClick={() => openEditor('new')}>
             {t('addItem')}
           </button>
         ) : null}
       </div>
 
-      {editing ? (
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          style={{ ...input, flex: 1, minWidth: 160, marginTop: 0 }}
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchLabel')}
+        />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, ...mutedText, fontSize: 13 }}>
+          {t('sortLabel')}:
+          <select
+            style={{ ...input, marginTop: 0, width: 'auto', minHeight: 36, padding: '6px 8px' }}
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+          >
+            <option value="name">{t('sortNameAsc')}</option>
+            <option value="shortage">{t('sortShortageFirst')}</option>
+          </select>
+        </label>
+      </div>
+
+      {items.length === 0 ? (
         <section style={card}>
-          <h3 style={{ margin: 0, fontSize: 15 }}>{editing === 'new' ? t('newItemHeading') : `${t('editItemHeading')} ${editingItem?.name}`}</h3>
+          <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
+        </section>
+      ) : visibleItems.length === 0 ? (
+        <section style={card}>
+          <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
+        </section>
+      ) : (
+        <>
+          <div className={responsiveTable.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colItem')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTarget')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReorderAt')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colCurrent')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActualQuantity')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShortage')}</th>
+                  {canManage ? <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map((item) => (
+                  <TableRow key={item.itemId} item={item} onEdit={() => openEditor(item)} {...rowProps} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={responsiveTable.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
+            {visibleItems.map((item) => (
+              <ItemCard key={item.itemId} item={item} onEdit={() => openEditor(item)} {...rowProps} />
+            ))}
+          </div>
+
+          <div
+            style={{
+              ...card,
+              marginTop: 12,
+              display: 'flex',
+              gap: 16,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 13,
+            }}
+          >
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              <span>
+                <strong>{items.length}</strong> <span style={mutedText}>{t('footerTotalItems')}</span>
+              </span>
+              <span>
+                <strong style={{ color: shortageCount > 0 ? colors.dangerText : undefined }}>{shortageCount}</strong>{' '}
+                <span style={mutedText}>{t('footerNeedRestocking')}</span>
+              </span>
+              <span>
+                <strong style={{ color: colors.accent }}>{okCount}</strong> <span style={mutedText}>{t('footerSufficient')}</span>
+              </span>
+            </div>
+            <span style={{ ...mutedText, fontSize: 12 }}>{t('footerTip')}</span>
+          </div>
+        </>
+      )}
+
+      <Modal
+        open={editing !== null}
+        onClose={closeEditor}
+        title={editing === 'new' ? t('newItemHeading') : `${t('editItemHeading')} — ${editingItem?.name ?? ''}`}
+        width="min(480px, 94vw)"
+        closeLabel={t('cancelButton')}
+      >
+        {editing ? (
           <ItemForm
             locationId={locationId}
             item={editingItem}
             lang={lang}
             onSuccess={() => {
               closeEditor();
-              router.refresh();
+              refresh();
             }}
             onCancel={closeEditor}
           />
-        </section>
-      ) : null}
-
-      {items.length === 0 ? (
-        <section style={card}>
-          <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
-        </section>
-      ) : (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['all', 'shortage', 'ok'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  style={statusFilter === value ? buttonPrimary : buttonSecondary}
-                  onClick={() => setStatusFilter(value)}
-                >
-                  {value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : t('filterOk')}
-                </button>
-              ))}
-            </div>
-            <input
-              style={{ ...input, flex: 1, minWidth: 160 }}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              aria-label={t('searchLabel')}
-            />
-          </div>
-
-          {visibleItems.length === 0 ? (
-            <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
-            </section>
-          ) : (
-            visibleItems.map((item) => (
-              <ItemRow
-                key={item.itemId}
-                item={item}
-                locationId={locationId}
-                locationTimezone={locationTimezone}
-                canManage={canManage}
-                staffNameById={staffNameById}
-                onEdit={() => openEditor(item)}
-                lang={lang}
-                t={t}
-              />
-            ))
-          )}
-        </>
-      )}
+        ) : null}
+      </Modal>
     </>
   );
 }

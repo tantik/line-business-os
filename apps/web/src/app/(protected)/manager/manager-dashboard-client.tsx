@@ -75,7 +75,7 @@ import {
   todayRowStyle,
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
-import styles from './manager-dashboard.module.css';
+import styles from '@/lib/ui/responsive-table.module.css';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,

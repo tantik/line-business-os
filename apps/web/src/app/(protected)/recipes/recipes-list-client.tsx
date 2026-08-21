@@ -63,6 +63,16 @@ export interface RecipesListClientProps {
   embedded?: boolean;
   /** Required when `embedded` is true; ignored otherwise. `startEditing` opens straight into the pre-filled edit form (a row's own "Edit" button) instead of the read view (a row's title/thumbnail). */
   onSelectRecipe?: (recipeId: string, startEditing?: boolean) => void;
+  /**
+   * Optional (embedded only): fired on row hover/focus, before any click,
+   * so the popup can kick off `getRecipeDetailForPopup` speculatively --
+   * by the time the manager actually clicks, the fetch is often already
+   * resolved, masking most of the popup's Preview-latency detail-open
+   * delay. Pure speculative read; safe to fire repeatedly, no state
+   * mutation, and the click handler's own fetch/cache-check still owns
+   * correctness if the hover never fires (e.g. touch/keyboard-only use).
+   */
+  onHoverRecipe?: (recipeId: string) => void;
   /** Required when `embedded` is true: called instead of `router.refresh()` after adding/deleting a recipe, since the popup's list data was fetched by the Manager page, not this component's own page. */
   onChange?: () => void;
 }
@@ -90,6 +100,7 @@ export function RecipesListBody({
   canManage,
   embedded = false,
   onSelectRecipe,
+  onHoverRecipe,
   onChange,
 }: RecipesListClientProps) {
   const { lang } = useLang();
@@ -242,14 +253,11 @@ export function RecipesListBody({
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <button
                 type="button"
+                aria-pressed={statusFilter === 'archived'}
                 className={hoverStyles.buttonSecondary}
                 style={
                   statusFilter === 'archived'
-                    ? {
-                        ...buttonSecondary,
-                        background: colors.accentMuted,
-                        borderColor: colors.accent,
-                      }
+                    ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent }
                     : buttonSecondary
                 }
                 onClick={() =>
@@ -260,14 +268,11 @@ export function RecipesListBody({
               </button>
               <button
                 type="button"
+                aria-pressed={statusFilter === 'draft'}
                 className={hoverStyles.buttonSecondary}
                 style={
                   statusFilter === 'draft'
-                    ? {
-                        ...buttonSecondary,
-                        background: colors.accentMuted,
-                        borderColor: colors.accent,
-                      }
+                    ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent }
                     : buttonSecondary
                 }
                 onClick={() =>
@@ -324,6 +329,8 @@ export function RecipesListBody({
                       role="button"
                       tabIndex={0}
                       onClick={openDetail}
+                      onMouseEnter={() => onHoverRecipe?.(recipe.recipeId)}
+                      onFocus={() => onHoverRecipe?.(recipe.recipeId)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();

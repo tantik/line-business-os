@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { recordInventoryStockCountAction } from '@/lib/inventory/count-actions';
-import { alertDanger, input, mutedText } from '@/lib/ui/theme';
+import { colors, mutedText } from '@/lib/ui/theme';
 import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
 
 export interface CountFormProps {
   locationId: string;
   itemId: string;
+  itemName: string;
   unit: string;
+  /** Last confirmed actual quantity, used to prefill the input so a manager sees the current count instead of a blank box. */
+  initialValue: number | null;
   lang: Lang;
   onSuccess: () => void;
 }
@@ -24,10 +28,13 @@ export interface CountFormProps {
  * 600ms, replacing the old explicit "Save count" button -- same
  * debounce/status-indicator convention `settings-section.tsx`'s autosave
  * already established (dirty-while-saving re-queues, revert to last
- * confirmed value on a failed save).
+ * confirmed value on a failed save). 2026-08-21 Inventory redesign: also
+ * saves immediately on Enter (no need to wait out the debounce), shows a
+ * unit suffix + clear ("×") affordance inline, and prefills the last
+ * confirmed value instead of starting blank.
  */
-export function CountForm({ locationId, itemId, unit, lang, onSuccess }: CountFormProps) {
-  const [quantity, setQuantity] = useState('');
+export function CountForm({ locationId, itemId, itemName, unit, initialValue, lang, onSuccess }: CountFormProps) {
+  const [quantity, setQuantity] = useState(initialValue === null ? '' : String(initialValue));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
@@ -86,26 +93,71 @@ export function CountForm({ locationId, itemId, unit, lang, onSuccess }: CountFo
     debounceTimerRef.current = setTimeout(runAutosave, 600);
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    runAutosave();
+  }
+
+  const statusText = status === 'saving' ? t('savingStatus') : status === 'saved' ? t('savedStatus') : status === 'error' ? t('saveErrorStatus') : '';
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 8 }}>
-      <label style={{ flex: 1, maxWidth: 160 }}>
-        <span style={{ ...mutedText, fontSize: 12 }}>
-          {t('actualQuantityLabel')} ({unit})
-        </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          border: `1px solid ${colors.border}`,
+          borderRadius: 8,
+          background: colors.surface,
+          overflow: 'hidden',
+        }}
+      >
         <input
-          style={input}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: 'none',
+            outline: 'none',
+            padding: '8px 8px 8px 10px',
+            fontSize: 14,
+            color: colors.textPrimary,
+            background: 'transparent',
+          }}
           type="number"
           min={0}
           step="0.001"
           autoComplete="off"
+          aria-label={`${t('actualQuantityLabel')} — ${itemName}`}
           value={quantity}
           onChange={(event) => handleChange(event.target.value)}
+          onKeyDown={handleKeyDown}
         />
-      </label>
-      <span style={{ ...mutedText, fontSize: 12, minWidth: 60 }}>
-        {status === 'saving' ? t('savingStatus') : status === 'saved' ? t('savedStatus') : status === 'error' ? t('saveErrorStatus') : ''}
+        {quantity !== '' ? (
+          <button
+            type="button"
+            aria-label={t('clearActualQuantityAriaLabel')}
+            onClick={() => handleChange('')}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: colors.textMuted,
+              cursor: 'pointer',
+              padding: '0 6px',
+              fontSize: 13,
+              alignSelf: 'stretch',
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+        <span style={{ ...mutedText, fontSize: 12, padding: '0 10px 0 4px', whiteSpace: 'nowrap' }}>{unit}</span>
+      </div>
+      <span style={{ ...mutedText, fontSize: 11, minHeight: 14, color: status === 'error' ? colors.dangerText : colors.textMuted }}>
+        {statusText || t('pressEnterToSaveHint')}
       </span>
-      {error ? <div style={{ ...alertDanger, marginLeft: 8 }}>{error}</div> : null}
+      {error ? <span style={{ fontSize: 11, color: colors.dangerText }}>{error}</span> : null}
     </div>
   );
 }

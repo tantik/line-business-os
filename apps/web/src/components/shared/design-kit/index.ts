@@ -7,3 +7,5 @@ export { ToastProvider, useToast } from './Toast';
 export type { ToastTone } from './Toast';
 export { LightboxTrigger } from './Lightbox';
 export { HelpIconButton } from './HelpIconButton';
+export { ActionsMenu } from './ActionsMenu';
+export type { ActionsMenuItem } from './ActionsMenu';
