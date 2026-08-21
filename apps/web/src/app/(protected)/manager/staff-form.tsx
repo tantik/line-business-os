@@ -1,20 +1,17 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import { deleteEmployee, upsertEmployee } from '@/lib/workforce/staff-actions';
-import { ConfirmDialog } from '@/components/shared/design-kit';
-import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
-import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
-import hoverStyles from '@/lib/ui/theme.module.css';
-import { buttonDanger } from '../_ui/workforce-theme';
-import { useLang } from '@/lib/demo/cafe/i18n';
+import { upsertEmployee } from '@/lib/workforce/staff-actions';
+import { PendingOverlay } from '@/components/ui/loading';
+import { alertDanger, input, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from './error-copy';
+import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
 /** Localizes the subset of `WorkforceWriteResult` statuses this form can actually receive; falls back to the shared (English) copy for statuses this form's own action never returns. */
-function localizedFormError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
+export function localizedFormError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
   switch (result.status) {
     case 'not_found':
       return t('errorNotFound');
@@ -29,37 +26,37 @@ function localizedFormError(result: Parameters<typeof describeWriteError>[0], t:
 
 export interface StaffFormProps {
   locationId: string;
-  /** Omit/undefined to create a new employee; pass an existing entry to edit it. Active/inactive is handled by a separate action, not this form. */
+  /** Omit/undefined to create a new employee; pass an existing entry to edit it. */
   employee?: WorkforceStaffManageEntry;
+  /** Id given to the underlying `<form>` element so an external "Save" button (rendered by the parent popup, positioned after the LINE/access/danger-zone sections below this form in the DOM) can submit it via the standard HTML `form="..."` button attribute, without an invalid nested-`<form>` layout. */
+  formId: string;
   onSuccess: () => void;
-  onCancel: () => void;
+  /** Reports pending/error state up to the parent, which owns the actual Save button (see `formId`) and needs to know when to show it as loading/disabled. */
+  onPendingChange?: (pending: boolean) => void;
+  onErrorChange?: (error: string | null) => void;
 }
 
-export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFormProps) {
+/**
+ * 2026-08-21 polish pass: this form now renders ONLY the identity fields
+ * (previously also owned Save/Cancel/Delete-permanently inline) -- the
+ * Founder asked for one flowing popup (fields -> LINE -> account-access
+ * actions -> danger zone -> Save/Cancel at the very bottom), which the old
+ * layout couldn't express since LINE/access/danger-zone are rendered by
+ * the parent popup, not this component, and HTML doesn't allow nesting a
+ * `<form>` inside another `<form>` (`LineLinkForm`'s bind control is its
+ * own `<form>`). Delete-permanently moved to the parent's danger zone.
+ * "Employment type" is temporarily removed from the visible form per
+ * Founder direction ("пока удали") -- carried through as a hidden input so
+ * an edit-and-save never silently wipes an existing value.
+ */
+export function StaffForm({ locationId, employee, formId, onSuccess, onPendingChange, onErrorChange }: StaffFormProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [isDeletePending, startDeleteTransition] = useTransition();
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  function handleDelete() {
-    if (!employee) return;
-    setDeleteError(null);
-    const formData = new FormData();
-    formData.set('staffId', employee.staffId);
-    startDeleteTransition(async () => {
-      const result = await deleteEmployee(formData);
-      if (result.status === 'success') {
-        setConfirmDeleteOpen(false);
-        onSuccess();
-      } else {
-        setConfirmDeleteOpen(false);
-        setDeleteError(result.status === 'blocked_by_history' ? t('staffBlockedByHistory') : localizedFormError(result, t));
-      }
-    });
-  }
+  useEffect(() => onPendingChange?.(isPending), [isPending, onPendingChange]);
+  useEffect(() => onErrorChange?.(error), [error, onErrorChange]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,21 +77,23 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+    <form id={formId} onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <PendingOverlay visible={isPending} message={t('saving')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldName')}</span>
         <input style={input} name="name" defaultValue={employee?.name ?? ''} maxLength={120} required />
       </label>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldFamilyName')}</span>
-        <input style={input} name="familyName" defaultValue={employee?.familyName ?? ''} maxLength={80} required />
-      </label>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldGivenName')}</span>
-        <input style={input} name="givenName" defaultValue={employee?.givenName ?? ''} maxLength={80} required />
-      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <label>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldFamilyName')}</span>
+          <input style={input} name="familyName" defaultValue={employee?.familyName ?? ''} maxLength={80} required />
+        </label>
+        <label>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldGivenName')}</span>
+          <input style={input} name="givenName" defaultValue={employee?.givenName ?? ''} maxLength={80} required />
+        </label>
+      </div>
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmail')}</span>
         <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
@@ -103,52 +102,8 @@ export function StaffForm({ locationId, employee, onSuccess, onCancel }: StaffFo
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldPosition')}</span>
         <input style={input} name="positionLabel" defaultValue={employee?.positionLabel ?? ''} maxLength={60} />
       </label>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmploymentType')}</span>
-        <input style={input} name="employmentType" defaultValue={employee?.employmentType ?? ''} maxLength={40} />
-      </label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <LoadingButton type="submit" pending={isPending} pendingLabel={t('saving')} style={buttonPrimary} pendingStyle={buttonDisabled} className={hoverStyles.buttonPrimary}>
-          {employee ? t('saveChanges') : t('addStaffSubmit')}
-        </LoadingButton>
-        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
-          {t('cancel')}
-        </button>
-      </div>
-
-      {employee ? (
-        <div style={{ marginTop: 4, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
-          {deleteError ? <div style={alertDanger}>{deleteError}</div> : null}
-          <LoadingButton
-            type="button"
-            pending={isDeletePending}
-            pendingLabel={t('deletingStaff')}
-            style={buttonDanger}
-            pendingStyle={buttonDisabled}
-            className={hoverStyles.buttonDanger}
-            onClick={() => setConfirmDeleteOpen(true)}
-          >
-            {t('deleteStaffButton')}
-          </LoadingButton>
-          {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard (0056) produces on an actual blocked attempt, so the two never disagree. The button stays enabled; this only makes the outcome predictable. */}
-          {employee.hasProtectedHistory ? (
-            <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('staffBlockedByHistory')}</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      <ConfirmDialog
-        open={confirmDeleteOpen}
-        title={t('confirmDeleteStaffTitle')}
-        confirmLabel={t('deleteStaffButton')}
-        cancelLabel={t('cancel')}
-        pending={isDeletePending}
-        danger
-        onCancel={() => setConfirmDeleteOpen(false)}
-        onConfirm={handleDelete}
-      >
-        {t('confirmDeleteStaffBody')}
-      </ConfirmDialog>
+      {/* Employment type: temporarily removed from the visible form (Founder direction); hidden so editing/saving other fields never wipes an existing value. */}
+      <input type="hidden" name="employmentType" defaultValue={employee?.employmentType ?? ''} />
     </form>
   );
 }

@@ -68,6 +68,7 @@ interface ManagerDashboardDict {
   accessExpiredShort: string;
   accessNoneShort: string;
   accessSectionHeading: string;
+  dangerZoneHeading: string;
   // Staff form (Add/Edit modal)
   fieldName: string;
   fieldFamilyName: string;
@@ -277,6 +278,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessExpiredShort: 'Invite expired',
     accessNoneShort: 'No access',
     accessSectionHeading: 'Account access',
+    dangerZoneHeading: 'Danger zone',
     fieldName: 'Name',
     fieldFamilyName: 'Family name',
     fieldGivenName: 'Given name',
@@ -474,6 +476,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessExpiredShort: '招待期限切れ',
     accessNoneShort: 'アクセスなし',
     accessSectionHeading: 'アカウントアクセス',
+    dangerZoneHeading: '危険な操作',
     fieldName: '氏名',
     fieldFamilyName: '姓',
     fieldGivenName: '名',
