@@ -58,7 +58,7 @@ function parseWeekOffset(raw: string | undefined): number {
 export default async function WorkforceManagerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ weekOffset?: string; popup?: string }>;
+  searchParams: Promise<{ weekOffset?: string; popup?: string; focusCell?: string }>;
 }) {
   const result = await requireTenantContext();
 
@@ -138,9 +138,21 @@ export default async function WorkforceManagerPage({
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
       if (!managerAccess) return <UnauthorizedState />;
 
-      const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
+      const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
       const initialPopup = rawPopup === 'inventory' ? 'inventory' : rawPopup === 'recipes' ? 'recipes' : null;
+      // `?focusCell=employeeId:workDate`, set by Attention's "View shift"
+      // action (manager-dashboard-client.tsx's `handleViewShift`) -- both
+      // parts are opaque identifiers to this page (a UUID and an ISO date,
+      // neither containing `:`), so splitting on the last `:` is safe. Any
+      // malformed value (missing `:`, empty half) is simply ignored -- this
+      // is a UX convenience deep-link, not a security boundary, so silently
+      // not auto-focusing is the correct failure mode, not an error page.
+      const focusCellSeparatorIndex = rawFocusCell?.lastIndexOf(':') ?? -1;
+      const initialFocusCell =
+        rawFocusCell && focusCellSeparatorIndex > 0 && focusCellSeparatorIndex < rawFocusCell.length - 1
+          ? { employeeId: rawFocusCell.slice(0, focusCellSeparatorIndex), workDate: rawFocusCell.slice(focusCellSeparatorIndex + 1) }
+          : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
       const fromIso = localDateTimeToUtcIso(periodStart, '00:00', location.timezone);
       const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', location.timezone);
@@ -258,6 +270,7 @@ export default async function WorkforceManagerPage({
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             initialPopup={initialPopup}
+            initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}

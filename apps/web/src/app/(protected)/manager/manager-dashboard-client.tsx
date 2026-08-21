@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -22,11 +22,14 @@ import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
+  buildManagerAttentionQueue,
   computeManagerAttention,
   computePendingCorrectionCellKeys,
   computeUnavailableConflictCellKeys,
+  computeUnavailableConflictRecords,
   computeUnderstaffedDateKeys,
 } from '@/lib/workforce/manager-attention';
+import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -140,6 +143,8 @@ export interface ManagerDashboardClientProps {
   inventoryItems: InventoryItemStatus[] | null;
   /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` or `/recipes` visit). */
   initialPopup: 'inventory' | 'recipes' | null;
+  /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
+  initialFocusCell: { employeeId: string; workDate: string } | null;
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
   recipeGroups: WorkforceRecipeGroup[] | null;
   recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
@@ -194,6 +199,7 @@ function ManagerDashboardBody({
   inventoryEnabled,
   inventoryItems,
   initialPopup,
+  initialFocusCell,
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
@@ -333,6 +339,11 @@ function ManagerDashboardBody({
     [requests, localAssignments],
   );
 
+  const unavailableConflictRecords = useMemo(
+    () => computeUnavailableConflictRecords(requests ?? [], localAssignments.map((a) => ({ employeeId: a.assignment.employeeId, workDate: a.workDate }))),
+    [requests, localAssignments],
+  );
+
   // WP A6: legend row above the schedule grid -- every active shift type
   // plus any type this displayed week still references even if it has since
   // been deactivated.
@@ -378,6 +389,69 @@ function ManagerDashboardBody({
       }),
     [pendingCorrections.length, pendingExchanges.length, unavailableConflictCellKeys, inventoryShortageCount],
   );
+
+  // Level-3 concrete "who/what/when" queue behind the Level-1/2 counts above
+  // (Manager Attention UX Reconciliation, 2026-08-21) -- built from the same
+  // `pendingCorrections`/`pendingExchanges`/conflict/inventory data the
+  // counts already derive from, no new fetch or business rule.
+  const attentionQueueItems = useMemo(
+    () =>
+      buildManagerAttentionQueue({
+        pendingCorrections: pendingCorrections.map((r) => ({ requestId: r.requestId, employeeId: r.employeeId, workDate: r.workDate })),
+        pendingExchanges: pendingExchanges.map((e) => {
+          const shift = exchangeAssignmentById.get(e.shiftId);
+          return {
+            exchangeId: e.exchangeId,
+            employeeId: e.requesterEmployeeId,
+            workDate: shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone).workDate : null,
+            // Mirrors ShiftExchangeRequestsPopup's own `canApprove`: an
+            // 'exchange' request has nothing to approve into until a
+            // colleague has accepted it.
+            canApprove: e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId),
+          };
+        }),
+        unavailableConflicts: unavailableConflictRecords,
+        inventoryShortageItems:
+          inventoryEnabled && inventoryItems
+            ? inventoryItems
+                .filter((i) => i.status === 'shortage')
+                .map((i) => ({ itemId: i.itemId, name: i.name, actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
+            : [],
+      }),
+    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, unavailableConflictRecords, inventoryEnabled, inventoryItems],
+  );
+
+  // Attention "View shift" deep-link: once the correct week's data has
+  // loaded (this only ever fires after a navigation `initialFocusCell`
+  // itself triggered, or on first mount from a bookmarked URL), open the
+  // same cell editor a manual click would and scroll the schedule into
+  // view. `consumedFocusCellRef` prevents re-opening the editor on a later
+  // unrelated re-render (e.g. after `router.refresh()` from an unrelated
+  // action) once this exact target has already been handled.
+  const consumedFocusCellRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialFocusCell) return;
+    const key = `${initialFocusCell.employeeId}:${initialFocusCell.workDate}`;
+    if (consumedFocusCellRef.current === key) return;
+    if (!dates.includes(initialFocusCell.workDate)) return;
+    consumedFocusCellRef.current = key;
+    setEditingCell({ staffId: initialFocusCell.employeeId, date: initialFocusCell.workDate });
+    document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [initialFocusCell, dates]);
+
+  // Attention "View shift" action (unavailable_conflict queue items):
+  // computes which week the conflict's date actually falls in relative to
+  // today (the conflict may be outside the Manager's currently displayed
+  // week) and navigates there with `focusCell` set, so the effect above can
+  // open the exact cell instead of leaving the Manager to search the whole
+  // week manually.
+  function handleViewShift(employeeId: string, workDate: string) {
+    const offset = weekOffsetForWorkDate(todayIso, workDate);
+    const params = new URLSearchParams();
+    if (offset !== 0) params.set('weekOffset', String(offset));
+    params.set('focusCell', `${employeeId}:${workDate}`);
+    router.push(`/manager?${params.toString()}#weekly-schedule`);
+  }
 
   function assignmentFor(staffId: string, date: string) {
     return localAssignments.find((a) => a.assignment.employeeId === staffId && a.workDate === date);
@@ -631,7 +705,9 @@ function ManagerDashboardBody({
 
       <AttentionPanel
         items={attentionItems}
+        queueItems={attentionQueueItems}
         lang={lang}
+        staffNameById={staffNameById}
         onOpenCorrections={() => {
           markPopupTriggerClick('correction-requests');
           setCorrectionsPopupOpen(true);
@@ -640,6 +716,11 @@ function ManagerDashboardBody({
           markPopupTriggerClick('shift-exchange-requests');
           setExchangesPopupOpen(true);
         }}
+        onOpenInventory={() => {
+          markPopupTriggerClick('inventory');
+          setInventoryPopupOpen(true);
+        }}
+        onViewShift={handleViewShift}
       />
 
       {banner ? (

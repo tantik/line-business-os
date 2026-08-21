@@ -54,6 +54,138 @@ export function computeManagerAttention(input: ManagerAttentionInput): ManagerAt
   return items;
 }
 
+/**
+ * Manager Attention UX Reconciliation (2026-08-21): a Manager decision is
+ * required (`action_required`) for correction/exchange -- someone is waiting
+ * on a yes/no -- versus an operational/schedule-safety condition worth
+ * inspecting but with no single decision to make (`warning`) for
+ * unavailable-conflict/inventory. Fixed, not configurable -- do not invent a
+ * third tier without new evidence a category actually needs one (see the
+ * mission brief's "do not invent critical without evidence").
+ */
+export type ManagerAttentionSeverity = 'action_required' | 'warning';
+
+export const ATTENTION_SEVERITY_BY_CATEGORY: Record<ManagerAttentionCategory, ManagerAttentionSeverity> = {
+  correction: 'action_required',
+  exchange: 'action_required',
+  unavailable_conflict: 'warning',
+  inventory: 'warning',
+};
+
+export interface ManagerAttentionSummary {
+  total: number;
+  actionRequiredCount: number;
+  warningCount: number;
+}
+
+/** Level-1 "Needs attention N / X require action, Y warnings" summary -- pure sum over the already-computed category counts, no new source of truth. */
+export function computeManagerAttentionSummary(items: readonly ManagerAttentionItem[]): ManagerAttentionSummary {
+  let actionRequiredCount = 0;
+  let warningCount = 0;
+  for (const item of items) {
+    if (ATTENTION_SEVERITY_BY_CATEGORY[item.category] === 'action_required') actionRequiredCount += item.count;
+    else warningCount += item.count;
+  }
+  return { total: actionRequiredCount + warningCount, actionRequiredCount, warningCount };
+}
+
+/** Minimal shape a pending correction request needs for the Level-3 attention queue. */
+export interface AttentionCorrectionQueueInput {
+  requestId: string;
+  employeeId: string;
+  workDate: string;
+}
+
+/** Minimal shape a pending shift-exchange request needs for the Level-3 attention queue. */
+export interface AttentionExchangeQueueInput {
+  exchangeId: string;
+  employeeId: string;
+  /** `null` when the referenced shift assignment could not be resolved. */
+  workDate: string | null;
+  /** Mirrors the popup's own `canApprove` (an 'exchange' request with no accepted candidate yet cannot be approved) -- the queue item surfaces the same disabled-reason text, does not invent a new rule. */
+  canApprove: boolean;
+}
+
+/** Minimal shape an unavailable/schedule conflict needs for the Level-3 attention queue. */
+export interface AttentionConflictQueueInput {
+  employeeId: string;
+  workDate: string;
+}
+
+/** Minimal shape a shortage inventory item needs for the Level-3 attention queue. */
+export interface AttentionInventoryItemInput {
+  itemId: string;
+  name: string;
+  actualQuantity: number | null;
+  requiredQuantity: number;
+}
+
+export type ManagerAttentionQueueItem =
+  | { id: string; category: 'correction'; severity: 'action_required'; requestId: string; employeeId: string; workDate: string }
+  | { id: string; category: 'exchange'; severity: 'action_required'; exchangeId: string; employeeId: string; workDate: string | null; canApprove: boolean }
+  | { id: string; category: 'unavailable_conflict'; severity: 'warning'; employeeId: string; workDate: string }
+  | { id: string; category: 'inventory'; severity: 'warning'; shortageCount: number; topItems: readonly AttentionInventoryItemInput[] };
+
+const INVENTORY_QUEUE_ITEM_PREVIEW_COUNT = 3;
+
+export interface BuildManagerAttentionQueueInput {
+  pendingCorrections: readonly AttentionCorrectionQueueInput[];
+  pendingExchanges: readonly AttentionExchangeQueueInput[];
+  unavailableConflicts: readonly AttentionConflictQueueInput[];
+  /** Already filtered to `status === 'shortage'` by the caller -- this builder does not re-derive Inventory's own shortage rule. */
+  inventoryShortageItems: readonly AttentionInventoryItemInput[];
+}
+
+/**
+ * Level-3 concrete "who/what/when" items behind the Level-1/2 counts --
+ * derives presentation only, no new business state. Ordering is fixed:
+ * action-required categories (correction, then exchange) before warning
+ * categories (unavailable-conflict, then inventory); each category's own
+ * items are sorted by `workDate` ascending (soonest/oldest first) then by id,
+ * so the result is deterministic regardless of the caller's array order.
+ * Inventory collapses to exactly one queue item (the whole shortage list),
+ * matching the mission's "one Inventory shortage card, not one row per item"
+ * shape -- `topItems` caps at 3 for the compact view; the full list still
+ * lives in the existing Inventory popup.
+ */
+export function buildManagerAttentionQueue(input: BuildManagerAttentionQueueInput): ManagerAttentionQueueItem[] {
+  const items: ManagerAttentionQueueItem[] = [];
+
+  const corrections = [...input.pendingCorrections].sort(
+    (a, b) => a.workDate.localeCompare(b.workDate) || a.requestId.localeCompare(b.requestId),
+  );
+  for (const r of corrections) {
+    items.push({ id: `correction:${r.requestId}`, category: 'correction', severity: 'action_required', requestId: r.requestId, employeeId: r.employeeId, workDate: r.workDate });
+  }
+
+  const exchanges = [...input.pendingExchanges].sort(
+    (a, b) => (a.workDate ?? '9999-99-99').localeCompare(b.workDate ?? '9999-99-99') || a.exchangeId.localeCompare(b.exchangeId),
+  );
+  for (const e of exchanges) {
+    items.push({ id: `exchange:${e.exchangeId}`, category: 'exchange', severity: 'action_required', exchangeId: e.exchangeId, employeeId: e.employeeId, workDate: e.workDate, canApprove: e.canApprove });
+  }
+
+  const conflicts = [...input.unavailableConflicts].sort(
+    (a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId),
+  );
+  for (const c of conflicts) {
+    items.push({ id: `conflict:${c.employeeId}:${c.workDate}`, category: 'unavailable_conflict', severity: 'warning', employeeId: c.employeeId, workDate: c.workDate });
+  }
+
+  if (input.inventoryShortageItems.length > 0) {
+    const sortedShortages = [...input.inventoryShortageItems].sort((a, b) => a.name.localeCompare(b.name) || a.itemId.localeCompare(b.itemId));
+    items.push({
+      id: 'inventory:shortage',
+      category: 'inventory',
+      severity: 'warning',
+      shortageCount: sortedShortages.length,
+      topItems: sortedShortages.slice(0, INVENTORY_QUEUE_ITEM_PREVIEW_COUNT),
+    });
+  }
+
+  return items;
+}
+
 /** Minimal shape `computeUnavailableConflictCellKeys` needs from a shift request -- avoids importing the full `WorkforceShiftRequest` type into this pure-derivation module. */
 export interface UnavailableConflictRequestInput {
   employeeId: string;
@@ -92,6 +224,25 @@ export function computeUnavailableConflictCellKeys(
     if (unavailableKeys.has(key)) conflicts.add(key);
   }
   return conflicts;
+}
+
+/**
+ * Same conflicts as `computeUnavailableConflictCellKeys`, split back into
+ * `{ employeeId, workDate }` records for the Level-3 attention queue (which
+ * needs the parts, not just the schedule grid's `"employeeId:workDate"`
+ * marker key). Reuses that function rather than re-deriving the conflict
+ * rule -- `employeeId` (a UUID) and `workDate` (`YYYY-MM-DD`) never contain
+ * `:`, so splitting on the last `:` is safe.
+ */
+export function computeUnavailableConflictRecords(
+  requests: readonly UnavailableConflictRequestInput[],
+  assignments: readonly UnavailableConflictAssignmentInput[],
+): { employeeId: string; workDate: string }[] {
+  const keys = computeUnavailableConflictCellKeys(requests, assignments);
+  return [...keys].map((key) => {
+    const separatorIndex = key.lastIndexOf(':');
+    return { employeeId: key.slice(0, separatorIndex), workDate: key.slice(separatorIndex + 1) };
+  });
 }
 
 /** Minimal shape `computePendingCorrectionCellKeys` needs from a pending correction request. */

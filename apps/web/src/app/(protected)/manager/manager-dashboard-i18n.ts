@@ -27,6 +27,22 @@ interface ManagerDashboardDict {
   attentionExchangeTitle: string;
   attentionUnavailableConflictTitle: string;
   attentionInventoryTitle: string;
+  // Attention layer -- Manager Attention UX Reconciliation (2026-08-21):
+  // Level-1 summary, Level-3 concrete queue items, and the per-category
+  // action targets ("View shift" / "Open Inventory").
+  attentionViewAll: string;
+  attentionShowLess: string;
+  attentionItemCorrectionTitle: string;
+  attentionItemExchangeTitle: string;
+  attentionItemConflictTitle: string;
+  attentionItemInventoryTitle: string;
+  attentionWaitingDecision: string;
+  attentionConflictSummary: string;
+  attentionReplacementNotSelected: string;
+  attentionReplacementRequiredReason: string;
+  attentionViewShift: string;
+  attentionOpenInventory: string;
+  attentionTargetWord: string;
   // Entry-points card (Recipes/Inventory/Manage staff)
   entryPointsHeading: string;
   // Staff section
@@ -264,6 +280,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'Shift exchanges',
     attentionUnavailableConflictTitle: 'Unavailable conflicts',
     attentionInventoryTitle: 'Inventory shortage',
+    attentionViewAll: 'View all',
+    attentionShowLess: 'Show less',
+    attentionItemCorrectionTitle: 'Attendance correction',
+    attentionItemExchangeTitle: 'Shift exchange',
+    attentionItemConflictTitle: 'Schedule conflict',
+    attentionItemInventoryTitle: 'Inventory shortage',
+    attentionWaitingDecision: 'Waiting for your decision',
+    attentionConflictSummary: 'Assigned while marked unavailable',
+    attentionReplacementNotSelected: 'Replacement not selected yet',
+    attentionReplacementRequiredReason: 'Replacement employee is required before approval.',
+    attentionViewShift: 'View shift',
+    attentionOpenInventory: 'Open Inventory',
+    attentionTargetWord: 'target',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
     manageStaff: 'Manage staff',
@@ -480,6 +509,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionExchangeTitle: 'シフト交換',
     attentionUnavailableConflictTitle: '不可との重複',
     attentionInventoryTitle: '在庫不足',
+    attentionViewAll: 'すべて表示',
+    attentionShowLess: '表示を減らす',
+    attentionItemCorrectionTitle: '勤怠修正',
+    attentionItemExchangeTitle: 'シフト交換',
+    attentionItemConflictTitle: 'スケジュールの重複',
+    attentionItemInventoryTitle: '在庫不足',
+    attentionWaitingDecision: 'あなたの判断を待っています',
+    attentionConflictSummary: '「不可」と回答した日にシフトが割り当てられています',
+    attentionReplacementNotSelected: '交換相手がまだ選ばれていません',
+    attentionReplacementRequiredReason: '承認するには交換相手のスタッフが必要です。',
+    attentionViewShift: 'シフトを見る',
+    attentionOpenInventory: '在庫を開く',
+    attentionTargetWord: '目標',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
     manageStaff: 'スタッフ管理',
@@ -746,4 +788,26 @@ export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => 
 export const unavailableConflictBadgeLabel: Record<Lang, string> = {
   en: '⚠ Unavailable',
   ja: '⚠ 不可',
+};
+
+/** Level-1 attention summary subtitle, e.g. "3 require action · 6 warnings" -- omits either half when its count is 0 rather than showing "0 warnings". */
+export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number, warningCount: number) => string> = {
+  en: (actionRequiredCount, warningCount) => {
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`${actionRequiredCount} require action`);
+    if (warningCount > 0) parts.push(`${warningCount} warning(s)`);
+    return parts.join(' · ');
+  },
+  ja: (actionRequiredCount, warningCount) => {
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`対応が必要 ${actionRequiredCount}件`);
+    if (warningCount > 0) parts.push(`注意事項 ${warningCount}件`);
+    return parts.join(' · ');
+  },
+};
+
+/** "N items require restocking" for the single collapsed Inventory queue item. */
+export const attentionInventoryShortageSummary: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} item(s) require restocking`,
+  ja: (count) => `${count}件の商品が要補充です`,
 };

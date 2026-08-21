@@ -74,65 +74,73 @@ export function CorrectionRequestsPopup({
       {pendingCorrections.length === 0 ? (
         <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingCorrections')}</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingCorrections.map((r) => {
-                const deciding = pendingAction === `decide-${r.requestId}`;
-                const message = typeof r.details.message === 'string' ? r.details.message : '-';
-                const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
-                return (
-                  <tr key={r.requestId}>
-                    <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                    <td style={tableCell}>{r.workDate}</td>
-                    <td style={tableCell}>{message}</td>
-                    <td style={tableCell}>
-                      {relatedAttendance
-                        ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                        : '-'}
-                    </td>
-                    <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
-                    <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
-                    <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
-                    <td style={tableCell}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          className={hoverStyles.buttonPrimary}
-                          style={isPending ? buttonDisabled : buttonPrimary}
-                          disabled={isPending}
-                          onClick={() => onDecide(r.requestId, 'approved')}
-                        >
-                          {deciding ? t('saving') : t('approve')}
-                        </button>
-                        <button
-                          type="button"
-                          className={hoverStyles.buttonSecondary}
-                          style={isPending ? buttonDisabled : buttonSecondary}
-                          disabled={isPending}
-                          onClick={() => onDecide(r.requestId, 'rejected')}
-                        >
-                          {deciding ? t('saving') : t('reject')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+          {pendingCorrections.map((r) => {
+            const deciding = pendingAction === `decide-${r.requestId}`;
+            const message = typeof r.details.message === 'string' ? r.details.message : '-';
+            const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
+            const currentRange = relatedAttendance
+              ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
+              : '-';
+            return (
+              <div key={r.requestId} style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</div>
+                    <div style={mutedText}>{r.workDate}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonPrimary}
+                      style={isPending ? buttonDisabled : buttonPrimary}
+                      disabled={isPending}
+                      onClick={() => onDecide(r.requestId, 'approved')}
+                    >
+                      {deciding ? t('saving') : t('approve')}
+                    </button>
+                    <button
+                      type="button"
+                      className={hoverStyles.buttonSecondary}
+                      style={isPending ? buttonDisabled : buttonSecondary}
+                      disabled={isPending}
+                      onClick={() => onDecide(r.requestId, 'rejected')}
+                    >
+                      {deciding ? t('saving') : t('reject')}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 10 }}>
+                  <div>
+                    <div style={{ ...mutedText, fontSize: 12 }}>{t('colAttendance')}</div>
+                    <div style={{ fontSize: 14 }}>{currentRange}</div>
+                  </div>
+                  <div>
+                    <div style={{ ...mutedText, fontSize: 12 }}>{t('colRequested')}</div>
+                    <div style={{ fontSize: 14 }}>{formatRequestedCorrectionChange(r.details)}</div>
+                  </div>
+                  {relatedAttendance?.transportationCost != null ? (
+                    <div>
+                      <div style={{ ...mutedText, fontSize: 12 }}>{t('colTransportation')}</div>
+                      <div style={{ fontSize: 14 }}>{relatedAttendance.transportationCost}</div>
+                    </div>
+                  ) : null}
+                </div>
+                {message !== '-' ? (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ ...mutedText, fontSize: 12 }}>{t('colMessage')}</div>
+                    <div style={{ fontSize: 14 }}>{message}</div>
+                  </div>
+                ) : null}
+                {relatedAttendance?.dailyMessage ? (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ ...mutedText, fontSize: 12 }}>{t('colDailyMessage')}</div>
+                    <div style={{ fontSize: 14 }}>{relatedAttendance.dailyMessage}</div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
 
