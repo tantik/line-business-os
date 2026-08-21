@@ -57,6 +57,17 @@ interface ManagerDashboardDict {
   confirmDeleteStaffBody: string;
   staffDeleted: string;
   staffBlockedByHistory: string;
+  // 2026-08-21 redesign: compact row summary badges (LINE/access), read-only
+  // -- distinct from InvitationCell's own interactive button copy, which
+  // stays JA-only per Founder direction (F4); this popup's surrounding
+  // chrome is bilingual like everywhere else, so these get real EN copy too.
+  lineLinkedShort: string;
+  lineNotLinkedShort: string;
+  accessActiveShort: string;
+  accessPendingShort: string;
+  accessExpiredShort: string;
+  accessNoneShort: string;
+  accessSectionHeading: string;
   // Staff form (Add/Edit modal)
   fieldName: string;
   fieldFamilyName: string;
@@ -259,6 +270,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmDeleteStaffBody: 'This cannot be undone — their profile will be permanently removed.',
     staffDeleted: 'Staff member permanently deleted.',
     staffBlockedByHistory: 'This staff member has shift, attendance, or request history, so they cannot be permanently deleted. Use Deactivate instead.',
+    lineLinkedShort: 'LINE linked',
+    lineNotLinkedShort: 'LINE not linked',
+    accessActiveShort: 'Access active',
+    accessPendingShort: 'Invited',
+    accessExpiredShort: 'Invite expired',
+    accessNoneShort: 'No access',
+    accessSectionHeading: 'Account access',
     fieldName: 'Name',
     fieldFamilyName: 'Family name',
     fieldGivenName: 'Given name',
@@ -449,6 +467,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmDeleteStaffBody: 'この操作は取り消せません -- プロフィールは完全に削除されます。',
     staffDeleted: 'スタッフを完全に削除しました。',
     staffBlockedByHistory: 'このスタッフにはシフト・勤怠・申請などの履歴があるため完全に削除できません。「無効化」をご利用ください。',
+    lineLinkedShort: 'LINE連携済み',
+    lineNotLinkedShort: 'LINE未連携',
+    accessActiveShort: 'アクセス有効',
+    accessPendingShort: '招待中',
+    accessExpiredShort: '招待期限切れ',
+    accessNoneShort: 'アクセスなし',
+    accessSectionHeading: 'アカウントアクセス',
     fieldName: '氏名',
     fieldFamilyName: '姓',
     fieldGivenName: '名',
