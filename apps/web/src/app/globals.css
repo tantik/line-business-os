@@ -59,17 +59,26 @@ button:focus-visible {
  */
 :root {
   --page-padding: 32px;
-  /* Needs Attention category-chip grid (attention-panel.tsx): 4 across on
-     desktop, 2 across on mobile -- Founder direction, 2026-08-22 (screenshot
-     showed 4 single-column stacked rows on a 375px phone; too tall). "Review
-     all" always spans every column via `gridColumn: '1 / -1'`, so it reads
-     as one full-width row regardless of this count. */
-  --attention-chip-columns: 4;
+  /* Needs Attention chip row (attention-panel.tsx): a flex row, not a fixed
+     grid -- Founder direction, 2026-08-22 (two rounds: first "4 chips +
+     Review all all in one row on desktop", then "but 4 single-column
+     stacked rows on a 375px phone is too tall, 2-per-row instead"). Both are
+     satisfied by flex-basis custom properties instead of a fixed column
+     count: on desktop the chips size to content (`auto`) so they and
+     "Review all" sit in the same row with room to spare; on mobile each
+     chip's basis becomes ~45% of the row (two fit, a third wraps) and
+     "Review all"'s becomes 100% (forces it onto its own full-width row once
+     wrapped). CSS custom properties resolve at computed-style time, so
+     `var(...)` inside a plain inline `style` object still responds to this
+     media query correctly. */
+  --attention-chip-basis: 200px;
+  --attention-reviewall-basis: auto;
 }
 
 @media (max-width: 640px) {
   :root {
     --page-padding: 4px;
-    --attention-chip-columns: 2;
+    --attention-chip-basis: 45%;
+    --attention-reviewall-basis: 100%;
   }
 }
