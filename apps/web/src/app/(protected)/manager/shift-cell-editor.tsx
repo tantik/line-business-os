@@ -5,11 +5,14 @@ import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
+import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforce/shift-requests';
 import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
+import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { ConfirmDialog, Modal } from '@/components/shared/design-kit';
+import { correctionStatusLabel, formatRequestedCorrectionChange } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
@@ -292,6 +295,17 @@ export interface ShiftCellEditorModalProps {
   staff: WorkforceStaffManageEntry[];
   shiftTypes: WorkforceShiftType[];
   problemNotice?: string;
+  /**
+   * Round 3 (2026-08-22): a pending, past-dated correction request for this
+   * exact cell -- when present, the Modal renders a dedicated "Requested
+   * change" + Approve/Reject block (below Remove shift) instead of a plain
+   * text notice, so a manager can resolve the correction from the same
+   * place they're already looking at the shift. `undefined`/`null` for a
+   * cell with no pending correction.
+   */
+  correctionRequest?: WorkforceShiftRequest | null;
+  /** Called after a successful Approve/Reject so the parent can refresh its own correction-count/attention state. Does not close the Modal -- the resolved decision stays visible, greyed out, in the same block. */
+  onCorrectionDecided?: () => void;
   /** `'saved'` covers both assign and edit -- the parent shows no banner for either today (matches the pre-A6 inline-editor behavior, which only ever banner'd Remove-shift). `'removed'` gets the parent's existing "shift removed" banner. */
   onSuccess: (kind: 'saved' | 'removed') => void;
 }
@@ -323,6 +337,8 @@ export function ShiftCellEditorModal({
   staff,
   shiftTypes,
   problemNotice,
+  correctionRequest,
+  onCorrectionDecided,
   onSuccess,
 }: ShiftCellEditorModalProps) {
   const { lang } = useLang();
@@ -330,6 +346,26 @@ export function ShiftCellEditorModal({
   const [isRemovePending, startRemoveTransition] = useTransition();
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [correctionDecision, setCorrectionDecision] = useState<ShiftRequestDecision | null>(null);
+  const [isDecidePending, startDecideTransition] = useTransition();
+  const [decideError, setDecideError] = useState<string | null>(null);
+
+  function handleDecideCorrection(decision: ShiftRequestDecision) {
+    if (!correctionRequest) return;
+    setDecideError(null);
+    startDecideTransition(async () => {
+      const formData = new FormData();
+      formData.set('requestId', correctionRequest.requestId);
+      formData.set('decision', decision);
+      const result = await decideCorrectionRequest(formData);
+      if (result.status === 'success') {
+        setCorrectionDecision(decision);
+        onCorrectionDecided?.();
+      } else {
+        setDecideError(localizedEditorError(result, t));
+      }
+    });
+  }
 
   function handleRemoveConfirmed() {
     if (!existing) return;
@@ -384,6 +420,38 @@ export function ShiftCellEditorModal({
           >
             {isRemovePending ? t('unassigning') : t('unassign')}
           </button>
+        </div>
+      ) : null}
+
+      {correctionRequest ? (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
+          <div style={{ ...mutedText, fontSize: 12, marginBottom: 4 }}>{t('colRequested')}</div>
+          <div style={{ fontSize: 14, marginBottom: 10 }}>{formatRequestedCorrectionChange(correctionRequest.details)}</div>
+          {decideError ? <div style={alertDanger}>{decideError}</div> : null}
+          {correctionDecision ? (
+            <span style={{ ...mutedText, fontSize: 13 }}>{correctionStatusLabel(correctionDecision, lang)}</span>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className={hoverStyles.buttonPrimary}
+                style={isDecidePending ? buttonDisabled : buttonPrimary}
+                disabled={isDecidePending}
+                onClick={() => handleDecideCorrection('approved')}
+              >
+                {t('approve')}
+              </button>
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={isDecidePending ? buttonDisabled : buttonSecondary}
+                disabled={isDecidePending}
+                onClick={() => handleDecideCorrection('rejected')}
+              >
+                {t('reject')}
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
 

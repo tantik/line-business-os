@@ -20,6 +20,7 @@ import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { assignShiftExchangeReplacement, decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import {
   buildManagerAttentionQueue,
   computeManagerAttention,
@@ -106,16 +107,19 @@ const understaffedMarkerStyle = dangerMarkerStyle;
 /**
  * Weekly Schedule redesign follow-up (Founder Review, 2026-08-22 continued):
  * the grid previously used `table-layout: auto` with the shared `tableCell`/
- * `tableHeaderCell` tokens' own `borderBottom`, so column widths and row
+ * `tableHeaderCell` tokens' own `borderBottom` only, so column widths and row
  * heights drifted with whatever text happened to be longest that week, and
- * adjacent cells touched with no visible gap. `table-layout: fixed` plus an
- * explicit `<colgroup>` locks every date column to the same width regardless
- * of content; `borderSpacing` on the `<table>` (paired with `borderBottom:
- * 'none'` here, since the shift chip / dashed-empty button already draws its
- * own boundary) produces the visible gap instead of a shared cell border.
+ * there was no visible per-cell boundary at all. `table-layout: fixed` plus
+ * an explicit `<colgroup>` locks every date column to the same width
+ * regardless of content; a full `border` on every cell (not just
+ * `borderBottom`) restores a real grid-line look -- easy to trace which row/
+ * column a cell belongs to, matching the `_client-preview/mame-to-cha`
+ * reference table -- while a small `borderSpacing` on the `<table>` (paired
+ * with `borderCollapse: 'separate'`) still keeps a thin gap between cells
+ * instead of them sharing one collapsed border.
  */
-const scheduleTableHeaderCellStyle: CSSProperties = { ...tableHeaderCell, textAlign: 'left', borderBottom: 'none', padding: '4px 6px' };
-const scheduleTableCellStyle: CSSProperties = { ...tableCell, borderBottom: 'none', padding: '3px' };
+const scheduleTableHeaderCellStyle: CSSProperties = { ...tableHeaderCell, textAlign: 'left', border: `1px solid ${colors.border}`, padding: '4px 6px' };
+const scheduleTableCellStyle: CSSProperties = { ...tableCell, border: `1px solid ${colors.border}`, padding: '3px' };
 const scheduleTodayTint = { background: colors.accentMuted } as const;
 
 /**
@@ -474,6 +478,23 @@ function ManagerDashboardBody({
     return Array.from(seen.values()).sort((x, y) => x.startsAtLocal.localeCompare(y.startsAtLocal));
   }, [localAssignments, dates]);
 
+  // Round 3 (2026-08-22): "Estimated labour cost" box below the grid,
+  // matching the `_client-preview/mame-to-cha` reference table exactly --
+  // current-month worked hours (from `attendance`, not the displayed week's
+  // scheduled shifts) times each staff member's hourly wage, summed. An
+  // operational estimate for the Manager, not a payroll run.
+  const estimatedLabourCost = useMemo(() => {
+    const monthPrefix = todayIso.slice(0, 7);
+    return (staff ?? []).reduce((sum, s) => {
+      const summary = estimatedEarningsSummary(
+        (attendance ?? []).filter((row) => row.employeeId === s.staffId),
+        monthPrefix,
+        s.hourlyWageYen,
+      );
+      return sum + (summary.estimatedEarningsYen ?? 0);
+    }, 0);
+  }, [staff, attendance, todayIso]);
+
   // WP-8: understaffed-day "!" marker (column header) -- dates in the
   // displayed week whose assigned headcount is below the Settings-configured
   // required headcount for that weekday. Pure frontend, reuses data already
@@ -503,6 +524,19 @@ function ManagerDashboardBody({
     () => computePendingCorrectionCellKeys(pendingCorrections, todayIso),
     [pendingCorrections, todayIso],
   );
+
+  // Round 3 (2026-08-22): the actual request object behind each flagged
+  // cell, so the Shift Cell Editor can render its own Approve/Reject block
+  // instead of a plain notice -- same `workDate < todayIso` condition
+  // `computePendingCorrectionCellKeys` already applies (a correction only
+  // ever targets a past date).
+  const pendingCorrectionByCellKey = useMemo(() => {
+    const map = new Map<string, WorkforceShiftRequest>();
+    for (const r of pendingCorrections) {
+      if (r.workDate < todayIso) map.set(cellKey(r.employeeId, r.workDate), r);
+    }
+    return map;
+  }, [pendingCorrections, todayIso]);
 
   const attentionItems = useMemo(
     () =>
@@ -967,7 +1001,7 @@ function ManagerDashboardBody({
         ) : (
           <>
           <div className={styles.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: '8px 8px', fontSize: 13 }}>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: '3px 3px', fontSize: 13 }}>
               <colgroup>
                 <col style={{ width: '16%' }} />
                 {dates.map((date) => (
@@ -1075,6 +1109,14 @@ function ManagerDashboardBody({
               ))}
             </div>
           ) : null}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+            <div style={{ padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated, textAlign: 'right' }}>
+              <span style={{ display: 'block', fontSize: 11.5, ...mutedText }}>{t('estimatedLabourCostLabel')}</span>
+              <strong style={{ fontSize: 18 }}>¥{estimatedLabourCost.toLocaleString('ja-JP')}</strong>
+              <span style={{ display: 'block', fontSize: 10.5, ...mutedText }}>{t('estimatedLabourCostCaption')}</span>
+            </div>
+          </div>
           </>
         )}
       </section>
@@ -1093,6 +1135,7 @@ function ManagerDashboardBody({
       />
 
       <ShiftCellEditorModal
+        key={editingCell ? cellKey(editingCell.staffId, editingCell.date) : 'none'}
         open={editingCell !== null}
         onClose={() => setEditingCell(null)}
         title={editingCell ? `${staffById.get(editingCell.staffId)?.name ?? ''} - ${editingCell.date}` : ''}
@@ -1114,12 +1157,17 @@ function ManagerDashboardBody({
           editingCell
             ? (() => {
                 const key = cellKey(editingCell.staffId, editingCell.date);
-                if (pendingCorrectionCellKeys.has(key)) return t('pendingCorrectionCellAriaLabel');
+                // Round 3 (2026-08-22): a pending correction is now handled
+                // by the Modal's own dedicated Approve/Reject block (see
+                // `correctionRequest` below), not this plain-text notice.
+                if (pendingCorrectionCellKeys.has(key)) return undefined;
                 if (unavailableConflictCellKeys.has(key)) return t('attentionConflictSummary');
                 return undefined;
               })()
             : undefined
         }
+        correctionRequest={editingCell ? (pendingCorrectionByCellKey.get(cellKey(editingCell.staffId, editingCell.date)) ?? null) : null}
+        onCorrectionDecided={() => router.refresh()}
         onSuccess={(kind) => {
           setEditingCell(null);
           if (kind === 'removed') setBanner({ tone: 'success', message: t('shiftUnassigned') });
