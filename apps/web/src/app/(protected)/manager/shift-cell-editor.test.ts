@@ -42,3 +42,37 @@ test('ShiftCellEditor localizes the write-error states it can actually receive (
     assert.ok(SOURCE.includes(`case ${status}:`), `ShiftCellEditor's error localizer must handle ${status}`);
   }
 });
+
+/**
+ * Weekly Schedule redesign (2026-08-22): editing an already-published shift
+ * is allowed (published assignments are no longer hidden from the editor by
+ * the caller), but the actual write is gated behind an explicit
+ * confirmation instead of firing on plain Save -- these are source-text
+ * regression guards for that "controlled edit" flow.
+ */
+test('ShiftCellEditor stages (does not immediately submit) a Save on an already-published shift', () => {
+  assert.match(SOURCE, /existing\?\.assignment\.published\)\s*\{\s*[\s\S]*?setPendingPublishedSave\(formData\)/, 'a published shift\'s Save must stage the FormData instead of calling doSubmit directly');
+  assert.match(SOURCE, /function doSubmit\(formData: FormData\)/, 'the actual write must be extracted into a doSubmit(formData) callable from both the plain-save and confirmed-save paths');
+});
+
+test('ShiftCellEditor renders a ConfirmDialog gating the published-shift save, using t(...) copy', () => {
+  assert.match(SOURCE, /<ConfirmDialog[\s\S]*?open=\{pendingPublishedSave !== null\}/);
+  assert.match(SOURCE, /t\('confirmPublishedEditTitle'\)/);
+  assert.match(SOURCE, /t\('confirmPublishedEditBody'\)/);
+});
+
+test('ShiftCellEditor: cancelling the published-edit confirmation must not call doSubmit (Cancel never writes)', () => {
+  const confirmBlock = SOURCE.slice(SOURCE.indexOf('<ConfirmDialog'), SOURCE.indexOf('</ConfirmDialog>'));
+  const onCancelMatch = confirmBlock.match(/onCancel=\{([\s\S]*?)\}\s*\n\s*onConfirm=/);
+  assert.ok(onCancelMatch, 'ConfirmDialog must have an onCancel handler');
+  const onCancelBody = onCancelMatch?.[1] ?? '';
+  assert.doesNotMatch(onCancelBody, /doSubmit/, 'onCancel must not call doSubmit');
+});
+
+test('ShiftCellEditor preserves the published flag unchanged when submitting an edit to a published shift (status does not flip to Draft as a UI side effect)', () => {
+  assert.match(SOURCE, /if \(existing\.assignment\.published\) formData\.set\('published', 'true'\)/);
+});
+
+test('ShiftCellEditor shows a visible notice while editing an already-published shift', () => {
+  assert.match(SOURCE, /existing\?\.assignment\.published[\s\S]{0,400}t\('editingPublishedShiftNotice'\)/);
+});

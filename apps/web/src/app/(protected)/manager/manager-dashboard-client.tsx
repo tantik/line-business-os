@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -40,7 +41,6 @@ import {
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
-  unavailableConflictBadgeLabel,
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
 import { BrandBadge } from './brand-badge';
@@ -60,7 +60,6 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import {
   alertDanger,
   backLink,
-  badgeStyle,
   buttonDisabled,
   buttonPrimary,
   buttonSecondary,
@@ -89,7 +88,7 @@ const alertSuccess = {
   fontSize: 14,
 } as const;
 
-/** WP-8: red "!" marker, shared shape for both the understaffed-day column header and the per-cell pending-correction indicator. */
+/** WP-8: red "!" marker for the understaffed-day column header (the per-cell alert corner used a smaller variant of this shape until the Weekly Schedule redesign folded it directly into `cellAlertCornerStyle`). */
 const dangerMarkerStyle = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -105,8 +104,70 @@ const dangerMarkerStyle = {
   flexShrink: 0,
 } as const;
 
-const pendingCorrectionMarkerStyle = dangerMarkerStyle;
 const understaffedMarkerStyle = dangerMarkerStyle;
+
+/**
+ * Weekly Schedule redesign (2026-08-22): the schedule grid cell is now a
+ * single whole-cell `<button>` (native keyboard support for free -- Enter/
+ * Space, real focus ring, no separate "Assign"/"Edit" button squeezed
+ * inside), styled either as a shift chip (filled cell, `tone` from
+ * `shiftChipColors`) or a quiet dashed "+" affordance (empty cell, `tone`
+ * null). Two small always-decorative overlays (the alert corner and the
+ * draft/published dot below) carry secondary state -- the button's own
+ * `aria-label`/`title` (built in `renderScheduleCellContent`) is the single
+ * source of truth for what a screen reader or a mouse-hover tooltip reports,
+ * so those overlays stay `aria-hidden`.
+ */
+function scheduleCellButtonStyle(tone: { background: string; color: string } | null): CSSProperties {
+  return {
+    position: 'relative',
+    width: '100%',
+    minHeight: 40,
+    padding: '6px 10px',
+    borderRadius: 8,
+    border: tone ? '1px solid transparent' : `1px dashed ${colors.border}`,
+    background: tone ? tone.background : 'transparent',
+    color: tone ? tone.color : colors.textMuted,
+    fontSize: 12.5,
+    fontWeight: 600,
+    lineHeight: 1.25,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
+}
+
+const cellAlertCornerStyle: CSSProperties = {
+  position: 'absolute',
+  top: 2,
+  right: 2,
+  width: 13,
+  height: 13,
+  borderRadius: '50%',
+  color: '#fff',
+  fontSize: 9.5,
+  fontWeight: 700,
+  lineHeight: '13px',
+  textAlign: 'center',
+};
+
+function cellStatusDotStyle(published: boolean): CSSProperties {
+  return {
+    position: 'absolute',
+    left: 3,
+    bottom: 3,
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: published ? colors.accent : colors.textMuted,
+    boxShadow: `0 0 0 1.5px ${colors.surface}`,
+  };
+}
 
 /**
  * Cafe v0.1 MVP default staffing requirement (Slice 2A): 1 headcount for the
@@ -471,48 +532,77 @@ function ManagerDashboardBody({
 
   // Shared by the table (>=768px, staff x date grid) and the day-grouped
   // card list (<768px, one card per date) so the assign/edit logic for a
-  // single staff/date cell only exists once. Unassign moved into
-  // `ShiftCellEditorModal` (WP A6); this just opens that Modal now.
+  // single staff/date cell only exists once.
+  //
+  // Weekly Schedule redesign (2026-08-22): the whole cell is now one
+  // `<button>` -- a shift chip (filled) or a quiet "+" (empty), click/tap/
+  // Enter/Space anywhere on it opens `ShiftCellEditorModal`. This replaces
+  // the previous stacked badges + separate "Assign"/"Edit" button, and
+  // (published shifts) the previous "Published -- read-only" dead end --
+  // published shifts are click-to-edit too now, gated by the editor's own
+  // controlled-edit confirmation (`shift-cell-editor.tsx`), not hidden here.
   function renderScheduleCellContent(s: WorkforceStaffManageEntry, date: string) {
     const key = cellKey(s.staffId, date);
     const entry = assignmentFor(s.staffId, date);
 
     if (!entry) {
-      return s.isActive ? (
-        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
-          {t('assign')}
+      if (!s.isActive) return <span style={mutedText}>-</span>;
+      return (
+        <button
+          type="button"
+          className={hoverStyles.scheduleCellButton}
+          style={scheduleCellButtonStyle(null)}
+          disabled={isPending}
+          aria-label={`${t('assignCellAriaLabelPrefix')} — ${s.name} — ${date}`}
+          title={`${t('assignCellAriaLabelPrefix')} — ${s.name} — ${date}`}
+          onClick={() => setEditingCell({ staffId: s.staffId, date })}
+        >
+          <span aria-hidden="true">+</span>
         </button>
-      ) : (
-        <span style={mutedText}>-</span>
       );
     }
 
+    // A custom shift with no resolvable shift type still has a real time on
+    // the assignment itself -- show that instead of a generic "Custom",
+    // which was also the site of the raw internal `CUSTOM_<timestamp>` code
+    // leaking into the UI (this label must always go through
+    // `shiftTypeDisplayLabel`, never `shiftType.code`, when a type does
+    // resolve -- see that function's own doc comment).
     const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
+    const label = shiftType ? shiftTypeDisplayLabel(shiftType) : `${entry.startsAtLocal}-${entry.endsAtLocal}`;
+    const tone = shiftChipColors(entry.assignment.shiftTypeId, activeShiftTypeIds);
+    const hasCorrectionAlert = pendingCorrectionCellKeys.has(key);
+    const hasConflictAlert = !hasCorrectionAlert && unavailableConflictCellKeys.has(key);
+
+    const ariaParts = [
+      t('editCellAriaLabelPrefix'),
+      s.name,
+      date,
+      label,
+      entry.assignment.published ? t('statusPublishedAriaLabel') : t('statusDraftAriaLabel'),
+    ];
+    if (hasCorrectionAlert) ariaParts.push(t('pendingCorrectionCellAriaLabel'));
+    else if (hasConflictAlert) ariaParts.push(t('attentionConflictSummary'));
+    const ariaLabel = ariaParts.join(' — ');
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={shiftChipStyle(shiftChipColors(entry.assignment.shiftTypeId, activeShiftTypeIds))}>{shiftType?.code ?? 'Custom'}</span>
-          <span style={badgeStyle(entry.assignment.published ? 'active' : 'neutral')}>
-            {entry.assignment.published ? t('statusPublished') : t('statusDraft')}
+      <button
+        type="button"
+        className={hoverStyles.scheduleCellButton}
+        style={scheduleCellButtonStyle(tone)}
+        disabled={isPending}
+        aria-label={ariaLabel}
+        title={ariaLabel}
+        onClick={() => setEditingCell({ staffId: s.staffId, date })}
+      >
+        <span aria-hidden="true" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        {hasCorrectionAlert || hasConflictAlert ? (
+          <span aria-hidden="true" style={{ ...cellAlertCornerStyle, background: hasCorrectionAlert ? colors.danger : colors.warning }}>
+            !
           </span>
-          {pendingCorrectionCellKeys.has(key) ? (
-            <span role="img" aria-label={t('pendingCorrectionCellAriaLabel')} title={t('pendingCorrectionCellAriaLabel')} style={pendingCorrectionMarkerStyle}>
-              !
-            </span>
-          ) : null}
-        </div>
-        <span style={{ ...mutedText, fontSize: 12 }}>
-          {entry.startsAtLocal} - {entry.endsAtLocal}
-        </span>
-        {unavailableConflictCellKeys.has(key) ? <span style={badgeStyle('warning')}>{unavailableConflictBadgeLabel[lang]}</span> : null}
-        {entry.assignment.published ? (
-          <span style={{ ...mutedText, fontSize: 12 }}>{t('publishedReadOnly')}</span>
-        ) : (
-          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} disabled={isPending} onClick={() => setEditingCell({ staffId: s.staffId, date })}>
-            {t('edit')}
-          </button>
-        )}
-      </div>
+        ) : null}
+        <span aria-hidden="true" style={cellStatusDotStyle(entry.assignment.published)} />
+      </button>
     );
   }
 
@@ -1051,7 +1141,10 @@ function ManagerDashboardBody({
                           t('unavailableValue')
                         ) : (
                           <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId, activeShiftTypeIds))}>
-                            {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
+                            {(() => {
+                              const preferredType = shiftTypeById.get(r.shiftTypeId ?? '');
+                              return preferredType ? shiftTypeDisplayLabel(preferredType) : '-';
+                            })()}
                           </span>
                         )}
                       </td>

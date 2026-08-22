@@ -144,9 +144,6 @@ interface ManagerDashboardDict {
   assign: string;
   unassign: string;
   unassigning: string;
-  statusPublished: string;
-  statusDraft: string;
-  publishedReadOnly: string;
   actionsHeading: string;
   autoDistributionDescription: string;
   runAutoDistribution: string;
@@ -216,6 +213,20 @@ interface ManagerDashboardDict {
   fieldEnd: string;
   fieldBreakMinutes: string;
   save: string;
+  // Weekly Schedule redesign (2026-08-22): controlled edit of an
+  // already-published shift -- notice shown inside the editor, and the
+  // confirmation gating the actual save.
+  editingPublishedShiftNotice: string;
+  confirmPublishedEditTitle: string;
+  confirmPublishedEditBody: string;
+  // Weekly Schedule redesign: compact grid cell -- whole-cell click target,
+  // "+" empty-cell affordance, and status-dot aria-labels (draft/published
+  // are shown as a small dot, not a full-text badge, but the accessible
+  // name still spells out the full word).
+  assignCellAriaLabelPrefix: string;
+  editCellAriaLabelPrefix: string;
+  statusDraftAriaLabel: string;
+  statusPublishedAriaLabel: string;
   // Submitted shift preferences
   preferencesUnavailable: string;
   preferencesEmpty: string;
@@ -411,13 +422,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assign: 'Assign',
     unassign: 'Unassign',
     unassigning: 'Unassigning...',
-    statusPublished: 'Published',
-    statusDraft: 'Draft',
-    publishedReadOnly: 'Published -- read-only',
     actionsHeading: 'Actions',
     autoDistributionDescription:
-      'Auto-distribution uses a fixed cafe default (1 staff for the AM window, 1 for the PM window, every day) -- there is no settings screen for this yet.',
-    runAutoDistribution: 'Run auto-distribution',
+      'Auto-create fills empty shifts using a fixed staffing default (1 staff for the AM window, 1 for the PM window, every day).',
+    runAutoDistribution: 'Auto-create schedule',
     running: 'Running...',
     undoAutoDistribution: 'Undo auto-distribution',
     undoing: 'Undoing...',
@@ -482,6 +490,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEnd: 'End',
     fieldBreakMinutes: 'Break (min)',
     save: 'Save',
+    editingPublishedShiftNotice: 'This shift has already been published — the staff member has seen it. Changes need confirmation before they save.',
+    confirmPublishedEditTitle: 'Save changes to a published shift?',
+    confirmPublishedEditBody: 'This shift has already been published to the employee. Save the changes?',
+    assignCellAriaLabelPrefix: 'Assign shift',
+    editCellAriaLabelPrefix: 'Edit shift',
+    statusDraftAriaLabel: 'Draft — not yet published',
+    statusPublishedAriaLabel: 'Published — visible to the employee',
     preferencesUnavailable: 'Shift preferences are temporarily unavailable.',
     preferencesEmpty: 'No shift preferences submitted for this week yet.',
     colDate: 'Date',
@@ -667,13 +682,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assign: '割り当て',
     unassign: '割り当て解除',
     unassigning: '解除中...',
-    statusPublished: '公開済み',
-    statusDraft: '下書き',
-    publishedReadOnly: '公開済み -- 変更不可',
     actionsHeading: '操作',
     autoDistributionDescription:
-      '自動割り当ては、カフェの固定デフォルト（毎日AM枠1名・PM枠1名）を使用します -- 設定画面はまだありません。',
-    runAutoDistribution: '自動割り当てを実行',
+      '固定の人員配置デフォルト（毎日AM枠1名・PM枠1名）を使って、空いているシフトを自動的に埋めます。',
+    runAutoDistribution: 'スケジュールを自動作成',
     running: '実行中...',
     undoAutoDistribution: '自動割り当てを元に戻す',
     undoing: '元に戻しています...',
@@ -737,6 +749,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEnd: '終了',
     fieldBreakMinutes: '休憩（分）',
     save: '保存',
+    editingPublishedShiftNotice: 'このシフトはすでに公開されており、スタッフに表示されています。変更を保存する前に確認が必要です。',
+    confirmPublishedEditTitle: '公開済みのシフトを変更しますか？',
+    confirmPublishedEditBody: 'このシフトはすでにスタッフに公開されています。変更を保存しますか？',
+    assignCellAriaLabelPrefix: 'シフトを割り当てる',
+    editCellAriaLabelPrefix: 'シフトを編集',
+    statusDraftAriaLabel: '下書き -- まだ公開されていません',
+    statusPublishedAriaLabel: '公開済み -- スタッフに表示されています',
     preferencesUnavailable: 'シフト希望は一時的に利用できません。',
     preferencesEmpty: '今週はまだシフト希望が提出されていません。',
     colDate: '日付',
