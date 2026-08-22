@@ -304,15 +304,21 @@ export async function getRecipeDetailForPopup(recipeId: string): Promise<TenantA
   if (detailResult.data === null) return { status: 'success', data: null };
 
   const { recipe, ingredients, steps, notes } = detailResult.data;
-  const translationsResult = await listContentTranslationsForEntities(supabase, activeTenant.tenantId, [
-    { sourceEntityType: 'workforce_recipe', sourceEntityId: recipe.recipeId },
-    ...ingredients.map((i) => ({ sourceEntityType: 'workforce_recipe_ingredient' as const, sourceEntityId: i.ingredientId })),
-    ...steps.map((s) => ({ sourceEntityType: 'workforce_recipe_step' as const, sourceEntityId: s.stepId })),
-    ...notes.map((n) => ({ sourceEntityType: 'workforce_recipe_note' as const, sourceEntityId: n.noteId })),
+  // Translations and the media URL each depend only on `recipe`/its children
+  // (already resolved above), not on each other -- running them in parallel
+  // instead of one after the other removes another full Supabase round trip
+  // from every popup open.
+  const [translationsResult, mediaUrlMap] = await Promise.all([
+    listContentTranslationsForEntities(supabase, activeTenant.tenantId, [
+      { sourceEntityType: 'workforce_recipe', sourceEntityId: recipe.recipeId },
+      ...ingredients.map((i) => ({ sourceEntityType: 'workforce_recipe_ingredient' as const, sourceEntityId: i.ingredientId })),
+      ...steps.map((s) => ({ sourceEntityType: 'workforce_recipe_step' as const, sourceEntityId: s.stepId })),
+      ...notes.map((n) => ({ sourceEntityType: 'workforce_recipe_note' as const, sourceEntityId: n.noteId })),
+    ]),
+    createRecipeMediaUrlMap(supabase, [recipe]),
   ]);
   const translations = translationsResult.status === 'success' ? translationsResult.data : [];
   const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
-  const mediaUrlMap = await createRecipeMediaUrlMap(supabase, [recipe]);
 
   return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage, mediaUrl: mediaUrlMap[recipe.recipeId] ?? null } };
 }

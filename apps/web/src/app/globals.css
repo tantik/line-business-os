@@ -45,3 +45,24 @@ button:focus-visible {
     transition: none !important;
   }
 }
+
+/*
+ * Shared page-level horizontal padding (`pageStyle()` in `lib/ui/theme.ts`,
+ * used by every top-level page's `<main>`) -- a custom property so every
+ * one of that helper's ~20 call sites gets responsive padding without each
+ * one needing its own media query or className. 32px reads fine on desktop
+ * but wastes real content width on a 375-390px phone screen; mobile
+ * optimization pass (2026-08-22) narrows it to 4px there. CSS custom
+ * properties resolve at computed-style time, so `var(--page-padding)`
+ * inside a plain inline `style` object (not just CSS Modules/classes) still
+ * responds to this media query correctly.
+ */
+:root {
+  --page-padding: 32px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --page-padding: 4px;
+  }
+}

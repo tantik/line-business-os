@@ -9,15 +9,13 @@ import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
-import { buttonDisabled, buttonPrimary, buttonSecondary, colors, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
+import { buttonDisabled, buttonPrimary, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { shiftTypeDisplayLabel } from '@/lib/workforce/shift-types';
 import { computeShiftExchangeCandidates, type ShiftExchangeCandidateWarning } from '@/lib/workforce/shift-exchange-candidates';
 import { exchangeStatusBadgeStyle, exchangeStatusLabel } from '../_ui/workforce-theme';
 import { tManagerDashboard } from './manager-dashboard-i18n';
-
-const ARCHIVE_PREVIEW_COUNT = 10;
 
 export interface ShiftExchangeRequestsPopupProps {
   open: boolean;
@@ -107,14 +105,11 @@ export function ShiftExchangeRequestsPopup({
 }: ShiftExchangeRequestsPopupProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   usePopupOpenTiming(open, 'shift-exchange-requests');
-  const [showArchive, setShowArchive] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [selectingFor, setSelectingFor] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-
-  const visibleDecided = showArchive ? decidedExchanges : decidedExchanges.slice(0, ARCHIVE_PREVIEW_COUNT);
-  const hasMoreThanPreview = decidedExchanges.length > ARCHIVE_PREVIEW_COUNT;
 
   function startSelecting(exchangeId: string) {
     setSelectingFor(exchangeId);
@@ -297,49 +292,44 @@ export function ShiftExchangeRequestsPopup({
       )}
 
       {decidedExchanges.length > 0 ? (
-        <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
-            {hasMoreThanPreview ? (
-              <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, padding: '4px 10px', fontSize: 12 }} onClick={() => setShowArchive((v) => !v)}>
-                {showArchive ? t('hideArchiveButton') : t('showArchiveButton')}
-              </button>
-            ) : null}
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequester')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShift')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReason')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleDecided.map((e) => {
-                  const shift = exchangeAssignmentById.get(e.shiftId);
-                  const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-                  const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
-                  return (
-                    <tr key={e.exchangeId}>
-                      <td style={tableCell}>{requesterName}</td>
-                      <td style={tableCell}>{shiftLocal ? `${shiftLocal.workDate} ${shiftLocal.localTime}` : '-'}</td>
-                      <td style={tableCell}>{e.reason}</td>
-                      <td style={tableCell}>
-                        <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status, lang)}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, marginTop: 16 }} onClick={() => setHistoryOpen(true)}>
+          {t('viewHistoryButton')}
+        </button>
       ) : null}
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('exchangesPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('exchangesPopupHelpBody')}</div>
+      </Modal>
+
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={t('recentlyDecided')} closeLabel={t('cancel')} width="min(600px, 96vw)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {decidedExchanges.map((e) => {
+            const shift = exchangeAssignmentById.get(e.shiftId);
+            const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
+            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
+            return (
+              <div
+                key={e.exchangeId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  background: colors.surfaceElevated,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{requesterName}{shiftLocal ? ` · ${shiftLocal.workDate} ${shiftLocal.localTime}` : ''}</div>
+                  <div style={{ ...mutedText, fontSize: 12 }}>{e.reason}</div>
+                </div>
+                <span style={exchangeStatusBadgeStyle(e.status)}>{exchangeStatusLabel(e.status, lang)}</span>
+              </div>
+            );
+          })}
+        </div>
       </Modal>
     </Modal>
   );

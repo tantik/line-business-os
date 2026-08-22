@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { ManagerAttentionCategory, ManagerAttentionItem, ManagerAttentionQueueItem } from '@/lib/workforce/manager-attention';
 import { ATTENTION_SEVERITY_BY_CATEGORY, computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
-import { Modal } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
@@ -113,6 +113,8 @@ export function AttentionPanel({
   const t: Translate = (key) => tManagerDashboard(lang, key);
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [reviewAllOpen, setReviewAllOpen] = useState(false);
+  const [conflictsHelpOpen, setConflictsHelpOpen] = useState(false);
+  const [reviewAllHelpOpen, setReviewAllHelpOpen] = useState(false);
   const summary = computeManagerAttentionSummary(items);
 
   function staffName(employeeId: string) {
@@ -280,11 +282,29 @@ export function AttentionPanel({
         </>
       )}
 
-      <Modal open={conflictsOpen} onClose={() => setConflictsOpen(false)} title={t('attentionConflictsPopupTitle')} width="min(700px, 96vw)" closeLabel={t('cancel')}>
+      <Modal
+        open={conflictsOpen}
+        onClose={() => setConflictsOpen(false)}
+        title={t('attentionConflictsPopupTitle')}
+        titleAdornment={<HelpIconButton ariaLabel={t('attentionConflictsPopupHelpAriaLabel')} onClick={() => setConflictsHelpOpen(true)} />}
+        width="min(700px, 96vw)"
+        closeLabel={t('cancel')}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{conflictItems.map((qi) => renderConflictItem(qi))}</div>
       </Modal>
 
-      <Modal open={reviewAllOpen} onClose={() => setReviewAllOpen(false)} title={t('attentionReviewAllTitle')} width="min(760px, 96vw)" closeLabel={t('cancel')}>
+      <Modal open={conflictsHelpOpen} onClose={() => setConflictsHelpOpen(false)} title={t('attentionConflictsPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('attentionConflictsPopupHelpBody')}</div>
+      </Modal>
+
+      <Modal
+        open={reviewAllOpen}
+        onClose={() => setReviewAllOpen(false)}
+        title={t('attentionReviewAllTitle')}
+        titleAdornment={<HelpIconButton ariaLabel={t('attentionReviewAllHelpAriaLabel')} onClick={() => setReviewAllHelpOpen(true)} />}
+        width="min(760px, 96vw)"
+        closeLabel={t('cancel')}
+      >
         <p style={{ margin: 0, ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
         {actionRequiredItems.length > 0 ? (
           <div style={{ marginTop: 12 }}>
@@ -298,6 +318,10 @@ export function AttentionPanel({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{warningItems.map((qi) => renderQueueItem(qi))}</div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal open={reviewAllHelpOpen} onClose={() => setReviewAllHelpOpen(false)} title={t('attentionReviewAllHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('attentionReviewAllHelpBody')}</div>
       </Modal>
     </section>
   );

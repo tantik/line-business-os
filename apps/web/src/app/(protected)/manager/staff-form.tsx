@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import { upsertEmployee } from '@/lib/workforce/staff-actions';
+import { bindEmployeeLineUser, upsertEmployee } from '@/lib/workforce/staff-actions';
 import { PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, input, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from './error-copy';
@@ -30,6 +30,8 @@ export interface StaffFormProps {
   employee?: WorkforceStaffManageEntry;
   /** Id given to the underlying `<form>` element so an external "Save" button (rendered by the parent popup, positioned after the LINE/access/danger-zone sections below this form in the DOM) can submit it via the standard HTML `form="..."` button attribute, without an invalid nested-`<form>` layout. */
   formId: string;
+  /** Whether this employee already has a linked LINE user id. `false`/omitted (always the case for a new employee) shows a LINE user id field inline next to Email -- entering one and saving links it in the same submit, no separate "Bind" step. `true` omits that field entirely; the parent's own `LineLinkForm` (Unbind-only in that state) is the sole LINE control instead. */
+  isLineLinked?: boolean;
   onSuccess: () => void;
   /** Reports pending/error state up to the parent, which owns the actual Save button (see `formId`) and needs to know when to show it as loading/disabled. */
   onPendingChange?: (pending: boolean) => void;
@@ -49,7 +51,7 @@ export interface StaffFormProps {
  * Founder direction ("пока удали") -- carried through as a hidden input so
  * an edit-and-save never silently wipes an existing value.
  */
-export function StaffForm({ locationId, employee, formId, onSuccess, onPendingChange, onErrorChange }: StaffFormProps) {
+export function StaffForm({ locationId, employee, formId, isLineLinked = false, onSuccess, onPendingChange, onErrorChange }: StaffFormProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
@@ -65,14 +67,38 @@ export function StaffForm({ locationId, employee, formId, onSuccess, onPendingCh
     if (employee) formData.set('id', employee.staffId);
     // Preserve the employee's own location on edit (the page's active location is only a create-time default) -- this manager page can list staff across locations, and an edit shouldn't silently move someone.
     formData.set('locationId', employee?.locationId ?? locationId);
+    // `rawLineUserId` is this form's own field (see the !isLineLinked branch
+    // below), not part of `upsertEmployee`'s input shape -- pulled out and
+    // removed before that call, then used for a second, chained bind call
+    // below so entering a LINE id and clicking Save/Add links it in one
+    // step, no separate "Bind" submit.
+    const rawLineUserId = String(formData.get('rawLineUserId') ?? '').trim();
+    formData.delete('rawLineUserId');
 
     startTransition(async () => {
       const result = await upsertEmployee(formData);
-      if (result.status === 'success') {
-        onSuccess();
-      } else {
+      if (result.status !== 'success') {
         setError(localizedFormError(result, t));
+        return;
       }
+      if (rawLineUserId) {
+        const lineFormData = new FormData();
+        lineFormData.set('employeeId', result.data.staffId);
+        lineFormData.set('rawLineUserId', rawLineUserId);
+        const lineResult = await bindEmployeeLineUser(lineFormData);
+        if (lineResult.status !== 'success') {
+          // The identity fields are already saved at this point (upsert
+          // succeeded) -- only the LINE link failed. Surfacing the error
+          // here (instead of calling onSuccess, which the parent popup
+          // wires to close back to the list) keeps the Manager on this
+          // form so they can see it and retry the LINE id, rather than
+          // silently losing the failure the moment the popup navigates
+          // away.
+          setError(describeWriteError(lineResult));
+          return;
+        }
+      }
+      onSuccess();
     });
   }
 
@@ -94,10 +120,23 @@ export function StaffForm({ locationId, employee, formId, onSuccess, onPendingCh
           <input style={input} name="givenName" defaultValue={employee?.givenName ?? ''} maxLength={80} required />
         </label>
       </div>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmail')}</span>
-        <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
-      </label>
+      {isLineLinked ? (
+        <label>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmail')}</span>
+          <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
+        </label>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldEmail')}</span>
+            <input style={input} type="email" name="email" defaultValue={employee?.email ?? ''} maxLength={254} required />
+          </label>
+          <label>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldLineUserId')}</span>
+            <input style={input} name="rawLineUserId" placeholder={t('lineUserIdPlaceholder')} maxLength={128} />
+          </label>
+        </div>
+      )}
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldPosition')}</span>
         <input style={input} name="positionLabel" defaultValue={employee?.positionLabel ?? ''} maxLength={60} />

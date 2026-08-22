@@ -35,8 +35,17 @@ export const colors = {
   warning: '#B8863B',
 } as const;
 
+/**
+ * Mobile optimization pass (2026-08-22): padding comes from the
+ * `--page-padding` custom property (`globals.css`) instead of a fixed `32`
+ * -- 32px on desktop, 4px at <=640px, so every page using this helper
+ * (Manager/Staff/Inventory/Recipes/Admin/etc.) gets more usable content
+ * width on a phone screen without each call site needing its own media
+ * query. The `32` fallback only matters if `globals.css` somehow failed to
+ * load.
+ */
 export function pageStyle(maxWidth: number): CSSProperties {
-  return { maxWidth, margin: '0 auto', padding: 32 };
+  return { maxWidth, margin: '0 auto', padding: 'var(--page-padding, 32px)' };
 }
 
 export const card: CSSProperties = {
