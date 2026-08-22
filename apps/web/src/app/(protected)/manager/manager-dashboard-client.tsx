@@ -1010,13 +1010,21 @@ function ManagerDashboardBody({
               </colgroup>
               <thead>
                 <tr>
-                  <th style={scheduleTableHeaderCellStyle}>{t('colStaff')}</th>
-                  {dates.map((date) => {
+                  <th style={{ ...scheduleTableHeaderCellStyle, borderTopLeftRadius: 8 }}>{t('colStaff')}</th>
+                  {dates.map((date, dateIndex) => {
                     const coverage = staffingCoverageByDate.get(date);
                     const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
                     const isToday = date === todayIso;
+                    const isLastCol = dateIndex === dates.length - 1;
                     return (
-                      <th key={date} style={isToday ? { ...scheduleTableHeaderCellStyle, ...scheduleTodayTint, borderRadius: 8 } : scheduleTableHeaderCellStyle}>
+                      <th
+                        key={date}
+                        style={{
+                          ...scheduleTableHeaderCellStyle,
+                          ...(isToday ? scheduleTodayTint : {}),
+                          ...(isLastCol ? { borderTopRightRadius: 8 } : {}),
+                        }}
+                      >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span>
                             {formatWeekday(date)}
@@ -1038,23 +1046,39 @@ function ManagerDashboardBody({
                 </tr>
               </thead>
               <tbody>
-                {staff.map((s) => (
-                  <tr key={s.staffId}>
-                    <td style={scheduleTableCellStyle}>
-                      <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => setStaffDetailId(s.staffId)}>
-                        {s.name}
-                      </button>
-                    </td>
-                    {dates.map((date) => {
-                      const isToday = date === todayIso;
-                      return (
-                        <td key={date} style={isToday ? { ...scheduleTableCellStyle, ...scheduleTodayTint, borderRadius: 8 } : scheduleTableCellStyle}>
-                          {renderScheduleCellContent(s, date)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {staff.map((s, staffIndex) => {
+                  const isLastRow = staffIndex === staff.length - 1;
+                  return (
+                    <tr key={s.staffId}>
+                      <td style={{ ...scheduleTableCellStyle, ...(isLastRow ? { borderBottomLeftRadius: 8 } : {}) }}>
+                        <button
+                          type="button"
+                          className={hoverStyles.staffNameCell}
+                          style={{ width: '100%', height: '100%', minHeight: 44, background: 'none', border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: 6, color: colors.textPrimary }}
+                          onClick={() => setStaffDetailId(s.staffId)}
+                        >
+                          {s.name}
+                        </button>
+                      </td>
+                      {dates.map((date, dateIndex) => {
+                        const isToday = date === todayIso;
+                        const isLastCol = dateIndex === dates.length - 1;
+                        return (
+                          <td
+                            key={date}
+                            style={{
+                              ...scheduleTableCellStyle,
+                              ...(isToday ? scheduleTodayTint : {}),
+                              ...(isLastRow && isLastCol ? { borderBottomRightRadius: 8 } : {}),
+                            }}
+                          >
+                            {renderScheduleCellContent(s, date)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1111,10 +1135,9 @@ function ManagerDashboardBody({
           ) : null}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <div style={{ padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated, textAlign: 'right' }}>
-              <span style={{ display: 'block', fontSize: 11.5, ...mutedText }}>{t('estimatedLabourCostLabel')}</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated }}>
+              <span style={{ fontSize: 12.5, ...mutedText }}>{t('estimatedLabourCostLabel')}</span>
               <strong style={{ fontSize: 18 }}>¥{estimatedLabourCost.toLocaleString('ja-JP')}</strong>
-              <span style={{ display: 'block', fontSize: 10.5, ...mutedText }}>{t('estimatedLabourCostCaption')}</span>
             </div>
           </div>
           </>

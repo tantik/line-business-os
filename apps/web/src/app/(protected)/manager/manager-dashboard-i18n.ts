@@ -201,7 +201,6 @@ interface ManagerDashboardDict {
   automationHelpBody: string;
   // "Estimated labour cost" box below the schedule grid (Round 3, 2026-08-22)
   estimatedLabourCostLabel: string;
-  estimatedLabourCostCaption: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -474,7 +473,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpBody:
       'This capability is currently in development and not active yet. Once built, it will automatically create and publish a schedule on the day of the month set above. Manual manager changes will always take priority over anything automation creates -- automation only ever fills in what a manager has not already scheduled.',
     estimatedLabourCostLabel: 'Estimated labour cost',
-    estimatedLabourCostCaption: 'Operational estimate, not payroll',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -726,7 +724,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpBody:
       'この機能は現在開発中で、まだ有効化されていません。実装後は、上記で設定した日にスケジュールを自動的に作成・公開します。手動でのマネージャーの変更は、自動作成された内容より常に優先されます -- 自動作成はマネージャーがまだ設定していない部分だけを埋めます。',
     estimatedLabourCostLabel: '概算人件費',
-    estimatedLabourCostCaption: '給与計算ではありません',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',
