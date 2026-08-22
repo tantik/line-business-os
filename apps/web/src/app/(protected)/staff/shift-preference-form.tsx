@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { submitShiftPreference } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, checkboxInput, checkboxLabel, input, mutedText } from '@/lib/ui/theme';
@@ -64,7 +64,7 @@ export function ShiftPreferenceForm({ shiftTypes, defaultWorkDate, lang, onSucce
             </option>
             {activeShiftTypes.map((st) => (
               <option key={st.shiftTypeId} value={st.shiftTypeId}>
-                {st.code} ({st.startsAtLocal}-{st.endsAtLocal})
+                {shiftTypeDisplayLabel(st)} ({st.startsAtLocal}-{st.endsAtLocal})
               </option>
             ))}
           </select>

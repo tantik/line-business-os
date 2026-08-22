@@ -20,7 +20,7 @@ test('ShiftCellEditor uses the existing Manager useLang/tManagerDashboard mechan
 test('ShiftCellEditor renders every system/chrome label through t(...), not a hardcoded English literal', () => {
   for (const key of [
     'fieldEmployee', 'fieldShiftType', 'shiftTypeCustom', 'fieldStart', 'fieldEnd', 'fieldBreakMinutes',
-    'saving', 'save', 'assign', 'cancel',
+    'saving', 'save', 'assign', 'cancel', 'reassignEmployeeButton', 'correctingPastScheduleNotice',
   ]) {
     assert.ok(new RegExp(`t\\('${key}'\\)`).test(SOURCE), `ShiftCellEditor must render the '${key}' key via t(...)`);
   }
@@ -29,12 +29,17 @@ test('ShiftCellEditor renders every system/chrome label through t(...), not a ha
   }
 });
 
-test('ShiftCellEditor keeps staff names and shift-type codes bound directly to their records, never translated', () => {
+test('ShiftCellEditor keeps staff names bound directly to their records, never translated', () => {
   assert.ok(SOURCE.includes('{s.name}'), 'the employee <option> must render the raw staff name');
-  assert.ok(
-    SOURCE.includes('{st.code} ({st.startsAtLocal}-{st.endsAtLocal})'),
-    'the shift-type <option> must render the raw code/time, not a translated label',
-  );
+});
+
+// Weekly Schedule Founder Review Round 2 (2026-08-22, section 16): every
+// user-facing shift-type label anywhere in this file must resolve through
+// `shiftTypeDisplayLabel`, never render `code` directly -- `code` can be an
+// internal `CUSTOM_<timestamp>` id (see `shift-types.ts`).
+test('ShiftCellEditor never renders a shift type\'s raw `code` -- always through shiftTypeDisplayLabel', () => {
+  assert.doesNotMatch(SOURCE, /\bst\.code\b/, 'must not render st.code directly');
+  assert.match(SOURCE, /shiftTypeDisplayLabel\(st\)/);
 });
 
 test('ShiftCellEditor localizes the write-error states it can actually receive (not_found/not_authenticated/no_membership/stale_reference)', () => {
@@ -44,24 +49,32 @@ test('ShiftCellEditor localizes the write-error states it can actually receive (
 });
 
 /**
- * Weekly Schedule redesign (2026-08-22): editing an already-published shift
- * is allowed (published assignments are no longer hidden from the editor by
- * the caller), but the actual write is gated behind an explicit
- * confirmation instead of firing on plain Save -- these are source-text
- * regression guards for that "controlled edit" flow.
+ * Weekly Schedule Founder Review Round 2 (2026-08-22): Draft/Published no
+ * longer gates anything in Manager UX -- editing an existing assignment
+ * (any date) is always allowed. What replaced the old "editing a published
+ * shift" confirmation is date-based: a real field change to an existing
+ * FUTURE/TODAY assignment stages the write behind a "this is already
+ * visible to the employee" confirmation; a PAST edit shows a quiet inline
+ * notice instead, no extra confirmation step.
  */
-test('ShiftCellEditor stages (does not immediately submit) a Save on an already-published shift', () => {
-  assert.match(SOURCE, /existing\?\.assignment\.published\)\s*\{\s*[\s\S]*?setPendingPublishedSave\(formData\)/, 'a published shift\'s Save must stage the FormData instead of calling doSubmit directly');
+test('ShiftCellEditor never gates anything on existing.assignment.published (that concept no longer exists in this file)', () => {
+  assert.doesNotMatch(SOURCE, /\.published\b/, 'ShiftCellEditor must not reference published at all -- Draft/Published is not a Manager UX concept anymore');
+});
+
+test('ShiftCellEditor stages (does not immediately submit) a real change to an existing future/today assignment', () => {
+  assert.match(SOURCE, /existing && !isPast && changed\)\s*\{\s*[\s\S]*?setPendingChangeConfirm\(/, 'a changed future/today edit must stage the FormData instead of calling doSubmit directly');
   assert.match(SOURCE, /function doSubmit\(formData: FormData\)/, 'the actual write must be extracted into a doSubmit(formData) callable from both the plain-save and confirmed-save paths');
 });
 
-test('ShiftCellEditor renders a ConfirmDialog gating the published-shift save, using t(...) copy', () => {
-  assert.match(SOURCE, /<ConfirmDialog[\s\S]*?open=\{pendingPublishedSave !== null\}/);
-  assert.match(SOURCE, /t\('confirmPublishedEditTitle'\)/);
-  assert.match(SOURCE, /t\('confirmPublishedEditBody'\)/);
+test('ShiftCellEditor renders a ConfirmDialog gating the future/today change, showing the old -> new time and using t(...) copy', () => {
+  assert.match(SOURCE, /<ConfirmDialog[\s\S]*?open=\{pendingChangeConfirm !== null\}/);
+  assert.match(SOURCE, /t\('confirmChangeScheduledShiftTitle'\)/);
+  assert.match(SOURCE, /t\('shiftAlreadyVisibleNotice'\)/);
+  assert.match(SOURCE, /pendingChangeConfirm\.fromLabel/);
+  assert.match(SOURCE, /pendingChangeConfirm\.toLabel/);
 });
 
-test('ShiftCellEditor: cancelling the published-edit confirmation must not call doSubmit (Cancel never writes)', () => {
+test('ShiftCellEditor: cancelling the change confirmation must not call doSubmit (Cancel never writes)', () => {
   const confirmBlock = SOURCE.slice(SOURCE.indexOf('<ConfirmDialog'), SOURCE.indexOf('</ConfirmDialog>'));
   const onCancelMatch = confirmBlock.match(/onCancel=\{([\s\S]*?)\}\s*\n\s*onConfirm=/);
   assert.ok(onCancelMatch, 'ConfirmDialog must have an onCancel handler');
@@ -69,10 +82,20 @@ test('ShiftCellEditor: cancelling the published-edit confirmation must not call 
   assert.doesNotMatch(onCancelBody, /doSubmit/, 'onCancel must not call doSubmit');
 });
 
-test('ShiftCellEditor preserves the published flag unchanged when submitting an edit to a published shift (status does not flip to Draft as a UI side effect)', () => {
-  assert.match(SOURCE, /if \(existing\.assignment\.published\) formData\.set\('published', 'true'\)/);
+test('ShiftCellEditor: a Save with no actual field change never shows the change-confirmation (only a real change does)', () => {
+  assert.match(SOURCE, /const changed =\s*\n\s*Boolean\(existing\)/, 'change detection must compare submitted values against the existing assignment');
 });
 
-test('ShiftCellEditor shows a visible notice while editing an already-published shift', () => {
-  assert.match(SOURCE, /existing\?\.assignment\.published[\s\S]{0,400}t\('editingPublishedShiftNotice'\)/);
+test('ShiftCellEditor shows a "correcting past schedule" notice when the cell\'s own date is before today, for both existing and empty cells', () => {
+  assert.match(SOURCE, /const isPast = workDate < todayIso;/);
+  assert.match(SOURCE, /isPast \? <div style=\{noticeStyle\}>\{t\('correctingPastScheduleNotice'\)\}<\/div> : null/);
+});
+
+test('ShiftCellEditor: Employee is read-only context for an existing assignment, with an explicit "Reassign employee" secondary action -- no always-editable dropdown', () => {
+  assert.match(SOURCE, /reassignOpen/, 'reassign must be a toggled, deliberate state, not an always-visible select');
+  assert.match(SOURCE, /t\('reassignEmployeeButton'\)/);
+});
+
+test('ShiftCellEditor renders any passed-in problemNotice (conflict/correction explanation) so a flagged shift explains itself when opened', () => {
+  assert.match(SOURCE, /\{problemNotice \? <div style=\{alertDanger\}>\{problemNotice\}<\/div> : null\}/);
 });

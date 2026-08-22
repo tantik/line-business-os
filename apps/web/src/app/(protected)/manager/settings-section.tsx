@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
-import { buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
+import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
@@ -18,6 +18,22 @@ export interface SettingsSectionProps {
   shiftTypes: WorkforceShiftType[] | null;
   onShiftTypesChanged: () => void;
   lang: Lang;
+  /**
+   * "Automatic schedule" subsection (Founder Review Round 2, 2026-08-22):
+   * Run now / Publish schedule are real, working actions the parent already
+   * owns (`handleAutoDistribute`/`handlePublish` in
+   * `manager-dashboard-client.tsx`) -- relocated here from the Weekly
+   * Schedule card's own header per Founder direction, same session. The
+   * day-of-month/target-period inputs below are NOT wired to either of
+   * these; they're a disabled visual/configuration preview for a scheduled-
+   * automation capability that doesn't exist on the backend yet (section 25
+   * -- no fake persistence, no fake "active" status).
+   */
+  onRunAutoCreate: () => void;
+  autoCreatePending: boolean;
+  onPublishSchedule: () => void;
+  publishPending: boolean;
+  lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
 }
 
 const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
@@ -37,7 +53,18 @@ const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, border
  * to make a save-time rejection actionable. Duplicate-*name* rejection
  * (also in the plan) IS enforced server-side, in `upsertWorkforceShiftType`.
  */
-export function SettingsSection({ locationId, settings, shiftTypes: initialShiftTypes, onShiftTypesChanged, lang }: SettingsSectionProps) {
+export function SettingsSection({
+  locationId,
+  settings,
+  shiftTypes: initialShiftTypes,
+  onShiftTypesChanged,
+  lang,
+  onRunAutoCreate,
+  autoCreatePending,
+  onPublishSchedule,
+  publishPending,
+  lastAutoCreateResult,
+}: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
 
@@ -200,7 +227,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
         ) : (
           <div style={{ display: 'grid', gap: 6 }}>
             {activeShiftTypes.map((st) => {
-              const label = st.labelJa || st.labelEn || st.code;
+              const label = shiftTypeDisplayLabel(st);
               if (editingId === st.shiftTypeId) {
                 return (
                   <div key={st.shiftTypeId} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
@@ -304,7 +331,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {inactiveShiftTypes.map((st) => {
-                  const label = st.labelJa || st.labelEn || st.code;
+                  const label = shiftTypeDisplayLabel(st);
                   return (
                     <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
                       <span>
@@ -342,7 +369,7 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
         {confirmDeactivateTarget ? (
           <>
             <p style={{ margin: 0 }}>
-              {confirmDeactivateTarget.labelJa || confirmDeactivateTarget.labelEn || confirmDeactivateTarget.code} ({confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
+              {shiftTypeDisplayLabel(confirmDeactivateTarget)} ({confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
             </p>
             <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
           </>
@@ -363,6 +390,92 @@ export function SettingsSection({ locationId, settings, shiftTypes: initialShift
           <span style={{ fontSize: 12, color: 'crimson' }}>{t('saveErrorStatus')}</span>
         ) : null}
         {feedback ? <span style={{ fontSize: 12, color: feedback.ok ? undefined : 'crimson' }}>{feedback.text}</span> : null}
+      </div>
+
+      <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}` }}>
+        <h3 style={{ margin: 0, fontSize: 15 }}>{t('automationSectionHeading')}</h3>
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, ...mutedText }}>{t('automationSectionIntro')}</p>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginTop: 14 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13 }}>{t('automationCreateOnLabel')}</span>
+            <input
+              style={{ ...input, width: 64, marginTop: 0 }}
+              type="number"
+              min={1}
+              max={28}
+              value={20}
+              disabled
+              aria-label={t('automationCreateOnLabel')}
+              readOnly
+            />
+            <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13 }}>{t('automationCreateForLabel')}</span>
+            <select style={{ ...input, width: 'auto', marginTop: 0 }} disabled aria-label={t('automationCreateForLabel')} value="next-month" onChange={() => {}}>
+              <option value="next-month">{t('automationTargetNextMonth')}</option>
+            </select>
+          </label>
+        </div>
+
+        <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>{t('automationManualPreservedNote')}</p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <span style={{ fontSize: 12.5, ...mutedText }}>{t('automationStatusLabel')}:</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t('automationStatusNotActive')}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+          <button
+            type="button"
+            className={hoverStyles.buttonPrimary}
+            style={autoCreatePending ? buttonDisabled : buttonPrimary}
+            disabled={autoCreatePending}
+            onClick={onRunAutoCreate}
+          >
+            {autoCreatePending ? t('running') : t('automationRunNowButton')}
+          </button>
+          <button
+            type="button"
+            className={hoverStyles.buttonSecondary}
+            style={publishPending ? buttonDisabled : buttonSecondary}
+            disabled={publishPending}
+            onClick={onPublishSchedule}
+          >
+            {publishPending ? t('publishing') : t('publishSchedule')}
+          </button>
+        </div>
+
+        {lastAutoCreateResult ? (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12.5, ...mutedText, marginBottom: 6 }}>{t('automationLastResultHeading')}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { label: t('draftShiftsLabel'), value: lastAutoCreateResult.created },
+                { label: t('shortagesLabel'), value: lastAutoCreateResult.shortages },
+                { label: t('unplacedLabel'), value: lastAutoCreateResult.unplaced },
+                { label: t('nonSubmittersLabel'), value: lastAutoCreateResult.missingPreferences },
+              ].map((stat) => (
+                <span
+                  key={stat.label}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'baseline',
+                    gap: 4,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: colors.surfaceElevated,
+                    fontSize: 12,
+                  }}
+                >
+                  <strong style={{ fontSize: 13 }}>{stat.value}</strong>
+                  <span style={mutedText}>{stat.label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

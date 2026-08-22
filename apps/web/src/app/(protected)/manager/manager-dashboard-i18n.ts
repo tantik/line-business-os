@@ -159,7 +159,6 @@ interface ManagerDashboardDict {
   scheduleHelpTitle: string;
   scheduleHelpBody: string;
   // WP-8: understaffed-day column marker + past-day pending-correction cell marker
-  understaffedDayAriaLabel: string;
   pendingCorrectionCellAriaLabel: string;
   // WP-9: shared "?" help affordance on the Manage Staff popup
   staffPopupHelpAriaLabel: string;
@@ -197,6 +196,25 @@ interface ManagerDashboardDict {
   savedStatus: string;
   saveErrorStatus: string;
   duplicateShiftTypeName: string;
+  // Automatic schedule (Founder Review Round 2, 2026-08-22): visual/
+  // configuration foundation for a future scheduled auto-create+publish
+  // capability -- section 25. The day-of-month/target-period inputs are
+  // deliberately non-functional (disabled) until a real scheduler exists;
+  // "Run now" and "Publish schedule" stay fully real, just relocated here
+  // from the Weekly Schedule card's header (Founder direction, same
+  // session: "Auto-create shifts и Publish schedule можно перенести в
+  // модуль Settings ниже").
+  automationSectionHeading: string;
+  automationSectionIntro: string;
+  automationCreateOnLabel: string;
+  automationDayOfMonthSuffix: string;
+  automationCreateForLabel: string;
+  automationTargetNextMonth: string;
+  automationManualPreservedNote: string;
+  automationStatusLabel: string;
+  automationStatusNotActive: string;
+  automationRunNowButton: string;
+  automationLastResultHeading: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -213,20 +231,21 @@ interface ManagerDashboardDict {
   fieldEnd: string;
   fieldBreakMinutes: string;
   save: string;
-  // Weekly Schedule redesign (2026-08-22): controlled edit of an
-  // already-published shift -- notice shown inside the editor, and the
-  // confirmation gating the actual save.
-  editingPublishedShiftNotice: string;
-  confirmPublishedEditTitle: string;
-  confirmPublishedEditBody: string;
+  // Weekly Schedule Founder Review Round 2 (2026-08-22): Draft/Published is
+  // no longer a Manager UX concept -- editing an existing FUTURE/TODAY
+  // assignment with a real field change confirms first (it's already
+  // visible to the employee); a PAST edit shows a quiet inline notice
+  // instead (a deliberate historical correction, not an ordinary edit).
+  shiftAlreadyVisibleNotice: string;
+  confirmChangeScheduledShiftTitle: string;
+  correctingPastScheduleNotice: string;
+  reassignEmployeeButton: string;
   // Weekly Schedule redesign: compact grid cell -- whole-cell click target,
-  // "+" empty-cell affordance, and status-dot aria-labels (draft/published
-  // are shown as a small dot, not a full-text badge, but the accessible
-  // name still spells out the full word).
+  // "+" empty-cell affordance (future/today) vs "correct past schedule"
+  // (past, quiet "-" by default).
   assignCellAriaLabelPrefix: string;
   editCellAriaLabelPrefix: string;
-  statusDraftAriaLabel: string;
-  statusPublishedAriaLabel: string;
+  correctPastScheduleAriaLabelPrefix: string;
   // Submitted shift preferences
   preferencesUnavailable: string;
   preferencesEmpty: string;
@@ -420,8 +439,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     addStaffToSeeSchedule: 'Add staff to see the weekly schedule.',
     colStaff: 'Staff',
     assign: 'Assign',
-    unassign: 'Unassign',
-    unassigning: 'Unassigning...',
+    unassign: 'Remove shift',
+    unassigning: 'Removing...',
     actionsHeading: 'Actions',
     autoDistributionDescription:
       'Auto-create fills empty shifts using a fixed staffing default (1 staff for the AM window, 1 for the PM window, every day).',
@@ -433,12 +452,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     publishSchedule: 'Publish schedule',
     publishing: 'Publishing...',
     confirmPublish: 'Publish all draft shifts for this week? Staff will be able to see them.',
-    confirmUnassignShift: 'Remove this staff member from this shift?',
+    confirmUnassignShift: 'Remove this shift from the schedule?',
     scheduleHelpAriaLabel: 'About the shift schedule',
     scheduleHelpTitle: 'About the shift schedule',
     scheduleHelpBody:
       'Assign staff to open cells, then use "Run auto-distribution" to fill remaining shifts automatically. Nothing is visible to staff until you press "Publish schedule".',
-    understaffedDayAriaLabel: 'Understaffed -- below the required headcount for this day',
     pendingCorrectionCellAriaLabel: 'This shift has a pending correction request awaiting your review',
     staffPopupHelpAriaLabel: 'About staff management',
     staffPopupHelpTitle: 'About staff management',
@@ -476,6 +494,17 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',
     duplicateShiftTypeName: 'An active shift type with this name already exists.',
+    automationSectionHeading: 'Automatic schedule',
+    automationSectionIntro: 'A future capability: schedules created and published automatically on a set day each month. Manual manager changes will always take priority over anything automation creates.',
+    automationCreateOnLabel: 'Create automatically on',
+    automationDayOfMonthSuffix: 'day of each month',
+    automationCreateForLabel: 'Create for',
+    automationTargetNextMonth: 'Next month',
+    automationManualPreservedNote: 'Manual manager changes will be preserved.',
+    automationStatusLabel: 'Status',
+    automationStatusNotActive: 'Not active yet',
+    automationRunNowButton: 'Run now',
+    automationLastResultHeading: 'Last result',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -490,13 +519,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEnd: 'End',
     fieldBreakMinutes: 'Break (min)',
     save: 'Save',
-    editingPublishedShiftNotice: 'This shift has already been published — the staff member has seen it. Changes need confirmation before they save.',
-    confirmPublishedEditTitle: 'Save changes to a published shift?',
-    confirmPublishedEditBody: 'This shift has already been published to the employee. Save the changes?',
+    shiftAlreadyVisibleNotice: 'This shift is already visible to the employee.',
+    confirmChangeScheduledShiftTitle: 'Change scheduled shift?',
+    correctingPastScheduleNotice: 'Correcting past schedule — this date has already passed.',
+    reassignEmployeeButton: 'Reassign employee',
     assignCellAriaLabelPrefix: 'Assign shift',
     editCellAriaLabelPrefix: 'Edit shift',
-    statusDraftAriaLabel: 'Draft — not yet published',
-    statusPublishedAriaLabel: 'Published — visible to the employee',
+    correctPastScheduleAriaLabelPrefix: 'Correct past schedule',
     preferencesUnavailable: 'Shift preferences are temporarily unavailable.',
     preferencesEmpty: 'No shift preferences submitted for this week yet.',
     colDate: 'Date',
@@ -680,8 +709,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     addStaffToSeeSchedule: 'スタッフを追加すると週間スケジュールが表示されます。',
     colStaff: 'スタッフ',
     assign: '割り当て',
-    unassign: '割り当て解除',
-    unassigning: '解除中...',
+    unassign: 'シフトを削除',
+    unassigning: '削除中...',
     actionsHeading: '操作',
     autoDistributionDescription:
       '固定の人員配置デフォルト（毎日AM枠1名・PM枠1名）を使って、空いているシフトを自動的に埋めます。',
@@ -693,12 +722,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     publishSchedule: 'スケジュールを公開',
     publishing: '公開中...',
     confirmPublish: '今週の下書きシフトをすべて公開しますか？スタッフに表示されるようになります。',
-    confirmUnassignShift: 'このシフトからスタッフの割り当てを解除しますか？',
+    confirmUnassignShift: 'このシフトをスケジュールから削除しますか？',
     scheduleHelpAriaLabel: 'シフトスケジュールについて',
     scheduleHelpTitle: 'シフトスケジュールについて',
     scheduleHelpBody:
       '空いているセルにスタッフを割り当てるか、「自動割り当てを実行」で残りのシフトを自動的に埋めます。「スケジュールを公開」を押すまでスタッフには表示されません。',
-    understaffedDayAriaLabel: '人員不足 -- この日の必要人数を下回っています',
     pendingCorrectionCellAriaLabel: 'このシフトには確認待ちの修正申請があります',
     staffPopupHelpAriaLabel: 'スタッフ管理について',
     staffPopupHelpTitle: 'スタッフ管理について',
@@ -735,6 +763,17 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',
     duplicateShiftTypeName: '同じ名称の有効なシフト種別がすでに存在します。',
+    automationSectionHeading: '自動スケジュール',
+    automationSectionIntro: '今後追加予定の機能です -- 毎月指定した日にスケジュールを自動的に作成・公開します。手動でのマネージャーの変更は、自動作成された内容より常に優先されます。',
+    automationCreateOnLabel: '自動作成する日',
+    automationDayOfMonthSuffix: '日（毎月）',
+    automationCreateForLabel: '対象期間',
+    automationTargetNextMonth: '来月',
+    automationManualPreservedNote: '手動でのマネージャーの変更は保持されます。',
+    automationStatusLabel: 'ステータス',
+    automationStatusNotActive: 'まだ有効化されていません',
+    automationRunNowButton: '今すぐ実行',
+    automationLastResultHeading: '直近の結果',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',
@@ -749,13 +788,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEnd: '終了',
     fieldBreakMinutes: '休憩（分）',
     save: '保存',
-    editingPublishedShiftNotice: 'このシフトはすでに公開されており、スタッフに表示されています。変更を保存する前に確認が必要です。',
-    confirmPublishedEditTitle: '公開済みのシフトを変更しますか？',
-    confirmPublishedEditBody: 'このシフトはすでにスタッフに公開されています。変更を保存しますか？',
+    shiftAlreadyVisibleNotice: 'このシフトはすでにスタッフに表示されています。',
+    confirmChangeScheduledShiftTitle: '予定済みのシフトを変更しますか？',
+    correctingPastScheduleNotice: '過去のスケジュールを修正しています -- この日付はすでに過ぎています。',
+    reassignEmployeeButton: '担当を変更',
     assignCellAriaLabelPrefix: 'シフトを割り当てる',
     editCellAriaLabelPrefix: 'シフトを編集',
-    statusDraftAriaLabel: '下書き -- まだ公開されていません',
-    statusPublishedAriaLabel: '公開済み -- スタッフに表示されています',
+    correctPastScheduleAriaLabelPrefix: '過去のスケジュールを修正',
     preferencesUnavailable: 'シフト希望は一時的に利用できません。',
     preferencesEmpty: '今週はまだシフト希望が提出されていません。',
     colDate: '日付',
@@ -914,4 +953,16 @@ export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number
 export const attentionInventoryShortageSummary: Record<Lang, (count: number) => string> = {
   en: (count) => `${count} item(s) require restocking`,
   ja: (count) => `${count}件の商品が要補充です`,
+};
+
+/**
+ * Day-header staffing-shortage explanation (Founder Review Round 2,
+ * 2026-08-22, section 19) -- "Staffing shortage — required 3, scheduled 2,
+ * missing 1", replacing an unexplained "!" with the actual coverage this
+ * date is short by. Only ever called when `missing > 0` (see
+ * `computeDailyStaffingCoverage`); the caller gates that.
+ */
+export const dailyStaffingShortageExplanation: Record<Lang, (required: number, scheduled: number, missing: number) => string> = {
+  en: (required, scheduled, missing) => `Staffing shortage — required ${required}, scheduled ${scheduled}, missing ${missing}`,
+  ja: (required, scheduled, missing) => `人員不足 -- 必要${required}名、予定${scheduled}名、不足${missing}名`,
 };

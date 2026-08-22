@@ -42,9 +42,22 @@ export interface WorkforceShiftType {
  * `upsertWorkforceShiftType` below). Every Staff/Manager selector must
  * resolve through this instead of its own ad-hoc `labelJa || labelEn || code`
  * chain.
+ *
+ * Weekly Schedule Founder Review Round 2 (2026-08-22): the last-resort
+ * fallback used to be `code` itself -- for any row that genuinely has no
+ * `labelJa`/`labelEn` (seed/fixture data, or any future write path that
+ * doesn't apply the same "default the name to the time range" convention
+ * `settings-section.tsx`'s own create form already does at entry time),
+ * that still rendered the raw internal id. The true last resort now is the
+ * shift's own time range -- always meaningful to a Manager/Staff member,
+ * never an internal identifier -- so this function is safe regardless of
+ * how a given row was created, not just for rows created through the one
+ * UI path that happens to default the label correctly.
  */
-export function shiftTypeDisplayLabel(shiftType: Pick<WorkforceShiftType, 'labelJa' | 'labelEn' | 'code'>): string {
-  return shiftType.labelJa || shiftType.labelEn || shiftType.code;
+export function shiftTypeDisplayLabel(
+  shiftType: Pick<WorkforceShiftType, 'labelJa' | 'labelEn' | 'code' | 'startsAtLocal' | 'endsAtLocal'>,
+): string {
+  return shiftType.labelJa || shiftType.labelEn || `${shiftType.startsAtLocal}-${shiftType.endsAtLocal}`;
 }
 
 /**

@@ -276,29 +276,38 @@ function mondayFirstWeekdayIndex(isoDate: string): number {
   return (sundayFirst + 6) % 7;
 }
 
+export interface DailyStaffingCoverage {
+  workDate: string;
+  required: number;
+  scheduled: number;
+  missing: number;
+}
+
 /**
- * ISO dates (from the displayed week's `dates`) where the count of
- * assignments on that date is below the Settings-configured required
- * headcount for that weekday (WP-8's understaffed-day "!" marker). Pure
- * frontend derivation: `requiredHeadcountByWeekday` and `assignments` are
- * both already loaded by the Manager dashboard, no new fetch. Defaults to
- * requiring 1 staff/day when no Settings row has been saved yet, matching
- * `settings-section.tsx`'s own `[1,1,1,1,1,1,1]` fallback.
+ * Per-date staffing coverage (required vs. actually scheduled headcount) for
+ * every date in the displayed week (WP-8's understaffed-day "!" marker;
+ * extended, Weekly Schedule Founder Review Round 2, 2026-08-22, to carry the
+ * actual numbers -- "Required 3 / Scheduled 2 / Missing 1" -- instead of
+ * just a boolean, so the day-header warning can explain itself instead of
+ * being an unexplained "!"). Pure frontend derivation:
+ * `requiredHeadcountByWeekday` and `assignments` are both already loaded by
+ * the Manager dashboard, no new fetch. Defaults to requiring 1 staff/day
+ * when no Settings row has been saved yet, matching `settings-section.tsx`'s
+ * own `[1,1,1,1,1,1,1]` fallback.
  */
-export function computeUnderstaffedDateKeys(
+export function computeDailyStaffingCoverage(
   dates: readonly string[],
   requiredHeadcountByWeekday: readonly number[] | null,
   assignmentWorkDates: readonly string[],
-): Set<string> {
+): DailyStaffingCoverage[] {
   const required = requiredHeadcountByWeekday ?? [1, 1, 1, 1, 1, 1, 1];
   const assignedCountByDate = new Map<string, number>();
   for (const workDate of assignmentWorkDates) {
     assignedCountByDate.set(workDate, (assignedCountByDate.get(workDate) ?? 0) + 1);
   }
-  const understaffed = new Set<string>();
-  for (const date of dates) {
-    const requiredForDay = required[mondayFirstWeekdayIndex(date)] ?? 0;
-    if ((assignedCountByDate.get(date) ?? 0) < requiredForDay) understaffed.add(date);
-  }
-  return understaffed;
+  return dates.map((workDate) => {
+    const requiredForDay = required[mondayFirstWeekdayIndex(workDate)] ?? 0;
+    const scheduled = assignedCountByDate.get(workDate) ?? 0;
+    return { workDate, required: requiredForDay, scheduled, missing: Math.max(0, requiredForDay - scheduled) };
+  });
 }

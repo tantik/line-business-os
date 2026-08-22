@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
@@ -29,16 +29,23 @@ function localizedEditorError(result: Parameters<typeof describeWriteError>[0], 
   }
 }
 
+const smallButton = { padding: '4px 10px', fontSize: 12, minHeight: 0 } as const;
+
+const noticeStyle = {
+  border: `1px solid ${colors.warning}`,
+  background: 'rgba(184, 134, 59, 0.12)',
+  color: colors.textPrimary,
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 12.5,
+} as const;
+
 export interface ShiftCellEditorProps {
   locationId: string;
   workDate: string;
-  /**
-   * Present when editing an existing assignment (draft or published --
-   * Weekly Schedule redesign, 2026-08-22: published shifts are no longer
-   * read-only here, see the controlled-edit confirmation in
-   * `handleSubmit`/`doSubmit` below); absent when assigning a new one into
-   * an empty cell.
-   */
+  /** Today's date (location-local, `YYYY-MM-DD`) -- distinguishes a past-schedule correction from an ordinary future/today edit (Weekly Schedule Founder Review Round 2, 2026-08-22, section 4/6/8: Schedule is planned/operational, not a record of what happened -- correcting a past *plan* is a deliberate, contextualized action, never silently identical to assigning a future shift). */
+  todayIso: string;
+  /** Present when editing an existing assignment; absent when assigning a new one into an empty cell. */
   existing?: {
     assignment: WorkforceShiftAssignment;
     startsAtLocal: string;
@@ -48,24 +55,44 @@ export interface ShiftCellEditorProps {
   rowStaffId: string;
   staff: WorkforceStaffManageEntry[];
   shiftTypes: WorkforceShiftType[];
+  /** Already-resolved explanation of why this cell is flagged in the grid (a schedule conflict or a pending correction request), if any -- section 18: opening a flagged shift must explain the problem right here, not just show a small "!" in the grid. `undefined` for a cell with no flag. */
+  problemNotice?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 /**
  * Manual per-cell shift editing: assign into an empty cell, or reassign/
- * edit-time an existing draft cell. Pure form -- rendering it inside a Modal
- * (`ShiftCellEditorModal` below) and handling Unassign are the caller's job
- * (WP A6; Unassign moved out of the always-visible per-cell button into this
- * popup, see `ShiftCellEditorModal`).
+ * edit-time an existing cell. Pure form -- rendering it inside a Modal
+ * (`ShiftCellEditorModal` below) and handling Remove-shift are the caller's
+ * job (WP A6).
+ *
+ * Founder Review Round 2 (2026-08-22): Draft/Published is no longer a
+ * concept Manager UX exposes at all (every manual save publishes
+ * immediately, see `schedule-actions.ts`) -- what replaced the old
+ * "editing a published shift" confirmation is framed around the shift's
+ * actual *date* instead:
+ * - Editing an EXISTING future/today assignment, when a field actually
+ *   changed, confirms first ("this is already visible to the employee") --
+ *   section 28. A brand-new assignment, or a Save with no real change,
+ *   never shows this.
+ * - Editing anything dated in the past (existing or empty) shows a quiet
+ *   inline notice instead ("Correcting past schedule") -- section 6/8. No
+ *   extra confirmation step; the notice itself is the friction.
+ * Employee is read-only context for an existing assignment (its Modal
+ * title already shows who/when) -- reassigning to someone else is a
+ * separate, deliberate secondary action (section 9/10), not a plain
+ * always-editable dropdown.
  */
 export function ShiftCellEditor({
   locationId,
   workDate,
+  todayIso,
   existing,
   rowStaffId,
   staff,
   shiftTypes,
+  problemNotice,
   onSuccess,
   onCancel,
 }: ShiftCellEditorProps) {
@@ -73,17 +100,12 @@ export function ShiftCellEditor({
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  // Weekly Schedule redesign (2026-08-22): "controlled edit" of an
-  // already-published shift -- a Save on a published shift doesn't write
-  // immediately, it stages the already-built FormData here and shows a
-  // confirmation first (`published` was already carried through unchanged
-  // in that FormData by the code below, same as before this change; this
-  // only adds a pause before it's actually submitted). A Draft shift is
-  // completely unaffected -- `doSubmit` runs immediately for it, same as
-  // pre-redesign behavior.
-  const [pendingPublishedSave, setPendingPublishedSave] = useState<FormData | null>(null);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [pendingChangeConfirm, setPendingChangeConfirm] = useState<{ formData: FormData; fromLabel: string; toLabel: string } | null>(null);
 
+  const isPast = workDate < todayIso;
   const currentEmployeeId = existing?.assignment.employeeId ?? rowStaffId;
+  const currentEmployeeName = staff.find((s) => s.staffId === currentEmployeeId)?.name ?? currentEmployeeId;
   const assignableStaff = staff.filter((s) => s.isActive || s.staffId === currentEmployeeId);
   const activeShiftTypes = shiftTypes.filter((st) => st.isActive);
 
@@ -109,12 +131,26 @@ export function ShiftCellEditor({
       formData.set('assignmentId', existing.assignment.assignmentId);
       if (existing.assignment.role) formData.set('role', existing.assignment.role);
       if (existing.assignment.notes) formData.set('notes', existing.assignment.notes);
-      if (existing.assignment.published) formData.set('published', 'true');
     }
 
-    if (existing?.assignment.published) {
-      // Stage, don't write -- ConfirmDialog below gates the actual save.
-      setPendingPublishedSave(formData);
+    const afterStart = String(formData.get('startsAtLocal') ?? '');
+    const afterEnd = String(formData.get('endsAtLocal') ?? '');
+    const afterShiftTypeId = String(formData.get('shiftTypeId') ?? '');
+    const afterEmployeeId = String(formData.get('employeeId') ?? '');
+
+    const changed =
+      Boolean(existing) &&
+      (afterShiftTypeId !== (existing!.assignment.shiftTypeId ?? '') ||
+        afterStart !== existing!.startsAtLocal ||
+        afterEnd !== existing!.endsAtLocal ||
+        afterEmployeeId !== (existing!.assignment.employeeId ?? ''));
+
+    if (existing && !isPast && changed) {
+      setPendingChangeConfirm({
+        formData,
+        fromLabel: `${existing.startsAtLocal}-${existing.endsAtLocal}`,
+        toLabel: `${afterStart}-${afterEnd}`,
+      });
       return;
     }
     doSubmit(formData);
@@ -122,98 +158,103 @@ export function ShiftCellEditor({
 
   return (
     <>
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 190 }}>
-      {existing?.assignment.published ? (
-        <div
-          style={{
-            border: `1px solid ${colors.warning}`,
-            background: 'rgba(184, 134, 59, 0.12)',
-            color: colors.textPrimary,
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontSize: 12.5,
-          }}
-        >
-          {t('editingPublishedShiftNotice')}
-        </div>
-      ) : null}
-      {error ? <div style={alertDanger}>{error}</div> : null}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 190 }}>
+        {problemNotice ? <div style={alertDanger}>{problemNotice}</div> : null}
+        {isPast ? <div style={noticeStyle}>{t('correctingPastScheduleNotice')}</div> : null}
+        {error ? <div style={alertDanger}>{error}</div> : null}
 
-      {existing ? (
+        {existing ? (
+          reassignOpen ? (
+            <label>
+              <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEmployee')}</span>
+              <select style={input} name="employeeId" defaultValue={currentEmployeeId}>
+                {assignableStaff.map((s) => (
+                  <option key={s.staffId} value={s.staffId}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <>
+              <input type="hidden" name="employeeId" value={currentEmployeeId} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{currentEmployeeName}</span>
+                <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, ...smallButton }} onClick={() => setReassignOpen(true)}>
+                  {t('reassignEmployeeButton')}
+                </button>
+              </div>
+            </>
+          )
+        ) : (
+          <input type="hidden" name="employeeId" value={rowStaffId} />
+        )}
+
         <label>
-          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEmployee')}</span>
-          <select style={input} name="employeeId" defaultValue={currentEmployeeId}>
-            {assignableStaff.map((s) => (
-              <option key={s.staffId} value={s.staffId}>
-                {s.name}
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldShiftType')}</span>
+          <select style={input} name="shiftTypeId" defaultValue={existing?.assignment.shiftTypeId ?? ''}>
+            <option value="">{t('shiftTypeCustom')}</option>
+            {activeShiftTypes.map((st) => (
+              <option key={st.shiftTypeId} value={st.shiftTypeId}>
+                {shiftTypeDisplayLabel(st)} ({st.startsAtLocal}-{st.endsAtLocal})
               </option>
             ))}
           </select>
         </label>
-      ) : (
-        <input type="hidden" name="employeeId" value={rowStaffId} />
-      )}
 
-      <label>
-        <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldShiftType')}</span>
-        <select style={input} name="shiftTypeId" defaultValue={existing?.assignment.shiftTypeId ?? ''}>
-          <option value="">{t('shiftTypeCustom')}</option>
-          {activeShiftTypes.map((st) => (
-            <option key={st.shiftTypeId} value={st.shiftTypeId}>
-              {st.code} ({st.startsAtLocal}-{st.endsAtLocal})
-            </option>
-          ))}
-        </select>
-      </label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <label style={{ flex: 1 }}>
+            <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldStart')}</span>
+            <input style={input} type="time" name="startsAtLocal" defaultValue={existing?.startsAtLocal ?? '09:00'} required />
+          </label>
+          <label style={{ flex: 1 }}>
+            <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEnd')}</span>
+            <input style={input} type="time" name="endsAtLocal" defaultValue={existing?.endsAtLocal ?? '13:00'} required />
+          </label>
+        </div>
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldStart')}</span>
-          <input style={input} type="time" name="startsAtLocal" defaultValue={existing?.startsAtLocal ?? '09:00'} required />
+        <label>
+          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldBreakMinutes')}</span>
+          <input
+            style={input}
+            type="number"
+            name="breakMinutes"
+            min={0}
+            max={480}
+            defaultValue={existing?.assignment.breakMinutes ?? 0}
+          />
         </label>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEnd')}</span>
-          <input style={input} type="time" name="endsAtLocal" defaultValue={existing?.endsAtLocal ?? '13:00'} required />
-        </label>
-      </div>
 
-      <label>
-        <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldBreakMinutes')}</span>
-        <input
-          style={input}
-          type="number"
-          name="breakMinutes"
-          min={0}
-          max={480}
-          defaultValue={existing?.assignment.breakMinutes ?? 0}
-        />
-      </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="submit" className={hoverStyles.buttonPrimary} style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
+            {isPending ? t('saving') : existing ? t('save') : t('assign')}
+          </button>
+          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
+            {t('cancel')}
+          </button>
+        </div>
+      </form>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className={hoverStyles.buttonPrimary} style={isPending ? buttonDisabled : buttonPrimary} disabled={isPending}>
-          {isPending ? t('saving') : existing ? t('save') : t('assign')}
-        </button>
-        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
-          {t('cancel')}
-        </button>
-      </div>
-    </form>
-
-    <ConfirmDialog
-      open={pendingPublishedSave !== null}
-      title={t('confirmPublishedEditTitle')}
-      confirmLabel={t('save')}
-      cancelLabel={t('cancel')}
-      pending={isPending}
-      onCancel={() => setPendingPublishedSave(null)}
-      onConfirm={() => {
-        const formData = pendingPublishedSave;
-        setPendingPublishedSave(null);
-        if (formData) doSubmit(formData);
-      }}
-    >
-      {t('confirmPublishedEditBody')}
-    </ConfirmDialog>
+      <ConfirmDialog
+        open={pendingChangeConfirm !== null}
+        title={t('confirmChangeScheduledShiftTitle')}
+        confirmLabel={t('save')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        onCancel={() => setPendingChangeConfirm(null)}
+        onConfirm={() => {
+          const staged = pendingChangeConfirm;
+          setPendingChangeConfirm(null);
+          if (staged) doSubmit(staged.formData);
+        }}
+      >
+        <p style={{ margin: '0 0 8px' }}>{t('shiftAlreadyVisibleNotice')}</p>
+        {pendingChangeConfirm ? (
+          <p style={{ margin: 0, fontWeight: 600 }}>
+            {pendingChangeConfirm.fromLabel} &rarr; {pendingChangeConfirm.toLabel}
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </>
   );
 }
@@ -224,22 +265,30 @@ export interface ShiftCellEditorModalProps {
   title: string;
   locationId: string;
   workDate: string;
+  todayIso: string;
   existing?: ShiftCellEditorProps['existing'];
   rowStaffId: string;
   staff: WorkforceStaffManageEntry[];
   shiftTypes: WorkforceShiftType[];
-  /** `'saved'` covers both assign and edit -- the parent shows no banner for either today (matches the pre-A6 inline-editor behavior, which only ever banner'd Unassign). `'unassigned'` gets the parent's existing "shift unassigned" banner. */
-  onSuccess: (kind: 'saved' | 'unassigned') => void;
+  problemNotice?: string;
+  /** `'saved'` covers both assign and edit -- the parent shows no banner for either today (matches the pre-A6 inline-editor behavior, which only ever banner'd Remove-shift). `'removed'` gets the parent's existing "shift removed" banner. */
+  onSuccess: (kind: 'saved' | 'removed') => void;
 }
 
 /**
- * WP A6: the Shift-schedule grid's Assign/Edit button now opens this Modal
- * instead of swapping the cell's own content inline. Unassign moved here too
- * (from an always-visible per-cell button) behind a `ConfirmDialog`, using
- * the exact same `updateShiftAssignment(employeeId: '')` call the old
+ * WP A6: the Shift-schedule grid's cell opens this Modal. Remove-shift lives
+ * here too (from an always-visible per-cell button) behind a `ConfirmDialog`,
+ * using the exact same `updateShiftAssignment(employeeId: '')` call the old
  * per-cell button made -- no new server action. Focus-restore and Escape are
  * both handled by `Modal`/`ConfirmDialog` themselves; this component no
  * longer needs its own ref-map or keydown listener.
+ *
+ * Founder Review Round 2 (2026-08-22): Remove-shift is available for any
+ * existing assignment now, not just an unpublished draft (Draft/Published
+ * no longer gates anything in Manager UX) -- the same `Correcting past
+ * schedule` notice `ShiftCellEditor` renders above the form already covers
+ * "this is a historical correction" context for a past-dated remove too,
+ * since it renders above this button inside the same Modal.
  */
 export function ShiftCellEditorModal({
   open,
@@ -247,22 +296,24 @@ export function ShiftCellEditorModal({
   title,
   locationId,
   workDate,
+  todayIso,
   existing,
   rowStaffId,
   staff,
   shiftTypes,
+  problemNotice,
   onSuccess,
 }: ShiftCellEditorModalProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
-  const [isUnassignPending, startUnassignTransition] = useTransition();
-  const [confirmUnassignOpen, setConfirmUnassignOpen] = useState(false);
-  const [unassignError, setUnassignError] = useState<string | null>(null);
+  const [isRemovePending, startRemoveTransition] = useTransition();
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
-  function handleUnassignConfirmed() {
+  function handleRemoveConfirmed() {
     if (!existing) return;
-    setUnassignError(null);
-    startUnassignTransition(async () => {
+    setRemoveError(null);
+    startRemoveTransition(async () => {
       const formData = new FormData();
       formData.set('assignmentId', existing.assignment.assignmentId);
       formData.set('locationId', locationId);
@@ -274,14 +325,13 @@ export function ShiftCellEditorModal({
       formData.set('breakMinutes', String(existing.assignment.breakMinutes));
       if (existing.assignment.role) formData.set('role', existing.assignment.role);
       if (existing.assignment.notes) formData.set('notes', existing.assignment.notes);
-      if (existing.assignment.published) formData.set('published', 'true');
 
       const result = await updateShiftAssignment(formData);
       if (result.status === 'success') {
-        setConfirmUnassignOpen(false);
-        onSuccess('unassigned');
+        setConfirmRemoveOpen(false);
+        onSuccess('removed');
       } else {
-        setUnassignError(localizedEditorError(result, t));
+        setRemoveError(localizedEditorError(result, t));
       }
     });
   }
@@ -291,38 +341,40 @@ export function ShiftCellEditorModal({
       <ShiftCellEditor
         locationId={locationId}
         workDate={workDate}
+        todayIso={todayIso}
         existing={existing}
         rowStaffId={rowStaffId}
         staff={staff}
         shiftTypes={shiftTypes}
+        problemNotice={problemNotice}
         onSuccess={() => onSuccess('saved')}
         onCancel={onClose}
       />
 
-      {existing && !existing.assignment.published ? (
+      {existing ? (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
-          {unassignError ? <div style={alertDanger}>{unassignError}</div> : null}
+          {removeError ? <div style={alertDanger}>{removeError}</div> : null}
           <button
             type="button"
             className={hoverStyles.buttonSecondary}
-            style={isUnassignPending ? buttonDisabled : buttonSecondary}
-            disabled={isUnassignPending}
-            onClick={() => setConfirmUnassignOpen(true)}
+            style={isRemovePending ? buttonDisabled : buttonSecondary}
+            disabled={isRemovePending}
+            onClick={() => setConfirmRemoveOpen(true)}
           >
-            {isUnassignPending ? t('unassigning') : t('unassign')}
+            {isRemovePending ? t('unassigning') : t('unassign')}
           </button>
         </div>
       ) : null}
 
       <ConfirmDialog
-        open={confirmUnassignOpen}
+        open={confirmRemoveOpen}
         title={t('unassign')}
         confirmLabel={t('unassign')}
         cancelLabel={t('cancel')}
-        pending={isUnassignPending}
+        pending={isRemovePending}
         danger
-        onConfirm={handleUnassignConfirmed}
-        onCancel={() => setConfirmUnassignOpen(false)}
+        onConfirm={handleRemoveConfirmed}
+        onCancel={() => setConfirmRemoveOpen(false)}
       >
         {t('confirmUnassignShift')}
       </ConfirmDialog>

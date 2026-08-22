@@ -25,14 +25,20 @@ function makeType(overrides: Partial<WorkforceShiftType>): WorkforceShiftType {
   };
 }
 
-// F05 regression: an auto-generated custom shift type's `code` is an
-// internal `CUSTOM_<timestamp>` identifier, never a customer-facing label -
-// every Staff/Manager shift selector must resolve through this helper
-// instead of rendering `code` directly.
-test('shiftTypeDisplayLabel prefers labelJa, then labelEn, then falls back to code', () => {
-  assert.equal(shiftTypeDisplayLabel({ labelJa: '早番', labelEn: 'Early', code: 'AM' }), '早番');
-  assert.equal(shiftTypeDisplayLabel({ labelJa: '', labelEn: 'Early', code: 'AM' }), 'Early');
-  assert.equal(shiftTypeDisplayLabel({ labelJa: '', labelEn: null, code: 'CUSTOM_1786154377761' }), 'CUSTOM_1786154377761');
+// F05 regression, extended Weekly Schedule Founder Review Round 2
+// (2026-08-22): an auto-generated custom shift type's `code` is an internal
+// `CUSTOM_<timestamp>` identifier, never a customer-facing label -- every
+// Staff/Manager shift selector must resolve through this helper instead of
+// rendering `code` directly. The last-resort fallback (both labels blank,
+// e.g. seed/fixture data with no name) is now the shift's own time range,
+// never `code` -- `code` must never reach the screen under any input.
+test('shiftTypeDisplayLabel prefers labelJa, then labelEn, then falls back to the time range -- never code', () => {
+  assert.equal(shiftTypeDisplayLabel({ labelJa: '早番', labelEn: 'Early', code: 'AM', startsAtLocal: '07:00', endsAtLocal: '11:00' }), '早番');
+  assert.equal(shiftTypeDisplayLabel({ labelJa: '', labelEn: 'Early', code: 'AM', startsAtLocal: '07:00', endsAtLocal: '11:00' }), 'Early');
+  assert.equal(
+    shiftTypeDisplayLabel({ labelJa: '', labelEn: null, code: 'CUSTOM_1786154377761', startsAtLocal: '10:00', endsAtLocal: '14:00' }),
+    '10:00-14:00',
+  );
 });
 
 test('listWorkforceShiftTypes maps rows and sorts by sortOrder then code', async () => {
