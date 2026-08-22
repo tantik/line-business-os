@@ -1017,7 +1017,7 @@ function ManagerDashboardBody({
               </colgroup>
               <thead>
                 <tr>
-                  <th style={{ ...scheduleTableHeaderCellStyle, borderTopLeftRadius: 8 }}>{t('colStaff')}</th>
+                  <th style={{ ...scheduleTableHeaderCellStyle, textAlign: 'center', borderTopLeftRadius: 8 }}>{t('colStaff')}</th>
                   {dates.map((date, dateIndex) => {
                     const coverage = staffingCoverageByDate.get(date);
                     const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
@@ -1028,24 +1028,34 @@ function ManagerDashboardBody({
                         key={date}
                         style={{
                           ...scheduleTableHeaderCellStyle,
+                          textAlign: 'center',
                           ...(isToday ? scheduleTodayTint : {}),
                           ...(isLastCol ? { borderTopRightRadius: 8 } : {}),
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, height: '100%' }}>
+                        {/* Round 3 follow-up (2026-08-23): the day/date text
+                            centers the same way in every column regardless
+                            of whether that column has a shortage marker --
+                            the marker is an absolutely-positioned overlay
+                            (top-right of the cell) instead of a flex sibling,
+                            so it can no longer push the text off-center in
+                            the columns that happen to have one. */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                           <span>
                             {formatWeekday(date)}
                             <br />
                             {date.slice(8)}
                           </span>
-                          {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed; pushed to the cell's right edge via the parent's `justifyContent: 'space-between'`. */}
-                          <span style={{ width: 18, height: 18, flexShrink: 0 }}>
-                            {shortageLabel ? (
-                              <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
-                                !
-                              </span>
-                            ) : null}
-                          </span>
+                          {shortageLabel ? (
+                            <span
+                              role="img"
+                              aria-label={shortageLabel}
+                              title={shortageLabel}
+                              style={{ ...understaffedMarkerStyle, position: 'absolute', top: 0, right: 0 }}
+                            >
+                              !
+                            </span>
+                          ) : null}
                         </div>
                       </th>
                     );
@@ -1061,7 +1071,7 @@ function ManagerDashboardBody({
                         <button
                           type="button"
                           className={hoverStyles.staffNameCell}
-                          style={{ width: '100%', height: '100%', minHeight: 44, background: 'none', border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: 6, color: colors.textPrimary }}
+                          style={{ width: '100%', height: '100%', minHeight: 44, border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: 6 }}
                           onClick={() => setStaffDetailId(s.staffId)}
                         >
                           {s.name}
@@ -1142,7 +1152,7 @@ function ManagerDashboardBody({
           ) : null}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated }}>
               <span style={{ fontSize: 12.5, ...mutedText }}>{t('estimatedLabourCostLabel')}</span>
               <strong style={{ fontSize: 18 }}>¥{estimatedLabourCost.toLocaleString('ja-JP')}</strong>
             </div>
