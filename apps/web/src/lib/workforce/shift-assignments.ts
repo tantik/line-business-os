@@ -175,15 +175,26 @@ export interface CreateShiftAssignmentInput {
   breakMinutes: number;
   role: string | null;
   notes: string | null;
+  /**
+   * Weekly Schedule Founder Review Round 2 (2026-08-22): defaults to `false`
+   * (the historical/pre-existing behavior, unchanged for every caller that
+   * doesn't pass it -- notably the `_client-preview` demo package, which
+   * still owns its own separate manual publish step). The canonical Manager
+   * dashboard's single-cell create now explicitly passes `true`: Draft/
+   * Published is no longer a concept that Manager UX exposes, so a manual
+   * assignment is visible to the employee the moment it's saved -- see
+   * `schedule-actions.ts`'s `createShiftAssignment` action.
+   */
+  published?: boolean;
 }
 
 /**
  * Manager manual assignment of a single, specific employee/date/shift-type
  * into a previously-empty grid cell -- a single-row INSERT into
- * `api.workforce_shift_assignments`, always `published: false`. Distinct from
- * `insertDraftShiftAssignments` (bulk, `runAutoDistribution`-only): this is
- * the one-cell-at-a-time counterpart to `updateShiftAssignment`, covered by
- * the same `wf_shifts_manage` RLS policy the bulk insert already relies on.
+ * `api.workforce_shift_assignments`. Distinct from `insertDraftShiftAssignments`
+ * (bulk, `runAutoDistribution`-only, always `published: false`): this is the
+ * one-cell-at-a-time counterpart to `updateShiftAssignment`, covered by the
+ * same `wf_shifts_manage` RLS policy the bulk insert already relies on.
  */
 export async function createShiftAssignment(
   supabase: SupabaseClient,
@@ -205,7 +216,7 @@ export async function createShiftAssignment(
         break_minutes: input.breakMinutes,
         role: input.role,
         notes: input.notes,
-        published: false,
+        published: input.published ?? false,
       })
       .select(ASSIGNMENT_SELECT)
       .single();

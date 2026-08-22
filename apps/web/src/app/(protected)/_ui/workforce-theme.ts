@@ -63,22 +63,35 @@ export const buttonDanger: CSSProperties = {
  * palette's own `warning`/`danger` tones (a shift color must never be
  * mistaken for a status/severity signal -- that's what `badgeStyle` and the
  * grid's own conflict/understaffed markers are for). Each tone pairs a
- * ~12%-alpha tint (background) with a ~35-45% lightness solid (text/border),
- * the same background+solid-text shape every other tone in this file
- * already uses, so a chip's text stays readable on the warm `colors.bg`/
- * `colors.surface` ground in both a light table cell and the legend.
+ * ~12%-alpha tint (background) with a solid text/border color, the same
+ * background+solid-text shape every other tone in this file already uses,
+ * so a chip's text stays readable on the warm `colors.bg`/`colors.surface`
+ * ground in both a light table cell and the legend.
+ *
+ * Founder Review Round 2 (2026-08-22): the first version of this palette
+ * spaced 9 of the 10 hues only ~24-36 degrees apart at near-identical
+ * lightness/saturation -- distinguishable in an isolated swatch, too close
+ * side by side in a real grid. Regenerated with a small script (not by eye)
+ * that greedily maximizes the minimum pairwise RGB distance across a hue/
+ * lightness search space already filtered to exclude the `warning`/`danger`
+ * neighborhood and a yellow band that read as "belongs to the warning
+ * family" even when numerically distinct -- lower, calmer saturation (42%)
+ * than a first attempt at this that came out looking like a rainbow.
+ * `workforce-theme.test.ts` asserts the same minimum distance this script
+ * enforced, so the palette can't quietly drift back together in a future
+ * edit.
  */
 const CHIP_TONES: ReadonlyArray<{ background: string; color: string }> = [
   { background: colors.accentMuted, color: colors.accent }, // sage (existing accent)
-  { background: 'rgba(62, 122, 107, 0.14)', color: '#3E7A6B' }, // teal
-  { background: 'rgba(59, 110, 140, 0.14)', color: '#3B6E8C' }, // steel blue
-  { background: 'rgba(74, 90, 150, 0.14)', color: '#4A5A96' }, // indigo
-  { background: 'rgba(107, 79, 150, 0.14)', color: '#6B4F96' }, // violet
-  { background: 'rgba(140, 79, 134, 0.14)', color: '#8C4F86' }, // plum
-  { background: 'rgba(156, 76, 110, 0.14)', color: '#9C4C6E' }, // rose
-  { background: 'rgba(140, 90, 47, 0.14)', color: '#8C5A2F' }, // clay/brown
-  { background: 'rgba(122, 122, 61, 0.14)', color: '#7A7A3D' }, // olive
-  { background: 'rgba(92, 107, 122, 0.14)', color: '#5C6B7A' }, // slate
+  { background: 'rgba(163, 67, 163, 0.14)', color: '#A343A3' }, // magenta
+  { background: 'rgba(67, 67, 163, 0.14)', color: '#4343A3' }, // indigo
+  { background: 'rgba(109, 44, 44, 0.16)', color: '#6D2C2C' }, // maroon
+  { background: 'rgba(67, 163, 163, 0.14)', color: '#43A3A3' }, // teal
+  { background: 'rgba(139, 163, 67, 0.14)', color: '#8BA343' }, // olive/moss
+  { background: 'rgba(163, 67, 91, 0.14)', color: '#A3435B' }, // rose
+  { background: 'rgba(98, 44, 109, 0.14)', color: '#622C6D' }, // violet
+  { background: 'rgba(44, 82, 109, 0.14)', color: '#2C526D' }, // slate blue
+  { background: 'rgba(72, 66, 60, 0.14)', color: '#48423C' }, // stone (near-neutral)
 ];
 
 const UNSET_CHIP_TONE = { background: colors.surfaceElevated, color: colors.textMuted };

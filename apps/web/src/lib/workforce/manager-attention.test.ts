@@ -6,7 +6,7 @@ import {
   computeUnavailableConflictCellKeys,
   computeUnavailableConflictRecords,
   computePendingCorrectionCellKeys,
-  computeUnderstaffedDateKeys,
+  computeDailyStaffingCoverage,
   buildManagerAttentionQueue,
 } from './manager-attention.js';
 
@@ -125,34 +125,34 @@ test('computePendingCorrectionCellKeys ignores a pending correction on today or 
   assert.deepEqual([...keys], []);
 });
 
-test('computeUnderstaffedDateKeys flags a date whose assigned headcount is below that weekday\'s required count', () => {
+test('computeDailyStaffingCoverage reports required/scheduled/missing for a date below its required headcount', () => {
   // 2026-08-17 is a Monday -> Monday-first index 0.
-  const keys = computeUnderstaffedDateKeys(
+  const coverage = computeDailyStaffingCoverage(
     ['2026-08-17'],
     [2, 1, 1, 1, 1, 1, 1],
-    ['emp-1:2026-08-17'].map(() => '2026-08-17'),
+    ['2026-08-17'],
   );
-  assert.deepEqual([...keys], ['2026-08-17']);
+  assert.deepEqual(coverage, [{ workDate: '2026-08-17', required: 2, scheduled: 1, missing: 1 }]);
 });
 
-test('computeUnderstaffedDateKeys does not flag a date meeting or exceeding its required headcount', () => {
-  const keys = computeUnderstaffedDateKeys(
+test('computeDailyStaffingCoverage reports missing: 0 for a date meeting or exceeding its required headcount', () => {
+  const coverage = computeDailyStaffingCoverage(
     ['2026-08-17'],
     [1, 1, 1, 1, 1, 1, 1],
     ['2026-08-17', '2026-08-17'],
   );
-  assert.deepEqual([...keys], []);
+  assert.deepEqual(coverage, [{ workDate: '2026-08-17', required: 1, scheduled: 2, missing: 0 }]);
 });
 
-test('computeUnderstaffedDateKeys defaults to requiring 1/day when no Settings row has been saved (null)', () => {
-  const keys = computeUnderstaffedDateKeys(['2026-08-17'], null, []);
-  assert.deepEqual([...keys], ['2026-08-17']);
+test('computeDailyStaffingCoverage defaults to requiring 1/day when no Settings row has been saved (null)', () => {
+  const coverage = computeDailyStaffingCoverage(['2026-08-17'], null, []);
+  assert.deepEqual(coverage, [{ workDate: '2026-08-17', required: 1, scheduled: 0, missing: 1 }]);
 });
 
-test('computeUnderstaffedDateKeys maps Sunday to the last (index 6) requirement slot, not index 0', () => {
+test('computeDailyStaffingCoverage maps Sunday to the last (index 6) requirement slot, not index 0', () => {
   // 2026-08-16 is a Sunday.
-  const keys = computeUnderstaffedDateKeys(['2026-08-16'], [1, 1, 1, 1, 1, 1, 0], []);
-  assert.deepEqual([...keys], []);
+  const coverage = computeDailyStaffingCoverage(['2026-08-16'], [1, 1, 1, 1, 1, 1, 0], []);
+  assert.deepEqual(coverage, [{ workDate: '2026-08-16', required: 0, scheduled: 0, missing: 0 }]);
 });
 
 test('computeManagerAttentionSummary counts correction+exchange as action-required, unavailable_conflict+inventory as warnings', () => {

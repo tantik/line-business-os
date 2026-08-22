@@ -66,7 +66,16 @@ export default async function WorkforceManagerPage({
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const modulesResult = await listTenantModules(supabase);
+      // Weekly Schedule Founder Review Round 2 (2026-08-22), week-navigation
+      // performance: `listTenantModules` and `listTenantLocations` don't
+      // depend on each other (module-enablement flags vs. the tenant's
+      // locations) -- they were two sequential round trips before this page
+      // even started its main data batch below, on every single request
+      // including a plain Prev/Next-week click. One of several fixes in this
+      // pass; see this file's own note further down for why the deeper fix
+      // (not re-running the *whole* page's unrelated data on a week change)
+      // is out of scope for this pass.
+      const [modulesResult, locationsResult] = await Promise.all([listTenantModules(supabase), listTenantLocations(supabase)]);
       const workforceEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
@@ -91,7 +100,6 @@ export default async function WorkforceManagerPage({
           (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
         );
 
-      const locationsResult = await listTenantLocations(supabase);
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
@@ -183,6 +191,7 @@ export default async function WorkforceManagerPage({
         recipesResult,
         recipeCanManage,
         scheduleSettingsResult,
+        recipeTitleTranslationsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -213,6 +222,15 @@ export default async function WorkforceManagerPage({
         // monthly hours. Already had full schema/read/write support
         // (schedule-settings.ts); no migration needed.
         getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
+        // Week-navigation performance (Founder Review Round 2, 2026-08-22):
+        // this used to be a separate `await` AFTER the batch above, gated on
+        // `recipesResult.status === 'success'` -- but it only ever needs
+        // `tenantId`/entity-type/field (see `listContentTranslationsForField`),
+        // never the resolved recipe list itself, so there was never a real
+        // ordering dependency -- just an unnecessary extra sequential round
+        // trip on every request. Its result is still only *used* below when
+        // `recipesResult` succeeded, same as before.
+        listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
       ]);
 
       const recipeGroups =
@@ -221,12 +239,11 @@ export default async function WorkforceManagerPage({
           : null;
       // Title-only translation lookup, same as `/recipes/page.tsx` -- bounded
       // to one field across every recipe rather than loading each recipe's
-      // full content just to show a list row.
-      const recipeTitleTranslationsResult =
-        recipesResult.status === 'success'
-          ? await listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title')
-          : null;
-      const recipeTitleTranslations = recipeTitleTranslationsResult?.status === 'success' ? recipeTitleTranslationsResult.data : [];
+      // full content just to show a list row. (`recipeTitleTranslationsResult`
+      // is now fetched inside the main Promise.all batch above -- only
+      // *used* here when `recipesResult` succeeded, same gating as before.)
+      const recipeTitleTranslations =
+        recipesResult.status === 'success' && recipeTitleTranslationsResult.status === 'success' ? recipeTitleTranslationsResult.data : [];
       const recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField> =
         recipesResult.status === 'success'
           ? Object.fromEntries(

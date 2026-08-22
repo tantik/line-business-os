@@ -240,6 +240,15 @@ export async function undoAutoDistribution(input: unknown): Promise<WorkforceWri
   return unassignDraftShiftAssignments(supabase, tenantId, parsed.assignmentIds);
 }
 
+/**
+ * Weekly Schedule Founder Review Round 2 (2026-08-22): Manager UX no longer
+ * exposes Draft/Published at all -- "assign a shift, Save, done" -- so every
+ * manual write from the canonical Manager dashboard publishes immediately,
+ * hardcoded here rather than left to whatever the client's FormData happens
+ * to carry. This does not touch `insertDraftShiftAssignments` (bulk
+ * Auto-create, still drafts -- see `runAutoDistribution` above) or the
+ * `_client-preview` demo package's own separate write actions.
+ */
 export async function updateShiftAssignment(formData: FormData): Promise<WorkforceWriteResult<WorkforceShiftAssignment>> {
   const input = parseUpdateShiftAssignmentInput(formData);
   if (!input) return INVALID_INPUT_RESULT;
@@ -263,7 +272,7 @@ export async function updateShiftAssignment(formData: FormData): Promise<Workfor
     breakMinutes: input.breakMinutes,
     role: input.role,
     notes: input.notes,
-    published: input.published,
+    published: true,
   });
 }
 
@@ -291,6 +300,7 @@ export async function createShiftAssignment(formData: FormData): Promise<Workfor
     breakMinutes: input.breakMinutes,
     role: input.role,
     notes: input.notes,
+    published: true,
   });
 }
 

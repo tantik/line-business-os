@@ -159,6 +159,45 @@ test('createShiftAssignment inserts a single published:false row for a specific 
   assert.equal(row.published, false);
 });
 
+test('createShiftAssignment inserts published:true when the caller explicitly opts in (Weekly Schedule Founder Review Round 2: canonical Manager auto-publishes manual assignments)', async () => {
+  const { client, calls } = recordingClient({
+    data: {
+      assignment_id: 'a4',
+      tenant_id: TENANT_ID,
+      location_id: 'loc-1',
+      employee_id: 'emp-1',
+      shift_type_id: 'st-1',
+      starts_at: '2026-08-03T00:00:00.000Z',
+      ends_at: '2026-08-03T04:00:00.000Z',
+      break_minutes: 15,
+      role: null,
+      notes: null,
+      published: true,
+      created_at: '2026-08-01T00:00:00.000Z',
+      updated_at: '2026-08-01T00:00:00.000Z',
+    },
+    error: null,
+  });
+
+  const result = await createShiftAssignment(client, TENANT_ID, 'loc-1', {
+    employeeId: 'emp-1',
+    shiftTypeId: 'st-1',
+    startsAt: '2026-08-03T00:00:00.000Z',
+    endsAt: '2026-08-03T04:00:00.000Z',
+    breakMinutes: 15,
+    role: null,
+    notes: null,
+    published: true,
+  });
+
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data.published, true);
+  const insertCall = calls.find((c) => c.method === 'insert');
+  assert.ok(insertCall);
+  const row = insertCall!.args[0] as Record<string, unknown>;
+  assert.equal(row.published, true);
+});
+
 test('createShiftAssignment maps a foreign-key violation (23503) to not_found', async () => {
   const { client } = recordingClient({ data: null, error: { code: '23503', message: 'fk violation' } });
   const result = await createShiftAssignment(client, TENANT_ID, 'loc-1', {

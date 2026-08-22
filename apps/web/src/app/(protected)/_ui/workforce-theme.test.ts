@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel, shiftChipColors } from './workforce-theme.js';
+import { colors } from '@/lib/ui/theme';
 
 test('attendanceStatusLabel maps every workforce.attendance_status enum value to an English label by default', () => {
   assert.equal(attendanceStatusLabel('present'), 'Present');
@@ -126,4 +127,57 @@ test('shiftChipColors: an id not present in allActiveShiftTypeIds falls back to 
 test('shiftChipColors: null/undefined id and no list both keep their pre-A8 behavior', () => {
   assert.deepEqual(shiftChipColors(null), shiftChipColors(null, ['type-a']));
   assert.deepEqual(shiftChipColors('type-a'), shiftChipColors('type-a'));
+});
+
+// Founder Review Round 2 (2026-08-22): "10 distinct tones" only means
+// something if they're actually distinguishable side by side, not just
+// non-identical. This is a safe, browser-free fixture check for that --
+// Euclidean distance in RGB space between every pair of the 10 tones'
+// solid (text/border) colors, and between every tone and the semantic
+// `warning`/`danger` colors a shift color must never be confused with.
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) throw new Error(`not a #rrggbb hex color: ${hex}`);
+  return [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)];
+}
+
+function rgbDistance(a: string, b: string): number {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+}
+
+// The 10 ids below are picked purely to force `shiftChipColors` to walk
+// every CHIP_TONES slot in order (10 ids, no collisions -- already proven
+// by the "10 distinct tones" test above) so this test reads the palette's
+// actual solid colors, not a hardcoded copy of them that could drift out of
+// sync with workforce-theme.ts.
+const TEN_TONES = Array.from({ length: 10 }, (_, i) => `palette-fixture-${i}`).map((id, _i, ids) =>
+  shiftChipColors(id, ids),
+);
+
+test('shift color palette: every pair of the 10 tones is visually distinguishable (minimum RGB distance)', () => {
+  const MIN_DISTANCE = 44; // matches the minimum the palette-generation script in workforce-theme.ts's doc comment actually achieved
+  for (let i = 0; i < TEN_TONES.length; i += 1) {
+    for (let j = i + 1; j < TEN_TONES.length; j += 1) {
+      const distance = rgbDistance(TEN_TONES[i]!.color, TEN_TONES[j]!.color);
+      assert.ok(
+        distance >= MIN_DISTANCE,
+        `tones[${i}] (${TEN_TONES[i]!.color}) and tones[${j}] (${TEN_TONES[j]!.color}) are only ${distance.toFixed(1)} apart, below the ${MIN_DISTANCE} minimum`,
+      );
+    }
+  }
+});
+
+test('shift color palette: no tone is close enough to `warning`/`danger` to be mistaken for a status signal', () => {
+  const MIN_DISTANCE_FROM_SEMANTIC = 40;
+  for (const tone of TEN_TONES) {
+    for (const semantic of [colors.warning, colors.danger] as const) {
+      const distance = rgbDistance(tone.color, semantic);
+      assert.ok(
+        distance >= MIN_DISTANCE_FROM_SEMANTIC,
+        `tone ${tone.color} is only ${distance.toFixed(1)} from semantic color ${semantic}`,
+      );
+    }
+  }
 });

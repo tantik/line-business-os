@@ -28,7 +28,7 @@ import {
   computePendingCorrectionCellKeys,
   computeUnavailableConflictCellKeys,
   computeUnavailableConflictRecords,
-  computeUnderstaffedDateKeys,
+  computeDailyStaffingCoverage,
 } from '@/lib/workforce/manager-attention';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
@@ -36,6 +36,7 @@ import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import {
   autoDistributionCreatedMessage,
+  dailyStaffingShortageExplanation,
   preferencesHeadingValue,
   publishedCountMessage,
   scheduleHeadingValue,
@@ -61,7 +62,6 @@ import {
   alertDanger,
   backLink,
   buttonDisabled,
-  buttonPrimary,
   buttonSecondary,
   card,
   colors,
@@ -155,19 +155,6 @@ const cellAlertCornerStyle: CSSProperties = {
   lineHeight: '13px',
   textAlign: 'center',
 };
-
-function cellStatusDotStyle(published: boolean): CSSProperties {
-  return {
-    position: 'absolute',
-    left: 3,
-    bottom: 3,
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    background: published ? colors.accent : colors.textMuted,
-    boxShadow: `0 0 0 1.5px ${colors.surface}`,
-  };
-}
 
 /**
  * Cafe v0.1 MVP default staffing requirement (Slice 2A): 1 headcount for the
@@ -280,6 +267,12 @@ function ManagerDashboardBody({
     undoAssignmentIds?: string[];
   } | null>(null);
   const [undoingAutoDistribute, setUndoingAutoDistribute] = useState(false);
+  // Founder Review Round 2 (2026-08-22): Run now / Publish schedule moved
+  // into the Settings section's "Automatic schedule" block -- this mirrors
+  // the same result numbers `banner.stats` already shows, scoped so
+  // Settings can render its own compact "Last result" without needing the
+  // page-wide banner state.
+  const [lastAutoCreateResult, setLastAutoCreateResult] = useState<{ created: number; shortages: number; unplaced: number; missingPreferences: number } | null>(null);
   // Add/Edit-staff state, focus-restore ref-maps, and their Escape handling
   // now live inside `ManageStaffPopup` (WP A4) -- this button just opens the
   // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
@@ -422,14 +415,22 @@ function ManagerDashboardBody({
   // displayed week whose assigned headcount is below the Settings-configured
   // required headcount for that weekday. Pure frontend, reuses data already
   // loaded (scheduleSettings, localAssignments) -- no new fetch.
-  const understaffedDateKeys = useMemo(
+  //
+  // Founder Review Round 2 (2026-08-22): carries the actual
+  // required/scheduled/missing numbers now (not just a boolean), so the day
+  // header can explain the shortage instead of showing an unexplained "!".
+  const dailyStaffingCoverage = useMemo(
     () =>
-      computeUnderstaffedDateKeys(
+      computeDailyStaffingCoverage(
         dates,
         scheduleSettings?.requiredHeadcountByWeekday ?? null,
         localAssignments.filter((a) => dates.includes(a.workDate)).map((a) => a.workDate),
       ),
     [dates, scheduleSettings, localAssignments],
+  );
+  const staffingCoverageByDate = useMemo(
+    () => new Map(dailyStaffingCoverage.map((c) => [c.workDate, c])),
+    [dailyStaffingCoverage],
   );
 
   // WP-8: per-cell "!" marker for a PAST day with a pending correction
@@ -544,20 +545,31 @@ function ManagerDashboardBody({
   function renderScheduleCellContent(s: WorkforceStaffManageEntry, date: string) {
     const key = cellKey(s.staffId, date);
     const entry = assignmentFor(s.staffId, date);
+    const isPast = date < todayIso;
 
     if (!entry) {
       if (!s.isActive) return <span style={mutedText}>-</span>;
+      // Founder Review Round 2 (2026-08-22), section 6: a past empty cell is
+      // not an ordinary "assign a future shift" affordance -- default
+      // presentation is a quiet "-", not "+", so it doesn't read as "you
+      // still need to fill this in" the way a genuinely open future/today
+      // slot does. It's still the same click target (opens the same editor,
+      // which shows its own "Correcting past schedule" notice) -- a
+      // secondary, discoverable, keyboard/touch-accessible action, not a
+      // hidden one.
+      const ariaPrefix = isPast ? t('correctPastScheduleAriaLabelPrefix') : t('assignCellAriaLabelPrefix');
+      const ariaLabel = `${ariaPrefix} — ${s.name} — ${date}`;
       return (
         <button
           type="button"
           className={hoverStyles.scheduleCellButton}
           style={scheduleCellButtonStyle(null)}
           disabled={isPending}
-          aria-label={`${t('assignCellAriaLabelPrefix')} — ${s.name} — ${date}`}
-          title={`${t('assignCellAriaLabelPrefix')} — ${s.name} — ${date}`}
+          aria-label={ariaLabel}
+          title={ariaLabel}
           onClick={() => setEditingCell({ staffId: s.staffId, date })}
         >
-          <span aria-hidden="true">+</span>
+          <span aria-hidden="true">{isPast ? '—' : '+'}</span>
         </button>
       );
     }
@@ -569,18 +581,23 @@ function ManagerDashboardBody({
     // `shiftTypeDisplayLabel`, never `shiftType.code`, when a type does
     // resolve -- see that function's own doc comment).
     const shiftType = entry.assignment.shiftTypeId ? shiftTypeById.get(entry.assignment.shiftTypeId) : undefined;
-    const label = shiftType ? shiftTypeDisplayLabel(shiftType) : `${entry.startsAtLocal}-${entry.endsAtLocal}`;
+    const timeRange = `${entry.startsAtLocal}-${entry.endsAtLocal}`;
+    // Section 14: name AND time, not name alone -- a Manager scanning the
+    // grid must not have to cross-reference the legend just to see when a
+    // shift runs. A true custom shift (no resolvable type) has no separate
+    // name to add -- its "label" already *is* the time range.
+    const label = shiftType ? shiftTypeDisplayLabel(shiftType) : timeRange;
+    const cellText = shiftType ? `${label} · ${timeRange}` : label;
     const tone = shiftChipColors(entry.assignment.shiftTypeId, activeShiftTypeIds);
     const hasCorrectionAlert = pendingCorrectionCellKeys.has(key);
     const hasConflictAlert = !hasCorrectionAlert && unavailableConflictCellKeys.has(key);
 
-    const ariaParts = [
-      t('editCellAriaLabelPrefix'),
-      s.name,
-      date,
-      label,
-      entry.assignment.published ? t('statusPublishedAriaLabel') : t('statusDraftAriaLabel'),
-    ];
+    // Founder Review Round 2 (2026-08-22), section 1/13: Draft/Published is
+    // no longer part of this cell's identity at all -- no status dot, no
+    // badge. Shift type (color + name + time) is the only identity a cell
+    // carries; a conflict/correction is a small, secondary corner mark,
+    // never the whole cell.
+    const ariaParts = [t('editCellAriaLabelPrefix'), s.name, date, cellText];
     if (hasCorrectionAlert) ariaParts.push(t('pendingCorrectionCellAriaLabel'));
     else if (hasConflictAlert) ariaParts.push(t('attentionConflictSummary'));
     const ariaLabel = ariaParts.join(' — ');
@@ -595,13 +612,12 @@ function ManagerDashboardBody({
         title={ariaLabel}
         onClick={() => setEditingCell({ staffId: s.staffId, date })}
       >
-        <span aria-hidden="true" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        <span aria-hidden="true" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{cellText}</span>
         {hasCorrectionAlert || hasConflictAlert ? (
           <span aria-hidden="true" style={{ ...cellAlertCornerStyle, background: hasCorrectionAlert ? colors.danger : colors.warning }}>
             !
           </span>
         ) : null}
-        <span aria-hidden="true" style={cellStatusDotStyle(entry.assignment.published)} />
       </button>
     );
   }
@@ -655,6 +671,12 @@ function ManagerDashboardBody({
             { label: t('nonSubmittersLabel'), value: r.nonSubmitters.length },
           ],
           undoAssignmentIds: r.createdAssignmentIds.length > 0 ? r.createdAssignmentIds : undefined,
+        });
+        setLastAutoCreateResult({
+          created: r.draftCount,
+          shortages: r.shortages.length,
+          unplaced: r.unplaced.length,
+          missingPreferences: r.nonSubmitters.length,
         });
         router.refresh();
       } else {
@@ -936,54 +958,51 @@ function ManagerDashboardBody({
             <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/manager?weekOffset=${weekOffset - 1}`} className={hoverStyles.buttonSecondary} style={buttonSecondary}>
-              {t('prevWeek')}
+          {/* Founder Review Round 2 (2026-08-22), section 21: compact icon
+              navigator instead of three full-width text buttons -- the
+              visible date range already lives in the heading above
+              (`scheduleHeadingValue`), so these only need to convey
+              prev/next/today, not repeat it. Real words stay in
+              `aria-label`/`title` for screen readers and mouse-hover. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Link
+              href={`/manager?weekOffset=${weekOffset - 1}`}
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              aria-label={t('prevWeek')}
+              title={t('prevWeek')}
+            >
+              ‹
             </Link>
             <Link
               href="/manager"
-              style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
+              style={{ ...(weekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '8px 14px' }}
+              className={weekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
               aria-disabled={weekOffset === 0}
             >
               {t('thisWeek')}
             </Link>
-            <Link href={`/manager?weekOffset=${weekOffset + 1}`} className={hoverStyles.buttonSecondary} style={buttonSecondary}>
-              {t('nextWeek')}
+            <Link
+              href={`/manager?weekOffset=${weekOffset + 1}`}
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              aria-label={t('nextWeek')}
+              title={t('nextWeek')}
+            >
+              ›
             </Link>
           </div>
         </div>
 
-        <p style={{ margin: '8px 0 0', ...mutedText }}>{t('autoDistributionDescription')}</p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
-          <button
-            type="button"
-            className={hoverStyles.buttonPrimary}
-            style={isPending ? buttonDisabled : buttonPrimary}
-            disabled={isPending}
-            onClick={handleAutoDistribute}
-          >
-            {pendingAction === 'auto-distribute' ? t('running') : t('runAutoDistribution')}
-          </button>
-          <button
-            type="button"
-            className={hoverStyles.buttonSecondary}
-            style={isPending ? buttonDisabled : buttonSecondary}
-            disabled={isPending}
-            onClick={handlePublish}
-          >
-            {pendingAction === 'publish' ? t('publishing') : t('publishSchedule')}
-          </button>
-        </div>
-
-        {weekLegendTypes.length > 0 ? (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            {weekLegendTypes.map((st) => (
-              <span key={st.shiftTypeId} style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
-                {shiftTypeDisplayLabel(st)} {st.startsAtLocal}-{st.endsAtLocal}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        {/* Founder Review Round 2 (2026-08-22): Draft/Published, Run auto-
+            create, and Publish schedule are no longer everyday grid-header
+            actions -- Manager UX doesn't manage publication state at all
+            now (every manual save is visible to staff immediately, see
+            `schedule-actions.ts`); the bulk/automatic tooling (Run now,
+            Publish, the scheduled-automation preview) moved into the
+            Settings section below, alongside its own future "day of the
+            month" configuration -- Founder direction, same session. This
+            card is click-a-cell-to-edit only now. */}
 
         {staff === null || staff.length === 0 ? (
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
@@ -994,25 +1013,29 @@ function ManagerDashboardBody({
               <thead>
                 <tr>
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                  {dates.map((date) => (
-                    <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>
-                          {formatWeekday(date)}
-                          <br />
-                          {date.slice(5)}
-                        </span>
-                        {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed. */}
-                        <span style={{ width: 18, height: 18, flexShrink: 0 }}>
-                          {understaffedDateKeys.has(date) ? (
-                            <span role="img" aria-label={t('understaffedDayAriaLabel')} title={t('understaffedDayAriaLabel')} style={understaffedMarkerStyle}>
-                              !
-                            </span>
-                          ) : null}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
+                  {dates.map((date) => {
+                    const coverage = staffingCoverageByDate.get(date);
+                    const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
+                    return (
+                      <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span>
+                            {formatWeekday(date)}
+                            <br />
+                            {date.slice(5)}
+                          </span>
+                          {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed. */}
+                          <span style={{ width: 18, height: 18, flexShrink: 0 }}>
+                            {shortageLabel ? (
+                              <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
+                                !
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -1035,12 +1058,15 @@ function ManagerDashboardBody({
           </div>
 
           <div className={styles.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
-            {dates.map((date) => (
+            {dates.map((date) => {
+              const coverage = staffingCoverageByDate.get(date);
+              const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
+              return (
               <div key={date} style={{ ...card, marginTop: 0 }}>
                 <h3 style={{ margin: 0, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {formatWeekday(date)} {date.slice(5)}
-                  {understaffedDateKeys.has(date) ? (
-                    <span role="img" aria-label={t('understaffedDayAriaLabel')} title={t('understaffedDayAriaLabel')} style={understaffedMarkerStyle}>
+                  {shortageLabel ? (
+                    <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
                       !
                     </span>
                   ) : null}
@@ -1060,8 +1086,20 @@ function ManagerDashboardBody({
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
+
+          {weekLegendTypes.length > 0 ? (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+              {weekLegendTypes.map((st) => (
+                <span key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>{shiftTypeDisplayLabel(st)}</span>
+                  <span style={{ ...mutedText, fontSize: 12 }}>{st.startsAtLocal}-{st.endsAtLocal}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
           </>
         )}
       </section>
@@ -1085,6 +1123,7 @@ function ManagerDashboardBody({
         title={editingCell ? `${staffById.get(editingCell.staffId)?.name ?? ''} - ${editingCell.date}` : ''}
         locationId={locationId}
         workDate={editingCell?.date ?? ''}
+        todayIso={todayIso}
         existing={
           editingCell
             ? (() => {
@@ -1096,9 +1135,19 @@ function ManagerDashboardBody({
         rowStaffId={editingCell?.staffId ?? ''}
         staff={staff ?? []}
         shiftTypes={shiftTypes ?? []}
+        problemNotice={
+          editingCell
+            ? (() => {
+                const key = cellKey(editingCell.staffId, editingCell.date);
+                if (pendingCorrectionCellKeys.has(key)) return t('pendingCorrectionCellAriaLabel');
+                if (unavailableConflictCellKeys.has(key)) return t('attentionConflictSummary');
+                return undefined;
+              })()
+            : undefined
+        }
         onSuccess={(kind) => {
           setEditingCell(null);
-          if (kind === 'unassigned') setBanner({ tone: 'success', message: t('shiftUnassigned') });
+          if (kind === 'removed') setBanner({ tone: 'success', message: t('shiftUnassigned') });
           router.refresh();
         }}
       />
@@ -1109,6 +1158,11 @@ function ManagerDashboardBody({
         shiftTypes={shiftTypes}
         onShiftTypesChanged={() => router.refresh()}
         lang={lang}
+        onRunAutoCreate={handleAutoDistribute}
+        autoCreatePending={isPending && pendingAction === 'auto-distribute'}
+        onPublishSchedule={handlePublish}
+        publishPending={isPending && pendingAction === 'publish'}
+        lastAutoCreateResult={lastAutoCreateResult}
       />
 
       <section style={card}>
