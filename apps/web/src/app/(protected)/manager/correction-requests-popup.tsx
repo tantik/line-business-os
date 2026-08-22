@@ -7,19 +7,17 @@ import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
-import { buttonDisabled, buttonPrimary, buttonSecondary, colors, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
+import { buttonDisabled, buttonPrimary, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { correctionStatusBadgeStyle, correctionStatusLabel, formatRequestedCorrectionChange } from '../_ui/workforce-theme';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
-const ARCHIVE_PREVIEW_COUNT = 10;
-
 export interface CorrectionRequestsPopupProps {
   open: boolean;
   onClose: () => void;
   pendingCorrections: WorkforceShiftRequest[];
-  /** All non-pending requests, newest-decided first -- this component caps to the most recent 10 by default and offers an "Archive" toggle for the rest. */
+  /** All non-pending requests, newest-decided first -- shown only inside the on-demand "View history" popup (Attention polish pass, 2026-08-21), not inline in the main decision view. */
   decidedCorrections: WorkforceShiftRequest[];
   staffById: Map<string, WorkforceStaffManageEntry>;
   attendanceById: Map<string, WorkforceAttendance>;
@@ -39,6 +37,13 @@ export interface CorrectionRequestsPopupProps {
  * logic (`handleDecideCorrection`) stays in the parent, passed down as
  * `onDecide` -- this component only renders and manages its own
  * pending/decided-vs-archived view state.
+ *
+ * Attention polish pass (2026-08-21, Founder feedback): the always-visible
+ * "Recently decided" table below the decision cards mixed a modern
+ * decision-oriented UI with an old wide admin table, and a Manager opening
+ * this popup wants to resolve *current* requests, not read history. History
+ * now only renders on demand, in its own popup opened via "View history",
+ * as compact one-line-per-request cards instead of an 8-column table.
  */
 export function CorrectionRequestsPopup({
   open,
@@ -55,11 +60,8 @@ export function CorrectionRequestsPopup({
 }: CorrectionRequestsPopupProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   usePopupOpenTiming(open, 'correction-requests');
-  const [showArchive, setShowArchive] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-
-  const visibleDecided = showArchive ? decidedCorrections : decidedCorrections.slice(0, ARCHIVE_PREVIEW_COUNT);
-  const hasMoreThanPreview = decidedCorrections.length > ARCHIVE_PREVIEW_COUNT;
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
     <Modal
@@ -145,59 +147,50 @@ export function CorrectionRequestsPopup({
       )}
 
       {decidedCorrections.length > 0 ? (
-        <div style={{ marginTop: 16, background: colors.surfaceElevated, borderRadius: 8, padding: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, fontSize: 14, ...mutedText }}>{t('recentlyDecided')}</h3>
-            {hasMoreThanPreview ? (
-              <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, padding: '4px 10px', fontSize: 12 }} onClick={() => setShowArchive((v) => !v)}>
-                {showArchive ? t('hideArchiveButton') : t('showArchiveButton')}
-              </button>
-            ) : null}
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', marginTop: 8, borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colMessage')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colAttendance')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colRequested')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTransportation')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDailyMessage')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus2')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleDecided.map((r) => {
-                  const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
-                  return (
-                    <tr key={r.requestId}>
-                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                      <td style={tableCell}>{r.workDate}</td>
-                      <td style={tableCell}>{typeof r.details.message === 'string' ? r.details.message : '-'}</td>
-                      <td style={tableCell}>
-                        {relatedAttendance
-                          ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                          : '-'}
-                      </td>
-                      <td style={tableCell}>{formatRequestedCorrectionChange(r.details)}</td>
-                      <td style={tableCell}>{relatedAttendance?.transportationCost ?? '-'}</td>
-                      <td style={tableCell}>{relatedAttendance?.dailyMessage ?? '-'}</td>
-                      <td style={tableCell}>
-                        <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, marginTop: 16 }}
+          onClick={() => setHistoryOpen(true)}
+        >
+          {t('viewHistoryButton')}
+        </button>
       ) : null}
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('correctionsPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('correctionsPopupHelpBody')}</div>
+      </Modal>
+
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title={t('recentlyDecided')} closeLabel={t('cancel')} width="min(600px, 96vw)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {decidedCorrections.map((r) => {
+            const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
+            const currentRange = relatedAttendance
+              ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} → ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
+              : formatRequestedCorrectionChange(r.details);
+            return (
+              <div
+                key={r.requestId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  background: colors.surfaceElevated,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? r.employeeId} · {r.workDate}</div>
+                  <div style={{ ...mutedText, fontSize: 12 }}>{currentRange}</div>
+                </div>
+                <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
+              </div>
+            );
+          })}
+        </div>
       </Modal>
     </Modal>
   );

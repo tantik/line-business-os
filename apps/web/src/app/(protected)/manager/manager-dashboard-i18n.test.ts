@@ -5,7 +5,6 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
-  attentionRequireActionCompact,
   attentionSummarySubtitle,
   autoDistributionCreatedMessage,
   breakMinutesValue,
@@ -58,13 +57,17 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
-  'showArchiveButton', 'hideArchiveButton', 'correctionsPopupHelpAriaLabel', 'correctionsPopupHelpTitle', 'correctionsPopupHelpBody',
+  'showArchiveButton', 'hideArchiveButton', 'viewHistoryButton', 'correctionsPopupHelpAriaLabel', 'correctionsPopupHelpTitle', 'correctionsPopupHelpBody',
   'exchangesHeading', 'exchangesUnavailable', 'noPendingExchanges', 'colRequester', 'colShift', 'colRequest',
   'colReason', 'requestKindCancellation', 'requestKindChange', 'requestKindExchange', 'awaitingCandidate',
   'exchangesPopupHelpAriaLabel', 'exchangesPopupHelpTitle', 'exchangesPopupHelpBody',
+  'exchangeReplacementLabel', 'exchangeReplacementNotAssigned', 'exchangeWaitingForCandidate', 'assignReplacementButton',
+  'changeReplacementButton', 'selectReplacementTitle', 'searchReplacementPlaceholder', 'noEligibleReplacements',
+  'candidateAvailable', 'candidateScheduleConflict', 'candidateMarkedUnavailable', 'confirmAssignReplacementButton',
+  'assigningReplacement',
   'backToWorkforce',
   'staffActivated', 'staffDeactivated', 'shiftUnassigned', 'correctionApproved', 'correctionRejected',
-  'exchangeApproved', 'exchangeRejected', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
+  'exchangeApproved', 'exchangeRejected', 'replacementAssigned', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
   'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
   'attentionItemConflictTitle', 'attentionItemInventoryTitle', 'attentionWaitingDecision', 'attentionConflictSummary',
   'attentionReplacementNotSelected', 'attentionReplacementRequiredReason', 'attentionViewShift', 'attentionOpenInventory',
@@ -147,8 +150,3 @@ test('attentionInventoryShortageSummary interpolates the count and differs by la
   assert.notEqual(attentionInventoryShortageSummary.en(3), attentionInventoryShortageSummary.ja(3));
 });
 
-test('attentionRequireActionCompact interpolates the count, differs by language, and never mentions warnings', () => {
-  assert.match(attentionRequireActionCompact.en(4), /4/);
-  assert.notEqual(attentionRequireActionCompact.en(4), attentionRequireActionCompact.ja(4));
-  assert.doesNotMatch(attentionRequireActionCompact.en(4), /warning/i);
-});

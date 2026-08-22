@@ -5,6 +5,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { getMyWorkforceStaffProfile } from './staff-profile';
 import {
   acceptShiftExchange,
+  assignShiftExchangeReplacement as assignShiftExchangeReplacementWrite,
   cancelShiftExchange as cancelShiftExchangeWrite,
   createShiftExchange,
   decideShiftExchange as decideShiftExchangeWrite,
@@ -103,6 +104,30 @@ export async function acceptColleagueShiftExchange(exchangeId: string): Promise<
   const context = await resolveMyExchangeContext();
   if (context.status !== 'ok') return context.result;
   return acceptShiftExchange(context.supabase, exchangeId);
+}
+
+/**
+ * Manager assigns (or changes, before approval) a replacement employee on an
+ * 'exchange'-kind request that has none yet -- Shift Exchange Manager
+ * Resolution UX. `p_replacement_employee_id` is caller-supplied but never
+ * trusted as-is: `api.manager_assign_shift_exchange_replacement`
+ * (0079_manager_assign_shift_exchange_replacement.sql) re-validates tenant/
+ * location/active-status/requester-exclusion/schedule-conflict server-side
+ * inside its own transaction, same defense-in-depth shape as every other
+ * action in this module -- RLS (`wf_shift_exchanges_manage`) is the real
+ * authorization boundary underneath that.
+ */
+export async function assignShiftExchangeReplacement(formData: FormData): Promise<WorkforceWriteResult<{ exchangeId: string }>> {
+  const exchangeId = formData.get('exchangeId');
+  const replacementEmployeeId = formData.get('replacementEmployeeId');
+  if (typeof exchangeId !== 'string' || !exchangeId) return INVALID_INPUT_RESULT;
+  if (typeof replacementEmployeeId !== 'string' || !replacementEmployeeId) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return assignShiftExchangeReplacementWrite(supabase, exchangeId, replacementEmployeeId);
 }
 
 /** Manager decision (approve/reject) on a shift-exchange/change/cancel request. RLS (`wf_shift_exchanges_manage`) and the RPC's own `workforce.request.manage` check are the authorization boundary -- see module doc comment. */

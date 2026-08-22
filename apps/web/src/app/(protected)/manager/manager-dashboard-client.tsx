@@ -19,7 +19,7 @@ import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-t
 import { runAutoDistribution, undoAutoDistribution, publishSchedule } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
-import { decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
+import { assignShiftExchangeReplacement, decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
   buildManagerAttentionQueue,
@@ -636,6 +636,24 @@ function ManagerDashboardBody({
     });
   }
 
+  function handleAssignReplacement(exchangeId: string, replacementEmployeeId: string) {
+    setBanner(null);
+    setPendingAction(`assign-replacement-${exchangeId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('exchangeId', exchangeId);
+      formData.set('replacementEmployeeId', replacementEmployeeId);
+      const result = await assignShiftExchangeReplacement(formData);
+      if (result.status === 'success') {
+        setBanner({ tone: 'success', message: t('replacementAssigned') });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setPendingAction(null);
+    });
+  }
+
   return (
     <>
       <header
@@ -1059,12 +1077,16 @@ function ManagerDashboardBody({
         pendingExchanges={pendingExchanges}
         decidedExchanges={decidedExchanges}
         staffById={staffById}
+        staff={staff ?? []}
         exchangeAssignmentById={exchangeAssignmentById}
+        allAssignments={assignments}
+        preferences={requests}
         shiftTypes={shiftTypes}
         timeZone={timeZone}
         isPending={isPending}
         pendingAction={pendingAction}
         onDecide={handleDecideExchange}
+        onAssignReplacement={handleAssignReplacement}
         lang={lang}
       />
 

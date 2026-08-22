@@ -232,6 +232,7 @@ interface ManagerDashboardDict {
   // WP-11: shared "Archive" toggle (Correction requests + Shift exchange requests popups)
   showArchiveButton: string;
   hideArchiveButton: string;
+  viewHistoryButton: string;
   correctionsPopupHelpAriaLabel: string;
   correctionsPopupHelpTitle: string;
   correctionsPopupHelpBody: string;
@@ -250,6 +251,21 @@ interface ManagerDashboardDict {
   exchangesPopupHelpAriaLabel: string;
   exchangesPopupHelpTitle: string;
   exchangesPopupHelpBody: string;
+  // Shift Exchange Manager Resolution UX (2026-08-22): assign/change a
+  // replacement employee before approval.
+  exchangeReplacementLabel: string;
+  exchangeReplacementNotAssigned: string;
+  exchangeWaitingForCandidate: string;
+  assignReplacementButton: string;
+  changeReplacementButton: string;
+  selectReplacementTitle: string;
+  searchReplacementPlaceholder: string;
+  noEligibleReplacements: string;
+  candidateAvailable: string;
+  candidateScheduleConflict: string;
+  candidateMarkedUnavailable: string;
+  confirmAssignReplacementButton: string;
+  assigningReplacement: string;
   // Page chrome
   pageTitle: string;
   signOut: string;
@@ -265,6 +281,7 @@ interface ManagerDashboardDict {
   correctionRejected: string;
   exchangeApproved: string;
   exchangeRejected: string;
+  replacementAssigned: string;
   draftShiftsLabel: string;
   shortagesLabel: string;
   unplacedLabel: string;
@@ -469,6 +486,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colStatus2: 'Status',
     showArchiveButton: 'Show archive',
     hideArchiveButton: 'Hide archive',
+    viewHistoryButton: 'View history',
     correctionsPopupHelpAriaLabel: 'About correction requests',
     correctionsPopupHelpTitle: 'About correction requests',
     correctionsPopupHelpBody:
@@ -487,7 +505,20 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangesPopupHelpAriaLabel: 'About shift exchange requests',
     exchangesPopupHelpTitle: 'About shift exchange requests',
     exchangesPopupHelpBody:
-      'Staff request these to change, cancel, or exchange a published shift with a colleague. An Exchange request has nothing to approve until a colleague accepts it (shown as "awaiting candidate" until then). "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
+      'Staff request these to change, cancel, or exchange a published shift with a colleague. An Exchange request has nothing to approve until it has a replacement -- either a colleague accepts it themselves, or you assign one directly. "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
+    exchangeReplacementLabel: 'Replacement',
+    exchangeReplacementNotAssigned: 'Not assigned',
+    exchangeWaitingForCandidate: 'Waiting for candidate',
+    assignReplacementButton: 'Assign replacement',
+    changeReplacementButton: 'Change',
+    selectReplacementTitle: 'Select replacement',
+    searchReplacementPlaceholder: 'Search staff...',
+    noEligibleReplacements: 'No other active staff are available to assign.',
+    candidateAvailable: 'Available',
+    candidateScheduleConflict: 'Already scheduled at this time',
+    candidateMarkedUnavailable: 'Marked unavailable that day',
+    confirmAssignReplacementButton: 'Assign',
+    assigningReplacement: 'Assigning...',
     pageTitle: 'Manager',
     signOut: 'Sign out',
     navRecipes: 'Recipes',
@@ -500,6 +531,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionRejected: 'Correction rejected.',
     exchangeApproved: 'Shift exchange approved.',
     exchangeRejected: 'Shift exchange rejected.',
+    replacementAssigned: 'Replacement assigned.',
     draftShiftsLabel: 'Draft shifts',
     shortagesLabel: 'Shortages',
     unplacedLabel: 'Unplaced',
@@ -700,6 +732,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colStatus2: 'ステータス',
     showArchiveButton: 'アーカイブを表示',
     hideArchiveButton: 'アーカイブを隠す',
+    viewHistoryButton: '履歴を見る',
     correctionsPopupHelpAriaLabel: '修正依頼について',
     correctionsPopupHelpTitle: '修正依頼について',
     correctionsPopupHelpBody:
@@ -718,7 +751,20 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangesPopupHelpAriaLabel: 'シフト交換リクエストについて',
     exchangesPopupHelpTitle: 'シフト交換リクエストについて',
     exchangesPopupHelpBody:
-      '公開済みのシフトの変更・キャンセル・同僚との交換をスタッフが申請します。交換リクエストは同僚が承諾するまで承認できません（それまでは「交換相手を待っています」と表示）。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
+      '公開済みのシフトの変更・キャンセル・同僚との交換をスタッフが申請します。交換リクエストは交換相手が決まるまで承認できません -- 同僚が自分で承諾するか、あなたが直接指名できます。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
+    exchangeReplacementLabel: '交換相手',
+    exchangeReplacementNotAssigned: '未指定',
+    exchangeWaitingForCandidate: '交換相手を待っています',
+    assignReplacementButton: '交換相手を指名',
+    changeReplacementButton: '変更',
+    selectReplacementTitle: '交換相手を選択',
+    searchReplacementPlaceholder: 'スタッフを検索...',
+    noEligibleReplacements: '指名できる有効なスタッフがいません。',
+    candidateAvailable: '対応可能',
+    candidateScheduleConflict: 'この時間帯は既に予定あり',
+    candidateMarkedUnavailable: 'この日は「不可」と回答済み',
+    confirmAssignReplacementButton: '指名する',
+    assigningReplacement: '指名中...',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
     navRecipes: 'レシピ',
@@ -731,6 +777,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionRejected: '修正依頼を却下しました。',
     exchangeApproved: 'シフト交換を承認しました。',
     exchangeRejected: 'シフト交換を却下しました。',
+    replacementAssigned: '交換相手を指名しました。',
     draftShiftsLabel: '下書きシフト',
     shortagesLabel: '不足',
     unplacedLabel: '未配置',
@@ -817,20 +864,6 @@ export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number
     if (warningCount > 0) parts.push(`注意事項 ${warningCount}件`);
     return parts.join(' · ');
   },
-};
-
-/**
- * Compact single-line Level-1 subtitle for the main Manager Dashboard, e.g.
- * "4 require action" -- Attention UX Compactness Correction (2026-08-21):
- * deliberately omits the warning count here (unlike `attentionSummarySubtitle`,
- * which still carries the full "N require action · M warnings" breakdown
- * used inside the "Review all" popup) so the always-visible dashboard line
- * surfaces only the single number a Manager most needs at a glance; the
- * full breakdown is one click away, not duplicated on the dashboard itself.
- */
-export const attentionRequireActionCompact: Record<Lang, (actionRequiredCount: number) => string> = {
-  en: (actionRequiredCount) => `${actionRequiredCount} require action`,
-  ja: (actionRequiredCount) => `対応が必要 ${actionRequiredCount}件`,
 };
 
 /** "N items require restocking" for the single collapsed Inventory queue item. */

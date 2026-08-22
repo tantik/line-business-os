@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
-import { buttonSecondary, card, mutedText } from '@/lib/ui/theme';
+import { buttonSecondary, card } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 
 /**
@@ -23,45 +23,39 @@ export interface EntryPointsCardProps {
   buttons: EntryPointsCardButton[];
 }
 
-const buttonStyle: CSSProperties = { ...buttonSecondary };
+/** Each button shares the row equally (`flex: 1`), same visual weight, instead of sizing to its own label length. */
+const buttonStyle: CSSProperties = { ...buttonSecondary, flex: 1, justifyContent: 'center', textAlign: 'center' };
 
 /**
- * Shared "Staff & recipe & Inventory management" entry-point card --
- * consolidates what used to be scattered nav buttons (Recipes/Inventory in
- * the page header) plus, on Manager only, the separate Staff section's
- * "Manage staff" trigger, into one card matching the reference's grouping.
- * Reused by both Manager and Staff dashboards so the two surfaces stay
- * visually consistent without duplicating this layout.
+ * Shared entry-point action row (Recipes/Inventory/Manage-staff on Manager;
+ * Recipes/Inventory on Staff) -- consolidates what used to be scattered nav
+ * buttons into one row matching the reference's grouping. Reused by both
+ * dashboards so the two surfaces stay visually consistent.
  *
- * Attention UX Compactness Correction (2026-08-21): laid out as a single
- * toolbar row (heading+subtitle on the left, buttons on the right) instead
- * of a stacked heading-then-button-row card, so three navigation buttons
- * don't cost a full card's worth of vertical space above Needs Attention /
- * Weekly Schedule. CSS/layout only -- same `card` token, same buttons, same
- * click handlers/hrefs, no navigation or business-logic change. Wraps to
- * two rows on narrow viewports via the same `flexWrap` this card already
- * used.
+ * Attention polish pass (2026-08-21, Founder screenshot direction): dropped
+ * the card's own heading/subtitle text entirely (previously "Staff & recipe
+ * & Inventory management" / "N active / M total") -- the buttons' own
+ * labels already say what they do, and the active/total staff count now
+ * lives only inside the Manage-staff popup itself, not duplicated here. The
+ * `heading`/`subtitle` props stay on the type (harmless if a caller still
+ * passes them) so this is a pure visual simplification, not an API change
+ * requiring every call site to be touched in the same pass. Buttons now
+ * fill the full row width equally instead of sizing to their label.
  */
-export function EntryPointsCard({ heading, subtitle, buttons }: EntryPointsCardProps) {
+export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
   return (
-    <section style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-      <div>
-        <h2 style={{ margin: 0, fontSize: 15 }}>{heading}</h2>
-        {subtitle ? <p style={{ margin: '2px 0 0', fontSize: 12, ...mutedText }}>{subtitle}</p> : null}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {buttons.map((button) =>
-          button.href ? (
-            <Link key={button.key} href={button.href} className={hoverStyles.buttonSecondary} style={buttonStyle}>
-              {button.label}
-            </Link>
-          ) : (
-            <button key={button.key} type="button" className={hoverStyles.buttonSecondary} style={buttonStyle} onClick={button.onClick}>
-              {button.label}
-            </button>
-          ),
-        )}
-      </div>
+    <section style={{ ...card, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {buttons.map((button) =>
+        button.href ? (
+          <Link key={button.key} href={button.href} className={hoverStyles.buttonSecondary} style={buttonStyle}>
+            {button.label}
+          </Link>
+        ) : (
+          <button key={button.key} type="button" className={hoverStyles.buttonSecondary} style={buttonStyle} onClick={button.onClick}>
+            {button.label}
+          </button>
+        ),
+      )}
     </section>
   );
 }
