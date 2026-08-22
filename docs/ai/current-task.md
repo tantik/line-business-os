@@ -257,7 +257,18 @@ duplicated here.
 ## 5. Exact next gate
 
 **2026-08-22 pointer, latest first (read before treating the rest of this
-section as current):** a separate Founder-directed thread, **Manager
+section as current):** a separate Founder-directed thread, **Weekly
+Schedule Founder Review** (two rounds, PRs #365-#366, both merged to `dev`
+and live-verified on `preview.oruwa.jp`), ran and closed after the entry
+below. Full state, what changed, verification evidence, and known
+limitations (a schedule-change audit-history gap, no employee-notification
+mechanism, scheduled-automation is visual-only/not built) are in
+`docs/ai/CAFE_MANAGER_WEEKLY_SCHEDULE_FOUNDER_REVIEW_HANDOFF_2026-08-22.md`
+-- read that file first if anything Weekly-Schedule/Shift-Editor/shift-color-
+palette related comes up. Nothing in that thread is pre-authorized to
+continue; a fresh session should ask the Founder what's next.
+
+**2026-08-22 pointer (older, still useful context):** a separate Founder-directed thread, **Manager
 Attention UX** (four PRs: #357-#360, all merged to `dev`), ran and closed
 in the session after the entry below. Full state, DB-migration note
 (0079, already applied to Cloud dev), and known limitations are in
