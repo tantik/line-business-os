@@ -32,16 +32,21 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
 };
 
 /**
- * Category-chip grid: `--attention-chip-columns` (`globals.css`) is 4 on
- * desktop, 2 on mobile (Founder direction, 2026-08-22: 4 chips each
- * stacked full-width on a 375px phone read as too tall) -- a CSS grid
- * with a custom-property column count responds to that media query with
- * no JS/breakpoint logic here, same technique `pageStyle()`'s
- * `--page-padding` already uses.
+ * Category-chip row: a flex row (not a fixed grid) so chips and "Review
+ * all" sit together on one row when they fit -- Founder direction,
+ * 2026-08-22, two rounds: first "chips and Review all should be in one row
+ * on desktop", then "but on a 375px phone, 2 chips per row, Review all its
+ * own full-width row below." Both come from the same flex-basis custom
+ * properties (`globals.css`): `--attention-chip-basis` is `200px` on
+ * desktop (content-sized, several fit per row) and `45%` at <=640px (two
+ * fit, a third wraps); `--attention-reviewall-basis` is `auto` on desktop
+ * (sits inline after the chips) and `100%` on mobile (nothing else fits
+ * next to it once wrapped, so it fills its own row). No JS/breakpoint logic
+ * here -- same technique `pageStyle()`'s `--page-padding` already uses.
  */
-const chipGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(var(--attention-chip-columns), 1fr)',
+const chipRowStyle = {
+  display: 'flex',
+  flexWrap: 'wrap' as const,
   gap: 8,
   marginTop: 10,
 };
@@ -55,6 +60,7 @@ const chipGridStyle = {
  */
 const chipStyle = {
   ...buttonSecondary,
+  flex: '1 1 var(--attention-chip-basis)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -62,10 +68,11 @@ const chipStyle = {
   cursor: 'pointer',
 };
 
-/** "Review all" is the row's primary action (not a category filter) -- always spans every grid column (`gridColumn: '1 / -1'`) so it reads as one full-width row under the chips regardless of the current column count, and gets the same green primary treatment as "+ Add recipe". */
+/** "Review all" is the row's primary action (not a category filter), pushed to the far right on desktop (where its basis is `auto` and the row has slack) and given the same green primary treatment as "+ Add recipe". On mobile its basis becomes `100%` (see `chipRowStyle`'s doc comment), which alone fills the wrapped line -- `marginLeft: auto` is then a no-op, not a conflict. */
 const reviewAllButtonStyle = {
   ...buttonPrimary,
-  gridColumn: '1 / -1',
+  flex: '0 1 var(--attention-reviewall-basis)',
+  marginLeft: 'auto',
 };
 
 const queueItemStyle = {
@@ -259,7 +266,7 @@ export function AttentionPanel({
         <>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
 
-          <div style={chipGridStyle}>
+          <div style={chipRowStyle}>
             {items.map((item) => {
               const label = (
                 <>
