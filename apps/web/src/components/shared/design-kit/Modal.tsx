@@ -41,9 +41,14 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
   const panelRef = useRef<HTMLDivElement>(null);
   // Move focus into the dialog on open so screen readers announce it and Tab
   // starts inside it; restoring focus back out is handled by the hook above.
+  // `preventScroll: true` because the panel is already fully visible (fixed
+  // overlay covering the viewport) -- without it, the browser's default
+  // focus()-triggers-scrollIntoView behavior would visibly jump the page
+  // every time any modal opens, for no reason (nothing was actually
+  // off-screen).
   useEffect(() => {
     if (!open) return;
-    panelRef.current?.focus();
+    panelRef.current?.focus({ preventScroll: true });
   }, [open]);
 
   useEffect(() => {
