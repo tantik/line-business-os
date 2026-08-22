@@ -50,6 +50,7 @@ export interface SaveScheduleSettingsInput {
   locationId: string;
   requiredHeadcountByWeekday: number[];
   maxMonthlyHours: number;
+  autoCreateDayOfMonth: number;
 }
 
 export async function saveScheduleSettings(input: unknown): Promise<WorkforceWriteResult<WorkforceScheduleSettings>> {
@@ -57,13 +58,17 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
   const value = input as Record<string, unknown>;
   const required = value.requiredHeadcountByWeekday;
   const maxHours = value.maxMonthlyHours;
+  const autoCreateDayOfMonth = value.autoCreateDayOfMonth;
   if (
     !Array.isArray(required) ||
     required.length !== 7 ||
     required.some((item) => !Number.isInteger(item) || (item as number) < 0 || (item as number) > 100) ||
     !Number.isInteger(maxHours) ||
     (maxHours as number) < 0 ||
-    (maxHours as number) > 744
+    (maxHours as number) > 744 ||
+    !Number.isInteger(autoCreateDayOfMonth) ||
+    (autoCreateDayOfMonth as number) < 1 ||
+    (autoCreateDayOfMonth as number) > 28
   ) {
     return INVALID_INPUT_RESULT;
   }
@@ -76,6 +81,7 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
     locationId: resolved.locationId,
     requiredHeadcountByWeekday: required as number[],
     maxMonthlyHours: maxHours as number,
+    autoCreateDayOfMonth: autoCreateDayOfMonth as number,
   });
 }
 

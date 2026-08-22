@@ -55,6 +55,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'assignCellAriaLabelPrefix', 'editCellAriaLabelPrefix', 'correctPastScheduleAriaLabelPrefix',
   'automationSectionHeading', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
   'automationHelpAriaLabel', 'automationHelpTitle', 'automationHelpBody',
+  'estimatedLabourCostLabel', 'estimatedLabourCostCaption',
   'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',

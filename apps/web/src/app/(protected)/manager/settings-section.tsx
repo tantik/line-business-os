@@ -48,6 +48,7 @@ export function SettingsSection({
   const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [1, 1, 1, 1, 1, 1, 1]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
+  const [autoCreateDayOfMonth, setAutoCreateDayOfMonth] = useState(settings?.autoCreateDayOfMonth ?? 20);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -70,16 +71,16 @@ export function SettingsSection({
   const activeShiftTypeIds = (activeShiftTypes ?? []).map((st) => st.shiftTypeId);
   const confirmDeactivateTarget = confirmDeactivateId ? (activeShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeactivateId) ?? null : null;
 
-  const latestRef = useRef({ requirements, maxHours });
-  const lastConfirmedRef = useRef({ requirements, maxHours });
+  const latestRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
+  const lastConfirmedRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const dirtyWhileSavingRef = useRef(false);
   const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    latestRef.current = { requirements, maxHours };
-  }, [requirements, maxHours]);
+    latestRef.current = { requirements, maxHours, autoCreateDayOfMonth };
+  }, [requirements, maxHours, autoCreateDayOfMonth]);
 
   useEffect(
     () => () => {
@@ -99,7 +100,12 @@ export function SettingsSection({
     setAutosaveStatus('saving');
     const toSave = latestRef.current;
     startTransition(async () => {
-      const result = await saveScheduleSettings({ locationId, requiredHeadcountByWeekday: toSave.requirements, maxMonthlyHours: toSave.maxHours });
+      const result = await saveScheduleSettings({
+        locationId,
+        requiredHeadcountByWeekday: toSave.requirements,
+        maxMonthlyHours: toSave.maxHours,
+        autoCreateDayOfMonth: toSave.autoCreateDayOfMonth,
+      });
       savingRef.current = false;
       if (result.status === 'success') {
         lastConfirmedRef.current = toSave;
@@ -109,6 +115,7 @@ export function SettingsSection({
       } else {
         setRequirements(lastConfirmedRef.current.requirements);
         setMaxHours(lastConfirmedRef.current.maxHours);
+        setAutoCreateDayOfMonth(lastConfirmedRef.current.autoCreateDayOfMonth);
         setAutosaveStatus('error');
       }
       if (dirtyWhileSavingRef.current) runAutosave();
@@ -387,10 +394,13 @@ export function SettingsSection({
               type="number"
               min={1}
               max={28}
-              value={20}
-              disabled
+              value={autoCreateDayOfMonth}
+              onChange={(event) => {
+                const parsed = Number(event.currentTarget.value);
+                setAutoCreateDayOfMonth(Number.isInteger(parsed) ? Math.max(1, Math.min(28, parsed)) : autoCreateDayOfMonth);
+                scheduleAutosave();
+              }}
               aria-label={t('automationCreateOnLabel')}
-              readOnly
             />
             <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
           </label>
