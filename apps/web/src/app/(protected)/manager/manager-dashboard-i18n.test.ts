@@ -6,10 +6,8 @@ import {
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
   attentionSummarySubtitle,
-  autoDistributionCreatedMessage,
   breakMinutesValue,
   preferencesHeadingValue,
-  publishedCountMessage,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -41,8 +39,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'addStaffSubmit', 'saveChanges', 'cancel',
   'errorNotFound', 'errorNotAuthenticated', 'errorNoMembership', 'errorStaleReference',
   'prevWeek', 'thisWeek', 'nextWeek', 'addStaffToSeeSchedule', 'colStaff', 'assign', 'unassign', 'unassigning',
-  'actionsHeading', 'autoDistributionDescription',
-  'runAutoDistribution', 'running', 'publishSchedule', 'publishing', 'confirmPublish', 'confirmUnassignShift',
+  'actionsHeading', 'confirmUnassignShift',
   'scheduleHelpAriaLabel', 'scheduleHelpTitle', 'scheduleHelpBody',
   'pendingCorrectionCellAriaLabel',
   'staffPopupHelpAriaLabel', 'staffPopupHelpTitle', 'staffPopupHelpBody',
@@ -56,9 +53,8 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'fieldEmployee', 'fieldShiftType', 'shiftTypeCustom', 'fieldStart', 'fieldEnd', 'fieldBreakMinutes', 'save',
   'shiftAlreadyVisibleNotice', 'confirmChangeScheduledShiftTitle', 'correctingPastScheduleNotice', 'reassignEmployeeButton',
   'assignCellAriaLabelPrefix', 'editCellAriaLabelPrefix', 'correctPastScheduleAriaLabelPrefix',
-  'automationSectionHeading', 'automationSectionIntro', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
-  'automationCreateForLabel', 'automationTargetNextMonth', 'automationManualPreservedNote', 'automationStatusLabel',
-  'automationStatusNotActive', 'automationRunNowButton', 'automationLastResultHeading',
+  'automationSectionHeading', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
+  'automationHelpAriaLabel', 'automationHelpTitle', 'automationHelpBody',
   'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
@@ -72,7 +68,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'assigningReplacement',
   'backToWorkforce',
   'staffActivated', 'staffDeactivated', 'shiftUnassigned', 'correctionApproved', 'correctionRejected',
-  'exchangeApproved', 'exchangeRejected', 'replacementAssigned', 'draftShiftsLabel', 'shortagesLabel', 'unplacedLabel', 'nonSubmittersLabel',
+  'exchangeApproved', 'exchangeRejected', 'replacementAssigned',
   'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
   'attentionItemConflictTitle', 'attentionItemInventoryTitle', 'attentionWaitingDecision', 'attentionConflictSummary',
   'attentionReplacementNotSelected', 'attentionReplacementRequiredReason', 'attentionViewShift', 'attentionOpenInventory',
@@ -118,13 +114,6 @@ test('breakMinutesValue interpolates the minute count and differs by language', 
   assert.match(breakMinutesValue.en(30), /30/);
   assert.match(breakMinutesValue.ja(30), /30/);
   assert.notEqual(breakMinutesValue.en(30), breakMinutesValue.ja(30));
-});
-
-test('autoDistributionCreatedMessage and publishedCountMessage interpolate their counts and differ by language', () => {
-  assert.match(autoDistributionCreatedMessage.en(4), /4/);
-  assert.notEqual(autoDistributionCreatedMessage.en(4), autoDistributionCreatedMessage.ja(4));
-  assert.match(publishedCountMessage.ja(6), /6/);
-  assert.notEqual(publishedCountMessage.en(6), publishedCountMessage.ja(6));
 });
 
 test('attention label helpers interpolate their counts and differ by language', () => {

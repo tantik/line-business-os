@@ -145,15 +145,6 @@ interface ManagerDashboardDict {
   unassign: string;
   unassigning: string;
   actionsHeading: string;
-  autoDistributionDescription: string;
-  runAutoDistribution: string;
-  running: string;
-  undoAutoDistribution: string;
-  undoing: string;
-  autoDistributionUndone: string;
-  publishSchedule: string;
-  publishing: string;
-  confirmPublish: string;
   confirmUnassignShift: string;
   scheduleHelpAriaLabel: string;
   scheduleHelpTitle: string;
@@ -196,25 +187,18 @@ interface ManagerDashboardDict {
   savedStatus: string;
   saveErrorStatus: string;
   duplicateShiftTypeName: string;
-  // Automatic schedule (Founder Review Round 2, 2026-08-22): visual/
-  // configuration foundation for a future scheduled auto-create+publish
-  // capability -- section 25. The day-of-month/target-period inputs are
-  // deliberately non-functional (disabled) until a real scheduler exists;
-  // "Run now" and "Publish schedule" stay fully real, just relocated here
-  // from the Weekly Schedule card's header (Founder direction, same
-  // session: "Auto-create shifts и Publish schedule можно перенести в
-  // модуль Settings ниже").
+  // Automatic schedule (Round 3, 2026-08-22): a capability actively being
+  // built, not yet live -- the day-of-month input is a disabled preview of
+  // its future configuration. Round 2's Run now/Publish schedule buttons
+  // were removed here (Founder direction: the feature is mid-development,
+  // so no half-working action should be exposed) in favor of a `(?)` info
+  // popover explaining what this section will do once implemented.
   automationSectionHeading: string;
-  automationSectionIntro: string;
   automationCreateOnLabel: string;
   automationDayOfMonthSuffix: string;
-  automationCreateForLabel: string;
-  automationTargetNextMonth: string;
-  automationManualPreservedNote: string;
-  automationStatusLabel: string;
-  automationStatusNotActive: string;
-  automationRunNowButton: string;
-  automationLastResultHeading: string;
+  automationHelpAriaLabel: string;
+  automationHelpTitle: string;
+  automationHelpBody: string;
   // Shift types section
   shiftTypesHeading: string;
   shiftTypesUnavailable: string;
@@ -319,10 +303,6 @@ interface ManagerDashboardDict {
   exchangeApproved: string;
   exchangeRejected: string;
   replacementAssigned: string;
-  draftShiftsLabel: string;
-  shortagesLabel: string;
-  unplacedLabel: string;
-  nonSubmittersLabel: string;
   // LINE link form (F3)
   lineUserIdPlaceholder: string;
   bind: string;
@@ -442,21 +422,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     unassign: 'Remove shift',
     unassigning: 'Removing...',
     actionsHeading: 'Actions',
-    autoDistributionDescription:
-      'Auto-create fills empty shifts using a fixed staffing default (1 staff for the AM window, 1 for the PM window, every day).',
-    runAutoDistribution: 'Auto-create schedule',
-    running: 'Running...',
-    undoAutoDistribution: 'Undo auto-distribution',
-    undoing: 'Undoing...',
-    autoDistributionUndone: 'Auto-distribution undone -- the draft shifts it created are unassigned again.',
-    publishSchedule: 'Publish schedule',
-    publishing: 'Publishing...',
-    confirmPublish: 'Publish all draft shifts for this week? Staff will be able to see them.',
     confirmUnassignShift: 'Remove this shift from the schedule?',
     scheduleHelpAriaLabel: 'About the shift schedule',
     scheduleHelpTitle: 'About the shift schedule',
-    scheduleHelpBody:
-      'Assign staff to open cells, then use "Run auto-distribution" to fill remaining shifts automatically. Nothing is visible to staff until you press "Publish schedule".',
+    scheduleHelpBody: 'Click any cell to assign, edit, or remove a shift. Every change is visible to staff immediately -- there is no separate publish step.',
     pendingCorrectionCellAriaLabel: 'This shift has a pending correction request awaiting your review',
     staffPopupHelpAriaLabel: 'About staff management',
     staffPopupHelpTitle: 'About staff management',
@@ -495,16 +464,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     saveErrorStatus: 'Could not save',
     duplicateShiftTypeName: 'An active shift type with this name already exists.',
     automationSectionHeading: 'Automatic schedule',
-    automationSectionIntro: 'A future capability: schedules created and published automatically on a set day each month. Manual manager changes will always take priority over anything automation creates.',
     automationCreateOnLabel: 'Create automatically on',
     automationDayOfMonthSuffix: 'day of each month',
-    automationCreateForLabel: 'Create for',
-    automationTargetNextMonth: 'Next month',
-    automationManualPreservedNote: 'Manual manager changes will be preserved.',
-    automationStatusLabel: 'Status',
-    automationStatusNotActive: 'Not active yet',
-    automationRunNowButton: 'Run now',
-    automationLastResultHeading: 'Last result',
+    automationHelpAriaLabel: 'About automatic schedule',
+    automationHelpTitle: 'About automatic schedule',
+    automationHelpBody:
+      'This capability is currently in development and not active yet. Once built, it will automatically create and publish a schedule on the day of the month set above. Manual manager changes will always take priority over anything automation creates -- automation only ever fills in what a manager has not already scheduled.',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
     shiftTypesEmpty: 'No shift types configured yet.',
@@ -592,10 +557,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangeApproved: 'Shift exchange approved.',
     exchangeRejected: 'Shift exchange rejected.',
     replacementAssigned: 'Replacement assigned.',
-    draftShiftsLabel: 'Draft shifts',
-    shortagesLabel: 'Shortages',
-    unplacedLabel: 'Unplaced',
-    nonSubmittersLabel: 'No preferences submitted',
     lineUserIdPlaceholder: 'LINE user id',
     bind: 'Bind',
     binding: 'Binding...',
@@ -712,21 +673,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     unassign: 'シフトを削除',
     unassigning: '削除中...',
     actionsHeading: '操作',
-    autoDistributionDescription:
-      '固定の人員配置デフォルト（毎日AM枠1名・PM枠1名）を使って、空いているシフトを自動的に埋めます。',
-    runAutoDistribution: 'スケジュールを自動作成',
-    running: '実行中...',
-    undoAutoDistribution: '自動割り当てを元に戻す',
-    undoing: '元に戻しています...',
-    autoDistributionUndone: '自動割り当てを元に戻しました -- 作成された下書きシフトは未割り当てに戻りました。',
-    publishSchedule: 'スケジュールを公開',
-    publishing: '公開中...',
-    confirmPublish: '今週の下書きシフトをすべて公開しますか？スタッフに表示されるようになります。',
     confirmUnassignShift: 'このシフトをスケジュールから削除しますか？',
     scheduleHelpAriaLabel: 'シフトスケジュールについて',
     scheduleHelpTitle: 'シフトスケジュールについて',
-    scheduleHelpBody:
-      '空いているセルにスタッフを割り当てるか、「自動割り当てを実行」で残りのシフトを自動的に埋めます。「スケジュールを公開」を押すまでスタッフには表示されません。',
+    scheduleHelpBody: 'セルをクリックしてシフトの割り当て・編集・削除ができます。変更内容はすぐにスタッフに表示されます -- 別途の公開操作はありません。',
     pendingCorrectionCellAriaLabel: 'このシフトには確認待ちの修正申請があります',
     staffPopupHelpAriaLabel: 'スタッフ管理について',
     staffPopupHelpTitle: 'スタッフ管理について',
@@ -764,16 +714,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     saveErrorStatus: '保存できませんでした',
     duplicateShiftTypeName: '同じ名称の有効なシフト種別がすでに存在します。',
     automationSectionHeading: '自動スケジュール',
-    automationSectionIntro: '今後追加予定の機能です -- 毎月指定した日にスケジュールを自動的に作成・公開します。手動でのマネージャーの変更は、自動作成された内容より常に優先されます。',
     automationCreateOnLabel: '自動作成する日',
     automationDayOfMonthSuffix: '日（毎月）',
-    automationCreateForLabel: '対象期間',
-    automationTargetNextMonth: '来月',
-    automationManualPreservedNote: '手動でのマネージャーの変更は保持されます。',
-    automationStatusLabel: 'ステータス',
-    automationStatusNotActive: 'まだ有効化されていません',
-    automationRunNowButton: '今すぐ実行',
-    automationLastResultHeading: '直近の結果',
+    automationHelpAriaLabel: '自動スケジュールについて',
+    automationHelpTitle: '自動スケジュールについて',
+    automationHelpBody:
+      'この機能は現在開発中で、まだ有効化されていません。実装後は、上記で設定した日にスケジュールを自動的に作成・公開します。手動でのマネージャーの変更は、自動作成された内容より常に優先されます -- 自動作成はマネージャーがまだ設定していない部分だけを埋めます。',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
     shiftTypesEmpty: 'シフト種別がまだ設定されていません。',
@@ -861,10 +807,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangeApproved: 'シフト交換を承認しました。',
     exchangeRejected: 'シフト交換を却下しました。',
     replacementAssigned: '交換相手を指名しました。',
-    draftShiftsLabel: '下書きシフト',
-    shortagesLabel: '不足',
-    unplacedLabel: '未配置',
-    nonSubmittersLabel: '希望未提出',
     lineUserIdPlaceholder: 'LINEユーザーID',
     bind: '連携する',
     binding: '連携中...',
@@ -890,16 +832,6 @@ export const preferencesHeadingValue: Record<Lang, (periodStart: string, periodE
 export const breakMinutesValue: Record<Lang, (minutes: number) => string> = {
   en: (minutes) => `${minutes} min`,
   ja: (minutes) => `${minutes}分`,
-};
-
-export const autoDistributionCreatedMessage: Record<Lang, (count: number) => string> = {
-  en: (count) => `Created ${count} draft shift(s).`,
-  ja: (count) => `${count}件の下書きシフトを作成しました。`,
-};
-
-export const publishedCountMessage: Record<Lang, (count: number) => string> = {
-  en: (count) => `Published ${count} shift(s).`,
-  ja: (count) => `${count}件のシフトを公開しました。`,
 };
 
 /** Compact "N active / M total" summary shown on the Staff section header, next to the Manage-staff popup trigger (WP A4). */
