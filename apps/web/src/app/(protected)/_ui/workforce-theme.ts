@@ -96,6 +96,18 @@ const CHIP_TONES: ReadonlyArray<{ background: string; color: string }> = [
 
 const UNSET_CHIP_TONE = { background: colors.surfaceElevated, color: colors.textMuted };
 
+/**
+ * Fixed orange tone for a genuinely custom shift (no `shiftTypeId` at all --
+ * a manager typed a one-off start/end time instead of picking a named shift
+ * type). Deliberately outside the `CHIP_TONES` hash pool: a custom shift
+ * isn't "one more named type," it's a different *kind* of thing, so it gets
+ * one fixed, always-recognizable color instead of a hash-derived one (Round
+ * 3 Founder ask, 2026-08-22). Chosen to sit visibly apart from both
+ * `colors.warning` (#B8863B, muted tan) and `colors.danger` (#C1503F, red)
+ * so it never reads as a status/severity signal.
+ */
+export const CUSTOM_CHIP_TONE = { background: 'rgba(199, 115, 39, 0.16)', color: '#C77327' };
+
 function hashToIndex(id: string, mod: number): number {
   let hash = 0;
   for (let i = 0; i < id.length; i += 1) {
@@ -128,7 +140,7 @@ export function shiftChipColors(
   shiftTypeId: string | null | undefined,
   allActiveShiftTypeIds?: readonly string[],
 ): { background: string; color: string } {
-  if (!shiftTypeId) return UNSET_CHIP_TONE;
+  if (!shiftTypeId) return CUSTOM_CHIP_TONE;
   if (!allActiveShiftTypeIds || allActiveShiftTypeIds.length === 0) {
     return CHIP_TONES[hashToIndex(shiftTypeId, CHIP_TONES.length)] ?? UNSET_CHIP_TONE;
   }
