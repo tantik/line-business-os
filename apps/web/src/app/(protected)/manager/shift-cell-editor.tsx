@@ -9,7 +9,7 @@ import { createShiftAssignment, updateShiftAssignment } from '@/lib/workforce/sc
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { useLang } from '@/lib/demo/cafe/i18n';
-import { Modal, ConfirmDialog } from '@/components/shared/design-kit';
+import { ConfirmDialog, Modal } from '@/components/shared/design-kit';
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
@@ -32,7 +32,13 @@ function localizedEditorError(result: Parameters<typeof describeWriteError>[0], 
 export interface ShiftCellEditorProps {
   locationId: string;
   workDate: string;
-  /** Present when editing an existing (always unpublished -- published assignments are read-only) assignment; absent when assigning a new one into an empty cell. */
+  /**
+   * Present when editing an existing assignment (draft or published --
+   * Weekly Schedule redesign, 2026-08-22: published shifts are no longer
+   * read-only here, see the controlled-edit confirmation in
+   * `handleSubmit`/`doSubmit` below); absent when assigning a new one into
+   * an empty cell.
+   */
   existing?: {
     assignment: WorkforceShiftAssignment;
     startsAtLocal: string;
@@ -67,30 +73,24 @@ export function ShiftCellEditor({
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Weekly Schedule redesign (2026-08-22): "controlled edit" of an
+  // already-published shift -- a Save on a published shift doesn't write
+  // immediately, it stages the already-built FormData here and shows a
+  // confirmation first (`published` was already carried through unchanged
+  // in that FormData by the code below, same as before this change; this
+  // only adds a pause before it's actually submitted). A Draft shift is
+  // completely unaffected -- `doSubmit` runs immediately for it, same as
+  // pre-redesign behavior.
+  const [pendingPublishedSave, setPendingPublishedSave] = useState<FormData | null>(null);
 
   const currentEmployeeId = existing?.assignment.employeeId ?? rowStaffId;
   const assignableStaff = staff.filter((s) => s.isActive || s.staffId === currentEmployeeId);
   const activeShiftTypes = shiftTypes.filter((st) => st.isActive);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function doSubmit(formData: FormData) {
     setError(null);
-    const formData = new FormData(event.currentTarget);
-    formData.set('locationId', locationId);
-    formData.set('workDate', workDate);
-
     startTransition(async () => {
-      let result;
-      if (existing) {
-        formData.set('assignmentId', existing.assignment.assignmentId);
-        if (existing.assignment.role) formData.set('role', existing.assignment.role);
-        if (existing.assignment.notes) formData.set('notes', existing.assignment.notes);
-        if (existing.assignment.published) formData.set('published', 'true');
-        result = await updateShiftAssignment(formData);
-      } else {
-        result = await createShiftAssignment(formData);
-      }
-
+      const result = existing ? await updateShiftAssignment(formData) : await createShiftAssignment(formData);
       if (result.status === 'success') {
         onSuccess();
       } else {
@@ -99,8 +99,44 @@ export function ShiftCellEditor({
     });
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    formData.set('locationId', locationId);
+    formData.set('workDate', workDate);
+
+    if (existing) {
+      formData.set('assignmentId', existing.assignment.assignmentId);
+      if (existing.assignment.role) formData.set('role', existing.assignment.role);
+      if (existing.assignment.notes) formData.set('notes', existing.assignment.notes);
+      if (existing.assignment.published) formData.set('published', 'true');
+    }
+
+    if (existing?.assignment.published) {
+      // Stage, don't write -- ConfirmDialog below gates the actual save.
+      setPendingPublishedSave(formData);
+      return;
+    }
+    doSubmit(formData);
+  }
+
   return (
+    <>
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 190 }}>
+      {existing?.assignment.published ? (
+        <div
+          style={{
+            border: `1px solid ${colors.warning}`,
+            background: 'rgba(184, 134, 59, 0.12)',
+            color: colors.textPrimary,
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: 12.5,
+          }}
+        >
+          {t('editingPublishedShiftNotice')}
+        </div>
+      ) : null}
       {error ? <div style={alertDanger}>{error}</div> : null}
 
       {existing ? (
@@ -162,6 +198,23 @@ export function ShiftCellEditor({
         </button>
       </div>
     </form>
+
+    <ConfirmDialog
+      open={pendingPublishedSave !== null}
+      title={t('confirmPublishedEditTitle')}
+      confirmLabel={t('save')}
+      cancelLabel={t('cancel')}
+      pending={isPending}
+      onCancel={() => setPendingPublishedSave(null)}
+      onConfirm={() => {
+        const formData = pendingPublishedSave;
+        setPendingPublishedSave(null);
+        if (formData) doSubmit(formData);
+      }}
+    >
+      {t('confirmPublishedEditBody')}
+    </ConfirmDialog>
+    </>
   );
 }
 

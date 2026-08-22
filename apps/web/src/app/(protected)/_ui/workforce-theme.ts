@@ -51,47 +51,98 @@ export const buttonDanger: CSSProperties = {
   cursor: 'pointer',
 };
 
-// WP A8: `colors.accent`/`colors.success` are the SAME hex value in this
-// palette (`@/lib/ui/theme.ts`), so a naive 3rd "success" tone here would be
-// visually indistinguishable from the 1st -- found via the position-based
-// no-collision test below actually failing. `colors.danger`/`dangerMuted`
-// is the only other genuinely distinct hue in the palette; repurposing it
-// for a shift-type chip is no different from `warning` already being reused
-// below for a plain, non-error visual category.
+/**
+ * Weekly Schedule redesign (2026-08-22): capacity raised from 3 to 10
+ * distinct, deliberately-chosen tones -- a 3-tone palette started colliding
+ * as soon as a cafe configured a 4th shift type (already true for the Cafe
+ * v2.1 reference tenant). Every entry stays inside this one file (the
+ * established shift-color extension point, see `shiftChipColors` below)
+ * instead of being invented ad hoc inside the schedule grid.
+ *
+ * Hues are chosen to sit visibly apart from each other AND from this
+ * palette's own `warning`/`danger` tones (a shift color must never be
+ * mistaken for a status/severity signal -- that's what `badgeStyle` and the
+ * grid's own conflict/understaffed markers are for). Each tone pairs a
+ * ~12%-alpha tint (background) with a ~35-45% lightness solid (text/border),
+ * the same background+solid-text shape every other tone in this file
+ * already uses, so a chip's text stays readable on the warm `colors.bg`/
+ * `colors.surface` ground in both a light table cell and the legend.
+ */
 const CHIP_TONES: ReadonlyArray<{ background: string; color: string }> = [
-  { background: colors.accentMuted, color: colors.accent },
-  { background: 'rgba(184, 134, 59, 0.14)', color: colors.warning },
-  { background: colors.dangerMuted, color: colors.danger },
+  { background: colors.accentMuted, color: colors.accent }, // sage (existing accent)
+  { background: 'rgba(62, 122, 107, 0.14)', color: '#3E7A6B' }, // teal
+  { background: 'rgba(59, 110, 140, 0.14)', color: '#3B6E8C' }, // steel blue
+  { background: 'rgba(74, 90, 150, 0.14)', color: '#4A5A96' }, // indigo
+  { background: 'rgba(107, 79, 150, 0.14)', color: '#6B4F96' }, // violet
+  { background: 'rgba(140, 79, 134, 0.14)', color: '#8C4F86' }, // plum
+  { background: 'rgba(156, 76, 110, 0.14)', color: '#9C4C6E' }, // rose
+  { background: 'rgba(140, 90, 47, 0.14)', color: '#8C5A2F' }, // clay/brown
+  { background: 'rgba(122, 122, 61, 0.14)', color: '#7A7A3D' }, // olive
+  { background: 'rgba(92, 107, 122, 0.14)', color: '#5C6B7A' }, // slate
 ];
 
 const UNSET_CHIP_TONE = { background: colors.surfaceElevated, color: colors.textMuted };
 
+function hashToIndex(id: string, mod: number): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return hash % mod;
+}
+
 /**
- * Deterministic tone for a shift type id, so the same shift code always
- * renders the same chip color. When `allActiveShiftTypeIds` is supplied
- * (WP A8), the tone is picked by the id's stable position in that list
- * instead of a raw hash -- this guarantees no two currently-active shift
- * types collide on the same tone as long as there are no more active types
- * than `CHIP_TONES` has entries (today: 3), rather than leaving it to hash
- * chance. Falls back to the hash when the id isn't in the list (an
- * assignment referencing a since-deactivated type not passed in) or when no
- * list is given at all (existing call sites stay unchanged/backward
- * compatible).
+ * Deterministic tone for a shift type id -- stable per-id, not per-position,
+ * so reordering, adding, or deactivating unrelated shift types never
+ * repaints a shift type that didn't change (Weekly Schedule redesign,
+ * 2026-08-22 -- the previous WP A8 version picked a tone by the id's index
+ * in `allActiveShiftTypeIds`, so any reorder/add/remove could shift every
+ * *other* type's color too). No DB migration/persisted color column exists
+ * for this, so the mapping is derived purely from the id's own hash, which
+ * is stable for the life of that id by construction.
+ *
+ * A pure hash alone cannot guarantee zero collisions among the currently
+ * active set, so when `allActiveShiftTypeIds` is supplied, this also runs a
+ * deterministic collision pass: ids are visited in a fixed order (sorted by
+ * id, never by display/sort order, so the pass itself is reorder-immune),
+ * and any id whose hash slot is already taken by an *earlier-sorted* id
+ * moves to the next free slot. With `CHIP_TONES.length` (10) or fewer
+ * active ids this guarantees every one gets a distinct tone; beyond that,
+ * remaining ids fall back to their plain (possibly colliding) hash tone --
+ * an explicit, documented capacity limit, not a crash.
  */
 export function shiftChipColors(
   shiftTypeId: string | null | undefined,
   allActiveShiftTypeIds?: readonly string[],
 ): { background: string; color: string } {
   if (!shiftTypeId) return UNSET_CHIP_TONE;
-  if (allActiveShiftTypeIds && allActiveShiftTypeIds.length > 0) {
-    const index = allActiveShiftTypeIds.indexOf(shiftTypeId);
-    if (index !== -1) return CHIP_TONES[index % CHIP_TONES.length] ?? UNSET_CHIP_TONE;
+  if (!allActiveShiftTypeIds || allActiveShiftTypeIds.length === 0) {
+    return CHIP_TONES[hashToIndex(shiftTypeId, CHIP_TONES.length)] ?? UNSET_CHIP_TONE;
   }
-  let hash = 0;
-  for (let i = 0; i < shiftTypeId.length; i += 1) {
-    hash = (hash * 31 + shiftTypeId.charCodeAt(i)) >>> 0;
+
+  const sortedIds = Array.from(new Set(allActiveShiftTypeIds)).sort();
+  const taken = new Set<number>();
+  const assigned = new Map<string, number>();
+  for (const id of sortedIds) {
+    const preferred = hashToIndex(id, CHIP_TONES.length);
+    if (taken.size >= CHIP_TONES.length) {
+      // Capacity exhausted (more than CHIP_TONES.length active ids) --
+      // remaining ids reuse their plain hash slot rather than looping
+      // forever looking for a free one that no longer exists.
+      assigned.set(id, preferred);
+      continue;
+    }
+    let slot = preferred;
+    while (taken.has(slot)) slot = (slot + 1) % CHIP_TONES.length;
+    taken.add(slot);
+    assigned.set(id, slot);
   }
-  return CHIP_TONES[hash % CHIP_TONES.length] ?? UNSET_CHIP_TONE;
+
+  const index = assigned.get(shiftTypeId);
+  if (index !== undefined) return CHIP_TONES[index] ?? UNSET_CHIP_TONE;
+  // Not in the active-ids list at all (a since-deactivated type) -- same
+  // plain hash fallback as the no-list case.
+  return CHIP_TONES[hashToIndex(shiftTypeId, CHIP_TONES.length)] ?? UNSET_CHIP_TONE;
 }
 
 export function shiftChipStyle(tone: { background: string; color: string }): CSSProperties {

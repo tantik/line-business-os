@@ -77,3 +77,25 @@
   outline: 2px solid #4f7a52;
   outline-offset: 2px;
 }
+
+/*
+ * Weekly Schedule grid cell (manager-dashboard-client.tsx): each cell is a
+ * single `<button>` whose `background` is always set inline (the shift
+ * chip's own tone, or 'transparent' for an empty cell) -- `.buttonSecondary`
+ * above's `:hover` rule sets `background` too, which an inline style always
+ * beats regardless of the pseudo-class, so it would be a silent no-op here.
+ * `filter` isn't set inline by that component, so it composes with any
+ * background instead of losing to it.
+ */
+.scheduleCellButton:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.scheduleCellButton:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.scheduleCellButton:focus-visible {
+  outline: 2px solid #4f7a52;
+  outline-offset: 2px;
+}
