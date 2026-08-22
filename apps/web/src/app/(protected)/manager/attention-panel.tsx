@@ -12,7 +12,6 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
-  attentionRequireActionCompact,
   attentionSummarySubtitle,
   attentionUnavailableConflictLabel,
   tManagerDashboard,
@@ -32,30 +31,28 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
   inventory: (count, lang) => attentionInventoryLabel[lang](count),
 };
 
+/**
+ * Single-line category chip, deliberately matched to `buttonSecondary`'s own
+ * height/padding/radius (Attention polish pass, 2026-08-21: the previous
+ * two-line stacked chip read as visually "heavier" than the EntryPointsCard
+ * buttons directly above it) -- title and count sit side by side instead of
+ * stacked, same tap height as every other secondary button in this page.
+ */
 const chipStyle = {
-  flex: '1 1 140px',
-  minWidth: 120,
-  maxWidth: 220,
-  border: `1px solid ${colors.border}`,
-  borderRadius: 8,
-  padding: '8px 10px',
-  background: colors.surfaceElevated,
+  ...buttonSecondary,
+  flex: '1 1 200px',
+  maxWidth: 280,
   display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 2,
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
   cursor: 'pointer',
-  font: 'inherit',
-  color: colors.textPrimary,
-  textAlign: 'left' as const,
 };
 
-const reviewAllChipStyle = {
-  ...chipStyle,
-  flex: '0 0 auto' as const,
-  minWidth: 'auto',
-  justifyContent: 'center',
-  alignItems: 'center',
-  fontWeight: 600,
+/** "Review all" is the primary action of this row (not a category filter), pushed to the far right and given the same green primary treatment as "+ Add recipe" so it reads as an action, not a fifth category. */
+const reviewAllButtonStyle = {
+  ...buttonPrimary,
+  marginLeft: 'auto',
 };
 
 const queueItemStyle = {
@@ -245,14 +242,14 @@ export function AttentionPanel({
         <p style={{ margin: '10px 0 0', ...mutedText }}>✓ {t('attentionAllClear')}</p>
       ) : (
         <>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionRequireActionCompact[lang](summary.actionRequiredCount)}</p>
+          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
             {items.map((item) => {
               const label = (
                 <>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{t(ATTENTION_TITLE_KEY[item.category])}</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: colors.warning }}>{item.count}</span>
+                  <span style={{ fontSize: 14 }}>{t(ATTENTION_TITLE_KEY[item.category])}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: colors.warning }}>{item.count}</span>
                 </>
               );
               const onClick =
@@ -264,12 +261,19 @@ export function AttentionPanel({
                       ? onOpenInventory
                       : () => setConflictsOpen(true);
               return (
-                <button key={item.category} type="button" aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)} style={chipStyle} onClick={onClick}>
+                <button
+                  key={item.category}
+                  type="button"
+                  className={hoverStyles.buttonSecondary}
+                  aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
+                  style={chipStyle}
+                  onClick={onClick}
+                >
                   {label}
                 </button>
               );
             })}
-            <button type="button" style={reviewAllChipStyle} onClick={() => setReviewAllOpen(true)}>
+            <button type="button" className={hoverStyles.buttonPrimary} style={reviewAllButtonStyle} onClick={() => setReviewAllOpen(true)}>
               {t('attentionReviewAll')}
             </button>
           </div>

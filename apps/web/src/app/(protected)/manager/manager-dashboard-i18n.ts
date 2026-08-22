@@ -232,6 +232,7 @@ interface ManagerDashboardDict {
   // WP-11: shared "Archive" toggle (Correction requests + Shift exchange requests popups)
   showArchiveButton: string;
   hideArchiveButton: string;
+  viewHistoryButton: string;
   correctionsPopupHelpAriaLabel: string;
   correctionsPopupHelpTitle: string;
   correctionsPopupHelpBody: string;
@@ -469,6 +470,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colStatus2: 'Status',
     showArchiveButton: 'Show archive',
     hideArchiveButton: 'Hide archive',
+    viewHistoryButton: 'View history',
     correctionsPopupHelpAriaLabel: 'About correction requests',
     correctionsPopupHelpTitle: 'About correction requests',
     correctionsPopupHelpBody:
@@ -700,6 +702,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colStatus2: 'ステータス',
     showArchiveButton: 'アーカイブを表示',
     hideArchiveButton: 'アーカイブを隠す',
+    viewHistoryButton: '履歴を見る',
     correctionsPopupHelpAriaLabel: '修正依頼について',
     correctionsPopupHelpTitle: '修正依頼について',
     correctionsPopupHelpBody:
@@ -817,20 +820,6 @@ export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number
     if (warningCount > 0) parts.push(`注意事項 ${warningCount}件`);
     return parts.join(' · ');
   },
-};
-
-/**
- * Compact single-line Level-1 subtitle for the main Manager Dashboard, e.g.
- * "4 require action" -- Attention UX Compactness Correction (2026-08-21):
- * deliberately omits the warning count here (unlike `attentionSummarySubtitle`,
- * which still carries the full "N require action · M warnings" breakdown
- * used inside the "Review all" popup) so the always-visible dashboard line
- * surfaces only the single number a Manager most needs at a glance; the
- * full breakdown is one click away, not duplicated on the dashboard itself.
- */
-export const attentionRequireActionCompact: Record<Lang, (actionRequiredCount: number) => string> = {
-  en: (actionRequiredCount) => `${actionRequiredCount} require action`,
-  ja: (actionRequiredCount) => `対応が必要 ${actionRequiredCount}件`,
 };
 
 /** "N items require restocking" for the single collapsed Inventory queue item. */
