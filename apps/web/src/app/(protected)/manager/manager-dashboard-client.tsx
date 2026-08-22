@@ -16,8 +16,6 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
-import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
-import { runAutoDistribution, undoAutoDistribution, publishSchedule } from '@/lib/workforce/schedule-actions';
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { assignShiftExchangeReplacement, decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
@@ -35,10 +33,8 @@ import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import {
-  autoDistributionCreatedMessage,
   dailyStaffingShortageExplanation,
   preferencesHeadingValue,
-  publishedCountMessage,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -172,17 +168,6 @@ const cellAlertCornerStyle: CSSProperties = {
   textAlign: 'center',
 };
 
-/**
- * Cafe v0.1 MVP default staffing requirement (Slice 2A): 1 headcount for the
- * AM and PM windows, every day of the week. There is no settings table for
- * this yet -- see `schedule-input.ts`'s `RunAutoDistributionRequirementInput`
- * comment for why this is a plain action argument, not a DB-backed rule.
- */
-const DEFAULT_STAFFING_REQUIREMENTS = ([0, 1, 2, 3, 4, 5, 6] as const).flatMap((weekday) => [
-  { weekday, windowCode: 'AM' as const, requiredHeadcount: 1 },
-  { weekday, windowCode: 'PM' as const, requiredHeadcount: 1 },
-]);
-
 export interface ManagerDashboardClientProps {
   tenantName: string;
   locationName: string;
@@ -275,20 +260,7 @@ function ManagerDashboardBody({
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{
-    tone: 'success' | 'error';
-    message: string;
-    stats?: { label: string; value: number }[];
-    /** Set only right after a successful auto-distribution run with draftCount > 0 -- lets the banner offer a same-session "Undo" (WP-G). Cleared on any other banner-setting action, on Undo itself, and never persisted/reloaded. */
-    undoAssignmentIds?: string[];
-  } | null>(null);
-  const [undoingAutoDistribute, setUndoingAutoDistribute] = useState(false);
-  // Founder Review Round 2 (2026-08-22): Run now / Publish schedule moved
-  // into the Settings section's "Automatic schedule" block -- this mirrors
-  // the same result numbers `banner.stats` already shows, scoped so
-  // Settings can render its own compact "Last result" without needing the
-  // page-wide banner state.
-  const [lastAutoCreateResult, setLastAutoCreateResult] = useState<{ created: number; shortages: number; unplaced: number; missingPreferences: number } | null>(null);
+  const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   // Add/Edit-staff state, focus-restore ref-maps, and their Escape handling
   // now live inside `ManageStaffPopup` (WP A4) -- this button just opens the
   // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
@@ -678,78 +650,6 @@ function ManagerDashboardBody({
     });
   }
 
-  function handleAutoDistribute() {
-    setBanner(null);
-    setPendingAction('auto-distribute');
-    startTransition(async () => {
-      const result = await runAutoDistribution({
-        locationId,
-        periodStart,
-        periodEnd,
-        staffingRequirements: DEFAULT_STAFFING_REQUIREMENTS,
-        overwriteExisting: false,
-      });
-      if (result.status === 'success') {
-        const r = result.data as RunAutoDistributionActionResult;
-        setBanner({
-          tone: 'success',
-          message: autoDistributionCreatedMessage[lang](r.draftCount),
-          stats: [
-            { label: t('draftShiftsLabel'), value: r.draftCount },
-            { label: t('shortagesLabel'), value: r.shortages.length },
-            { label: t('unplacedLabel'), value: r.unplaced.length },
-            { label: t('nonSubmittersLabel'), value: r.nonSubmitters.length },
-          ],
-          undoAssignmentIds: r.createdAssignmentIds.length > 0 ? r.createdAssignmentIds : undefined,
-        });
-        setLastAutoCreateResult({
-          created: r.draftCount,
-          shortages: r.shortages.length,
-          unplaced: r.unplaced.length,
-          missingPreferences: r.nonSubmitters.length,
-        });
-        router.refresh();
-      } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
-      }
-      setPendingAction(null);
-    });
-  }
-
-  function handleUndoAutoDistribute(assignmentIds: string[]) {
-    setUndoingAutoDistribute(true);
-    startTransition(async () => {
-      const result = await undoAutoDistribution({ assignmentIds });
-      if (result.status === 'success') {
-        setBanner({ tone: 'success', message: t('autoDistributionUndone') });
-        router.refresh();
-      } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
-      }
-      setUndoingAutoDistribute(false);
-    });
-  }
-
-  function handlePublish() {
-    if (!window.confirm(t('confirmPublish'))) return;
-    setBanner(null);
-    setPendingAction('publish');
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('locationId', locationId);
-      formData.set('periodStart', periodStart);
-      formData.set('periodEnd', periodEnd);
-      const result = await publishSchedule(formData);
-      if (result.status === 'success') {
-        setBanner({ tone: 'success', message: publishedCountMessage[lang](result.data.published) });
-        router.refresh();
-      } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
-      }
-      setPendingAction(null);
-    });
-  }
-
   function handleDecideCorrection(requestId: string, decision: ShiftRequestDecision) {
     setBanner(null);
     setPendingAction(`decide-${requestId}`);
@@ -894,38 +794,6 @@ function ManagerDashboardBody({
       {banner ? (
         <div style={{ ...(banner.tone === 'error' ? alertDanger : alertSuccess), marginTop: 16 }}>
           <div>{banner.message}</div>
-          {banner.stats ? (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {banner.stats.map((stat) => (
-                <span
-                  key={stat.label}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'baseline',
-                    gap: 4,
-                    padding: '3px 10px',
-                    borderRadius: 999,
-                    background: colors.surfaceElevated,
-                    fontSize: 12,
-                  }}
-                >
-                  <strong style={{ fontSize: 13 }}>{stat.value}</strong>
-                  <span style={mutedText}>{stat.label}</span>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {banner.undoAssignmentIds ? (
-            <button
-              type="button"
-              className={hoverStyles.buttonSecondary}
-              style={{ ...(undoingAutoDistribute ? buttonDisabled : buttonSecondary), marginTop: 8 }}
-              disabled={undoingAutoDistribute}
-              onClick={() => handleUndoAutoDistribute(banner.undoAssignmentIds!)}
-            >
-              {undoingAutoDistribute ? t('undoing') : t('undoAutoDistribution')}
-            </button>
-          ) : null}
         </div>
       ) : null}
 
@@ -1205,11 +1073,6 @@ function ManagerDashboardBody({
         shiftTypes={shiftTypes}
         onShiftTypesChanged={() => router.refresh()}
         lang={lang}
-        onRunAutoCreate={handleAutoDistribute}
-        autoCreatePending={isPending && pendingAction === 'auto-distribute'}
-        onPublishSchedule={handlePublish}
-        publishPending={isPending && pendingAction === 'publish'}
-        lastAutoCreateResult={lastAutoCreateResult}
       />
 
       <section style={card}>

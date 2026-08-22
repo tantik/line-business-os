@@ -18,22 +18,6 @@ export interface SettingsSectionProps {
   shiftTypes: WorkforceShiftType[] | null;
   onShiftTypesChanged: () => void;
   lang: Lang;
-  /**
-   * "Automatic schedule" subsection (Founder Review Round 2, 2026-08-22):
-   * Run now / Publish schedule are real, working actions the parent already
-   * owns (`handleAutoDistribute`/`handlePublish` in
-   * `manager-dashboard-client.tsx`) -- relocated here from the Weekly
-   * Schedule card's own header per Founder direction, same session. The
-   * day-of-month/target-period inputs below are NOT wired to either of
-   * these; they're a disabled visual/configuration preview for a scheduled-
-   * automation capability that doesn't exist on the backend yet (section 25
-   * -- no fake persistence, no fake "active" status).
-   */
-  onRunAutoCreate: () => void;
-  autoCreatePending: boolean;
-  onPublishSchedule: () => void;
-  publishPending: boolean;
-  lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
 }
 
 /**
@@ -57,11 +41,6 @@ export function SettingsSection({
   shiftTypes: initialShiftTypes,
   onShiftTypesChanged,
   lang,
-  onRunAutoCreate,
-  autoCreatePending,
-  onPublishSchedule,
-  publishPending,
-  lastAutoCreateResult,
 }: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
@@ -82,6 +61,7 @@ export function SettingsSection({
   const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [automationHelpOpen, setAutomationHelpOpen] = useState(false);
 
   useEffect(() => setShiftTypes(initialShiftTypes), [initialShiftTypes]);
 
@@ -394,8 +374,10 @@ export function SettingsSection({
       </div>
 
       <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}` }}>
-        <h3 style={{ margin: 0, fontSize: 15 }}>{t('automationSectionHeading')}</h3>
-        <p style={{ margin: '6px 0 0', fontSize: 12.5, ...mutedText }}>{t('automationSectionIntro')}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 15 }}>{t('automationSectionHeading')}</h3>
+          <HelpIconButton ariaLabel={t('automationHelpAriaLabel')} onClick={() => setAutomationHelpOpen(true)} />
+        </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginTop: 14 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -412,72 +394,12 @@ export function SettingsSection({
             />
             <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13 }}>{t('automationCreateForLabel')}</span>
-            <select style={{ ...input, width: 'auto', marginTop: 0 }} disabled aria-label={t('automationCreateForLabel')} value="next-month" onChange={() => {}}>
-              <option value="next-month">{t('automationTargetNextMonth')}</option>
-            </select>
-          </label>
         </div>
-
-        <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>{t('automationManualPreservedNote')}</p>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-          <span style={{ fontSize: 12.5, ...mutedText }}>{t('automationStatusLabel')}:</span>
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t('automationStatusNotActive')}</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-          <button
-            type="button"
-            className={hoverStyles.buttonPrimary}
-            style={autoCreatePending ? buttonDisabled : buttonPrimary}
-            disabled={autoCreatePending}
-            onClick={onRunAutoCreate}
-          >
-            {autoCreatePending ? t('running') : t('automationRunNowButton')}
-          </button>
-          <button
-            type="button"
-            className={hoverStyles.buttonSecondary}
-            style={publishPending ? buttonDisabled : buttonSecondary}
-            disabled={publishPending}
-            onClick={onPublishSchedule}
-          >
-            {publishPending ? t('publishing') : t('publishSchedule')}
-          </button>
-        </div>
-
-        {lastAutoCreateResult ? (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 12.5, ...mutedText, marginBottom: 6 }}>{t('automationLastResultHeading')}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[
-                { label: t('draftShiftsLabel'), value: lastAutoCreateResult.created },
-                { label: t('shortagesLabel'), value: lastAutoCreateResult.shortages },
-                { label: t('unplacedLabel'), value: lastAutoCreateResult.unplaced },
-                { label: t('nonSubmittersLabel'), value: lastAutoCreateResult.missingPreferences },
-              ].map((stat) => (
-                <span
-                  key={stat.label}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'baseline',
-                    gap: 4,
-                    padding: '3px 10px',
-                    borderRadius: 999,
-                    background: colors.surfaceElevated,
-                    fontSize: 12,
-                  }}
-                >
-                  <strong style={{ fontSize: 13 }}>{stat.value}</strong>
-                  <span style={mutedText}>{stat.label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      <Modal open={automationHelpOpen} onClose={() => setAutomationHelpOpen(false)} title={t('automationHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('automationHelpBody')}</div>
+      </Modal>
     </section>
   );
 }
