@@ -436,7 +436,7 @@ function ManagerDashboardBody({
     if (!dates.includes(initialFocusCell.workDate)) return;
     consumedFocusCellRef.current = key;
     setEditingCell({ staffId: initialFocusCell.employeeId, date: initialFocusCell.workDate });
-    document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [initialFocusCell, dates]);
 
   // Attention "View shift" action (unavailable_conflict queue items): if the
@@ -451,7 +451,7 @@ function ManagerDashboardBody({
   function handleViewShift(employeeId: string, workDate: string) {
     if (dates.includes(workDate)) {
       setEditingCell({ staffId: employeeId, date: workDate });
-      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
     const offset = weekOffsetForWorkDate(todayIso, workDate);
