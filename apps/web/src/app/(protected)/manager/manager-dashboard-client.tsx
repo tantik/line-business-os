@@ -439,13 +439,21 @@ function ManagerDashboardBody({
     document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [initialFocusCell, dates]);
 
-  // Attention "View shift" action (unavailable_conflict queue items):
-  // computes which week the conflict's date actually falls in relative to
-  // today (the conflict may be outside the Manager's currently displayed
-  // week) and navigates there with `focusCell` set, so the effect above can
-  // open the exact cell instead of leaving the Manager to search the whole
-  // week manually.
+  // Attention "View shift" action (unavailable_conflict queue items): if the
+  // conflict's date is already in the Manager's currently displayed week,
+  // open the cell editor directly -- no navigation needed. This also makes
+  // repeat clicks on the same conflict reliable: routing to a `focusCell`
+  // URL that's identical to the current one is a no-op in Next.js (no new
+  // navigation, no re-render), so the `initialFocusCell` effect below never
+  // re-fires and the editor silently fails to reopen. Only fall back to
+  // `router.push` when the conflict is outside the displayed week, since
+  // that genuinely requires loading a different week's data first.
   function handleViewShift(employeeId: string, workDate: string) {
+    if (dates.includes(workDate)) {
+      setEditingCell({ staffId: employeeId, date: workDate });
+      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const offset = weekOffsetForWorkDate(todayIso, workDate);
     const params = new URLSearchParams();
     if (offset !== 0) params.set('weekOffset', String(offset));
