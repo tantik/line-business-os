@@ -47,8 +47,14 @@ interface ManagerDashboardDict {
   // conflicts-only popup (opened from the "Unavailable conflicts" chip) and
   // a single "Review all" popup grouping every category by severity.
   attentionConflictsPopupTitle: string;
+  attentionConflictsPopupHelpAriaLabel: string;
+  attentionConflictsPopupHelpTitle: string;
+  attentionConflictsPopupHelpBody: string;
   attentionReviewAll: string;
   attentionReviewAllTitle: string;
+  attentionReviewAllHelpAriaLabel: string;
+  attentionReviewAllHelpTitle: string;
+  attentionReviewAllHelpBody: string;
   attentionWarningsGroupHeading: string;
   // Entry-points card (Recipes/Inventory/Manage staff)
   entryPointsHeading: string;
@@ -118,6 +124,7 @@ interface ManagerDashboardDict {
   fieldFamilyName: string;
   fieldGivenName: string;
   fieldEmail: string;
+  fieldLineUserId: string;
   fieldPosition: string;
   fieldEmploymentType: string;
   addStaffSubmit: string;
@@ -317,8 +324,16 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionTargetWord: 'target',
     attentionSubmittedAtPrefix: 'Submitted',
     attentionConflictsPopupTitle: 'Unavailable conflicts',
+    attentionConflictsPopupHelpAriaLabel: 'About unavailable conflicts',
+    attentionConflictsPopupHelpTitle: 'About unavailable conflicts',
+    attentionConflictsPopupHelpBody:
+      'Shows every published shift assigned to a staff member who separately marked that same day "Unavailable" in their submitted shift preferences -- previously publishable with no warning at all. This does not block publishing; it flags shifts worth double-checking. "View shift" jumps to the affected week and opens that exact shift so you can reassign or confirm it.',
     attentionReviewAll: 'Review all',
     attentionReviewAllTitle: 'All attention items',
+    attentionReviewAllHelpAriaLabel: 'About all attention items',
+    attentionReviewAllHelpTitle: 'About all attention items',
+    attentionReviewAllHelpBody:
+      'Every current Needs Attention item in one place, grouped the same way the summary above counts them: "Requires action" (attendance corrections and shift exchanges -- someone is waiting on your decision) and "Warnings" (schedule conflicts and inventory shortages -- worth a look, but nothing to approve/reject). Each item\'s own button takes you straight to where you resolve it.',
     attentionWarningsGroupHeading: 'Warnings',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
@@ -378,6 +393,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldFamilyName: 'Family name',
     fieldGivenName: 'Given name',
     fieldEmail: 'Email',
+    fieldLineUserId: 'LINE user id (optional)',
     fieldPosition: 'Position',
     fieldEmploymentType: 'Employment type',
     addStaffSubmit: 'Add staff',
@@ -564,8 +580,16 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionTargetWord: '目標',
     attentionSubmittedAtPrefix: '申請日時',
     attentionConflictsPopupTitle: '不可との重複',
+    attentionConflictsPopupHelpAriaLabel: '不可との重複について',
+    attentionConflictsPopupHelpTitle: '不可との重複について',
+    attentionConflictsPopupHelpBody:
+      'スタッフが提出したシフト希望で「不可」と回答した日に、公開済みのシフトが割り当てられているケースを表示します -- これまで警告なしに公開できてしまっていた状態です。公開自体を止めるものではなく、確認しておくべきシフトを知らせるものです。「シフトを見る」で該当の週・シフトへ直接移動し、再割り当てや確認ができます。',
     attentionReviewAll: 'すべて確認',
     attentionReviewAllTitle: 'すべての要確認項目',
+    attentionReviewAllHelpAriaLabel: 'すべての要確認項目について',
+    attentionReviewAllHelpTitle: 'すべての要確認項目について',
+    attentionReviewAllHelpBody:
+      '現在の「要確認」項目をすべてまとめて表示し、上の集計と同じ基準でグループ分けします -- 「対応が必要」（勤怠修正・シフト交換など、あなたの判断待ち）と「注意事項」（スケジュールの重複・在庫不足など、承認/却下は不要だが確認しておきたいもの）。各項目のボタンから、そのまま解決先の画面に移動できます。',
     attentionWarningsGroupHeading: '注意事項',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
@@ -625,6 +649,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldFamilyName: '姓',
     fieldGivenName: '名',
     fieldEmail: 'メールアドレス',
+    fieldLineUserId: 'LINEユーザーID（任意）',
     fieldPosition: '役職',
     fieldEmploymentType: '雇用形態',
     addStaffSubmit: 'スタッフを追加',

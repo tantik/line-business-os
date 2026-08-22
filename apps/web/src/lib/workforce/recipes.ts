@@ -374,18 +374,22 @@ export async function getWorkforceRecipeDetail(
   recipeId: string,
 ): Promise<TenantAccessResult<WorkforceRecipeDetail | null>> {
   try {
-    const { data: recipeRow, error: recipeError } = await supabase
-      .schema('api')
-      .from('workforce_recipes')
-      .select(RECIPE_SELECT)
-      .eq('tenant_id', tenantId)
-      .eq('recipe_id', recipeId)
-      .maybeSingle();
-
-    if (recipeError) return mapPostgrestError(recipeError);
-    if (!recipeRow) return { status: 'success', data: null };
-
-    const [ingredientsResult, stepsResult, notesResult] = await Promise.all([
+    // Recipe-detail popup load latency: the recipe row and its
+    // ingredients/steps/notes only ever need `tenantId`/`recipeId` (already
+    // known from the caller, not derived from the recipe row itself), so
+    // there is no reason to wait for the recipe row before starting the
+    // other three reads -- they used to run as a second round trip strictly
+    // after the first, adding one full network hop for nothing. Running all
+    // four in parallel and only checking `recipeRow` once everything has
+    // resolved cuts one Supabase round trip off every popup open.
+    const [recipeRowResult, ingredientsResult, stepsResult, notesResult] = await Promise.all([
+      supabase
+        .schema('api')
+        .from('workforce_recipes')
+        .select(RECIPE_SELECT)
+        .eq('tenant_id', tenantId)
+        .eq('recipe_id', recipeId)
+        .maybeSingle(),
       supabase
         .schema('api')
         .from('workforce_recipe_ingredients')
@@ -405,6 +409,10 @@ export async function getWorkforceRecipeDetail(
         .eq('tenant_id', tenantId)
         .eq('recipe_id', recipeId),
     ]);
+
+    const { data: recipeRow, error: recipeError } = recipeRowResult;
+    if (recipeError) return mapPostgrestError(recipeError);
+    if (!recipeRow) return { status: 'success', data: null };
 
     if (ingredientsResult.error) return mapPostgrestError(ingredientsResult.error);
     if (stepsResult.error) return mapPostgrestError(stepsResult.error);

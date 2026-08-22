@@ -37,7 +37,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'inviteButton', 'resendButton', 'sendingStatus', 'recoverAccessButton', 'revokeInvitationButton', 'recoveryEmailSentMessage',
   'confirmRecoverAccessTitle', 'confirmRecoverAccessBody', 'confirmSendButton', 'confirmRevokeInvitationTitle', 'confirmRevokeInvitationBody',
   'inviteErrorNotFound', 'inviteErrorDuplicate', 'inviteErrorGeneric', 'revokeErrorNotFound', 'revokeErrorGeneric', 'recoverErrorGeneric', 'errorUnauthorizedAction',
-  'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldPosition', 'fieldEmploymentType',
+  'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldLineUserId', 'fieldPosition', 'fieldEmploymentType',
   'addStaffSubmit', 'saveChanges', 'cancel',
   'errorNotFound', 'errorNotAuthenticated', 'errorNoMembership', 'errorStaleReference',
   'prevWeek', 'thisWeek', 'nextWeek', 'addStaffToSeeSchedule', 'colStaff', 'assign', 'unassign', 'unassigning',
@@ -71,8 +71,10 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'attentionItemCorrectionTitle', 'attentionItemExchangeTitle',
   'attentionItemConflictTitle', 'attentionItemInventoryTitle', 'attentionWaitingDecision', 'attentionConflictSummary',
   'attentionReplacementNotSelected', 'attentionReplacementRequiredReason', 'attentionViewShift', 'attentionOpenInventory',
-  'attentionTargetWord', 'attentionSubmittedAtPrefix', 'attentionConflictsPopupTitle', 'attentionReviewAll',
-  'attentionReviewAllTitle', 'attentionWarningsGroupHeading',
+  'attentionTargetWord', 'attentionSubmittedAtPrefix', 'attentionConflictsPopupTitle', 'attentionConflictsPopupHelpAriaLabel',
+  'attentionConflictsPopupHelpTitle', 'attentionConflictsPopupHelpBody', 'attentionReviewAll',
+  'attentionReviewAllTitle', 'attentionReviewAllHelpAriaLabel', 'attentionReviewAllHelpTitle',
+  'attentionReviewAllHelpBody', 'attentionWarningsGroupHeading',
 ];
 
 test('tManagerDashboard returns a non-empty string for every key in both languages', () => {

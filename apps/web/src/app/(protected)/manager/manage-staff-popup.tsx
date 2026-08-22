@@ -184,7 +184,7 @@ export function ManageStaffPopup({
     >
       {view.kind === 'add' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <StaffForm locationId={locationId} formId="staff-form-new" onSuccess={() => { backToList(); onChange(); }} onPendingChange={setFormPending} onErrorChange={setFormError} />
+          <StaffForm locationId={locationId} formId="staff-form-new" isLineLinked={false} onSuccess={() => { backToList(); onChange(); }} onPendingChange={setFormPending} onErrorChange={setFormError} />
           <div style={{ display: 'flex', gap: 8 }}>
             <LoadingButton
               type="submit"
@@ -222,6 +222,7 @@ export function ManageStaffPopup({
             locationId={locationId}
             employee={detailStaff}
             formId={`staff-form-${detailStaff.staffId}`}
+            isLineLinked={isLineLinkedByEmployeeId.get(detailStaff.staffId) ?? false}
             onSuccess={() => {
               backToList();
               onChange();
@@ -230,15 +231,12 @@ export function ManageStaffPopup({
             onErrorChange={setFormError}
           />
 
-          <section>
-            <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{t('colLine')}</h3>
-            <LineLinkForm
-              employeeId={detailStaff.staffId}
-              isLinked={isLineLinkedByEmployeeId.get(detailStaff.staffId) ?? false}
-              onSuccess={onChange}
-              lang={lang}
-            />
-          </section>
+          {isLineLinkedByEmployeeId.get(detailStaff.staffId) ? (
+            <section>
+              <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{t('colLine')}</h3>
+              <LineLinkForm employeeId={detailStaff.staffId} lang={lang} onSuccess={onChange} />
+            </section>
+          ) : null}
 
           <section>
             <h3 style={{ margin: '0 0 8px', fontSize: 14 }}>{t('accessSectionHeading')}</h3>

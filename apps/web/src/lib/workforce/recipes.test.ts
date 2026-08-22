@@ -370,9 +370,18 @@ test('getWorkforceRecipeDetail returns success with null data when the recipe is
   assert.equal(result.status, 'success');
   if (result.status === 'success') assert.equal(result.data, null);
 
-  // Child views must not be queried once the recipe itself is confirmed absent.
+  // Popup-open latency pass (2026-08-22): the recipe row and its
+  // ingredients/steps/notes only ever need `tenantId`/`recipeId` (already
+  // known to the caller), so all four now run in parallel in one round trip
+  // instead of the children waiting for the recipe row to resolve first --
+  // three harmless empty-result queries for a nonexistent recipe id is the
+  // deliberate tradeoff for cutting a full network hop off every real
+  // recipe-detail open.
   const fromTargets = calls.filter((call) => call.method === 'from').map((call) => call.args[0]);
-  assert.deepEqual(fromTargets, ['workforce_recipes']);
+  assert.deepEqual(
+    [...fromTargets].sort(),
+    ['workforce_recipe_ingredients', 'workforce_recipe_notes', 'workforce_recipe_steps', 'workforce_recipes'].sort(),
+  );
 });
 
 test('getWorkforceRecipeDetail maps a permission-denied recipe lookup to unauthorized', async () => {

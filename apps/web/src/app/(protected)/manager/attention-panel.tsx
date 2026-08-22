@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { ManagerAttentionCategory, ManagerAttentionItem, ManagerAttentionQueueItem } from '@/lib/workforce/manager-attention';
 import { ATTENTION_SEVERITY_BY_CATEGORY, computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
-import { Modal } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
@@ -32,6 +32,21 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
 };
 
 /**
+ * Category-chip grid: `--attention-chip-columns` (`globals.css`) is 4 on
+ * desktop, 2 on mobile (Founder direction, 2026-08-22: 4 chips each
+ * stacked full-width on a 375px phone read as too tall) -- a CSS grid
+ * with a custom-property column count responds to that media query with
+ * no JS/breakpoint logic here, same technique `pageStyle()`'s
+ * `--page-padding` already uses.
+ */
+const chipGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(var(--attention-chip-columns), 1fr)',
+  gap: 8,
+  marginTop: 10,
+};
+
+/**
  * Single-line category chip, deliberately matched to `buttonSecondary`'s own
  * height/padding/radius (Attention polish pass, 2026-08-21: the previous
  * two-line stacked chip read as visually "heavier" than the EntryPointsCard
@@ -40,8 +55,6 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
  */
 const chipStyle = {
   ...buttonSecondary,
-  flex: '1 1 200px',
-  maxWidth: 280,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -49,10 +62,10 @@ const chipStyle = {
   cursor: 'pointer',
 };
 
-/** "Review all" is the primary action of this row (not a category filter), pushed to the far right and given the same green primary treatment as "+ Add recipe" so it reads as an action, not a fifth category. */
+/** "Review all" is the row's primary action (not a category filter) -- always spans every grid column (`gridColumn: '1 / -1'`) so it reads as one full-width row under the chips regardless of the current column count, and gets the same green primary treatment as "+ Add recipe". */
 const reviewAllButtonStyle = {
   ...buttonPrimary,
-  marginLeft: 'auto',
+  gridColumn: '1 / -1',
 };
 
 const queueItemStyle = {
@@ -113,6 +126,8 @@ export function AttentionPanel({
   const t: Translate = (key) => tManagerDashboard(lang, key);
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [reviewAllOpen, setReviewAllOpen] = useState(false);
+  const [conflictsHelpOpen, setConflictsHelpOpen] = useState(false);
+  const [reviewAllHelpOpen, setReviewAllHelpOpen] = useState(false);
   const summary = computeManagerAttentionSummary(items);
 
   function staffName(employeeId: string) {
@@ -244,7 +259,7 @@ export function AttentionPanel({
         <>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          <div style={chipGridStyle}>
             {items.map((item) => {
               const label = (
                 <>
@@ -280,11 +295,29 @@ export function AttentionPanel({
         </>
       )}
 
-      <Modal open={conflictsOpen} onClose={() => setConflictsOpen(false)} title={t('attentionConflictsPopupTitle')} width="min(700px, 96vw)" closeLabel={t('cancel')}>
+      <Modal
+        open={conflictsOpen}
+        onClose={() => setConflictsOpen(false)}
+        title={t('attentionConflictsPopupTitle')}
+        titleAdornment={<HelpIconButton ariaLabel={t('attentionConflictsPopupHelpAriaLabel')} onClick={() => setConflictsHelpOpen(true)} />}
+        width="min(700px, 96vw)"
+        closeLabel={t('cancel')}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{conflictItems.map((qi) => renderConflictItem(qi))}</div>
       </Modal>
 
-      <Modal open={reviewAllOpen} onClose={() => setReviewAllOpen(false)} title={t('attentionReviewAllTitle')} width="min(760px, 96vw)" closeLabel={t('cancel')}>
+      <Modal open={conflictsHelpOpen} onClose={() => setConflictsHelpOpen(false)} title={t('attentionConflictsPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('attentionConflictsPopupHelpBody')}</div>
+      </Modal>
+
+      <Modal
+        open={reviewAllOpen}
+        onClose={() => setReviewAllOpen(false)}
+        title={t('attentionReviewAllTitle')}
+        titleAdornment={<HelpIconButton ariaLabel={t('attentionReviewAllHelpAriaLabel')} onClick={() => setReviewAllHelpOpen(true)} />}
+        width="min(760px, 96vw)"
+        closeLabel={t('cancel')}
+      >
         <p style={{ margin: 0, ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
         {actionRequiredItems.length > 0 ? (
           <div style={{ marginTop: 12 }}>
@@ -298,6 +331,10 @@ export function AttentionPanel({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{warningItems.map((qi) => renderQueueItem(qi))}</div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal open={reviewAllHelpOpen} onClose={() => setReviewAllHelpOpen(false)} title={t('attentionReviewAllHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <div style={{ whiteSpace: 'pre-line' }}>{t('attentionReviewAllHelpBody')}</div>
       </Modal>
     </section>
   );
