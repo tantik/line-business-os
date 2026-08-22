@@ -128,11 +128,21 @@ const STALE_SHIFT_EXCHANGE_REFERENCE_MESSAGES = new Set([
   'shift_exchange_schedule_conflict',
   'shift_change_type_unavailable',
   'shift_change_location_unavailable',
+  // Shift Exchange Manager Resolution UX (0079): the same "the assumptions
+  // this action relied on are no longer valid" shape as the cases above --
+  // the request stopped being assignable (already decided/no longer open by
+  // the time the click landed) or the chosen candidate stopped being valid
+  // (deactivated, or a schedule conflict appeared) between when the Manager
+  // opened the selector and when they clicked Assign. The UI should only
+  // ever offer eligible candidates in the first place; these are the race
+  // window, not the primary path.
+  'shift_exchange_not_assignable',
+  'shift_exchange_invalid_replacement',
 ]);
 
 async function exchangeRpc(
   supabase: SupabaseClient,
-  name: 'accept_workforce_shift_exchange' | 'cancel_workforce_shift_exchange' | 'decide_workforce_shift_exchange',
+  name: 'accept_workforce_shift_exchange' | 'cancel_workforce_shift_exchange' | 'decide_workforce_shift_exchange' | 'manager_assign_shift_exchange_replacement',
   args: Record<string, string>,
 ): Promise<WorkforceWriteResult<{ exchangeId: string }>> {
   try {
@@ -162,5 +172,22 @@ export function decideShiftExchange(supabase: SupabaseClient, exchangeId: string
   return exchangeRpc(supabase, 'decide_workforce_shift_exchange', {
     p_exchange_id: exchangeId,
     p_decision: decision,
+  });
+}
+
+/**
+ * Manager assigns (or changes, before approval) a replacement employee on an
+ * 'exchange'-kind request that has none yet -- Shift Exchange Manager
+ * Resolution UX (0079_manager_assign_shift_exchange_replacement.sql). Mirrors
+ * `acceptShiftExchange`'s shape; unlike it, the replacement employee is a
+ * caller-chosen argument (Manager acting on a colleague's behalf) rather
+ * than resolved from the caller's own session. Leaves `status` at 'open' --
+ * assignment alone is not approval, `decideShiftExchange` is still the only
+ * path that actually moves the shift.
+ */
+export function assignShiftExchangeReplacement(supabase: SupabaseClient, exchangeId: string, replacementEmployeeId: string) {
+  return exchangeRpc(supabase, 'manager_assign_shift_exchange_replacement', {
+    p_exchange_id: exchangeId,
+    p_replacement_employee_id: replacementEmployeeId,
   });
 }

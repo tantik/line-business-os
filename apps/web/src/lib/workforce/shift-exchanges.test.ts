@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   acceptShiftExchange,
+  assignShiftExchangeReplacement,
   cancelShiftExchange,
   createShiftExchange,
   decideShiftExchange,
@@ -118,5 +119,27 @@ test('decideShiftExchange maps the RPC\'s stale-reference exceptions to status "
 test('decideShiftExchange maps a permission-denied RPC error to something other than success, without throwing', async () => {
   const { client } = recordingClient({ data: null, error: { message: 'permission denied for function decide_workforce_shift_exchange', code: '42501' } });
   const result = await decideShiftExchange(client, 'ex-1', 'rejected');
+  assert.notEqual(result.status, 'success');
+});
+
+test('assignShiftExchangeReplacement calls the manager-assign RPC with both the exchange id and the replacement employee id', async () => {
+  const { client, calls } = recordingClient({ data: { exchange_id: 'ex-1' }, error: null });
+  await assignShiftExchangeReplacement(client, 'ex-1', 'emp-2');
+  const rpcCall = calls.find((c) => c.method === 'rpc')!;
+  assert.equal(rpcCall.args[0], 'manager_assign_shift_exchange_replacement');
+  assert.deepEqual(rpcCall.args[1], { p_exchange_id: 'ex-1', p_replacement_employee_id: 'emp-2' });
+});
+
+test('assignShiftExchangeReplacement maps the RPC\'s not-assignable/invalid-replacement/schedule-conflict exceptions to "stale_reference", not a generic error', async () => {
+  for (const message of ['shift_exchange_not_assignable', 'shift_exchange_invalid_replacement', 'shift_exchange_schedule_conflict']) {
+    const { client } = recordingClient({ data: null, error: { message } });
+    const result = await assignShiftExchangeReplacement(client, 'ex-1', 'emp-2');
+    assert.equal(result.status, 'stale_reference', `expected stale_reference for "${message}"`);
+  }
+});
+
+test('assignShiftExchangeReplacement maps a permission-denied RPC error to something other than success, without throwing', async () => {
+  const { client } = recordingClient({ data: null, error: { message: 'permission denied for function manager_assign_shift_exchange_replacement', code: '42501' } });
+  const result = await assignShiftExchangeReplacement(client, 'ex-1', 'emp-2');
   assert.notEqual(result.status, 'success');
 });
