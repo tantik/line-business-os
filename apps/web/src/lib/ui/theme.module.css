@@ -109,38 +109,46 @@
 /*
  * Weekly Schedule grid, Staff column (Round 3 follow-up, 2026-08-23): the
  * whole cell is now one `<button>` (same whole-cell-clickable pattern as
- * `.scheduleCellButton`), so it needs its own visible hover affordance too.
- * A sliding green fill (`::before`, scaleX 0 -> 1) instead of a plain
- * background swap, so the effect reads as a deliberate "this opens
- * something" button, not an accidental color flash -- transform-only
- * transition, GPU-cheap, never shifts layout.
+ * `.scheduleCellButton`), styled as a permanent solid-green button (Founder
+ * reference: sliderrevolution.com's "Learn More" buttons) rather than a
+ * plain link -- a small arrow tab slides in from just outside the button's
+ * own right edge on hover/focus (`::after`, `right: -30px` -> `0`), the
+ * same "Effect #2" reveal from that reference, adapted to a plain unicode
+ * arrow since this app has no icon font loaded.
  */
 .staffNameCell {
   position: relative;
-  isolation: isolate;
-  transition: color 0.18s ease;
-}
-
-.staffNameCell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: #4f7a52;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 0.22s ease;
-  z-index: -1;
-}
-
-.staffNameCell:hover::before,
-.staffNameCell:focus-visible::before {
-  transform: scaleX(1);
+  overflow: hidden;
+  background-color: #4f7a52;
+  color: #ffffff;
+  transition: background-color 0.18s ease;
 }
 
 .staffNameCell:hover,
 .staffNameCell:focus-visible {
-  color: #ffffff;
+  background-color: #416640;
+}
+
+.staffNameCell::after {
+  content: '\2192';
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  right: -30px;
+  width: 30px;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 0 6px 6px 0;
+  transition: right 0.2s linear;
+}
+
+.staffNameCell:hover::after,
+.staffNameCell:focus-visible::after {
+  right: 0;
 }
 
 .staffNameCell:focus:not(:focus-visible) {
@@ -148,6 +156,6 @@
 }
 
 .staffNameCell:focus-visible {
-  outline: 2px solid #4f7a52;
+  outline: 2px solid #362b1f;
   outline-offset: 2px;
 }
