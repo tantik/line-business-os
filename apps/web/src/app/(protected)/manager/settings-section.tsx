@@ -7,7 +7,7 @@ import { saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
-import { shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
+import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
@@ -35,8 +35,6 @@ export interface SettingsSectionProps {
   publishPending: boolean;
   lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
 }
-
-const smallButton = { padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer' } as const;
 
 /**
  * Manager dashboard Settings section (WP A8), ported from the proven
@@ -259,14 +257,15 @@ export function SettingsSection({
                 );
               }
               return (
-                <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
+                <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
                   <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
                     {label} ({st.startsAtLocal}-{st.endsAtLocal})
                   </span>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       type="button"
-                      style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+                      className={hoverStyles.buttonSecondary}
+                      style={buttonSecondary}
                       onClick={() => {
                         setEditingId(st.shiftTypeId);
                         setEditLabel(label);
@@ -279,7 +278,7 @@ export function SettingsSection({
                     <button
                       type="button"
                       disabled={isPending}
-                      style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, color: colors.dangerText, cursor: isPending ? 'wait' : 'pointer' }}
+                      style={isPending ? buttonDisabled : buttonDanger}
                       onClick={() => setConfirmDeactivateId(st.shiftTypeId)}
                     >
                       {t('deactivateShiftTypeButton')}
@@ -317,7 +316,8 @@ export function SettingsSection({
 
         <button
           type="button"
-          style={{ ...smallButton, marginTop: 12, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, marginTop: 12 }}
           onClick={() => setShowInactive((value) => !value)}
         >
           {showInactive ? t('hideDeactivatedShiftTypes') : t('showDeactivatedShiftTypes')}
@@ -333,14 +333,15 @@ export function SettingsSection({
                 {inactiveShiftTypes.map((st) => {
                   const label = shiftTypeDisplayLabel(st);
                   return (
-                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
+                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
                       <span>
                         {label} ({st.startsAtLocal}-{st.endsAtLocal})
                       </span>
                       <button
                         type="button"
                         disabled={isPending}
-                        style={{ ...smallButton, border: `1px solid ${colors.border}`, background: colors.surface, cursor: isPending ? 'wait' : 'pointer' }}
+                        className={isPending ? undefined : hoverStyles.buttonSecondary}
+                        style={isPending ? buttonDisabled : buttonSecondary}
                         onClick={() => setActive(st.shiftTypeId, true)}
                       >
                         {t('reactivate')}

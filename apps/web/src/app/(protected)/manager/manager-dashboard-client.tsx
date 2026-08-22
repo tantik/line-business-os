@@ -70,6 +70,7 @@ import {
   tableHeaderCell,
 } from '@/lib/ui/theme';
 import {
+  CUSTOM_CHIP_TONE,
   primaryCard,
   shiftChipColors,
   shiftChipStyle,
@@ -107,6 +108,21 @@ const dangerMarkerStyle = {
 const understaffedMarkerStyle = dangerMarkerStyle;
 
 /**
+ * Weekly Schedule redesign follow-up (Founder Review, 2026-08-22 continued):
+ * the grid previously used `table-layout: auto` with the shared `tableCell`/
+ * `tableHeaderCell` tokens' own `borderBottom`, so column widths and row
+ * heights drifted with whatever text happened to be longest that week, and
+ * adjacent cells touched with no visible gap. `table-layout: fixed` plus an
+ * explicit `<colgroup>` locks every date column to the same width regardless
+ * of content; `borderSpacing` on the `<table>` (paired with `borderBottom:
+ * 'none'` here, since the shift chip / dashed-empty button already draws its
+ * own boundary) produces the visible gap instead of a shared cell border.
+ */
+const scheduleTableHeaderCellStyle: CSSProperties = { ...tableHeaderCell, textAlign: 'left', borderBottom: 'none', padding: '4px 6px' };
+const scheduleTableCellStyle: CSSProperties = { ...tableCell, borderBottom: 'none', padding: '3px' };
+const scheduleTodayTint = { background: colors.accentMuted } as const;
+
+/**
  * Weekly Schedule redesign (2026-08-22): the schedule grid cell is now a
  * single whole-cell `<button>` (native keyboard support for free -- Enter/
  * Space, real focus ring, no separate "Assign"/"Edit" button squeezed
@@ -122,7 +138,7 @@ function scheduleCellButtonStyle(tone: { background: string; color: string } | n
   return {
     position: 'relative',
     width: '100%',
-    minHeight: 40,
+    height: 44,
     padding: '6px 10px',
     borderRadius: 8,
     border: tone ? '1px solid transparent' : `1px dashed ${colors.border}`,
@@ -410,6 +426,20 @@ function ManagerDashboardBody({
       ),
     [shiftTypes, localAssignments, dates, shiftTypeById],
   );
+
+  // Round 3 (2026-08-22): distinct custom (no-shiftTypeId) time ranges
+  // actually assigned this week, so a manager who typed a one-off time still
+  // gets a legend entry for it -- sorted by start time for a stable reading
+  // order.
+  const weekCustomTimeRanges = useMemo(() => {
+    const seen = new Map<string, { startsAtLocal: string; endsAtLocal: string }>();
+    for (const a of localAssignments) {
+      if (!dates.includes(a.workDate) || a.assignment.shiftTypeId) continue;
+      const key = `${a.startsAtLocal}-${a.endsAtLocal}`;
+      if (!seen.has(key)) seen.set(key, { startsAtLocal: a.startsAtLocal, endsAtLocal: a.endsAtLocal });
+    }
+    return Array.from(seen.values()).sort((x, y) => x.startsAtLocal.localeCompare(y.startsAtLocal));
+  }, [localAssignments, dates]);
 
   // WP-8: understaffed-day "!" marker (column header) -- dates in the
   // displayed week whose assigned headcount is below the Settings-configured
@@ -1009,20 +1039,27 @@ function ManagerDashboardBody({
         ) : (
           <>
           <div className={styles.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: '8px 8px', fontSize: 13 }}>
+              <colgroup>
+                <col style={{ width: '16%' }} />
+                {dates.map((date) => (
+                  <col key={date} style={{ width: `${84 / 7}%` }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
+                  <th style={scheduleTableHeaderCellStyle}>{t('colStaff')}</th>
                   {dates.map((date) => {
                     const coverage = staffingCoverageByDate.get(date);
                     const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
+                    const isToday = date === todayIso;
                     return (
-                      <th key={date} style={{ ...tableHeaderCell, textAlign: 'left' }}>
+                      <th key={date} style={isToday ? { ...scheduleTableHeaderCellStyle, ...scheduleTodayTint, borderRadius: 8 } : scheduleTableHeaderCellStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span>
                             {formatWeekday(date)}
                             <br />
-                            {date.slice(5)}
+                            {date.slice(8)}
                           </span>
                           {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed. */}
                           <span style={{ width: 18, height: 18, flexShrink: 0 }}>
@@ -1041,16 +1078,19 @@ function ManagerDashboardBody({
               <tbody>
                 {staff.map((s) => (
                   <tr key={s.staffId}>
-                    <td style={tableCell}>
+                    <td style={scheduleTableCellStyle}>
                       <button type="button" style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit' }} onClick={() => setStaffDetailId(s.staffId)}>
                         {s.name}
                       </button>
                     </td>
-                    {dates.map((date) => (
-                      <td key={date} style={tableCell}>
-                        {renderScheduleCellContent(s, date)}
-                      </td>
-                    ))}
+                    {dates.map((date) => {
+                      const isToday = date === todayIso;
+                      return (
+                        <td key={date} style={isToday ? { ...scheduleTableCellStyle, ...scheduleTodayTint, borderRadius: 8 } : scheduleTableCellStyle}>
+                          {renderScheduleCellContent(s, date)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -1061,10 +1101,11 @@ function ManagerDashboardBody({
             {dates.map((date) => {
               const coverage = staffingCoverageByDate.get(date);
               const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
+              const isToday = date === todayIso;
               return (
-              <div key={date} style={{ ...card, marginTop: 0 }}>
+              <div key={date} style={isToday ? { ...card, ...scheduleTodayTint, marginTop: 0, border: `1px solid ${colors.accent}` } : { ...card, marginTop: 0 }}>
                 <h3 style={{ margin: 0, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {formatWeekday(date)} {date.slice(5)}
+                  {formatWeekday(date)} {date.slice(8)}
                   {shortageLabel ? (
                     <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
                       !
@@ -1090,12 +1131,18 @@ function ManagerDashboardBody({
             })}
           </div>
 
-          {weekLegendTypes.length > 0 ? (
+          {weekLegendTypes.length > 0 || weekCustomTimeRanges.length > 0 ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
               {weekLegendTypes.map((st) => (
                 <span key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>{shiftTypeDisplayLabel(st)}</span>
                   <span style={{ ...mutedText, fontSize: 12 }}>{st.startsAtLocal}-{st.endsAtLocal}</span>
+                </span>
+              ))}
+              {weekCustomTimeRanges.map((range) => (
+                <span key={`custom:${range.startsAtLocal}-${range.endsAtLocal}`} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={shiftChipStyle(CUSTOM_CHIP_TONE)}>{t('shiftTypeCustom')}</span>
+                  <span style={{ ...mutedText, fontSize: 12 }}>{range.startsAtLocal}-{range.endsAtLocal}</span>
                 </span>
               ))}
             </div>

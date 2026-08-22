@@ -102,12 +102,33 @@ export function ShiftCellEditor({
   const [error, setError] = useState<string | null>(null);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [pendingChangeConfirm, setPendingChangeConfirm] = useState<{ formData: FormData; fromLabel: string; toLabel: string } | null>(null);
+  const [shiftTypeId, setShiftTypeId] = useState(existing?.assignment.shiftTypeId ?? '');
+  const [startsAtLocal, setStartsAtLocal] = useState(existing?.startsAtLocal ?? '09:00');
+  const [endsAtLocal, setEndsAtLocal] = useState(existing?.endsAtLocal ?? '13:00');
 
   const isPast = workDate < todayIso;
   const currentEmployeeId = existing?.assignment.employeeId ?? rowStaffId;
   const currentEmployeeName = staff.find((s) => s.staffId === currentEmployeeId)?.name ?? currentEmployeeId;
   const assignableStaff = staff.filter((s) => s.isActive || s.staffId === currentEmployeeId);
   const activeShiftTypes = shiftTypes.filter((st) => st.isActive);
+
+  /**
+   * Round 3 (2026-08-22): picking a named shift type used to leave the
+   * Start/End time inputs at whatever they already showed -- a manager could
+   * pick "Morning (09:00-13:00)" and still submit the previous shift's
+   * times. Selecting a real type now fills its own times in; switching to
+   * "Custom" leaves whatever times are currently entered untouched (there's
+   * no type-specific time to fall back to).
+   */
+  function handleShiftTypeChange(value: string) {
+    setShiftTypeId(value);
+    if (!value) return;
+    const st = activeShiftTypes.find((candidate) => candidate.shiftTypeId === value);
+    if (st) {
+      setStartsAtLocal(st.startsAtLocal);
+      setEndsAtLocal(st.endsAtLocal);
+    }
+  }
 
   function doSubmit(formData: FormData) {
     setError(null);
@@ -192,7 +213,7 @@ export function ShiftCellEditor({
 
         <label>
           <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldShiftType')}</span>
-          <select style={input} name="shiftTypeId" defaultValue={existing?.assignment.shiftTypeId ?? ''}>
+          <select style={input} name="shiftTypeId" value={shiftTypeId} onChange={(event) => handleShiftTypeChange(event.currentTarget.value)}>
             <option value="">{t('shiftTypeCustom')}</option>
             {activeShiftTypes.map((st) => (
               <option key={st.shiftTypeId} value={st.shiftTypeId}>
@@ -205,11 +226,11 @@ export function ShiftCellEditor({
         <div style={{ display: 'flex', gap: 6 }}>
           <label style={{ flex: 1 }}>
             <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldStart')}</span>
-            <input style={input} type="time" name="startsAtLocal" defaultValue={existing?.startsAtLocal ?? '09:00'} required />
+            <input style={input} type="time" name="startsAtLocal" value={startsAtLocal} onChange={(event) => setStartsAtLocal(event.currentTarget.value)} required />
           </label>
           <label style={{ flex: 1 }}>
             <span style={{ ...mutedText, fontSize: 12 }}>{t('fieldEnd')}</span>
-            <input style={input} type="time" name="endsAtLocal" defaultValue={existing?.endsAtLocal ?? '13:00'} required />
+            <input style={input} type="time" name="endsAtLocal" value={endsAtLocal} onChange={(event) => setEndsAtLocal(event.currentTarget.value)} required />
           </label>
         </div>
 
