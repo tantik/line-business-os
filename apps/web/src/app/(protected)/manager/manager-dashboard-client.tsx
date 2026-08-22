@@ -118,7 +118,14 @@ const understaffedMarkerStyle = dangerMarkerStyle;
  * with `borderCollapse: 'separate'`) still keeps a thin gap between cells
  * instead of them sharing one collapsed border.
  */
-const scheduleTableHeaderCellStyle: CSSProperties = { ...tableHeaderCell, textAlign: 'left', border: `1px solid ${colors.border}`, padding: '4px 6px' };
+const scheduleTableHeaderCellStyle: CSSProperties = {
+  ...tableHeaderCell,
+  textAlign: 'left',
+  verticalAlign: 'middle',
+  border: `1px solid ${colors.border}`,
+  padding: '4px 6px',
+  background: colors.surfaceElevated,
+};
 const scheduleTableCellStyle: CSSProperties = { ...tableCell, border: `1px solid ${colors.border}`, padding: '3px' };
 const scheduleTodayTint = { background: colors.accentMuted } as const;
 
@@ -1025,13 +1032,13 @@ function ManagerDashboardBody({
                           ...(isLastCol ? { borderTopRightRadius: 8 } : {}),
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, height: '100%' }}>
                           <span>
                             {formatWeekday(date)}
                             <br />
                             {date.slice(8)}
                           </span>
-                          {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed. */}
+                          {/* Fixed-height slot so the header never jumps between weeks, regardless of whether this date is understaffed; pushed to the cell's right edge via the parent's `justifyContent: 'space-between'`. */}
                           <span style={{ width: 18, height: 18, flexShrink: 0 }}>
                             {shortageLabel ? (
                               <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
