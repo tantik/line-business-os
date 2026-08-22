@@ -256,8 +256,25 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-22 pointer, latest first (read before treating the rest of this
-section as current):** a separate Founder-directed thread, **Weekly
+**2026-08-23 pointer, latest first (read before treating anything else in
+this section as current):** the same Founder-directed **Weekly Schedule
+Founder Review** thread continued into a **Round 3** (8 PRs, #368-#375, all
+merged to `dev`) — visual/UX fixes, Automatic-schedule cleanup, a
+week-navigation performance fix, and several fast Founder-driven polish
+iterations (grid lines, labour-cost box, in-cell correction Approve/Reject,
+an editable auto-create-day setting requiring migration `0080` -- applied
+to Supabase Cloud dev with Founder approval). Full state, the 8-PR list,
+verification evidence (including a self-corrected mid-session mistake and
+an explicit note that live browser QA was skipped this round), and known
+limitations are in
+`docs/ai/CAFE_MANAGER_WEEKLY_SCHEDULE_FOUNDER_REVIEW_ROUND3_HANDOFF_2026-08-23.md`
+-- read that file first if anything Weekly-Schedule/Shift-Editor/Manager-
+dashboard-styling related comes up. Schedule-change history
+(`SCHEDULE_CHANGE_HISTORY_GAP`) is explicitly queued as the next Weekly
+Schedule work item, but is NOT pre-authorized to start -- a fresh session
+should ask the Founder what's next.
+
+**2026-08-22 pointer (older, still useful context):** a separate Founder-directed thread, **Weekly
 Schedule Founder Review** (two rounds, PRs #365-#366, both merged to `dev`
 and live-verified on `preview.oruwa.jp`), ran and closed after the entry
 below. Full state, what changed, verification evidence, and known
