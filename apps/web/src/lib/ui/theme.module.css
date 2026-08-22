@@ -113,8 +113,9 @@
  * reference: sliderrevolution.com's "Learn More" buttons) rather than a
  * plain link -- a small arrow tab slides in from just outside the button's
  * own right edge on hover/focus (`::after`, `right: -30px` -> `0`), the
- * same "Effect #2" reveal from that reference, adapted to a plain unicode
- * arrow since this app has no icon font loaded.
+ * same "Effect #2" reveal from that reference, adapted to a plain emoji
+ * (a hand/thumbs-up, matching the reference's own reveal icon) since this
+ * app has no icon font loaded.
  */
 .staffNameCell {
   position: relative;
@@ -130,8 +131,8 @@
 }
 
 .staffNameCell::after {
-  content: '\2192';
-  font-size: 14px;
+  content: '\1F44D';
+  font-size: 13px;
   line-height: 1;
   display: flex;
   align-items: center;

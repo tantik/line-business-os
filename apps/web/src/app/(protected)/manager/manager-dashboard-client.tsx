@@ -1033,14 +1033,15 @@ function ManagerDashboardBody({
                           ...(isLastCol ? { borderTopRightRadius: 8 } : {}),
                         }}
                       >
-                        {/* Round 3 follow-up (2026-08-23): the day/date text
-                            centers the same way in every column regardless
-                            of whether that column has a shortage marker --
-                            the marker is an absolutely-positioned overlay
-                            (top-right of the cell) instead of a flex sibling,
-                            so it can no longer push the text off-center in
-                            the columns that happen to have one. */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        {/* Round 3 follow-up (2026-08-23): the shortage
+                            marker is an absolutely-positioned overlay
+                            (top-right of the cell) instead of a flex
+                            sibling, so it can no longer push the day/date
+                            text sideways in the columns that happen to have
+                            one -- every column's text sits at the same
+                            position regardless of whether its own marker is
+                            present. */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                           <span>
                             {formatWeekday(date)}
                             <br />
