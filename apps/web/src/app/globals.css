@@ -59,10 +59,17 @@ button:focus-visible {
  */
 :root {
   --page-padding: 32px;
+  /* Needs Attention category-chip grid (attention-panel.tsx): 4 across on
+     desktop, 2 across on mobile -- Founder direction, 2026-08-22 (screenshot
+     showed 4 single-column stacked rows on a 375px phone; too tall). "Review
+     all" always spans every column via `gridColumn: '1 / -1'`, so it reads
+     as one full-width row regardless of this count. */
+  --attention-chip-columns: 4;
 }
 
 @media (max-width: 640px) {
   :root {
     --page-padding: 4px;
+    --attention-chip-columns: 2;
   }
 }

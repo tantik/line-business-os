@@ -32,6 +32,21 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
 };
 
 /**
+ * Category-chip grid: `--attention-chip-columns` (`globals.css`) is 4 on
+ * desktop, 2 on mobile (Founder direction, 2026-08-22: 4 chips each
+ * stacked full-width on a 375px phone read as too tall) -- a CSS grid
+ * with a custom-property column count responds to that media query with
+ * no JS/breakpoint logic here, same technique `pageStyle()`'s
+ * `--page-padding` already uses.
+ */
+const chipGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(var(--attention-chip-columns), 1fr)',
+  gap: 8,
+  marginTop: 10,
+};
+
+/**
  * Single-line category chip, deliberately matched to `buttonSecondary`'s own
  * height/padding/radius (Attention polish pass, 2026-08-21: the previous
  * two-line stacked chip read as visually "heavier" than the EntryPointsCard
@@ -40,8 +55,6 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lan
  */
 const chipStyle = {
   ...buttonSecondary,
-  flex: '1 1 200px',
-  maxWidth: 280,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -49,10 +62,10 @@ const chipStyle = {
   cursor: 'pointer',
 };
 
-/** "Review all" is the primary action of this row (not a category filter), pushed to the far right and given the same green primary treatment as "+ Add recipe" so it reads as an action, not a fifth category. */
+/** "Review all" is the row's primary action (not a category filter) -- always spans every grid column (`gridColumn: '1 / -1'`) so it reads as one full-width row under the chips regardless of the current column count, and gets the same green primary treatment as "+ Add recipe". */
 const reviewAllButtonStyle = {
   ...buttonPrimary,
-  marginLeft: 'auto',
+  gridColumn: '1 / -1',
 };
 
 const queueItemStyle = {
@@ -246,7 +259,7 @@ export function AttentionPanel({
         <>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          <div style={chipGridStyle}>
             {items.map((item) => {
               const label = (
                 <>
