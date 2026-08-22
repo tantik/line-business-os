@@ -207,6 +207,24 @@ function weekDates(periodStart: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addIsoDays(periodStart, i));
 }
 
+/**
+ * Round 3 (2026-08-22) week-navigation performance: matches `page.tsx`'s own
+ * `MAX_WEEK_OFFSET` sanity cap. Plain Prev/This week/Next clicks used to be
+ * `<Link href="/manager?weekOffset=...">` -- a full server navigation that
+ * re-ran this page's entire ~16-item data batch (staff, shift types,
+ * requests, attendance, invitations, exchanges, inventory, recipes,
+ * settings) even though only the assignments actually change per week. The
+ * `_client-preview/mame-to-cha` reference surface already proved the fix:
+ * preload a bounded assignment window once, then treat week navigation as a
+ * pure client-side filter (`activeWeekOffset` state + `window.history.
+ * replaceState`, never `router.push`/`router.refresh()`). This page already
+ * fetches exactly that window server-side for the shift-exchange panel
+ * (`exchangeAssignments`, -8..+8 weeks) -- reused here as the schedule
+ * grid's own window instead of adding a second fetch.
+ */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
+
 function formatWeekday(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
 }
@@ -279,8 +297,49 @@ function ManagerDashboardBody({
   const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
 
-  const dates = useMemo(() => weekDates(periodStart), [periodStart]);
+  const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
+  // Seeded once from the already-fetched -8..+8 week `exchangeAssignments`
+  // window (falls back to the narrower current-week `assignments` only if
+  // that window failed to load) -- see `MIN_WEEK_OFFSET`'s doc comment.
+  // `localAssignments` below still filters this down to the displayed
+  // week's `dates`, so every existing consumer's behavior is unchanged;
+  // only where the data comes from (preloaded window vs. per-week fetch)
+  // is different.
+  const [scheduleWindowAssignments, setScheduleWindowAssignments] = useState<WorkforceShiftAssignment[]>(
+    exchangeAssignments ?? assignments ?? [],
+  );
+  // Every create/update/remove-shift action below still calls `router.refresh()`
+  // to get correct server-verified data after a write (unchanged) -- this
+  // keeps the client-held window in sync with that fresh data. Pure Prev/
+  // Next/This-week navigation never touches this effect (it only reacts to
+  // the `exchangeAssignments`/`assignments` props actually changing, which a
+  // plain client-side week switch does not do).
+  useEffect(() => {
+    setScheduleWindowAssignments(exchangeAssignments ?? assignments ?? []);
+  }, [exchangeAssignments, assignments]);
+  const activePeriodStart = useMemo(
+    () => addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7),
+    [periodStart, activeWeekOffset, weekOffset],
+  );
+  const activePeriodEnd = useMemo(
+    () => addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7),
+    [periodEnd, activeWeekOffset, weekOffset],
+  );
+  const dates = useMemo(() => weekDates(activePeriodStart), [activePeriodStart]);
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
+
+  function weekHref(targetOffset: number) {
+    return targetOffset === 0 ? '/manager' : `/manager?weekOffset=${targetOffset}`;
+  }
+
+  function navigateToWeek(targetOffset: number) {
+    if (targetOffset === activeWeekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    // Pure client-side date-range filter over the already-preloaded window --
+    // no Server Action call, no `router.push`/`router.refresh()` (which would
+    // re-run this whole page's data batch and reset scroll).
+    setActiveWeekOffset(targetOffset);
+    window.history.replaceState(null, '', weekHref(targetOffset));
+  }
 
   const shiftTypeById = useMemo(
     () => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])),
@@ -365,12 +424,14 @@ function ManagerDashboardBody({
 
   const localAssignments = useMemo(
     () =>
-      (assignments ?? []).map((a) => {
-        const start = utcIsoToLocalDateTime(a.startsAt, timeZone);
-        const end = utcIsoToLocalDateTime(a.endsAt, timeZone);
-        return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
-      }),
-    [assignments, timeZone],
+      scheduleWindowAssignments
+        .map((a) => {
+          const start = utcIsoToLocalDateTime(a.startsAt, timeZone);
+          const end = utcIsoToLocalDateTime(a.endsAt, timeZone);
+          return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
+        })
+        .filter((a) => dates.includes(a.workDate)),
+    [scheduleWindowAssignments, dates, timeZone],
   );
 
   // Cafe v2.1 QA audit P2-10: employee/date pairs with both a submitted
@@ -504,25 +565,17 @@ function ManagerDashboardBody({
   }, [initialFocusCell, dates]);
 
   // Attention "View shift" action (unavailable_conflict queue items): if the
-  // conflict's date is already in the Manager's currently displayed week,
-  // open the cell editor directly -- no navigation needed. This also makes
-  // repeat clicks on the same conflict reliable: routing to a `focusCell`
-  // URL that's identical to the current one is a no-op in Next.js (no new
-  // navigation, no re-render), so the `initialFocusCell` effect below never
-  // re-fires and the editor silently fails to reopen. Only fall back to
-  // `router.push` when the conflict is outside the displayed week, since
-  // that genuinely requires loading a different week's data first.
+  // conflict's date is outside the Manager's currently displayed week,
+  // switch weeks first -- Round 3 (2026-08-22): this is now the same
+  // client-side `navigateToWeek` plain Prev/Next uses (the target week's
+  // assignments are already in the preloaded window), not a `router.push`
+  // full navigation.
   function handleViewShift(employeeId: string, workDate: string) {
-    if (dates.includes(workDate)) {
-      setEditingCell({ staffId: employeeId, date: workDate });
-      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      return;
+    if (!dates.includes(workDate)) {
+      navigateToWeek(weekOffsetForWorkDate(todayIso, workDate));
     }
-    const offset = weekOffsetForWorkDate(todayIso, workDate);
-    const params = new URLSearchParams();
-    if (offset !== 0) params.set('weekOffset', String(offset));
-    params.set('focusCell', `${employeeId}:${workDate}`);
-    router.push(`/manager?${params.toString()}#weekly-schedule`);
+    setEditingCell({ staffId: employeeId, date: workDate });
+    document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function assignmentFor(staffId: string, date: string) {
@@ -853,7 +906,7 @@ function ManagerDashboardBody({
       <section id="weekly-schedule" style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](periodStart, periodEnd)}</h2>
+            <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
           {/* Founder Review Round 2 (2026-08-22), section 21: compact icon
@@ -861,34 +914,41 @@ function ManagerDashboardBody({
               visible date range already lives in the heading above
               (`scheduleHeadingValue`), so these only need to convey
               prev/next/today, not repeat it. Real words stay in
-              `aria-label`/`title` for screen readers and mouse-hover. */}
+              `aria-label`/`title` for screen readers and mouse-hover.
+              Round 3 (2026-08-22): plain `<button onClick>` instead of
+              `<Link href>` -- these are now a pure client-side week switch
+              (`navigateToWeek`), never a real navigation. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Link
-              href={`/manager?weekOffset=${weekOffset - 1}`}
+            <button
+              type="button"
               className={hoverStyles.buttonSecondary}
               style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
               aria-label={t('prevWeek')}
               title={t('prevWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset - 1)}
             >
               ‹
-            </Link>
-            <Link
-              href="/manager"
-              style={{ ...(weekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '8px 14px' }}
-              className={weekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
-              aria-disabled={weekOffset === 0}
+            </button>
+            <button
+              type="button"
+              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '8px 14px' }}
+              className={activeWeekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
+              aria-disabled={activeWeekOffset === 0}
+              disabled={activeWeekOffset === 0}
+              onClick={() => navigateToWeek(0)}
             >
               {t('thisWeek')}
-            </Link>
-            <Link
-              href={`/manager?weekOffset=${weekOffset + 1}`}
+            </button>
+            <button
+              type="button"
               className={hoverStyles.buttonSecondary}
               style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
               aria-label={t('nextWeek')}
               title={t('nextWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset + 1)}
             >
               ›
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -1076,12 +1136,12 @@ function ManagerDashboardBody({
       />
 
       <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{preferencesHeadingValue[lang](periodStart, periodEnd)}</h2>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{preferencesHeadingValue[lang](activePeriodStart, activePeriodEnd)}</h2>
         {requests === null ? (
           <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesUnavailable')}</p>
         ) : (
           (() => {
-            const inPeriod = requests.filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd);
+            const inPeriod = requests.filter((r) => r.workDate >= activePeriodStart && r.workDate <= activePeriodEnd);
             if (inPeriod.length === 0) {
               return <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesEmpty')}</p>;
             }
