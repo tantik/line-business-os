@@ -68,13 +68,21 @@ export function ConfirmDialog({
   // behind this dialog was a measurable paint cost on lower-end mobile
   // hardware for a dialog that must otherwise open instantly (no async
   // gating above) -- a plain darkened overlay gives the same legibility.
+  //
+  // Opacity bumped .58 -> .86 (Founder QA, 2026-08-23): at .58, a light
+  // background (e.g. the Inventory popup's list, itself sitting on top of
+  // Modal's own .45-opacity scrim) stayed legible enough to visually bleed
+  // through right behind this dialog's own buttons -- confusing, easy to
+  // misread as a broken/overlapping layout even though click-through and
+  // z-index were both already correct. A near-opaque scrim (no blur needed)
+  // fixes the legibility without reintroducing the blur perf cost above.
   return (
     <div
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !pending) onCancel();
       }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(42, 34, 25, .58)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(42, 34, 25, .86)' }}
     >
       <section
         role="alertdialog"
