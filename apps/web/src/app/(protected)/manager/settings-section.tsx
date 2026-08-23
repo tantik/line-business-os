@@ -215,7 +215,7 @@ export function SettingsSection({
         ) : activeShiftTypes.length === 0 ? (
           <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesEmpty')}</p>
         ) : (
-          <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'grid', gap: 6, maxHeight: 396, overflowY: 'auto', paddingRight: 4 }}>
             {activeShiftTypes.map((st) => {
               const label = shiftTypeDisplayLabel(st);
               if (editingId === st.shiftTypeId) {
