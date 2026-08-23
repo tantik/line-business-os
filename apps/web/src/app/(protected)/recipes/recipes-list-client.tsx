@@ -317,7 +317,7 @@ export function RecipesListBody({
                 {search.trim() ? t('noRecipesMatchSearch') : t('noRecipesYet')}
               </p>
             ) : (
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
                 {visibleRecipes.map((recipe) => {
                   function openDetail() {
                     if (embedded) onSelectRecipe?.(recipe.recipeId);
@@ -346,6 +346,7 @@ export function RecipesListBody({
                         background: colors.surfaceElevated,
                         flexWrap: 'wrap',
                         cursor: 'pointer',
+                        minWidth: 0,
                       }}
                     >
                       <ThumbnailImage

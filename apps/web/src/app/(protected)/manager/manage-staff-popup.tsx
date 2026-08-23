@@ -376,7 +376,7 @@ export function ManageStaffPopup({
           ) : filteredStaff.length === 0 ? (
             <p style={{ margin: '16px 0 0', ...mutedText }}>{t('noStaffMatch')}</p>
           ) : (
-            <ul style={{ margin: '16px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+            <ul style={{ margin: '16px 0 0', padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
               {filteredStaff.map((s) => {
                 const meta = [s.positionLabel, s.employmentType].filter(Boolean).join(' · ');
                 const access = accessBadge(s.hasAccountAccess, latestInvitationByEmployeeId.get(s.staffId) ?? null, t);
@@ -402,6 +402,7 @@ export function ManageStaffPopup({
                       flexWrap: 'wrap',
                       cursor: 'pointer',
                       opacity: s.isActive ? 1 : 0.65,
+                      minWidth: 0,
                     }}
                   >
                     <StaffAvatar name={s.name} />
