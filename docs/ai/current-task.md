@@ -256,19 +256,55 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-23 pointer (newest — read this one first):** a separate,
-Founder-directed feature thread built the **Shift requests review popup**
-(Settings-launched, month-scoped, week-paginated view of staff shift-
-preference submissions) as **v2.1 UI ONLY** — no backend persistence, no
-`auto-distribute.ts` priority logic, no real notification delivery; all of
-that is explicit v2.2 scope per the Founder's full roadmap. **Not yet
-merged** — open as PR #377 against `dev`
-(`feat/shift-requests-review-popup-v21-ui`), blocked only on live browser QA
-(no manager login credentials were available in-session). Full state, file
-list, and what is/isn't authorized to start next are in
+**2026-08-23 pointer (newest — read this one first).** Founder-revised
+priority order, superseding every "what's next" text below until it says
+otherwise:
+
+1. **Platform Foundation Reconciliation/Triage — DONE (read-only, this
+   entry).** A suspected migration/schema drift turned out to be a bigger
+   finding than expected: `main` and `dev` have silently diverged since
+   2026-08-16 (`main` got the full Platform Foundation critical path,
+   `dev` got 131 commits of Cafe product work, neither branch knows about
+   the other's history). No current drift between `dev`'s migration files
+   and Supabase Cloud dev's ledger — that part of prior project memory was
+   stale and is now corrected. Full findings, evidence, and the still-open
+   questions (which branch is authoritative, is `main`'s Foundation code
+   reusable, is `main`'s Surface-A-retirement decision the real one, is
+   Cloud dev's schema fully clean) are in
+   `docs/ai/PLATFORM_FOUNDATION_MAIN_DEV_RECONCILIATION_TRIAGE_2026-08-23.md`
+   — read that file before touching Platform Foundation again. No Cloud DB
+   write, no migration, no Foundation implementation happened.
+2. **Next: Current Product Completion Audit**, Manager first
+   (`https://preview.oruwa.jp/manager`), then Staff, then Manager↔Staff
+   workflows, then remaining unfinished product parts. Verify against
+   canonical docs, actual `dev`, real code, and — where possible — live
+   Preview behavior; do not assume Manager/Staff are complete from old
+   docs/PRs/commit messages alone. Deliverable: a Completion Roadmap
+   (done / partial / broken / needs Browser QA / Manager-required /
+   Staff-required / Manager↔Staff e2e scenarios / polish-deferrable).
+3. **Then, in order:** Manager completion → Manager QA → Staff completion
+   → Staff QA → Manager/Staff e2e QA → a general product completion gate.
+4. **Only after that gate closes** does Platform Foundation implementation
+   resume, using the triage doc above as the starting context (not a fresh
+   investigation).
+
+Platform Foundation is explicitly **not** the next implementation mission
+— do not start it, and do not treat this entry as authorizing it.
+
+**2026-08-23 pointer (older, superseded by the priority order above but
+still factually current):** a separate, Founder-directed feature thread
+built the **Shift requests review popup** (Settings-launched, month-scoped,
+week-paginated view of staff shift-preference submissions) as **v2.1 UI
+ONLY** — no backend persistence, no `auto-distribute.ts` priority logic, no
+real notification delivery; that is explicit v2.2 scope per the Founder's
+full roadmap. **Merged** — PR #377, merged into `dev` 2026-08-23 (commit
+`d1c3c25`) by the Founder directly. Full state, file list, and what is/
+isn't authorized to start next are in
 `docs/ai/CAFE_MANAGER_SHIFT_REQUESTS_REVIEW_POPUP_V21_HANDOFF_2026-08-23.md`
 -- read that file first if anything about this popup, Settings, or the
-Cafe v2.1→v2.2 roadmap comes up.
+Cafe v2.1→v2.2 roadmap comes up. Note: a dead/duplicate inline "Submitted
+shift preferences" table on the Manager dashboard (superseded by this
+popup) was removed the same day, Founder-approved, PR #382.
 
 **2026-08-23 pointer (older, still useful context):** the same Founder-directed **Weekly Schedule
 Founder Review** thread continued into a **Round 3** (8 PRs, #368-#375, all
