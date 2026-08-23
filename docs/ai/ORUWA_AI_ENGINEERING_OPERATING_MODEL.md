@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.1.0 |
+| Version | 1.3.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-08-15 (v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
+| Last Updated | 2026-08-23 (v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -401,11 +401,21 @@ does not duplicate that table.
 ## 12. Independent gate
 
 Claude's own self-review (§4's REVIEW/QA steps) is **not** equivalent to
-final Founder acceptance where an independent gate is warranted. For
-substantial or high-risk missions (§17), the completion report should name
-whether independent review (Strategic CTO / Product / Security gate) is
-recommended before Founder sign-off, and should not present a Claude PASS as
-if it already were that independent review.
+final Founder acceptance where an independent gate is warranted.
+
+**Independent Reviewer policy (Founder decision, 2026-08-23) — canonical;
+reference this section, do not restate it elsewhere:**
+
+| Mission risk (§17) | Independent Reviewer |
+|---|---|
+| Low-risk (Small task) | Not mandatory. The Lead Agent may invoke it at its own discretion. |
+| Standard mission | Mandatory before final completion/sign-off. |
+| High-risk mission | Mandatory before final completion/sign-off. The Lead Agent may also require additional specialized checks (security, DB/RLS, etc.) as the mission warrants. |
+
+Where the Independent Reviewer is mandatory, the completion report must
+record its actual PASS/FAIL finding, not merely note that review was
+"recommended." The Lead Agent never presents its own PASS as if it were that
+independent review.
 
 ## 13. Subagent policy
 
@@ -418,6 +428,18 @@ consistent with the mission-level instruction that produced it. The Lead
 Agent always verifies and integrates subagent output before relying on it
 (§2) — a subagent's confident report is a claim, not a fact, until checked
 against the repository.
+
+Two named, repository-defined subagents exist for this purpose:
+`.claude/agents/oruwa-engineer.md` (isolated-context implementation of an
+already-bounded task) and `.claude/agents/oruwa-reviewer.md` (independent,
+read-only review against `docs/ai/review-checklists.md`, governed by §12's
+Independent Reviewer policy). Both inherit `.claude/settings.json`'s
+machine-enforced permission layer
+unchanged — delegating to them does not widen what either is allowed to do.
+Their existence does not change this section's threshold for when to
+delegate at all; it only gives the Lead Agent a ready-made, consistently-
+scoped subagent to delegate to instead of writing ad hoc instructions each
+time.
 
 ## 14. Context management protocol
 

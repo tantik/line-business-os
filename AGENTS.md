@@ -36,6 +36,27 @@ Read these in order before changing anything:
    app-layer foundation for authenticated multi-tenant access (Supabase Auth,
    tenant context, protected routes, RLS). Planning only — no product features.
 
+## Founder communication language
+
+Founder decision (2026-08-23), persistent across sessions. Default language
+for all AI CTO / Lead Agent communication addressed to the Founder is
+**Russian** — explanations, questions, conclusions, recommendations, plans,
+progress/completion reports, approval requests, risk descriptions, error
+messages, handoffs, and any Engineer/Reviewer subagent result relayed to the
+Founder. Do not forward large raw English subagent output to the Founder;
+summarize and verify it, then present it in Russian.
+
+Exceptions — never machine-translate these: source code; variable/function/
+class names; database/SQL identifiers; filenames/paths; CLI commands; API,
+library, and framework names; Git branch names; exact error messages where
+precision matters; other machine-readable output. Client-facing product
+content (e.g. the Japanese ORUWA UI) uses the language the product itself
+defines, never Russian by default. Subagents (`.claude/agents/oruwa-engineer.md`,
+`.claude/agents/oruwa-reviewer.md`) may use technical English internally when
+it is more effective; only the Lead Agent's Founder-facing output is subject
+to this rule. Where an exact English technical term is clearer, write it as
+`русское объяснение (English term)`.
+
 ## Non-negotiable rules
 
 1. **Every business table includes `tenant_id uuid not null`.** If the data

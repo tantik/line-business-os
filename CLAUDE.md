@@ -20,6 +20,14 @@ Every product runs as a module inside one shared Core, never as an isolated proj
 
 If anything here ever conflicts with those sources, the sources above win.
 
+## Founder communication language
+
+Default language for all Founder-facing communication (explanations,
+questions, plans, reports, approval requests, error/risk descriptions,
+relayed subagent findings) is **Russian**. Code, identifiers, filenames,
+commands, and other machine-readable content are never machine-translated.
+Full rule and exceptions: AGENTS.md "Founder communication language".
+
 ## Highest-risk constraints
 
 - Never expose service_role to the frontend or bundle it into apps/web.
