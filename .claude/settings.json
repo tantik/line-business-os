@@ -28,6 +28,7 @@
       "Bash(git push --force*)",
       "Bash(git push origin --force*)",
       "Bash(git push origin main*)",
+      "Bash(git reset --hard*)",
       "Bash(rm -rf*)",
       "Bash(Remove-Item -Recurse -Force*)"
     ],
@@ -38,6 +39,20 @@
       "Bash(pnpm db:seed*)",
       "Bash(git push*)",
       "Edit(supabase/migrations/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "branch=$(git branch --show-current 2>/dev/null); head=$(git rev-parse --short HEAD 2>/dev/null); if [ -n \"$(git status --porcelain 2>/dev/null)\" ]; then tree=dirty; else tree=clean; fi; ctx=\"ORUWA session start. Read order: AGENTS.md -> docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md -> docs/ai/current-task.md. Founder-facing language default: Russian (see AGENTS.md, section Founder communication language). Current-task / next-gate source of truth: docs/ai/current-task.md. Git: branch=$branch head=$head tree=$tree.\"; printf '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"%s\"}}' \"$ctx\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
