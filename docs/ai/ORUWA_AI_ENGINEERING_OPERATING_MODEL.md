@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.5.0 |
+| Version | 1.6.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-08-23 (v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
+| Last Updated | 2026-08-23 (v1.6.0: **Permission gap cleanup mission** — this session's Cafe Manager Phase B QA hit repeated unnecessary Founder confirmation prompts for actions already within the Lead Agent's existing GREEN-tier/bounded-delivery-lifecycle authority (§9). `.claude/settings.json`'s "Machine-enforced layer" paragraph in this section now documents the resulting allow-list additions — `git add`, `git commit` (with new deny guards on any command containing `--amend` or `--no-verify`, so the broader `git commit*` allow cannot be used to amend a commit or skip hooks), `gh pr create`/`checks`/`view`, local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`, and two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`) used during Preview browser QA — plus a new **Command discipline** paragraph explaining why wrapping an already-allowed command in `cd ... &&` or a pipe caused avoidable prompts and should be avoided. A fresh-context Independent Reviewer pass on the first draft of this change found one real bypass: the `--no-verify` substring deny cannot catch git's short-flag form (`-n`, or a combined short-flag cluster like `-an`/`-na`), which a glob pattern cannot express. Fixed with a new `PreToolUse` hook (`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes any `git commit` command and asks for confirmation if a short-flag token containing `n` is present, rather than relying on glob matching alone. No RED-tier, DEV-MERGE-gate, or interactive/mutating-browser-tool authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -410,16 +410,56 @@ needs approval, it does.
 **Machine-enforced layer**: `.claude/settings.json` hard-blocks
 `supabase link/db push/db pull/migration repair`, `vercel --prod`,
 `git push --force*`, `git push origin main*`, `git reset --hard*`,
-`rm -rf*`, and the raw `gh pr merge*` command, and requires confirmation for
+`rm -rf*`, the raw `gh pr merge*` command, any command containing
+`--amend` (blocks `git commit --amend` in any argument position, not just
+as the first flag), and any command containing the long-form
+`--no-verify` flag. A glob deny cannot express "any short-flag cluster
+containing the letter n" (git's `-n` is shorthand for `--no-verify` on
+`git commit`, and can combine with other short flags, e.g. `-an`), so that
+gap is closed instead by a `PreToolUse` hook
+(`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes the command and
+asks for confirmation when such a token is present — and requires
+confirmation for
 `supabase db reset`, `pnpm db:seed`, `git push*`, and edits to
 `supabase/migrations/**`. It explicitly allows only
 `Bash(bash scripts/ai-dev-merge.sh*)` for merges — the DEV MERGE tier's
 guardrail script (see above), which re-verifies base=`dev` and the other
 mechanical gates itself before merging and structurally cannot target
-`main`. This is the only layer in the repository where the boundary is
-enforced by tooling rather than only stated in prose — treat a permission
-prompt from it, or a BLOCK from the guardrail script, as the boundary firing
-correctly, not an obstacle to route around.
+`main`. It also allows, as ordinary GREEN-tier development actions with no
+write-authority implication beyond what §9 already grants: `git add`,
+`git commit` (non-amend, hooks not skipped — see above), `gh pr create`/
+`gh pr checks`/`gh pr view` (the PR-open and CI-observe steps the bounded
+delivery lifecycle above already authorizes, plus read-only PR inspection),
+local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`
+(local verification, §11), and two non-mutating Chrome DevTools MCP tools
+used during Preview QA browser navigation — `select_page` (switch which
+open browser tab receives the next command) and `emulate` (set
+viewport/device size for responsive QA). Neither Chrome DevTools tool can
+itself read, write, or navigate application data; interactive/mutating
+browser tools (`click`, `fill`, `navigate_page`, `evaluate_script`, etc.)
+remain ask-gated because they can execute real writes against the shared
+Preview database through the product's own UI. This is the only layer in
+the repository where the boundary is enforced by tooling rather than only
+stated in prose — treat a permission prompt from it, or a BLOCK from the
+guardrail script, as the boundary firing correctly, not an obstacle to
+route around.
+
+**Command discipline**: when an operation already has an explicit
+`.claude/settings.json` allow rule, invoke it in that canonical form
+directly from the repository root rather than wrapping it in `cd <repo
+root> &&`, a pipe (`| tail`), a redirect (`2>&1`), or other compound shell
+syntax. The permission matcher evaluates a compound command
+operator-by-operator; a leading `cd ...` segment has no allow rule of its
+own, so wrapping an otherwise-approved command in one produces an
+avoidable Founder confirmation prompt for a command that was already
+approved in its plain form (observed directly in this session's Phase B
+QA, both for a plain `git commit` and for `bash scripts/ai-dev-merge.sh`).
+The working directory already persists across Bash calls within a
+session, so a leading `cd` to the repository's own root is redundant
+regardless of the permission system. This does not authorize constructing
+a command differently in order to *avoid* an approval boundary that exists
+on purpose (§9) — it only removes friction on commands that were already
+autonomous.
 
 ## 10. Git / PR / CI / Preview workflow
 

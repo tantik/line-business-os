@@ -31,7 +31,9 @@
       "Bash(git reset --hard*)",
       "Bash(rm -rf*)",
       "Bash(Remove-Item -Recurse -Force*)",
-      "Bash(gh pr merge*)"
+      "Bash(gh pr merge*)",
+      "Bash(*--amend*)",
+      "Bash(*--no-verify*)"
     ],
     "ask": [
       "Bash(supabase db reset*)",
@@ -56,10 +58,36 @@
       "Bash(git ls-remote*)",
       "Bash(git branch --show-current*)",
       "Bash(git branch -a*)",
-      "Bash(git branch --contains*)"
+      "Bash(git branch --contains*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr view*)",
+      "Bash(pnpm test*)",
+      "Bash(pnpm lint*)",
+      "Bash(pnpm typecheck*)",
+      "Bash(pnpm build*)",
+      "Bash(pnpm install*)",
+      "Bash(pnpm exec turbo run*)",
+      "mcp__chrome-devtools__select_page",
+      "mcp__chrome-devtools__emulate"
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "node scripts/ai-hooks/guard-no-verify.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
