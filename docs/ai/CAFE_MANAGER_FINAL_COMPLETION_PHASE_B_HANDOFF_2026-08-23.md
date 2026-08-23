@@ -123,6 +123,42 @@ ingredients/steps/note fields all present and pre-filled correctly with the
 Founder QA dataset's realistic Japanese content) — cancelled without
 changes (no mutation needed to prove the form renders/works).
 
+### §14 Attendance Corrections — approve AND reject paths both VERIFIED live
+Approve path: see §16 below (real pending item). **Reject path**, tested
+separately in this continuation using a disposable fixture (not the
+Founder-preserved demo item): signed in as 田中美咲 (Staff), submitted a new
+correction request for 2026-08-19 with an explicit "QA reject-path test
+(Phase B session) — please reject." reason + requested clock-in/out times
+(the form requires at least one requested-change field, plain-reason-only
+submission returns "Invalid input." — worth knowing for future sessions).
+Switched to Manager, rejected it via "却下" — **counter updated instantly**
+(要確認 8→7, 対応が必要 3→2), item removed from the still-open popup, no F5.
+Cross-checked on the Staff side afterward: the same request now shows
+status "却下" — Manager decision correctly visible back to Staff. No
+lingering QA data: a decided (rejected) correction is a normal terminal
+state in this domain, nothing further to clean up.
+
+### §15 Shift Exchange — only the read-state verified; decision path NOT exercised
+Attempted to create a disposable exchange request (same pattern as §14) by
+signing in as 田中美咲 and clicking her own shift cell to open
+`ShiftExchangeRequestForm`. **Could not get the cell click to register**
+(3 attempts: plain `.click()`, synthetic pointer/mouse event sequence, and
+the MCP `click` tool on the accessibility node — none opened the modal).
+Root-caused via code read, not guessing: `staff-dashboard-client.tsx:246-250`
+gates `canRequestExchange` (and by extension the whole cell-click flow
+appears tied to the same assignment data) on `startsAt > Date.now()` —
+田中美咲's only assignment in the current week is *today* (2026-08-23,
+10:00), so it's not a future shift, which may be why the interaction didn't
+behave as expected. This reads as a **legitimate business rule** (can't
+request an exchange for a shift that's already started/today), not a
+confirmed bug -- but the modal not opening at all (not just the exchange
+form being absent inside it) wasn't fully explained and deserves a closer
+look in a future session, ideally by giving 田中美咲 a real future shift via
+Manager first, then retrying. The pre-existing Founder-QA-fixture exchange
+item was deliberately left undecided (see original reasoning below) — so
+**no Manager-side accept/reject/nominate-candidate action has been
+exercised live in this mission at all yet**.
+
 ### §16 Needs Attention — decision workflow VERIFIED live
 Approved one of two pending attendance corrections (田中美咲, 08-18) via the
 popup's "承認" button — **counter updated instantly in the dashboard header**
@@ -148,14 +184,23 @@ demo; approving everything would have depleted the dataset's demo variety.
 Per the original Founder Phase B prompt (full text in this mission's
 conversation, not duplicated here — re-read it, don't guess):
 
-- **§14 Attendance Corrections** — only the *approve* path was exercised
-  once (§16 above). Reject path, candidate-present vs still-pending
-  variants, and the planned-vs-actual distinction (§14's own explicit
-  warning: "не переписывать historical schedule") not separately verified.
-- **§15 Shift Exchange** — only viewed the popup's read state (nominate-
-  candidate / reject buttons present, correct waiting-for-candidate copy).
-  No decision (accept/reject/nominate) was actually exercised — the one
-  live item is an explicit Founder-QA fixture, deliberately not consumed.
+- **§14 Attendance Corrections** — both approve (§16) and reject (own
+  section above, disposable fixture) verified live with instant counter
+  updates and correct Staff-visible status. Still not covered: candidate-
+  present vs still-pending variants (not applicable to corrections — that
+  distinction is Shift Exchange's), and the planned-vs-actual distinction
+  (§14's own explicit warning: "не переписывать historical schedule") not
+  separately verified.
+- **§15 Shift Exchange** — **decision path NOT exercised at all** (own
+  section above explains why: could not get a disposable exchange request
+  created — 田中美咲 has no future shift in the current dataset, and the
+  own-shift-cell click didn't open the modal for her only assignment, which
+  is today's). Only the existing Founder-QA-fixture item's read state was
+  checked (nominate-candidate / reject buttons present, correct waiting-
+  for-candidate copy) — deliberately not decided/consumed. A future session
+  should either give a staff member a real future shift via Manager first,
+  or investigate the modal-not-opening finding directly in code before
+  trying again.
 - **§17 Cross-module reactivity** — only the Shift-Type-creation and
   Inventory-shortage cases were exercised (both PASS). Staff-change →
   schedule/preferences propagation, and Shift-Exchange-decision →
@@ -188,15 +233,22 @@ conversation, not duplicated here — re-read it, don't guess):
 | #386 | fix(cafe-staff): stop leaking shift-type CUSTOM_<timestamp> code to Staff UI | `1b4aa6d` |
 | #387 | feat(cafe-manager): cap Settings Shift Types list to ~6 rows with internal scroll | `7bdb353` |
 | #388 | feat(cafe-manager): Shift Types row hierarchy + reusable button reveal micro-interaction (incl. focus-outline fix from review) | `2c17741` |
+| #389 | docs(ai): Manager Final Completion Phase B checkpoint handoff (this file, first version) | `2220f99` |
 
-All three: typecheck/lint/test (1206/1206 after #386, unchanged after)/build
-green, independent fresh-context review PASS before merge, live-verified on
-Preview after merge. No RLS/migration/schema/secrets touched. `main`/
-production untouched.
+All code PRs (#386-388): typecheck/lint/test (1206/1206 after #386,
+unchanged after)/build green, independent fresh-context review PASS before
+merge, live-verified on Preview after merge. No RLS/migration/schema/
+secrets touched. `main`/production untouched. **§14/§15 QA in this
+continuation produced no new PR** — attendance-correction approve/reject
+and the exchange-request investigation were pure QA actions (create via
+Staff, decide via Manager), not code changes; no bug was found that needed
+a fix.
 
 ## 4. Repository state at checkpoint
 
-`dev` HEAD after this session: `2c17741`. Local `dev-local` branch is
+`dev` HEAD after this session: `2220f99` (after PR #389; may be newer if
+this file was updated again post-merge — check `git log` rather than
+trusting this number blindly). Local `dev-local` branch is
 up to date with `origin/dev`, clean working tree (the 3 feature branches
 from this session — `fix/cafe-manager-phase-b-shift-preference-custom-code-leak`,
 `feat/cafe-manager-phase-b-shift-types-scroll-ux`,
@@ -207,12 +259,19 @@ can be deleted whenever convenient; not done automatically this session).
 
 *"Read `docs/ai/CAFE_MANAGER_FINAL_COMPLETION_PHASE_B_HANDOFF_2026-08-23.md`
 first — Phase B is IN PROGRESS, `MANAGER_PHASE_B = PARTIAL`, not done. §2
-(P0 bug), §4-6 (Shift Types UX), §7-8 (Weekly Schedule + performance), and
-spot-checks of §11-13/§16 (Staff/Recipes/Inventory/Needs Attention) are
-verified done — don't repeat them without a reason. Continue with §14
-(Attendance reject path), §15 (Shift Exchange decision — use a fresh
-disposable fixture if the one live item must stay as Founder's demo
-fixture), §17 (remaining cross-module cases), §18 (visual consistency
+(P0 bug), §4-6 (Shift Types UX), §7-8 (Weekly Schedule + performance), §14
+(Attendance approve AND reject, both verified), and spot-checks of
+§11-13/§16 (Staff/Recipes/Inventory/Needs Attention) are verified done —
+don't repeat them without a reason. **§15 Shift Exchange decision is the
+one still-open functional gap**: no accept/reject/nominate has been
+exercised live at all across this whole mission — a prior attempt to
+create a disposable exchange request failed because 田中美咲 has no future
+shift in the current dataset and her own-shift-cell click didn't open the
+modal (root-caused to `canRequestExchange`'s `startsAt > Date.now()` gate
+in `staff-dashboard-client.tsx:246-250`, but the modal-not-opening-at-all
+part wasn't fully explained — investigate that first, or just assign a
+staff member a real future shift via Manager, then retry from Staff).
+Continue with §17 (remaining cross-module cases), §18 (visual consistency
 audit), §19-20 (mobile + JA/EN full pass across all modules, not just
 Manager dashboard shell), §21 (loading/error UX), §24 (adversarial review),
 then produce the Final Manager Acceptance Matrix and
@@ -222,4 +281,8 @@ escalate only at genuine RED boundaries. Manager credentials:
 `manager@oruwa-cafe.test` / `NewTestSmoke456!`; Staff (田中美咲):
 `konstantin.a.chvykov@gmail.com` / `StaffAAnNChnHvHBXZ!2` (both already
 documented in `CAFE_MANAGER_PARITY_MISSION_COMPLETE_HANDOFF_2026-08-19.md`
-§5, repeated here for convenience)."*
+§5, repeated here for convenience). Note: Manager and Staff sessions share
+the same cookie jar on `preview.oruwa.jp` (same origin) — signing in as one
+signs out the other in the same browser profile; re-authenticate each time
+you switch roles, don't assume both stay logged in simultaneously across
+tabs."*
