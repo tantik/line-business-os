@@ -17,6 +17,15 @@ export interface SettingsSectionProps {
   settings: WorkforceScheduleSettings | null;
   shiftTypes: WorkforceShiftType[] | null;
   onShiftTypesChanged: () => void;
+  /**
+   * Fired after a successful "Required staff per shift" / "Max staff working
+   * hours" autosave. Without this, the Weekly Schedule grid's shortage "!"
+   * marker (computed from the `scheduleSettings` prop the parent passes down)
+   * kept using the stale pre-edit value until something unrelated triggered a
+   * `router.refresh()` -- a manager could raise Wednesday's requirement to 2
+   * and see no shortage warning appear even though a real gap now existed.
+   */
+  onRequirementsChanged: () => void;
   /** Shift-requests review popup summary (v2.1 UI-only) -- null while `staff`/`requests` haven't loaded. */
   shiftRequestsSummary: { submitted: number; total: number; missing: number } | null;
   onOpenShiftRequests: () => void;
@@ -43,6 +52,7 @@ export function SettingsSection({
   settings,
   shiftTypes: initialShiftTypes,
   onShiftTypesChanged,
+  onRequirementsChanged,
   shiftRequestsSummary,
   onOpenShiftRequests,
   lang,
@@ -115,6 +125,7 @@ export function SettingsSection({
       if (result.status === 'success') {
         lastConfirmedRef.current = toSave;
         setAutosaveStatus('saved');
+        onRequirementsChanged();
         if (savedResetTimerRef.current) clearTimeout(savedResetTimerRef.current);
         savedResetTimerRef.current = setTimeout(() => setAutosaveStatus('idle'), 2500);
       } else {
@@ -388,60 +399,67 @@ export function SettingsSection({
         {feedback ? <span style={{ fontSize: 12, color: feedback.ok ? undefined : 'crimson' }}>{feedback.text}</span> : null}
       </div>
 
-      <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 15 }}>{t('automationSectionHeading')}</h3>
-          <HelpIconButton ariaLabel={t('automationHelpAriaLabel')} onClick={() => setAutomationHelpOpen(true)} />
+      {/* Founder mockup (2026-08-23): "Shift requests" moves next to
+          "Automatic schedule" as a right-hand column instead of stacking
+          below it as its own full-width block -- same shared top border/
+          spacing, just laid out as two columns side by side above the
+          `sm` breakpoint and stacked (Automatic schedule first) below it. */}
+      <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}`, display: 'flex', flexWrap: 'wrap', gap: '20px 32px' }}>
+        <div style={{ flex: '1 1 260px', minWidth: 220 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ margin: 0, fontSize: 15 }}>{t('automationSectionHeading')}</h3>
+            <HelpIconButton ariaLabel={t('automationHelpAriaLabel')} onClick={() => setAutomationHelpOpen(true)} />
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginTop: 14 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13 }}>{t('automationCreateOnLabel')}</span>
+              <input
+                style={{ ...input, width: 64, marginTop: 0 }}
+                type="number"
+                min={1}
+                max={28}
+                value={autoCreateDayOfMonth}
+                onChange={(event) => {
+                  const parsed = Number(event.currentTarget.value);
+                  setAutoCreateDayOfMonth(Number.isInteger(parsed) ? Math.max(1, Math.min(28, parsed)) : autoCreateDayOfMonth);
+                  scheduleAutosave();
+                }}
+                aria-label={t('automationCreateOnLabel')}
+              />
+              <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
+            </label>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginTop: 14 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13 }}>{t('automationCreateOnLabel')}</span>
-            <input
-              style={{ ...input, width: 64, marginTop: 0 }}
-              type="number"
-              min={1}
-              max={28}
-              value={autoCreateDayOfMonth}
-              onChange={(event) => {
-                const parsed = Number(event.currentTarget.value);
-                setAutoCreateDayOfMonth(Number.isInteger(parsed) ? Math.max(1, Math.min(28, parsed)) : autoCreateDayOfMonth);
-                scheduleAutosave();
-              }}
-              aria-label={t('automationCreateOnLabel')}
-            />
-            <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
-          </label>
+        <div style={{ flex: '1 1 260px', minWidth: 220, paddingLeft: 32, borderLeft: `1px solid ${colors.border}` }}>
+          <h3 style={{ margin: 0, fontSize: 15 }}>{t('shiftRequestsCardTitle')}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
+            {shiftRequestsSummary ? (
+              <span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: colors.success, fontWeight: 600 }}>
+                  {shiftRequestsSubmittedLabel[lang](shiftRequestsSummary.submitted, shiftRequestsSummary.total)}
+                </span>
+                <span style={shiftRequestsSummary.missing > 0 ? { color: colors.warning, fontWeight: 600 } : mutedText}>
+                  {shiftRequestsMissingLabel[lang](shiftRequestsSummary.missing)}
+                </span>
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className={`${hoverStyles.buttonSecondary} ${hoverStyles.actionReveal}`}
+              style={buttonSecondary}
+              onClick={onOpenShiftRequests}
+            >
+              {t('viewRequestsButton')}
+            </button>
+          </div>
         </div>
       </div>
 
       <Modal open={automationHelpOpen} onClose={() => setAutomationHelpOpen(false)} title={t('automationHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('automationHelpBody')}</div>
       </Modal>
-
-      <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}` }}>
-        <h3 style={{ margin: 0, fontSize: 15 }}>{t('shiftRequestsCardTitle')}</h3>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
-          {shiftRequestsSummary ? (
-            <span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: colors.success, fontWeight: 600 }}>
-                {shiftRequestsSubmittedLabel[lang](shiftRequestsSummary.submitted, shiftRequestsSummary.total)}
-              </span>
-              <span style={shiftRequestsSummary.missing > 0 ? { color: colors.warning, fontWeight: 600 } : mutedText}>
-                {shiftRequestsMissingLabel[lang](shiftRequestsSummary.missing)}
-              </span>
-            </span>
-          ) : null}
-          <button
-            type="button"
-            className={`${hoverStyles.buttonSecondary} ${hoverStyles.actionReveal}`}
-            style={buttonSecondary}
-            onClick={onOpenShiftRequests}
-          >
-            {t('viewRequestsButton')}
-          </button>
-        </div>
-      </div>
     </section>
   );
 }

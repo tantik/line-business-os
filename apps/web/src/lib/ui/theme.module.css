@@ -113,9 +113,13 @@
  * reference: sliderrevolution.com's "Learn More" buttons) rather than a
  * plain link -- a small arrow tab slides in from just outside the button's
  * own right edge on hover/focus (`::after`, `right: -30px` -> `0`), the
- * same "Effect #2" reveal from that reference, adapted to a plain emoji
- * (a hand/thumbs-up, matching the reference's own reveal icon) since this
- * app has no icon font loaded.
+ * same "Effect #2" reveal from that reference. Uses the same plain white
+ * hand glyph as `.actionReveal` below (`\261E`, WHITE RIGHT POINTING INDEX --
+ * an actual hand, not an emoji) rather than the colored thumbs-up emoji this
+ * previously used, so every staff-name button across the Manager surface
+ * shows the identical reveal icon (Founder direction, 2026-08-23: match the
+ * reference's white hand look, applied consistently everywhere a button
+ * carries a staff member's name).
  */
 .staffNameCell {
   position: relative;
@@ -131,8 +135,9 @@
 }
 
 .staffNameCell::after {
-  content: '\1F44D';
-  font-size: 13px;
+  content: '\261E';
+  color: #ffffff;
+  font-size: 15px;
   line-height: 1;
   display: flex;
   align-items: center;

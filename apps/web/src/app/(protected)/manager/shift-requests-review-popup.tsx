@@ -271,14 +271,28 @@ export function ShiftRequestsReviewPopup({
                   <tr key={s.staffId}>
                     <td style={gridCellStyle}>
                       {submitted ? (
-                        <span style={{ display: 'block', textAlign: 'center', padding: '6px 4px', fontWeight: 600, color: colors.textPrimary, fontSize: 12.5 }}>
+                        <span
+                          style={{
+                            width: '100%',
+                            minHeight: minTouchTarget,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: '6px 4px',
+                            fontWeight: 600,
+                            color: colors.textPrimary,
+                            fontSize: 12.5,
+                            boxSizing: 'border-box',
+                          }}
+                        >
                           {s.name}
                         </span>
                       ) : (
                         <button
                           type="button"
                           className={hoverStyles.staffNameCell}
-                          style={{ width: '100%', minHeight: minTouchTarget, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, color: colors.dangerText, fontSize: 12.5, borderRadius: 6 }}
+                          style={{ width: '100%', minHeight: minTouchTarget, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, color: colors.dangerText, fontSize: 12.5, borderRadius: 6, boxSizing: 'border-box' }}
                           title={s.name}
                           onClick={() => setReminderStaffId(s.staffId)}
                         >

@@ -17,6 +17,8 @@ export interface InventoryPopupProps {
   locationTimezone: string;
   items: InventoryItemStatus[] | null;
   staffNameById: Record<string, string>;
+  /** See `InventoryDashboardClientProps.initialStatusFilter`. Defaults to 'all' when omitted. */
+  initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
 }
 
 /**
@@ -49,6 +51,7 @@ export function InventoryPopup({
   locationTimezone,
   items,
   staffNameById,
+  initialStatusFilter,
 }: InventoryPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
@@ -76,6 +79,7 @@ export function InventoryPopup({
           canManage
           staffNameById={staffNameById}
           embedded
+          initialStatusFilter={initialStatusFilter}
         />
       )}
 
