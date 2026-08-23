@@ -216,11 +216,14 @@
   }
 }
 
-.actionReveal:focus:not(:focus-visible) {
-  outline: none;
-}
-
-.actionReveal:focus-visible {
-  outline: 2px solid #362b1f;
-  outline-offset: 2px;
-}
+/*
+ * No own focus-visible outline rule here, deliberately: `.actionReveal` is
+ * always applied alongside a base button variant (`.buttonPrimary` /
+ * `.buttonSecondary` / `.buttonDanger`), which already defines the real
+ * keyboard-focus ring for that element (theme.module.css above). An earlier
+ * version of this rule duplicated `.staffNameCell`'s own outline color here
+ * too, and — same specificity, later in the file — silently overrode the
+ * base variant's outline color on every button this class is added to.
+ * `.staffNameCell` keeps its own outline rule because it is a standalone
+ * button style, not a modifier layered on another class.
+ */
