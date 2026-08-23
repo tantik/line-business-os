@@ -874,10 +874,20 @@ export const shiftRequestsHeadingValue: Record<Lang, (monthLabel: string) => str
   ja: (monthLabel) => `シフト希望 — ${monthLabel}`,
 };
 
-/** Compact "{submitted}/{total} submitted, {missing} missing" summary, shown on both the Settings card and the review popup's footer. */
+/** Compact "{submitted}/{total} submitted, {missing} missing" summary, shown on the review popup's footer (a single flat line there, per the agreed design). */
 export const shiftRequestsSummaryLabel: Record<Lang, (submittedCount: number, totalCount: number, missingCount: number) => string> = {
   en: (submittedCount, totalCount, missingCount) => `${submittedCount}/${totalCount} submitted, ${missingCount} missing`,
   ja: (submittedCount, totalCount, missingCount) => `${submittedCount}/${totalCount}名提出済み、未提出${missingCount}名`,
+};
+
+/** Settings card summary, split into two independently-styled pieces (submitted in success tone always, missing in warning tone only when > 0) so "2 missing" can draw a Manager's eye without a full warning block. */
+export const shiftRequestsSubmittedLabel: Record<Lang, (submittedCount: number, totalCount: number) => string> = {
+  en: (submittedCount, totalCount) => `${submittedCount}/${totalCount} submitted`,
+  ja: (submittedCount, totalCount) => `${submittedCount}/${totalCount}名提出済み`,
+};
+export const shiftRequestsMissingLabel: Record<Lang, (missingCount: number) => string> = {
+  en: (missingCount) => `${missingCount} missing`,
+  ja: (missingCount) => `未提出${missingCount}名`,
 };
 
 /** "{weekStart}–{weekEnd}" range shown under the review popup's month heading, next to its week pager. */

@@ -14,6 +14,11 @@ import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonPrimary, buttonSecondary, colors, minTouchTarget, mutedText, tableHeaderCell } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { CUSTOM_CHIP_TONE, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
+
+/** Same weekday-abbreviation convention as the Weekly Schedule grid's day header (`formatWeekday` in manager-dashboard-client.tsx) -- kept as a small local copy rather than a shared export, since it's a one-line pure function and the two grids are otherwise deliberately not coupled. */
+function formatWeekday(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+}
 import {
   reminderMessageTemplate,
   shiftRequestsHeadingValue,
@@ -184,6 +189,7 @@ export function ShiftRequestsReviewPopup({
         type="button"
         className={hoverStyles.scheduleCellButton}
         style={cellButtonStyle(tone, true)}
+        title={label}
         onClick={() =>
           isApproved
             ? setApprovedInfoTarget({ staffId, date, request })
@@ -250,8 +256,10 @@ export function ShiftRequestsReviewPopup({
               <tr>
                 <th style={gridHeaderCellStyle}>{t('colStaff')}</th>
                 {weekDates.map((date) => (
-                  <th key={date} style={gridHeaderCellStyle}>
-                    {date.slice(5)}
+                  <th key={date} style={{ ...gridHeaderCellStyle, ...(date === todayIso ? { background: colors.accentMuted } : {}) }}>
+                    {formatWeekday(date)}
+                    <br />
+                    {date.slice(8)}
                   </th>
                 ))}
               </tr>
@@ -263,7 +271,7 @@ export function ShiftRequestsReviewPopup({
                   <tr key={s.staffId}>
                     <td style={gridCellStyle}>
                       {submitted ? (
-                        <span style={{ display: 'block', textAlign: 'center', padding: '6px 4px', fontWeight: 600, color: colors.success, fontSize: 12.5 }}>
+                        <span style={{ display: 'block', textAlign: 'center', padding: '6px 4px', fontWeight: 600, color: colors.textPrimary, fontSize: 12.5 }}>
                           {s.name}
                         </span>
                       ) : (
@@ -271,6 +279,7 @@ export function ShiftRequestsReviewPopup({
                           type="button"
                           className={hoverStyles.staffNameCell}
                           style={{ width: '100%', minHeight: minTouchTarget, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, color: colors.dangerText, fontSize: 12.5, borderRadius: 6 }}
+                          title={s.name}
                           onClick={() => setReminderStaffId(s.staffId)}
                         >
                           {s.name}

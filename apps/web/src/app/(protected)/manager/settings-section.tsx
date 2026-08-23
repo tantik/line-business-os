@@ -10,7 +10,7 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { shiftRequestsSummaryLabel, tManagerDashboard } from './manager-dashboard-i18n';
+import { shiftRequestsMissingLabel, shiftRequestsSubmittedLabel, tManagerDashboard } from './manager-dashboard-i18n';
 
 export interface SettingsSectionProps {
   locationId: string;
@@ -420,8 +420,13 @@ export function SettingsSection({
         <h3 style={{ margin: 0, fontSize: 15 }}>{t('shiftRequestsCardTitle')}</h3>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
           {shiftRequestsSummary ? (
-            <span style={{ fontSize: 13, ...mutedText }}>
-              {shiftRequestsSummaryLabel[lang](shiftRequestsSummary.submitted, shiftRequestsSummary.total, shiftRequestsSummary.missing)}
+            <span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: colors.success, fontWeight: 600 }}>
+                {shiftRequestsSubmittedLabel[lang](shiftRequestsSummary.submitted, shiftRequestsSummary.total)}
+              </span>
+              <span style={shiftRequestsSummary.missing > 0 ? { color: colors.warning, fontWeight: 600 } : mutedText}>
+                {shiftRequestsMissingLabel[lang](shiftRequestsSummary.missing)}
+              </span>
             </span>
           ) : null}
           <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onOpenShiftRequests}>
