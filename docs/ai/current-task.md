@@ -258,19 +258,25 @@ duplicated here.
 
 **2026-08-23 pointer (newest — read this one first).** Manager Final
 Completion Phase B (full Manager CRUD/workflow QA) is **IN PROGRESS,
-`MANAGER_PHASE_B = PARTIAL`, not done**. This checkpoint session fixed and
-live-verified the P0 Shift Preference `CUSTOM_*` leak (PR #386), the Shift
-Types >6 scroll UX + row visual hierarchy + button reveal micro-interaction
-(PRs #387-388), full live CRUD on Weekly Schedule with cross-module
-reactivity, fresh week-navigation performance measurements (already fast,
-no fix needed), and spot-checks of Staff/Recipes/Inventory/Needs Attention.
-Remaining: Attendance reject path, Shift Exchange decision, remaining
-cross-module cases, visual consistency audit, full mobile+JA/EN pass across
-all modules, loading/error UX, adversarial review, and the Final Manager
-Acceptance Matrix. Full state and exact next steps are in
-`docs/ai/CAFE_MANAGER_FINAL_COMPLETION_PHASE_B_HANDOFF_2026-08-23.md` —
-read that file first (it supersedes the Phase-A-only handoff below for
-"what's next").
+`MANAGER_PHASE_B = PARTIAL`, not done**. Checkpoint 2 (this pointer) closed
+§15 Shift Exchange decision (full nominate→approve workflow verified live)
+and fixed+merged a real JA/EN bug found along the way (correction-request
+break text was untranslated English, PR #393). Checkpoint 1 (superseded by
+checkpoint 2 but still useful history) fixed the P0 Shift Preference
+`CUSTOM_*` leak (PR #386), Shift Types >6 scroll UX + row visual hierarchy +
+button reveal micro-interaction (PRs #387-388), full live Weekly Schedule
+CRUD, and spot-checks of Staff/Recipes/Inventory/Needs Attention/Attendance.
+Remaining: dedicated visual/UX consistency audit (§18), dedicated
+loading/error/mutation UX pass (§21), Shift Exchange popup + Recipe edit
+modal at 390px (§19-20), dedicated fresh-context adversarial review (§24),
+and the Final Manager Acceptance Matrix + verdict. Full state and exact next
+steps are in `docs/ai/CAFE_MANAGER_FINAL_COMPLETION_PHASE_B_HANDOFF_2026-08-23.md`
+(checkpoint 2 content, git history has checkpoint 1) — read that file first
+(it supersedes the Phase-A-only handoff below for "what's next"). Separately,
+a Founder design mockup for a later, explicitly deferred mission (Shift
+Requests popup redesign + hand-icon hover on staff-name buttons) was saved
+mid-session — see the `project_shift_requests_popup_redesign_hand_icon_queued`
+memory file; not authorized to start until Phase B closes.
 
 **2026-08-23 pointer (older, still current — read after the one above).**
 Manager Final Completion mission (Shift Preferences UI + full Manager QA).
