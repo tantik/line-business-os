@@ -49,7 +49,7 @@ test('parseUpsertRecipeInput reads confirmLanguageChange, defaulting to false', 
   assert.equal(parseUpsertRecipeInput(confirmed)?.confirmLanguageChange, true);
 });
 
-test('parseUpsertRecipeInput rejects invalid lifecycle, overlong lines, and heading without a note body', () => {
+test('parseUpsertRecipeInput rejects invalid lifecycle and overlong lines', () => {
   // Note: pre-existing behavior (unrelated to this change) -- 'archived' IS
   // a valid status value accepted here, only a status outside
   // draft/published/archived is rejected.
@@ -57,8 +57,30 @@ test('parseUpsertRecipeInput rejects invalid lifecycle, overlong lines, and head
   assert.equal(parseUpsertRecipeInput(invalidStatus), null);
   const longIngredient = validForm(); longIngredient.set('ingredients', 'x'.repeat(501));
   assert.equal(parseUpsertRecipeInput(longIngredient), null);
+});
+
+test('parseUpsertRecipeInput accepts a note title with no note body -- both are independently optional (Founder QA, 2026-08-23: the form labels noteTitle "(optional)" but this used to silently reject the whole save with a generic "Invalid input" whenever noteTitle was set without noteBody)', () => {
   const headingOnly = validForm(); headingOnly.set('noteBody', '');
-  assert.equal(parseUpsertRecipeInput(headingOnly), null);
+  const result = parseUpsertRecipeInput(headingOnly);
+  assert.notEqual(result, null);
+  assert.equal(result?.noteTitle, '提供時');
+  assert.equal(result?.noteBody, null);
+});
+
+test('parseUpsertRecipeInput accepts a title-only recipe -- title is the only required field', () => {
+  const form = new FormData();
+  form.set('contentKind', 'recipe');
+  form.set('originalLanguage', 'ja');
+  form.set('title', 'テスト');
+  form.set('status', 'draft');
+  const result = parseUpsertRecipeInput(form);
+  assert.notEqual(result, null);
+  assert.equal(result?.title, 'テスト');
+  assert.deepEqual(result?.ingredients, []);
+  assert.deepEqual(result?.steps, []);
+  assert.equal(result?.description, null);
+  assert.equal(result?.noteTitle, null);
+  assert.equal(result?.noteBody, null);
 });
 
 test('parseUpsertRecipeInput never trusts a client-supplied media path', () => {

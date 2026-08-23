@@ -51,6 +51,14 @@ export interface InventoryDashboardClientProps {
    * behavior is completely unchanged.
    */
   embedded?: boolean;
+  /**
+   * Which filter tab to start on. Defaults to 'all'. Used by the Manager
+   * dashboard's "Needs attention" panel: clicking its "Inventory shortage"
+   * item used to always open this popup on "All", forcing the manager to
+   * click "Need reorder" themselves every time -- passing 'shortage' here
+   * opens straight on the tab that answers what they clicked for.
+   */
+  initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
 }
 
 type T = (key: Parameters<typeof tInventoryDashboard>[1]) => string;
@@ -376,6 +384,7 @@ export function InventoryDashboardBody({
   canManage,
   staffNameById,
   embedded = false,
+  initialStatusFilter = 'all',
 }: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
@@ -384,7 +393,7 @@ export function InventoryDashboardBody({
   // section pushing the list down -- matches the Recipes module and the
   // Founder's explicit "should be a popup, not expand at the top" direction.
   const [editing, setEditing] = useState<'new' | InventoryItemStatus | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortage' | 'ok' | 'inactive'>(initialStatusFilter);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [search, setSearch] = useState('');
   const editTriggerRef = useRef<HTMLElement | null>(null);
@@ -406,13 +415,22 @@ export function InventoryDashboardBody({
   const activeItems = items.filter((i) => i.isActive);
   const shortageCount = activeItems.filter((i) => i.status === 'shortage').length;
   const okCount = activeItems.filter((i) => i.status !== 'shortage').length;
+  const inactiveCount = items.length - activeItems.length;
   const normalizedSearch = search.trim().toLowerCase();
   const searchFiltered = items.filter((item) => normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch));
   const visibleItems = searchFiltered
-    .filter(
-      (item) =>
-        statusFilter === 'all' || (statusFilter === 'shortage' ? item.isActive && item.status === 'shortage' : item.isActive && item.status !== 'shortage'),
-    )
+    .filter((item) => {
+      switch (statusFilter) {
+        case 'shortage':
+          return item.isActive && item.status === 'shortage';
+        case 'ok':
+          return item.isActive && item.status !== 'shortage';
+        case 'inactive':
+          return !item.isActive;
+        default:
+          return true;
+      }
+    })
     .slice()
     .sort((a, b) => {
       if (sortKey === 'shortage') {
@@ -464,19 +482,23 @@ export function InventoryDashboardBody({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: embedded ? 0 : 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(['all', 'shortage', 'ok'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={statusFilter === value}
-              className={hoverStyles.buttonSecondary}
-              style={statusFilter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary}
-              onClick={() => setStatusFilter(value)}
-            >
-              {value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : t('filterOk')}{' '}
-              ({value === 'all' ? items.length : value === 'shortage' ? shortageCount : okCount})
-            </button>
-          ))}
+          {(['all', 'shortage', 'ok', 'inactive'] as const).map((value) => {
+            const label =
+              value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : value === 'ok' ? t('filterOk') : t('filterInactive');
+            const count = value === 'all' ? items.length : value === 'shortage' ? shortageCount : value === 'ok' ? okCount : inactiveCount;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={statusFilter === value}
+                className={hoverStyles.buttonSecondary}
+                style={statusFilter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary}
+                onClick={() => setStatusFilter(value)}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
         </div>
         {canManage ? (
           <button type="button" className={hoverStyles.buttonPrimary} style={buttonPrimary} onClick={() => openEditor('new')}>

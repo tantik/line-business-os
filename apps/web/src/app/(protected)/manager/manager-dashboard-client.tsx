@@ -295,6 +295,12 @@ function ManagerDashboardBody({
   // handles returning focus here on every close path.
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
+  // Which Inventory tab the popup should open on -- 'all' from every normal
+  // entry point, 'shortage' ("Need reorder") when opened from the Needs
+  // attention panel's "Inventory shortage" item, so the manager lands
+  // directly on the tab that answers what they clicked, instead of always
+  // opening on "All" and requiring an extra manual click.
+  const [inventoryPopupInitialFilter, setInventoryPopupInitialFilter] = useState<'all' | 'shortage'>('all');
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   // WP-11: Correction/Exchange requests moved from always-visible sections into popups, triggered from AttentionPanel's cards.
   const [correctionsPopupOpen, setCorrectionsPopupOpen] = useState(false);
@@ -871,6 +877,7 @@ function ManagerDashboardBody({
                   label: t('navInventory'),
                   onClick: () => {
                     markPopupTriggerClick('inventory');
+                    setInventoryPopupInitialFilter('all');
                     setInventoryPopupOpen(true);
                   },
                 },
@@ -906,6 +913,7 @@ function ManagerDashboardBody({
         }}
         onOpenInventory={() => {
           markPopupTriggerClick('inventory');
+          setInventoryPopupInitialFilter('shortage');
           setInventoryPopupOpen(true);
         }}
         onViewShift={handleViewShift}
@@ -951,6 +959,7 @@ function ManagerDashboardBody({
       <InventoryPopup
         open={inventoryPopupOpen}
         onClose={() => setInventoryPopupOpen(false)}
+        initialStatusFilter={inventoryPopupInitialFilter}
         tenantName={tenantName}
         locationName={locationName}
         locationId={locationId}
@@ -1247,6 +1256,7 @@ function ManagerDashboardBody({
         settings={scheduleSettings}
         shiftTypes={shiftTypes}
         onShiftTypesChanged={() => router.refresh()}
+        onRequirementsChanged={() => router.refresh()}
         shiftRequestsSummary={shiftRequestsSummary}
         onOpenShiftRequests={() => setShiftRequestsPopupOpen(true)}
         lang={lang}

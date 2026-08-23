@@ -41,7 +41,12 @@ export function parseUpsertRecipeInput(formData: FormData): UpsertRecipeInput | 
   const description = parseOptionalTrimmedString(formData.get('description'), 1000);
   const noteTitle = parseOptionalTrimmedString(formData.get('noteTitle'), 160);
   const noteBody = parseOptionalTrimmedString(formData.get('noteBody'), 4000);
-  if (!description.ok || !noteTitle.ok || !noteBody.ok || (noteTitle.value && !noteBody.value)) return null;
+  // Note title and note body are each independently optional (form labels
+  // both "(optional)") -- previously a note title without a body silently
+  // rejected the whole form with a generic "Invalid input" error, even
+  // though the RPC itself (0058) already tolerates a title-only note by
+  // just skipping the note insert when the body is empty.
+  if (!description.ok || !noteTitle.ok || !noteBody.ok) return null;
   const ingredients = lines(formData.get('ingredients'), 100, 500);
   const steps = lines(formData.get('steps'), 100, 2000);
   if (!ingredients || !steps) return null;

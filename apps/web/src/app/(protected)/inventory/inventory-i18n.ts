@@ -56,6 +56,7 @@ interface InventoryDashboardDict {
   filterAll: string;
   filterShortage: string;
   filterOk: string;
+  filterInactive: string;
   searchLabel: string;
   searchPlaceholder: string;
   noItemsMatchFilter: string;
@@ -132,6 +133,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     filterAll: 'All',
     filterShortage: 'Need reorder',
     filterOk: 'OK',
+    filterInactive: 'Deactivated',
     searchLabel: 'Search',
     searchPlaceholder: 'Search items…',
     noItemsMatchFilter: 'No items match this filter.',
@@ -205,6 +207,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     filterAll: 'すべて',
     filterShortage: '要補充',
     filterOk: 'OK',
+    filterInactive: '無効化済み',
     searchLabel: '検索',
     searchPlaceholder: '商品を検索…',
     noItemsMatchFilter: '該当する商品がありません。',
