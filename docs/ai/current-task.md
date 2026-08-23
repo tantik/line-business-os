@@ -257,19 +257,30 @@ duplicated here.
 ## 5. Exact next gate
 
 **2026-08-23 pointer (newest — read this one first).** Manager Final
-Completion mission (Shift Preferences UI + full Manager QA) is in
-progress. **Phase A (Shift Preferences popup UX polish) is DONE, merged
-(PR #384, `dev` commit `db17927`), and live-verified on
-`preview.oruwa.jp/manager`** (header/day-format, colors, i18n JA/EN,
-mobile — all confirmed via chrome-devtools MCP, not just code review).
-**Phase B (full Manager CRUD/workflow QA across Shift Types, Weekly
-Schedule, Staff, Recipes, Inventory, Attendance, Shift Exchange, Needs
-Attention, cross-module reactivity, performance) has NOT started.** Full
-state, exact scope, and a bootstrap prompt are in
-`docs/ai/CAFE_MANAGER_FINAL_COMPLETION_HANDOFF_2026-08-23.md` — read that
-file first if continuing Manager completion work. Do not start Staff
-Completion QA or Manager↔Staff e2e QA yet; those are separate later
-missions per the Founder's own sequencing.
+Completion Phase B (full Manager CRUD/workflow QA) is **IN PROGRESS,
+`MANAGER_PHASE_B = PARTIAL`, not done**. This checkpoint session fixed and
+live-verified the P0 Shift Preference `CUSTOM_*` leak (PR #386), the Shift
+Types >6 scroll UX + row visual hierarchy + button reveal micro-interaction
+(PRs #387-388), full live CRUD on Weekly Schedule with cross-module
+reactivity, fresh week-navigation performance measurements (already fast,
+no fix needed), and spot-checks of Staff/Recipes/Inventory/Needs Attention.
+Remaining: Attendance reject path, Shift Exchange decision, remaining
+cross-module cases, visual consistency audit, full mobile+JA/EN pass across
+all modules, loading/error UX, adversarial review, and the Final Manager
+Acceptance Matrix. Full state and exact next steps are in
+`docs/ai/CAFE_MANAGER_FINAL_COMPLETION_PHASE_B_HANDOFF_2026-08-23.md` —
+read that file first (it supersedes the Phase-A-only handoff below for
+"what's next").
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Manager Final Completion mission (Shift Preferences UI + full Manager QA).
+**Phase A (Shift Preferences popup UX polish) is DONE, merged (PR #384,
+`dev` commit `db17927`), and live-verified on `preview.oruwa.jp/manager`**
+(header/day-format, colors, i18n JA/EN, mobile — all confirmed via
+chrome-devtools MCP, not just code review). Full original Phase A state is
+in `docs/ai/CAFE_MANAGER_FINAL_COMPLETION_HANDOFF_2026-08-23.md`. Do not
+start Staff Completion QA or Manager↔Staff e2e QA yet; those are separate
+later missions per the Founder's own sequencing.
 
 **2026-08-23 pointer (older, still current — read after the one above).**
 Founder-revised priority order (superseded only in its "next" pointer by
