@@ -435,8 +435,13 @@ function ManagerDashboardBody({
   // -- not a new business rule, just read here too. `null` (not 0) when the
   // module is disabled or the read failed, so the Attention layer omits the
   // line entirely instead of falsely claiming "0 items need restocking".
+  // `inventoryItems` now includes deactivated items too (`includeInactive:
+  // true`, so the Inventory popup's "Deactivated" tab has something to show)
+  // -- `i.isActive` here keeps a deactivated-but-understocked item out of
+  // this count and the queue below it, same as the Inventory popup's own
+  // Need-reorder/OK tabs already require.
   const inventoryShortageCount = useMemo(
-    () => (inventoryEnabled && inventoryItems ? inventoryItems.filter((i) => i.status === 'shortage').length : null),
+    () => (inventoryEnabled && inventoryItems ? inventoryItems.filter((i) => i.isActive && i.status === 'shortage').length : null),
     [inventoryEnabled, inventoryItems],
   );
 
@@ -612,7 +617,7 @@ function ManagerDashboardBody({
         inventoryShortageItems:
           inventoryEnabled && inventoryItems
             ? inventoryItems
-                .filter((i) => i.status === 'shortage')
+                .filter((i) => i.isActive && i.status === 'shortage')
                 .map((i) => ({ itemId: i.itemId, name: i.name, actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
             : [],
       }),
