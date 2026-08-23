@@ -63,3 +63,43 @@ export function getWeekOffsetWindow(
     periodEnd: getWeekPeriod(nowIso, timeZone, maxWeekOffset).periodEnd,
   };
 }
+
+/** Last calendar day of a `'YYYY-MM'` month prefix, e.g. `'2026-08'` -> 31. */
+function lastDayOfMonth(monthPrefix: string): number {
+  const year = Number(monthPrefix.slice(0, 4));
+  const month = Number(monthPrefix.slice(5, 7));
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * Returns the calendar-month period containing `nowIso`, resolved in
+ * `timeZone` -- the Shift-requests review popup's outer scope (Founder:
+ * "только за 1 месяц, тут истории нет"). No `monthOffset` param: v2.1 has no
+ * month navigation, only the current month.
+ */
+export function getMonthPeriod(nowIso: string, timeZone: string): { periodStart: string; periodEnd: string; monthPrefix: string } {
+  const today = utcIsoToLocalDateTime(nowIso, timeZone).workDate;
+  const monthPrefix = today.slice(0, 7);
+  return {
+    periodStart: `${monthPrefix}-01`,
+    periodEnd: `${monthPrefix}-${String(lastDayOfMonth(monthPrefix)).padStart(2, '0')}`,
+    monthPrefix,
+  };
+}
+
+/**
+ * Ordered Monday-Sunday weeks intersecting a `'YYYY-MM'` month, used to clamp
+ * the Shift-requests review popup's week pager so `‹`/`›` can never leave the
+ * current month.
+ */
+export function getWeeksInMonth(monthPrefix: string): { weekStart: string; weekEnd: string }[] {
+  const periodStart = `${monthPrefix}-01`;
+  const periodEnd = `${monthPrefix}-${String(lastDayOfMonth(monthPrefix)).padStart(2, '0')}`;
+  const weeks: { weekStart: string; weekEnd: string }[] = [];
+  let cursor = mondayOf(periodStart);
+  while (cursor <= periodEnd) {
+    weeks.push({ weekStart: cursor, weekEnd: addIsoDays(cursor, 6) });
+    cursor = addIsoDays(cursor, 7);
+  }
+  return weeks;
+}

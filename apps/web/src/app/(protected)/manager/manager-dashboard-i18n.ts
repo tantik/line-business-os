@@ -238,6 +238,26 @@ interface ManagerDashboardDict {
   colDate: string;
   colPreference: string;
   unavailableValue: string;
+  // Shift requests review popup (v2.1 UI-only -- Settings entry point;
+  // "Approve"/"Remove approval" toggle local component state, no
+  // `workforce.shift_requests.status` write yet, see project memory /
+  // plan file for the v2.2 follow-up that wires real persistence).
+  shiftRequestsCardTitle: string;
+  viewRequestsButton: string;
+  shiftRequestsPopupHelpAriaLabel: string;
+  shiftRequestsPopupHelpTitle: string;
+  shiftRequestsPopupHelpBody: string;
+  submittedPreferencesEmpty: string;
+  approvePreferenceTitle: string;
+  priorityExplainerBody: string;
+  approvedPreferenceTitle: string;
+  approvedPreferenceBody: string;
+  removeApprovalButton: string;
+  close: string;
+  sendReminderTitle: string;
+  sendReminderBody: string;
+  copyReminderButton: string;
+  reminderCopiedNotice: string;
   // Correction requests
   correctionsHeading: string;
   correctionsUnavailable: string;
@@ -499,6 +519,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colDate: 'Date',
     colPreference: 'Preference',
     unavailableValue: 'Unavailable',
+    shiftRequestsCardTitle: 'Shift requests',
+    viewRequestsButton: 'View requests',
+    shiftRequestsPopupHelpAriaLabel: 'About shift requests',
+    shiftRequestsPopupHelpTitle: 'About shift requests',
+    shiftRequestsPopupHelpBody:
+      'Shows which active staff have submitted shift preferences for this month, and which haven\'t. Use the week arrows to browse the month\'s weeks. Clicking an employee\'s name here (in red) opens a reminder you can copy and send yourself -- this doesn\'t send anything automatically yet. Clicking a submitted preference lets you mark it "Approved" so you remember to prioritize it -- this is a visual note for now and doesn\'t change the schedule yet.',
+    submittedPreferencesEmpty: 'No active staff to show.',
+    approvePreferenceTitle: 'Approve preference',
+    priorityExplainerBody:
+      'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. An approved preference (like this one)\n3. An unapproved employee preference\n4. Automatic fallback assignment',
+    approvedPreferenceTitle: 'Approved preference',
+    approvedPreferenceBody: 'This preference is marked as a priority for scheduling.',
+    removeApprovalButton: 'Remove approval',
+    close: 'Close',
+    sendReminderTitle: 'Remind employee',
+    sendReminderBody: 'This employee hasn\'t submitted shift preferences yet. Copy this message and send it yourself for now.',
+    copyReminderButton: 'Copy',
+    reminderCopiedNotice: 'Copied',
     correctionsHeading: 'Correction requests',
     correctionsUnavailable: 'Correction requests are temporarily unavailable.',
     needsActionEyebrow: 'Needs action',
@@ -750,6 +788,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     colDate: '日付',
     colPreference: '希望',
     unavailableValue: '休み希望',
+    shiftRequestsCardTitle: 'シフト希望',
+    viewRequestsButton: '希望を見る',
+    shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
+    shiftRequestsPopupHelpTitle: 'シフト希望について',
+    shiftRequestsPopupHelpBody:
+      '今月シフト希望を提出した有効なスタッフと、まだ提出していないスタッフを表示します。週の矢印でその月の各週を切り替えられます。赤色の名前をクリックすると、自分でコピーして送れるリマインダーが表示されます -- まだ自動送信はされません。提出済みの希望をクリックすると「承認済み」として記録できます -- 現時点では表示上のメモのみで、まだスケジュールには反映されません。',
+    submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
+    approvePreferenceTitle: '希望を承認',
+    priorityExplainerBody:
+      'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. 承認済みの希望（これ）\n3. 未承認のスタッフ希望\n4. 自動割り当て',
+    approvedPreferenceTitle: '承認済みの希望',
+    approvedPreferenceBody: 'この希望はスケジュール作成時に優先するものとして記録されています。',
+    removeApprovalButton: '承認を取り消す',
+    close: '閉じる',
+    sendReminderTitle: 'スタッフに知らせる',
+    sendReminderBody: 'このスタッフはまだシフト希望を提出していません。このメッセージをコピーして、ご自身で送ってください。',
+    copyReminderButton: 'コピー',
+    reminderCopiedNotice: 'コピーしました',
     correctionsHeading: '修正依頼',
     correctionsUnavailable: '修正依頼は一時的に利用できません。',
     needsActionEyebrow: '対応が必要',
@@ -831,6 +887,30 @@ export const scheduleHeadingValue: Record<Lang, (periodStart: string, periodEnd:
 export const preferencesHeadingValue: Record<Lang, (periodStart: string, periodEnd: string) => string> = {
   en: (periodStart, periodEnd) => `Submitted shift preferences (${periodStart} - ${periodEnd})`,
   ja: (periodStart, periodEnd) => `提出されたシフト希望 (${periodStart} - ${periodEnd})`,
+};
+
+/** "Shift preferences — {month}" heading for the Shift-requests review popup (v2.1 UI-only). */
+export const shiftRequestsHeadingValue: Record<Lang, (monthLabel: string) => string> = {
+  en: (monthLabel) => `Shift preferences — ${monthLabel}`,
+  ja: (monthLabel) => `シフト希望 — ${monthLabel}`,
+};
+
+/** Compact "{submitted}/{total} submitted, {missing} missing" summary, shown on both the Settings card and the review popup's footer. */
+export const shiftRequestsSummaryLabel: Record<Lang, (submittedCount: number, totalCount: number, missingCount: number) => string> = {
+  en: (submittedCount, totalCount, missingCount) => `${submittedCount}/${totalCount} submitted, ${missingCount} missing`,
+  ja: (submittedCount, totalCount, missingCount) => `${submittedCount}/${totalCount}名提出済み、未提出${missingCount}名`,
+};
+
+/** "{weekStart}–{weekEnd}" range shown under the review popup's month heading, next to its week pager. */
+export const weekRangeLabel: Record<Lang, (weekStart: string, weekEnd: string) => string> = {
+  en: (weekStart, weekEnd) => `${weekStart} – ${weekEnd}`,
+  ja: (weekStart, weekEnd) => `${weekStart} 〜 ${weekEnd}`,
+};
+
+/** Pre-filled copy-to-clipboard reminder text (v2.1 stub -- no real send). */
+export const reminderMessageTemplate: Record<Lang, (staffName: string, monthLabel: string) => string> = {
+  en: (staffName, monthLabel) => `Hi ${staffName}, please submit your shift preferences for ${monthLabel} when you get a chance. Thank you!`,
+  ja: (staffName, monthLabel) => `${staffName}さん、${monthLabel}のシフト希望をまだ提出いただいていないようです。お手すきの際にご提出をお願いします。`,
 };
 
 export const breakMinutesValue: Record<Lang, (minutes: number) => string> = {
