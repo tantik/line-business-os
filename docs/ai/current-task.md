@@ -256,8 +256,21 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-23 pointer, latest first (read before treating anything else in
-this section as current):** the same Founder-directed **Weekly Schedule
+**2026-08-23 pointer (newest — read this one first):** a separate,
+Founder-directed feature thread built the **Shift requests review popup**
+(Settings-launched, month-scoped, week-paginated view of staff shift-
+preference submissions) as **v2.1 UI ONLY** — no backend persistence, no
+`auto-distribute.ts` priority logic, no real notification delivery; all of
+that is explicit v2.2 scope per the Founder's full roadmap. **Not yet
+merged** — open as PR #377 against `dev`
+(`feat/shift-requests-review-popup-v21-ui`), blocked only on live browser QA
+(no manager login credentials were available in-session). Full state, file
+list, and what is/isn't authorized to start next are in
+`docs/ai/CAFE_MANAGER_SHIFT_REQUESTS_REVIEW_POPUP_V21_HANDOFF_2026-08-23.md`
+-- read that file first if anything about this popup, Settings, or the
+Cafe v2.1→v2.2 roadmap comes up.
+
+**2026-08-23 pointer (older, still useful context):** the same Founder-directed **Weekly Schedule
 Founder Review** thread continued into a **Round 3** (8 PRs, #368-#375, all
 merged to `dev`) — visual/UX fixes, Automatic-schedule cleanup, a
 week-navigation performance fix, and several fast Founder-driven polish
