@@ -208,8 +208,13 @@ export default async function WorkforceManagerPage({
         // duplicated here; it stays on its own canonical `/dashboard/inventory`
         // page (shared Staff+Manager, RLS-scoped), which the Attention item
         // links to. Mirrors the identical fetch already on the Staff page.
+        // `includeInactive: true` -- this is the Manager's own catalog view
+        // (the Inventory popup's "Deactivated" tab), which needs to be able
+        // to find and reactivate a deactivated item, not just the daily
+        // count view the Staff page's identical fetch stays scoped to
+        // (`includeInactive` defaults false there, correctly).
         inventoryEnabled
-          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
+          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
           : Promise.resolve(null),
         // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
         // `/recipes/page.tsx` itself makes; recipe detail (ingredients/
