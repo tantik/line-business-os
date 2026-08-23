@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
-import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
+import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
@@ -427,7 +427,13 @@ function StaffDashboardBody({
               {selectedAssignment ? (
                 <div style={{ display: 'grid', gap: 0, marginBottom: canRequestExchange ? 12 : 0 }}>
                   {[
-                    [t('shiftLabel'), shiftTypeById.get(selectedAssignment.shiftTypeId ?? '')?.code ?? 'Custom'],
+                    [
+                      t('shiftLabel'),
+                      (() => {
+                        const st = shiftTypeById.get(selectedAssignment.shiftTypeId ?? '');
+                        return st ? shiftTypeDisplayLabel(st) : 'Custom';
+                      })(),
+                    ],
                     [t('timeLabel'), `${utcIsoToLocalDateTime(selectedAssignment.startsAt, timeZone).localTime} - ${utcIsoToLocalDateTime(selectedAssignment.endsAt, timeZone).localTime}`],
                   ].map(([label, value]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${colors.border}` }}>
@@ -530,7 +536,10 @@ function StaffDashboardBody({
                       t('preferenceUnavailableValue')
                     ) : (
                       <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
-                        {shiftTypeById.get(r.shiftTypeId ?? '')?.code ?? '-'}
+                        {(() => {
+                          const st = shiftTypeById.get(r.shiftTypeId ?? '');
+                          return st ? shiftTypeDisplayLabel(st) : '-';
+                        })()}
                       </span>
                     )}
                   </td>
