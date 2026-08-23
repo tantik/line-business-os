@@ -30,7 +30,8 @@
       "Bash(git push origin main*)",
       "Bash(git reset --hard*)",
       "Bash(rm -rf*)",
-      "Bash(Remove-Item -Recurse -Force*)"
+      "Bash(Remove-Item -Recurse -Force*)",
+      "Bash(gh pr merge*)"
     ],
     "ask": [
       "Bash(supabase db reset*)",
@@ -39,6 +40,9 @@
       "Bash(pnpm db:seed*)",
       "Bash(git push*)",
       "Edit(supabase/migrations/**)"
+    ],
+    "allow": [
+      "Bash(bash scripts/ai-dev-merge.sh*)"
     ]
   },
   "hooks": {

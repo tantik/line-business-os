@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.3.0 |
+| Version | 1.4.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-08-23 (v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
+| Last Updated | 2026-08-23 (v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -306,7 +306,9 @@ This authority is bounded to that mission and its feature branch only. It
 does **not** extend to any of the following, which remain a human gate in
 every case, regardless of mission authorization:
 
-- merge;
+- merge into `main`, or into any branch other than `dev` (merge into `dev`
+  is instead governed by the **DEV MERGE** tier immediately below, not by
+  this list);
 - production deployment;
 - direct changes or pushes to `main`;
 - force-push or history rewrite;
@@ -319,6 +321,70 @@ every case, regardless of mission authorization:
 - destructive data operations;
 - any other high-risk boundary imposed by Foundation, an ADR, or
   `docs/security/security-requirements.md`.
+
+### Authority tiers
+
+Founder decision, 2026-08-23 — canonical; reference this section, do not
+restate it elsewhere:
+
+| Tier | Meaning | Examples |
+|---|---|---|
+| **GREEN** | Routine development, autonomous by default. | Read, local edit, local test run, `git status`/`diff`/`log`, commit, push a feature branch, open/update a PR. |
+| **YELLOW** | Development actions that require review before proceeding, but not a Founder approval boundary by themselves. | Self-review/QA (§4), Independent Reviewer per §12's risk-tier policy, resolving review findings. |
+| **DEV MERGE** | AI CTO (Lead Agent) may merge autonomously, but only once every gate below has actually passed — not merely "probably fine." | A reviewed, green-CI PR merging into `dev`. See below. |
+| **RED** | Founder-controlled. No mission authorization, review pass, or CI green state grants this autonomously, ever. | `main` merge, production deploy/DB migration, destructive prod SQL/data changes, secrets/credential changes, billing/payment operations, real customer LINE broadcast, security-boundary changes, force-push/history rewrite. |
+
+### DEV MERGE — autonomous merge into `dev`
+
+The Lead Agent may merge a Pull Request into `dev` on its own authority,
+without a separate Founder confirmation for that merge, when **all** of the
+following hold:
+
+1. PR base branch is exactly `dev` (never `main`, never anything else).
+2. PR is not a Draft.
+3. Required CI checks all report PASS (none failing, none pending).
+4. Implementation is actually complete against the mission's Definition of
+   Done — not merely "looks done."
+5. The Lead Agent's own self-review/QA (§4) is PASS.
+6. Independent Reviewer is PASS, where §12's mission-risk-tier policy makes
+   it mandatory (or the Lead Agent chose to invoke it at its own discretion
+   on a Low-risk mission).
+7. No unresolved blocking review finding remains open.
+8. The merge itself requires no force operation and has no conflicts
+   (`mergeable: MERGEABLE`).
+9. The PR does not touch a RED-operation path (`supabase/migrations/**`,
+   `.env*`, `*.pem`/`*.key`, `backups/**`, or any other secret/credential
+   path) — if it does, the code may still be reviewed and merged if the
+   diff itself is safe and policy allows, but that determination and the
+   merge both require Founder approval; the corresponding RED *execution*
+   (e.g. actually applying a migration to Supabase Cloud) is never
+   authorized by a `dev` merge regardless.
+10. The working repository state and the PR's scope are actually understood
+    (Repository Recovery, §4) — not inferred from a stale handoff.
+
+Conditions 1–3 and 8–9 are mechanically enforced by
+[`scripts/ai-dev-merge.sh`](../../scripts/ai-dev-merge.sh), which the Lead
+Agent must invoke to perform the merge — it re-reads the PR's actual base
+branch, draft/open/mergeable state, CI check buckets, and changed-file list
+from GitHub itself before ever calling `gh pr merge`, and refuses (exit
+non-zero, no merge) if any of them fail. `.claude/settings.json` denies the
+raw `Bash(gh pr merge*)` command outright and allows only
+`Bash(bash scripts/ai-dev-merge.sh*)` — the Lead Agent cannot bypass the
+script by invoking `gh pr merge` directly, on `dev` or any other base.
+Conditions 4–7 and 10 are judgment gates the script cannot see from PR
+metadata; the Lead Agent confirms them itself, honestly, before invoking the
+script — treating "the script would probably pass" as equivalent to having
+actually checked is exactly the failure mode this tier exists to prevent.
+
+After an autonomous DEV MERGE, the Lead Agent gives the Founder a short
+Russian report (per `AGENTS.md` "Founder communication language"): what
+merged, the commit, which gates were checked and how, and CI result. This is
+notification, not a request for retroactive approval — the merge has
+already happened.
+
+This tier grants nothing beyond `dev`. Merge into `main`, any production
+action, and every other RED item above remain an unconditional Founder
+approval boundary, exactly as before this decision.
 
 A High-risk mission (§17) is **not** automatically included in this grant —
 it keeps the stronger human gates §17 already requires unless the mission
@@ -343,12 +409,17 @@ needs approval, it does.
 
 **Machine-enforced layer**: `.claude/settings.json` hard-blocks
 `supabase link/db push/db pull/migration repair`, `vercel --prod`,
-`git push --force*`, `git push origin main*`, and `rm -rf*`, and requires
-confirmation for `supabase db reset`, `pnpm db:seed`, `git push*`, and edits
-to `supabase/migrations/**`. This is the only layer in the repository where
-the boundary is enforced by tooling rather than only stated in prose — treat
-a permission prompt from it as the boundary firing correctly, not an
-obstacle to route around.
+`git push --force*`, `git push origin main*`, `git reset --hard*`,
+`rm -rf*`, and the raw `gh pr merge*` command, and requires confirmation for
+`supabase db reset`, `pnpm db:seed`, `git push*`, and edits to
+`supabase/migrations/**`. It explicitly allows only
+`Bash(bash scripts/ai-dev-merge.sh*)` for merges — the DEV MERGE tier's
+guardrail script (see above), which re-verifies base=`dev` and the other
+mechanical gates itself before merging and structurally cannot target
+`main`. This is the only layer in the repository where the boundary is
+enforced by tooling rather than only stated in prose — treat a permission
+prompt from it, or a BLOCK from the guardrail script, as the boundary firing
+correctly, not an obstacle to route around.
 
 ## 10. Git / PR / CI / Preview workflow
 
@@ -371,8 +442,9 @@ Repository Recovery (confirm branch/HEAD/working tree/remote/PR state)
   insufficient for that — oaes-project-profile.md "Project verification
   routing")
 → evidence
-→ approval boundary (§9)
-→ merge (human approval)
+→ approval boundary (§9) → DEV MERGE gate check (§9) → merge into `dev`
+  (Lead Agent autonomous once every DEV MERGE condition is confirmed PASS —
+  `main`/production merge stays a human gate, no exception)
 → post-merge Preview smoke
 → mission closure
 ```
@@ -380,14 +452,15 @@ Repository Recovery (confirm branch/HEAD/working tree/remote/PR state)
 For a Standard mission (§17) that explicitly authorizes the normal delivery
 lifecycle (§9), the steps from `feature branch` through `evidence`/`Preview`
 above are autonomous — the Lead Agent does not stop to request approval
-between them.
-`merge` and everything from `approval boundary` onward in the diagram remain
-a human gate in every case, with no exception. The machine-enforced
-confirmation on `git push*` and on edits under `supabase/migrations/**` in
-`.claude/settings.json` is unchanged and unweakened by this section — it
-still fires on every matching command regardless of mission authorization;
-satisfying that tool-level prompt is the mechanism by which an authorized
-push executes, not a separate Founder-approval request under this policy.
+between them. Merge into `dev` is likewise autonomous once §9's DEV MERGE
+conditions are confirmed PASS (Founder decision, 2026-08-23); merge into
+`main`, and everything from `approval boundary` onward that is not the
+`dev`-merge step itself, remain a human gate in every case, with no
+exception. The machine-enforced confirmation on `git push*`, the hard block
+on raw `gh pr merge*`, and the block on edits under `supabase/migrations/**`
+in `.claude/settings.json` are unchanged and unweakened by this section — a
+permission prompt or a guardrail-script BLOCK is the boundary working
+correctly, not an obstacle to route around.
 
 ## 11. QA model
 
