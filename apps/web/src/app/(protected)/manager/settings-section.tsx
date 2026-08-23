@@ -250,9 +250,12 @@ export function SettingsSection({
               }
               return (
                 <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated }}>
-                  <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>
-                    {label} ({st.startsAtLocal}-{st.endsAtLocal})
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                    <span style={shiftChipStyle(shiftChipColors(st.shiftTypeId, activeShiftTypeIds))}>{label}</span>
+                    <span style={{ ...mutedText, fontSize: 13, whiteSpace: 'nowrap' }}>
+                      {st.startsAtLocal}-{st.endsAtLocal}
+                    </span>
+                  </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       type="button"
@@ -429,7 +432,12 @@ export function SettingsSection({
               </span>
             </span>
           ) : null}
-          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onOpenShiftRequests}>
+          <button
+            type="button"
+            className={`${hoverStyles.buttonSecondary} ${hoverStyles.actionReveal}`}
+            style={buttonSecondary}
+            onClick={onOpenShiftRequests}
+          >
             {t('viewRequestsButton')}
           </button>
         </div>
