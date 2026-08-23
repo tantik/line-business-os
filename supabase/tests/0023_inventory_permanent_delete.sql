@@ -94,6 +94,17 @@ insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quan
   ('9c000000-0000-0000-0000-00000000000c', '9c200000-0000-0000-0000-000000000001',
    '9c100000-0000-0000-0000-000000000002', 3, '9c900000-0000-0000-0000-000000000002');
 
+-- Second FK-bound reference to the same item (0045), so the 0082 delete path
+-- is exercised against both tables that point at inventory.items, not just
+-- stock_counts -- a real (non-cascading) FK here would otherwise turn a
+-- permanent-delete attempt into an unhandled constraint-violation error.
+insert into inventory.check_sessions (id, tenant_id, location_id, business_date, check_type, started_by) values
+  ('9c300000-0000-0000-0000-000000000001', '9c000000-0000-0000-0000-00000000000c',
+   '9c200000-0000-0000-0000-000000000001', current_date, 'opening', '9c900000-0000-0000-0000-000000000002');
+insert into inventory.check_session_items (tenant_id, location_id, session_id, item_id, item_name, unit, required_quantity) values
+  ('9c000000-0000-0000-0000-00000000000c', '9c200000-0000-0000-0000-000000000001',
+   '9c300000-0000-0000-0000-000000000001', '9c100000-0000-0000-0000-000000000002', 'Item with history', 'kg', 5);
+
 -- Staff (item.manage absent) cannot permanently delete -- refused (zero rows), item still exists.
 select is(
   (select deleted from pg_temp.as_auth_permadelete('9c900000-0000-0000-0000-000000000001',
@@ -123,21 +134,30 @@ select ok(
   'item still exists after a cross-location permanent-delete attempt'
 );
 
--- Manager at Location A is refused for the item WITH stock-count history.
+-- 0082 (Founder decision, 2026-08-23): manager at Location A CAN permanently
+-- delete an item WITH stock-count history too -- the history goes with it.
 select results_eq(
   $$ select deleted, blocked_by_history from pg_temp.as_auth_permadelete('9c900000-0000-0000-0000-000000000002',
        '9c000000-0000-0000-0000-00000000000c', '9c100000-0000-0000-0000-000000000002') $$,
-  $$ values (false, true) $$,
-  'manager is refused permanent delete of an item with stock-count history, and told why'
+  $$ values (true, false) $$,
+  'manager permanently deletes an item WITH stock-count history (0082 -- no longer refused)'
 );
 reset role;
 select ok(
-  exists(select 1 from inventory.items where id = '9c100000-0000-0000-0000-000000000002'),
-  'item with history still exists -- refusal never cascades or removes it'
+  not exists(select 1 from inventory.items where id = '9c100000-0000-0000-0000-000000000002'),
+  'the item with history is actually gone'
 );
 select ok(
-  exists(select 1 from inventory.stock_counts where item_id = '9c100000-0000-0000-0000-000000000002'),
-  'stock-count history for that item is untouched'
+  not exists(select 1 from inventory.stock_counts where item_id = '9c100000-0000-0000-0000-000000000002'),
+  'its stock-count history is gone too -- deleted along with the item, not orphaned'
+);
+select ok(
+  not exists(select 1 from inventory.check_session_items where item_id = '9c100000-0000-0000-0000-000000000002'),
+  'its check_session_items reference is gone too -- the other FK-bound table pointing at inventory.items'
+);
+select ok(
+  exists(select 1 from inventory.check_sessions where id = '9c300000-0000-0000-0000-000000000001'),
+  'the check_sessions row itself is untouched (only the item-scoped snapshot row was cleaned up)'
 );
 
 -- Manager at Location A can permanently delete the item with zero history.
