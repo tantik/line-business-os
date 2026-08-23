@@ -119,7 +119,7 @@ export function CorrectionRequestsPopup({
                   </div>
                   <div>
                     <div style={{ ...mutedText, fontSize: 12 }}>{t('colRequested')}</div>
-                    <div style={{ fontSize: 14 }}>{formatRequestedCorrectionChange(r.details)}</div>
+                    <div style={{ fontSize: 14 }}>{formatRequestedCorrectionChange(r.details, lang)}</div>
                   </div>
                   {relatedAttendance?.transportationCost != null ? (
                     <div>
@@ -167,7 +167,7 @@ export function CorrectionRequestsPopup({
             const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
             const currentRange = relatedAttendance
               ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} → ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-              : formatRequestedCorrectionChange(r.details);
+              : formatRequestedCorrectionChange(r.details, lang);
             return (
               <div
                 key={r.requestId}

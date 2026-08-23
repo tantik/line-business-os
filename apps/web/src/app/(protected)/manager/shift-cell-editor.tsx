@@ -426,7 +426,7 @@ export function ShiftCellEditorModal({
       {correctionRequest ? (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${colors.border}` }}>
           <div style={{ ...mutedText, fontSize: 12, marginBottom: 4 }}>{t('colRequested')}</div>
-          <div style={{ fontSize: 14, marginBottom: 10 }}>{formatRequestedCorrectionChange(correctionRequest.details)}</div>
+          <div style={{ fontSize: 14, marginBottom: 10 }}>{formatRequestedCorrectionChange(correctionRequest.details, lang)}</div>
           {decideError ? <div style={alertDanger}>{decideError}</div> : null}
           {correctionDecision ? (
             <span style={{ ...mutedText, fontSize: 13 }}>{correctionStatusLabel(correctionDecision, lang)}</span>
