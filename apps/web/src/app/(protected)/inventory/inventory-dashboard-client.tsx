@@ -206,7 +206,17 @@ function TableRow({ item, locationId, locationTimezone, canManage, staffNameById
                 item.isActive
                   ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
                   : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
-                { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                // `countedAt` is only ever non-null once at least one
+                // `inventory.stock_counts` row exists for this item -- the
+                // exact same condition `permanently_delete_inventory_item`
+                // (0055) checks server-side as `blocked_by_history`. Hiding
+                // Delete here for a counted item avoids a confirm dialog
+                // that can only ever end in the same "cannot be permanently
+                // deleted" error every time (Founder QA, 2026-08-23) --
+                // Deactivate is the only applicable action for that item.
+                ...(item.countedAt === null
+                  ? [{ label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending }]
+                  : []),
               ]}
             />
           </div>
