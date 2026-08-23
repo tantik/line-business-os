@@ -232,12 +232,6 @@ interface ManagerDashboardDict {
   assignCellAriaLabelPrefix: string;
   editCellAriaLabelPrefix: string;
   correctPastScheduleAriaLabelPrefix: string;
-  // Submitted shift preferences
-  preferencesUnavailable: string;
-  preferencesEmpty: string;
-  colDate: string;
-  colPreference: string;
-  unavailableValue: string;
   // Shift requests review popup (v2.1 UI-only -- Settings entry point;
   // "Approve"/"Remove approval" toggle local component state, no
   // `workforce.shift_requests.status` write yet, see project memory /
@@ -514,11 +508,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assignCellAriaLabelPrefix: 'Assign shift',
     editCellAriaLabelPrefix: 'Edit shift',
     correctPastScheduleAriaLabelPrefix: 'Correct past schedule',
-    preferencesUnavailable: 'Shift preferences are temporarily unavailable.',
-    preferencesEmpty: 'No shift preferences submitted for this week yet.',
-    colDate: 'Date',
-    colPreference: 'Preference',
-    unavailableValue: 'Unavailable',
     shiftRequestsCardTitle: 'Shift requests',
     viewRequestsButton: 'View requests',
     shiftRequestsPopupHelpAriaLabel: 'About shift requests',
@@ -783,11 +772,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assignCellAriaLabelPrefix: 'シフトを割り当てる',
     editCellAriaLabelPrefix: 'シフトを編集',
     correctPastScheduleAriaLabelPrefix: '過去のスケジュールを修正',
-    preferencesUnavailable: 'シフト希望は一時的に利用できません。',
-    preferencesEmpty: '今週はまだシフト希望が提出されていません。',
-    colDate: '日付',
-    colPreference: '希望',
-    unavailableValue: '休み希望',
     shiftRequestsCardTitle: 'シフト希望',
     viewRequestsButton: '希望を見る',
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
@@ -882,11 +866,6 @@ export const tManagerDashboard = makeTranslator(dictionary);
 export const scheduleHeadingValue: Record<Lang, (periodStart: string, periodEnd: string) => string> = {
   en: (periodStart, periodEnd) => `Weekly schedule (${periodStart} - ${periodEnd})`,
   ja: (periodStart, periodEnd) => `週間スケジュール (${periodStart} - ${periodEnd})`,
-};
-
-export const preferencesHeadingValue: Record<Lang, (periodStart: string, periodEnd: string) => string> = {
-  en: (periodStart, periodEnd) => `Submitted shift preferences (${periodStart} - ${periodEnd})`,
-  ja: (periodStart, periodEnd) => `提出されたシフト希望 (${periodStart} - ${periodEnd})`,
 };
 
 /** "Shift preferences — {month}" heading for the Shift-requests review popup (v2.1 UI-only). */

@@ -35,7 +35,6 @@ import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import {
   dailyStaffingShortageExplanation,
-  preferencesHeadingValue,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -73,7 +72,6 @@ import {
   shiftChipColors,
   shiftChipStyle,
   todayIsoInTimeZone,
-  todayRowStyle,
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import styles from '@/lib/ui/responsive-table.module.css';
@@ -1253,53 +1251,6 @@ function ManagerDashboardBody({
         onOpenShiftRequests={() => setShiftRequestsPopupOpen(true)}
         lang={lang}
       />
-
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{preferencesHeadingValue[lang](activePeriodStart, activePeriodEnd)}</h2>
-        {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesUnavailable')}</p>
-        ) : (
-          (() => {
-            const inPeriod = requests.filter((r) => r.workDate >= activePeriodStart && r.workDate <= activePeriodEnd);
-            if (inPeriod.length === 0) {
-              return <p style={{ margin: '8px 0 0', ...mutedText }}>{t('preferencesEmpty')}</p>;
-            }
-            return (
-              <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStaff')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colDate')}</th>
-                    <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colPreference')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inPeriod.map((r) => (
-                    <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
-                      <td style={tableCell}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</td>
-                      <td style={tableCell}>{r.workDate}</td>
-                      <td style={tableCell}>
-                        {r.isUnavailable ? (
-                          t('unavailableValue')
-                        ) : (
-                          <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId, activeShiftTypeIds))}>
-                            {(() => {
-                              const preferredType = shiftTypeById.get(r.shiftTypeId ?? '');
-                              return preferredType ? shiftTypeDisplayLabel(preferredType) : '-';
-                            })()}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            );
-          })()
-        )}
-      </section>
 
       <ShiftRequestsReviewPopup
         open={shiftRequestsPopupOpen}

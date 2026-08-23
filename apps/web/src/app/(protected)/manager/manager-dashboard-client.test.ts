@@ -19,14 +19,6 @@ test('renderScheduleCellContent never renders a shift type\'s raw `code` as the 
   assert.match(SOURCE, /shiftTypeDisplayLabel\(shiftType\)/, 'cell label must resolve through shiftTypeDisplayLabel');
 });
 
-test('the Submitted shift preferences table also resolves through shiftTypeDisplayLabel, not a raw `.code` fallback', () => {
-  assert.doesNotMatch(
-    SOURCE,
-    /shiftTypeById\.get\(r\.shiftTypeId[^)]*\)\?\.code/,
-    'the preference-row shift chip must not fall back to a raw .code value',
-  );
-});
-
 test('a filled schedule cell is a single clickable button, no Draft/Published branching on click', () => {
   assert.doesNotMatch(SOURCE, /publishedReadOnly/, 'the removed read-only dead end must not be reintroduced');
   const cellFn = cellFnSource();
