@@ -256,9 +256,25 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-23 pointer (newest — read this one first).** Founder-revised
-priority order, superseding every "what's next" text below until it says
-otherwise:
+**2026-08-23 pointer (newest — read this one first).** Manager Final
+Completion mission (Shift Preferences UI + full Manager QA) is in
+progress. **Phase A (Shift Preferences popup UX polish) is DONE, merged
+(PR #384, `dev` commit `db17927`), and live-verified on
+`preview.oruwa.jp/manager`** (header/day-format, colors, i18n JA/EN,
+mobile — all confirmed via chrome-devtools MCP, not just code review).
+**Phase B (full Manager CRUD/workflow QA across Shift Types, Weekly
+Schedule, Staff, Recipes, Inventory, Attendance, Shift Exchange, Needs
+Attention, cross-module reactivity, performance) has NOT started.** Full
+state, exact scope, and a bootstrap prompt are in
+`docs/ai/CAFE_MANAGER_FINAL_COMPLETION_HANDOFF_2026-08-23.md` — read that
+file first if continuing Manager completion work. Do not start Staff
+Completion QA or Manager↔Staff e2e QA yet; those are separate later
+missions per the Founder's own sequencing.
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Founder-revised priority order (superseded only in its "next" pointer by
+the Manager Final Completion mission above; the sequence itself still
+governs what comes after Manager/Staff completion closes):
 
 1. **Platform Foundation Reconciliation/Triage — DONE (read-only, this
    entry).** A suspected migration/schema drift turned out to be a bigger
