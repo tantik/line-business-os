@@ -169,15 +169,33 @@ Founder-QA-scenario fixtures (`QA fixture (oruwa-cafe-fixture-v1)` in the
 exchange's own reason text) meant to stay available for the Founder's own
 demo; approving everything would have depleted the dataset's demo variety.
 
-### Mobile (390px) + JA/EN — spot-checked on Manager dashboard only
-- 390×844 mobile viewport: `document.documentElement.scrollWidth === window.innerWidth`
-  (390===390) — no page-level horizontal overflow. Settings' Shift Types
-  scroll container still correctly capped at that width.
-- EN toggle: system chrome translates ("Manager" heading etc.), staff names
-  (佐藤陽介, 山田花子, ...) correctly stay in Japanese (business content, not
-  translated) — matches spec. Reverted to JA after.
-- **Not yet done**: mobile pass on Staff/Recipes/Inventory/Shift-Preferences-
-  popup individually, or JA/EN pass beyond the Manager dashboard shell.
+### Mobile (390px) + JA/EN — spot-checked on Manager, Staff, Recipes, Inventory
+- Manager dashboard: `scrollWidth === innerWidth` (no page-level overflow);
+  Settings' Shift Types scroll container still correctly capped at 396px at
+  this width. EN toggle translates system chrome, staff names (佐藤陽介,
+  山田花子, ...) correctly stay Japanese.
+- Staff dashboard: no page-level overflow; the weekly-schedule table (563px
+  content in a 340px-wide container) correctly scrolls locally instead of
+  widening the page — the exact MOB-1 pattern this codebase already
+  standardized on.
+- Recipes and Inventory: both confirmed no page-level overflow. Inventory's
+  layout switches to a card-per-item view at 390px (not a squeezed table) —
+  good adaptive design. EN toggle on Inventory: heading translates, item
+  names (紅茶葉, 蓋（Lサイズ）, ...) correctly stay Japanese.
+- **Tooling caveat, not a product finding**: on one page (`/recipes`),
+  `window.innerWidth` read back as 459 instead of the requested 390 despite
+  `scrollWidth === innerWidth` (i.e., still genuinely no overflow) and
+  `outerWidth` correctly reading 390 — looked like a device-emulation
+  quirk tied to this session's browser reconnect (see §4/repo-state notes
+  on the orphaned-process kill earlier in the session), not reproduced on
+  Inventory checked immediately after. If a future session sees inconsistent
+  viewport-width readbacks, re-emulate + reload before trusting the number.
+- **Not yet done**: Shift-Preferences popup and Manager's other in-app
+  modals (Staff edit, Recipe edit, Shift Exchange popup) at 390px
+  specifically — the parent pages were checked, not every modal opened
+  inside them; JA/EN beyond the four surfaces above (native-JA-copy review
+  itself is explicitly out of scope for an AI session per
+  `current-task.md` §2.4).
 
 ## 2. What's NOT done — exact remaining Phase B scope
 
@@ -209,13 +227,16 @@ conversation, not duplicated here — re-read it, don't guess):
   (buttons/inputs/modals/spacing/typography/hover/focus/disabled/loading/
   error/destructive states, table density) — only incidentally observed
   while doing functional QA above.
-- **§19 Mobile** — only the Manager dashboard shell checked (see above);
-  Staff, Recipes, Inventory, Shift-Preferences popup, and relevant modals
-  each need their own 390px pass.
-- **§20 JA/EN** — only the Manager dashboard shell + names-not-translated
-  spot-check; full pass (all modules, plus native-JA-copy review — the
-  latter explicitly flagged in `current-task.md` §2.4 as needing a human
-  native speaker, not an AI session) not done.
+- **§19 Mobile** — Manager, Staff, Recipes, Inventory page shells all
+  checked at 390px (no page-level overflow, correct local-scroll/card
+  adaptation). Still needed: in-app modals specifically at 390px (Shift
+  Preferences popup, Staff edit, Recipe edit, Shift Exchange popup, the
+  Weekly Schedule cell editor).
+- **§20 JA/EN** — Manager, Staff, Recipes, Inventory all confirmed:
+  system chrome translates, business content (names) stays Japanese. Not
+  done: the same modals listed above, plus native-JA-copy review (out of
+  an AI session's scope per `current-task.md` §2.4 — needs a human native
+  speaker).
 - **§21 Loading/error/mutation UX** — not systematically checked (double-
   submit guards, error recovery) beyond what was incidentally observed.
 - **§24 Adversarial review** — not run at all yet. Should be a dedicated
@@ -224,7 +245,41 @@ conversation, not duplicated here — re-read it, don't guess):
   conditions, tenant leaks, RLS bypass, excessive refetch, `CUSTOM_*`
   leaks elsewhere, hidden regressions.
 - **Final Manager Acceptance Matrix + `MANAGER_V2_1_READY_FOR_FOUNDER_ACCEPTANCE`
-  verdict** — not produced yet; requires the above to close first.
+  verdict** — see interim matrix directly below. Not the final one (§18,
+  §21, §24, and the remaining §17/§19/§20 modal-level gaps above all still
+  need to close first), but honest about current state rather than silent.
+
+## 2a. Interim Manager Acceptance Matrix (checkpoint, NOT final)
+
+`MANAGER_V2_1_READY_FOR_FOUNDER_ACCEPTANCE = NO` (not yet — real gaps
+remain, listed above). No PASS below claims more than what was actually
+exercised; see the corresponding numbered section above for the evidence
+behind each row.
+
+| Component | Status | Evidence |
+|---|---|---|
+| Shift Preference identity (P0) | **PASS** | Live-verified fix, PR #386 |
+| Shift Types CRUD | **PASS** | Create/edit/deactivate all exercised (§4 checkpoint doc, this + prior sessions) |
+| Shift Types >6 scroll UX | **PASS** | Live-verified, PR #387 |
+| Shift Types visual hierarchy | **PASS** | Live-verified, PR #388 |
+| Button reveal micro-interaction | **PASS** | Live-verified incl. a caught-and-fixed focus-outline bug, PR #388 |
+| Weekly Schedule CRUD (create/edit/reassign/delete) | **PASS** | Full live cycle, cleaned up after |
+| Weekly Schedule past/today/future semantics | **PASS** | Distinct honest past-date banner confirmed |
+| Weekly Schedule cross-module reactivity (new Shift Type) | **PASS** | Live-verified, no F5 |
+| Week navigation performance | **PASS** | Real traces, LCP/INP 90-131ms, CLS 0 |
+| Staff Management CRUD | **PARTIAL** | Edit verified live; create/deactivate/invite not exercised this mission |
+| Recipes CRUD | **PARTIAL** | Form read/rendered correctly; no live create/edit/delete/status-change exercised |
+| Inventory CRUD + shortage math | **PASS** | Real state-transition live-tested, cross-module reactivity confirmed |
+| Attendance Corrections (approve + reject) | **PASS** | Both paths live-verified, instant counters, correct Staff-visible status |
+| Shift Exchange decision | **NOT VERIFIED** | No accept/reject/nominate exercised at all; see §15 investigation above |
+| Needs Attention resolve flow | **PASS** | Live-verified instant counter update |
+| Cross-module reactivity (broader) | **PARTIAL** | 2 of ~5 named scenarios in the original prompt exercised |
+| Visual/UX consistency | **NOT VERIFIED** | No dedicated systematic pass; only incidental consistency observed |
+| Mobile (390px) | **PARTIAL** | 4 page shells clean; modals not individually checked |
+| JA/EN | **PARTIAL** | 4 page shells clean, names correctly untranslated; modals not checked; native-copy review out of AI scope |
+| Loading/error/mutation UX | **NOT VERIFIED** | No dedicated pass |
+| Adversarial review | **NOT VERIFIED** | Not run |
+| Security/RLS/tenant boundary | **PASS (by omission)** | No RLS/migration/schema/secrets touched anywhere this session — verified by reviewing every diff, not just trusting intent |
 
 ## 3. PRs merged this session (all via `scripts/ai-dev-merge.sh`, DEV MERGE authority, `dev` only)
 
