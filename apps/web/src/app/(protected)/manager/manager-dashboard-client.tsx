@@ -49,6 +49,7 @@ import { RecipesPopup } from './recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
+import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
@@ -300,6 +301,8 @@ function ManagerDashboardBody({
   // WP-11: Correction/Exchange requests moved from always-visible sections into popups, triggered from AttentionPanel's cards.
   const [correctionsPopupOpen, setCorrectionsPopupOpen] = useState(false);
   const [exchangesPopupOpen, setExchangesPopupOpen] = useState(false);
+  // Shift-requests review popup (v2.1 UI-only, Settings entry point).
+  const [shiftRequestsPopupOpen, setShiftRequestsPopupOpen] = useState(false);
   // WP A6: the cell editor is now a design-kit `Modal` (`ShiftCellEditorModal`),
   // which handles its own focus-restore/Escape internally -- no more
   // ref-map/requestAnimationFrame bookkeeping here.
@@ -484,6 +487,31 @@ function ManagerDashboardBody({
     }
     return Array.from(seen.values()).sort((x, y) => x.startsAtLocal.localeCompare(y.startsAtLocal));
   }, [localAssignments, dates]);
+
+  // Shift-requests review popup (v2.1 UI-only): month scope + Settings-card
+  // summary, both derived from data already loaded (requests/staff) -- no
+  // new fetch. `monthPrefix`/`monthLabel` reuse the same `todayIso.slice(0,7)`
+  // idiom as `estimatedLabourCost` below, not `getMonthPeriod` (that needs a
+  // raw UTC instant this component doesn't have; `todayIso` is already the
+  // local calendar date).
+  const shiftRequestsMonthPrefix = todayIso.slice(0, 7);
+  const shiftRequestsMonthLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+        new Date(`${shiftRequestsMonthPrefix}-01T00:00:00Z`),
+      ),
+    [shiftRequestsMonthPrefix, lang],
+  );
+  const shiftRequestsSummary = useMemo(() => {
+    if (staff === null || requests === null) return null;
+    const activeStaffIds = staff.filter((s) => s.isActive).map((s) => s.staffId);
+    const submittedIds = new Set(
+      requests.filter((r) => r.workDate.startsWith(shiftRequestsMonthPrefix)).map((r) => r.employeeId),
+    );
+    const submitted = activeStaffIds.filter((id) => submittedIds.has(id)).length;
+    const total = activeStaffIds.length;
+    return { submitted, total, missing: total - submitted };
+  }, [staff, requests, shiftRequestsMonthPrefix]);
 
   // Round 3 (2026-08-22): "Estimated labour cost" box below the grid,
   // matching the `_client-preview/mame-to-cha` reference table exactly --
@@ -1221,6 +1249,8 @@ function ManagerDashboardBody({
         settings={scheduleSettings}
         shiftTypes={shiftTypes}
         onShiftTypesChanged={() => router.refresh()}
+        shiftRequestsSummary={shiftRequestsSummary}
+        onOpenShiftRequests={() => setShiftRequestsPopupOpen(true)}
         lang={lang}
       />
 
@@ -1270,6 +1300,19 @@ function ManagerDashboardBody({
           })()
         )}
       </section>
+
+      <ShiftRequestsReviewPopup
+        open={shiftRequestsPopupOpen}
+        onClose={() => setShiftRequestsPopupOpen(false)}
+        requests={requests}
+        staff={staff ?? []}
+        shiftTypes={shiftTypes}
+        activeShiftTypeIds={activeShiftTypeIds}
+        monthPrefix={shiftRequestsMonthPrefix}
+        monthLabel={shiftRequestsMonthLabel}
+        todayIso={todayIso}
+        lang={lang}
+      />
 
       <CorrectionRequestsPopup
         open={correctionsPopupOpen}

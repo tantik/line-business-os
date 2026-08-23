@@ -10,13 +10,16 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { tManagerDashboard } from './manager-dashboard-i18n';
+import { shiftRequestsSummaryLabel, tManagerDashboard } from './manager-dashboard-i18n';
 
 export interface SettingsSectionProps {
   locationId: string;
   settings: WorkforceScheduleSettings | null;
   shiftTypes: WorkforceShiftType[] | null;
   onShiftTypesChanged: () => void;
+  /** Shift-requests review popup summary (v2.1 UI-only) -- null while `staff`/`requests` haven't loaded. */
+  shiftRequestsSummary: { submitted: number; total: number; missing: number } | null;
+  onOpenShiftRequests: () => void;
   lang: Lang;
 }
 
@@ -40,6 +43,8 @@ export function SettingsSection({
   settings,
   shiftTypes: initialShiftTypes,
   onShiftTypesChanged,
+  shiftRequestsSummary,
+  onOpenShiftRequests,
   lang,
 }: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -410,6 +415,20 @@ export function SettingsSection({
       <Modal open={automationHelpOpen} onClose={() => setAutomationHelpOpen(false)} title={t('automationHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('automationHelpBody')}</div>
       </Modal>
+
+      <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${colors.border}` }}>
+        <h3 style={{ margin: 0, fontSize: 15 }}>{t('shiftRequestsCardTitle')}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+          {shiftRequestsSummary ? (
+            <span style={{ fontSize: 13, ...mutedText }}>
+              {shiftRequestsSummaryLabel[lang](shiftRequestsSummary.submitted, shiftRequestsSummary.total, shiftRequestsSummary.missing)}
+            </span>
+          ) : null}
+          <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onOpenShiftRequests}>
+            {t('viewRequestsButton')}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
