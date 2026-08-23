@@ -7,7 +7,6 @@ import {
   attentionInventoryShortageSummary,
   attentionSummarySubtitle,
   breakMinutesValue,
-  preferencesHeadingValue,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -56,7 +55,6 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'automationSectionHeading', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
   'automationHelpAriaLabel', 'automationHelpTitle', 'automationHelpBody',
   'estimatedLabourCostLabel',
-  'preferencesUnavailable', 'preferencesEmpty', 'colDate', 'colPreference', 'unavailableValue',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
   'showArchiveButton', 'hideArchiveButton', 'viewHistoryButton', 'correctionsPopupHelpAriaLabel', 'correctionsPopupHelpTitle', 'correctionsPopupHelpBody',
@@ -104,11 +102,6 @@ test('scheduleHeadingValue interpolates both dates and differs by language', () 
   assert.match(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), /2026-08-10/);
   assert.match(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), /2026-08-16/);
   assert.notEqual(scheduleHeadingValue.en('2026-08-10', '2026-08-16'), scheduleHeadingValue.ja('2026-08-10', '2026-08-16'));
-});
-
-test('preferencesHeadingValue interpolates both dates and differs by language', () => {
-  assert.match(preferencesHeadingValue.ja('2026-08-10', '2026-08-16'), /2026-08-10/);
-  assert.notEqual(preferencesHeadingValue.en('2026-08-10', '2026-08-16'), preferencesHeadingValue.ja('2026-08-10', '2026-08-16'));
 });
 
 test('breakMinutesValue interpolates the minute count and differs by language', () => {
