@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel, shiftChipColors } from './workforce-theme.js';
+import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel, formatRequestedCorrectionChange, shiftChipColors } from './workforce-theme.js';
 import { colors } from '@/lib/ui/theme';
 
 test('attendanceStatusLabel maps every workforce.attendance_status enum value to an English label by default', () => {
@@ -53,6 +53,29 @@ test('exchangeStatusLabel returns Japanese labels when lang is ja', () => {
 test('exchangeStatusLabel falls back to the raw value for an unrecognized status, never throws', () => {
   assert.equal(exchangeStatusLabel('unknown_future_status'), 'unknown_future_status');
   assert.equal(exchangeStatusLabel('unknown_future_status', 'ja'), 'unknown_future_status');
+});
+
+// Phase B adversarial finding (2026-08-23): the correction-requests popup
+// showed raw English "60min break" even in JA mode -- this function had no
+// `lang` parameter at all. Regression coverage for the fix.
+test('formatRequestedCorrectionChange keeps its existing English-only default (call sites predating this fix do not pass lang)', () => {
+  assert.equal(formatRequestedCorrectionChange({ clockInLocal: '09:00', clockOutLocal: '17:00', actualBreakMinutes: 60 }), '09:00 - 17:00, 60min break');
+});
+
+test('formatRequestedCorrectionChange returns Japanese break text when lang is ja', () => {
+  assert.equal(
+    formatRequestedCorrectionChange({ clockInLocal: '09:00', clockOutLocal: '17:00', actualBreakMinutes: 60 }, 'ja'),
+    '09:00 - 17:00, 休憩60分',
+  );
+});
+
+test('formatRequestedCorrectionChange with only a break (no clock in/out) in ja', () => {
+  assert.equal(formatRequestedCorrectionChange({ actualBreakMinutes: 30 }, 'ja'), '休憩30分');
+});
+
+test('formatRequestedCorrectionChange returns "-" when details carries nothing usable, regardless of lang', () => {
+  assert.equal(formatRequestedCorrectionChange({}), '-');
+  assert.equal(formatRequestedCorrectionChange({}, 'ja'), '-');
 });
 
 // WP A8: with the active-ids list supplied, no two ids among the first
