@@ -160,3 +160,70 @@
   outline: 2px solid #362b1f;
   outline-offset: 2px;
 }
+
+/*
+ * Phase B, section 6: the same Slider Revolution "Effect #2" reveal as
+ * `.staffNameCell` above, generalized into a reusable modifier for any
+ * ordinary (non-destructive) action button where a discoverability nudge is
+ * warranted -- not applied blanket-wide (see that section's own explicit
+ * "not every button" instruction). Unlike `.staffNameCell` (a permanent
+ * solid-green button, so a translucent white zone reads fine against it),
+ * this needs to work layered on top of any existing button variant
+ * (`buttonPrimary`'s solid accent, `buttonSecondary`'s white/bordered
+ * surface) -- so the reveal zone carries its own solid accent background
+ * rather than a translucent tint over the button's own color, and the icon
+ * is a plain white Unicode glyph (`\261E`, WHITE RIGHT POINTING INDEX -- an
+ * actual right-pointing hand, not an emoji) since colored/emoji-presentation
+ * characters ignore the CSS `color` property and this app has no icon font
+ * loaded. Same box model as `.staffNameCell`: the zone slides in from just
+ * outside the button's own right edge, inside `overflow: hidden`, so the
+ * button's own outer width never changes and nothing else on the page
+ * reflows (no CLS). `prefers-reduced-motion` swaps the slide for an instant
+ * state change; touch activation is unaffected either way since the
+ * underlying button's `onClick` never depended on the hover state.
+ */
+.actionReveal {
+  position: relative;
+  overflow: hidden;
+}
+
+.actionReveal::after {
+  content: '\261E';
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  right: -32px;
+  width: 32px;
+  background-color: #4f7a52;
+  border-radius: 0 7px 7px 0;
+  transition: right 0.2s ease;
+}
+
+.actionReveal:hover::after,
+.actionReveal:focus-visible::after {
+  right: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .actionReveal::after {
+    transition: none;
+  }
+}
+
+/*
+ * No own focus-visible outline rule here, deliberately: `.actionReveal` is
+ * always applied alongside a base button variant (`.buttonPrimary` /
+ * `.buttonSecondary` / `.buttonDanger`), which already defines the real
+ * keyboard-focus ring for that element (theme.module.css above). An earlier
+ * version of this rule duplicated `.staffNameCell`'s own outline color here
+ * too, and — same specificity, later in the file — silently overrode the
+ * base variant's outline color on every button this class is added to.
+ * `.staffNameCell` keeps its own outline rule because it is a standalone
+ * button style, not a modifier layered on another class.
+ */
