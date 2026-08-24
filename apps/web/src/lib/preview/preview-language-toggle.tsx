@@ -19,15 +19,34 @@ import { useLang } from '@/lib/demo/cafe/i18n';
  * component that calls `useLang()`) now shares one persisted `lang` value
  * instead of each button/component guessing its own.
  */
-export function PreviewLanguageToggle({ variant = 'light' }: { variant?: 'light' | 'dark' }) {
+export function PreviewLanguageToggle({ variant = 'light', fullWidth = false }: { variant?: 'light' | 'dark'; fullWidth?: boolean }) {
   const { lang, setLang } = useLang();
   const inactiveColor = variant === 'dark' ? 'rgba(255,255,255,.72)' : demoColors.textMuted;
   const borderColor = variant === 'dark' ? 'rgba(255,255,255,.4)' : demoColors.border;
   return (
-    <div aria-label="Language" style={{ display: 'inline-flex', border: `1px solid ${borderColor}`, borderRadius: 999, overflow: 'hidden' }}>
+    <div
+      aria-label="Language"
+      style={{
+        display: fullWidth ? 'flex' : 'inline-flex',
+        width: fullWidth ? '100%' : undefined,
+        border: `1px solid ${borderColor}`,
+        borderRadius: 999,
+        overflow: 'hidden',
+      }}
+    >
       {(['ja', 'en'] as const).map((value) => (
         <button key={value} type="button" aria-pressed={lang === value} onClick={() => setLang(value)}
-          style={{ border: 0, minHeight: 44, minWidth: 44, padding: '7px 12px', background: lang === value ? demoColors.accent : 'transparent', color: lang === value ? '#fff' : inactiveColor, fontWeight: 700, cursor: 'pointer' }}>
+          style={{
+            border: 0,
+            minHeight: 44,
+            minWidth: 44,
+            flex: fullWidth ? 1 : undefined,
+            padding: '7px 12px',
+            background: lang === value ? demoColors.accent : 'transparent',
+            color: lang === value ? '#fff' : inactiveColor,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}>
           {value.toUpperCase()}
         </button>
       ))}

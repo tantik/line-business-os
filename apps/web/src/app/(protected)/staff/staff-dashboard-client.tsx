@@ -51,7 +51,7 @@ import { WorkReportForm } from './work-report-form';
 import { CorrectionRequestForm } from './correction-request-form';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
-import { AccountMenu } from './account-menu';
+import { AccountMenu } from '../_ui/account-menu';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
