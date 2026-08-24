@@ -312,6 +312,14 @@ function ManagerDashboardBody({
   // directly on the tab that answers what they clicked, instead of always
   // opening on "All" and requiring an extra manual click.
   const [inventoryPopupInitialFilter, setInventoryPopupInitialFilter] = useState<'all' | 'shortage'>('all');
+  // Items currently marked "bought" in Purchases -- fed into the Inventory
+  // popup below as a reminder icon (see the identical derivation on the
+  // Staff dashboard). Reuses `purchasesItems` (already fetched for the
+  // Manager's own Purchases popup), no second query.
+  const inventoryBoughtItemIds = useMemo(
+    () => (purchasesItems ?? []).filter((i) => i.purchaseStatus === 'bought').map((i) => i.itemId),
+    [purchasesItems],
+  );
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   // WP-11: Correction/Exchange requests moved from always-visible sections into popups, triggered from AttentionPanel's cards.
   const [correctionsPopupOpen, setCorrectionsPopupOpen] = useState(false);
@@ -997,6 +1005,7 @@ function ManagerDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={staffNameById}
         canManage
+        boughtItemIds={inventoryBoughtItemIds}
       />
 
       <PurchasesPopup

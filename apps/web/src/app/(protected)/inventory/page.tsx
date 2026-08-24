@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
+import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -99,10 +100,17 @@ export default async function InventoryPage() {
       const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
       if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=inventory');
 
-      const [itemsResult, canManage] = await Promise.all([
+      const [itemsResult, canManage, purchasesItemsResult] = await Promise.all([
         listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId),
         hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId),
+        // "Bought" reminder icon on shortage items -- see
+        // `InventoryDashboardClientProps.boughtItemIds`.
+        listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId),
       ]);
+      const boughtItemIds =
+        purchasesItemsResult.status === 'success'
+          ? purchasesItemsResult.data.filter((i) => i.purchaseStatus === 'bought').map((i) => i.itemId)
+          : [];
 
       // "Who last counted this" is only ever resolved to a real display name
       // for managers, reusing the exact same manager-only decrypted staff
@@ -137,6 +145,7 @@ export default async function InventoryPage() {
               mediaUrlByItemId={mediaUrlByItemId}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}
+              boughtItemIds={boughtItemIds}
             />
           ) : (
             <>
