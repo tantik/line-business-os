@@ -256,8 +256,26 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-24 pointer (newest — read this one first).** A Founder-directed
-live iteration session on `https://preview.oruwa.jp/manager` (Settings
+**2026-08-24 pointer #2 (newest — read this one first).** The Staff-page
+review session flagged by the pointer below as "not yet started" ran this
+session: Staff header full redesign (mirrored to Manager too — tenant/
+location left, account-menu right, matching a Founder mockup), the
+previously-missing Work status (live Clock in/out) card built and verified
+end-to-end against both the Staff and Manager tables, and a new Inventory
+item-photo feature (matching Recipes' existing photo). **7 PRs merged to
+`dev` (#411-#417)**, including 4 new DB migrations (0085-0088, already
+applied to the linked Cloud project) and a real RLS bug found and fixed
+live (0088). Full state, verification evidence, migration/tooling notes,
+and open items are in
+`docs/ai/CAFE_STAFF_HEADER_WORKSTATUS_INVENTORY_PHOTOS_HANDOFF_2026-08-24.md`
+— read that file first if anything about the Staff or Manager header,
+account menu, Work status/Clock in-out, or Inventory item photos comes up.
+**This thread is paused for a context handoff, not confirmed closed by the
+Founder** (unlike the Manager-polish session below, which the Founder
+explicitly ended) — ask what's next rather than assuming either way.
+
+**2026-08-24 pointer #1 (older — read after the one above).** A
+Founder-directed live iteration session on `https://preview.oruwa.jp/manager` (Settings
 visual parity with Weekly Schedule, shift-type Delete, mobile header/table
 polish, two real bugs found from Founder screenshots and fixed) is
 **CLOSED by the Founder** ("пока с менеджером закончили" — done with
