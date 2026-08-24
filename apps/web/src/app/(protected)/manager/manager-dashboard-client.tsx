@@ -42,7 +42,7 @@ import { BrandBadge } from '../_ui/brand-badge';
 import { AccountMenu } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
-import { RecipesPopup } from './recipes-popup';
+import { RecipesPopup } from '../_ui/recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';

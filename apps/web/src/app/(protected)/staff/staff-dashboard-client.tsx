@@ -10,6 +10,8 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
+import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
+import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { getMyScheduleWeek } from '@/lib/workforce/schedule-actions';
 import {
@@ -34,6 +36,7 @@ import { DailyMessageForm } from './daily-message-form';
 import transportMessageRow from './transport-message-row.module.css';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
+import { RecipesPopup } from '../_ui/recipes-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
@@ -94,6 +97,19 @@ export interface StaffDashboardClientProps {
   inventoryEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the entry-point card's shortage summary. The actual catalog/count-entry UI lives on the existing canonical `/dashboard/inventory` page (shared Staff+Manager), not duplicated here. `null` when the module is disabled or the read failed. */
   inventoryItems: InventoryItemStatus[] | null;
+  /**
+   * Recipes popup data (Founder direction, 2026-08-24: Staff's Recipes
+   * button opens the same popup Manager's does, instead of navigating to
+   * the standalone `/recipes` page) -- same shape/source `manager/page.tsx`
+   * fetches, threaded through to the shared `RecipesPopup` (`_ui/`).
+   */
+  recipeGroups: WorkforceRecipeGroup[] | null;
+  recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
+  recipeMediaUrlByRecipeId: Record<string, string>;
+  /** Pure UX affordance (RLS is the real boundary regardless): whether the popup shows Add/Edit/Delete controls. */
+  recipeCanManage: boolean;
+  /** `'recipes'` opens the Recipes popup already-open on mount (`?popup=recipes` deep link, mirroring Manager's). */
+  initialPopup: 'recipes' | null;
 }
 
 /** Display-only hours between two `HH:MM` local times, for the weekly-hours summary. Does not account for breaks. */
@@ -135,6 +151,11 @@ function StaffDashboardBody({
   attendance,
   correctionRequests,
   exchanges,
+  recipeGroups,
+  recipeTitleFieldByRecipeId,
+  recipeMediaUrlByRecipeId,
+  recipeCanManage,
+  initialPopup,
 }: StaffDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -144,6 +165,7 @@ function StaffDashboardBody({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
+  const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
@@ -307,10 +329,21 @@ function StaffDashboardBody({
       <EntryPointsCard
         heading={t('entryPointsHeading')}
         buttons={[
-          { key: 'recipes', label: t('navRecipes'), href: '/recipes' },
+          { key: 'recipes', label: t('navRecipes'), onClick: () => setRecipesPopupOpen(true) },
           { key: 'inventory', label: t('navInventory'), href: '/inventory' },
           { key: 'purchases', label: t('navPurchases'), href: '/purchases' },
         ]}
+      />
+
+      <RecipesPopup
+        open={recipesPopupOpen}
+        onClose={() => setRecipesPopupOpen(false)}
+        tenantName={tenantName}
+        groups={recipeGroups}
+        titleFieldByRecipeId={recipeTitleFieldByRecipeId}
+        mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
+        canManage={recipeCanManage}
+        onChange={() => router.refresh()}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
