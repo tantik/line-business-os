@@ -43,6 +43,10 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'correctionMessageLabel', 'submitCorrectionRequest', 'correctionRequestSubmitted',
   'myCorrectionsHeading', 'myCorrectionsUnavailable', 'myCorrectionsEmpty', 'relatedWorkReportColumnLabel',
   'navPurchases', 'preferenceModalTitle',
+  'workStatusHelpAriaLabel', 'workStatusHelpBody', 'scheduleHelpAriaLabel', 'scheduleHelpBody',
+  'transportHelpAriaLabel', 'transportHelpBody', 'transportPlaceholder',
+  'messageHelpAriaLabel', 'messageHelpBody', 'messagePlaceholder', 'sendButton',
+  'savingStatus', 'savedStatus', 'saveErrorStatus',
 ];
 
 test('tStaffDashboard returns a non-empty string for every key in both languages', () => {
