@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
@@ -62,6 +62,20 @@ export interface InventoryDashboardClientProps {
    * opens straight on the tab that answers what they clicked for.
    */
   initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
+  /**
+   * Item ids currently marked "bought" in Purchases (`api.purchases_needed`,
+   * `purchase_status = 'bought'`) -- read-only cross-module signal, not a
+   * new Inventory concept: Purchases already computes "this acknowledgement
+   * is still pinned to the item's current latest stock count" (0089's
+   * staleness rule). Rendered here as a small reminder icon so staff/manager
+   * know a count was already bought and is waiting for someone to record the
+   * new actual quantity. The icon clears itself automatically the moment
+   * *any* new count is recorded for that item (via `CountForm` below, or
+   * elsewhere) -- that write makes the Purchases acknowledgement stale on
+   * its own, so this list simply stops containing that item id on next
+   * fetch; no separate "clear" action exists or is needed.
+   */
+  boughtItemIds?: string[];
 }
 
 type T = (key: Parameters<typeof tInventoryDashboard>[1]) => string;
@@ -80,6 +94,30 @@ function StatusBadge({ item, t }: { item: InventoryItemStatus; t: T }) {
   return <span style={badgeStyle('active')}>{t('statusSufficient')}</span>;
 }
 
+/** Small reminder icon: this item was already marked bought in Purchases and is waiting for its actual quantity to be updated -- see `InventoryDashboardClientProps.boughtItemIds`. */
+function PurchasedIcon({ t }: { t: T }) {
+  return (
+    <span
+      role="img"
+      aria-label={t('purchasedBadgeAriaLabel')}
+      title={t('purchasedBadgeAriaLabel')}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 24,
+        height: 24,
+        borderRadius: 999,
+        background: colors.accentMuted,
+        fontSize: 13,
+        flexShrink: 0,
+      }}
+    >
+      🛒
+    </span>
+  );
+}
+
 function formatLastUpdated(item: InventoryItemStatus, lang: ReturnType<typeof useLang>['lang'], locationTimezone: string) {
   if (!item.countedAt) return null;
   return new Date(item.countedAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone });
@@ -96,6 +134,7 @@ interface RowProps {
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
+  isBought: boolean;
 }
 
 /** Photo thumbnail, matching the size/placeholder pattern of the recipe list's own thumbnail. Click-to-enlarge (`LightboxTrigger`) when a photo exists; a plain placeholder box otherwise -- never itself clickable. */
@@ -173,7 +212,7 @@ function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>
   };
 }
 
-function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged, isBought }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
     useRowActions({ item, onChanged });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
@@ -223,7 +262,10 @@ function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, sta
         )}
       </td>
       <td style={tableCell}>
-        <StatusBadge item={item} t={t} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <StatusBadge item={item} t={t} />
+          {isBought ? <PurchasedIcon t={t} /> : null}
+        </div>
       </td>
       <td style={{ ...tableCell, color: belowReorder ? colors.dangerText : colors.textMuted }}>
         {belowReorder ? `−${item.shortageQuantity} ${item.unit}` : '—'}
@@ -327,7 +369,7 @@ function RowConfirmDialogs({
   );
 }
 
-function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged, isBought }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
     useRowActions({ item, onChanged });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
@@ -340,29 +382,37 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
           <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={44} />
           <h3 style={{ margin: 0, fontSize: 16, minWidth: 0, overflowWrap: 'anywhere' }}>{item.name}</h3>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-          <StatusBadge item={item} t={t} />
-          {canManage ? (
-            <>
-              <button
-                type="button"
-                aria-label={`${t('editButton')} ${item.name}`}
-                className={hoverStyles.iconButton}
-                style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
-                onClick={onEdit}
-              >
-                ✎
-              </button>
-              <ActionsMenu
-                triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
-                items={[
-                  item.isActive
-                    ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
-                    : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
-                  { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
-                ]}
-              />
-            </>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {isBought ? <PurchasedIcon t={t} /> : null}
+            <StatusBadge item={item} t={t} />
+            {canManage ? (
+              <>
+                <button
+                  type="button"
+                  aria-label={`${t('editButton')} ${item.name}`}
+                  className={hoverStyles.iconButton}
+                  style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+                  onClick={onEdit}
+                >
+                  ✎
+                </button>
+                <ActionsMenu
+                  triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+                  items={[
+                    item.isActive
+                      ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
+                      : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
+                    { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                  ]}
+                />
+              </>
+            ) : null}
+          </div>
+          {belowReorder ? (
+            <span style={{ fontSize: 12, fontWeight: 600, color: colors.dangerText, whiteSpace: 'nowrap' }}>
+              −{item.shortageQuantity} {item.unit}
+            </span>
           ) : null}
         </div>
       </div>
@@ -431,6 +481,7 @@ export function InventoryDashboardBody({
   staffNameById,
   embedded = false,
   initialStatusFilter = 'all',
+  boughtItemIds,
 }: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
@@ -506,6 +557,7 @@ export function InventoryDashboardBody({
       : undefined;
 
   const rowProps = { locationId, locationTimezone, canManage, staffNameById, lang, t, onChanged: refresh };
+  const boughtSet = useMemo(() => new Set(boughtItemIds ?? []), [boughtItemIds]);
 
   return (
     <>
@@ -608,7 +660,14 @@ export function InventoryDashboardBody({
               </thead>
               <tbody>
                 {visibleItems.map((item) => (
-                  <TableRow key={item.itemId} item={item} mediaUrl={mediaUrlByItemId[item.itemId] ?? null} onEdit={() => openEditor(item)} {...rowProps} />
+                  <TableRow
+                    key={item.itemId}
+                    item={item}
+                    mediaUrl={mediaUrlByItemId[item.itemId] ?? null}
+                    onEdit={() => openEditor(item)}
+                    isBought={boughtSet.has(item.itemId)}
+                    {...rowProps}
+                  />
                 ))}
               </tbody>
             </table>
@@ -616,7 +675,14 @@ export function InventoryDashboardBody({
 
           <div className={responsiveTable.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {visibleItems.map((item) => (
-              <ItemCard key={item.itemId} item={item} mediaUrl={mediaUrlByItemId[item.itemId] ?? null} onEdit={() => openEditor(item)} {...rowProps} />
+              <ItemCard
+                key={item.itemId}
+                item={item}
+                mediaUrl={mediaUrlByItemId[item.itemId] ?? null}
+                onEdit={() => openEditor(item)}
+                isBought={boughtSet.has(item.itemId)}
+                {...rowProps}
+              />
             ))}
           </div>
 

@@ -192,6 +192,16 @@ function StaffDashboardBody({
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
 
+  // Items currently marked "bought" in Purchases -- fed into the Inventory
+  // popup below as a reminder icon (`InventoryPopup`'s `boughtItemIds`).
+  // Reuses `purchasesItems` (already fetched for the Purchases popup itself,
+  // see page.tsx) rather than a second query -- both popups share the exact
+  // same server read.
+  const inventoryBoughtItemIds = useMemo(
+    () => (purchasesItems ?? []).filter((i) => i.purchaseStatus === 'bought').map((i) => i.itemId),
+    [purchasesItems],
+  );
+
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
   // The full ±8-week, this-location window seeded once from the initial page
@@ -400,6 +410,7 @@ function StaffDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={inventoryStaffNameById}
         canManage={inventoryCanManage}
+        boughtItemIds={inventoryBoughtItemIds}
       />
 
       <PurchasesPopup

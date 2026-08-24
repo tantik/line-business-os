@@ -22,6 +22,8 @@ export interface InventoryPopupProps {
   canManage: boolean;
   /** See `InventoryDashboardClientProps.initialStatusFilter`. Defaults to 'all' when omitted. */
   initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
+  /** See `InventoryDashboardClientProps.boughtItemIds`. */
+  boughtItemIds?: string[];
 }
 
 /**
@@ -58,6 +60,7 @@ export function InventoryPopup({
   staffNameById,
   canManage,
   initialStatusFilter,
+  boughtItemIds,
 }: InventoryPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
@@ -87,6 +90,7 @@ export function InventoryPopup({
           staffNameById={staffNameById}
           embedded
           initialStatusFilter={initialStatusFilter}
+          boughtItemIds={boughtItemIds}
         />
       )}
 

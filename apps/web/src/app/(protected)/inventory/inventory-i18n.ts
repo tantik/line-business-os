@@ -93,6 +93,7 @@ interface InventoryDashboardDict {
   footerNeedRestocking: string;
   footerSufficient: string;
   footerTip: string;
+  purchasedBadgeAriaLabel: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -177,6 +178,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     footerNeedRestocking: 'Need restocking',
     footerSufficient: 'Sufficient',
     footerTip: 'Tip: enter the actual quantity and press Enter (or just wait a moment) to save.',
+    purchasedBadgeAriaLabel: 'Marked as bought in Purchases — update the actual quantity below to clear this',
   },
   ja: {
     pageTitle: '在庫',
@@ -259,6 +261,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     footerNeedRestocking: '要補充',
     footerSufficient: '十分',
     footerTip: 'ヒント: 実数を入力してEnterキー(または少し待つだけ)で保存されます。',
+    purchasedBadgeAriaLabel: '購入(仕入れ)で購入済みとしてマークされています — 下の実数を更新すると解除されます',
   },
 };
 
