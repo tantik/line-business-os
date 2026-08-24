@@ -256,8 +256,24 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-23 pointer (newest — read this one first).** Manager Final
-Completion Phase B (full Manager CRUD/workflow QA) is **CLOSED**:
+**2026-08-24 pointer (newest — read this one first).** A Founder-directed
+live iteration session on `https://preview.oruwa.jp/manager` (Settings
+visual parity with Weekly Schedule, shift-type Delete, mobile header/table
+polish, two real bugs found from Founder screenshots and fixed) is
+**CLOSED by the Founder** ("пока с менеджером закончили" — done with
+Manager for now, 2026-08-24). Six PRs merged to `dev` (#404-#409); full
+detail, verification evidence, and the process note about using
+`scripts/ai-dev-merge.sh` for autonomous `dev` merges is in
+`docs/ai/CAFE_MANAGER_MOBILE_SETTINGS_POLISH_HANDOFF_2026-08-24.md` — read
+that file first if anything about Manager Settings, the Shift preferences
+popup, shift-type Delete, or the `dev`/`main` merge-authority rules comes
+up. **Next: the Founder is starting a Staff-page review session** (not yet
+started as of this entry) — do not assume further Manager work is
+authorized, and do not assume Staff-page findings without actually running
+that review.
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Manager Final Completion Phase B (full Manager CRUD/workflow QA) is **CLOSED**:
 **`MANAGER_PHASE_B = PASS`, `MANAGER_V2_1_READY_FOR_FOUNDER_ACCEPTANCE = YES`.**
 Final session closed §18 (visual/UX consistency audit — clean at desktop,
 found+fixed 2 real mobile-layout bugs), §19-20 (all remaining modals at
