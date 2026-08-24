@@ -90,6 +90,20 @@ interface StaffDashboardDict {
   shiftPreferenceSubmitted: string;
   workReportSubmitted: string;
   correctionRequestSubmitted: string;
+  // Work status (live clock in/out)
+  workStatusHeading: string;
+  workStatusIdle: string;
+  workStatusWorkingLabel: string;
+  workStatusClockedOutButton: string;
+  workStatusBreakLabel: string;
+  workStatusMinutesSuffix: string;
+  workStatusProcessing: string;
+  workStatusSelectBreakTitle: string;
+  workStatusSelectBreakBody: string;
+  workStatusConfirmTitle: string;
+  workStatusConfirmBreakLabel: string;
+  workStatusConfirmAction: string;
+  workStatusCancel: string;
   // Page chrome (header, profile card)
   pageTitle: string;
   navRecipes: string;
@@ -182,6 +196,19 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     shiftPreferenceSubmitted: 'Shift preference submitted.',
     workReportSubmitted: 'Work report submitted.',
     correctionRequestSubmitted: 'Correction request submitted.',
+    workStatusHeading: 'Work status',
+    workStatusIdle: 'Not clocked in',
+    workStatusWorkingLabel: 'Working',
+    workStatusClockedOutButton: 'Clocked out',
+    workStatusBreakLabel: 'Break',
+    workStatusMinutesSuffix: ' min',
+    workStatusProcessing: 'Processing...',
+    workStatusSelectBreakTitle: 'Select break time',
+    workStatusSelectBreakBody: 'Choose today’s total break time.',
+    workStatusConfirmTitle: 'Confirm clock-out',
+    workStatusConfirmBreakLabel: 'Break time',
+    workStatusConfirmAction: 'Confirm clock-out',
+    workStatusCancel: 'Cancel',
     pageTitle: 'Staff',
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
@@ -270,6 +297,19 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     shiftPreferenceSubmitted: 'シフト希望を送信しました。',
     workReportSubmitted: '勤務報告を送信しました。',
     correctionRequestSubmitted: '修正依頼を送信しました。',
+    workStatusHeading: '勤務状況',
+    workStatusIdle: '未出勤',
+    workStatusWorkingLabel: '勤務中',
+    workStatusClockedOutButton: '退勤済み',
+    workStatusBreakLabel: '休憩',
+    workStatusMinutesSuffix: '分',
+    workStatusProcessing: '処理中…',
+    workStatusSelectBreakTitle: '休憩時間を選択',
+    workStatusSelectBreakBody: '本日の休憩時間を選んでください。',
+    workStatusConfirmTitle: '退勤を確認',
+    workStatusConfirmBreakLabel: '休憩時間',
+    workStatusConfirmAction: '退勤を確定',
+    workStatusCancel: 'キャンセル',
     pageTitle: 'スタッフ',
     navRecipes: 'レシピ',
     navInventory: '在庫',

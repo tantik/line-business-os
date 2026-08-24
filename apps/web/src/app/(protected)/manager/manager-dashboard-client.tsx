@@ -39,8 +39,8 @@ import {
   tManagerDashboard,
 } from './manager-dashboard-i18n';
 import { AttentionPanel } from './attention-panel';
-import { BrandBadge } from './brand-badge';
 import { EntryPointsCard } from '../_ui/entry-points-card';
+import { BrandBadge } from '../_ui/brand-badge';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';

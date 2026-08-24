@@ -4,9 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from './staff-profile';
-import { submitWorkReport as submitWorkReportWrite, type WorkforceAttendance } from './attendance';
+import { listMyAttendance, submitWorkReport as submitWorkReportWrite, type WorkforceAttendance } from './attendance';
 import { submitCorrectionRequest as submitCorrectionRequestWrite, decideCorrectionRequest as decideCorrectionRequestWrite, type WorkforceShiftRequest } from './shift-requests';
-import { localDateTimeToUtcIso } from './timezone';
+import { localDateTimeToUtcIso, utcIsoToLocalDateTime } from './timezone';
 import {
   parseDecideCorrectionRequestInput,
   parsePreviewSubmitCorrectionRequestInput as parseStrictSubmitCorrectionRequestInput,
@@ -63,6 +63,81 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
     actualBreakMinutes: input.actualBreakMinutes ?? undefined,
     transportationCost: input.transportationCost,
     dailyMessage: input.dailyMessage,
+  });
+}
+
+/** Shared clockIn/clockOut prelude: resolves the caller's own active staff profile and location, the same way `submitWorkReport` does. */
+async function resolveMyAttendanceLocation(): Promise<
+  | { status: 'ok'; supabase: Awaited<ReturnType<typeof createClient>>; tenantId: string; employeeId: string; locationId: string; timeZone: string }
+  | { status: 'fail'; result: WorkforceWriteResult<never> }
+> {
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return { status: 'fail', result: tenantContext };
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  const myProfile = await getMyWorkforceStaffProfile(supabase, tenantId);
+  if (myProfile.status !== 'success') return { status: 'fail', result: myProfile };
+  if (!myProfile.data) return { status: 'fail', result: NO_STAFF_PROFILE_RESULT };
+  if (!myProfile.data.locationId) {
+    return { status: 'fail', result: { status: 'unexpected_error', message: 'Your staff profile has no assigned location.' } };
+  }
+
+  const locationsResult = await listTenantLocations(supabase);
+  if (locationsResult.status !== 'success') return { status: 'fail', result: locationsResult };
+  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === myProfile.data!.locationId);
+  if (!location) return { status: 'fail', result: { status: 'not_found' } };
+
+  return { status: 'ok', supabase, tenantId, employeeId: myProfile.data.staffId, locationId: location.locationId, timeZone: location.timezone };
+}
+
+/** Clock in at the server-observed current instant, for the caller's own resolved staff location. */
+export async function clockIn(): Promise<WorkforceWriteResult<WorkforceAttendance>> {
+  const context = await resolveMyAttendanceLocation();
+  if (context.status !== 'ok') return context.result;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = context;
+
+  const nowIso = new Date().toISOString();
+  const { workDate } = utcIsoToLocalDateTime(nowIso, timeZone);
+
+  const attendanceResult = await listMyAttendance(supabase, tenantId);
+  if (attendanceResult.status !== 'success') return attendanceResult;
+  const existing = attendanceResult.data.find((entry) => entry.workDate === workDate && entry.employeeId === employeeId && entry.locationId === locationId);
+  if (existing?.clockIn || existing?.clockOut) return { status: 'duplicate', message: 'You have already clocked in today.' };
+
+  return submitWorkReportWrite(supabase, tenantId, {
+    employeeId,
+    locationId,
+    workDate,
+    clockIn: nowIso,
+    actualBreakMinutes: 0,
+  });
+}
+
+/** Clock out at the server-observed current instant, after an exact 0/30/60 break-minutes choice. */
+export async function clockOut(formData: FormData): Promise<WorkforceWriteResult<WorkforceAttendance>> {
+  const rawBreakMinutes = formData.get('actualBreakMinutes');
+  if (rawBreakMinutes !== '0' && rawBreakMinutes !== '30' && rawBreakMinutes !== '60') return INVALID_INPUT_RESULT;
+
+  const context = await resolveMyAttendanceLocation();
+  if (context.status !== 'ok') return context.result;
+  const { supabase, tenantId, employeeId, locationId, timeZone } = context;
+
+  const nowIso = new Date().toISOString();
+  const { workDate } = utcIsoToLocalDateTime(nowIso, timeZone);
+
+  const attendanceResult = await listMyAttendance(supabase, tenantId);
+  if (attendanceResult.status !== 'success') return attendanceResult;
+  const existing = attendanceResult.data.find((entry) => entry.workDate === workDate && entry.employeeId === employeeId && entry.locationId === locationId);
+  if (!existing?.clockIn || existing.clockOut) return { status: 'not_found' };
+
+  return submitWorkReportWrite(supabase, tenantId, {
+    employeeId,
+    locationId,
+    workDate,
+    clockOut: nowIso,
+    actualBreakMinutes: Number(rawBreakMinutes),
   });
 }
 
