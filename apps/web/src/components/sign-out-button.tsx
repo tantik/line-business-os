@@ -8,10 +8,10 @@ import { buttonSecondary } from '@/lib/ui/theme';
  * way to end the session without navigating to the unrelated `/dashboard`
  * technical shell, a real risk on a shared cafe device.
  */
-export function SignOutButton({ label = 'Sign out' }: { label?: string }) {
+export function SignOutButton({ label = 'Sign out', fullWidth = false }: { label?: string; fullWidth?: boolean }) {
   return (
     <form action={signOut}>
-      <button type="submit" style={buttonSecondary}>
+      <button type="submit" style={fullWidth ? { ...buttonSecondary, width: '100%' } : buttonSecondary}>
         {label}
       </button>
     </form>

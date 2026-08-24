@@ -331,11 +331,6 @@ export const tStaffDashboard = makeTranslator(dictionary);
 /** Parameterized strings that don't fit `makeTranslator`'s fixed-string shape. */
 
 /** Header title including the caller's own real display name (Cafe v2.1 QA audit P2-7). Mirrors the Surface A reference's `{name} さん` pattern. */
-export const pageTitleWithName: Record<Lang, (name: string) => string> = {
-  en: (name) => `Staff — ${name}`,
-  ja: (name) => `スタッフ — ${name} さん`,
-};
-
 export const scheduledThisWeekValue: Record<Lang, (hours: string) => string> = {
   en: (hours) => `Scheduled this week: ${hours}h`,
   ja: (hours) => `今週の予定時間: ${hours}h`,
