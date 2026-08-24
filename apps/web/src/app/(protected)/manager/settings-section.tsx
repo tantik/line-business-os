@@ -7,6 +7,7 @@ import { deleteShiftType, saveScheduleSettings, setShiftTypeActive, upsertShiftT
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import styles from './settings-section.module.css';
 import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
@@ -356,11 +357,11 @@ export function SettingsSection({
                 {inactiveShiftTypes.map((st) => {
                   const label = shiftTypeDisplayLabel(st);
                   return (
-                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
-                      <span>
+                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {label} ({st.startsAtLocal}-{st.endsAtLocal})
                       </span>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                         <button
                           type="button"
                           disabled={isPending}
@@ -482,7 +483,7 @@ export function SettingsSection({
           </div>
         </div>
 
-        <div style={{ flex: '1 1 260px', minWidth: 220, paddingLeft: 32, borderLeft: `1px solid ${colors.border}` }}>
+        <div className={styles.shiftRequestsColumn} style={{ flex: '1 1 260px', minWidth: 220 }}>
           <h3 style={{ margin: 0, fontSize: 15 }}>{t('shiftRequestsCardTitle')}</h3>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
             {shiftRequestsSummary ? (

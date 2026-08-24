@@ -54,6 +54,7 @@ import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-setting
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import dashboardStyles from './manager-dashboard.module.css';
 import {
   alertDanger,
   buttonDisabled,
@@ -1050,7 +1051,7 @@ function ManagerDashboardBody({
               narrow screen (fixed `<colgroup>` widths plus this cell text's
               own `overflow: hidden; textOverflow: ellipsis` already shrink
               gracefully -- no separate mobile layout needed). */}
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+          <div className={dashboardStyles.scheduleTableWrap}>
             <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: '3px 3px', fontSize: 13 }}>
               <colgroup>
                 <col style={{ width: '16%' }} />
