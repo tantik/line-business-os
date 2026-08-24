@@ -15,7 +15,7 @@ import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -278,6 +278,11 @@ export default async function WorkforceManagerPage({
       const recipeMediaUrlByRecipeId =
         recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
+      const inventoryMediaUrlByItemId =
+        inventoryItemsResult && inventoryItemsResult.status === 'success'
+          ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
+          : {};
+
       // Header account menu's identity -- `myProfileResult` carries the
       // caller's own `staffId`/`positionLabel` but never a plain-text name
       // (encryption boundary); the decrypted name is looked up from the
@@ -313,6 +318,7 @@ export default async function WorkforceManagerPage({
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
+            inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             initialPopup={initialPopup}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}

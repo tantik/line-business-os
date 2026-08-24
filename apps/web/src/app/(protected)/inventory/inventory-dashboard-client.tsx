@@ -8,7 +8,7 @@ import { deleteInventoryItemAction, setInventoryItemActiveAction } from '@/lib/i
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { ActionsMenu, ConfirmDialog, Modal } from '@/components/shared/design-kit';
+import { ActionsMenu, ConfirmDialog, LightboxTrigger, Modal } from '@/components/shared/design-kit';
 import {
   backLink,
   badgeStyle,
@@ -35,6 +35,8 @@ export interface InventoryDashboardClientProps {
   /** Location's IANA timezone, used to render `countedAt` consistently between server and client (avoids a hydration mismatch). */
   locationTimezone: string;
   items: InventoryItemStatus[];
+  /** Signed URLs for every item that has a photo, keyed by `itemId` (see `createInventoryMediaUrlMap`). Items without an entry here render a placeholder. */
+  mediaUrlByItemId: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show catalog management controls. */
   canManage: boolean;
   /** Manager-only decrypted staff-id -> display-name map (see page.tsx). Always empty for a non-manager caller -- staff never see another employee's name here. */
@@ -84,6 +86,7 @@ function formatLastUpdated(item: InventoryItemStatus, lang: ReturnType<typeof us
 
 interface RowProps {
   item: InventoryItemStatus;
+  mediaUrl: string | null;
   locationId: string;
   locationTimezone: string;
   canManage: boolean;
@@ -92,6 +95,36 @@ interface RowProps {
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
+}
+
+/** Photo thumbnail, matching the size/placeholder pattern of the recipe list's own thumbnail. Click-to-enlarge (`LightboxTrigger`) when a photo exists; a plain placeholder box otherwise -- never itself clickable. */
+function ItemThumbnail({ mediaUrl, name, size }: { mediaUrl: string | null; name: string; size: number }) {
+  if (mediaUrl) {
+    return (
+      <LightboxTrigger
+        src={mediaUrl}
+        alt={name}
+        thumbnailStyle={{ width: size, height: size, flexShrink: 0, borderRadius: 8, border: `1px solid ${colors.border}` }}
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        borderRadius: 8,
+        border: `1px solid ${colors.border}`,
+        background: colors.surfaceElevated,
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <span style={{ fontSize: size * 0.45 }}>📦</span>
+    </div>
+  );
 }
 
 function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>) {
@@ -139,7 +172,7 @@ function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>
   };
 }
 
-function TableRow({ item, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
     useRowActions({ item, onChanged });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
@@ -149,14 +182,19 @@ function TableRow({ item, locationId, locationTimezone, canManage, staffNameById
     <tr style={{ opacity: item.isActive ? 1 : 0.6 }}>
       {/* `border` on a plain `<tr>` doesn't paint under `border-collapse`; the shortage marker has to live on the cell itself. */}
       <td style={{ ...tableCell, borderLeft: belowReorder ? `3px solid ${colors.danger}` : '3px solid transparent' }}>
-        <div style={{ fontWeight: 600 }}>{item.name}</div>
-        {lastUpdated ? (
-          <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>
-            {t('lastUpdatedLabel')} {lastUpdated}
-            {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={40} />
+          <div>
+            <div style={{ fontWeight: 600 }}>{item.name}</div>
+            {lastUpdated ? (
+              <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>
+                {t('lastUpdatedLabel')} {lastUpdated}
+                {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
+              </div>
+            ) : null}
+            {rowError ? <div style={{ marginTop: 4, fontSize: 12, color: colors.dangerText }}>{rowError}</div> : null}
           </div>
-        ) : null}
-        {rowError ? <div style={{ marginTop: 4, fontSize: 12, color: colors.dangerText }}>{rowError}</div> : null}
+        </div>
       </td>
       <td style={tableCell}>
         {item.requiredQuantity} {item.unit}
@@ -287,7 +325,7 @@ function RowConfirmDialogs({
   );
 }
 
-function ItemCard({ item, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
+function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
     useRowActions({ item, onChanged });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
@@ -296,7 +334,9 @@ function ItemCard({ item, locationId, locationTimezone, canManage, staffNameById
   return (
     <div style={{ ...card, marginTop: 0, opacity: item.isActive ? 1 : 0.6, borderLeft: belowReorder ? `3px solid ${colors.danger}` : card.border }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <div>
+        <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+          <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={44} />
+          <div style={{ minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 16 }}>{item.name}</h3>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
             {t('targetLabel')} {item.requiredQuantity} {item.unit} · {t('reorderAtLabel')} {item.reorderPoint} {item.unit} ·{' '}
@@ -309,6 +349,7 @@ function ItemCard({ item, locationId, locationTimezone, canManage, staffNameById
             </p>
           ) : null}
           {rowError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{rowError}</p> : null}
+          </div>
         </div>
         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <StatusBadge item={item} t={t} />
@@ -385,6 +426,7 @@ export function InventoryDashboardBody({
   locationId,
   locationTimezone,
   items,
+  mediaUrlByItemId,
   canManage,
   staffNameById,
   embedded = false,
@@ -459,6 +501,7 @@ export function InventoryDashboardBody({
           isActive: editing.isActive,
           createdAt: '',
           updatedAt: '',
+          mediaPath: editing.mediaPath,
         }
       : undefined;
 
@@ -559,7 +602,7 @@ export function InventoryDashboardBody({
               </thead>
               <tbody>
                 {visibleItems.map((item) => (
-                  <TableRow key={item.itemId} item={item} onEdit={() => openEditor(item)} {...rowProps} />
+                  <TableRow key={item.itemId} item={item} mediaUrl={mediaUrlByItemId[item.itemId] ?? null} onEdit={() => openEditor(item)} {...rowProps} />
                 ))}
               </tbody>
             </table>
@@ -567,7 +610,7 @@ export function InventoryDashboardBody({
 
           <div className={responsiveTable.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {visibleItems.map((item) => (
-              <ItemCard key={item.itemId} item={item} onEdit={() => openEditor(item)} {...rowProps} />
+              <ItemCard key={item.itemId} item={item} mediaUrl={mediaUrlByItemId[item.itemId] ?? null} onEdit={() => openEditor(item)} {...rowProps} />
             ))}
           </div>
 
@@ -611,6 +654,7 @@ export function InventoryDashboardBody({
           <ItemForm
             locationId={locationId}
             item={editingItem}
+            mediaUrl={editingItem ? (mediaUrlByItemId[editingItem.itemId] ?? null) : null}
             lang={lang}
             onSuccess={() => {
               closeEditor();

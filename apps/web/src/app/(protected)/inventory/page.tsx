@@ -5,7 +5,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
-import { hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import {
@@ -112,6 +112,9 @@ export default async function InventoryPage() {
         }
       }
 
+      const mediaUrlByItemId =
+        itemsResult.status === 'success' ? await createInventoryMediaUrlMap(supabase, itemsResult.data) : {};
+
       return (
         <main style={pageStyle(880)}>
           {itemsResult.status === 'success' ? (
@@ -121,6 +124,7 @@ export default async function InventoryPage() {
               locationId={location.locationId}
               locationTimezone={location.timezone}
               items={itemsResult.data}
+              mediaUrlByItemId={mediaUrlByItemId}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}
             />

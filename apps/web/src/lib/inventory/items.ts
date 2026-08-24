@@ -20,6 +20,7 @@ interface ApiInventoryItemStatusRow {
   counted_by_staff_id: string | null;
   shortage_quantity: string | number;
   status: 'unknown' | 'sufficient' | 'shortage';
+  media_path: string | null;
 }
 
 export interface InventoryItemStatus {
@@ -37,6 +38,7 @@ export interface InventoryItemStatus {
   countedByStaffId: string | null;
   shortageQuantity: number;
   status: 'unknown' | 'sufficient' | 'shortage';
+  mediaPath: string | null;
 }
 
 function mapItemStatusRow(row: ApiInventoryItemStatusRow): InventoryItemStatus {
@@ -55,6 +57,7 @@ function mapItemStatusRow(row: ApiInventoryItemStatusRow): InventoryItemStatus {
     countedByStaffId: row.counted_by_staff_id,
     shortageQuantity: Number(row.shortage_quantity),
     status: row.status,
+    mediaPath: row.media_path,
   };
 }
 
@@ -85,7 +88,7 @@ export async function listInventoryItemStatus(
       .schema('api')
       .from('inventory_item_status')
       .select(
-        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status',
+        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status, media_path',
       )
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
@@ -115,6 +118,8 @@ export interface UpsertInventoryItemInput {
   reorderPoint: number;
   sortOrder: number;
   isActive?: boolean;
+  /** Storage object path for this item's photo, `null` to clear it, or `undefined` to leave the existing value untouched. */
+  mediaPath?: string | null;
 }
 
 /** Flat row shape returned by `api.inventory_items` (plain catalog, no computed status). */
@@ -130,6 +135,7 @@ interface ApiInventoryItemRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  media_path: string | null;
 }
 
 export interface InventoryItem {
@@ -144,6 +150,7 @@ export interface InventoryItem {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  mediaPath: string | null;
 }
 
 function mapItemRow(row: ApiInventoryItemRow): InventoryItem {
@@ -159,7 +166,31 @@ function mapItemRow(row: ApiInventoryItemRow): InventoryItem {
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    mediaPath: row.media_path,
   };
+}
+
+/**
+ * Batch-sign the storage media path for every item that has one, keyed by
+ * `itemId` -- same one-call-per-list pattern as `createRecipeMediaUrlMap`
+ * (`@/lib/workforce/recipes.ts`), against the `inventory-media` bucket.
+ */
+export async function createInventoryMediaUrlMap(
+  supabase: SupabaseClient,
+  items: Array<{ itemId: string; mediaPath: string | null }>,
+): Promise<Record<string, string>> {
+  const media = items.filter((item) => item.mediaPath);
+  if (media.length === 0) return {};
+  const itemIdByPath = new Map(media.map((item) => [item.mediaPath as string, item.itemId]));
+  const signed = await supabase.storage
+    .from('inventory-media')
+    .createSignedUrls(media.map((item) => item.mediaPath as string), 3600);
+  if (signed.error) return {};
+  return Object.fromEntries(signed.data.flatMap((entry) => {
+    if (!entry.path || !entry.signedUrl) return [];
+    const itemId = itemIdByPath.get(entry.path);
+    return itemId ? [[itemId, entry.signedUrl]] : [];
+  }));
 }
 
 /**
@@ -182,6 +213,7 @@ export async function upsertInventoryItem(
       reorder_point: input.reorderPoint,
       sort_order: input.sortOrder,
       ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
+      ...(input.mediaPath !== undefined ? { media_path: input.mediaPath } : {}),
     };
 
     const query = input.id
@@ -194,7 +226,7 @@ export async function upsertInventoryItem(
       : supabase.schema('api').from('inventory_items').insert(row);
 
     const { data, error } = await query
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path')
       .maybeSingle();
 
     if (error) return mapInventoryWriteError(error, 'save this inventory item');
@@ -222,7 +254,7 @@ export async function setInventoryItemActive(
       .update({ is_active: isActive })
       .eq('tenant_id', tenantId)
       .eq('item_id', itemId)
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path')
       .maybeSingle();
 
     if (error) return mapInventoryWriteError(error, 'update this inventory item');
@@ -236,10 +268,11 @@ export async function setInventoryItemActive(
   }
 }
 
-/** Flat row shape returned by `api.permanently_delete_inventory_item` (0055). */
+/** Flat row shape returned by `api.permanently_delete_inventory_item` (0055, media_path added by 0085). */
 interface ApiPermanentDeleteRow {
   deleted: boolean;
   blocked_by_history: boolean;
+  media_path: string | null;
 }
 
 /**
@@ -255,7 +288,7 @@ export async function permanentlyDeleteInventoryItem(
   supabase: SupabaseClient,
   tenantId: string,
   itemId: string,
-): Promise<InventoryWriteResult<{ itemId: string }>> {
+): Promise<InventoryWriteResult<{ itemId: string; mediaPath: string | null }>> {
   try {
     const { data, error } = await supabase
       .schema('api')
@@ -267,7 +300,7 @@ export async function permanentlyDeleteInventoryItem(
     if (!row) return { status: 'not_found' };
     if (row.blocked_by_history) return { status: 'blocked_by_history' };
     if (!row.deleted) return { status: 'unexpected_error', message: 'Unable to permanently delete this inventory item right now.' };
-    return { status: 'success', data: { itemId } };
+    return { status: 'success', data: { itemId, mediaPath: row.media_path } };
   } catch (err) {
     return {
       status: 'unexpected_error',
