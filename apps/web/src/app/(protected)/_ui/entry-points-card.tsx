@@ -23,8 +23,23 @@ export interface EntryPointsCardProps {
   buttons: EntryPointsCardButton[];
 }
 
-/** Each button shares the row equally (`flex: 1`), same visual weight, instead of sizing to its own label length. */
-const buttonStyle: CSSProperties = { ...buttonSecondary, flex: 1, justifyContent: 'center', textAlign: 'center', textDecoration: 'none' };
+/**
+ * Each button shares the row equally (`flex: 1`), same visual weight,
+ * instead of sizing to its own label length. Bold, centered label and a
+ * shorter 42px height (vs. the shared `minTouchTarget` 44px) are a
+ * deliberate Founder-specified override for this one row (2026-08-24), not
+ * the general button default.
+ */
+const buttonStyle: CSSProperties = {
+  ...buttonSecondary,
+  flex: 1,
+  minHeight: 42,
+  height: 42,
+  justifyContent: 'center',
+  textAlign: 'center',
+  textDecoration: 'none',
+  fontWeight: 700,
+};
 
 /**
  * Shared entry-point action row (Recipes/Inventory/Manage-staff on Manager;

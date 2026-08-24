@@ -7,6 +7,7 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { clockIn as clockInAction, clockOut as clockOutAction } from '@/lib/workforce/attendance-actions';
 import { Modal } from '@/components/demo/cafe/Modal';
+import { HelpIconButton } from '@/components/shared/design-kit';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from './error-copy';
 import { tStaffDashboard } from './staff-dashboard-i18n';
@@ -36,6 +37,7 @@ export function WorkStatusCard({ todayAttendance, timeZone, lang }: WorkStatusCa
   const [breakPickerOpen, setBreakPickerOpen] = useState(false);
   const [selectedBreak, setSelectedBreak] = useState<BreakMinutes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const isWorking = Boolean(todayAttendance?.clockIn && !todayAttendance.clockOut);
   const isFinished = Boolean(todayAttendance?.clockOut);
@@ -78,7 +80,10 @@ export function WorkStatusCard({ todayAttendance, timeZone, lang }: WorkStatusCa
   return (
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('workStatusHeading')}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{t('workStatusHeading')}</h2>
+          <HelpIconButton ariaLabel={t('workStatusHelpAriaLabel')} onClick={() => setHelpOpen(true)} />
+        </div>
         <span
           style={{
             padding: '3px 10px',
@@ -151,6 +156,10 @@ export function WorkStatusCard({ todayAttendance, timeZone, lang }: WorkStatusCa
         <button type="button" style={{ ...buttonSecondary, width: '100%', marginTop: 8 }} disabled={isPending} onClick={closeBreakPicker}>
           {t('workStatusCancel')}
         </button>
+      </Modal>
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('workStatusHeading')}>
+        <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('workStatusHelpBody')}</p>
       </Modal>
     </section>
   );

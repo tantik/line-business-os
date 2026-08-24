@@ -61,6 +61,16 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
     if (input.clockOutLocal) clockOut = localDateTimeToUtcIso(input.workDate, input.clockOutLocal, location.timezone);
   }
 
+  // Same "omitted must mean unchanged" rule as clockIn/clockOut above --
+  // the Staff dashboard now splits transportation cost and the daily
+  // message into two separate single-field forms (Founder direction,
+  // 2026-08-24), so a submission from one form must never null out the
+  // other's already-saved value. `formData.has()` (not `input.x !== null`)
+  // is the right check: a field a form never rendered has no entry in its
+  // FormData at all, while a field the user explicitly cleared is present
+  // with an empty value -- both `parseSubmitWorkReportInput` and
+  // `formData.get()` collapse those two cases to the same `null`, so only
+  // `has()` can still tell them apart.
   return submitWorkReportWrite(supabase, tenantId, {
     employeeId: myProfile.data.staffId,
     locationId: myProfile.data.locationId,
@@ -68,8 +78,8 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
     clockIn,
     clockOut,
     actualBreakMinutes: input.actualBreakMinutes ?? undefined,
-    transportationCost: input.transportationCost,
-    dailyMessage: input.dailyMessage,
+    transportationCost: formData.has('transportationCost') ? input.transportationCost : undefined,
+    dailyMessage: formData.has('dailyMessage') ? input.dailyMessage : undefined,
   });
 }
 

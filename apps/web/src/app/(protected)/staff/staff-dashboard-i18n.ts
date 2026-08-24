@@ -112,6 +112,21 @@ interface StaffDashboardDict {
   entryPointsHeading: string;
   /** Also doubles as the "Submit next month's shift preference" module's heading and button label on the Staff dashboard. */
   preferenceModalTitle: string;
+  // "?" help popovers (2026-08-24 redesign, matching the Manager dashboard's HelpIconButton pattern)
+  workStatusHelpAriaLabel: string;
+  workStatusHelpBody: string;
+  scheduleHelpAriaLabel: string;
+  scheduleHelpBody: string;
+  transportHelpAriaLabel: string;
+  transportHelpBody: string;
+  transportPlaceholder: string;
+  messageHelpAriaLabel: string;
+  messageHelpBody: string;
+  messagePlaceholder: string;
+  sendButton: string;
+  savingStatus: string;
+  savedStatus: string;
+  saveErrorStatus: string;
   backToWorkforce: string;
   signOut: string;
   profileHeading: string;
@@ -218,6 +233,20 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navPurchases: 'Purchases',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     preferenceModalTitle: "Submit next month's shift preference",
+    workStatusHelpAriaLabel: 'About work status',
+    workStatusHelpBody: 'Tap the big button to clock in when your shift starts, and to clock out when it ends. On clock-out, choose your actual break time -- your manager sees this in real time.',
+    scheduleHelpAriaLabel: 'About the published schedule',
+    scheduleHelpBody: 'Shows every shift your manager has published, for you and your coworkers. Tap "Only me" to see just your own shifts, or tap a day in your own row to see its details.',
+    transportHelpAriaLabel: 'About transportation cost',
+    transportHelpBody: "Enter today's transportation cost. It saves automatically as soon as you type it, and your manager sees it right away for payroll calculations.",
+    transportPlaceholder: "Record today's transport cost",
+    messageHelpAriaLabel: 'About the daily message',
+    messageHelpBody: 'Send your manager a short note -- for example, something that happened during your shift, or anything they should know about.',
+    messagePlaceholder: 'Send a message to your manager',
+    sendButton: 'Send',
+    savingStatus: 'Saving...',
+    savedStatus: 'Saved',
+    saveErrorStatus: 'Could not save',
     backToWorkforce: 'Platform dashboard',
     signOut: 'Sign out',
     profileHeading: 'My staff profile',
@@ -321,6 +350,20 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navPurchases: '仕入れ',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     preferenceModalTitle: '来月のシフト希望を提出',
+    workStatusHelpAriaLabel: '勤務状況について',
+    workStatusHelpBody: 'シフト開始時に大きなボタンをタップして出勤、終了時にタップして退勤してください。退勤時に実際の休憩時間を選択します -- マネージャーはリアルタイムで確認できます。',
+    scheduleHelpAriaLabel: '公開シフトについて',
+    scheduleHelpBody: 'マネージャーが公開した、あなたと同僚全員のシフトを表示します。「自分のみ」で自分のシフトだけを表示できます。自分の行の日付をタップすると詳細が見られます。',
+    transportHelpAriaLabel: '交通費について',
+    transportHelpBody: '本日の交通費を入力してください。入力すると自動的に保存され、マネージャーが給与計算のためすぐに確認できます。',
+    transportPlaceholder: '本日の交通費を記録',
+    messageHelpAriaLabel: '当日のメッセージについて',
+    messageHelpBody: 'マネージャーへ短いメッセージを送れます -- 例えば勤務中に起きたことや、伝えておきたいことなど。',
+    messagePlaceholder: 'マネージャーにメッセージを送る',
+    sendButton: '送信',
+    savingStatus: '保存中...',
+    savedStatus: '保存しました',
+    saveErrorStatus: '保存できませんでした',
     backToWorkforce: 'プラットフォームダッシュボード',
     signOut: 'サインアウト',
     profileHeading: '自分のプロフィール',
