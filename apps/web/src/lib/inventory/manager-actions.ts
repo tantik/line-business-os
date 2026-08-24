@@ -42,7 +42,12 @@ export async function debugStorageRlsCheck(itemId: string, locationId: string): 
     .eq('item_id', itemId)
     .maybeSingle();
 
-  return JSON.stringify({ tenantId, locationId, itemId, hasPerm, permErr, existsRow, existsErr });
+  const testPath = `${tenantId}/${locationId}/${itemId}/${crypto.randomUUID()}.jpg`;
+  const { data: policyCheck, error: policyErr } = await supabase
+    .schema('api')
+    .rpc('debug_inventory_media_check', { p_name: testPath });
+
+  return JSON.stringify({ tenantId, locationId, itemId, hasPerm, permErr, existsRow, existsErr, testPath, policyCheck, policyErr });
 }
 
 export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {
