@@ -47,7 +47,10 @@ export async function debugStorageRlsCheck(itemId: string, locationId: string): 
     .schema('api')
     .rpc('debug_inventory_media_check', { p_name: testPath });
 
-  return JSON.stringify({ tenantId, locationId, itemId, hasPerm, permErr, existsRow, existsErr, testPath, policyCheck, policyErr });
+  const { data: meta, error: metaErr } = await supabase.schema('api').rpc('debug_storage_meta');
+  const { data: tables, error: tablesErr } = await supabase.schema('api').rpc('debug_tables_check');
+
+  return JSON.stringify({ tenantId, locationId, itemId, hasPerm, permErr, existsRow, existsErr, testPath, policyCheck, policyErr, meta, metaErr, tables, tablesErr });
 }
 
 export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {
