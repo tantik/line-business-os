@@ -376,7 +376,20 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
   const belowReorder = item.isActive && item.status === 'shortage';
 
   return (
-    <div style={{ ...card, marginTop: 0, opacity: item.isActive ? 1 : 0.6, borderLeft: belowReorder ? `3px solid ${colors.danger}` : card.border }}>
+    <div
+      style={{
+        ...card,
+        marginTop: 0,
+        opacity: item.isActive ? 1 : 0.6,
+        borderLeft: belowReorder ? `3px solid ${colors.danger}` : card.border,
+        position: 'relative',
+      }}
+    >
+      {isBought ? (
+        <div style={{ position: 'absolute', top: -10, right: -10 }}>
+          <PurchasedIcon t={t} />
+        </div>
+      ) : null}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={44} />
@@ -384,7 +397,6 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {isBought ? <PurchasedIcon t={t} /> : null}
             <StatusBadge item={item} t={t} />
             {canManage ? (
               <>
