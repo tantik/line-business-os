@@ -104,7 +104,7 @@ export function TransportForm({ workDate, defaultTransportationCost, lang, onSuc
         <span style={{ fontSize: 12, minHeight: 14, color: status === 'error' ? colors.dangerText : colors.textMuted }}>{statusText}</span>
       </div>
       <input
-        style={{ ...input, maxWidth: 240 }}
+        style={input}
         type="number"
         min={0}
         value={value}

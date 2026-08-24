@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { buttonSecondary, card } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import entryStyles from './entry-points-card.module.css';
 
 /**
  * One entry-point button: either a popup trigger (`onClick`) or a plain
@@ -38,12 +39,22 @@ export interface EntryPointsCardProps {
  * still add ~18px on top -- a ~60px button that only looks marginally
  * shorter than the un-overridden 44px default, not the visibly compact row
  * the Founder asked for (2026-08-24 QA: "как то кнопки не так как хотел").
+ *
+ * `display: 'flex'` + `alignItems: 'center'` (on top of `justifyContent:
+ * 'center'`/`textAlign: 'center'`) guarantee the label is centered on both
+ * axes regardless of the element's own default line-height/box behavior --
+ * a plain `<a>`/`<button>` centers inline text horizontally via
+ * `text-align` alone, but a fixed `height` doesn't vertically center it
+ * without an explicit flex/grid content box (2026-08-24 Founder QA: label
+ * still looked off-center).
  */
 const buttonStyle: CSSProperties = {
   ...buttonSecondary,
   flex: 1,
   boxSizing: 'border-box',
   height: 42,
+  display: 'flex',
+  alignItems: 'center',
   justifyContent: 'center',
   textAlign: 'center',
   textDecoration: 'none',
@@ -71,11 +82,17 @@ export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
     <section style={{ ...card, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {buttons.map((button) =>
         button.href ? (
-          <Link key={button.key} href={button.href} className={hoverStyles.buttonSecondary} style={buttonStyle}>
+          <Link key={button.key} href={button.href} className={`${hoverStyles.buttonSecondary} ${entryStyles.entryButton}`} style={buttonStyle}>
             {button.label}
           </Link>
         ) : (
-          <button key={button.key} type="button" className={hoverStyles.buttonSecondary} style={buttonStyle} onClick={button.onClick}>
+          <button
+            key={button.key}
+            type="button"
+            className={`${hoverStyles.buttonSecondary} ${entryStyles.entryButton}`}
+            style={buttonStyle}
+            onClick={button.onClick}
+          >
             {button.label}
           </button>
         ),

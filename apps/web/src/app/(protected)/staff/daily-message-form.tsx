@@ -78,7 +78,7 @@ export function DailyMessageForm({ workDate, defaultDailyMessage, lang, onSucces
         </div>
         <span style={{ fontSize: 12, minHeight: 14, color: colors.textMuted }}>{sent ? t('messageSentStatus') : ''}</span>
       </div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, maxWidth: 360 }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {error ? <div style={alertDanger}>{error}</div> : null}
         <textarea
           style={{ ...input, minHeight: 72, resize: 'vertical' }}
