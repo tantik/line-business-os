@@ -73,7 +73,10 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
     const upload = await supabase.storage.from('inventory-media').upload(nextMediaPath, photo, {
       contentType: photo.type, cacheControl: '3600', upsert: false,
     });
-    if (upload.error) return { status: 'unexpected_error', message: `Could not upload the photo: ${upload.error.message}` };
+    if (upload.error) {
+      console.error('inventory photo upload failed', nextMediaPath, JSON.stringify(upload.error));
+      return { status: 'unexpected_error', message: `Could not upload the photo: ${upload.error.message}` };
+    }
     const mediaSaved = await upsertInventoryItem(supabase, tenantId, {
       id: saved.data.itemId,
       locationId: input.locationId,
