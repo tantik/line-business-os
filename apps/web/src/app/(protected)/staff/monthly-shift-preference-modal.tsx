@@ -90,6 +90,14 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
     return st ? shiftTypeDisplayLabel(st) : '-';
   }
 
+  /** Time-range caption under a legend chip, same convention as `ShiftLegend` under the main schedule table. */
+  function optionTimeCaption(value: string | null): string {
+    if (value === null) return lang === 'ja' ? '未指定' : 'Unspecified';
+    if (value === UNAVAILABLE) return lang === 'ja' ? '勤務不可' : 'Unavailable to work';
+    const st = activeShiftTypes.find((s) => s.shiftTypeId === value);
+    return st ? `${st.startsAtLocal}-${st.endsAtLocal}` : '';
+  }
+
   function cellTone(value: string | null): { background: string; color: string } {
     if (value === null) return { background: colors.surfaceElevated, color: colors.textMuted };
     if (value === UNAVAILABLE) return { background: colors.dangerMuted, color: colors.dangerText };
@@ -156,11 +164,11 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
     >
       {error ? <div style={{ ...alertDanger, marginBottom: 10 }}>{error}</div> : null}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: 10 }}>
-        {[...cycleOptions.slice(1), null].map((value) => {
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 10 }}>
+        {[null, ...cycleOptions.slice(1)].map((value) => {
           const tone = cellTone(value ?? null);
           return (
-            <div key={value ?? 'none'} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div key={value ?? 'none'} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span
                 style={{
                   display: 'inline-block',
@@ -174,6 +182,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
               >
                 {optionLabel(value ?? null)}
               </span>
+              <span style={{ fontSize: 11, color: colors.textMuted }}>{optionTimeCaption(value ?? null)}</span>
             </div>
           );
         })}

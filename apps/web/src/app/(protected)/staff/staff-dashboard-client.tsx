@@ -29,9 +29,11 @@ import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
-import { TransportMessageForm } from './transport-message-form';
+import { TransportForm } from './transport-form';
+import { DailyMessageForm } from './daily-message-form';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
+import { HelpIconButton } from '@/components/shared/design-kit';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
@@ -140,6 +142,7 @@ function StaffDashboardBody({
   const [onlyMe, setOnlyMe] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
+  const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
@@ -301,9 +304,12 @@ function StaffDashboardBody({
 
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>
-            {t('scheduleHeading')} ({periodStart} - {periodEnd})
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 16 }}>
+              {t('scheduleHeading')} ({periodStart} - {periodEnd})
+            </h2>
+            <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' }}>
               <button
@@ -426,15 +432,23 @@ function StaffDashboardBody({
         )}
       </section>
 
-      <div style={{ marginTop: 16 }}>
-        <TransportMessageForm
-          workDate={todayIso}
-          defaultTransportationCost={todayAttendance?.transportationCost ?? null}
-          defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
-          lang={lang}
-          onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
-        />
-      </div>
+      <Modal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} title={t('scheduleHeading')} maxWidth={420}>
+        <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</p>
+      </Modal>
+
+      <TransportForm
+        workDate={todayIso}
+        defaultTransportationCost={todayAttendance?.transportationCost ?? null}
+        lang={lang}
+        onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
+      />
+
+      <DailyMessageForm
+        workDate={todayIso}
+        defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
+        lang={lang}
+        onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
+      />
 
       <section style={{ ...card, marginTop: 16 }}>
         {shiftTypes === null ? (
