@@ -108,6 +108,31 @@ Full detail and command risk table: `docs/phase-1-core-db.md`.
 - Every task notes: scope, changed files, build/lint result, security impact,
   migration impact, rollback note.
 
+### Branch authority (Founder decision, 2026-08-24)
+
+- **`dev`** is the shared working version of the product — completed PRs land
+  here and get checked on `preview.oruwa.jp`. This is the development branch:
+  the Lead Agent commits, pushes, opens PRs, and **merges into `dev` on its
+  own authority**, no per-merge Founder confirmation needed, once the PR is
+  actually done (CI green, implementation complete, self-review/Independent
+  Reviewer passed where required — see the DEV MERGE gate list in
+  `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §9). Merges into `dev`
+  are performed **only** via `scripts/ai-dev-merge.sh <PR_NUMBER>` — never a
+  raw `gh pr merge` — the script mechanically re-verifies base=`dev`,
+  not-draft, OPEN, MERGEABLE, CI all-pass, and refuses if the PR touches a
+  RED path (`supabase/migrations/**`, secrets/env/key material), in which
+  case merging that specific PR still requires Founder approval even though
+  it targets `dev`. `.claude/settings.json` denies raw `gh pr merge*`
+  outright and allows only the wrapper script.
+- **`main`** is not a day-to-day development branch. It is the approved
+  release version considered production-ready. Merging into `main` **always**
+  requires the Founder's explicit confirmation, after everything has been
+  checked — no exception, no autonomous path, regardless of CI state or how
+  routine the change looks.
+- **Production** deploys from `main` only after a separate Founder decision
+  to do so. Merging into `main` and deploying to production are two distinct
+  approval boundaries, not one.
+
 ## Migration rules (legacy → platform)
 
 Legacy repos (`tantik/cafe-shift`, `tantik/line-app`) are **source references
