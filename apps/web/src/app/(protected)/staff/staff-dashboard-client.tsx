@@ -22,6 +22,8 @@ import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
+import hoverStyles from '@/lib/ui/theme.module.css';
 import { existingExchangeMessage, inventoryShortageLabel, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
 import {
   backLink,
@@ -52,6 +54,7 @@ import { CorrectionRequestForm } from './correction-request-form';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
 import { AccountMenu } from '../_ui/account-menu';
+import { StaffInventoryPopup } from './inventory-popup';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
@@ -109,8 +112,17 @@ export interface StaffDashboardClientProps {
   exchanges: WorkforceShiftExchange[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the entry-point card below; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
-  /** This location's inventory item statuses, read-only, for the entry-point card's shortage summary. The actual catalog/count-entry UI lives on the existing canonical `/dashboard/inventory` page (shared Staff+Manager), not duplicated here. `null` when the module is disabled or the read failed. */
+  /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
   inventoryItems: InventoryItemStatus[] | null;
+  /** Pure UX affordance (RLS is the real boundary regardless): whether this staff member also holds `inventory.item.manage`. Almost always false for a plain staff account. */
+  inventoryCanManage: boolean;
+  /** Signed photo URLs for `inventoryItems`, keyed by `itemId` -- threaded straight to the Inventory popup. */
+  inventoryMediaUrlByItemId: Record<string, string>;
+  /** Manager-only decrypted staff-id -> display-name map for the Inventory popup's "counted by" line (see page.tsx). Always empty when `inventoryCanManage` is false. */
+  inventoryStaffNameById: Record<string, string>;
+  /** `?popup=inventory` query param, parsed server-side (page.tsx) -- auto-opens the Inventory popup on first render (e.g. a bookmarked/redirected `/inventory` visit). */
+  initialPopup: 'inventory' | null;
+  locationId: string;
 }
 
 /** Display-only hours between two `HH:MM` local times, for the weekly-hours summary. Does not account for breaks. */
@@ -154,6 +166,11 @@ function StaffDashboardBody({
   exchanges,
   inventoryEnabled,
   inventoryItems,
+  inventoryCanManage,
+  inventoryMediaUrlByItemId,
+  inventoryStaffNameById,
+  initialPopup,
+  locationId,
 }: StaffDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -161,6 +178,12 @@ function StaffDashboardBody({
   const [banner, setBanner] = useState<string | null>(null);
   const [onlyMe, setOnlyMe] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
+
+  function openInventoryPopup() {
+    markPopupTriggerClick('inventory');
+    setInventoryPopupOpen(true);
+  }
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
@@ -333,7 +356,7 @@ function StaffDashboardBody({
         heading={t('entryPointsHeading')}
         buttons={[
           { key: 'recipes', label: t('navRecipes'), href: '/recipes' },
-          { key: 'inventory', label: t('navInventory'), href: '/inventory' },
+          ...(inventoryEnabled ? [{ key: 'inventory', label: t('navInventory'), onClick: openInventoryPopup }] : []),
         ]}
       />
 
@@ -491,10 +514,10 @@ function StaffDashboardBody({
             <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{t('inventoryDescription')}</p>
           </div>
           {inventoryEnabled ? (
-            <Link href="/inventory" style={{ ...buttonSecondary, textDecoration: 'none' }}>
+            <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={openInventoryPopup}>
               {t('inventoryOpen')}
               {inventoryItems ? ` (${inventoryItems.filter((i) => i.status === 'shortage').length})` : ''}
-            </Link>
+            </button>
           ) : (
             <button type="button" disabled style={buttonDisabled}>
               {t('inventoryNotEnabled')}
@@ -666,6 +689,19 @@ function StaffDashboardBody({
           {t('backToWorkforce')}
         </Link>
       </p>
+
+      <StaffInventoryPopup
+        open={inventoryPopupOpen}
+        onClose={() => setInventoryPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        locationTimezone={timeZone}
+        items={inventoryItems}
+        mediaUrlByItemId={inventoryMediaUrlByItemId}
+        canManage={inventoryCanManage}
+        staffNameById={inventoryStaffNameById}
+      />
     </>
   );
 }

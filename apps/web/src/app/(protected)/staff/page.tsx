@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { listWorkforceStaffRoster } from '@/lib/workforce/employees';
+import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
-import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -63,7 +63,7 @@ function BackLink() {
 export default async function WorkforceStaffPage({
   searchParams,
 }: {
-  searchParams: Promise<{ weekOffset?: string }>;
+  searchParams: Promise<{ weekOffset?: string; popup?: string }>;
 }) {
   const result = await requireTenantContext();
 
@@ -157,8 +157,9 @@ export default async function WorkforceStaffPage({
         );
       }
 
-      const { weekOffset: rawWeekOffset } = await searchParams;
+      const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
+      const initialPopup = rawPopup === 'inventory' ? 'inventory' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
@@ -182,6 +183,7 @@ export default async function WorkforceStaffPage({
         correctionRequestsResult,
         exchangesResult,
         inventoryItemsResult,
+        inventoryCanManage,
         rosterResult,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
@@ -193,13 +195,19 @@ export default async function WorkforceStaffPage({
         listMyAttendance(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-        // Read-only, for the shortage-aware entry-point card below -- the
-        // actual Inventory catalog/count-entry UI is not duplicated here; it
-        // stays on its own canonical `/dashboard/inventory` page (shared
-        // Staff+Manager, RLS-scoped), which this card links to.
+        // Also the exact data the Inventory popup below renders -- no
+        // separate fetch, same pattern the Manager dashboard's own
+        // `InventoryPopup` uses.
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
+        // Pure UX affordance (RLS is the real boundary regardless): almost
+        // always false for a plain staff account, but resolved from the real
+        // permission rather than hardcoded so a staff member who does hold
+        // `inventory.item.manage` still sees catalog-management controls.
+        inventoryEnabled
+          ? hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId)
+          : Promise.resolve(false),
         // Real display names for the caller's own profile header and the
         // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
         // 0061) -- RLS narrows this to the caller's own row plus active
@@ -210,6 +218,22 @@ export default async function WorkforceStaffPage({
       const staffNameById: Record<string, string> =
         rosterResult.status === 'success'
           ? Object.fromEntries(rosterResult.data.map((entry) => [entry.employeeId, entry.name]))
+          : {};
+
+      // "Who last counted this" in the Inventory popup only ever resolves to
+      // a real display name when this caller can manage the catalog --
+      // mirrors `/inventory/page.tsx`'s own gating exactly, reusing the same
+      // manager-only decrypted staff directory rather than a new PII surface.
+      const inventoryStaffNameById = new Map<string, string>();
+      if (inventoryCanManage) {
+        const staffResult = await listWorkforceStaffForManager(supabase, activeTenant.tenantId);
+        if (staffResult.status === 'success') {
+          for (const entry of staffResult.data) inventoryStaffNameById.set(entry.staffId, entry.name);
+        }
+      }
+      const inventoryMediaUrlByItemId =
+        inventoryItemsResult && inventoryItemsResult.status === 'success'
+          ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
           : {};
 
       // `listShiftAssignments` is shared with the manager view and returns
@@ -242,6 +266,11 @@ export default async function WorkforceStaffPage({
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
+            inventoryCanManage={inventoryCanManage}
+            inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
+            inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
+            initialPopup={initialPopup}
+            locationId={location.locationId}
           />
         </main>
       );

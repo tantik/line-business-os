@@ -8,11 +8,13 @@ import { readFileSync } from 'node:fs';
  * -- this repo's `node --test` runner has no DOM/React harness) locking in
  * two architecture decisions so a future edit can't silently regress them:
  *
- * 1. Inventory: the canonical Staff page reuses the existing, already-real
- *    `/inventory` page (shared Staff+Manager, RLS-scoped) via a
- *    read-only shortage summary + link, rather than duplicating a second
- *    write-capable Inventory UI inside the Workforce Staff page. This test
- *    fails if someone later copies a write action in directly instead.
+ * 1. Inventory: the Staff page opens the Inventory popup (`StaffInventoryPopup`,
+ *    `./inventory-popup.tsx`), which embeds the exact same shared
+ *    `InventoryDashboardBody` the canonical `/inventory` page and the
+ *    Manager dashboard's own `InventoryPopup` use -- one write UI, reused,
+ *    never a second copy built directly into this file. `page.tsx` itself
+ *    still never imports a write/mutation action directly; those live only
+ *    inside the shared Inventory components.
  * 2. JA/EN: the schedule/exchange/inventory-entry section this consolidation
  *    added is wrapped in the shared `LangProvider` and reads `lang` from
  *    `useLang()` rather than hardcoding `'en'`.
@@ -33,12 +35,12 @@ test('staff page.tsx never imports an Inventory write/mutation action -- writes 
   );
 });
 
-test('staff-dashboard-client.tsx links to the canonical /inventory page rather than embedding a duplicate count-entry form', () => {
-  assert.match(CLIENT_SOURCE, /href="\/inventory"/, 'must link to the canonical Inventory page');
+test('staff-dashboard-client.tsx opens the shared Inventory popup rather than embedding its own count-entry form', () => {
+  assert.match(CLIENT_SOURCE, /StaffInventoryPopup/, 'must open the Staff Inventory popup');
   assert.doesNotMatch(
     CLIENT_SOURCE,
     /CountForm|ItemForm|recordInventoryStockCountAction/,
-    'must not import the canonical Inventory page\'s own write-form components directly -- that would create a second, duplicate write surface',
+    'must not import the canonical Inventory page\'s own write-form components directly -- the shared popup/dashboard-body components own that, not this file',
   );
 });
 
