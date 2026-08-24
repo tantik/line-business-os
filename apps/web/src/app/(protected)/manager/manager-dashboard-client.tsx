@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { CSSProperties } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceEmployeeLineLink } from '@/lib/workforce/employee-line-links';
@@ -57,10 +56,8 @@ import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import {
   alertDanger,
-  backLink,
   buttonDisabled,
   buttonSecondary,
-  card,
   colors,
   mutedText,
   tableCell,
@@ -74,7 +71,6 @@ import {
   todayIsoInTimeZone,
 } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
-import styles from '@/lib/ui/responsive-table.module.css';
 
 const alertSuccess = {
   border: `1px solid ${colors.success}`,
@@ -840,27 +836,25 @@ function ManagerDashboardBody({
       <header
         style={{
           display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          gap: 6,
           paddingBottom: 20,
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <BrandBadge label={tenantName} />
-          <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <BrandBadge label={tenantName} />
             <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-            <p style={{ margin: '4px 0 0', ...mutedText }}>
-              {tenantName} - {locationName}
-            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <PreviewLanguageToggle />
+            <SignOutButton label={t('signOut')} />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <PreviewLanguageToggle />
-          <SignOutButton label={t('signOut')} />
-        </div>
+        <p style={{ margin: 0, ...mutedText }}>
+          {tenantName} - {locationName}
+        </p>
       </header>
 
       <EntryPointsCard
@@ -1047,7 +1041,16 @@ function ManagerDashboardBody({
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
         ) : (
           <>
-          <div className={styles.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
+          {/* Founder direction (2026-08-24): the Weekly Schedule grid stays a
+              real table at every viewport, never the shared
+              tableView/cardView desktop-table/mobile-card split every other
+              wide table in this app uses -- a per-day card here would hide
+              the whole week's shape and force much more scrolling than the
+              compact, horizontally-scrollable table already gives on a
+              narrow screen (fixed `<colgroup>` widths plus this cell text's
+              own `overflow: hidden; textOverflow: ellipsis` already shrink
+              gracefully -- no separate mobile layout needed). */}
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: '3px 3px', fontSize: 13 }}>
               <colgroup>
                 <col style={{ width: '16%' }} />
@@ -1139,40 +1142,6 @@ function ManagerDashboardBody({
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div className={styles.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
-            {dates.map((date) => {
-              const coverage = staffingCoverageByDate.get(date);
-              const shortageLabel = coverage && coverage.missing > 0 ? dailyStaffingShortageExplanation[lang](coverage.required, coverage.scheduled, coverage.missing) : null;
-              const isToday = date === todayIso;
-              return (
-              <div key={date} style={isToday ? { ...card, ...scheduleTodayTint, marginTop: 0, border: `1px solid ${colors.accent}` } : { ...card, marginTop: 0 }}>
-                <h3 style={{ margin: 0, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {formatWeekday(date)} {date.slice(8)}
-                  {shortageLabel ? (
-                    <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedMarkerStyle}>
-                      !
-                    </span>
-                  ) : null}
-                </h3>
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
-                  {staff.map((s) => (
-                    <div key={s.staffId} style={{ padding: '8px 0', borderTop: `1px solid ${colors.border}` }}>
-                      <button
-                        type="button"
-                        style={{ ...backLink, background: 'none', border: 0, cursor: 'pointer', padding: 0, font: 'inherit', display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}
-                        onClick={() => setStaffDetailId(s.staffId)}
-                      >
-                        {s.name}
-                      </button>
-                      {renderScheduleCellContent(s, date)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              );
-            })}
           </div>
 
           {weekLegendTypes.length > 0 || weekCustomTimeRanges.length > 0 ? (
@@ -1312,12 +1281,6 @@ function ManagerDashboardBody({
         onAssignReplacement={handleAssignReplacement}
         lang={lang}
       />
-
-      <p style={{ marginTop: 16 }}>
-        <Link href="/dashboard/workforce" style={backLink}>
-          {t('backToWorkforce')}
-        </Link>
-      </p>
     </>
   );
 }

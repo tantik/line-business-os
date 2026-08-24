@@ -1,0 +1,21 @@
+-- ============================================================================
+-- 0083  Workforce: grant DELETE on workforce.shift_types (Manager Settings --
+--       "Delete" action for an already-deactivated shift type).
+-- ----------------------------------------------------------------------------
+-- 0025 granted `select, insert, update` to `authenticated` and added a
+-- `wf_shift_types_write` RLS policy `for all` (covers DELETE already), but
+-- never granted the base DELETE privilege -- RLS only ever narrows what a
+-- grant already allows, so any DELETE through api.workforce_shift_types
+-- would fail with a plain permission error before RLS is even consulted.
+-- This is purely additive (same "narrow follow-up grant" shape as 0075-0078's
+-- service_role schema grants) -- no RLS/policy change, no new object. A type
+-- that was ever referenced by a shift or shift request still cannot be
+-- deleted: `workforce.shifts.shift_type_id` / `workforce.shift_requests.
+-- shift_type_id` are plain (non-cascading) FKs (0026/0028), so Postgres
+-- itself refuses the DELETE with 23503 -- the application layer
+-- (`permanentlyDeleteWorkforceShiftType`) maps that to `blocked_by_history`,
+-- same convention as the existing 23503 handling in
+-- `employee-line-links.ts`/`shift-assignments.ts`.
+-- ============================================================================
+
+grant delete on workforce.shift_types to authenticated;

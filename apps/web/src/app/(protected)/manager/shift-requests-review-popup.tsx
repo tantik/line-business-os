@@ -58,6 +58,22 @@ const gridHeaderCellStyle: CSSProperties = {
 
 const gridCellStyle: CSSProperties = { border: `1px solid ${colors.border}`, padding: '3px' };
 
+/** Small corner badge marking a staff row that hasn't submitted preferences yet -- same absolute-corner-circle shape as the Weekly Schedule grid's own alert marker, kept local here rather than importing that file's private constant. */
+const missingCornerStyle: CSSProperties = {
+  position: 'absolute',
+  top: 2,
+  right: 2,
+  width: 13,
+  height: 13,
+  borderRadius: '50%',
+  background: colors.danger,
+  color: '#fff',
+  fontSize: 9.5,
+  fontWeight: 700,
+  lineHeight: '13px',
+  textAlign: 'center',
+};
+
 function cellButtonStyle(tone: { background: string; color: string } | null, clickable: boolean): CSSProperties {
   return {
     position: 'relative',
@@ -176,8 +192,8 @@ export function ShiftRequestsReviewPopup({
 
   function renderCell(staffId: string, date: string) {
     const request = requestsByEmployeeAndDate.get(`${staffId}:${date}`);
-    if (!request) return <span aria-hidden="true" style={{ ...mutedText, fontSize: 13 }}>+</span>;
-    if (request.isUnavailable) return <span aria-hidden="true" style={{ ...mutedText, fontSize: 13 }}>—</span>;
+    if (!request) return <span title={t('noPreferenceSubmittedHint')} style={{ ...mutedText, fontSize: 13 }}>+</span>;
+    if (request.isUnavailable) return <span title={t('markedUnavailableHint')} style={{ ...mutedText, fontSize: 13 }}>—</span>;
 
     const shiftType = request.shiftTypeId ? shiftTypeById.get(request.shiftTypeId) : undefined;
     const label = shiftType ? shiftTypeDisplayLabel(shiftType) : t('shiftTypeCustom');
@@ -217,7 +233,7 @@ export function ShiftRequestsReviewPopup({
         <button
           type="button"
           className={clampedWeekIndex === 0 ? undefined : hoverStyles.buttonSecondary}
-          style={{ ...buttonSecondary, minWidth: 36, padding: '6px 10px', ...(clampedWeekIndex === 0 ? { opacity: 0.4, cursor: 'default' } : {}) }}
+          style={{ ...buttonSecondary, minWidth: 56, padding: '8px 18px', ...(clampedWeekIndex === 0 ? { opacity: 0.4, cursor: 'default' } : {}) }}
           disabled={clampedWeekIndex === 0}
           aria-label={t('prevWeek')}
           title={t('prevWeek')}
@@ -231,7 +247,7 @@ export function ShiftRequestsReviewPopup({
         <button
           type="button"
           className={clampedWeekIndex >= weeks.length - 1 ? undefined : hoverStyles.buttonSecondary}
-          style={{ ...buttonSecondary, minWidth: 36, padding: '6px 10px', ...(clampedWeekIndex >= weeks.length - 1 ? { opacity: 0.4, cursor: 'default' } : {}) }}
+          style={{ ...buttonSecondary, minWidth: 56, padding: '8px 18px', ...(clampedWeekIndex >= weeks.length - 1 ? { opacity: 0.4, cursor: 'default' } : {}) }}
           disabled={clampedWeekIndex >= weeks.length - 1}
           aria-label={t('nextWeek')}
           title={t('nextWeek')}
@@ -254,9 +270,16 @@ export function ShiftRequestsReviewPopup({
             </colgroup>
             <thead>
               <tr>
-                <th style={gridHeaderCellStyle}>{t('colStaff')}</th>
-                {weekDates.map((date) => (
-                  <th key={date} style={{ ...gridHeaderCellStyle, ...(date === todayIso ? { background: colors.accentMuted } : {}) }}>
+                <th style={{ ...gridHeaderCellStyle, borderTopLeftRadius: 8 }}>{t('colStaff')}</th>
+                {weekDates.map((date, dateIndex) => (
+                  <th
+                    key={date}
+                    style={{
+                      ...gridHeaderCellStyle,
+                      ...(date === todayIso ? { background: colors.accentMuted } : {}),
+                      ...(dateIndex === weekDates.length - 1 ? { borderTopRightRadius: 8 } : {}),
+                    }}
+                  >
                     {formatWeekday(date)}
                     <br />
                     {date.slice(8)}
@@ -265,13 +288,15 @@ export function ShiftRequestsReviewPopup({
               </tr>
             </thead>
             <tbody>
-              {activeStaff.map((s) => {
+              {activeStaff.map((s, staffIndex) => {
                 const submitted = submittedEmployeeIds.has(s.staffId);
+                const isLastRow = staffIndex === activeStaff.length - 1;
                 return (
                   <tr key={s.staffId}>
-                    <td style={gridCellStyle}>
+                    <td style={{ ...gridCellStyle, ...(isLastRow ? { borderBottomLeftRadius: 8 } : {}) }}>
                       {submitted ? (
                         <span
+                          className={hoverStyles.staffNameCell}
                           style={{
                             width: '100%',
                             minHeight: minTouchTarget,
@@ -281,27 +306,39 @@ export function ShiftRequestsReviewPopup({
                             textAlign: 'center',
                             padding: '6px 4px',
                             fontWeight: 600,
-                            color: colors.textPrimary,
                             fontSize: 12.5,
+                            borderRadius: 6,
                             boxSizing: 'border-box',
+                            cursor: 'default',
                           }}
                         >
                           {s.name}
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          className={hoverStyles.staffNameCell}
-                          style={{ width: '100%', minHeight: minTouchTarget, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, color: colors.dangerText, fontSize: 12.5, borderRadius: 6, boxSizing: 'border-box' }}
-                          title={s.name}
-                          onClick={() => setReminderStaffId(s.staffId)}
-                        >
-                          {s.name}
-                        </button>
+                        <span style={{ position: 'relative', display: 'block' }}>
+                          <button
+                            type="button"
+                            className={hoverStyles.staffNameCell}
+                            style={{ width: '100%', minHeight: minTouchTarget, border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, fontSize: 12.5, borderRadius: 6, boxSizing: 'border-box' }}
+                            title={s.name}
+                            onClick={() => setReminderStaffId(s.staffId)}
+                          >
+                            {s.name}
+                          </button>
+                          <span aria-hidden="true" style={missingCornerStyle}>
+                            !
+                          </span>
+                        </span>
                       )}
                     </td>
-                    {weekDates.map((date) => (
-                      <td key={date} style={gridCellStyle}>
+                    {weekDates.map((date, dateIndex) => (
+                      <td
+                        key={date}
+                        style={{
+                          ...gridCellStyle,
+                          ...(isLastRow && dateIndex === weekDates.length - 1 ? { borderBottomRightRadius: 8 } : {}),
+                        }}
+                      >
                         {renderCell(s.staffId, date)}
                       </td>
                     ))}
