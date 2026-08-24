@@ -256,7 +256,40 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-24 pointer #4 (newest — read this one first).** A follow-on,
+**2026-08-24 pointer #5 (newest — read this one first).** A full,
+same-day, single-session build of the **Purchases module** (INSPECT+PLAN,
+Founder approval, then DB-schema-through-UI implementation) closed the
+placeholder button the pointer #4 session below had left in place. Purchases
+is now a real projection/workflow layer over Inventory: staff/manager see a
+shopping list of items at/below their reorder point ("Need to buy: N unit"),
+mark them "Bought" (a lightweight, append-only acknowledgement that never
+mutates Inventory quantities), and — the central design requirement — that
+acknowledgement automatically goes stale the moment Inventory's own count
+changes, reverting to Pending (if still short) or dropping the item from the
+list entirely (if now sufficient). **5 PRs merged to `dev` (#432-#436)**:
+#432 (schema: `purchases.purchase_actions`, `api.purchases_needed`,
+`api.record_purchase_action`, new pgTAP suite) and #433 (Staff+Manager popup
+UI, following the `InventoryPopup`/`RecipesPopup` `_ui/` pattern) were
+merged **directly by the Founder** (RED path — `supabase/migrations/**` —
+`scripts/ai-dev-merge.sh` structurally refuses these, no override exists);
+#434-#436 (Inventory mobile-card polish: a shortage-amount line, and a 🛒
+"purchased, needs recount" reminder icon whose position iterated across 3
+PRs to its final Founder-accepted `top:1px/right:1px` corner placement) were
+merged autonomously. Migration `0089` was applied to **both** local Supabase
+and the linked Cloud dev project (`pehcoenozjtsjdvjietj`) — the Cloud push
+was the fix for a real mid-session gap (Preview showed "Purchases is
+temporarily unavailable" until the schema existed there too; a merged `dev`
+PR does not by itself put a migration on Preview). Full state, exact file
+list, the staleness-mechanism design rationale, and known unverified
+surfaces (Manager's Purchases popup and desktop-width Purchases were never
+independently browser-QA'd, only Staff's mobile view via the Founder's own
+screenshots) are in `docs/ai/CAFE_PURCHASES_MODULE_HANDOFF_2026-08-24.md` —
+read that file first if anything about Purchases, the Inventory
+purchased-icon, or the `purchases.*` schema comes up. **The Founder closed
+this thread explicitly** ("отлично" + asked for a new-chat handoff) — ask
+what's next rather than assuming continuation.
+
+**2026-08-24 pointer #4 (older — read after the one above).** A follow-on,
 same-day session built the **Staff Inventory popup**: Staff's Inventory
 entry point moved from a full-page `/inventory` link to a popup, matching
 the pattern Manager's Inventory and Staff's own Recipes popup already used
