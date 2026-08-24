@@ -340,18 +340,10 @@ function StaffDashboardBody({
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
 
       <section style={card}>
+        {/* Name + Position are now shown in the header's account menu (`AccountMenu`, 2026-08-24 redesign) -- kept here
+            only what that menu doesn't already surface, so this card no longer duplicates identity/role. */}
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('profileHeading')}</h2>
         <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
-          {displayName ? (
-            <div>
-              <dt style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</dt>
-              <dd style={{ margin: 0 }}>{displayName}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>{t('positionLabel')}</dt>
-            <dd style={{ margin: 0 }}>{profile.positionLabel ?? t('notSetLabel')}</dd>
-          </div>
           <div>
             <dt style={{ ...mutedText, fontSize: 13 }}>{t('employmentTypeLabel')}</dt>
             <dd style={{ margin: 0 }}>{profile.employmentType}</dd>
