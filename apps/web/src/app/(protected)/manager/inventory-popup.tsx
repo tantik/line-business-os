@@ -16,6 +16,7 @@ export interface InventoryPopupProps {
   locationId: string;
   locationTimezone: string;
   items: InventoryItemStatus[] | null;
+  mediaUrlByItemId: Record<string, string>;
   staffNameById: Record<string, string>;
   /** See `InventoryDashboardClientProps.initialStatusFilter`. Defaults to 'all' when omitted. */
   initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
@@ -50,6 +51,7 @@ export function InventoryPopup({
   locationId,
   locationTimezone,
   items,
+  mediaUrlByItemId,
   staffNameById,
   initialStatusFilter,
 }: InventoryPopupProps) {
@@ -76,6 +78,7 @@ export function InventoryPopup({
           locationId={locationId}
           locationTimezone={locationTimezone}
           items={items}
+          mediaUrlByItemId={mediaUrlByItemId}
           canManage
           staffNameById={staffNameById}
           embedded

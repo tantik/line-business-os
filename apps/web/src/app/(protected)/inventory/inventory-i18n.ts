@@ -47,6 +47,15 @@ interface InventoryDashboardDict {
   confirmDeleteItemTitle: string;
   confirmDeleteItemBody: string;
   nameLabel: string;
+  formPhotoLabel: string;
+  formChooseImage: string;
+  formReplaceImage: string;
+  formRemoveImage: string;
+  formUndoRemoveImage: string;
+  formPhotoHint: string;
+  formPhotoWillBeRemoved: string;
+  formPhotoTooLarge: string;
+  formPhotoDimensionsInvalid: string;
   targetQuantityLabel: string;
   reorderPointLabel: string;
   unitLabel: string;
@@ -124,6 +133,15 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     confirmDeleteItemTitle: 'Permanently delete this item?',
     confirmDeleteItemBody: 'This also permanently deletes this item’s entire stock-count history. This cannot be undone.',
     nameLabel: 'Name',
+    formPhotoLabel: 'Photo',
+    formChooseImage: 'Choose image',
+    formReplaceImage: 'Replace image',
+    formRemoveImage: 'Remove image',
+    formUndoRemoveImage: 'Undo remove',
+    formPhotoHint: 'JPEG, PNG or WebP, up to 2 MB and 4096×4096',
+    formPhotoWillBeRemoved: 'Will be removed when saved',
+    formPhotoTooLarge: 'Choose an image up to 2 MB.',
+    formPhotoDimensionsInvalid: 'Image dimensions must be at most 4096×4096.',
     targetQuantityLabel: 'Target quantity',
     reorderPointLabel: 'Reorder point',
     unitLabel: 'Unit',
@@ -198,6 +216,15 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     confirmDeleteItemTitle: 'この商品を完全に削除しますか？',
     confirmDeleteItemBody: 'この商品のカウント履歴もすべて完全に削除されます。この操作は取り消せません。',
     nameLabel: '名前',
+    formPhotoLabel: '写真',
+    formChooseImage: '画像を選択',
+    formReplaceImage: '画像を差し替え',
+    formRemoveImage: '画像を削除',
+    formUndoRemoveImage: '削除を取り消す',
+    formPhotoHint: 'JPEG・PNG・WebP、最大2MB・4096×4096',
+    formPhotoWillBeRemoved: '保存時に削除されます',
+    formPhotoTooLarge: '画像は2MB以下にしてください。',
+    formPhotoDimensionsInvalid: '画像は4096×4096以下にしてください。',
     targetQuantityLabel: '目標数量',
     reorderPointLabel: '発注点',
     unitLabel: '単位',

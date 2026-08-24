@@ -200,6 +200,8 @@ export interface ManagerDashboardClientProps {
   inventoryEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
   inventoryItems: InventoryItemStatus[] | null;
+  /** Signed photo URLs for `inventoryItems`, keyed by `itemId` (see `createInventoryMediaUrlMap`) -- threaded straight to the Inventory popup. */
+  inventoryMediaUrlByItemId: Record<string, string>;
   /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` or `/recipes` visit). */
   initialPopup: 'inventory' | 'recipes' | null;
   /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
@@ -277,6 +279,7 @@ function ManagerDashboardBody({
   exchangeAssignments,
   inventoryEnabled,
   inventoryItems,
+  inventoryMediaUrlByItemId,
   initialPopup,
   initialFocusCell,
   recipeGroups,
@@ -973,6 +976,7 @@ function ManagerDashboardBody({
         locationId={locationId}
         locationTimezone={timeZone}
         items={inventoryItems}
+        mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={staffNameById}
       />
 
