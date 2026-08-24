@@ -26,14 +26,23 @@ export interface EntryPointsCardProps {
 /**
  * Each button shares the row equally (`flex: 1`), same visual weight,
  * instead of sizing to its own label length. Bold, centered label and a
- * shorter 42px height (vs. the shared `minTouchTarget` 44px) are a
+ * shorter 42px total height (vs. the shared `minTouchTarget` 44px) are a
  * deliberate Founder-specified override for this one row (2026-08-24), not
  * the general button default.
+ *
+ * `boxSizing: 'border-box'` is load-bearing here, not decoration: nothing in
+ * this app sets a global border-box reset (every other button relies on
+ * `minHeight` alone, which is forgiving either way), so with the browser's
+ * content-box default, `height: 42` would only size the text box and the
+ * inherited `buttonSecondary` padding (`8px 14px`) plus 1px border would
+ * still add ~18px on top -- a ~60px button that only looks marginally
+ * shorter than the un-overridden 44px default, not the visibly compact row
+ * the Founder asked for (2026-08-24 QA: "как то кнопки не так как хотел").
  */
 const buttonStyle: CSSProperties = {
   ...buttonSecondary,
   flex: 1,
-  minHeight: 42,
+  boxSizing: 'border-box',
   height: 42,
   justifyContent: 'center',
   textAlign: 'center',
