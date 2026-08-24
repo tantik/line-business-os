@@ -22,9 +22,7 @@ import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
-import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { SignOutButton } from '@/components/sign-out-button';
-import { existingExchangeMessage, inventoryShortageLabel, pageTitleWithName, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
+import { existingExchangeMessage, inventoryShortageLabel, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
 import {
   backLink,
   badgeStyle,
@@ -53,6 +51,7 @@ import { WorkReportForm } from './work-report-form';
 import { CorrectionRequestForm } from './correction-request-form';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
+import { AccountMenu } from './account-menu';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
@@ -303,30 +302,29 @@ function StaffDashboardBody({
       <header
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 10,
           paddingBottom: 14,
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'nowrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
-            <BrandBadge label={tenantName} />
-            {/* `minWidth: 0` + `overflowWrap: anywhere` let a long tenant/staff name wrap onto a second line within this title
-                instead of the outer row falling back to its `flexWrap` and pushing the language-toggle/sign-out group onto its
-                own row (Founder mobile-compactness direction, 2026-08-24). */}
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.textMuted, minWidth: 0, overflowWrap: 'anywhere' }}>
-              {displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}
-            </h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+        {/* `minWidth: 0` + `overflowWrap: anywhere` let a long tenant/location name wrap onto further lines within this block
+            instead of the header row falling back to its `flexWrap` and pushing the account menu onto its own row (Founder
+            header redesign, 2026-08-24: identity moves to the account menu on the right, this side is tenant + location only,
+            matching the multi-location mockup -- "ORUWA Cafe" / "Main Store" -- and no longer "Staff -- {name}"). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
+          <BrandBadge label={tenantName} />
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: colors.textPrimary, overflowWrap: 'anywhere' }}>{tenantName}</h1>
+            <p style={{ margin: '2px 0 0', fontSize: 13, overflowWrap: 'anywhere', ...mutedText }}>{locationName}</p>
           </div>
         </div>
-        <p style={{ margin: 0, fontSize: 13, ...mutedText }}>
-          {tenantName} - {locationName}
-        </p>
+        <AccountMenu
+          displayName={displayName ?? t('pageTitle')}
+          positionLabel={profile.positionLabel ?? t('notSetLabel')}
+          signOutLabel={t('signOut')}
+        />
       </header>
 
       <WorkStatusCard todayAttendance={todayAttendance} timeZone={timeZone} lang={lang} />
