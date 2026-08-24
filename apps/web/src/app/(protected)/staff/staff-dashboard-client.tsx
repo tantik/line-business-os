@@ -31,6 +31,7 @@ import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
 import { TransportForm } from './transport-form';
 import { DailyMessageForm } from './daily-message-form';
+import transportMessageRow from './transport-message-row.module.css';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
 import { HelpIconButton } from '@/components/shared/design-kit';
@@ -259,6 +260,18 @@ function StaffDashboardBody({
     router.refresh();
   }
 
+  /**
+   * Transportation cost and Daily message now show their own inline status
+   * next to their heading (Founder direction, 2026-08-24) -- a page-level
+   * banner on every save would be redundant, and outright noisy for
+   * Transportation cost's autosave-on-type. Still refreshes server data
+   * (so `todayAttendance` reflects the just-saved value elsewhere on the
+   * page), just without `handleFormSuccess`'s banner.
+   */
+  function refreshAfterQuietSave() {
+    router.refresh();
+  }
+
   return (
     <>
       <header
@@ -436,19 +449,21 @@ function StaffDashboardBody({
         <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</p>
       </Modal>
 
-      <TransportForm
-        workDate={todayIso}
-        defaultTransportationCost={todayAttendance?.transportationCost ?? null}
-        lang={lang}
-        onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
-      />
+      <div className={transportMessageRow.row}>
+        <TransportForm
+          workDate={todayIso}
+          defaultTransportationCost={todayAttendance?.transportationCost ?? null}
+          lang={lang}
+          onSuccess={refreshAfterQuietSave}
+        />
 
-      <DailyMessageForm
-        workDate={todayIso}
-        defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
-        lang={lang}
-        onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
-      />
+        <DailyMessageForm
+          workDate={todayIso}
+          defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
+          lang={lang}
+          onSuccess={refreshAfterQuietSave}
+        />
+      </div>
 
       <section style={{ ...card, marginTop: 16 }}>
         {shiftTypes === null ? (

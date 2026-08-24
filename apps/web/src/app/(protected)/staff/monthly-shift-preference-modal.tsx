@@ -22,9 +22,6 @@ export interface MonthlyShiftPreferenceModalProps {
   onSuccess: (message: string) => void;
 }
 
-/** Sentinel selection value distinct from every real `shiftTypeId` uuid, for "unavailable this day" in the tap-to-cycle grid. */
-const UNAVAILABLE = '__unavailable__';
-
 function nextMonthDates(today: Date): string[] {
   const year = today.getFullYear();
   const month = today.getMonth();
@@ -70,10 +67,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
   const activeShiftTypes = useMemo(() => shiftTypes.filter((st) => st.isActive), [shiftTypes]);
   const activeIds = useMemo(() => activeShiftTypes.map((st) => st.shiftTypeId), [activeShiftTypes]);
-  const cycleOptions = useMemo<Array<string | null>>(
-    () => [null, ...activeShiftTypes.map((st) => st.shiftTypeId), UNAVAILABLE],
-    [activeShiftTypes],
-  );
+  const cycleOptions = useMemo<Array<string | null>>(() => [null, ...activeShiftTypes.map((st) => st.shiftTypeId)], [activeShiftTypes]);
 
   const lockedByDate = useMemo(() => {
     const map = new Map<string, WorkforceShiftRequest>();
@@ -85,22 +79,19 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
   function optionLabel(value: string | null): string {
     if (value === null) return '-';
-    if (value === UNAVAILABLE) return lang === 'ja' ? '休暇' : 'Off';
     const st = activeShiftTypes.find((s) => s.shiftTypeId === value);
     return st ? shiftTypeDisplayLabel(st) : '-';
   }
 
-  /** Time-range caption under a legend chip, same convention as `ShiftLegend` under the main schedule table. */
+  /** Time-range caption under a legend chip, same convention as `ShiftLegend` under the main schedule table. A blank day already means "not working" -- no separate "unavailable" state to explain. */
   function optionTimeCaption(value: string | null): string {
-    if (value === null) return lang === 'ja' ? '未指定' : 'Unspecified';
-    if (value === UNAVAILABLE) return lang === 'ja' ? '勤務不可' : 'Unavailable to work';
+    if (value === null) return lang === 'ja' ? '勤務なし' : 'Not working';
     const st = activeShiftTypes.find((s) => s.shiftTypeId === value);
     return st ? `${st.startsAtLocal}-${st.endsAtLocal}` : '';
   }
 
   function cellTone(value: string | null): { background: string; color: string } {
     if (value === null) return { background: colors.surfaceElevated, color: colors.textMuted };
-    if (value === UNAVAILABLE) return { background: colors.dangerMuted, color: colors.dangerText };
     return shiftChipColors(value, activeIds);
   }
 
@@ -126,11 +117,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
     }
     startTransition(async () => {
       const result = await submitMonthlyShiftPreferences({
-        selections: chosen.map(([workDate, value]) => ({
-          workDate,
-          shiftTypeId: value === UNAVAILABLE ? null : value,
-          isUnavailable: value === UNAVAILABLE,
-        })),
+        selections: chosen.map(([workDate, value]) => ({ workDate, shiftTypeId: value, isUnavailable: false })),
         note: note.trim() || null,
       });
       if (result.status === 'success') {
@@ -165,7 +152,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
       {error ? <div style={{ ...alertDanger, marginBottom: 10 }}>{error}</div> : null}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 10 }}>
-        {[null, ...cycleOptions.slice(1)].map((value) => {
+        {cycleOptions.map((value) => {
           const tone = cellTone(value ?? null);
           return (
             <div key={value ?? 'none'} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -205,7 +192,11 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
         ))}
         {dates.map((date) => {
           const locked = lockedByDate.get(date);
-          const value = locked ? (locked.isUnavailable ? UNAVAILABLE : locked.shiftTypeId) : (selections[date] ?? null);
+          // A locked row's own `isUnavailable` (from the retired single-day
+          // "unavailable" checkbox) displays the same as no shift set --
+          // both mean "not working that day" (Founder simplification,
+          // 2026-08-24), so there is no separate visual state for it.
+          const value = locked ? (locked.isUnavailable ? null : locked.shiftTypeId) : (selections[date] ?? null);
           const tone = cellTone(value);
           const dayNumber = Number(date.slice(-2));
           return (

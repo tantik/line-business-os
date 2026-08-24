@@ -45,7 +45,7 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'navPurchases', 'preferenceModalTitle',
   'workStatusHelpAriaLabel', 'workStatusHelpBody', 'scheduleHelpAriaLabel', 'scheduleHelpBody',
   'transportHelpAriaLabel', 'transportHelpBody', 'transportPlaceholder',
-  'messageHelpAriaLabel', 'messageHelpBody', 'messagePlaceholder', 'sendButton',
+  'messageHelpAriaLabel', 'messageHelpBody', 'messagePlaceholder', 'sendButton', 'messageSentStatus',
   'savingStatus', 'savedStatus', 'saveErrorStatus',
 ];
 
