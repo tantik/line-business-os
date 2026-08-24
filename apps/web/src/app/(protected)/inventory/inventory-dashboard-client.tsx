@@ -23,6 +23,7 @@ import {
 } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import responsiveTable from '@/lib/ui/responsive-table.module.css';
+import inventoryFooter from './inventory-footer.module.css';
 import { ItemForm } from './item-form';
 import { CountForm } from './count-form';
 import { describeInventoryWriteError } from './error-copy';
@@ -620,10 +621,10 @@ export function InventoryDashboardBody({
           </div>
 
           <div
+            className={inventoryFooter.footer}
             style={{
               ...card,
               marginTop: 12,
-              display: 'flex',
               gap: 16,
               flexWrap: 'wrap',
               alignItems: 'center',

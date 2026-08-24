@@ -1,0 +1,17 @@
+/*
+ * The footer summary (total/shortage/sufficient counts + autosave tip)
+ * duplicates the filter tabs' own counts on narrow screens where the tabs
+ * are already right above the list -- Founder feedback, 2026-08-24: hide it
+ * on mobile, keep it on desktop where it sits further from the tabs. The
+ * tip text itself is preserved in the popup's own "?" help dialog
+ * (`popupHelpBody`, inventory-i18n.ts) so it isn't lost for mobile users.
+ */
+.footer {
+  display: flex;
+}
+
+@media (max-width: 767px) {
+  .footer {
+    display: none;
+  }
+}

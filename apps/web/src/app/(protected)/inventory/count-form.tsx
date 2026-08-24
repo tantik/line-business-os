@@ -110,60 +110,62 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 'fit-content', minWidth: 140 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          border: `1px solid ${colors.border}`,
-          borderRadius: 8,
-          background: colors.surface,
-          overflow: 'hidden',
-        }}
-      >
-        <input
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
           style={{
-            width: 90,
-            border: 'none',
-            outline: 'none',
-            padding: '8px 8px 8px 10px',
-            fontSize: 14,
-            color: colors.textPrimary,
-            background: 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            border: `1px solid ${colors.border}`,
+            borderRadius: 8,
+            background: colors.surface,
+            overflow: 'hidden',
           }}
-          type="number"
-          min={0}
-          step="0.001"
-          autoComplete="off"
-          aria-label={`${t('actualQuantityLabel')} — ${itemName}`}
-          value={quantity}
-          onChange={(event) => handleChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-        />
-        {quantity !== '' ? (
-          <button
-            type="button"
-            aria-label={t('clearActualQuantityAriaLabel')}
-            onClick={() => handleChange('')}
+        >
+          <input
             style={{
+              width: 90,
               border: 'none',
+              outline: 'none',
+              padding: '8px 8px 8px 10px',
+              fontSize: 14,
+              color: colors.textPrimary,
               background: 'transparent',
-              color: colors.textMuted,
-              cursor: 'pointer',
-              padding: '0 6px',
-              fontSize: 13,
-              alignSelf: 'stretch',
             }}
-          >
-            ×
-          </button>
-        ) : null}
-        <span style={{ ...mutedText, fontSize: 12, padding: '0 10px 0 4px', whiteSpace: 'nowrap' }}>{unit}</span>
+            type="number"
+            min={0}
+            step="0.001"
+            autoComplete="off"
+            aria-label={`${t('actualQuantityLabel')} — ${itemName}`}
+            value={quantity}
+            onChange={(event) => handleChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+          />
+          {quantity !== '' ? (
+            <button
+              type="button"
+              aria-label={t('clearActualQuantityAriaLabel')}
+              onClick={() => handleChange('')}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: colors.textMuted,
+                cursor: 'pointer',
+                padding: '0 6px',
+                fontSize: 13,
+                alignSelf: 'stretch',
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+          <span style={{ ...mutedText, fontSize: 12, padding: '0 10px 0 4px', whiteSpace: 'nowrap' }}>{unit}</span>
+        </div>
+        {/* Sits beside the input instead of on its own line below -- one row is more compact, and the status is short enough to always fit next to a 90px-wide input. */}
+        <span style={{ ...mutedText, fontSize: 11, whiteSpace: 'nowrap', color: status === 'error' ? colors.dangerText : colors.textMuted }}>
+          {statusText}
+        </span>
       </div>
-      {/* Reserves its line height even when empty (no status yet) so nothing else in the card shifts as autosave status appears/disappears. */}
-      <span style={{ ...mutedText, fontSize: 11, minHeight: 14, color: status === 'error' ? colors.dangerText : colors.textMuted }}>
-        {statusText}
-      </span>
       {error ? <span style={{ fontSize: 11, color: colors.dangerText }}>{error}</span> : null}
     </div>
   );
