@@ -340,29 +340,36 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
           <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={44} />
           <h3 style={{ margin: 0, fontSize: 16, minWidth: 0, overflowWrap: 'anywhere' }}>{item.name}</h3>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-          <StatusBadge item={item} t={t} />
-          {canManage ? (
-            <>
-              <button
-                type="button"
-                aria-label={`${t('editButton')} ${item.name}`}
-                className={hoverStyles.iconButton}
-                style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
-                onClick={onEdit}
-              >
-                ✎
-              </button>
-              <ActionsMenu
-                triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
-                items={[
-                  item.isActive
-                    ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
-                    : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
-                  { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
-                ]}
-              />
-            </>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <StatusBadge item={item} t={t} />
+            {canManage ? (
+              <>
+                <button
+                  type="button"
+                  aria-label={`${t('editButton')} ${item.name}`}
+                  className={hoverStyles.iconButton}
+                  style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface, cursor: 'pointer' }}
+                  onClick={onEdit}
+                >
+                  ✎
+                </button>
+                <ActionsMenu
+                  triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+                  items={[
+                    item.isActive
+                      ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
+                      : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
+                    { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                  ]}
+                />
+              </>
+            ) : null}
+          </div>
+          {belowReorder ? (
+            <span style={{ fontSize: 12, fontWeight: 600, color: colors.dangerText, whiteSpace: 'nowrap' }}>
+              −{item.shortageQuantity} {item.unit}
+            </span>
           ) : null}
         </div>
       </div>
