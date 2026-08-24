@@ -124,6 +124,7 @@ interface StaffDashboardDict {
   messageHelpBody: string;
   messagePlaceholder: string;
   sendButton: string;
+  messageSentStatus: string;
   savingStatus: string;
   savedStatus: string;
   saveErrorStatus: string;
@@ -244,6 +245,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     messageHelpBody: 'Send your manager a short note -- for example, something that happened during your shift, or anything they should know about.',
     messagePlaceholder: 'Send a message to your manager',
     sendButton: 'Send',
+    messageSentStatus: 'Message sent',
     savingStatus: 'Saving...',
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',
@@ -361,6 +363,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     messageHelpBody: 'マネージャーへ短いメッセージを送れます -- 例えば勤務中に起きたことや、伝えておきたいことなど。',
     messagePlaceholder: 'マネージャーにメッセージを送る',
     sendButton: '送信',
+    messageSentStatus: 'メッセージを送信しました',
     savingStatus: '保存中...',
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',

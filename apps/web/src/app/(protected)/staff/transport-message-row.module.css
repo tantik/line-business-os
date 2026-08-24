@@ -1,0 +1,27 @@
+/*
+ * Transportation cost + Daily message: two separate cards (Founder
+ * direction, 2026-08-24: different entities), stacked on narrow screens and
+ * side by side once there's room -- "на широком экране больше 1000px в одну
+ * линию" (Founder, 2026-08-24). Each child owns no margin of its own (see
+ * `transport-form.tsx`/`daily-message-form.tsx`'s `marginTop: 0` override);
+ * this wrapper is the single source of both the stack gap and the outer
+ * top margin, same "shared responsive primitive" convention as
+ * `responsive-table.module.css`.
+ */
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (min-width: 1000px) {
+  .row {
+    flex-direction: row;
+  }
+
+  .row > * {
+    flex: 1;
+    min-width: 0;
+  }
+}

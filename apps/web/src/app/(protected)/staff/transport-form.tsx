@@ -5,7 +5,7 @@ import type { KeyboardEvent } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { submitWorkReport } from '@/lib/workforce/attendance-actions';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
-import { card, colors, input, mutedText } from '@/lib/ui/theme';
+import { card, colors, input } from '@/lib/ui/theme';
 import { tStaffDashboard } from './staff-dashboard-i18n';
 
 export interface TransportFormProps {
@@ -95,10 +95,13 @@ export function TransportForm({ workDate, defaultTransportationCost, lang, onSuc
   const statusText = status === 'saving' ? t('savingStatus') : status === 'saved' ? t('savedStatus') : status === 'error' ? t('saveErrorStatus') : '';
 
   return (
-    <section style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('transportationCostLabel')}</h2>
-        <HelpIconButton ariaLabel={t('transportHelpAriaLabel')} onClick={() => setHelpOpen(true)} />
+    <section style={{ ...card, marginTop: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{t('transportationCostLabel')}</h2>
+          <HelpIconButton ariaLabel={t('transportHelpAriaLabel')} onClick={() => setHelpOpen(true)} />
+        </div>
+        <span style={{ fontSize: 12, minHeight: 14, color: status === 'error' ? colors.dangerText : colors.textMuted }}>{statusText}</span>
       </div>
       <input
         style={{ ...input, maxWidth: 240 }}
@@ -110,9 +113,6 @@ export function TransportForm({ workDate, defaultTransportationCost, lang, onSuc
         onBlur={handleBlur}
         placeholder={t('transportPlaceholder')}
       />
-      <span style={{ ...mutedText, fontSize: 11, display: 'block', minHeight: 14, marginTop: 4, color: status === 'error' ? colors.dangerText : colors.textMuted }}>
-        {statusText}
-      </span>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('transportationCostLabel')} width="min(420px, 94vw)">
         <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('transportHelpBody')}</p>
