@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import type { InventoryItem } from '@/lib/inventory/items';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
-import { debugStorageRlsCheck, upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
+import { upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -185,20 +185,6 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
         >
           {item ? t('saveChangesButton') : t('addItemButton')}
         </LoadingButton>
-        {item ? (
-          <button
-            type="button"
-            style={buttonSecondary}
-            onClick={() => {
-              startTransition(async () => {
-                const result = await debugStorageRlsCheck(item.itemId, item.locationId);
-                setError(result);
-              });
-            }}
-          >
-            DEBUG RLS
-          </button>
-        ) : null}
         <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
           {t('cancelButton')}
         </button>

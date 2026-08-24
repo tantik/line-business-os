@@ -22,37 +22,6 @@ const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid inp
 const MAX_ITEM_PHOTO_BYTES = 2 * 1024 * 1024;
 const ITEM_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
-/** TEMP DEBUG -- remove before merge. Re-evaluates the exact predicates the inventory_media_insert storage RLS policy checks, using the same authenticated server client, to isolate which one is failing. */
-export async function debugStorageRlsCheck(itemId: string, locationId: string): Promise<string> {
-  const tenantContext = await requireTenantContext();
-  if (tenantContext.status !== 'success') return `tenantContext failed: ${JSON.stringify(tenantContext)}`;
-  const supabase = await createClient();
-  const tenantId = tenantContext.data.activeTenant.tenantId;
-
-  const { data: hasPerm, error: permErr } = await supabase
-    .schema('api')
-    .rpc('has_permission', { p_tenant_id: tenantId, p_permission: 'inventory.item.manage', p_location_id: locationId });
-
-  const { data: existsRow, error: existsErr } = await supabase
-    .schema('api')
-    .from('inventory_items')
-    .select('item_id, tenant_id, location_id')
-    .eq('tenant_id', tenantId)
-    .eq('location_id', locationId)
-    .eq('item_id', itemId)
-    .maybeSingle();
-
-  const testPath = `${tenantId}/${locationId}/${itemId}/${crypto.randomUUID()}.jpg`;
-  const { data: policyCheck, error: policyErr } = await supabase
-    .schema('api')
-    .rpc('debug_inventory_media_check', { p_name: testPath });
-
-  const { data: meta, error: metaErr } = await supabase.schema('api').rpc('debug_storage_meta');
-  const { data: tables, error: tablesErr } = await supabase.schema('api').rpc('debug_tables_check');
-
-  return JSON.stringify({ tenantId, locationId, itemId, hasPerm, permErr, existsRow, existsErr, testPath, policyCheck, policyErr, meta, metaErr, tables, tablesErr });
-}
-
 export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {
   const input = parseUpsertInventoryItemInput(formData);
   if (!input) return INVALID_INPUT_RESULT;
@@ -104,10 +73,7 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
     const upload = await supabase.storage.from('inventory-media').upload(nextMediaPath, photo, {
       contentType: photo.type, cacheControl: '3600', upsert: false,
     });
-    if (upload.error) {
-      console.error('inventory photo upload failed', nextMediaPath, JSON.stringify(upload.error));
-      return { status: 'unexpected_error', message: `Could not upload the photo: ${upload.error.message}` };
-    }
+    if (upload.error) return { status: 'unexpected_error', message: 'Could not upload the photo.' };
     const mediaSaved = await upsertInventoryItem(supabase, tenantId, {
       id: saved.data.itemId,
       locationId: input.locationId,
