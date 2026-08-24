@@ -256,7 +256,34 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-24 pointer #3 (newest — read this one first).** A follow-on,
+**2026-08-24 pointer #4 (newest — read this one first).** A follow-on,
+same-day session built the **Staff Inventory popup**: Staff's Inventory
+entry point moved from a full-page `/inventory` link to a popup, matching
+the pattern Manager's Inventory and Staff's own Recipes popup already used
+(`InventoryPopup` moved from `manager/` to the shared `_ui/` and is now
+reused by both dashboards). Also: the "Deactivated" filter tab is now
+correctly gated by `canManage` (was unconditionally visible to everyone
+before — a real gap this closed), filter buttons and the item card got a
+compact-layout redesign, and a Founder live-QA follow-up polished mobile
+spacing (footer summary hidden on mobile, its tip text moved into the "?"
+help dialog, count-input status text moved inline, and the shared `Modal`
+component's mobile bottom-sheet gained a 2px bottom gap — that last change
+applies to every popup in the app, not just Inventory). **2 PRs merged to
+`dev` (#429, #430)** — a first attempt (#428) was closed unmerged after
+`dev` moved out from under it mid-session (a real conflict, not a false
+one) and rebuilt fresh as #429; see the handoff for why that's the right
+pattern to repeat if it happens again. No DB migrations this session.
+**Founder confirmed the result live on `preview.oruwa.jp/staff` and closed
+this thread** ("отлично молодец" after the final polish round) — full
+state, the exact PR list, and one open TO VERIFY item (Manager's own
+Inventory popup was not independently re-checked live, only Staff's) are
+in `docs/ai/CAFE_STAFF_INVENTORY_POPUP_HANDOFF_2026-08-24.md` — read that
+file first if anything about the Inventory popup, the shared `Modal`
+component, or `InventoryPopup`/`RecipesPopup`'s `_ui/` location comes up.
+**This thread is Founder-closed; ask what's next rather than continuing
+it.**
+
+**2026-08-24 pointer #3 (older — read after the one above).** A follow-on,
 same-day Founder-directed live iteration session on `https://preview.oruwa.jp/staff`
 (triggered by the pointer #2 entry below reaching a natural pause point)
 did a full layout/UX redesign of the canonical Staff page: third
