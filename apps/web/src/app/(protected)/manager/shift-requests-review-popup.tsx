@@ -56,7 +56,7 @@ const gridHeaderCellStyle: CSSProperties = {
   background: colors.surfaceElevated,
 };
 
-const gridCellStyle: CSSProperties = { border: `1px solid ${colors.border}`, padding: '3px' };
+const gridCellStyle: CSSProperties = { border: `1px solid ${colors.border}`, padding: '3px', textAlign: 'center' };
 
 /** Small corner badge marking a staff row that hasn't submitted preferences yet -- same absolute-corner-circle shape as the Weekly Schedule grid's own alert marker, kept local here rather than importing that file's private constant. */
 const missingCornerStyle: CSSProperties = {
