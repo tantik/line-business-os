@@ -44,6 +44,63 @@ export function parseSubmitShiftPreferenceInput(formData: FormData): SubmitShift
 }
 
 // ============================================================================
+// submitMonthlyShiftPreferences -- plain object input, NOT FormData (a
+// variable-length array of {workDate, shiftTypeId|isUnavailable} selections
+// has no natural <form> shape, same reasoning as runAutoDistribution below).
+// ============================================================================
+
+const MAX_MONTHLY_SELECTIONS = 31;
+const PREFERENCE_NOTE_MAX_LENGTH = 500;
+
+export interface MonthlyShiftPreferenceSelectionInput {
+  workDate: string;
+  shiftTypeId: string | null;
+  isUnavailable: boolean;
+}
+
+export interface SubmitMonthlyShiftPreferencesInput {
+  selections: MonthlyShiftPreferenceSelectionInput[];
+  note: string | null;
+}
+
+function parseMonthlyShiftPreferenceSelection(raw: unknown): MonthlyShiftPreferenceSelectionInput | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+
+  const workDate = parseIsoDate(obj.workDate);
+  if (!workDate) return null;
+
+  let shiftTypeId: string | null = null;
+  if (typeof obj.shiftTypeId === 'string' && obj.shiftTypeId.trim().length > 0) {
+    shiftTypeId = parseUuid(obj.shiftTypeId);
+    if (!shiftTypeId) return null;
+  }
+
+  const isUnavailable = obj.isUnavailable === true;
+  if (!isUnavailable && !shiftTypeId) return null;
+
+  return { workDate, shiftTypeId, isUnavailable };
+}
+
+export function parseSubmitMonthlyShiftPreferencesInput(raw: unknown): SubmitMonthlyShiftPreferencesInput | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+
+  if (!Array.isArray(obj.selections) || obj.selections.length === 0 || obj.selections.length > MAX_MONTHLY_SELECTIONS) return null;
+  const selections: MonthlyShiftPreferenceSelectionInput[] = [];
+  for (const item of obj.selections) {
+    const parsed = parseMonthlyShiftPreferenceSelection(item);
+    if (!parsed) return null;
+    selections.push(parsed);
+  }
+
+  const note = parseOptionalTrimmedString(obj.note, PREFERENCE_NOTE_MAX_LENGTH);
+  if (!note.ok) return null;
+
+  return { selections, note: note.value };
+}
+
+// ============================================================================
 // updateShiftAssignment (FormData) -- full-replace edit, not a partial patch
 // ============================================================================
 

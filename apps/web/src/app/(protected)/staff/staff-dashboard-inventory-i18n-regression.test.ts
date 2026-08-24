@@ -34,7 +34,12 @@ test('staff page.tsx never imports an Inventory write/mutation action -- writes 
 });
 
 test('staff-dashboard-client.tsx links to the canonical /inventory page rather than embedding a duplicate count-entry form', () => {
-  assert.match(CLIENT_SOURCE, /href="\/inventory"/, 'must link to the canonical Inventory page');
+  // Staff redesign (2026-08-24): the standalone Inventory card (which had a
+  // literal `href="/inventory"` JSX attribute) was folded into the shared
+  // `EntryPointsCard`'s `buttons` array instead, where the same route is a
+  // `href: '/inventory'` object property -- still a real link to the
+  // canonical page, just not a JSX attribute literal anymore.
+  assert.match(CLIENT_SOURCE, /href:\s*'\/inventory'/, 'must link to the canonical Inventory page');
   assert.doesNotMatch(
     CLIENT_SOURCE,
     /CountForm|ItemForm|recordInventoryStockCountAction/,

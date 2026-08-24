@@ -26,6 +26,7 @@ import {
   parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
   parseRunAutoDistributionInput,
+  parseSubmitMonthlyShiftPreferencesInput,
   parseSubmitShiftPreferenceInput,
   parseUndoAutoDistributionInput,
   parseUpdateShiftAssignmentInput,
@@ -121,6 +122,60 @@ export async function submitShiftPreference(formData: FormData): Promise<Workfor
     shiftTypeId: input.shiftTypeId,
     isUnavailable: input.isUnavailable,
   });
+}
+
+export interface SubmitMonthlyShiftPreferencesResult {
+  insertedCount: number;
+  /** Dates that already had a preference row (`duplicate`, from `wf_shift_requests_one_preference_per_day`) -- INSERT-only, so a day the caller already submitted can't be changed here; skipped rather than failing the whole batch. */
+  skippedDates: string[];
+}
+
+/**
+ * Submit several next-month day preferences in one call (the "tap a calendar
+ * of days" modal) -- there is no bulk-insert RPC, so this just loops
+ * `submitShiftPreferenceWrite` once per selection, same INSERT-only
+ * semantics as the single-day `submitShiftPreference` above (self-insert RLS
+ * only; no self-scoped UPDATE policy exists). A day that already has a
+ * preference comes back `duplicate` and is recorded in `skippedDates`
+ * instead of failing the whole batch -- the modal pre-fills/locks those days
+ * from `requests` so this should be rare, but a stale client (another tab,
+ * a second device) can still race into it.
+ */
+export async function submitMonthlyShiftPreferences(input: unknown): Promise<WorkforceWriteResult<SubmitMonthlyShiftPreferencesResult>> {
+  const parsed = parseSubmitMonthlyShiftPreferencesInput(input);
+  if (!parsed) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+
+  const myProfile = await getMyWorkforceStaffProfile(supabase, tenantId);
+  if (myProfile.status !== 'success') return myProfile;
+  if (!myProfile.data) return NO_STAFF_PROFILE_RESULT;
+
+  let insertedCount = 0;
+  const skippedDates: string[] = [];
+  for (const selection of parsed.selections) {
+    const result = await submitShiftPreferenceWrite(supabase, tenantId, {
+      employeeId: myProfile.data.staffId,
+      locationId: myProfile.data.locationId,
+      workDate: selection.workDate,
+      shiftTypeId: selection.shiftTypeId,
+      isUnavailable: selection.isUnavailable,
+      details: parsed.note ? { note: parsed.note } : undefined,
+    });
+    if (result.status === 'success') {
+      insertedCount += 1;
+    } else if (result.status === 'duplicate') {
+      skippedDates.push(selection.workDate);
+    } else {
+      return result;
+    }
+  }
+
+  return { status: 'success', data: { insertedCount, skippedDates } };
 }
 
 /**

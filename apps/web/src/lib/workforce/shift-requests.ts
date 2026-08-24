@@ -120,6 +120,8 @@ export interface SubmitShiftPreferenceInput {
   workDate: string;
   shiftTypeId: string | null;
   isUnavailable: boolean;
+  /** Optional free-text note (e.g. "would like the 10th off all day"), stored in the row's existing `details` jsonb column -- no schema change needed. */
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -149,6 +151,7 @@ export async function submitShiftPreference(
         work_date: input.workDate,
         shift_type_id: input.shiftTypeId,
         is_unavailable: input.isUnavailable,
+        ...(input.details ? { details: input.details } : {}),
       })
       .select(REQUEST_SELECT)
       .single();

@@ -89,7 +89,6 @@ interface InventoryDashboardDict {
   sortShortageFirst: string;
   moreActionsAriaLabel: string;
   clearActualQuantityAriaLabel: string;
-  pressEnterToSaveHint: string;
   footerTotalItems: string;
   footerNeedRestocking: string;
   footerSufficient: string;
@@ -174,7 +173,6 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     sortShortageFirst: 'Shortage first',
     moreActionsAriaLabel: 'More actions',
     clearActualQuantityAriaLabel: 'Clear',
-    pressEnterToSaveHint: 'Press Enter to save',
     footerTotalItems: 'Total items',
     footerNeedRestocking: 'Need restocking',
     footerSufficient: 'Sufficient',
@@ -257,7 +255,6 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     sortShortageFirst: '不足を優先',
     moreActionsAriaLabel: 'その他の操作',
     clearActualQuantityAriaLabel: 'クリア',
-    pressEnterToSaveHint: 'Enterキーで保存',
     footerTotalItems: '登録商品数',
     footerNeedRestocking: '要補充',
     footerSufficient: '十分',
