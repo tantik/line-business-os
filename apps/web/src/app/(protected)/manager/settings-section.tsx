@@ -353,12 +353,12 @@ export function SettingsSection({
             {inactiveShiftTypes === null || inactiveShiftTypes.length === 0 ? (
               <p style={{ margin: 0, ...mutedText }}>{t('deactivatedShiftTypesEmpty')}</p>
             ) : (
-              <div style={{ display: 'grid', gap: 6, maxHeight: 396, overflowY: 'auto', paddingRight: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '100%', gap: 6, maxHeight: 396, overflowY: 'auto', paddingRight: 4 }}>
                 {inactiveShiftTypes.map((st) => {
                   const label = shiftTypeDisplayLabel(st);
                   return (
-                    <div key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div key={st.shiftTypeId} style={{ display: 'flex', minWidth: 0, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 8, padding: '8px 10px', borderRadius: 8, background: colors.surfaceElevated, opacity: 0.7 }}>
+                      <span style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {label} ({st.startsAtLocal}-{st.endsAtLocal})
                       </span>
                       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
