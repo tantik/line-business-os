@@ -70,7 +70,8 @@ export function LightboxTrigger({ src, alt, thumbnailStyle }: { src: string; alt
                 the 92vw/92vh cap (once, not duplicated on the image too);
                 the image itself just fills up to 100% of that.
               */}
-              <div role="dialog" aria-modal="true" aria-label={alt} style={{ position: 'relative', maxWidth: '92vw', maxHeight: '92vh' }}>
+              {/* `min(500px, 92vw)`: caps the enlarged view at a compact 500px on desktop (Founder direction, 2026-08-24 -- a near-full-viewport image read as too large), while still shrinking to fit a narrow phone screen instead of overflowing it. */}
+              <div role="dialog" aria-modal="true" aria-label={alt} style={{ position: 'relative', maxWidth: 'min(500px, 92vw)', maxHeight: '92vh' }}>
                 <img src={src} alt={alt} style={{ display: 'block', maxWidth: '100%', maxHeight: '100%', borderRadius: 8, objectFit: 'contain' }} />
                 <button
                   type="button"
