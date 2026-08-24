@@ -114,34 +114,40 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
       </button>
       {open && coords
         ? createPortal(
-            <div
-              ref={panelRef}
-              role="menu"
-              aria-label={displayName}
-              style={{
-                position: 'fixed',
-                top: coords.top,
-                right: coords.right,
-                minWidth: 220,
-                background: colors.surface,
-                border: `1px solid ${colors.border}`,
-                borderRadius: 10,
-                boxShadow: '0 8px 24px rgba(54, 43, 31, 0.18)',
-                padding: 12,
-                zIndex: 1200,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.textPrimary }}>{displayName}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 13, ...mutedText }}>{positionLabel}</p>
+            <>
+              {/* Semi-transparent scrim behind the dropdown, matching the shared `Modal`'s own overlay color -- purely visual (the
+                  outside-click listener above already closes the menu on any pointerdown here), but makes an open account menu
+                  read clearly as a layer above the page instead of floating over it unclearly (Founder polish request, 2026-08-24). */}
+              <div aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'rgba(54, 43, 31, 0.45)', zIndex: 1199 }} />
+              <div
+                ref={panelRef}
+                role="menu"
+                aria-label={displayName}
+                style={{
+                  position: 'fixed',
+                  top: coords.top,
+                  right: coords.right,
+                  minWidth: 220,
+                  background: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(54, 43, 31, 0.18)',
+                  padding: 12,
+                  zIndex: 1200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.textPrimary }}>{displayName}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, ...mutedText }}>{positionLabel}</p>
+                </div>
+                <PreviewLanguageToggle fullWidth />
+                <div style={{ borderTop: `1px solid ${colors.border}` }} />
+                <SignOutButton label={signOutLabel} fullWidth />
               </div>
-              <PreviewLanguageToggle fullWidth />
-              <div style={{ borderTop: `1px solid ${colors.border}` }} />
-              <SignOutButton label={signOutLabel} fullWidth />
-            </div>,
+            </>,
             document.body,
           )
         : null}
