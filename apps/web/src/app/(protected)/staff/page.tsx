@@ -6,13 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { listWorkforceStaffRoster } from '@/lib/workforce/employees';
+import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
 import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
-import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -163,11 +163,12 @@ export default async function WorkforceStaffPage({
 
       const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
-      // `?popup=recipes` deep-link parity with Manager's equivalent
-      // (`manager/page.tsx`) -- the Recipes entry-point button below opens
-      // the same popup client-side too, this just lets a bookmark/shared
-      // link land straight on it already open.
-      const initialPopup = rawPopup === 'recipes' ? 'recipes' : null;
+      // `?popup=recipes`/`?popup=inventory` deep-link parity with Manager's
+      // equivalent (`manager/page.tsx`) -- the Recipes/Inventory entry-point
+      // buttons below open the same popups client-side too, this just lets a
+      // bookmark/shared link (or `/inventory`'s own redirect) land straight
+      // on the right one already open.
+      const initialPopup = rawPopup === 'recipes' ? 'recipes' : rawPopup === 'inventory' ? 'inventory' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
@@ -191,6 +192,7 @@ export default async function WorkforceStaffPage({
         correctionRequestsResult,
         exchangesResult,
         inventoryItemsResult,
+        inventoryCanManage,
         rosterResult,
         recipeCategoriesResult,
         recipesResult,
@@ -206,13 +208,19 @@ export default async function WorkforceStaffPage({
         listMyAttendance(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-        // Read-only, for the shortage-aware entry-point card below -- the
-        // actual Inventory catalog/count-entry UI is not duplicated here; it
-        // stays on its own canonical `/dashboard/inventory` page (shared
-        // Staff+Manager, RLS-scoped), which this card links to.
+        // Also the exact data the Inventory popup below renders -- no
+        // separate fetch, same pattern the Manager dashboard's own
+        // `InventoryPopup` uses.
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
+        // Pure UX affordance (RLS is the real boundary regardless): almost
+        // always false for a plain staff account, but resolved from the real
+        // permission rather than hardcoded so a staff member who does hold
+        // `inventory.item.manage` still sees catalog-management controls.
+        inventoryEnabled
+          ? hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId)
+          : Promise.resolve(false),
         // Real display names for the caller's own profile header and the
         // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
         // 0061) -- RLS narrows this to the caller's own row plus active
@@ -270,6 +278,22 @@ export default async function WorkforceStaffPage({
       const recipeMediaUrlByRecipeId =
         recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
+      // "Who last counted this" in the Inventory popup only ever resolves to
+      // a real display name when this caller can manage the catalog --
+      // mirrors `/inventory/page.tsx`'s own gating exactly, reusing the same
+      // manager-only decrypted staff directory rather than a new PII surface.
+      const inventoryStaffNameById = new Map<string, string>();
+      if (inventoryCanManage) {
+        const staffResult = await listWorkforceStaffForManager(supabase, activeTenant.tenantId);
+        if (staffResult.status === 'success') {
+          for (const entry of staffResult.data) inventoryStaffNameById.set(entry.staffId, entry.name);
+        }
+      }
+      const inventoryMediaUrlByItemId =
+        inventoryItemsResult && inventoryItemsResult.status === 'success'
+          ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
+          : {};
+
       return (
         <main style={pageStyle(1000)}>
           <StaffDashboardClient
@@ -290,11 +314,15 @@ export default async function WorkforceStaffPage({
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
+            inventoryCanManage={inventoryCanManage}
+            inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
+            inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
             initialPopup={initialPopup}
+            locationId={location.locationId}
           />
         </main>
       );

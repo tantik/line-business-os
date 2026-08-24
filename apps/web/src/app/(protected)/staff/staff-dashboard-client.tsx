@@ -37,7 +37,9 @@ import transportMessageRow from './transport-message-row.module.css';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
+import { InventoryPopup } from '../_ui/inventory-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
+import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
@@ -95,8 +97,14 @@ export interface StaffDashboardClientProps {
   exchanges: WorkforceShiftExchange[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the entry-point card below; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
-  /** This location's inventory item statuses, read-only, for the entry-point card's shortage summary. The actual catalog/count-entry UI lives on the existing canonical `/dashboard/inventory` page (shared Staff+Manager), not duplicated here. `null` when the module is disabled or the read failed. */
+  /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
   inventoryItems: InventoryItemStatus[] | null;
+  /** Pure UX affordance (RLS is the real boundary regardless): whether this staff member also holds `inventory.item.manage`. Almost always false for a plain staff account. */
+  inventoryCanManage: boolean;
+  /** Signed photo URLs for `inventoryItems`, keyed by `itemId` -- threaded straight to the Inventory popup. */
+  inventoryMediaUrlByItemId: Record<string, string>;
+  /** Manager-only decrypted staff-id -> display-name map for the Inventory popup's "counted by" line (see page.tsx). Always empty when `inventoryCanManage` is false. */
+  inventoryStaffNameById: Record<string, string>;
   /**
    * Recipes popup data (Founder direction, 2026-08-24: Staff's Recipes
    * button opens the same popup Manager's does, instead of navigating to
@@ -108,8 +116,9 @@ export interface StaffDashboardClientProps {
   recipeMediaUrlByRecipeId: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether the popup shows Add/Edit/Delete controls. */
   recipeCanManage: boolean;
-  /** `'recipes'` opens the Recipes popup already-open on mount (`?popup=recipes` deep link, mirroring Manager's). */
-  initialPopup: 'recipes' | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes` or `/inventory` visit). */
+  initialPopup: 'recipes' | 'inventory' | null;
+  locationId: string;
 }
 
 /** Display-only hours between two `HH:MM` local times, for the weekly-hours summary. Does not account for breaks. */
@@ -151,11 +160,17 @@ function StaffDashboardBody({
   attendance,
   correctionRequests,
   exchanges,
+  inventoryEnabled,
+  inventoryItems,
+  inventoryCanManage,
+  inventoryMediaUrlByItemId,
+  inventoryStaffNameById,
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
   recipeCanManage,
   initialPopup,
+  locationId,
 }: StaffDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -166,6 +181,7 @@ function StaffDashboardBody({
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
+  const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
@@ -330,7 +346,18 @@ function StaffDashboardBody({
         heading={t('entryPointsHeading')}
         buttons={[
           { key: 'recipes', label: t('navRecipes'), onClick: () => setRecipesPopupOpen(true) },
-          { key: 'inventory', label: t('navInventory'), href: '/inventory' },
+          ...(inventoryEnabled
+            ? [
+                {
+                  key: 'inventory',
+                  label: t('navInventory'),
+                  onClick: () => {
+                    markPopupTriggerClick('inventory');
+                    setInventoryPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
           { key: 'purchases', label: t('navPurchases'), href: '/purchases' },
         ]}
       />
@@ -344,6 +371,19 @@ function StaffDashboardBody({
         mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
         canManage={recipeCanManage}
         onChange={() => router.refresh()}
+      />
+
+      <InventoryPopup
+        open={inventoryPopupOpen}
+        onClose={() => setInventoryPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        locationTimezone={timeZone}
+        items={inventoryItems}
+        mediaUrlByItemId={inventoryMediaUrlByItemId}
+        staffNameById={inventoryStaffNameById}
+        canManage={inventoryCanManage}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
