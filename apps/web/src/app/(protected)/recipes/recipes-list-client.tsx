@@ -28,6 +28,7 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { describeWriteError } from '../manager/error-copy';
 import { RecipeForm } from './recipe-form';
+import { RecipeDetailModal } from './recipe-detail-modal';
 import { tRecipes } from './recipes-i18n';
 
 /**
@@ -51,26 +52,31 @@ export interface RecipesListClientProps {
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show the manage toolbar (filter/search-adjacent Add-recipe control, description) and each row's Edit/Delete buttons. */
   canManage: boolean;
   /**
-   * True only when rendered inside the Manager dashboard's Recipes popup
-   * (WP A5b) -- skips this component's own page-level header, and swaps
-   * each recipe row's `<Link href="/recipes/[id]">` for a button calling
-   * `onSelectRecipe` (a same-popup view swap, not a page navigation) since
-   * the popup renders list and detail as two views of the same `Modal`,
-   * matching the Founder's "popups look like one component" direction.
-   * Defaults false -- the standalone `/recipes` page's own behavior is
-   * completely unchanged.
+   * True only when rendered inside another popup (Manager's Recipes popup,
+   * WP A5b, or Staff's equivalent) -- skips this component's own
+   * page-level header and its own live poll (the host popup owns
+   * refreshing). Defaults false.
    */
   embedded?: boolean;
-  /** Required when `embedded` is true; ignored otherwise. `startEditing` opens straight into the pre-filled edit form (a row's own "Edit" button) instead of the read view (a row's title/thumbnail). */
+  /**
+   * When provided, a row click (or its "Edit" button) calls this instead
+   * of navigating to `/recipes/[id]` -- used both by an `embedded` popup
+   * (a same-Modal view swap) AND by the standalone `/recipes` page itself
+   * (2026-08-24 Founder direction: clicking a recipe there opens it in a
+   * `Modal` overlay too, `RecipeDetailModal`, rather than a full page
+   * navigation -- "модуль recipes... в списке рецептов откроется попап").
+   * `startEditing` opens straight into the pre-filled edit form (a row's
+   * own "Edit" button) instead of the read view (a row's title/thumbnail).
+   */
   onSelectRecipe?: (recipeId: string, startEditing?: boolean) => void;
   /**
-   * Optional (embedded only): fired on row hover/focus, before any click,
-   * so the popup can kick off `getRecipeDetailForPopup` speculatively --
-   * by the time the manager actually clicks, the fetch is often already
-   * resolved, masking most of the popup's Preview-latency detail-open
-   * delay. Pure speculative read; safe to fire repeatedly, no state
-   * mutation, and the click handler's own fetch/cache-check still owns
-   * correctness if the hover never fires (e.g. touch/keyboard-only use).
+   * Optional: fired on row hover/focus, before any click, so the caller
+   * can kick off `getRecipeDetailForPopup` speculatively -- by the time the
+   * user actually clicks, the fetch is often already resolved, masking
+   * most of the detail-open latency. Pure speculative read; safe to fire
+   * repeatedly, no state mutation, and the click handler's own fetch/
+   * cache-check still owns correctness if the hover never fires (e.g.
+   * touch/keyboard-only use).
    */
   onHoverRecipe?: (recipeId: string) => void;
   /** Required when `embedded` is true: called instead of `router.refresh()` after adding/deleting a recipe, since the popup's list data was fetched by the Manager page, not this component's own page. */
@@ -81,13 +87,33 @@ export interface RecipesListClientProps {
  * Outer wrapper: mounts the shared `LangProvider` around the Recipes list
  * page body, matching the same pattern the canonical Staff dashboard,
  * Admin page, and Inventory page already use.
+ *
+ * Owns the standalone page's own recipe-detail-in-a-`Modal` state (Founder
+ * direction, 2026-08-24): a row click opens `RecipeDetailModal` as an
+ * overlay on top of the still-visible list, instead of navigating to
+ * `/recipes/[recipeId]` -- the URL never changes. `embedded` popups
+ * (Manager/Staff's Recipes popup) don't use this: they swap their own
+ * `Modal`'s content between list and detail views instead of nesting a
+ * second `Modal`, so this state only matters for the standalone page.
  */
 export function RecipesListClient(props: RecipesListClientProps) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<{ recipeId: string; startEditing: boolean } | null>(null);
+
   return (
     <LangProvider>
       <main style={pageStyle(880)}>
-        <RecipesListBody {...props} />
+        <RecipesListBody
+          {...props}
+          onSelectRecipe={(recipeId, startEditing = false) => setSelected({ recipeId, startEditing })}
+        />
       </main>
+      <RecipeDetailModal
+        recipeId={selected?.recipeId ?? null}
+        startEditing={selected?.startEditing ?? false}
+        onClose={() => setSelected(null)}
+        onChange={() => router.refresh()}
+      />
     </LangProvider>
   );
 }
@@ -320,7 +346,7 @@ export function RecipesListBody({
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
                 {visibleRecipes.map((recipe) => {
                   function openDetail() {
-                    if (embedded) onSelectRecipe?.(recipe.recipeId);
+                    if (onSelectRecipe) onSelectRecipe(recipe.recipeId);
                     else router.push(`/recipes/${recipe.recipeId}`);
                   }
                   return (
@@ -398,9 +424,7 @@ export function RecipesListBody({
                             className={hoverStyles.buttonSecondary}
                             style={buttonSecondary}
                             onClick={() =>
-                              embedded
-                                ? onSelectRecipe?.(recipe.recipeId, true)
-                                : router.push(editHref(recipe.recipeId))
+                              onSelectRecipe ? onSelectRecipe(recipe.recipeId, true) : router.push(editHref(recipe.recipeId))
                             }
                           >
                             {t('editButton')}

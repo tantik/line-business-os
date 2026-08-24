@@ -13,6 +13,10 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { listInventoryItemStatus } from '@/lib/inventory/items';
+import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { listContentTranslationsForField } from '@/lib/content/translations';
+import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -63,7 +67,7 @@ function BackLink() {
 export default async function WorkforceStaffPage({
   searchParams,
 }: {
-  searchParams: Promise<{ weekOffset?: string }>;
+  searchParams: Promise<{ weekOffset?: string; popup?: string }>;
 }) {
   const result = await requireTenantContext();
 
@@ -157,8 +161,13 @@ export default async function WorkforceStaffPage({
         );
       }
 
-      const { weekOffset: rawWeekOffset } = await searchParams;
+      const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
+      // `?popup=recipes` deep-link parity with Manager's equivalent
+      // (`manager/page.tsx`) -- the Recipes entry-point button below opens
+      // the same popup client-side too, this just lets a bookmark/shared
+      // link land straight on it already open.
+      const initialPopup = rawPopup === 'recipes' ? 'recipes' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
@@ -183,6 +192,10 @@ export default async function WorkforceStaffPage({
         exchangesResult,
         inventoryItemsResult,
         rosterResult,
+        recipeCategoriesResult,
+        recipesResult,
+        recipeCanManage,
+        recipeTitleTranslationsResult,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
@@ -205,6 +218,14 @@ export default async function WorkforceStaffPage({
         // 0061) -- RLS narrows this to the caller's own row plus active
         // coworkers in the caller's own tenant/location schedule scope.
         listWorkforceStaffRoster(supabase, activeTenant.tenantId),
+        // Recipes list for the Staff Recipes popup (Founder direction,
+        // 2026-08-24: matches Manager's popup, same reads `/recipes/page.tsx`
+        // and `manager/page.tsx` both already make) -- recipe detail is
+        // fetched lazily, client-side, only once a specific recipe opens.
+        listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
+        listWorkforceRecipes(supabase, activeTenant.tenantId),
+        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+        listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
       ]);
 
       const staffNameById: Record<string, string> =
@@ -221,6 +242,33 @@ export default async function WorkforceStaffPage({
         assignmentsResult.status === 'success'
           ? assignmentsResult.data.filter((a) => a.published && a.locationId === location.locationId)
           : null;
+
+      // Same derivation as `manager/page.tsx` -- see its comments for why.
+      const recipeGroups =
+        recipeCategoriesResult.status === 'success' && recipesResult.status === 'success'
+          ? groupRecipesByCategory(recipeCategoriesResult.data, recipesResult.data)
+          : null;
+      const recipeTitleTranslations =
+        recipesResult.status === 'success' && recipeTitleTranslationsResult.status === 'success' ? recipeTitleTranslationsResult.data : [];
+      const recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField> =
+        recipesResult.status === 'success'
+          ? Object.fromEntries(
+              recipesResult.data.map((recipe) => [
+                recipe.recipeId,
+                buildRecipeTranslationField(
+                  'workforce_recipe',
+                  recipe.recipeId,
+                  'title',
+                  recipe.originalLanguage,
+                  (recipe.originalLanguage === 'ja' ? recipe.titleJa : recipe.titleEn) ?? '',
+                  recipe.originalLanguage === 'ja' ? recipe.titleEn : recipe.titleJa,
+                  recipeTitleTranslations,
+                ),
+              ]),
+            )
+          : {};
+      const recipeMediaUrlByRecipeId =
+        recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
       return (
         <main style={pageStyle(1000)}>
@@ -242,6 +290,11 @@ export default async function WorkforceStaffPage({
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
+            recipeGroups={recipeGroups}
+            recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
+            recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
+            recipeCanManage={recipeCanManage}
+            initialPopup={initialPopup}
           />
         </main>
       );

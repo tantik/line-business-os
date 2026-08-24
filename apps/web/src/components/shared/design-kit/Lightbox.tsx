@@ -59,16 +59,27 @@ export function LightboxTrigger({ src, alt, thumbnailStyle }: { src: string; alt
                 padding: 24,
               }}
             >
+              {/*
+                The close button used to sit half outside this wrapper's own
+                top-right corner (`top: -16, right: -16`) -- for an image
+                tall/wide enough to approach the 92vw/92vh cap, that corner
+                sits right at the outer overlay's edge, clipping the button
+                against the viewport (Founder report, 2026-08-24). Now
+                positioned fully inside the image instead, so it's always
+                visible regardless of image size. The dialog wrapper carries
+                the 92vw/92vh cap (once, not duplicated on the image too);
+                the image itself just fills up to 100% of that.
+              */}
               <div role="dialog" aria-modal="true" aria-label={alt} style={{ position: 'relative', maxWidth: '92vw', maxHeight: '92vh' }}>
-                <img src={src} alt={alt} style={{ display: 'block', maxWidth: '92vw', maxHeight: '92vh', borderRadius: 8, objectFit: 'contain' }} />
+                <img src={src} alt={alt} style={{ display: 'block', maxWidth: '100%', maxHeight: '100%', borderRadius: 8, objectFit: 'contain' }} />
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   aria-label="Close"
                   style={{
                     position: 'absolute',
-                    top: -16,
-                    right: -16,
+                    top: 10,
+                    right: 10,
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
