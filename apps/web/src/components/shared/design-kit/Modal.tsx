@@ -146,9 +146,10 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
         ) : null}
       </div>
       <style>{`
-        .shared-design-kit-modal-overlay { align-items: flex-end; }
+        /* Tiny 2px gap below the bottom-sheet panel on mobile so it doesn't sit flush against the screen edge -- purely cosmetic. */
+        .shared-design-kit-modal-overlay { align-items: flex-end; padding-bottom: 2px !important; }
         @media (min-width: 640px) {
-          .shared-design-kit-modal-overlay { align-items: center; }
+          .shared-design-kit-modal-overlay { align-items: center; padding-bottom: 0 !important; }
           .shared-design-kit-modal-panel {
             border-radius: 8px !important;
           }
