@@ -18,6 +18,25 @@ git checkout -b feature/<scope>
 
 - Open PRs into `dev`. `main` only advances via reviewed merges.
 
+## Merge authority (Founder decision, 2026-08-24)
+
+- `dev` = shared working version, checked on `preview.oruwa.jp`. AI CTO
+  merges into `dev` **autonomously**, no per-merge Founder confirmation,
+  once CI is green and the PR is actually done — but **only** via
+  `bash scripts/ai-dev-merge.sh <PR_NUMBER>`, never a raw `gh pr merge`. The
+  script refuses (no merge) if base ≠ `dev`, the PR is draft/not
+  OPEN/not MERGEABLE, any required check isn't passing, or the PR touches a
+  RED path (`supabase/migrations/**`, `.env*`, `*.pem`/`*.key`,
+  `backups/**`) — a migration-touching PR still needs Founder approval to
+  merge even though it targets `dev`. `.claude/settings.json` denies raw
+  `gh pr merge*` and allows only the wrapper script.
+- `main` = approved release version, considered production-ready, **not** a
+  development branch. Merging into `main` always requires explicit Founder
+  confirmation after full verification — no autonomous path, ever.
+- Production deploys from `main` only after a separate Founder decision.
+  Full detail: `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §9
+  ("DEV MERGE" / Authority tiers).
+
 ## Verify before any final report or PR
 
 Run these from the repo root and confirm they pass before reporting done:
