@@ -1,0 +1,24 @@
+/*
+ * Automation / Shift-requests two-column footer (Settings section): above
+ * the wrap point the two columns sit side by side and the right one
+ * ("Shift requests") is separated by a left border + left padding. Once the
+ * flex row wraps to one column per line (`flex: 1 1 260px` on both, so the
+ * exact px this happens at depends on the card's own width, not a fixed
+ * screen-size breakpoint) a left border/padding sits on the wrong edge --
+ * Founder devtools mockup, 2026-08-24: swap it for a top border + top
+ * padding once stacked, matching the same divider language the whole
+ * footer already uses against Settings above it.
+ */
+.shiftRequestsColumn {
+  padding-left: 32px;
+  border-left: 1px solid #e7d9c1;
+}
+
+@media (max-width: 640px) {
+  .shiftRequestsColumn {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 10px;
+    border-top: 1px solid #e7d9c1;
+  }
+}

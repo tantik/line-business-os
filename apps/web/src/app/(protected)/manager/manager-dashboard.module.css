@@ -1,0 +1,21 @@
+/*
+ * Weekly Schedule mobile polish (Founder direction, 2026-08-24): below the
+ * same 767px breakpoint the rest of the app switches table/card layouts at,
+ * the horizontally-scrollable table wrapper bleeds out to the card's own
+ * edges (negative margin equal to `card`'s own 18px padding, `theme.ts`)
+ * instead of sitting inset inside it -- more usable width for the same
+ * viewport, matching the Founder's own devtools mockup. Left as normal
+ * padded flow above 767px, where the table already fits without scrolling
+ * and bleeding it would misalign against the heading/nav row above it.
+ */
+.scheduleTableWrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+@media (max-width: 767px) {
+  .scheduleTableWrap {
+    margin-left: -18px;
+    margin-right: -18px;
+  }
+}
