@@ -386,7 +386,7 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
       }}
     >
       {isBought ? (
-        <div style={{ position: 'absolute', top: -10, right: -10 }}>
+        <div style={{ position: 'absolute', top: 1, right: 1 }}>
           <PurchasedIcon t={t} />
         </div>
       ) : null}
