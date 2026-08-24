@@ -47,10 +47,12 @@ import {
   todayRowStyle,
 } from '../_ui/workforce-theme';
 import { EntryPointsCard } from '../_ui/entry-points-card';
+import { BrandBadge } from '../_ui/brand-badge';
 import { ShiftPreferenceForm } from './shift-preference-form';
 import { WorkReportForm } from './work-report-form';
 import { CorrectionRequestForm } from './correction-request-form';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
+import { WorkStatusCard } from './work-status-card';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
@@ -284,6 +286,8 @@ function StaffDashboardBody({
 
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
 
+  const todayAttendance = useMemo(() => (attendance ?? []).find((a) => a.workDate === todayIso) ?? null, [attendance, todayIso]);
+
   const weeklyHours = useMemo(
     () => myScheduleThisWeek.reduce((sum, entry) => sum + hoursBetween(entry.startsAtLocal, entry.endsAtLocal), 0),
     [myScheduleThisWeek],
@@ -299,22 +303,28 @@ function StaffDashboardBody({
       <header
         style={{
           display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          gap: 6,
           paddingBottom: 20,
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div>
-          <h1 style={{ margin: 0 }}>{displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}</h1>
-          <p style={{ margin: '8px 0 0', ...mutedText }}>
-            {tenantName} - {locationName}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <BrandBadge label={tenantName} />
+            <h1 style={{ margin: 0 }}>{displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}</h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <PreviewLanguageToggle />
+            <SignOutButton label={t('signOut')} />
+          </div>
         </div>
-        <SignOutButton label={t('signOut')} />
+        <p style={{ margin: 0, ...mutedText }}>
+          {tenantName} - {locationName}
+        </p>
       </header>
+
+      <WorkStatusCard todayAttendance={todayAttendance} timeZone={timeZone} lang={lang} />
 
       <EntryPointsCard
         heading={t('entryPointsHeading')}
@@ -358,7 +368,6 @@ function StaffDashboardBody({
             {t('scheduleHeading')} ({periodStart} - {periodEnd})
           </h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <PreviewLanguageToggle variant="dark" />
             <div style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' }}>
               <button
                 type="button"
