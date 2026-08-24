@@ -12,6 +12,7 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
+import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
@@ -42,6 +43,7 @@ import { BrandBadge } from '../_ui/brand-badge';
 import { AccountMenu } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
+import { PurchasesPopup } from '../_ui/purchases-popup';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
@@ -202,8 +204,10 @@ export interface ManagerDashboardClientProps {
   inventoryItems: InventoryItemStatus[] | null;
   /** Signed photo URLs for `inventoryItems`, keyed by `itemId` (see `createInventoryMediaUrlMap`) -- threaded straight to the Inventory popup. */
   inventoryMediaUrlByItemId: Record<string, string>;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory` or `/recipes` visit). */
-  initialPopup: 'inventory' | 'recipes' | null;
+  /** This location's Purchases shopping list, read-only -- also the exact data the Purchases popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
+  purchasesItems: PurchaseNeededItem[] | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, or `/purchases` visit). */
+  initialPopup: 'inventory' | 'recipes' | 'purchases' | null;
   /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
   initialFocusCell: { employeeId: string; workDate: string } | null;
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
@@ -280,6 +284,7 @@ function ManagerDashboardBody({
   inventoryEnabled,
   inventoryItems,
   inventoryMediaUrlByItemId,
+  purchasesItems,
   initialPopup,
   initialFocusCell,
   recipeGroups,
@@ -299,6 +304,7 @@ function ManagerDashboardBody({
   // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
   // handles returning focus here on every close path.
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
+  const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   // Which Inventory tab the popup should open on -- 'all' from every normal
   // entry point, 'shortage' ("Need reorder") when opened from the Needs
@@ -906,6 +912,18 @@ function ManagerDashboardBody({
                 },
               ]
             : []),
+          ...(inventoryEnabled
+            ? [
+                {
+                  key: 'purchases',
+                  label: t('navPurchases'),
+                  onClick: () => {
+                    markPopupTriggerClick('purchases');
+                    setPurchasesPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -979,6 +997,17 @@ function ManagerDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={staffNameById}
         canManage
+      />
+
+      <PurchasesPopup
+        open={purchasesPopupOpen}
+        onClose={() => setPurchasesPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        locationTimezone={timeZone}
+        items={purchasesItems}
+        staffNameById={staffNameById}
       />
 
       <RecipesPopup

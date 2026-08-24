@@ -16,6 +16,7 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
+import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -149,7 +150,8 @@ export default async function WorkforceManagerPage({
 
       const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
-      const initialPopup = rawPopup === 'inventory' ? 'inventory' : rawPopup === 'recipes' ? 'recipes' : null;
+      const initialPopup =
+        rawPopup === 'inventory' ? 'inventory' : rawPopup === 'recipes' ? 'recipes' : rawPopup === 'purchases' ? 'purchases' : null;
       // `?focusCell=employeeId:workDate`, set by Attention's "View shift"
       // action (manager-dashboard-client.tsx's `handleViewShift`) -- both
       // parts are opaque identifiers to this page (a UUID and an ISO date,
@@ -188,6 +190,7 @@ export default async function WorkforceManagerPage({
         shiftExchangesResult,
         exchangeAssignmentsResult,
         inventoryItemsResult,
+        purchasesItemsResult,
         recipeCategoriesResult,
         recipesResult,
         recipeCanManage,
@@ -217,6 +220,13 @@ export default async function WorkforceManagerPage({
         // (`includeInactive` defaults false there, correctly).
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
+          : Promise.resolve(null),
+        // Purchases' entire read surface -- also the exact data the
+        // Manager's Purchases popup below renders (no separate fetch).
+        // Rides the `inventory` module flag (Founder decision, this
+        // session): Purchases has no data without Inventory enabled.
+        inventoryEnabled
+          ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
         // `/recipes/page.tsx` itself makes; recipe detail (ingredients/
@@ -319,6 +329,7 @@ export default async function WorkforceManagerPage({
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
+            purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
             initialPopup={initialPopup}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}

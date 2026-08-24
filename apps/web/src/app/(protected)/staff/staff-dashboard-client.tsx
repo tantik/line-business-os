@@ -10,6 +10,7 @@ import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
+import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
@@ -38,6 +39,7 @@ import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
+import { PurchasesPopup } from '../_ui/purchases-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 
@@ -105,6 +107,10 @@ export interface StaffDashboardClientProps {
   inventoryMediaUrlByItemId: Record<string, string>;
   /** Manager-only decrypted staff-id -> display-name map for the Inventory popup's "counted by" line (see page.tsx). Always empty when `inventoryCanManage` is false. */
   inventoryStaffNameById: Record<string, string>;
+  /** This location's Purchases shopping list -- also the exact data the Purchases popup below renders (no separate fetch). `null` when the module is disabled or the read failed. */
+  purchasesItems: PurchaseNeededItem[] | null;
+  /** Manager-only decrypted staff-id -> display-name map for the Purchases popup's "bought by" line. Always empty for a plain staff account. */
+  purchasesStaffNameById: Record<string, string>;
   /**
    * Recipes popup data (Founder direction, 2026-08-24: Staff's Recipes
    * button opens the same popup Manager's does, instead of navigating to
@@ -117,7 +123,7 @@ export interface StaffDashboardClientProps {
   /** Pure UX affordance (RLS is the real boundary regardless): whether the popup shows Add/Edit/Delete controls. */
   recipeCanManage: boolean;
   /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes` or `/inventory` visit). */
-  initialPopup: 'recipes' | 'inventory' | null;
+  initialPopup: 'recipes' | 'inventory' | 'purchases' | null;
   locationId: string;
 }
 
@@ -165,6 +171,8 @@ function StaffDashboardBody({
   inventoryCanManage,
   inventoryMediaUrlByItemId,
   inventoryStaffNameById,
+  purchasesItems,
+  purchasesStaffNameById,
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
@@ -182,6 +190,7 @@ function StaffDashboardBody({
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
+  const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
 
@@ -358,7 +367,14 @@ function StaffDashboardBody({
                 },
               ]
             : []),
-          { key: 'purchases', label: t('navPurchases'), href: '/purchases' },
+          {
+            key: 'purchases',
+            label: t('navPurchases'),
+            onClick: () => {
+              markPopupTriggerClick('purchases');
+              setPurchasesPopupOpen(true);
+            },
+          },
         ]}
       />
 
@@ -384,6 +400,17 @@ function StaffDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={inventoryStaffNameById}
         canManage={inventoryCanManage}
+      />
+
+      <PurchasesPopup
+        open={purchasesPopupOpen}
+        onClose={() => setPurchasesPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        locationTimezone={timeZone}
+        items={purchasesItems}
+        staffNameById={purchasesStaffNameById}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
