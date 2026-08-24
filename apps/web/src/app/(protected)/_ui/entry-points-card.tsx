@@ -6,10 +6,9 @@ import entryStyles from './entry-points-card.module.css';
 
 /**
  * One entry-point button: either a popup trigger (`onClick`) or a plain
- * navigation (`href`) -- Manager's Recipes/Inventory/Manage-staff are
- * popups, Staff's Recipes/Inventory are still full-page links (popups for
- * Staff are the deferred Staff-surface follow-up mission's job, not this
- * card's).
+ * navigation (`href`) -- Manager's Recipes/Inventory/Manage-staff and
+ * Staff's Recipes/Inventory are all popups now; Staff's Purchases is still a
+ * full-page link (a real module, not yet given the popup treatment).
  */
 export interface EntryPointsCardButton {
   key: string;

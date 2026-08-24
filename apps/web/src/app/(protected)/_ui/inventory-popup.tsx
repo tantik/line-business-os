@@ -18,30 +18,33 @@ export interface InventoryPopupProps {
   items: InventoryItemStatus[] | null;
   mediaUrlByItemId: Record<string, string>;
   staffNameById: Record<string, string>;
+  /** Pure UX affordance (RLS is the real boundary regardless): whether to show catalog-management controls and the Deactivated filter tab. Always `true` for Manager; resolved from the real `inventory.item.manage` permission for Staff (almost always `false`). */
+  canManage: boolean;
   /** See `InventoryDashboardClientProps.initialStatusFilter`. Defaults to 'all' when omitted. */
   initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
 }
 
 /**
- * Manage-inventory popup (WP A5a, Cafe Manager parity mission): wraps the
- * existing `/inventory` dashboard body (unchanged data layer -- `items` is
- * the exact same `listInventoryItemStatus` read the Manager page's
- * Attention layer already fetches) in a design-kit `Modal`, same pattern
- * WP A4 established for Staff. `InventoryDashboardBody`'s own `embedded`
- * prop skips its page-level header (title/language-toggle/sign-out/back-
- * link), and this component renders it directly inside the Manager page's
- * existing `LangProvider` rather than the standalone page's own wrapper, so
- * the popup follows the Manager page's current language selection instead
- * of resetting to its own default.
+ * Shared Inventory popup (moved to `_ui/`, 2026-08-24, mirroring
+ * `RecipesPopup`'s own move -- Manager's popup, reused as-is by the Staff
+ * dashboard's own Inventory entry point): wraps the existing `/inventory`
+ * dashboard body (unchanged data layer -- `items` is the exact same
+ * `listInventoryItemStatus` read both dashboards' Attention/entry-point
+ * layers already fetch) in a design-kit `Modal`. `InventoryDashboardBody`'s
+ * own `embedded` prop skips its page-level header (title/language-toggle/
+ * sign-out/back-link), and this component renders it directly inside the
+ * caller's own `LangProvider` rather than the standalone page's own
+ * wrapper, so the popup follows the caller's current language selection
+ * instead of resetting to its own default.
  *
  * Known scoping simplification: `InventoryDashboardBody` has its own
  * internal Escape-key handler for its inline Add/Edit-item form (unrelated
- * to this Modal's). Unlike WP A4's Manage-staff popup, this one does not
- * layer the two -- pressing Escape while an item form is open closes both
- * the form and the whole popup in one step, rather than backing out one
- * level at a time. Acceptable: not incorrect, just less refined than A4,
- * and re-plumbing `InventoryDashboardBody`'s internal state to expose a
- * "is a nested form open" signal is not worth doing for this WP alone.
+ * to this Modal's). Unlike the Manage-staff popup, this one does not layer
+ * the two -- pressing Escape while an item form is open closes both the
+ * form and the whole popup in one step, rather than backing out one level
+ * at a time. Acceptable: not incorrect, just less refined, and re-plumbing
+ * `InventoryDashboardBody`'s internal state to expose a "is a nested form
+ * open" signal is not worth doing for this alone.
  */
 export function InventoryPopup({
   open,
@@ -53,6 +56,7 @@ export function InventoryPopup({
   items,
   mediaUrlByItemId,
   staffNameById,
+  canManage,
   initialStatusFilter,
 }: InventoryPopupProps) {
   const { lang } = useLang();
@@ -79,7 +83,7 @@ export function InventoryPopup({
           locationTimezone={locationTimezone}
           items={items}
           mediaUrlByItemId={mediaUrlByItemId}
-          canManage
+          canManage={canManage}
           staffNameById={staffNameById}
           embedded
           initialStatusFilter={initialStatusFilter}

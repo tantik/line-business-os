@@ -8,6 +8,7 @@ import { listTenantLocations } from '@/lib/tenant/locations';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
+import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import {
   ErrorState,
   MissingConfigState,
@@ -88,6 +89,15 @@ export default async function InventoryPage() {
       // deep link/bookmark/QR code still works either way.
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
       if (managerAccess) redirect('/manager?popup=inventory');
+
+      // Same consolidation, Staff side: a caller with a `workforce.employees`
+      // profile is sent into the Staff dashboard's own Inventory popup
+      // instead of this standalone page -- a bare deep link/bookmark/QR code
+      // still works either way. Anyone with inventory access but no staff
+      // profile (neither a manager nor workforce staff) still falls through
+      // to render this page directly, unchanged.
+      const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
+      if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=inventory');
 
       const [itemsResult, canManage] = await Promise.all([
         listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId),

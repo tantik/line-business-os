@@ -41,7 +41,7 @@ import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
 import { AccountMenu } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
-import { InventoryPopup } from './inventory-popup';
+import { InventoryPopup } from '../_ui/inventory-popup';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
@@ -978,6 +978,7 @@ function ManagerDashboardBody({
         items={inventoryItems}
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={staffNameById}
+        canManage
       />
 
       <RecipesPopup

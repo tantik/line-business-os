@@ -334,28 +334,15 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
 
   return (
     <div style={{ ...card, marginTop: 0, opacity: item.isActive ? 1 : 0.6, borderLeft: belowReorder ? `3px solid ${colors.danger}` : card.border }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <ItemThumbnail mediaUrl={mediaUrl} name={item.name} size={44} />
-          <div style={{ minWidth: 0 }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>{item.name}</h3>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>
-            {t('targetLabel')} {item.requiredQuantity} {item.unit} · {t('reorderAtLabel')} {item.reorderPoint} {item.unit} ·{' '}
-            {t('currentLabel')} {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
-          </p>
-          {lastUpdated ? (
-            <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
-              {t('lastUpdatedLabel')} {lastUpdated}
-              {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
-            </p>
-          ) : null}
-          {rowError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{rowError}</p> : null}
-          </div>
+          <h3 style={{ margin: 0, fontSize: 16, minWidth: 0, overflowWrap: 'anywhere' }}>{item.name}</h3>
         </div>
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <StatusBadge item={item} t={t} />
           {canManage ? (
-            <div style={{ display: 'flex', gap: 6 }}>
+            <>
               <button
                 type="button"
                 aria-label={`${t('editButton')} ${item.name}`}
@@ -374,12 +361,23 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
                   { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
                 ]}
               />
-            </div>
+            </>
           ) : null}
         </div>
       </div>
+      <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 13 }}>
+        {t('targetLabel')} {item.requiredQuantity} {item.unit} · {t('reorderAtLabel')} {item.reorderPoint} {item.unit} ·{' '}
+        {t('currentLabel')} {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+      </p>
+      {lastUpdated ? (
+        <p style={{ margin: '2px 0 0', ...mutedText, fontSize: 12 }}>
+          {t('lastUpdatedLabel')} {lastUpdated}
+          {canManage && item.countedByStaffId ? ` · ${staffNameById[item.countedByStaffId] ?? t('unknownStaffLabel')}` : ''}
+        </p>
+      ) : null}
+      {rowError ? <p style={{ margin: '4px 0 0', fontSize: 12, color: colors.dangerText }}>{rowError}</p> : null}
       {item.isActive ? (
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 8 }}>
           <CountForm
             locationId={locationId}
             itemId={item.itemId}
@@ -529,8 +527,8 @@ export function InventoryDashboardBody({
       ) : null}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: embedded ? 0 : 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(['all', 'shortage', 'ok', 'inactive'] as const).map((value) => {
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', width: '100%' }}>
+          {(canManage ? (['all', 'shortage', 'ok', 'inactive'] as const) : (['all', 'shortage', 'ok'] as const)).map((value) => {
             const label =
               value === 'all' ? t('filterAll') : value === 'shortage' ? t('filterShortage') : value === 'ok' ? t('filterOk') : t('filterInactive');
             const count = value === 'all' ? items.length : value === 'shortage' ? shortageCount : value === 'ok' ? okCount : inactiveCount;
@@ -540,7 +538,13 @@ export function InventoryDashboardBody({
                 type="button"
                 aria-pressed={statusFilter === value}
                 className={hoverStyles.buttonSecondary}
-                style={statusFilter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary}
+                style={{
+                  ...(statusFilter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary),
+                  flex: '1 1 84px',
+                  textAlign: 'center',
+                  justifyContent: 'center',
+                  whiteSpace: 'nowrap',
+                }}
                 onClick={() => setStatusFilter(value)}
               >
                 {label} ({count})

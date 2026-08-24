@@ -109,7 +109,7 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
   const statusText = status === 'saving' ? t('savingStatus') : status === 'saved' ? t('savedStatus') : status === 'error' ? t('saveErrorStatus') : '';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 'fit-content', minWidth: 140 }}>
       <div
         style={{
           display: 'flex',
@@ -122,8 +122,7 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
       >
         <input
           style={{
-            flex: 1,
-            minWidth: 0,
+            width: 90,
             border: 'none',
             outline: 'none',
             padding: '8px 8px 8px 10px',
