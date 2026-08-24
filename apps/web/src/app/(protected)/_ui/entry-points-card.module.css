@@ -1,0 +1,19 @@
+/*
+ * Green hover for the Recipes/Inventory/Purchases (Manager: +Manage-staff)
+ * entry-point row -- Founder direction, 2026-08-24: "на пк добавь на кнопки
+ * ховер - зеленый цвет". Scoped to this one row rather than changing the
+ * shared `.buttonSecondary:hover` in theme.module.css, which other buttons
+ * across the app also use with its neutral tint.
+ *
+ * `@media (hover: hover)` (not a plain `:hover`) so this never sticks on a
+ * touch tap -- a touch device has no real hover state, and without this
+ * guard a tapped button can visually stay "hovered" green until the user
+ * taps elsewhere (ORUWA design system charter: no stuck hover/focus state).
+ */
+@media (hover: hover) {
+  .entryButton:hover:not(:disabled) {
+    background: rgba(79, 122, 82, 0.12);
+    border-color: #4f7a52;
+    color: #4f7a52;
+  }
+}
