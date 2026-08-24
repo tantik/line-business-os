@@ -24,7 +24,7 @@ export interface EntryPointsCardProps {
 }
 
 /** Each button shares the row equally (`flex: 1`), same visual weight, instead of sizing to its own label length. */
-const buttonStyle: CSSProperties = { ...buttonSecondary, flex: 1, justifyContent: 'center', textAlign: 'center' };
+const buttonStyle: CSSProperties = { ...buttonSecondary, flex: 1, justifyContent: 'center', textAlign: 'center', textDecoration: 'none' };
 
 /**
  * Shared entry-point action row (Recipes/Inventory/Manage-staff on Manager;

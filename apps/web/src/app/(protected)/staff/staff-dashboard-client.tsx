@@ -304,22 +304,27 @@ function StaffDashboardBody({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 6,
-          paddingBottom: 20,
+          gap: 4,
+          paddingBottom: 14,
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
             <BrandBadge label={tenantName} />
-            <h1 style={{ margin: 0 }}>{displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}</h1>
+            {/* `minWidth: 0` + `overflowWrap: anywhere` let a long tenant/staff name wrap onto a second line within this title
+                instead of the outer row falling back to its `flexWrap` and pushing the language-toggle/sign-out group onto its
+                own row (Founder mobile-compactness direction, 2026-08-24). */}
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.textMuted, minWidth: 0, overflowWrap: 'anywhere' }}>
+              {displayName ? pageTitleWithName[lang](displayName) : t('pageTitle')}
+            </h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <PreviewLanguageToggle />
             <SignOutButton label={t('signOut')} />
           </div>
         </div>
-        <p style={{ margin: 0, ...mutedText }}>
+        <p style={{ margin: 0, fontSize: 13, ...mutedText }}>
           {tenantName} - {locationName}
         </p>
       </header>
