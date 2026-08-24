@@ -42,8 +42,15 @@ export async function submitWorkReport(formData: FormData): Promise<WorkforceWri
   if (!myProfile.data) return NO_STAFF_PROFILE_RESULT;
   if (!myProfile.data.locationId) return { status: 'unexpected_error', message: 'Your staff profile has no assigned location.' };
 
-  let clockIn: string | null = null;
-  let clockOut: string | null = null;
+  // Omitted clock fields must remain unchanged (`undefined`, not `null`) --
+  // `buildAttendancePayload` (attendance.ts) only touches a column whose
+  // input is `undefined`-checked, so passing `null` here would erase clock
+  // events recorded by the dedicated clock-in/clock-out actions any time
+  // this form is submitted without its own time fields (e.g. a
+  // transport/message-only update). Matches the fix already applied to the
+  // preview surface's `previewSubmitWorkReport`.
+  let clockIn: string | undefined;
+  let clockOut: string | undefined;
   if (input.clockInLocal || input.clockOutLocal) {
     const locationsResult = await listTenantLocations(supabase);
     if (locationsResult.status !== 'success') return locationsResult;

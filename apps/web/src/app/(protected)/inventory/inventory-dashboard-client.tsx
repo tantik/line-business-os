@@ -196,14 +196,15 @@ function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, sta
           </div>
         </div>
       </td>
-      <td style={tableCell}>
-        {item.requiredQuantity} {item.unit}
-      </td>
-      <td style={tableCell}>
-        {item.reorderPoint} {item.unit}
-      </td>
-      <td style={{ ...tableCell, color: belowReorder ? colors.dangerText : colors.textPrimary, fontWeight: belowReorder ? 600 : 400 }}>
-        {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+      {/* Target/Reorder-at/Current combined into one compact cell (Founder direction, 2026-08-24: match the mobile card's single-line arrangement instead of three separate columns). */}
+      <td style={{ ...tableCell, color: belowReorder ? colors.dangerText : colors.textPrimary }}>
+        {t('targetLabel')} {item.requiredQuantity} {item.unit}
+        <br />
+        {t('reorderAtLabel')} {item.reorderPoint} {item.unit}
+        <br />
+        <span style={{ fontWeight: belowReorder ? 600 : 400 }}>
+          {t('currentLabel')} {item.actualQuantity === null ? '—' : `${item.actualQuantity} ${item.unit}`}
+        </span>
       </td>
       <td style={tableCell}>
         {item.isActive ? (
@@ -591,9 +592,9 @@ export function InventoryDashboardBody({
               <thead>
                 <tr>
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colItem')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colTarget')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colReorderAt')}</th>
-                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colCurrent')}</th>
+                  <th style={{ ...tableHeaderCell, textAlign: 'left' }}>
+                    {t('colTarget')} / {t('colReorderAt')} / {t('colCurrent')}
+                  </th>
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colActualQuantity')}</th>
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colStatus')}</th>
                   <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('colShortage')}</th>

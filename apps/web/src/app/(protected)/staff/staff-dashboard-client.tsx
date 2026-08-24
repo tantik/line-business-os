@@ -22,35 +22,15 @@ import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
-import { existingExchangeMessage, inventoryShortageLabel, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
-import {
-  backLink,
-  badgeStyle,
-  buttonDisabled,
-  buttonSecondary,
-  card,
-  colors,
-  mutedText,
-  tableCell,
-  tableHeaderCell,
-} from '@/lib/ui/theme';
-import {
-  attendanceStatusLabel,
-  correctionStatusBadgeStyle,
-  correctionStatusLabel,
-  primaryCard,
-  shiftChipColors,
-  shiftChipStyle,
-  todayIsoInTimeZone,
-  todayRowStyle,
-} from '../_ui/workforce-theme';
+import { existingExchangeMessage, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
+import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
+import { primaryCard, todayIsoInTimeZone } from '../_ui/workforce-theme';
 import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
-import { ShiftPreferenceForm } from './shift-preference-form';
-import { WorkReportForm } from './work-report-form';
-import { CorrectionRequestForm } from './correction-request-form';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { WorkStatusCard } from './work-status-card';
+import { TransportMessageForm } from './transport-message-form';
+import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { AccountMenu } from '../_ui/account-menu';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
@@ -152,8 +132,6 @@ function StaffDashboardBody({
   attendance,
   correctionRequests,
   exchanges,
-  inventoryEnabled,
-  inventoryItems,
 }: StaffDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -161,13 +139,9 @@ function StaffDashboardBody({
   const [banner, setBanner] = useState<string | null>(null);
   const [onlyMe, setOnlyMe] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
-
-  const myRequestsThisWeek = useMemo(
-    () => (requests ?? []).filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd).sort((a, b) => a.workDate.localeCompare(b.workDate)),
-    [requests, periodStart, periodEnd],
-  );
 
   // The full ±8-week, this-location window seeded once from the initial page
   // load's `assignments` prop, then spliced with a background poll of just
@@ -268,21 +242,6 @@ function StaffDashboardBody({
       .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.startsAtLocal.localeCompare(b.startsAtLocal));
   }, [windowAssignments, profile.staffId, timeZone, periodStart, periodEnd]);
 
-  const myAttendanceThisWeek = useMemo(
-    () => (attendance ?? []).filter((a) => a.workDate >= periodStart && a.workDate <= periodEnd).sort((a, b) => a.workDate.localeCompare(b.workDate)),
-    [attendance, periodStart, periodEnd],
-  );
-
-  const attendanceById = useMemo(() => new Map((attendance ?? []).map((a) => [a.attendanceId, a])), [attendance]);
-
-  const myCorrectionsThisWeek = useMemo(
-    () =>
-      (correctionRequests ?? [])
-        .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
-        .sort((a, b) => a.workDate.localeCompare(b.workDate)),
-    [correctionRequests, periodStart, periodEnd],
-  );
-
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
 
   const todayAttendance = useMemo(() => (attendance ?? []).find((a) => a.workDate === todayIso) ?? null, [attendance, todayIso]);
@@ -334,28 +293,11 @@ function StaffDashboardBody({
         buttons={[
           { key: 'recipes', label: t('navRecipes'), href: '/recipes' },
           { key: 'inventory', label: t('navInventory'), href: '/inventory' },
+          { key: 'purchases', label: t('navPurchases'), href: '/purchases' },
         ]}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}
-
-      <section style={card}>
-        {/* Name + Position are now shown in the header's account menu (`AccountMenu`, 2026-08-24 redesign) -- kept here
-            only what that menu doesn't already surface, so this card no longer duplicates identity/role. */}
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('profileHeading')}</h2>
-        <dl style={{ margin: '12px 0 0', display: 'grid', rowGap: 8 }}>
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>{t('employmentTypeLabel')}</dt>
-            <dd style={{ margin: 0 }}>{profile.employmentType}</dd>
-          </div>
-          <div>
-            <dt style={{ ...mutedText, fontSize: 13 }}>{t('statusLabel')}</dt>
-            <dd style={{ margin: 0 }}>
-              <span style={badgeStyle(profile.isActive ? 'active' : 'inactive')}>{profile.isActive ? t('activeLabel') : t('inactiveLabel')}</span>
-            </dd>
-          </div>
-        </dl>
-      </section>
 
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -484,188 +426,36 @@ function StaffDashboardBody({
         )}
       </section>
 
-      <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 16 }}>{t('inventoryTitle')}</h2>
-            <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{t('inventoryDescription')}</p>
-          </div>
-          {inventoryEnabled ? (
-            <Link href="/inventory" style={{ ...buttonSecondary, textDecoration: 'none' }}>
-              {t('inventoryOpen')}
-              {inventoryItems ? ` (${inventoryItems.filter((i) => i.status === 'shortage').length})` : ''}
-            </Link>
-          ) : (
-            <button type="button" disabled style={buttonDisabled}>
-              {t('inventoryNotEnabled')}
-            </button>
-          )}
-        </div>
-        {inventoryEnabled && inventoryItems ? (
-          <p style={{ margin: '10px 0 0' }}>
-            {(() => {
-              const shortageCount = inventoryItems.filter((i) => i.status === 'shortage').length;
-              return shortageCount > 0 ? (
-                <span style={badgeStyle('warning')}>{inventoryShortageLabel[lang](shortageCount)}</span>
-              ) : (
-                <span style={badgeStyle('active')}>{t('inventorySufficient')}</span>
-              );
-            })()}
-          </p>
-        ) : null}
-      </section>
-
-      <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('shiftPreferencesHeading')}</h2>
-        {requests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftPreferencesUnavailable')}</p>
-        ) : myRequestsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('shiftPreferencesEmpty')}</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('preferenceColumnLabel')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myRequestsThisWeek.map((r) => (
-                <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
-                  <td style={tableCell}>{r.workDate}</td>
-                  <td style={tableCell}>
-                    {r.isUnavailable ? (
-                      t('preferenceUnavailableValue')
-                    ) : (
-                      <span style={shiftChipStyle(shiftChipColors(r.shiftTypeId))}>
-                        {(() => {
-                          const st = shiftTypeById.get(r.shiftTypeId ?? '');
-                          return st ? shiftTypeDisplayLabel(st) : '-';
-                        })()}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
-        {shiftTypes === null ? (
-          <p style={{ margin: '12px 0 0', ...mutedText }}>{t('shiftTypesUnavailable')}</p>
-        ) : (
-          <ShiftPreferenceForm
-            shiftTypes={shiftTypes}
-            defaultWorkDate={periodStart}
-            lang={lang}
-            onSuccess={() => handleFormSuccess(t('shiftPreferenceSubmitted'))}
-          />
-        )}
-      </section>
-
-      <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('workReportsHeading')}</h2>
-        {attendance === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('workReportsUnavailable')}</p>
-        ) : myAttendanceThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('workReportsEmpty')}</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('clockInColumnLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('clockOutColumnLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('transportationColumnLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('messageColumnLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('statusLabel')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myAttendanceThisWeek.map((a) => {
-                const clockIn = a.clockIn ? utcIsoToLocalDateTime(a.clockIn, timeZone).localTime : '-';
-                const clockOut = a.clockOut ? utcIsoToLocalDateTime(a.clockOut, timeZone).localTime : '-';
-                return (
-                  <tr key={a.attendanceId} style={a.workDate === todayIso ? todayRowStyle : undefined}>
-                    <td style={tableCell}>{a.workDate}</td>
-                    <td style={tableCell}>{clockIn}</td>
-                    <td style={tableCell}>{clockOut}</td>
-                    <td style={tableCell}>{a.transportationCost ?? '-'}</td>
-                    <td style={tableCell}>{a.dailyMessage ?? '-'}</td>
-                    <td style={tableCell}>{attendanceStatusLabel(a.status, lang)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        )}
-        <WorkReportForm defaultWorkDate={periodStart} lang={lang} onSuccess={() => handleFormSuccess(t('workReportSubmitted'))} />
-      </section>
-
-      <section style={card}>
-        <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('submitEyebrow')}</p>
-        <h2 style={{ margin: '4px 0 0', fontSize: 16 }}>{t('correctionRequestHeading')}</h2>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>{t('correctionRequestDescription')}</p>
-        <CorrectionRequestForm
-          attendanceOptions={attendance ?? []}
-          defaultWorkDate={periodStart}
-          timeZone={timeZone}
+      <div style={{ marginTop: 16 }}>
+        <TransportMessageForm
+          workDate={todayIso}
+          defaultTransportationCost={todayAttendance?.transportationCost ?? null}
+          defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
           lang={lang}
-          onSuccess={() => handleFormSuccess(t('correctionRequestSubmitted'))}
+          onSuccess={() => handleFormSuccess(t('workReportSubmitted'))}
         />
-      </section>
+      </div>
 
-      <section style={card}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('myCorrectionsHeading')}</h2>
-        {correctionRequests === null ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('myCorrectionsUnavailable')}</p>
-        ) : myCorrectionsThisWeek.length === 0 ? (
-          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('myCorrectionsEmpty')}</p>
+      <section style={{ ...card, marginTop: 16 }}>
+        {shiftTypes === null ? (
+          <p style={{ margin: 0, ...mutedText }}>{t('shiftTypesUnavailable')}</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('dateLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('messageColumnLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('statusLabel')}</th>
-                <th style={{ ...tableHeaderCell, textAlign: 'left' }}>{t('relatedWorkReportColumnLabel')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myCorrectionsThisWeek.map((r) => {
-                const message = typeof r.details.message === 'string' ? r.details.message : '-';
-                const relatedAttendance = r.attendanceId ? attendanceById.get(r.attendanceId) : undefined;
-                const relatedSummary = relatedAttendance
-                  ? `${relatedAttendance.clockIn ? utcIsoToLocalDateTime(relatedAttendance.clockIn, timeZone).localTime : '-'} - ${relatedAttendance.clockOut ? utcIsoToLocalDateTime(relatedAttendance.clockOut, timeZone).localTime : '-'}`
-                  : '-';
-                return (
-                  <tr key={r.requestId} style={r.workDate === todayIso ? todayRowStyle : undefined}>
-                    <td style={tableCell}>{r.workDate}</td>
-                    <td style={tableCell}>{message}</td>
-                    <td style={tableCell}>
-                      <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>
-                    </td>
-                    <td style={tableCell}>{relatedSummary}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+          <button type="button" style={{ ...buttonPrimary, width: '100%', justifyContent: 'center' }} onClick={() => setMonthlyModalOpen(true)}>
+            {t('preferenceModalTitle')}
+          </button>
         )}
       </section>
 
-      <p style={{ marginTop: 16 }}>
-        <Link href="/dashboard/workforce" style={backLink}>
-          {t('backToWorkforce')}
-        </Link>
-      </p>
+      {shiftTypes !== null ? (
+        <MonthlyShiftPreferenceModal
+          open={monthlyModalOpen}
+          onClose={() => setMonthlyModalOpen(false)}
+          shiftTypes={shiftTypes}
+          requests={requests ?? []}
+          lang={lang}
+          onSuccess={(message) => handleFormSuccess(message)}
+        />
+      ) : null}
     </>
   );
 }

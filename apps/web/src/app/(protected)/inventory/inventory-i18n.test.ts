@@ -23,7 +23,7 @@ const KEYS: Parameters<typeof tInventoryDashboard>[1][] = [
   'popupHelpAriaLabel', 'popupHelpTitle', 'popupHelpBody',
   'colItem', 'colTarget', 'colReorderAt', 'colCurrent', 'colActualQuantity', 'colStatus', 'colShortage', 'colActions',
   'statusInactiveLabel', 'statusShortageBadge', 'sortLabel', 'sortNameAsc', 'sortShortageFirst',
-  'moreActionsAriaLabel', 'clearActualQuantityAriaLabel', 'pressEnterToSaveHint',
+  'moreActionsAriaLabel', 'clearActualQuantityAriaLabel',
   'footerTotalItems', 'footerNeedRestocking', 'footerSufficient', 'footerTip',
 ];
 

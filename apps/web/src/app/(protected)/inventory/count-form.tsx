@@ -100,6 +100,12 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
     runAutosave();
   }
 
+  /** Leaving the field (tab, tap elsewhere) saves decisively instead of relying purely on the 600ms debounce window -- the mobile-appropriate substitute for Enter-to-save-immediately, since there's no Enter key on mobile. */
+  function handleBlur() {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    runAutosave();
+  }
+
   const statusText = status === 'saving' ? t('savingStatus') : status === 'saved' ? t('savedStatus') : status === 'error' ? t('saveErrorStatus') : '';
 
   return (
@@ -133,6 +139,7 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
           value={quantity}
           onChange={(event) => handleChange(event.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
         />
         {quantity !== '' ? (
           <button
@@ -154,8 +161,9 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
         ) : null}
         <span style={{ ...mutedText, fontSize: 12, padding: '0 10px 0 4px', whiteSpace: 'nowrap' }}>{unit}</span>
       </div>
+      {/* Reserves its line height even when empty (no status yet) so nothing else in the card shifts as autosave status appears/disappears. */}
       <span style={{ ...mutedText, fontSize: 11, minHeight: 14, color: status === 'error' ? colors.dangerText : colors.textMuted }}>
-        {statusText || t('pressEnterToSaveHint')}
+        {statusText}
       </span>
       {error ? <span style={{ fontSize: 11, color: colors.dangerText }}>{error}</span> : null}
     </div>

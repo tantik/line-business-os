@@ -108,7 +108,10 @@ interface StaffDashboardDict {
   pageTitle: string;
   navRecipes: string;
   navInventory: string;
+  navPurchases: string;
   entryPointsHeading: string;
+  /** Also doubles as the "Submit next month's shift preference" module's heading and button label on the Staff dashboard. */
+  preferenceModalTitle: string;
   backToWorkforce: string;
   signOut: string;
   profileHeading: string;
@@ -212,7 +215,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     pageTitle: 'Staff',
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
+    navPurchases: 'Purchases',
     entryPointsHeading: 'Staff & recipe & Inventory management',
+    preferenceModalTitle: "Submit next month's shift preference",
     backToWorkforce: 'Platform dashboard',
     signOut: 'Sign out',
     profileHeading: 'My staff profile',
@@ -313,7 +318,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     pageTitle: 'スタッフ',
     navRecipes: 'レシピ',
     navInventory: '在庫',
+    navPurchases: '仕入れ',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
+    preferenceModalTitle: '来月のシフト希望を提出',
     backToWorkforce: 'プラットフォームダッシュボード',
     signOut: 'サインアウト',
     profileHeading: '自分のプロフィール',
