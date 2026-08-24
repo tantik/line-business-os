@@ -245,3 +245,37 @@ export async function setWorkforceShiftTypeActive(
   if (!data) return { status: 'not_found' };
   return { status: 'success', data: { shiftTypeId: data.shift_type_id as string, isActive: data.is_active as boolean } };
 }
+
+/**
+ * Permanent delete for a deactivated shift type. A plain `DELETE`, not a
+ * guarded RPC like `permanentlyDeleteEmployee` -- unlike an employee's
+ * multi-table history, a shift type has exactly one referencing FK
+ * (`workforce.shifts.shift_type_id` / `workforce.shift_requests.shift_type_id`,
+ * both plain `NO ACTION`, see 0026/0028), so Postgres' own referential
+ * integrity is already the guard: a type that was ever assigned or requested
+ * fails with `23503` and is mapped straight to `blocked_by_history`, matching
+ * the `employee-line-links.ts`/`shift-assignments.ts` precedent for this same
+ * error code. Only offered from the UI for an already-deactivated type.
+ */
+export async function permanentlyDeleteWorkforceShiftType(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  shiftTypeId: string,
+): Promise<WorkforceWriteResult<{ shiftTypeId: string }>> {
+  const { data, error } = await supabase
+    .schema('api')
+    .from('workforce_shift_types')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('location_id', locationId)
+    .eq('shift_type_id', shiftTypeId)
+    .select('shift_type_id')
+    .maybeSingle();
+  if (error) {
+    if (error.code === '23503') return { status: 'blocked_by_history' };
+    return mapWorkforceWriteError(error, 'delete shift type');
+  }
+  if (!data) return { status: 'not_found' };
+  return { status: 'success', data: { shiftTypeId: data.shift_type_id as string } };
+}

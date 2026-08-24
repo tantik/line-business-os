@@ -4,7 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getWorkforceScheduleSettings, upsertWorkforceScheduleSettings, type WorkforceScheduleSettings } from './schedule-settings';
-import { listWorkforceShiftTypes, setWorkforceShiftTypeActive, upsertWorkforceShiftType, type WorkforceShiftType } from './shift-types';
+import {
+  listWorkforceShiftTypes,
+  permanentlyDeleteWorkforceShiftType,
+  setWorkforceShiftTypeActive,
+  upsertWorkforceShiftType,
+  type WorkforceShiftType,
+} from './shift-types';
 import { parseLocalTime, parseTrimmedString, parseUuid } from './validation';
 import type { WorkforceWriteResult } from './result-types';
 
@@ -133,4 +139,16 @@ export async function setShiftTypeActive(input: unknown): Promise<WorkforceWrite
   if (!resolved.ok) return resolved.result;
 
   return setWorkforceShiftTypeActive(resolved.supabase, resolved.tenantId, resolved.locationId, shiftTypeId, value.isActive);
+}
+
+export async function deleteShiftType(input: unknown): Promise<WorkforceWriteResult<{ shiftTypeId: string }>> {
+  if (!input || typeof input !== 'object') return INVALID_INPUT_RESULT;
+  const value = input as Record<string, unknown>;
+  const shiftTypeId = parseUuid(value.shiftTypeId);
+  if (!shiftTypeId) return INVALID_INPUT_RESULT;
+
+  const resolved = await resolveTenantAndLocation(value.locationId);
+  if (!resolved.ok) return resolved.result;
+
+  return permanentlyDeleteWorkforceShiftType(resolved.supabase, resolved.tenantId, resolved.locationId, shiftTypeId);
 }

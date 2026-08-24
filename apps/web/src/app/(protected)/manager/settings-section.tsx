@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
-import { saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
+import { deleteShiftType, saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -75,6 +75,7 @@ export function SettingsSection({
   const [newStart, setNewStart] = useState('10:00');
   const [newEnd, setNewEnd] = useState('14:00');
   const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [automationHelpOpen, setAutomationHelpOpen] = useState(false);
@@ -85,6 +86,7 @@ export function SettingsSection({
   const inactiveShiftTypes = shiftTypes?.filter((st) => !st.isActive) ?? null;
   const activeShiftTypeIds = (activeShiftTypes ?? []).map((st) => st.shiftTypeId);
   const confirmDeactivateTarget = confirmDeactivateId ? (activeShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeactivateId) ?? null : null;
+  const confirmDeleteTarget = confirmDeleteId ? (inactiveShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeleteId) ?? null : null;
 
   const latestRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
   const lastConfirmedRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
@@ -168,6 +170,21 @@ export function SettingsSection({
         onShiftTypesChanged();
       } else {
         setFeedback({ ok: false, text: t('saveErrorStatus') });
+      }
+    });
+  }
+
+  function removeShiftType(shiftTypeId: string) {
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await deleteShiftType({ shiftTypeId, locationId });
+      if (result.status === 'success') {
+        setConfirmDeleteId(null);
+        setFeedback({ ok: true, text: t('savedStatus') });
+        onShiftTypesChanged();
+      } else {
+        setConfirmDeleteId(null);
+        setFeedback({ ok: false, text: result.status === 'blocked_by_history' ? t('shiftTypeBlockedByHistory') : t('saveErrorStatus') });
       }
     });
   }
@@ -335,7 +352,7 @@ export function SettingsSection({
             {inactiveShiftTypes === null || inactiveShiftTypes.length === 0 ? (
               <p style={{ margin: 0, ...mutedText }}>{t('deactivatedShiftTypesEmpty')}</p>
             ) : (
-              <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ display: 'grid', gap: 6, maxHeight: 396, overflowY: 'auto', paddingRight: 4 }}>
                 {inactiveShiftTypes.map((st) => {
                   const label = shiftTypeDisplayLabel(st);
                   return (
@@ -343,15 +360,25 @@ export function SettingsSection({
                       <span>
                         {label} ({st.startsAtLocal}-{st.endsAtLocal})
                       </span>
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        className={isPending ? undefined : hoverStyles.buttonSecondary}
-                        style={isPending ? buttonDisabled : buttonSecondary}
-                        onClick={() => setActive(st.shiftTypeId, true)}
-                      >
-                        {t('reactivate')}
-                      </button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          className={isPending ? undefined : hoverStyles.buttonSecondary}
+                          style={isPending ? buttonDisabled : buttonSecondary}
+                          onClick={() => setActive(st.shiftTypeId, true)}
+                        >
+                          {t('reactivate')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          style={isPending ? buttonDisabled : buttonDanger}
+                          onClick={() => setConfirmDeleteId(st.shiftTypeId)}
+                        >
+                          {t('deleteShiftTypeButton')}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -379,6 +406,29 @@ export function SettingsSection({
               {shiftTypeDisplayLabel(confirmDeactivateTarget)} ({confirmDeactivateTarget.startsAtLocal}-{confirmDeactivateTarget.endsAtLocal})
             </p>
             <p style={{ margin: '8px 0 0' }}>{t('confirmDeactivateShiftTypeBody')}</p>
+          </>
+        ) : null}
+        {feedback && !feedback.ok ? <p style={{ margin: '10px 0 0', color: colors.dangerText, fontSize: 12 }}>{feedback.text}</p> : null}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title={t('confirmDeleteShiftTypeTitle')}
+        confirmLabel={t('deleteShiftTypeButton')}
+        cancelLabel={t('cancel')}
+        pending={isPending}
+        danger
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          if (confirmDeleteId) removeShiftType(confirmDeleteId);
+        }}
+      >
+        {confirmDeleteTarget ? (
+          <>
+            <p style={{ margin: 0 }}>
+              {shiftTypeDisplayLabel(confirmDeleteTarget)} ({confirmDeleteTarget.startsAtLocal}-{confirmDeleteTarget.endsAtLocal})
+            </p>
+            <p style={{ margin: '8px 0 0' }}>{t('confirmDeleteShiftTypeBody')}</p>
           </>
         ) : null}
         {feedback && !feedback.ok ? <p style={{ margin: '10px 0 0', color: colors.dangerText, fontSize: 12 }}>{feedback.text}</p> : null}

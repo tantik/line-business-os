@@ -183,6 +183,10 @@ interface ManagerDashboardDict {
   deactivatedShiftTypesHeading: string;
   deactivatedShiftTypesEmpty: string;
   reactivate: string;
+  deleteShiftTypeButton: string;
+  confirmDeleteShiftTypeTitle: string;
+  confirmDeleteShiftTypeBody: string;
+  shiftTypeBlockedByHistory: string;
   savingStatus: string;
   savedStatus: string;
   saveErrorStatus: string;
@@ -242,6 +246,8 @@ interface ManagerDashboardDict {
   shiftRequestsPopupHelpTitle: string;
   shiftRequestsPopupHelpBody: string;
   submittedPreferencesEmpty: string;
+  noPreferenceSubmittedHint: string;
+  markedUnavailableHint: string;
   approvePreferenceTitle: string;
   priorityExplainerBody: string;
   approvedPreferenceTitle: string;
@@ -475,6 +481,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivatedShiftTypesHeading: 'Deactivated shift types',
     deactivatedShiftTypesEmpty: 'No deactivated shift types.',
     reactivate: 'Reactivate',
+    deleteShiftTypeButton: 'Delete',
+    confirmDeleteShiftTypeTitle: 'Permanently delete this shift type?',
+    confirmDeleteShiftTypeBody: 'This can\'t be undone. A shift type that was ever used in a schedule can\'t be deleted -- keep it deactivated instead.',
+    shiftTypeBlockedByHistory: 'This shift type has schedule history and can\'t be deleted. It will stay deactivated.',
     savingStatus: 'Saving...',
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',
@@ -513,8 +523,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'About shift requests',
     shiftRequestsPopupHelpTitle: 'About shift requests',
     shiftRequestsPopupHelpBody:
-      'Shows which active staff have submitted shift preferences for this month, and which haven\'t. Use the week arrows to browse the month\'s weeks. Clicking an employee\'s name here (in red) opens a reminder you can copy and send yourself -- this doesn\'t send anything automatically yet. Clicking a submitted preference lets you mark it "Approved" so you remember to prioritize it -- this is a visual note for now and doesn\'t change the schedule yet.',
+      'Shows which active staff have submitted shift preferences for this month, and which haven\'t. Use the week arrows to browse the month\'s weeks. Clicking an employee\'s name here (in red) opens a reminder you can copy and send yourself -- this doesn\'t send anything automatically yet. Clicking a submitted preference lets you mark it "Approved" so you remember to prioritize it -- this is a visual note for now and doesn\'t change the schedule yet. "+" means no preference was submitted for that day; "—" means the employee marked themselves unavailable that day.',
     submittedPreferencesEmpty: 'No active staff to show.',
+    noPreferenceSubmittedHint: 'No preference submitted for this day',
+    markedUnavailableHint: 'Marked unavailable this day',
     approvePreferenceTitle: 'Approve preference',
     priorityExplainerBody:
       'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. An approved preference (like this one)\n3. An unapproved employee preference\n4. Automatic fallback assignment',
@@ -739,6 +751,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     deactivatedShiftTypesHeading: '無効化済みのシフト種別',
     deactivatedShiftTypesEmpty: '無効化されたシフト種別はありません。',
     reactivate: '再開',
+    deleteShiftTypeButton: '削除',
+    confirmDeleteShiftTypeTitle: 'このシフト種別を完全に削除しますか？',
+    confirmDeleteShiftTypeBody: 'この操作は取り消せません。スケジュールで一度でも使用されたシフト種別は削除できません -- その場合は無効化のままにしてください。',
+    shiftTypeBlockedByHistory: 'このシフト種別にはスケジュール履歴があるため削除できません。無効化された状態のままになります。',
     savingStatus: '保存中…',
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',
@@ -777,8 +793,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
     shiftRequestsPopupHelpTitle: 'シフト希望について',
     shiftRequestsPopupHelpBody:
-      '今月シフト希望を提出した有効なスタッフと、まだ提出していないスタッフを表示します。週の矢印でその月の各週を切り替えられます。赤色の名前をクリックすると、自分でコピーして送れるリマインダーが表示されます -- まだ自動送信はされません。提出済みの希望をクリックすると「承認済み」として記録できます -- 現時点では表示上のメモのみで、まだスケジュールには反映されません。',
+      '今月シフト希望を提出した有効なスタッフと、まだ提出していないスタッフを表示します。週の矢印でその月の各週を切り替えられます。赤色の名前をクリックすると、自分でコピーして送れるリマインダーが表示されます -- まだ自動送信はされません。提出済みの希望をクリックすると「承認済み」として記録できます -- 現時点では表示上のメモのみで、まだスケジュールには反映されません。「+」はその日に希望が提出されていないことを、「—」はその日にスタッフが「勤務不可」としたことを示します。',
     submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
+    noPreferenceSubmittedHint: 'この日は希望が提出されていません',
+    markedUnavailableHint: 'この日は勤務不可としています',
     approvePreferenceTitle: '希望を承認',
     priorityExplainerBody:
       'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. 承認済みの希望（これ）\n3. 未承認のスタッフ希望\n4. 自動割り当て',

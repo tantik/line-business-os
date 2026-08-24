@@ -67,7 +67,7 @@ test('a filled cell shows shift name and time together ("label · HH:MM-HH:MM"),
 // Section 20: the Shift Types legend renders below the grid (after the
 // table/card views), not above it.
 test('the shift-type legend renders after the schedule grid, not before it', () => {
-  const gridStart = SOURCE.indexOf('className={styles.tableView}');
+  const gridStart = SOURCE.indexOf('id="weekly-schedule"');
   const legendStart = SOURCE.indexOf('weekLegendTypes.map((st) =>');
   assert.ok(gridStart > 0 && legendStart > 0, 'expected both the grid and the legend to be present in the file');
   assert.ok(legendStart > gridStart, 'the legend must render after (below) the grid, not before it');
