@@ -256,7 +256,37 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-24 pointer #2 (newest — read this one first).** The Staff-page
+**2026-08-24 pointer #3 (newest — read this one first).** A follow-on,
+same-day Founder-directed live iteration session on `https://preview.oruwa.jp/staff`
+(triggered by the pointer #2 entry below reaching a natural pause point)
+did a full layout/UX redesign of the canonical Staff page: third
+"Purchases" entry-point button (placeholder page, no module built), removed
+the "My staff profile"/shift-preferences/work-reports/correction-request
+sections (deferred to a later "the table" redesign, not deleted from the
+codebase), added a compact autosave Transportation-cost module + a
+compose-and-send Daily-message module, built a real "Submit next month's
+shift preference" calendar modal wired to the production backend, and gave
+Staff's Recipes button the same popup Manager's already had (plus made the
+standalone `/recipes` list open a recipe in a `Modal` overlay instead of
+navigating away). **8 PRs merged to `dev` (#419-#426)** — one (#420)
+superseded before merge due to a stale-base false-conflict, not a real
+defect; see the handoff's §5 process note before repeating that mistake.
+No DB migrations this session. Two real bugs found and fixed via the
+Founder's own live QA (a work-report field-clobber bug, and a
+`box-sizing`/`height` bug that made a button-shrink change silently do
+almost nothing) — both are general-purpose findings worth knowing even
+outside the Staff page, see the handoff's §3. Full state, the exact 8-PR
+list, decisions made (Purchases scope, Off/Unavailable removal,
+`RecipesPopup` relocated to `_ui/`), and open items are in
+`docs/ai/CAFE_STAFF_PAGE_REDESIGN_HANDOFF_2026-08-24.md` — read that file
+first if anything about the Staff page's layout, Transport/Message,
+monthly shift preference, or the Recipes popup comes up. **This thread is
+paused for a context handoff, not confirmed closed by the Founder** — it
+is a live iterative review loop (screenshot → fix → merge → re-check) with
+no explicit "done" statement; ask what's next rather than assuming either
+way.
+
+**2026-08-24 pointer #2 (older — read after the one above).** The Staff-page
 review session flagged by the pointer below as "not yet started" ran this
 session: Staff header full redesign (mirrored to Manager too — tenant/
 location left, account-menu right, matching a Founder mockup), the
