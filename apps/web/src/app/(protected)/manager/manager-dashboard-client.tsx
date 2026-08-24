@@ -30,8 +30,6 @@ import {
 } from '@/lib/workforce/manager-attention';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
-import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { SignOutButton } from '@/components/sign-out-button';
 import {
   dailyStaffingShortageExplanation,
   scheduleHeadingValue,
@@ -41,6 +39,7 @@ import {
 import { AttentionPanel } from './attention-panel';
 import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
+import { AccountMenu } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from './inventory-popup';
 import { RecipesPopup } from './recipes-popup';
@@ -179,6 +178,10 @@ export interface ManagerDashboardClientProps {
   tenantName: string;
   locationName: string;
   locationId: string;
+  /** The caller's own decrypted name, for the header account menu -- `null` if the lookup failed (falls back to a generic label, never a placeholder name). */
+  displayName: string | null;
+  /** The caller's own position label, for the header account menu -- `null` if unset. */
+  positionLabel: string | null;
   timeZone: string;
   periodStart: string;
   periodEnd: string;
@@ -256,6 +259,8 @@ function ManagerDashboardBody({
   tenantName,
   locationName,
   locationId,
+  displayName,
+  positionLabel,
   timeZone,
   periodStart,
   periodEnd,
@@ -837,25 +842,28 @@ function ManagerDashboardBody({
       <header
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          paddingBottom: 20,
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 10,
+          paddingBottom: 14,
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <BrandBadge label={tenantName} />
-            <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+        {/* Matches the Staff header redesign (Founder mockup, 2026-08-24): tenant + location replace the personalized page
+            title, and the caller's own identity moves to the account menu on the right. `minWidth: 0` + `overflowWrap:
+            anywhere` let a long tenant/location name wrap within this block instead of pushing the account menu down. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
+          <BrandBadge label={tenantName} />
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: colors.textPrimary, overflowWrap: 'anywhere' }}>{tenantName}</h1>
+            <p style={{ margin: '2px 0 0', fontSize: 13, overflowWrap: 'anywhere', ...mutedText }}>{locationName}</p>
           </div>
         </div>
-        <p style={{ margin: 0, ...mutedText }}>
-          {tenantName} - {locationName}
-        </p>
+        <AccountMenu
+          displayName={displayName ?? t('pageTitle')}
+          positionLabel={positionLabel ?? t('notSetLabel')}
+          signOutLabel={t('signOut')}
+        />
       </header>
 
       <EntryPointsCard

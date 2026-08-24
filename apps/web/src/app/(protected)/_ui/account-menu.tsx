@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BrandBadge } from '../_ui/brand-badge';
+import { BrandBadge } from './brand-badge';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { colors, mutedText } from '@/lib/ui/theme';
@@ -15,13 +15,14 @@ export interface AccountMenuProps {
 }
 
 /**
- * Header account trigger (avatar + name + chevron) + dropdown, replacing the
- * always-visible language-toggle/sign-out pair that used to sit directly in
- * the header (Founder header redesign, 2026-08-24): identity moves to a
- * standard top-right account area; language and sign-out become secondary
- * actions inside its panel, alongside the caller's own name/position (Staff
- * has no separate page title any more -- the header's left side is now the
- * tenant/location, matching the multi-location mockup).
+ * Header account trigger (avatar + name + chevron) + dropdown, shared by
+ * both Manager and Staff, replacing the always-visible language-toggle/
+ * sign-out pair that used to sit directly in each header (Founder header
+ * redesign, 2026-08-24): identity moves to a standard top-right account
+ * area; language and sign-out become secondary actions inside its panel,
+ * alongside the caller's own name/position. Neither dashboard has a
+ * personalized page title any more -- each header's left side is now the
+ * tenant/location, matching the multi-location mockup.
  *
  * Same portal/outside-click/Escape-key mechanics as `ActionsMenu`
  * (`@/components/shared/design-kit`), duplicated rather than reused because
@@ -137,7 +138,7 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.textPrimary }}>{displayName}</p>
                 <p style={{ margin: '2px 0 0', fontSize: 13, ...mutedText }}>{positionLabel}</p>
               </div>
-              <PreviewLanguageToggle />
+              <PreviewLanguageToggle fullWidth />
               <div style={{ borderTop: `1px solid ${colors.border}` }} />
               <SignOutButton label={signOutLabel} fullWidth />
             </div>,

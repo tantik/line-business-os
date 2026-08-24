@@ -312,6 +312,7 @@ interface ManagerDashboardDict {
   // Page chrome
   pageTitle: string;
   signOut: string;
+  notSetLabel: string;
   navRecipes: string;
   navInventory: string;
   // Footer
@@ -588,6 +589,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assigningReplacement: 'Assigning...',
     pageTitle: 'Manager',
     signOut: 'Sign out',
+    notSetLabel: 'Not set',
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
     backToWorkforce: 'Platform dashboard',
@@ -858,6 +860,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     assigningReplacement: '指名中...',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
+    notSetLabel: '未設定',
     navRecipes: 'レシピ',
     navInventory: '在庫',
     backToWorkforce: 'プラットフォームダッシュボード',

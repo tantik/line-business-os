@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
+import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceEmployeeInvitations } from '@/lib/workforce/invitations';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
@@ -192,6 +193,7 @@ export default async function WorkforceManagerPage({
         recipeCanManage,
         scheduleSettingsResult,
         recipeTitleTranslationsResult,
+        myProfileResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -236,6 +238,13 @@ export default async function WorkforceManagerPage({
         // trip on every request. Its result is still only *used* below when
         // `recipesResult` succeeded, same as before.
         listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
+        // The caller's own employee profile, for the header account menu's
+        // name/position -- same `getMyWorkforceStaffProfile` Staff's page
+        // uses. `staffResult` above already carries every employee's
+        // decrypted `name` (Manager-level roster read), so no second
+        // roster fetch is needed here -- just match this profile's
+        // `staffId` against `staffResult.data` below.
+        getMyWorkforceStaffProfile(supabase, activeTenant.tenantId),
       ]);
 
       const recipeGroups =
@@ -269,12 +278,25 @@ export default async function WorkforceManagerPage({
       const recipeMediaUrlByRecipeId =
         recipesResult.status === 'success' ? await createRecipeMediaUrlMap(supabase, recipesResult.data) : {};
 
+      // Header account menu's identity -- `myProfileResult` carries the
+      // caller's own `staffId`/`positionLabel` but never a plain-text name
+      // (encryption boundary); the decrypted name is looked up from the
+      // already-fetched Manager-level roster (`staffResult`) instead of a
+      // second read, mirroring the Staff page's own roster-lookup pattern.
+      const myProfile = myProfileResult.status === 'success' ? myProfileResult.data : null;
+      const myDisplayName =
+        myProfile && staffResult.status === 'success'
+          ? (staffResult.data.find((s) => s.staffId === myProfile.staffId)?.name ?? null)
+          : null;
+
       return (
         <main style={pageStyle(1180)}>
           <ManagerDashboardClient
             tenantName={activeTenant.tenantName}
             locationName={location.locationName}
             locationId={location.locationId}
+            displayName={myDisplayName}
+            positionLabel={myProfile?.positionLabel ?? null}
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}
