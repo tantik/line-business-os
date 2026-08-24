@@ -315,6 +315,7 @@ interface ManagerDashboardDict {
   notSetLabel: string;
   navRecipes: string;
   navInventory: string;
+  navPurchases: string;
   // Footer
   backToWorkforce: string;
   // Banner messages
@@ -592,6 +593,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     notSetLabel: 'Not set',
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
+    navPurchases: 'Purchases',
     backToWorkforce: 'Platform dashboard',
     staffActivated: 'Staff member activated.',
     staffDeactivated: 'Staff member deactivated.',
@@ -863,6 +865,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     notSetLabel: '未設定',
     navRecipes: 'レシピ',
     navInventory: '在庫',
+    navPurchases: '仕入れ',
     backToWorkforce: 'プラットフォームダッシュボード',
     staffActivated: 'スタッフを有効化しました。',
     staffDeactivated: 'スタッフを無効化しました。',

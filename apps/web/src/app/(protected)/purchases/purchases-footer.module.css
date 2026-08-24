@@ -1,0 +1,15 @@
+/*
+ * The footer summary (total/bought/pending counts) duplicates the filter
+ * tabs' own counts on narrow screens where the tabs sit immediately above
+ * the list -- same reasoning as Inventory's footer
+ * (`inventory-footer.module.css`), hidden on mobile, kept on desktop.
+ */
+.footer {
+  display: flex;
+}
+
+@media (max-width: 767px) {
+  .footer {
+    display: none;
+  }
+}

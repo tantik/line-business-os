@@ -13,6 +13,7 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
+import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -168,7 +169,8 @@ export default async function WorkforceStaffPage({
       // buttons below open the same popups client-side too, this just lets a
       // bookmark/shared link (or `/inventory`'s own redirect) land straight
       // on the right one already open.
-      const initialPopup = rawPopup === 'recipes' ? 'recipes' : rawPopup === 'inventory' ? 'inventory' : null;
+      const initialPopup =
+        rawPopup === 'recipes' ? 'recipes' : rawPopup === 'inventory' ? 'inventory' : rawPopup === 'purchases' ? 'purchases' : null;
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
@@ -193,6 +195,7 @@ export default async function WorkforceStaffPage({
         exchangesResult,
         inventoryItemsResult,
         inventoryCanManage,
+        purchasesItemsResult,
         rosterResult,
         recipeCategoriesResult,
         recipesResult,
@@ -221,6 +224,14 @@ export default async function WorkforceStaffPage({
         inventoryEnabled
           ? hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId)
           : Promise.resolve(false),
+        // Purchases' entire read surface -- also the exact data the
+        // Purchases popup below renders (no separate fetch), same pattern
+        // Inventory's own popup uses. Rides the `inventory` module flag
+        // (Founder decision, this session): Purchases has no data without
+        // Inventory enabled, so no separate module check is needed.
+        inventoryEnabled
+          ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
         // Real display names for the caller's own profile header and the
         // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
         // 0061) -- RLS narrows this to the caller's own row plus active
@@ -294,6 +305,12 @@ export default async function WorkforceStaffPage({
           ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
           : {};
 
+      // "Bought by" in the Purchases popup follows the exact same
+      // manager-only gating as Inventory's "counted by" line above -- reuses
+      // the same `inventoryCanManage`-resolved directory rather than a
+      // second decrypted-staff-directory read.
+      const purchasesStaffNameById = inventoryCanManage ? Object.fromEntries(inventoryStaffNameById) : {};
+
       return (
         <main style={pageStyle(1000)}>
           <StaffDashboardClient
@@ -317,6 +334,8 @@ export default async function WorkforceStaffPage({
             inventoryCanManage={inventoryCanManage}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
+            purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
+            purchasesStaffNameById={purchasesStaffNameById}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
