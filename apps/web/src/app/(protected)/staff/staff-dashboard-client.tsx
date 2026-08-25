@@ -306,15 +306,16 @@ function StaffDashboardBody({
         exchange.shiftId === selectedAssignment.assignmentId && exchange.status !== 'rejected' && exchange.status !== 'cancelled',
     );
   }, [exchanges, selectedAssignment]);
-  const canRequestExchange = Boolean(
-    selectedAssignment &&
-      selectedAssignment.published &&
-      new Date(selectedAssignment.startsAt).getTime() > Date.now() &&
-      !existingExchangeForSelected,
+  // Scoped to just the opened date -- `CorrectionRequestForm`'s "related work
+  // report" picker should only offer that date's own attendance row(s), not
+  // every week's.
+  const selectedDateAttendanceOptions = useMemo(
+    () => (attendance ?? []).filter((entry) => entry.workDate === selectedDate),
+    [attendance, selectedDate],
   );
   const selectedAttendance = useMemo(
-    () => (attendance ?? []).find((entry) => entry.workDate === selectedDate) ?? null,
-    [attendance, selectedDate],
+    () => selectedDateAttendanceOptions[0] ?? null,
+    [selectedDateAttendanceOptions],
   );
   // Distinguishes the "Shift request" modal (a future own shift -- exchange/
   // change/cancel) from the "Shift Details" modal (a past, or today-with-a-
@@ -325,6 +326,7 @@ function StaffDashboardBody({
   const isFutureOwnShift = Boolean(
     selectedAssignment && selectedAssignment.published && new Date(selectedAssignment.startsAt).getTime() > Date.now(),
   );
+  const canRequestExchange = isFutureOwnShift && !existingExchangeForSelected;
   // Resolves a shift's display label the same way everywhere it's shown
   // (future-shift "Shift" row and past-shift "Planned shift" row): the
   // canonical `shiftTypeDisplayLabel` when `shiftTypeId` resolves to a known
@@ -337,13 +339,6 @@ function StaffDashboardBody({
     const end = utcIsoToLocalDateTime(entry.endsAt, timeZone).localTime;
     return customShiftTimeRangeLabel[lang](start, end);
   }
-  // Scoped to just the opened date -- `CorrectionRequestForm`'s "related work
-  // report" picker should only offer that date's own attendance row(s), not
-  // every week's.
-  const selectedDateAttendanceOptions = useMemo(
-    () => (attendance ?? []).filter((entry) => entry.workDate === selectedDate),
-    [attendance, selectedDate],
-  );
   // The most recently submitted correction request for the opened date, if
   // any -- reopening a past shift with an existing correction shows its
   // current state instead of a blank "Request a correction" button.

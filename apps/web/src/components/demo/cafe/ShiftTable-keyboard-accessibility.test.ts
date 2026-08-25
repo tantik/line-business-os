@@ -4,25 +4,40 @@ import { readFileSync } from 'node:fs';
 
 /**
  * Staff Shift Schedule v2 (2026-08-25 Founder ТЗ), accessibility item: a
- * clickable schedule cell must remain keyboard-operable, not only mouse-
- * clickable. Same source-text convention as this repo's other `ShiftTable`
- * regression guards (`shift-table-shortage-indicator.test.ts`) -- no DOM/
- * React rendering harness exists here.
+ * clickable Staff schedule cell must remain keyboard-operable, not only
+ * mouse-clickable -- via a real nested <button>, not `role="button"` on the
+ * <td> itself (overriding a table cell's implicit gridcell role would break
+ * screen-reader table navigation for every clickable cell; fixed in
+ * independent review, 2026-08-25).
+ *
+ * Scoped to `mode === 'staff'` only: `isCellClickable` returns true
+ * unconditionally for `mode === 'manager'` (every cell in that grid), so
+ * making every Manager cell a tab stop would insert hundreds of new tab
+ * stops into an unrelated screen's tab order -- out of this Staff-only
+ * mission's scope (independent review, 2026-08-25). Manager's clickable
+ * cells must keep their pre-existing mouse-only behavior.
+ *
+ * Same source-text convention as this repo's other `ShiftTable` regression
+ * guards (`shift-table-shortage-indicator.test.ts`) -- no DOM/React
+ * rendering harness exists here.
  */
 const SOURCE = readFileSync(new URL('./ShiftTable.tsx', import.meta.url), 'utf8');
 
-test('a clickable schedule cell carries role="button" and tabIndex={0} only when actually clickable', () => {
-  assert.match(SOURCE, /role=\{clickable \? 'button' : undefined\}/, 'role must be conditional on clickable, never unconditionally "button"');
-  assert.match(SOURCE, /tabIndex=\{clickable \? 0 : undefined\}/, 'tabIndex must be conditional on clickable, never unconditionally focusable');
+test('a clickable schedule cell renders a real nested <button> only in staff mode, never role="button" on the <td>', () => {
+  assert.match(SOURCE, /\{clickable && mode === 'staff' \? \(/, 'the button branch must require both clickable and staff mode');
+  assert.match(SOURCE, /<button\s+type="button"\s+onClick=\{\(\) => onCellClick\?\.\(staff\.id, date\)\}/, 'staff-mode clickable cells must render a real <button> invoking onCellClick');
+  assert.doesNotMatch(SOURCE, /role=\{clickable \? 'button' : undefined\}/, 'must not override the <td>\'s implicit gridcell role with role="button"');
 });
 
-test('a clickable schedule cell responds to Enter/Space via onKeyDown, invoking the same onCellClick as a mouse click', () => {
-  assert.match(SOURCE, /onKeyDown=\{/, 'must attach a keydown handler on the cell');
-  assert.match(SOURCE, /event\.key === 'Enter' \|\| event\.key === ' '/, 'must handle both Enter and Space, the two standard activation keys for a role="button" element');
-  assert.match(SOURCE, /onCellClick\?\.\(staff\.id, date\)/, 'the keyboard handler must invoke the same onCellClick callback the mouse click uses');
-});
-
-test('the non-clickable cell branch is not made keyboard-focusable (no dead tab stop)', () => {
+test('Manager mode keeps mouse-only clicking on clickable cells -- no new tab stops added to its grid', () => {
   const cellSection = SOURCE.slice(SOURCE.indexOf('function isCellClickable'), SOURCE.indexOf('</table>'));
-  assert.match(cellSection, /tabIndex=\{clickable \? 0 : undefined\}/);
+  assert.match(
+    cellSection,
+    /<div\s+onClick=\{clickable \? \(\) => onCellClick\?\.\(staff\.id, date\) : undefined\}/,
+    'the non-staff-button branch (covers Manager mode) must still support mouse onClick without becoming a tab stop',
+  );
+});
+
+test('the nested button responds to Enter/Space natively (no onKeyDown needed for a real <button>)', () => {
+  assert.doesNotMatch(SOURCE, /onKeyDown=\{/, 'a real <button> already handles Enter/Space activation natively -- no manual onKeyDown polyfill should remain');
 });

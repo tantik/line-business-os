@@ -216,36 +216,60 @@ export const ShiftTable = memo(function ShiftTable({
                   const isSelected = selectedCell?.staffId === staff.id && selectedCell.date === date;
                   const isPastStaffCell = mode === 'staff' && date < todayIso;
 
+                  const cellContent = <span style={shiftChipStyle(chip.background, chip.color, compact)}>{cellLabel}</span>;
+
                   return (
                     <td
                       key={date}
-                      onClick={clickable ? () => onCellClick?.(staff.id, date) : undefined}
-                      role={clickable ? 'button' : undefined}
-                      tabIndex={clickable ? 0 : undefined}
-                      onKeyDown={
-                        clickable
-                          ? (event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                onCellClick?.(staff.id, date);
-                              }
-                            }
-                          : undefined
-                      }
                       style={{
                         position: 'relative',
                         borderBottom: `1px solid ${demoColors.border}`,
                         borderRight: `1px solid ${demoColors.columnDivider}`,
-                        padding: compact ? '4px 1px' : '10px 6px',
+                        padding: 0,
                         textAlign: 'center',
                         background: isSelected ? demoColors.alertWarningBg : strongest ? demoColors.selfTodayBg : isToday ? demoColors.todayBg : isPastStaffCell ? demoColors.surfaceElevated : 'transparent',
                         outline: isSelected ? `2px solid ${demoColors.accent}` : undefined,
                         outlineOffset: isSelected ? -2 : undefined,
                         opacity: isPastStaffCell ? 0.72 : 1,
-                        cursor: clickable ? 'pointer' : 'default',
                       }}
                     >
-                      <span style={shiftChipStyle(chip.background, chip.color, compact)}>{cellLabel}</span>
+                      {clickable && mode === 'staff' ? (
+                        // A real nested <button>, not `role="button"` on the <td> itself --
+                        // overriding a table cell's implicit gridcell role breaks screen-reader
+                        // table navigation (row/column announcements) for every clickable cell.
+                        // Scoped to Staff mode only: Manager's grid is every cell in the table
+                        // (`isCellClickable` returns true unconditionally for mode==='manager'),
+                        // so making every cell a tab stop there would insert hundreds of new tab
+                        // stops into an unrelated screen's tab order -- out of this Staff-only
+                        // mission's scope and not reviewed for Manager (independent review,
+                        // 2026-08-25). Manager's clickable cells keep their pre-existing
+                        // mouse-only behavior below.
+                        <button
+                          type="button"
+                          onClick={() => onCellClick?.(staff.id, date)}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            border: 0,
+                            margin: 0,
+                            background: 'transparent',
+                            font: 'inherit',
+                            color: 'inherit',
+                            textAlign: 'inherit',
+                            padding: compact ? '4px 1px' : '10px 6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cellContent}
+                        </button>
+                      ) : (
+                        <div
+                          onClick={clickable ? () => onCellClick?.(staff.id, date) : undefined}
+                          style={{ padding: compact ? '4px 1px' : '10px 6px', cursor: clickable ? 'pointer' : 'default' }}
+                        >
+                          {cellContent}
+                        </div>
+                      )}
                       {showIndicator ? (
                         <span
                           title={report?.hasCorrectionRequest ? labels.correctionTooltip : labels.messageTooltip}

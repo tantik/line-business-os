@@ -432,10 +432,16 @@ export const earningsWorkedHoursValue: Record<Lang, (hours: string) => string> =
   ja: (hours) => `今月の勤務時間: ${hours}h`,
 };
 
-/** Appended after `earningsWorkedHoursValue` only when an hourly wage is actually on file -- never fabricated. */
+/**
+ * Appended after `earningsWorkedHoursValue` only when an hourly wage is
+ * actually on file -- never fabricated. Locale pinned to 'ja-JP' (not the
+ * bare, environment-dependent `toLocaleString()`) to match the identical
+ * yen-formatting convention already used for this value elsewhere
+ * (`preview-staff-schedule.tsx`, `preview-shift-grid.tsx`).
+ */
 export const earningsEstimatedSuffix: Record<Lang, (hourlyWageYen: number, estimatedYen: number) => string> = {
-  en: (hourlyWageYen, estimatedYen) => ` · ¥${hourlyWageYen.toLocaleString()}/h · Est. ¥${estimatedYen.toLocaleString()}`,
-  ja: (hourlyWageYen, estimatedYen) => ` ・ 時給¥${hourlyWageYen.toLocaleString()} ・ 推定¥${estimatedYen.toLocaleString()}`,
+  en: (hourlyWageYen, estimatedYen) => ` · ¥${hourlyWageYen.toLocaleString('ja-JP')}/h · Est. ¥${estimatedYen.toLocaleString('ja-JP')}`,
+  ja: (hourlyWageYen, estimatedYen) => ` ・ 時給¥${hourlyWageYen.toLocaleString('ja-JP')} ・ 推定¥${estimatedYen.toLocaleString('ja-JP')}`,
 };
 
 export const existingExchangeMessage: Record<Lang, (status: string) => string> = {
