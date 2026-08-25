@@ -239,12 +239,3 @@ export async function archiveStaffMessage(
 ): Promise<WorkforceWriteResult<WorkforceStaffMessage>> {
   return updateStaffMessageStatus(supabase, tenantId, messageId, { archived_at: new Date().toISOString() }, 'archive this message');
 }
-
-/** Soft-delete only (`deleted_at`, distinct from archive) -- matches this schema's no-hard-delete convention; never a real DELETE. */
-export async function softDeleteStaffMessage(
-  supabase: SupabaseClient,
-  tenantId: string,
-  messageId: string,
-): Promise<WorkforceWriteResult<WorkforceStaffMessage>> {
-  return updateStaffMessageStatus(supabase, tenantId, messageId, { deleted_at: new Date().toISOString() }, 'delete this message');
-}

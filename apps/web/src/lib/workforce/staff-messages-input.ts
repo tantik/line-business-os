@@ -31,7 +31,7 @@ export function parseSubmitManagerMessageInput(formData: FormData): SubmitManage
 }
 
 // ============================================================================
-// markStaffMessageReadAction / archiveStaffMessageAction / deleteStaffMessageAction (FormData)
+// markStaffMessageReadAction / archiveStaffMessageAction (FormData)
 // ============================================================================
 
 export interface StaffMessageIdFormInput {

@@ -127,12 +127,9 @@ interface StaffDashboardDict {
   mailMoreActionsAriaLabel: string;
   mailMarkRead: string;
   mailArchive: string;
-  mailDelete: string;
   mailComposePlaceholder: string;
   mailSend: string;
   mailSending: string;
-  mailDeleteConfirmTitle: string;
-  mailDeleteConfirmBody: string;
   mailHelpAriaLabel: string;
   mailHelpBody: string;
   /** Also doubles as the "Submit next month's shift preference" module's heading and button label on the Staff dashboard. */
@@ -145,11 +142,6 @@ interface StaffDashboardDict {
   transportHelpAriaLabel: string;
   transportHelpBody: string;
   transportPlaceholder: string;
-  messageHelpAriaLabel: string;
-  messageHelpBody: string;
-  messagePlaceholder: string;
-  sendButton: string;
-  messageSentStatus: string;
   savingStatus: string;
   savedStatus: string;
   saveErrorStatus: string;
@@ -274,12 +266,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     mailMoreActionsAriaLabel: 'More actions for this message',
     mailMarkRead: 'Mark read',
     mailArchive: 'Archive',
-    mailDelete: 'Delete',
     mailComposePlaceholder: 'Send a message to your manager',
     mailSend: 'Send',
     mailSending: 'Sending...',
-    mailDeleteConfirmTitle: 'Delete this message?',
-    mailDeleteConfirmBody: 'This removes it from the conversation for both of you. This cannot be undone.',
     mailHelpAriaLabel: 'About Mail',
     mailHelpBody: 'A private, two-way conversation with your manager. Send a message any time -- your manager sees it and can reply here.',
     preferenceModalTitle: "Submit next month's shift preference",
@@ -290,11 +279,6 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportHelpAriaLabel: 'About transportation cost',
     transportHelpBody: "Enter today's transportation cost. It saves automatically as soon as you type it, and your manager sees it right away for payroll calculations.",
     transportPlaceholder: "Record today's transport cost",
-    messageHelpAriaLabel: 'About the daily message',
-    messageHelpBody: 'Send your manager a short note -- for example, something that happened during your shift, or anything they should know about.',
-    messagePlaceholder: 'Send a message to your manager',
-    sendButton: 'Send',
-    messageSentStatus: 'Message sent',
     savingStatus: 'Saving...',
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',
@@ -416,12 +400,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     mailMoreActionsAriaLabel: 'このメッセージの操作',
     mailMarkRead: '既読にする',
     mailArchive: 'アーカイブ',
-    mailDelete: '削除',
     mailComposePlaceholder: 'マネージャーにメッセージを送る',
     mailSend: '送信',
     mailSending: '送信中...',
-    mailDeleteConfirmTitle: 'このメッセージを削除しますか？',
-    mailDeleteConfirmBody: '削除すると、双方の会話からこのメッセージが消えます。この操作は取り消せません。',
     mailHelpAriaLabel: 'メールについて',
     mailHelpBody: 'マネージャーとの1対1の会話です。いつでもメッセージを送信でき、マネージャーがここで返信します。',
     preferenceModalTitle: '来月のシフト希望を提出',
@@ -432,11 +413,6 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportHelpAriaLabel: '交通費について',
     transportHelpBody: '本日の交通費を入力してください。入力すると自動的に保存され、マネージャーが給与計算のためすぐに確認できます。',
     transportPlaceholder: '本日の交通費を記録',
-    messageHelpAriaLabel: '当日のメッセージについて',
-    messageHelpBody: 'マネージャーへ短いメッセージを送れます -- 例えば勤務中に起きたことや、伝えておきたいことなど。',
-    messagePlaceholder: 'マネージャーにメッセージを送る',
-    sendButton: '送信',
-    messageSentStatus: 'メッセージを送信しました',
     savingStatus: '保存中...',
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',

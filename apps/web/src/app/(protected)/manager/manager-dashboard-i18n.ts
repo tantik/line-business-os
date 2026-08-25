@@ -318,12 +318,9 @@ interface ManagerDashboardDict {
   mailMoreActionsAriaLabel: string;
   mailMarkRead: string;
   mailArchive: string;
-  mailDelete: string;
   mailComposePlaceholder: string;
   mailSend: string;
   mailSending: string;
-  mailDeleteConfirmTitle: string;
-  mailDeleteConfirmBody: string;
   mailPopupHelpAriaLabel: string;
   mailPopupHelpTitle: string;
   mailPopupHelpBody: string;
@@ -614,15 +611,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     mailMoreActionsAriaLabel: 'More actions for this message',
     mailMarkRead: 'Mark read',
     mailArchive: 'Archive',
-    mailDelete: 'Delete',
     mailComposePlaceholder: 'Write a reply',
     mailSend: 'Send',
     mailSending: 'Sending...',
-    mailDeleteConfirmTitle: 'Delete this message?',
-    mailDeleteConfirmBody: 'This removes it from the conversation for both of you. This cannot be undone.',
     mailPopupHelpAriaLabel: 'About Mail',
     mailPopupHelpTitle: 'About Mail',
-    mailPopupHelpBody: 'A private, two-way conversation with each staff member. Click a conversation to open it, reply from the bottom of the thread. Archive tidies a message up without deleting it; Delete removes it for both of you.',
+    mailPopupHelpBody: 'A private, two-way conversation with each staff member. Click a conversation to open it, reply from the bottom of the thread. Archive tidies a message up without removing it.',
     pageTitle: 'Manager',
     signOut: 'Sign out',
     notSetLabel: 'Not set',
@@ -903,15 +897,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     mailMoreActionsAriaLabel: 'このメッセージの操作',
     mailMarkRead: '既読にする',
     mailArchive: 'アーカイブ',
-    mailDelete: '削除',
     mailComposePlaceholder: '返信を入力',
     mailSend: '送信',
     mailSending: '送信中...',
-    mailDeleteConfirmTitle: 'このメッセージを削除しますか？',
-    mailDeleteConfirmBody: '削除すると、双方の会話からこのメッセージが消えます。この操作は取り消せません。',
     mailPopupHelpAriaLabel: 'メールについて',
     mailPopupHelpTitle: 'メールについて',
-    mailPopupHelpBody: '各スタッフとの1対1の会話です。会話をクリックして開き、下部から返信できます。アーカイブは削除せずに整理するだけ、削除は双方の会話から完全に消えます。',
+    mailPopupHelpBody: '各スタッフとの1対1の会話です。会話をクリックして開き、下部から返信できます。アーカイブは削除せずに整理するためのものです。',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
     notSetLabel: '未設定',

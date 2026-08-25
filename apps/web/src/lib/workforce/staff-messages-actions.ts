@@ -9,7 +9,6 @@ import {
   markStaffMessageRead as markStaffMessageReadWrite,
   sendManagerMessage as sendManagerMessageWrite,
   sendStaffMessage as sendStaffMessageWrite,
-  softDeleteStaffMessage as softDeleteStaffMessageWrite,
   type WorkforceStaffMessage,
 } from './staff-messages';
 import {
@@ -29,10 +28,17 @@ import { queueLineNotification } from '@/lib/notifications/queue-line-notificati
  * employee's own `locationId` server-side (never accepted from the client --
  * `wf_staff_messages_manage_insert` RLS would reject a forged one anyway,
  * but resolving it here gives a clearer `not_found` instead of an opaque RLS
- * denial). `markStaffMessageReadAction`/`archiveStaffMessageAction`/
- * `deleteStaffMessageAction` are shared by both the Manager and Staff popups
- * -- RLS (`wf_staff_messages_self_update`/`wf_staff_messages_manage_update`)
- * decides which caller may touch a given row.
+ * denial). `markStaffMessageReadAction`/`archiveStaffMessageAction` are
+ * shared by both the Manager and Staff popups -- RLS
+ * (`wf_staff_messages_self_update`/`wf_staff_messages_manage_update`)
+ * decides which caller may touch a given row. No delete action: Founder
+ * direction (2026-08-25) -- a message is archived, never deleted by either
+ * side individually (`workforce.staff_messages.deleted_at` and its RLS
+ * still exist in the schema, just with no app-layer caller today -- a
+ * future Permanent-Delete-employee privacy purge is expected to use a real
+ * DELETE, not this soft-delete column, so this action wasn't kept "for
+ * later"; see `0091_workforce_permanent_delete_staff_messages.sql`'s
+ * header).
  */
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
@@ -125,16 +131,4 @@ export async function archiveStaffMessageAction(formData: FormData): Promise<Wor
 
   const supabase = await createClient();
   return archiveStaffMessageWrite(supabase, tenantContext.data.activeTenant.tenantId, input.messageId);
-}
-
-/** Shared by the Manager and Staff popups. Soft-delete only (`deleted_at`) -- never a real DELETE. */
-export async function deleteStaffMessageAction(formData: FormData): Promise<WorkforceWriteResult<WorkforceStaffMessage>> {
-  const input = parseStaffMessageIdInput(formData);
-  if (!input) return INVALID_INPUT_RESULT;
-
-  const tenantContext = await requireTenantContext();
-  if (tenantContext.status !== 'success') return tenantContext;
-
-  const supabase = await createClient();
-  return softDeleteStaffMessageWrite(supabase, tenantContext.data.activeTenant.tenantId, input.messageId);
 }

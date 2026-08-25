@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { ActionsMenu, ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { ActionsMenu, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -22,7 +22,6 @@ export interface StaffMessagesPopupProps {
   pendingAction: string | null;
   onMarkRead: (messageId: string) => void;
   onArchive: (messageId: string) => void;
-  onDelete: (messageId: string) => void;
   onSend: (employeeId: string, body: string) => void;
   lang: Lang;
 }
@@ -103,9 +102,13 @@ const bubbleStyle = (isManager: boolean) => ({
  * them). Modeled structurally on `correction-requests-popup.tsx` (`Modal` +
  * `HelpIconButton` + `usePopupOpenTiming`, `pendingAction` string-key
  * pattern), but two-level (thread list -> thread view) instead of flat.
- * Per-message Archive/Delete live behind an `ActionsMenu` (`•••`), matching
- * the ORUWA design-system charter's "rare/dangerous actions behind a menu"
- * rule; Delete confirms through `ConfirmDialog`.
+ * Per-message Archive lives behind an `ActionsMenu` (`•••`), matching the
+ * ORUWA design-system charter's "rare actions behind a menu" rule. No
+ * Delete: Founder direction (2026-08-25) -- a message is archived, never
+ * deleted by either side individually; the only path that ever removes a
+ * message is a future Permanent-Delete-employee privacy purge (see
+ * `0091_workforce_permanent_delete_staff_messages.sql`'s header), not a
+ * per-message action here.
  */
 export function StaffMessagesPopup({
   open,
@@ -117,7 +120,6 @@ export function StaffMessagesPopup({
   pendingAction,
   onMarkRead,
   onArchive,
-  onDelete,
   onSend,
   lang,
 }: StaffMessagesPopupProps) {
@@ -125,7 +127,6 @@ export function StaffMessagesPopup({
   usePopupOpenTiming(open, 'staff-messages');
   const [helpOpen, setHelpOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [composeValue, setComposeValue] = useState('');
 
   useEffect(() => {
@@ -232,7 +233,6 @@ export function StaffMessagesPopup({
                               ? [{ label: t('mailMarkRead'), onClick: () => onMarkRead(m.messageId), disabled: isPending }]
                               : []),
                             { label: t('mailArchive'), onClick: () => onArchive(m.messageId), disabled: isPending },
-                            { label: t('mailDelete'), onClick: () => setConfirmDeleteId(m.messageId), danger: true, disabled: isPending },
                           ]}
                         />
                       </div>
@@ -264,23 +264,6 @@ export function StaffMessagesPopup({
           </div>
         </div>
       )}
-
-      <ConfirmDialog
-        open={confirmDeleteId !== null}
-        title={t('mailDeleteConfirmTitle')}
-        confirmLabel={t('mailDelete')}
-        cancelLabel={t('cancel')}
-        pending={isPending}
-        danger
-        onCancel={() => setConfirmDeleteId(null)}
-        onConfirm={() => {
-          const id = confirmDeleteId;
-          setConfirmDeleteId(null);
-          if (id) onDelete(id);
-        }}
-      >
-        {t('mailDeleteConfirmBody')}
-      </ConfirmDialog>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('mailPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('mailPopupHelpBody')}</div>

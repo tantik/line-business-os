@@ -22,7 +22,6 @@ import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { assignShiftExchangeReplacement, decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import {
   archiveStaffMessageAction,
-  deleteStaffMessageAction,
   markStaffMessageReadAction,
   submitManagerMessage,
 } from '@/lib/workforce/staff-messages-actions';
@@ -903,17 +902,6 @@ function ManagerDashboardBody({
     });
   }
 
-  function handleDeleteMessage(messageId: string) {
-    setPendingAction(`delete-message-${messageId}`);
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('messageId', messageId);
-      await deleteStaffMessageAction(formData);
-      router.refresh();
-      setPendingAction(null);
-    });
-  }
-
   function handleSendManagerMessage(employeeId: string, body: string) {
     setBanner(null);
     setPendingAction(`send-message-${employeeId}`);
@@ -1406,7 +1394,6 @@ function ManagerDashboardBody({
         pendingAction={pendingAction}
         onMarkRead={handleMarkMessageRead}
         onArchive={handleArchiveMessage}
-        onDelete={handleDeleteMessage}
         onSend={handleSendManagerMessage}
         lang={lang}
       />

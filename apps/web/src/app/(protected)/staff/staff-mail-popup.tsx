@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { archiveStaffMessageAction, deleteStaffMessageAction, markStaffMessageReadAction, submitStaffMessage } from '@/lib/workforce/staff-messages-actions';
-import { ActionsMenu, ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { archiveStaffMessageAction, markStaffMessageReadAction, submitStaffMessage } from '@/lib/workforce/staff-messages-actions';
+import { ActionsMenu, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDisabled, buttonPrimary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -43,7 +43,10 @@ const bubbleStyle = (isStaff: boolean) => ({
  * thread, labeled generically as "マネージャー" -- no per-manager name
  * lookup needed). Replaces the deleted `DailyMessageForm` card entirely;
  * mounted alongside the other Staff popups, opened from the 4th
- * `EntryPointsCard` button. Self-contained pending state (own
+ * `EntryPointsCard` button. No Delete: Founder direction (2026-08-25) -- a
+ * message is archived, never deleted by either side individually; see the
+ * matching note in `manager/staff-messages-popup.tsx`. Self-contained
+ * pending state (own
  * `useTransition`, `onChange` prop for the parent's `router.refresh()`),
  * matching `RecipesPopup`/`InventoryPopup`'s convention on this same page --
  * unlike the Manager popup, this Staff dashboard has no shared
@@ -53,16 +56,14 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
   usePopupOpenTiming(open, 'staff-mail');
   const [helpOpen, setHelpOpen] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [composeValue, setComposeValue] = useState('');
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
-  // No generic "cancel"/"close" key exists in this dashboard's dictionary
-  // yet -- matches `monthly-shift-preference-modal.tsx`'s own inline
-  // JA/EN fallback for the same reason, rather than adding one just for
-  // this popup's Modal/ConfirmDialog chrome.
+  // No generic "close" key exists in this dashboard's dictionary yet --
+  // matches `monthly-shift-preference-modal.tsx`'s own inline JA/EN
+  // fallback for the same reason, rather than adding one just for this
+  // popup's Modal chrome.
   const closeLabel = lang === 'ja' ? '閉じる' : 'Close';
-  const cancelLabel = lang === 'ja' ? 'キャンセル' : 'Cancel';
 
   const visibleMessages = (messages ?? []).filter((m) => !m.deletedAt).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
@@ -94,17 +95,6 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
       const formData = new FormData();
       formData.set('messageId', messageId);
       await archiveStaffMessageAction(formData);
-      onChange();
-      setPendingAction(null);
-    });
-  }
-
-  function handleDelete(messageId: string) {
-    setPendingAction(`delete-${messageId}`);
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('messageId', messageId);
-      await deleteStaffMessageAction(formData);
       onChange();
       setPendingAction(null);
     });
@@ -152,7 +142,6 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
                       triggerLabel={t('mailMoreActionsAriaLabel')}
                       items={[
                         { label: t('mailArchive'), onClick: () => handleArchive(m.messageId), disabled: isPending },
-                        { label: t('mailDelete'), onClick: () => setConfirmDeleteId(m.messageId), danger: true, disabled: isPending },
                       ]}
                     />
                   </div>
@@ -182,23 +171,6 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
           {pendingAction === 'send' ? t('mailSending') : t('mailSend')}
         </button>
       </div>
-
-      <ConfirmDialog
-        open={confirmDeleteId !== null}
-        title={t('mailDeleteConfirmTitle')}
-        confirmLabel={t('mailDelete')}
-        cancelLabel={cancelLabel}
-        pending={isPending}
-        danger
-        onCancel={() => setConfirmDeleteId(null)}
-        onConfirm={() => {
-          const id = confirmDeleteId;
-          setConfirmDeleteId(null);
-          if (id) handleDelete(id);
-        }}
-      >
-        {t('mailDeleteConfirmBody')}
-      </ConfirmDialog>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('mailHelpAriaLabel')} closeLabel={closeLabel} width="min(420px, 94vw)">
         <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('mailHelpBody')}</p>

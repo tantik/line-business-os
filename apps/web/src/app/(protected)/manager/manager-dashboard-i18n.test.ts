@@ -77,8 +77,8 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'attentionReviewAllHelpBody', 'attentionWarningsGroupHeading',
   // Staff<->Manager Mail module (0090)
   'mailChipTitle', 'mailHeading', 'mailEmptyThreads', 'mailBackToThreads', 'mailArchivedTag',
-  'mailMoreActionsAriaLabel', 'mailMarkRead', 'mailArchive', 'mailDelete', 'mailComposePlaceholder',
-  'mailSend', 'mailSending', 'mailDeleteConfirmTitle', 'mailDeleteConfirmBody',
+  'mailMoreActionsAriaLabel', 'mailMarkRead', 'mailArchive', 'mailComposePlaceholder',
+  'mailSend', 'mailSending',
   'mailPopupHelpAriaLabel', 'mailPopupHelpTitle', 'mailPopupHelpBody',
 ];
 
