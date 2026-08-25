@@ -33,7 +33,14 @@ export interface CorrectionRequestFormProps {
 export function CorrectionRequestForm({ attendanceOptions, defaultWorkDate, timeZone, lang, onSuccess }: CorrectionRequestFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [attendanceId, setAttendanceId] = useState('');
+  // A caller that already scoped `attendanceOptions` to one specific date
+  // (Staff's own Shift Details modal) has nothing left to pick between --
+  // showing a "Related work report" dropdown with a single real choice plus
+  // "None" was confusing UI with no decision to make (Founder QA, 2026-08-25).
+  // Only render the picker when there's an actual choice (2+ rows); with
+  // exactly one, silently bind to it.
+  const [attendanceId, setAttendanceId] = useState(attendanceOptions.length === 1 ? (attendanceOptions[0]?.attendanceId ?? '') : '');
+  const showRelatedReportPicker = attendanceOptions.length > 1;
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
 
   const selectedAttendance = useMemo(
@@ -68,17 +75,21 @@ export function CorrectionRequestForm({ attendanceOptions, defaultWorkDate, time
         <span style={{ ...mutedText, fontSize: 13 }}>{t('dateLabel')}</span>
         <input style={input} type="date" name="workDate" defaultValue={defaultWorkDate} required />
       </label>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('relatedWorkReportLabel')}</span>
-        <select style={input} name="attendanceId" value={attendanceId} onChange={(e) => setAttendanceId(e.target.value)}>
-          <option value="">{t('relatedWorkReportNone')}</option>
-          {attendanceOptions.map((a) => (
-            <option key={a.attendanceId} value={a.attendanceId}>
-              {a.workDate} ({attendanceStatusLabel(a.status, lang)})
-            </option>
-          ))}
-        </select>
-      </label>
+      {showRelatedReportPicker ? (
+        <label>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('relatedWorkReportLabel')}</span>
+          <select style={input} name="attendanceId" value={attendanceId} onChange={(e) => setAttendanceId(e.target.value)}>
+            <option value="">{t('relatedWorkReportNone')}</option>
+            {attendanceOptions.map((a) => (
+              <option key={a.attendanceId} value={a.attendanceId}>
+                {a.workDate} ({attendanceStatusLabel(a.status, lang)})
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <input type="hidden" name="attendanceId" value={attendanceId} />
+      )}
       {selectedAttendance ? (
         <p style={{ margin: 0, ...mutedText, fontSize: 12 }}>
           {t('currentClockTimesLabel')}: {currentClockIn ?? '-'} - {currentClockOut ?? '-'}

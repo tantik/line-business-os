@@ -29,9 +29,9 @@ interface ShiftTableProps {
   attentionCellKeys?: Set<string>;
 }
 
-const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; shortageTooltip: string; correctionTooltip: string; messageTooltip: string }> = {
-  ja: { staffColumn: 'スタッフ', managerRole: '店長', shortageTooltip: '人手不足の可能性があります', correctionTooltip: '修正依頼あり', messageTooltip: 'メッセージあり' },
-  en: { staffColumn: 'Staff', managerRole: 'Manager', shortageTooltip: 'Possible staffing shortage', correctionTooltip: 'Correction requested', messageTooltip: 'Message' },
+const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; shortageTooltip: string; correctionTooltip: string; messageTooltip: string; customBadge: string }> = {
+  ja: { staffColumn: 'スタッフ', managerRole: '店長', shortageTooltip: '人手不足の可能性があります', correctionTooltip: '修正依頼あり', messageTooltip: 'メッセージあり', customBadge: 'カス' },
+  en: { staffColumn: 'Staff', managerRole: 'Manager', shortageTooltip: 'Possible staffing shortage', correctionTooltip: 'Correction requested', messageTooltip: 'Message', customBadge: 'Cus' },
 };
 
 /**
@@ -77,14 +77,28 @@ export const ShiftTable = memo(function ShiftTable({
   const allShiftTypeIds = shiftTypes.map((type) => type.id);
   const emptyChip = shiftChipColors(null);
   const chipByShiftTypeId = new Map(shiftTypes.map((type) => [type.id, shiftChipColors(type.id, allShiftTypeIds)]));
-
+  // 1-based display-order index, used only in `compact` mode as a short
+  // numeric badge instead of a shift type's full (often full-time-range)
+  // `label` -- that label was overflowing/truncating on a ~375px mobile
+  // cell (Founder Preview QA, 2026-08-25). Same ordering `ShiftLegend`'s own
+  // `numbered` mode uses (both index the same `shiftTypes` array passed in
+  // by the caller), so cell "3" and legend "[3]" always agree.
+  const shiftTypeIndexById = new Map(shiftTypes.map((type, index) => [type.id, index + 1]));
   function isCellClickable(staffId: string, date: string): boolean {
     if (!onCellClick) return false;
     if (mode === 'manager') return true;
     if (staffId !== currentStaffId) return false;
     if (date < todayIso) return true;
-    // Today's own cell only opens a report once one actually exists (e.g. after saving today's message) — otherwise there is nothing to show.
-    if (date === todayIso) return reportMap.has(`${staffId}:${date}`);
+    // Today's own cell opens once a report exists (e.g. after saving today's
+    // message), OR the cell already carries the "!" attention indicator
+    // (a pending correction/exchange request dated today) -- otherwise a
+    // staff member could see "!" on today with no way to tap it to find out
+    // what it means (Founder Preview QA, 2026-08-25, bug #3). Bare "there's
+    // a shift today" alone still doesn't open it -- unchanged from before.
+    if (date === todayIso) {
+      const key = `${staffId}:${date}`;
+      return reportMap.has(key) || Boolean(attentionCellKeys?.has(key));
+    }
     return assignmentMap.has(`${staffId}:${date}`);
   }
 
@@ -203,8 +217,24 @@ export const ShiftTable = memo(function ShiftTable({
                   // real time on the assignment itself -- show that instead of a blank dash,
                   // rather than silently dropping a shift that already counts toward scheduled
                   // hours (Cafe v2.1 QA audit P1-6, 2026-08-17).
-                  const cellLabel =
-                    shiftType?.label ?? (assignment?.startTime && assignment?.endTime ? `${assignment.startTime}-${assignment.endTime}` : '－');
+                  const customTimeRange =
+                    assignment?.startTime && assignment?.endTime ? `${assignment.startTime}-${assignment.endTime}` : null;
+                  // A custom/unresolved shift has no type to give it a short numeric badge --
+                  // showing its raw time ("13:00-18:00", even shortened to "13-18") still read
+                  // as visual noise next to the clean numbered badges (Founder Preview QA,
+                  // 2026-08-25, round 3). `customBadge` ("Cus"/"カス") flags it as custom at a
+                  // glance in compact mode; the real time stays available via `title` (hover) and,
+                  // for the caller's own shift, the tap-through Shift Details/Request view.
+                  const cellLabel = shiftType
+                    ? compact
+                      ? String(shiftTypeIndexById.get(shiftType.id) ?? shiftType.label)
+                      : shiftType.label
+                    : customTimeRange
+                      ? compact
+                        ? labels.customBadge
+                        : customTimeRange
+                      : '－';
+                  const cellTitle = !shiftType && compact ? (customTimeRange ?? undefined) : undefined;
                   const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
@@ -216,24 +246,64 @@ export const ShiftTable = memo(function ShiftTable({
                   const isSelected = selectedCell?.staffId === staff.id && selectedCell.date === date;
                   const isPastStaffCell = mode === 'staff' && date < todayIso;
 
+                  const cellContent = (
+                    <span title={cellTitle} style={shiftChipStyle(chip.background, chip.color, compact)}>
+                      {cellLabel}
+                    </span>
+                  );
+
                   return (
                     <td
                       key={date}
-                      onClick={clickable ? () => onCellClick?.(staff.id, date) : undefined}
                       style={{
                         position: 'relative',
                         borderBottom: `1px solid ${demoColors.border}`,
                         borderRight: `1px solid ${demoColors.columnDivider}`,
-                        padding: compact ? '4px 1px' : '10px 6px',
+                        padding: 0,
                         textAlign: 'center',
                         background: isSelected ? demoColors.alertWarningBg : strongest ? demoColors.selfTodayBg : isToday ? demoColors.todayBg : isPastStaffCell ? demoColors.surfaceElevated : 'transparent',
                         outline: isSelected ? `2px solid ${demoColors.accent}` : undefined,
                         outlineOffset: isSelected ? -2 : undefined,
                         opacity: isPastStaffCell ? 0.72 : 1,
-                        cursor: clickable ? 'pointer' : 'default',
                       }}
                     >
-                      <span style={shiftChipStyle(chip.background, chip.color, compact)}>{cellLabel}</span>
+                      {clickable && mode === 'staff' ? (
+                        // A real nested <button>, not `role="button"` on the <td> itself --
+                        // overriding a table cell's implicit gridcell role breaks screen-reader
+                        // table navigation (row/column announcements) for every clickable cell.
+                        // Scoped to Staff mode only: Manager's grid is every cell in the table
+                        // (`isCellClickable` returns true unconditionally for mode==='manager'),
+                        // so making every cell a tab stop there would insert hundreds of new tab
+                        // stops into an unrelated screen's tab order -- out of this Staff-only
+                        // mission's scope and not reviewed for Manager (independent review,
+                        // 2026-08-25). Manager's clickable cells keep their pre-existing
+                        // mouse-only behavior below.
+                        <button
+                          type="button"
+                          onClick={() => onCellClick?.(staff.id, date)}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            border: 0,
+                            margin: 0,
+                            background: 'transparent',
+                            font: 'inherit',
+                            color: 'inherit',
+                            textAlign: 'inherit',
+                            padding: compact ? '4px 1px' : '10px 6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cellContent}
+                        </button>
+                      ) : (
+                        <div
+                          onClick={clickable ? () => onCellClick?.(staff.id, date) : undefined}
+                          style={{ padding: compact ? '4px 1px' : '10px 6px', cursor: clickable ? 'pointer' : 'default' }}
+                        >
+                          {cellContent}
+                        </div>
+                      )}
                       {showIndicator ? (
                         <span
                           title={report?.hasCorrectionRequest ? labels.correctionTooltip : labels.messageTooltip}

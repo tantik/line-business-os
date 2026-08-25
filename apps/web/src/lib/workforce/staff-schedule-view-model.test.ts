@@ -136,6 +136,31 @@ test('buildStaffScheduleRoster pins self first and never duplicates self', () =>
   assert.equal(roster.filter((r) => r.id === 'staff-1').length, 1);
 });
 
+test('buildStaffScheduleRoster shows the caller\'s own real name, never the literal "Me" label, when nameById has an entry for them (Staff Shift Schedule v2, 2026-08-25)', () => {
+  const roster = buildStaffScheduleRoster(
+    [
+      assignment({ employeeId: 'staff-1', startsAt: '2026-08-10T00:00:00.000Z' }),
+      assignment({ employeeId: 'staff-2', startsAt: '2026-08-10T00:00:00.000Z' }),
+    ],
+    'staff-1',
+    { me: 'Me', colleaguePrefix: 'Staff' },
+    { 'staff-1': 'Yuki Tanaka', 'staff-2': 'Kenji Sato' },
+  );
+  assert.equal(roster[0]!.id, 'staff-1');
+  assert.equal(roster[0]!.name, 'Yuki Tanaka');
+  assert.equal(roster[1]!.name, 'Kenji Sato');
+});
+
+test('buildStaffScheduleRoster falls back to the "Me" label for the caller only when nameById has no entry for them', () => {
+  const roster = buildStaffScheduleRoster(
+    [assignment({ employeeId: 'staff-1', startsAt: '2026-08-10T00:00:00.000Z' })],
+    'staff-1',
+    { me: 'Me', colleaguePrefix: 'Staff' },
+    {},
+  );
+  assert.equal(roster[0]!.name, 'Me');
+});
+
 test('buildStaffScheduleRoster stays stable across two different weeks of the same underlying data (Founder P1, 2026-08-13)', () => {
   const windowAssignments = [
     assignment({ employeeId: 'staff-1', startsAt: '2026-08-10T00:00:00.000Z' }),

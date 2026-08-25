@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -13,7 +13,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
-import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { getMyScheduleWeek } from '@/lib/workforce/schedule-actions';
 import {
   buildStaffScheduleRoster,
@@ -21,30 +21,68 @@ import {
   toStaffViewAssignments,
   toStaffViewShiftTypes,
 } from '@/lib/workforce/staff-schedule-view-model';
+import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
-import { existingExchangeMessage, scheduledThisWeekValue, tStaffDashboard } from './staff-dashboard-i18n';
+import {
+  customShiftTimeRangeLabel,
+  earningsEstimatedSuffix,
+  earningsWorkedHoursValue,
+  existingExchangeMessage,
+  scheduledThisWeekValue,
+  tStaffDashboard,
+} from './staff-dashboard-i18n';
 import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
-import { primaryCard, todayIsoInTimeZone } from '../_ui/workforce-theme';
+import {
+  correctionStatusBadgeStyle,
+  correctionStatusLabel,
+  formatRequestedCorrectionChange,
+  primaryCard,
+  todayIsoInTimeZone,
+} from '../_ui/workforce-theme';
 import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
+import { CorrectionRequestForm } from './correction-request-form';
 import { WorkStatusCard } from './work-status-card';
 import { TransportForm } from './transport-form';
 import { DailyMessageForm } from './daily-message-form';
 import transportMessageRow from './transport-message-row.module.css';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
+import { useIsCompactSchedule } from './use-compact-schedule';
 import { AccountMenu } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
+import hoverStyles from '@/lib/ui/theme.module.css';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
+
+/**
+ * Founder Preview QA (2026-08-25, Staff Shift Schedule v2 fix-up): matches
+ * `page.tsx`'s own `MAX_WEEK_OFFSET` sanity cap (not exported there, so
+ * mirrored here -- keep in sync with `page.tsx`'s `parseWeekOffset`). Prev/
+ * This week/Next used to be `<Link href="/staff?weekOffset=...">` -- a full
+ * server navigation that re-ran this page's entire data batch just to move
+ * one week, which was slow and visibly "jumped" (Founder bugs #4/#6).
+ * Follows the exact pattern already shipped and Founder-approved on
+ * `/manager` (`manager-dashboard-client.tsx`, "Round 3" week-navigation
+ * performance fix): a pure client-side `activeWeekOffset` filter over the
+ * already-preloaded assignment window, `window.history.replaceState` only,
+ * never `router.push`/`router.refresh()`.
+ */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
+
+/** Short `MM/DD` form of an ISO date, used only in the schedule heading (Founder Preview QA, 2026-08-25: the full ISO range wrapped the heading onto two lines at 375px in English). Every other date on this page keeps the full ISO string. */
+function shortDate(iso: string): string {
+  return iso.slice(5).replace('-', '/');
+}
 
 function dateRange(periodStart: string, periodEnd: string): string[] {
   const dates: string[] = [];
@@ -184,13 +222,80 @@ function StaffDashboardBody({
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
   const [banner, setBanner] = useState<string | null>(null);
-  const [onlyMe, setOnlyMe] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showCorrectionForm, setShowCorrectionForm] = useState(false);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
+  // Full 7-day week always visible, no page-level horizontal scroll, at
+  // 375px/390px viewport widths (Staff Shift Schedule v2, 2026-08-25) --
+  // switches `ShiftTable`'s existing (previously unused) `compact` prop.
+  const isCompactSchedule = useIsCompactSchedule();
+
+  // Client-side week navigation (Founder Preview QA, 2026-08-25) -- see
+  // `MIN_WEEK_OFFSET`/`MAX_WEEK_OFFSET`'s doc comment above. `weekOffset`/
+  // `periodStart`/`periodEnd` remain the server-seeded fallback/initial
+  // values; everything actually displayed below reads `activeWeekOffset`/
+  // `activePeriodStart`/`activePeriodEnd` instead.
+  const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
+  const activePeriodStart = useMemo(
+    () => addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7),
+    [periodStart, activeWeekOffset, weekOffset],
+  );
+  const activePeriodEnd = useMemo(
+    () => addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7),
+    [periodEnd, activeWeekOffset, weekOffset],
+  );
+
+  function weekHref(targetOffset: number) {
+    return targetOffset === 0 ? '/staff' : `/staff?weekOffset=${targetOffset}`;
+  }
+
+  function navigateToWeek(targetOffset: number) {
+    if (targetOffset === activeWeekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    // Pure client-side date-range filter over the already-preloaded
+    // `windowAssignments` window below -- no Server Action call, no
+    // `router.push`/`router.refresh()` (which would re-run this whole
+    // page's data batch and reset scroll).
+    setActiveWeekOffset(targetOffset);
+    window.history.replaceState(null, '', weekHref(targetOffset));
+  }
+
+  // Swipe-to-change-week on the schedule grid itself (Founder Preview QA,
+  // 2026-08-25, bug #5) -- a horizontal finger swipe calls the same
+  // `navigateToWeek` the ‹/This week/› buttons use, matching the swipe
+  // gesture staff would expect from a modern calendar-style app. A small
+  // deadzone (SWIPE_THRESHOLD) plus requiring the horizontal delta to
+  // meaningfully dominate the vertical one keeps an ordinary vertical page
+  // scroll, or a tap on a cell, from misfiring as a week change.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD_PX = 48;
+
+  function handleScheduleTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleScheduleTouchEnd(event: ReactTouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return;
+    navigateToWeek(activeWeekOffset + (deltaX < 0 ? 1 : -1));
+  }
+
+  // Reset the "Request a correction" sub-form whenever a different date is
+  // opened (or the modal closes) -- otherwise it could stay expanded across
+  // dates that already have their own correction/no correction state.
+  useEffect(() => {
+    setShowCorrectionForm(false);
+  }, [selectedDate]);
 
   // Items currently marked "bought" in Purchases -- fed into the Inventory
   // popup below as a reminder icon (`InventoryPopup`'s `boughtItemIds`).
@@ -223,7 +328,7 @@ function StaffDashboardBody({
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const result = await getMyScheduleWeek(weekOffset);
+        const result = await getMyScheduleWeek(activeWeekOffset);
         if (cancelled || result.status !== 'success') return;
         const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
         setWindowAssignments((prev) => [
@@ -239,9 +344,9 @@ function StaffDashboardBody({
       cancelled = true;
       clearInterval(id);
     };
-  }, [weekOffset, timeZone, assignments]);
+  }, [activeWeekOffset, timeZone, assignments]);
 
-  const dates = useMemo(() => dateRange(periodStart, periodEnd), [periodStart, periodEnd]);
+  const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
 
   const staffList = useMemo(
     () =>
@@ -279,16 +384,47 @@ function StaffDashboardBody({
         exchange.shiftId === selectedAssignment.assignmentId && exchange.status !== 'rejected' && exchange.status !== 'cancelled',
     );
   }, [exchanges, selectedAssignment]);
-  const canRequestExchange = Boolean(
-    selectedAssignment &&
-      selectedAssignment.published &&
-      new Date(selectedAssignment.startsAt).getTime() > Date.now() &&
-      !existingExchangeForSelected,
-  );
-  const selectedAttendance = useMemo(
-    () => (attendance ?? []).find((entry) => entry.workDate === selectedDate) ?? null,
+  // Scoped to just the opened date -- `CorrectionRequestForm`'s "related work
+  // report" picker should only offer that date's own attendance row(s), not
+  // every week's.
+  const selectedDateAttendanceOptions = useMemo(
+    () => (attendance ?? []).filter((entry) => entry.workDate === selectedDate),
     [attendance, selectedDate],
   );
+  const selectedAttendance = useMemo(
+    () => selectedDateAttendanceOptions[0] ?? null,
+    [selectedDateAttendanceOptions],
+  );
+  // Distinguishes the "Shift request" modal (a future own shift -- exchange/
+  // change/cancel) from the "Shift Details" modal (a past, or today-with-a-
+  // report, own shift -- planned vs actual, transport, correction). A
+  // published future assignment is the only case that opens the request
+  // form; every other openable own-cell case (past date, or today once a
+  // report exists -- see `ShiftTable`'s `isCellClickable`) shows details.
+  const isFutureOwnShift = Boolean(
+    selectedAssignment && selectedAssignment.published && new Date(selectedAssignment.startsAt).getTime() > Date.now(),
+  );
+  const canRequestExchange = isFutureOwnShift && !existingExchangeForSelected;
+  // Resolves a shift's display label the same way everywhere it's shown
+  // (future-shift "Shift" row and past-shift "Planned shift" row): the
+  // canonical `shiftTypeDisplayLabel` when `shiftTypeId` resolves to a known
+  // type, otherwise the assignment's own local start/end time -- never the
+  // literal English word "Custom" (Staff Shift Schedule v2, 2026-08-25).
+  function shiftLabelFor(entry: WorkforceShiftAssignment): string {
+    const st = shiftTypeById.get(entry.shiftTypeId ?? '');
+    if (st) return shiftTypeDisplayLabel(st);
+    const start = utcIsoToLocalDateTime(entry.startsAt, timeZone).localTime;
+    const end = utcIsoToLocalDateTime(entry.endsAt, timeZone).localTime;
+    return customShiftTimeRangeLabel[lang](start, end);
+  }
+  // The most recently submitted correction request for the opened date, if
+  // any -- reopening a past shift with an existing correction shows its
+  // current state instead of a blank "Request a correction" button.
+  const selectedDateCorrection = useMemo(() => {
+    const matches = (correctionRequests ?? []).filter((r) => r.kind === 'correction' && r.workDate === selectedDate);
+    if (matches.length === 0) return undefined;
+    return [...matches].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  }, [correctionRequests, selectedDate]);
 
   // Staff must only ever see their own, published shifts in the weekly-hours summary here -- never a co-worker's row, never a manager's unpublished draft.
   const myScheduleThisWeek = useMemo(() => {
@@ -299,9 +435,9 @@ function StaffDashboardBody({
         const end = utcIsoToLocalDateTime(a.endsAt, timeZone);
         return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
       })
-      .filter((entry) => entry.workDate >= periodStart && entry.workDate <= periodEnd)
+      .filter((entry) => entry.workDate >= activePeriodStart && entry.workDate <= activePeriodEnd)
       .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.startsAtLocal.localeCompare(b.startsAtLocal));
-  }, [windowAssignments, profile.staffId, timeZone, periodStart, periodEnd]);
+  }, [windowAssignments, profile.staffId, timeZone, activePeriodStart, activePeriodEnd]);
 
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
 
@@ -310,6 +446,17 @@ function StaffDashboardBody({
   const weeklyHours = useMemo(
     () => myScheduleThisWeek.reduce((sum, entry) => sum + hoursBetween(entry.startsAtLocal, entry.endsAtLocal), 0),
     [myScheduleThisWeek],
+  );
+
+  // Worked-this-month / hourly wage / estimated earnings summary (Staff
+  // Shift Schedule v2, 2026-08-25). `estimatedEarningsSummary` itself is
+  // untouched -- this is purely wiring the caller's own already-loaded
+  // `attendance` and `profile.hourlyWageYen` into it. Gracefully omits the
+  // wage/estimate portion (never fabricates one) when `hourlyWageYen` is
+  // genuinely not on file for this staff member.
+  const earnings = useMemo(
+    () => estimatedEarningsSummary(attendance ?? [], todayIso.slice(0, 7), profile.hourlyWageYen),
+    [attendance, todayIso, profile.hourlyWageYen],
   );
 
   function handleFormSuccess(message: string) {
@@ -352,6 +499,7 @@ function StaffDashboardBody({
             <p style={{ margin: '2px 0 0', fontSize: 13, overflowWrap: 'anywhere', ...mutedText }}>{locationName}</p>
           </div>
         </div>
+        {/* No header Updates/unread badge or read/seen persistence yet -- explicitly deferred by the Founder (Staff Shift Schedule v2, 2026-08-25); the "!" cell indicators below (`attentionCellKeys`) are the only attention signal this iteration ships, and this is a platform-wide notification capability, not something to half-stub here. */}
         <AccountMenu
           displayName={displayName ?? t('pageTitle')}
           positionLabel={profile.positionLabel ?? t('notSetLabel')}
@@ -429,41 +577,48 @@ function StaffDashboardBody({
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>
-              {t('scheduleHeading')} ({periodStart} - {periodEnd})
+            <h2 style={{ margin: 0, fontSize: 16, whiteSpace: 'nowrap' }}>
+              {t('scheduleHeading')} ({shortDate(activePeriodStart)} - {shortDate(activePeriodEnd)})
             </h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' }}>
-              <button
-                type="button"
-                onClick={() => setOnlyMe(false)}
-                style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: !onlyMe ? colors.accent : 'transparent', color: !onlyMe ? '#fff' : colors.textMuted, padding: '6px 14px' }}
-              >
-                {t('all')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOnlyMe(true)}
-                style={{ ...buttonSecondary, border: 0, borderRadius: 0, background: onlyMe ? colors.accent : 'transparent', color: onlyMe ? '#fff' : colors.textMuted, padding: '6px 14px' }}
-              >
-                {t('onlyMe')}
-              </button>
-            </div>
-            <Link href={`/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-              {t('prevWeek')}
-            </Link>
-            <Link
-              href="/staff"
-              style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
-              aria-disabled={weekOffset === 0}
+          {/* Compact icon navigator, matching Manager's own Round 2/3
+              (2026-08-22) redesign: plain `<button onClick>` (never
+              `<Link href>`) driving the pure client-side `navigateToWeek`
+              week switch above, no full page reload/jump (Founder Preview
+              QA, 2026-08-25, bugs #2/#4/#6). Real words stay in
+              `aria-label`/`title` since the visible glyph is just `‹`/`›`. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              type="button"
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
+              aria-label={t('prevWeek')}
+              title={t('prevWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset - 1)}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), minHeight: 44, padding: '10px 16px' }}
+              className={activeWeekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
+              aria-disabled={activeWeekOffset === 0}
+              disabled={activeWeekOffset === 0}
+              onClick={() => navigateToWeek(0)}
             >
               {t('thisWeek')}
-            </Link>
-            <Link href={`/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-              {t('nextWeek')}
-            </Link>
+            </button>
+            <button
+              type="button"
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
+              aria-label={t('nextWeek')}
+              title={t('nextWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset + 1)}
+            >
+              ›
+            </button>
           </div>
         </div>
         {assignments === null ? (
@@ -473,7 +628,7 @@ function StaffDashboardBody({
             <p style={{ margin: '12px 0 0', fontSize: 14, fontWeight: 600, color: colors.textPrimary }}>
               {scheduledThisWeekValue[lang](weeklyHours.toFixed(1))}
             </p>
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 8 }} onTouchStart={handleScheduleTouchStart} onTouchEnd={handleScheduleTouchEnd}>
               <ShiftTable
                 dates={dates}
                 todayIso={todayIso}
@@ -482,7 +637,7 @@ function StaffDashboardBody({
                 shiftTypes={displayShiftTypes}
                 mode="staff"
                 currentStaffId={profile.staffId}
-                onlyCurrentStaff={onlyMe}
+                compact={isCompactSchedule}
                 lang={lang}
                 attentionCellKeys={attentionCellKeys}
                 onCellClick={(staffId, date) => {
@@ -492,65 +647,124 @@ function StaffDashboardBody({
               />
             </div>
             <div style={{ marginTop: 10 }}>
-              <ShiftLegend shiftTypes={displayShiftTypes} lang={lang} />
+              <ShiftLegend shiftTypes={displayShiftTypes} lang={lang} numbered={isCompactSchedule} />
             </div>
+            {/* Only shown when at least one cell actually carries "!" this week -- explains what
+                it means (a pending correction/exchange request on that shift, tap to see it)
+                instead of leaving it to a `title` tooltip that never appears on a touch device
+                (Founder Preview QA, 2026-08-25, round 3). */}
+            {attentionCellKeys.size > 0 ? (
+              <p style={{ margin: '6px 0 0', fontSize: 11, ...mutedText }}>{t('attentionIndicatorLegend')}</p>
+            ) : null}
+            {/* Worked this month / hourly wage / estimated earnings -- gracefully omits the wage/estimate portion (never fabricates one) when no hourly wage is on file. */}
+            <p style={{ margin: '8px 0 0', fontSize: 11, ...mutedText }}>
+              {earningsWorkedHoursValue[lang](earnings.workedHours.toFixed(1))}
+              {earnings.hourlyWageYen !== null && earnings.estimatedEarningsYen !== null
+                ? earningsEstimatedSuffix[lang](earnings.hourlyWageYen, earnings.estimatedEarningsYen)
+                : ''}
+            </p>
 
             <Modal
               open={selectedDate !== null}
               onClose={() => setSelectedDate(null)}
               title={selectedDate ?? ''}
             >
-              {selectedAssignment ? (
-                <div style={{ display: 'grid', gap: 0, marginBottom: canRequestExchange ? 12 : 0 }}>
-                  {[
-                    [
-                      t('shiftLabel'),
-                      (() => {
-                        const st = shiftTypeById.get(selectedAssignment.shiftTypeId ?? '');
-                        return st ? shiftTypeDisplayLabel(st) : 'Custom';
-                      })(),
-                    ],
-                    [t('timeLabel'), `${utcIsoToLocalDateTime(selectedAssignment.startsAt, timeZone).localTime} - ${utcIsoToLocalDateTime(selectedAssignment.endsAt, timeZone).localTime}`],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${colors.border}` }}>
-                      <span style={mutedText}>{label}</span>
-                      <strong style={{ color: colors.textPrimary }}>{value}</strong>
+              {selectedDate && isFutureOwnShift && selectedAssignment ? (
+                <>
+                  <div style={{ display: 'grid', gap: 0, marginBottom: 12 }}>
+                    {[
+                      [t('shiftLabel'), shiftLabelFor(selectedAssignment)],
+                      [
+                        t('timeLabel'),
+                        `${utcIsoToLocalDateTime(selectedAssignment.startsAt, timeZone).localTime} - ${utcIsoToLocalDateTime(selectedAssignment.endsAt, timeZone).localTime}`,
+                      ],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${colors.border}` }}>
+                        <span style={mutedText}>{label}</span>
+                        <strong style={{ color: colors.textPrimary }}>{value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {canRequestExchange ? (
+                    <div style={{ paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                      <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{t('requestChangeHeading')}</p>
+                      <ShiftExchangeRequestForm
+                        shiftId={selectedAssignment.assignmentId}
+                        shiftTypes={shiftTypes}
+                        lang={lang}
+                        onSuccess={() => {
+                          setSelectedDate(null);
+                          handleFormSuccess(t('exchangeSubmitted'));
+                        }}
+                      />
                     </div>
-                  ))}
-                </div>
-              ) : selectedAttendance ? (
-                <div style={{ display: 'grid', gap: 0 }}>
-                  {[
-                    [t('clockInLabel'), selectedAttendance.clockIn ? utcIsoToLocalDateTime(selectedAttendance.clockIn, timeZone).localTime : '-'],
-                    [t('clockOutLabel'), selectedAttendance.clockOut ? utcIsoToLocalDateTime(selectedAttendance.clockOut, timeZone).localTime : '-'],
-                    [t('transportationLabel'), selectedAttendance.transportationCost == null ? '-' : `¥${selectedAttendance.transportationCost}`],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${colors.border}` }}>
-                      <span style={mutedText}>{label}</span>
-                      <strong style={{ color: colors.textPrimary }}>{value}</strong>
+                  ) : existingExchangeForSelected ? (
+                    <p style={{ ...mutedText, fontSize: 13 }}>{existingExchangeMessage[lang](existingExchangeForSelected.status)}</p>
+                  ) : null}
+                </>
+              ) : selectedDate && (selectedAssignment || selectedAttendance) ? (
+                <>
+                  <div style={{ display: 'grid', gap: 0 }}>
+                    {(
+                      [
+                        [t('plannedShiftLabel'), selectedAssignment ? `${shiftLabelFor(selectedAssignment)} (${utcIsoToLocalDateTime(selectedAssignment.startsAt, timeZone).localTime}-${utcIsoToLocalDateTime(selectedAssignment.endsAt, timeZone).localTime})` : '—'],
+                        [t('clockInLabel'), selectedAttendance?.clockIn ? utcIsoToLocalDateTime(selectedAttendance.clockIn, timeZone).localTime : '—'],
+                        [t('actualBreakLabel'), selectedAttendance ? `${selectedAttendance.actualBreakMinutes}${t('workStatusMinutesSuffix')}` : '—'],
+                        [t('clockOutLabel'), selectedAttendance?.clockOut ? utcIsoToLocalDateTime(selectedAttendance.clockOut, timeZone).localTime : '—'],
+                        ...(selectedAttendance?.transportationCost != null
+                          ? [[t('transportationLabel'), `¥${selectedAttendance.transportationCost}`] as [string, string]]
+                          : []),
+                      ] as [string, string][]
+                    ).map(([label, value]) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${colors.border}` }}>
+                        <span style={mutedText}>{label}</span>
+                        <strong style={{ color: colors.textPrimary }}>{value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedDateCorrection ? (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{t('correctionRequestStatusHeading')}</span>
+                        <span style={correctionStatusBadgeStyle(selectedDateCorrection.status)}>
+                          {correctionStatusLabel(selectedDateCorrection.status, lang)}
+                        </span>
+                      </div>
+                      <p style={{ margin: '6px 0 0', fontSize: 13, ...mutedText }}>
+                        {t('correctionRequestedChangeLabel')}: {formatRequestedCorrectionChange(selectedDateCorrection.details, lang)}
+                      </p>
+                      {typeof selectedDateCorrection.details.message === 'string' && selectedDateCorrection.details.message ? (
+                        <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>
+                          {t('correctionMessageLabel')}: {selectedDateCorrection.details.message}
+                        </p>
+                      ) : null}
                     </div>
-                  ))}
-                </div>
+                  ) : showCorrectionForm ? (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                      <CorrectionRequestForm
+                        attendanceOptions={selectedDateAttendanceOptions}
+                        defaultWorkDate={selectedDate}
+                        timeZone={timeZone}
+                        lang={lang}
+                        onSuccess={() => {
+                          setSelectedDate(null);
+                          handleFormSuccess(t('correctionRequestSubmitted'));
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      style={{ ...buttonSecondary, marginTop: 12 }}
+                      onClick={() => setShowCorrectionForm(true)}
+                    >
+                      {t('requestCorrectionButton')}
+                    </button>
+                  )}
+                </>
               ) : (
                 <p style={mutedText}>{t('noShiftOrReport')}</p>
               )}
-              {canRequestExchange && selectedAssignment ? (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-                  <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{t('requestChangeHeading')}</p>
-                  <ShiftExchangeRequestForm
-                    shiftId={selectedAssignment.assignmentId}
-                    lang={lang}
-                    onSuccess={() => {
-                      setSelectedDate(null);
-                      handleFormSuccess(t('exchangeSubmitted'));
-                    }}
-                  />
-                </div>
-              ) : existingExchangeForSelected ? (
-                <p style={{ marginTop: 12, ...mutedText, fontSize: 13 }}>
-                  {existingExchangeMessage[lang](existingExchangeForSelected.status)}
-                </p>
-              ) : null}
             </Modal>
           </>
         )}

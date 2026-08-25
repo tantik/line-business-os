@@ -39,7 +39,9 @@ interface StaffDashboardDict {
   inventoryNotEnabled: string;
   requestTypeLabel: string;
   optionExchange: string;
+  optionChange: string;
   optionCancel: string;
+  requestedShiftTypeLabel: string;
   reasonLabel: string;
   submit: string;
   submitting: string;
@@ -87,6 +89,11 @@ interface StaffDashboardDict {
   myCorrectionsUnavailable: string;
   myCorrectionsEmpty: string;
   relatedWorkReportColumnLabel: string;
+  plannedShiftLabel: string;
+  requestCorrectionButton: string;
+  correctionRequestStatusHeading: string;
+  correctionRequestedChangeLabel: string;
+  attentionIndicatorLegend: string;
   shiftPreferenceSubmitted: string;
   workReportSubmitted: string;
   correctionRequestSubmitted: string;
@@ -166,7 +173,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     inventoryNotEnabled: 'Inventory (not enabled)',
     requestTypeLabel: 'Request type',
     optionExchange: 'Offer for exchange',
+    optionChange: 'Request a different shift type',
     optionCancel: 'Request cancellation',
+    requestedShiftTypeLabel: 'New shift type',
     reasonLabel: 'Reason',
     submit: 'Submit request',
     submitting: 'Submitting...',
@@ -212,6 +221,11 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     myCorrectionsUnavailable: 'Your correction requests are temporarily unavailable.',
     myCorrectionsEmpty: 'No correction requests submitted for this week yet.',
     relatedWorkReportColumnLabel: 'Related work report',
+    plannedShiftLabel: 'Planned shift',
+    requestCorrectionButton: 'Request a correction',
+    correctionRequestStatusHeading: 'Correction request for this date',
+    correctionRequestedChangeLabel: 'Requested change',
+    attentionIndicatorLegend: '! = a correction or exchange request on that shift is waiting for a manager decision. Tap the shift for details.',
     shiftPreferenceSubmitted: 'Shift preference submitted.',
     workReportSubmitted: 'Work report submitted.',
     correctionRequestSubmitted: 'Correction request submitted.',
@@ -285,7 +299,9 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     inventoryNotEnabled: '在庫（未有効）',
     requestTypeLabel: '申請種別',
     optionExchange: '交換希望',
+    optionChange: '別のシフト種別を希望',
     optionCancel: 'キャンセル希望',
+    requestedShiftTypeLabel: '新しいシフト種別',
     reasonLabel: '理由',
     submit: '申請を送信',
     submitting: '送信中...',
@@ -330,6 +346,11 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     myCorrectionsUnavailable: '修正依頼は一時的に利用できません。',
     myCorrectionsEmpty: '今週はまだ修正依頼が提出されていません。',
     relatedWorkReportColumnLabel: '関連する勤務報告',
+    plannedShiftLabel: '予定シフト',
+    requestCorrectionButton: '修正を依頼',
+    correctionRequestStatusHeading: 'この日の修正依頼',
+    correctionRequestedChangeLabel: '希望する変更内容',
+    attentionIndicatorLegend: '! = そのシフトの修正依頼・交換リクエストがマネージャーの判断待ちです。シフトをタップすると詳細が見られます。',
     shiftPreferenceSubmitted: 'シフト希望を送信しました。',
     workReportSubmitted: '勤務報告を送信しました。',
     correctionRequestSubmitted: '修正依頼を送信しました。',
@@ -392,6 +413,38 @@ export const scheduledThisWeekValue: Record<Lang, (hours: string) => string> = {
 export const inventoryShortageLabel: Record<Lang, (count: number) => string> = {
   en: (count) => `${count} item(s) need restocking`,
   ja: (count) => `${count}件の商品が要補充です`,
+};
+
+/**
+ * Display-only fallback for a shift a staff member is assigned to when it
+ * doesn't resolve to a known shift type at all (not merely "custom" -- see
+ * `shiftTypeDisplayLabel`'s own `labelJa || labelEn || time-range` chain for
+ * that case; this is the one further-out case where `shiftTypeId` itself
+ * doesn't resolve). Never the literal English word "Custom" -- always the
+ * shift's own local start/end time, i18n-safe in both languages (Staff Shift
+ * Schedule v2, 2026-08-25).
+ */
+export const customShiftTimeRangeLabel: Record<Lang, (startTime: string, endTime: string) => string> = {
+  en: (startTime, endTime) => `Custom (${startTime}-${endTime})`,
+  ja: (startTime, endTime) => `カスタム (${startTime}-${endTime})`,
+};
+
+/** "Worked this month: {hours}h" -- the always-present half of the earnings summary line (Staff Shift Schedule v2). */
+export const earningsWorkedHoursValue: Record<Lang, (hours: string) => string> = {
+  en: (hours) => `Worked this month: ${hours}h`,
+  ja: (hours) => `今月の勤務時間: ${hours}h`,
+};
+
+/**
+ * Appended after `earningsWorkedHoursValue` only when an hourly wage is
+ * actually on file -- never fabricated. Locale pinned to 'ja-JP' (not the
+ * bare, environment-dependent `toLocaleString()`) to match the identical
+ * yen-formatting convention already used for this value elsewhere
+ * (`preview-staff-schedule.tsx`, `preview-shift-grid.tsx`).
+ */
+export const earningsEstimatedSuffix: Record<Lang, (hourlyWageYen: number, estimatedYen: number) => string> = {
+  en: (hourlyWageYen, estimatedYen) => ` · ¥${hourlyWageYen.toLocaleString('ja-JP')}/h · Est. ¥${estimatedYen.toLocaleString('ja-JP')}`,
+  ja: (hourlyWageYen, estimatedYen) => ` ・ 時給¥${hourlyWageYen.toLocaleString('ja-JP')} ・ 推定¥${estimatedYen.toLocaleString('ja-JP')}`,
 };
 
 export const existingExchangeMessage: Record<Lang, (status: string) => string> = {

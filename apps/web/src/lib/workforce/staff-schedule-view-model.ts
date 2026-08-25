@@ -56,6 +56,13 @@ export interface StaffScheduleLabels {
  * the earlier "coworker names are PII-hidden from Staff" assumption this
  * function used to encode). A missing entry falls back to the synthesized
  * `colleaguePrefix` label rather than failing.
+ *
+ * The caller's own row (`ownStaffId`) resolves through `nameById` exactly
+ * like every other row -- Staff Shift Schedule v2 (2026-08-25 Founder ТЗ):
+ * a real employee's own row must show their own real name, never the
+ * literal "Me"/"自分", even in their own row. `labels.me` is kept as the
+ * defensive fallback only for the rare case `nameById` has no entry for the
+ * caller (e.g. the roster read itself failed) -- never the first choice.
  */
 export function buildStaffScheduleRoster(
   windowAssignments: readonly WorkforceShiftAssignment[],
@@ -76,7 +83,7 @@ export function buildStaffScheduleRoster(
   let colleagueNumber = 0;
   return employeeIds.map((id) => ({
     id,
-    name: id === ownStaffId ? labels.me : nameById[id] ?? `${labels.colleaguePrefix} ${++colleagueNumber}`,
+    name: nameById[id] ?? (id === ownStaffId ? labels.me : `${labels.colleaguePrefix} ${++colleagueNumber}`),
     role: 'staff' as const,
   }));
 }
