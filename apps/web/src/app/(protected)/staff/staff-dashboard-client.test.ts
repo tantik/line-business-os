@@ -67,3 +67,37 @@ test('the earnings block calls the real estimatedEarningsSummary with the caller
   assert.match(SOURCE, /estimatedEarningsSummary\(attendance \?\? \[\], todayIso\.slice\(0, 7\), profile\.hourlyWageYen\)/, 'must call the shared, untouched earnings function with real data');
   assert.match(SOURCE, /earnings\.hourlyWageYen !== null && earnings\.estimatedEarningsYen !== null/, 'must gate the estimate line on a real, non-null wage rather than fabricating one');
 });
+
+/**
+ * Founder Preview QA (2026-08-25) fix-up regression guards: week navigation
+ * must be a pure client-side filter, never a full page reload/navigation
+ * (bugs #2/#4/#6), and the schedule heading must never wrap across two
+ * lines at 375px (bug #3, addressed via the short MM/DD date form). Same
+ * source-text convention as the guards above -- no DOM/React harness.
+ */
+
+test('week navigation is a pure client-side filter -- no <Link href="/staff?weekOffset=..."> and no router.push/router.refresh tied to week switching', () => {
+  assert.doesNotMatch(SOURCE, /<Link\s+href=\{`\/staff\?weekOffset=/, 'Prev/Next must not be real navigation links');
+  assert.doesNotMatch(SOURCE, /<Link\s+href="\/staff"/, 'This week must not be a real navigation link');
+  assert.match(SOURCE, /function navigateToWeek\(targetOffset: number\)/, 'must define the client-side week-switch helper');
+  assert.match(SOURCE, /window\.history\.replaceState\(null, '', weekHref\(targetOffset\)\)/, 'must update the URL via history.replaceState only, never a real navigation');
+  const fnStart = SOURCE.indexOf('function navigateToWeek(targetOffset: number) {');
+  const fnEnd = SOURCE.indexOf('weekHref(targetOffset));', fnStart);
+  const fnBody = SOURCE.slice(fnStart, fnEnd);
+  // Excludes backtick-quoted mentions inside doc comments (e.g. "no
+  // `router.push`/`router.refresh()`") -- only flags an actual call.
+  assert.doesNotMatch(fnBody, /(?<!`)router\.(push|refresh)\(/, 'navigateToWeek must never actually call router.push/router.refresh (real code, not the surrounding doc comments)');
+});
+
+test('the displayed week (dates, poll target, weekly-hours filter) is driven by activeWeekOffset/activePeriodStart/activePeriodEnd, not the raw server props', () => {
+  assert.match(SOURCE, /const \[activeWeekOffset, setActiveWeekOffset\] = useState\(weekOffset\)/, 'must seed client week state from the server weekOffset prop');
+  assert.match(SOURCE, /dateRange\(activePeriodStart, activePeriodEnd\)/, 'the displayed dates must come from the active period, not the server-seeded one');
+  assert.match(SOURCE, /getMyScheduleWeek\(activeWeekOffset\)/, 'the background poll must target the currently displayed week');
+  assert.match(SOURCE, /entry\.workDate >= activePeriodStart && entry\.workDate <= activePeriodEnd/, 'the weekly-hours summary must filter by the active period');
+});
+
+test('the schedule heading uses the short MM/DD date form and never wraps mid-content', () => {
+  assert.match(SOURCE, /shortDate\(activePeriodStart\)/, 'the heading must use the short date form for periodStart');
+  assert.match(SOURCE, /shortDate\(activePeriodEnd\)/, 'the heading must use the short date form for periodEnd');
+  assert.match(SOURCE, /<h2 style=\{\{ margin: 0, fontSize: 16, whiteSpace: 'nowrap' \}\}>/, 'the heading must never wrap across two lines');
+});

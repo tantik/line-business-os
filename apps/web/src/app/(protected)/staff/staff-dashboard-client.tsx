@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -13,7 +12,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
-import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { getMyScheduleWeek } from '@/lib/workforce/schedule-actions';
 import {
   buildStaffScheduleRoster,
@@ -58,9 +57,31 @@ import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
+import hoverStyles from '@/lib/ui/theme.module.css';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
+
+/**
+ * Founder Preview QA (2026-08-25, Staff Shift Schedule v2 fix-up): matches
+ * `page.tsx`'s own `MAX_WEEK_OFFSET` sanity cap (not exported there, so
+ * mirrored here -- keep in sync with `page.tsx`'s `parseWeekOffset`). Prev/
+ * This week/Next used to be `<Link href="/staff?weekOffset=...">` -- a full
+ * server navigation that re-ran this page's entire data batch just to move
+ * one week, which was slow and visibly "jumped" (Founder bugs #4/#6).
+ * Follows the exact pattern already shipped and Founder-approved on
+ * `/manager` (`manager-dashboard-client.tsx`, "Round 3" week-navigation
+ * performance fix): a pure client-side `activeWeekOffset` filter over the
+ * already-preloaded assignment window, `window.history.replaceState` only,
+ * never `router.push`/`router.refresh()`.
+ */
+const MIN_WEEK_OFFSET = -8;
+const MAX_WEEK_OFFSET = 8;
+
+/** Short `MM/DD` form of an ISO date, used only in the schedule heading (Founder Preview QA, 2026-08-25: the full ISO range wrapped the heading onto two lines at 375px in English). Every other date on this page keeps the full ISO string. */
+function shortDate(iso: string): string {
+  return iso.slice(5).replace('-', '/');
+}
 
 function dateRange(periodStart: string, periodEnd: string): string[] {
   const dates: string[] = [];
@@ -212,6 +233,35 @@ function StaffDashboardBody({
   // switches `ShiftTable`'s existing (previously unused) `compact` prop.
   const isCompactSchedule = useIsCompactSchedule();
 
+  // Client-side week navigation (Founder Preview QA, 2026-08-25) -- see
+  // `MIN_WEEK_OFFSET`/`MAX_WEEK_OFFSET`'s doc comment above. `weekOffset`/
+  // `periodStart`/`periodEnd` remain the server-seeded fallback/initial
+  // values; everything actually displayed below reads `activeWeekOffset`/
+  // `activePeriodStart`/`activePeriodEnd` instead.
+  const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
+  const activePeriodStart = useMemo(
+    () => addIsoDays(periodStart, (activeWeekOffset - weekOffset) * 7),
+    [periodStart, activeWeekOffset, weekOffset],
+  );
+  const activePeriodEnd = useMemo(
+    () => addIsoDays(periodEnd, (activeWeekOffset - weekOffset) * 7),
+    [periodEnd, activeWeekOffset, weekOffset],
+  );
+
+  function weekHref(targetOffset: number) {
+    return targetOffset === 0 ? '/staff' : `/staff?weekOffset=${targetOffset}`;
+  }
+
+  function navigateToWeek(targetOffset: number) {
+    if (targetOffset === activeWeekOffset || targetOffset < MIN_WEEK_OFFSET || targetOffset > MAX_WEEK_OFFSET) return;
+    // Pure client-side date-range filter over the already-preloaded
+    // `windowAssignments` window below -- no Server Action call, no
+    // `router.push`/`router.refresh()` (which would re-run this whole
+    // page's data batch and reset scroll).
+    setActiveWeekOffset(targetOffset);
+    window.history.replaceState(null, '', weekHref(targetOffset));
+  }
+
   // Reset the "Request a correction" sub-form whenever a different date is
   // opened (or the modal closes) -- otherwise it could stay expanded across
   // dates that already have their own correction/no correction state.
@@ -250,7 +300,7 @@ function StaffDashboardBody({
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const result = await getMyScheduleWeek(weekOffset);
+        const result = await getMyScheduleWeek(activeWeekOffset);
         if (cancelled || result.status !== 'success') return;
         const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
         setWindowAssignments((prev) => [
@@ -266,9 +316,9 @@ function StaffDashboardBody({
       cancelled = true;
       clearInterval(id);
     };
-  }, [weekOffset, timeZone, assignments]);
+  }, [activeWeekOffset, timeZone, assignments]);
 
-  const dates = useMemo(() => dateRange(periodStart, periodEnd), [periodStart, periodEnd]);
+  const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
 
   const staffList = useMemo(
     () =>
@@ -357,9 +407,9 @@ function StaffDashboardBody({
         const end = utcIsoToLocalDateTime(a.endsAt, timeZone);
         return { assignment: a, workDate: start.workDate, startsAtLocal: start.localTime, endsAtLocal: end.localTime };
       })
-      .filter((entry) => entry.workDate >= periodStart && entry.workDate <= periodEnd)
+      .filter((entry) => entry.workDate >= activePeriodStart && entry.workDate <= activePeriodEnd)
       .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.startsAtLocal.localeCompare(b.startsAtLocal));
-  }, [windowAssignments, profile.staffId, timeZone, periodStart, periodEnd]);
+  }, [windowAssignments, profile.staffId, timeZone, activePeriodStart, activePeriodEnd]);
 
   const todayIso = useMemo(() => todayIsoInTimeZone(timeZone), [timeZone]);
 
@@ -499,25 +549,48 @@ function StaffDashboardBody({
       <section style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>
-              {t('scheduleHeading')} ({periodStart} - {periodEnd})
+            <h2 style={{ margin: 0, fontSize: 16, whiteSpace: 'nowrap' }}>
+              {t('scheduleHeading')} ({shortDate(activePeriodStart)} - {shortDate(activePeriodEnd)})
             </h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Link href={`/staff?weekOffset=${weekOffset - 1}`} style={buttonSecondary}>
-              {t('prevWeek')}
-            </Link>
-            <Link
-              href="/staff"
-              style={weekOffset === 0 ? buttonDisabled : buttonSecondary}
-              aria-disabled={weekOffset === 0}
+          {/* Compact icon navigator, matching Manager's own Round 2/3
+              (2026-08-22) redesign: plain `<button onClick>` (never
+              `<Link href>`) driving the pure client-side `navigateToWeek`
+              week switch above, no full page reload/jump (Founder Preview
+              QA, 2026-08-25, bugs #2/#4/#6). Real words stay in
+              `aria-label`/`title` since the visible glyph is just `‹`/`›`. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              type="button"
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              aria-label={t('prevWeek')}
+              title={t('prevWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset - 1)}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '8px 14px' }}
+              className={activeWeekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
+              aria-disabled={activeWeekOffset === 0}
+              disabled={activeWeekOffset === 0}
+              onClick={() => navigateToWeek(0)}
             >
               {t('thisWeek')}
-            </Link>
-            <Link href={`/staff?weekOffset=${weekOffset + 1}`} style={buttonSecondary}>
-              {t('nextWeek')}
-            </Link>
+            </button>
+            <button
+              type="button"
+              className={hoverStyles.buttonSecondary}
+              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              aria-label={t('nextWeek')}
+              title={t('nextWeek')}
+              onClick={() => navigateToWeek(activeWeekOffset + 1)}
+            >
+              ›
+            </button>
           </div>
         </div>
         {assignments === null ? (
@@ -546,7 +619,7 @@ function StaffDashboardBody({
               />
             </div>
             <div style={{ marginTop: 10 }}>
-              <ShiftLegend shiftTypes={displayShiftTypes} lang={lang} />
+              <ShiftLegend shiftTypes={displayShiftTypes} lang={lang} numbered={isCompactSchedule} />
             </div>
             {/* Worked this month / hourly wage / estimated earnings -- gracefully omits the wage/estimate portion (never fabricates one) when no hourly wage is on file. */}
             <p style={{ margin: '8px 0 0', fontSize: 11, ...mutedText }}>
