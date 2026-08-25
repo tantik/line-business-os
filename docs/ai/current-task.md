@@ -256,7 +256,39 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-24 pointer #5 (newest — read this one first).** A full,
+**2026-08-25 pointer (newest — read this one first).** A full,
+same-day session rebuilt the real (protected) Staff page's **Shift
+Schedule module** (Staff Shift Schedule v2 mission): compact Mon–Sun
+weekly grid at every viewport, real names (never "Me"), Planned-vs-Actual
+attendance strictly separated in a new Shift Details view, the existing
+but previously-unwired Correction Request and Shift Exchange/Change/Cancel
+workflows wired into the real page, worked-hours/earnings summary, plus
+four rounds of Founder live-Preview-QA fixes (button sizing/full-width
+layout, client-side week navigation matching Manager's own earlier fix,
+swipe-to-change-week, custom-shift display, the "!" attention indicator).
+**2 PRs merged to `dev` (#438, #439)**, no DB migration/RLS/schema change
+(explicitly out of scope per Founder decision), 1245 tests passing. An
+independent fresh-context review ran before #438 merged and found real
+issues (an accessibility regression, a locale bug) that were fixed before
+merge. Full state, the exact fix-by-fix QA history, and explicitly
+deferred items (header Manager-decision unread badge — needs new
+persisted read-state with no column to reuse; Transport intentionally
+excluded from the Correction workflow) are in
+`docs/ai/CAFE_STAFF_SHIFT_SCHEDULE_V2_HANDOFF_2026-08-25.md` — read that
+file first if anything about the Staff Shift Schedule, week-navigation, or
+the shared `ShiftTable`/`ShiftLegend`/`CorrectionRequestForm`/
+`ShiftExchangeRequestForm` components comes up. **The Founder is doing
+further live click-through QA of this module himself as of this entry —
+do not assume that thread is closed.** Founder-stated next step after
+Staff QA concludes: a short, bounded combined Manager+Staff pass
+(cross-module navigation, real workday scenarios, mobile, error/loading
+states, JA copy, no obvious UX gaps) with the explicit goal of a finished
+Cafe, not open-ended new features — see the handoff §3 for the exact
+wording and a constraint note (this pass fundamentally needs live browser
+QA; no browser-automation tool was available this session, so the workflow
+was Founder-screenshot-driven throughout).
+
+**2026-08-24 pointer #5 (read after the one above).** A full,
 same-day, single-session build of the **Purchases module** (INSPECT+PLAN,
 Founder approval, then DB-schema-through-UI implementation) closed the
 placeholder button the pointer #4 session below had left in place. Purchases
