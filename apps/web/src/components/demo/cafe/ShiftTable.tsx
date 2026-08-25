@@ -29,9 +29,9 @@ interface ShiftTableProps {
   attentionCellKeys?: Set<string>;
 }
 
-const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; shortageTooltip: string; correctionTooltip: string; messageTooltip: string }> = {
-  ja: { staffColumn: 'スタッフ', managerRole: '店長', shortageTooltip: '人手不足の可能性があります', correctionTooltip: '修正依頼あり', messageTooltip: 'メッセージあり' },
-  en: { staffColumn: 'Staff', managerRole: 'Manager', shortageTooltip: 'Possible staffing shortage', correctionTooltip: 'Correction requested', messageTooltip: 'Message' },
+const CHROME_LABELS: Record<Lang, { staffColumn: string; managerRole: string; shortageTooltip: string; correctionTooltip: string; messageTooltip: string; customBadge: string }> = {
+  ja: { staffColumn: 'スタッフ', managerRole: '店長', shortageTooltip: '人手不足の可能性があります', correctionTooltip: '修正依頼あり', messageTooltip: 'メッセージあり', customBadge: 'カス' },
+  en: { staffColumn: 'Staff', managerRole: 'Manager', shortageTooltip: 'Possible staffing shortage', correctionTooltip: 'Correction requested', messageTooltip: 'Message', customBadge: 'Cus' },
 };
 
 /**
@@ -84,14 +84,6 @@ export const ShiftTable = memo(function ShiftTable({
   // `numbered` mode uses (both index the same `shiftTypes` array passed in
   // by the caller), so cell "3" and legend "[3]" always agree.
   const shiftTypeIndexById = new Map(shiftTypes.map((type, index) => [type.id, index + 1]));
-  // Drops a trailing ":00" (e.g. "13:00" -> "13") for the compact custom-shift
-  // fallback below -- a known shift type gets a short numeric badge, but a
-  // genuinely custom/unresolved shift has no type to number, so its own
-  // start-end time is the only honest label; this at least keeps it from
-  // overflowing a ~40px mobile cell the way the full "13:00-18:00" did
-  // (Founder Preview QA, 2026-08-25, follow-up on bug #1).
-  const shortCompactTime = (time: string) => (time.endsWith(':00') ? time.slice(0, -3) : time);
-
   function isCellClickable(staffId: string, date: string): boolean {
     if (!onCellClick) return false;
     if (mode === 'manager') return true;
@@ -225,15 +217,24 @@ export const ShiftTable = memo(function ShiftTable({
                   // real time on the assignment itself -- show that instead of a blank dash,
                   // rather than silently dropping a shift that already counts toward scheduled
                   // hours (Cafe v2.1 QA audit P1-6, 2026-08-17).
+                  const customTimeRange =
+                    assignment?.startTime && assignment?.endTime ? `${assignment.startTime}-${assignment.endTime}` : null;
+                  // A custom/unresolved shift has no type to give it a short numeric badge --
+                  // showing its raw time ("13:00-18:00", even shortened to "13-18") still read
+                  // as visual noise next to the clean numbered badges (Founder Preview QA,
+                  // 2026-08-25, round 3). `customBadge` ("Cus"/"カス") flags it as custom at a
+                  // glance in compact mode; the real time stays available via `title` (hover) and,
+                  // for the caller's own shift, the tap-through Shift Details/Request view.
                   const cellLabel = shiftType
                     ? compact
                       ? String(shiftTypeIndexById.get(shiftType.id) ?? shiftType.label)
                       : shiftType.label
-                    : assignment?.startTime && assignment?.endTime
+                    : customTimeRange
                       ? compact
-                        ? `${shortCompactTime(assignment.startTime)}-${shortCompactTime(assignment.endTime)}`
-                        : `${assignment.startTime}-${assignment.endTime}`
+                        ? labels.customBadge
+                        : customTimeRange
                       : '－';
+                  const cellTitle = !shiftType && compact ? (customTimeRange ?? undefined) : undefined;
                   const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
@@ -245,7 +246,11 @@ export const ShiftTable = memo(function ShiftTable({
                   const isSelected = selectedCell?.staffId === staff.id && selectedCell.date === date;
                   const isPastStaffCell = mode === 'staff' && date < todayIso;
 
-                  const cellContent = <span style={shiftChipStyle(chip.background, chip.color, compact)}>{cellLabel}</span>;
+                  const cellContent = (
+                    <span title={cellTitle} style={shiftChipStyle(chip.background, chip.color, compact)}>
+                      {cellLabel}
+                    </span>
+                  );
 
                   return (
                     <td

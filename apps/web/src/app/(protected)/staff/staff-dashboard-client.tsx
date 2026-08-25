@@ -649,6 +649,13 @@ function StaffDashboardBody({
             <div style={{ marginTop: 10 }}>
               <ShiftLegend shiftTypes={displayShiftTypes} lang={lang} numbered={isCompactSchedule} />
             </div>
+            {/* Only shown when at least one cell actually carries "!" this week -- explains what
+                it means (a pending correction/exchange request on that shift, tap to see it)
+                instead of leaving it to a `title` tooltip that never appears on a touch device
+                (Founder Preview QA, 2026-08-25, round 3). */}
+            {attentionCellKeys.size > 0 ? (
+              <p style={{ margin: '6px 0 0', fontSize: 11, ...mutedText }}>{t('attentionIndicatorLegend')}</p>
+            ) : null}
             {/* Worked this month / hourly wage / estimated earnings -- gracefully omits the wage/estimate portion (never fabricates one) when no hourly wage is on file. */}
             <p style={{ margin: '8px 0 0', fontSize: 11, ...mutedText }}>
               {earningsWorkedHoursValue[lang](earnings.workedHours.toFixed(1))}

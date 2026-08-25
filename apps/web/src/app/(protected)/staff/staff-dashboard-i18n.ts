@@ -93,6 +93,7 @@ interface StaffDashboardDict {
   requestCorrectionButton: string;
   correctionRequestStatusHeading: string;
   correctionRequestedChangeLabel: string;
+  attentionIndicatorLegend: string;
   shiftPreferenceSubmitted: string;
   workReportSubmitted: string;
   correctionRequestSubmitted: string;
@@ -224,6 +225,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     requestCorrectionButton: 'Request a correction',
     correctionRequestStatusHeading: 'Correction request for this date',
     correctionRequestedChangeLabel: 'Requested change',
+    attentionIndicatorLegend: '! = a correction or exchange request on that shift is waiting for a manager decision. Tap the shift for details.',
     shiftPreferenceSubmitted: 'Shift preference submitted.',
     workReportSubmitted: 'Work report submitted.',
     correctionRequestSubmitted: 'Correction request submitted.',
@@ -348,6 +350,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     requestCorrectionButton: '修正を依頼',
     correctionRequestStatusHeading: 'この日の修正依頼',
     correctionRequestedChangeLabel: '希望する変更内容',
+    attentionIndicatorLegend: '! = そのシフトの修正依頼・交換リクエストがマネージャーの判断待ちです。シフトをタップすると詳細が見られます。',
     shiftPreferenceSubmitted: 'シフト希望を送信しました。',
     workReportSubmitted: '勤務報告を送信しました。',
     correctionRequestSubmitted: '修正依頼を送信しました。',

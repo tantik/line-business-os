@@ -46,6 +46,7 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'correctionMessageLabel', 'submitCorrectionRequest', 'correctionRequestSubmitted',
   'myCorrectionsHeading', 'myCorrectionsUnavailable', 'myCorrectionsEmpty', 'relatedWorkReportColumnLabel',
   'plannedShiftLabel', 'requestCorrectionButton', 'correctionRequestStatusHeading', 'correctionRequestedChangeLabel',
+  'attentionIndicatorLegend',
   'navPurchases', 'preferenceModalTitle',
   'workStatusHelpAriaLabel', 'workStatusHelpBody', 'scheduleHelpAriaLabel', 'scheduleHelpBody',
   'transportHelpAriaLabel', 'transportHelpBody', 'transportPlaceholder',
