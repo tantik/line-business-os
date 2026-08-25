@@ -582,17 +582,22 @@ function StaffDashboardBody({
             </h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
-          {/* Compact icon navigator, matching Manager's own Round 2/3
-              (2026-08-22) redesign: plain `<button onClick>` (never
-              `<Link href>`) driving the pure client-side `navigateToWeek`
-              week switch above, no full page reload/jump (Founder Preview
-              QA, 2026-08-25, bugs #2/#4/#6). Real words stay in
+          {/* Founder Preview QA (2026-08-25, round 4): the icon navigator
+              from Round 2/3 read as small/secondary next to the full-width
+              Recipes/Inventory/Purchases row above it -- these three buttons
+              now share the row equally (`flex: 1`, same pattern
+              `EntryPointsCard` already uses), stretched to `width: '100%'`
+              so they take their own full-width line under the heading
+              instead of clustering to one side with empty space beside
+              them. Plain `<button onClick>` (never `<Link href>`) still
+              drives the pure client-side `navigateToWeek` week switch, no
+              full page reload/jump (bugs #2/#4/#6). Real words stay in
               `aria-label`/`title` since the visible glyph is just `‹`/`›`. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box' }}>
             <button
               type="button"
               className={hoverStyles.buttonSecondary}
-              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
+              style={{ ...buttonSecondary, flex: 1, boxSizing: 'border-box', height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, lineHeight: 1 }}
               aria-label={t('prevWeek')}
               title={t('prevWeek')}
               onClick={() => navigateToWeek(activeWeekOffset - 1)}
@@ -601,7 +606,16 @@ function StaffDashboardBody({
             </button>
             <button
               type="button"
-              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), minHeight: 44, padding: '10px 16px' }}
+              style={{
+                ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary),
+                flex: 2,
+                boxSizing: 'border-box',
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+              }}
               className={activeWeekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
               aria-disabled={activeWeekOffset === 0}
               disabled={activeWeekOffset === 0}
@@ -612,7 +626,7 @@ function StaffDashboardBody({
             <button
               type="button"
               className={hoverStyles.buttonSecondary}
-              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
+              style={{ ...buttonSecondary, flex: 1, boxSizing: 'border-box', height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, lineHeight: 1 }}
               aria-label={t('nextWeek')}
               title={t('nextWeek')}
               onClick={() => navigateToWeek(activeWeekOffset + 1)}
