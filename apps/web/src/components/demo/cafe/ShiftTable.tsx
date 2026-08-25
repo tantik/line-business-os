@@ -84,14 +84,29 @@ export const ShiftTable = memo(function ShiftTable({
   // `numbered` mode uses (both index the same `shiftTypes` array passed in
   // by the caller), so cell "3" and legend "[3]" always agree.
   const shiftTypeIndexById = new Map(shiftTypes.map((type, index) => [type.id, index + 1]));
+  // Drops a trailing ":00" (e.g. "13:00" -> "13") for the compact custom-shift
+  // fallback below -- a known shift type gets a short numeric badge, but a
+  // genuinely custom/unresolved shift has no type to number, so its own
+  // start-end time is the only honest label; this at least keeps it from
+  // overflowing a ~40px mobile cell the way the full "13:00-18:00" did
+  // (Founder Preview QA, 2026-08-25, follow-up on bug #1).
+  const shortCompactTime = (time: string) => (time.endsWith(':00') ? time.slice(0, -3) : time);
 
   function isCellClickable(staffId: string, date: string): boolean {
     if (!onCellClick) return false;
     if (mode === 'manager') return true;
     if (staffId !== currentStaffId) return false;
     if (date < todayIso) return true;
-    // Today's own cell only opens a report once one actually exists (e.g. after saving today's message) — otherwise there is nothing to show.
-    if (date === todayIso) return reportMap.has(`${staffId}:${date}`);
+    // Today's own cell opens once a report exists (e.g. after saving today's
+    // message), OR the cell already carries the "!" attention indicator
+    // (a pending correction/exchange request dated today) -- otherwise a
+    // staff member could see "!" on today with no way to tap it to find out
+    // what it means (Founder Preview QA, 2026-08-25, bug #3). Bare "there's
+    // a shift today" alone still doesn't open it -- unchanged from before.
+    if (date === todayIso) {
+      const key = `${staffId}:${date}`;
+      return reportMap.has(key) || Boolean(attentionCellKeys?.has(key));
+    }
     return assignmentMap.has(`${staffId}:${date}`);
   }
 
@@ -215,7 +230,9 @@ export const ShiftTable = memo(function ShiftTable({
                       ? String(shiftTypeIndexById.get(shiftType.id) ?? shiftType.label)
                       : shiftType.label
                     : assignment?.startTime && assignment?.endTime
-                      ? `${assignment.startTime}-${assignment.endTime}`
+                      ? compact
+                        ? `${shortCompactTime(assignment.startTime)}-${shortCompactTime(assignment.endTime)}`
+                        : `${assignment.startTime}-${assignment.endTime}`
                       : '－';
                   const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { TouchEvent as ReactTouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { WorkforceMyStaffProfile } from '@/lib/workforce/staff-profile';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -260,6 +261,33 @@ function StaffDashboardBody({
     // page's data batch and reset scroll).
     setActiveWeekOffset(targetOffset);
     window.history.replaceState(null, '', weekHref(targetOffset));
+  }
+
+  // Swipe-to-change-week on the schedule grid itself (Founder Preview QA,
+  // 2026-08-25, bug #5) -- a horizontal finger swipe calls the same
+  // `navigateToWeek` the ‹/This week/› buttons use, matching the swipe
+  // gesture staff would expect from a modern calendar-style app. A small
+  // deadzone (SWIPE_THRESHOLD) plus requiring the horizontal delta to
+  // meaningfully dominate the vertical one keeps an ordinary vertical page
+  // scroll, or a tap on a cell, from misfiring as a week change.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD_PX = 48;
+
+  function handleScheduleTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleScheduleTouchEnd(event: ReactTouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) return;
+    navigateToWeek(activeWeekOffset + (deltaX < 0 ? 1 : -1));
   }
 
   // Reset the "Request a correction" sub-form whenever a different date is
@@ -564,7 +592,7 @@ function StaffDashboardBody({
             <button
               type="button"
               className={hoverStyles.buttonSecondary}
-              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
               aria-label={t('prevWeek')}
               title={t('prevWeek')}
               onClick={() => navigateToWeek(activeWeekOffset - 1)}
@@ -573,7 +601,7 @@ function StaffDashboardBody({
             </button>
             <button
               type="button"
-              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), padding: '8px 14px' }}
+              style={{ ...(activeWeekOffset === 0 ? buttonDisabled : buttonSecondary), minHeight: 44, padding: '10px 16px' }}
               className={activeWeekOffset === 0 ? undefined : hoverStyles.buttonSecondary}
               aria-disabled={activeWeekOffset === 0}
               disabled={activeWeekOffset === 0}
@@ -584,7 +612,7 @@ function StaffDashboardBody({
             <button
               type="button"
               className={hoverStyles.buttonSecondary}
-              style={{ ...buttonSecondary, minWidth: 36, padding: '8px 12px', textAlign: 'center' }}
+              style={{ ...buttonSecondary, minWidth: 44, minHeight: 44, padding: '10px 14px', fontSize: 20, lineHeight: 1, textAlign: 'center' }}
               aria-label={t('nextWeek')}
               title={t('nextWeek')}
               onClick={() => navigateToWeek(activeWeekOffset + 1)}
@@ -600,7 +628,7 @@ function StaffDashboardBody({
             <p style={{ margin: '12px 0 0', fontSize: 14, fontWeight: 600, color: colors.textPrimary }}>
               {scheduledThisWeekValue[lang](weeklyHours.toFixed(1))}
             </p>
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 8 }} onTouchStart={handleScheduleTouchStart} onTouchEnd={handleScheduleTouchEnd}>
               <ShiftTable
                 dates={dates}
                 todayIso={todayIso}
