@@ -447,9 +447,15 @@ export const earningsEstimatedSuffix: Record<Lang, (hourlyWageYen: number, estim
   ja: (hourlyWageYen, estimatedYen) => ` ・ 時給¥${hourlyWageYen.toLocaleString('ja-JP')} ・ 推定¥${estimatedYen.toLocaleString('ja-JP')}`,
 };
 
+/** `shift_exchange_requests.status` values that can reach `existingExchangeMessage` -- see the `status !== 'open' && status !== 'accepted'` filter in `staff-schedule-view-model.ts`. */
+const exchangeStatusLabel: Record<Lang, Record<string, string>> = {
+  en: { open: 'open', accepted: 'accepted' },
+  ja: { open: '受付中', accepted: '承認済み' },
+};
+
 export const existingExchangeMessage: Record<Lang, (status: string) => string> = {
-  en: (status) => `A ${status} exchange request already exists for this shift.`,
-  ja: (status) => `このシフトにはすでに${status}状態の交換リクエストがあります。`,
+  en: (status) => `A ${exchangeStatusLabel.en[status] ?? status} exchange request already exists for this shift.`,
+  ja: (status) => `このシフトにはすでに${exchangeStatusLabel.ja[status] ?? status}状態の交換リクエストがあります。`,
 };
 
 /** Minimal JA/EN mapping for the `WorkforceWriteResult` statuses the shift-exchange request form can actually surface -- scoped counterpart to `error-copy.ts`'s English-only `describeWriteError`, for this consolidation's new exchange flow only. */
