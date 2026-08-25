@@ -285,6 +285,42 @@ select ok(pg_temp.as_auth_exec('9e900000-0000-0000-0000-000000000003',
   'manager can mark-read and archive staff B''s message');
 
 -- ============================================================================
+-- Section 8b: sender_user_id is trigger-stamped on INSERT (0092) -- the real
+-- app-layer insert (staff-messages.ts) never supplies this column at all
+-- (it relied on RLS alone before 0092, which made every insert
+-- unsatisfiable: NULL = core.current_user_id() is never true, so the whole
+-- Mail module could never actually send a message -- found via live
+-- chrome-devtools MCP QA on PR #444's Preview). Confirms both the
+-- omitted-column path AND that a forged value is overridden, not honored.
+-- Placed after every fixed-count assertion above (sections 4/5) so these
+-- extra inserts don't disturb them.
+-- ============================================================================
+
+select ok(pg_temp.as_auth_exec('9e900000-0000-0000-0000-000000000001',
+  $q$insert into api.workforce_staff_messages
+    (tenant_id, location_id, employee_id, sender_role, body)
+    values ('9e000000-0000-0000-0000-00000000000a', '9e100000-0000-0000-0000-000000000001',
+            '9e300000-0000-0000-0000-000000000001', 'staff',
+            'Insert with no sender_user_id column at all -- matches the real app payload')$q$),
+  'staff can insert with sender_user_id entirely omitted (0092 stamps it)');
+
+select is(
+  (select sender_user_id from workforce.staff_messages
+    where employee_id = '9e300000-0000-0000-0000-000000000001'
+      and body = 'Insert with no sender_user_id column at all -- matches the real app payload'),
+  '9e900000-0000-0000-0000-000000000001'::uuid,
+  'the omitted sender_user_id was stamped to the actual caller'
+);
+
+select ok(not pg_temp.as_auth_exec('9e900000-0000-0000-0000-000000000001',
+  $q$insert into api.workforce_staff_messages
+    (tenant_id, location_id, employee_id, sender_role, sender_user_id, body)
+    values ('9e000000-0000-0000-0000-00000000000a', '9e100000-0000-0000-0000-000000000001',
+            '9e300000-0000-0000-0000-000000000001', 'staff', '9e900000-0000-0000-0000-000000000002',
+            'Trying to forge sender_user_id as Staff B')$q$),
+  'a forged non-NULL sender_user_id is rejected by RLS, not silently corrected (0092''s trigger only fills a NULL)');
+
+-- ============================================================================
 -- Section 9: cross-tenant isolation.
 -- ============================================================================
 
