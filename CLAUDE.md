@@ -5,7 +5,11 @@ Pointer only. This file does not duplicate detailed project rules. Rule changes 
 ## What this is
 
 LINE Business OS is a single multi-tenant SaaS platform for Japanese SMBs.
-Every product runs as a module inside one shared Core, never as an isolated project.
+Reusable domain capabilities compose into vertical products/packages (e.g.
+Cafe) that run inside one shared Core. A vertical product is a composition
+of several capabilities, never itself a single module, and never an
+isolated project. New client = new tenant, never a code copy. Full model:
+AGENTS.md "What this is".
 
 ## Source of truth - read in this order
 
