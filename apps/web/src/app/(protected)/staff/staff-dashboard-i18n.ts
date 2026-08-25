@@ -116,7 +116,25 @@ interface StaffDashboardDict {
   navRecipes: string;
   navInventory: string;
   navPurchases: string;
+  navMail: string;
   entryPointsHeading: string;
+  // Staff<->Manager Mail module (0090): replaces the deleted DailyMessageForm card
+  mailHeading: string;
+  mailEmpty: string;
+  mailYouLabel: string;
+  mailManagerLabel: string;
+  mailArchivedTag: string;
+  mailMoreActionsAriaLabel: string;
+  mailMarkRead: string;
+  mailArchive: string;
+  mailDelete: string;
+  mailComposePlaceholder: string;
+  mailSend: string;
+  mailSending: string;
+  mailDeleteConfirmTitle: string;
+  mailDeleteConfirmBody: string;
+  mailHelpAriaLabel: string;
+  mailHelpBody: string;
   /** Also doubles as the "Submit next month's shift preference" module's heading and button label on the Staff dashboard. */
   preferenceModalTitle: string;
   // "?" help popovers (2026-08-24 redesign, matching the Manager dashboard's HelpIconButton pattern)
@@ -246,7 +264,24 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
     navPurchases: 'Purchases',
+    navMail: 'Mail',
     entryPointsHeading: 'Staff & recipe & Inventory management',
+    mailHeading: 'Mail',
+    mailEmpty: 'No messages yet.',
+    mailYouLabel: 'You',
+    mailManagerLabel: 'Manager',
+    mailArchivedTag: 'Archived',
+    mailMoreActionsAriaLabel: 'More actions for this message',
+    mailMarkRead: 'Mark read',
+    mailArchive: 'Archive',
+    mailDelete: 'Delete',
+    mailComposePlaceholder: 'Send a message to your manager',
+    mailSend: 'Send',
+    mailSending: 'Sending...',
+    mailDeleteConfirmTitle: 'Delete this message?',
+    mailDeleteConfirmBody: 'This removes it from the conversation for both of you. This cannot be undone.',
+    mailHelpAriaLabel: 'About Mail',
+    mailHelpBody: 'A private, two-way conversation with your manager. Send a message any time -- your manager sees it and can reply here.',
     preferenceModalTitle: "Submit next month's shift preference",
     workStatusHelpAriaLabel: 'About work status',
     workStatusHelpBody: 'Tap the big button to clock in when your shift starts, and to clock out when it ends. On clock-out, choose your actual break time -- your manager sees this in real time.',
@@ -371,7 +406,24 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navRecipes: 'レシピ',
     navInventory: '在庫',
     navPurchases: '仕入れ',
+    navMail: 'メール',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
+    mailHeading: 'メール',
+    mailEmpty: 'まだメッセージはありません。',
+    mailYouLabel: '自分',
+    mailManagerLabel: 'マネージャー',
+    mailArchivedTag: 'アーカイブ済み',
+    mailMoreActionsAriaLabel: 'このメッセージの操作',
+    mailMarkRead: '既読にする',
+    mailArchive: 'アーカイブ',
+    mailDelete: '削除',
+    mailComposePlaceholder: 'マネージャーにメッセージを送る',
+    mailSend: '送信',
+    mailSending: '送信中...',
+    mailDeleteConfirmTitle: 'このメッセージを削除しますか？',
+    mailDeleteConfirmBody: '削除すると、双方の会話からこのメッセージが消えます。この操作は取り消せません。',
+    mailHelpAriaLabel: 'メールについて',
+    mailHelpBody: 'マネージャーとの1対1の会話です。いつでもメッセージを送信でき、マネージャーがここで返信します。',
     preferenceModalTitle: '来月のシフト希望を提出',
     workStatusHelpAriaLabel: '勤務状況について',
     workStatusHelpBody: 'シフト開始時に大きなボタンをタップして出勤、終了時にタップして退勤してください。退勤時に実際の休憩時間を選択します -- マネージャーはリアルタイムで確認できます。',

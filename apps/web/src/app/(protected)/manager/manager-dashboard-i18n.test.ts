@@ -75,6 +75,11 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'attentionConflictsPopupHelpTitle', 'attentionConflictsPopupHelpBody', 'attentionReviewAll',
   'attentionReviewAllTitle', 'attentionReviewAllHelpAriaLabel', 'attentionReviewAllHelpTitle',
   'attentionReviewAllHelpBody', 'attentionWarningsGroupHeading',
+  // Staff<->Manager Mail module (0090)
+  'mailChipTitle', 'mailHeading', 'mailEmptyThreads', 'mailBackToThreads', 'mailArchivedTag',
+  'mailMoreActionsAriaLabel', 'mailMarkRead', 'mailArchive', 'mailDelete', 'mailComposePlaceholder',
+  'mailSend', 'mailSending', 'mailDeleteConfirmTitle', 'mailDeleteConfirmBody',
+  'mailPopupHelpAriaLabel', 'mailPopupHelpTitle', 'mailPopupHelpBody',
 ];
 
 test('tManagerDashboard returns a non-empty string for every key in both languages', () => {

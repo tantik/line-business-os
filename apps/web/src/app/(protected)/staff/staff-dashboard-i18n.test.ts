@@ -47,11 +47,15 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'myCorrectionsHeading', 'myCorrectionsUnavailable', 'myCorrectionsEmpty', 'relatedWorkReportColumnLabel',
   'plannedShiftLabel', 'requestCorrectionButton', 'correctionRequestStatusHeading', 'correctionRequestedChangeLabel',
   'attentionIndicatorLegend',
-  'navPurchases', 'preferenceModalTitle',
+  'navPurchases', 'navMail', 'preferenceModalTitle',
   'workStatusHelpAriaLabel', 'workStatusHelpBody', 'scheduleHelpAriaLabel', 'scheduleHelpBody',
   'transportHelpAriaLabel', 'transportHelpBody', 'transportPlaceholder',
   'messageHelpAriaLabel', 'messageHelpBody', 'messagePlaceholder', 'sendButton', 'messageSentStatus',
   'savingStatus', 'savedStatus', 'saveErrorStatus',
+  // Staff<->Manager Mail module (0090)
+  'mailHeading', 'mailEmpty', 'mailYouLabel', 'mailManagerLabel', 'mailArchivedTag',
+  'mailMoreActionsAriaLabel', 'mailMarkRead', 'mailArchive', 'mailDelete', 'mailComposePlaceholder',
+  'mailSend', 'mailSending', 'mailDeleteConfirmTitle', 'mailDeleteConfirmBody', 'mailHelpAriaLabel', 'mailHelpBody',
 ];
 
 test('tStaffDashboard returns a non-empty string for every key in both languages', () => {
