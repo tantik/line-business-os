@@ -82,9 +82,11 @@ test('inventoryShortageLabel interpolates the count and differs by language', ()
   assert.notEqual(inventoryShortageLabel.en(3), inventoryShortageLabel.ja(3));
 });
 
-test('existingExchangeMessage interpolates the status and differs by language', () => {
+test('existingExchangeMessage localizes the status label and differs by language', () => {
   assert.match(existingExchangeMessage.en('open'), /open/);
-  assert.match(existingExchangeMessage.ja('open'), /open/);
+  assert.match(existingExchangeMessage.ja('open'), /受付中/);
+  assert.doesNotMatch(existingExchangeMessage.ja('open'), /open/);
+  assert.match(existingExchangeMessage.ja('accepted'), /承認済み/);
   assert.notEqual(existingExchangeMessage.en('open'), existingExchangeMessage.ja('open'));
 });
 
