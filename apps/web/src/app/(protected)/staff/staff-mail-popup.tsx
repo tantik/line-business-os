@@ -6,9 +6,10 @@ import type { Lang } from '@/lib/demo/cafe/i18n';
 import { archiveStaffMessageAction, markStaffMessageReadAction, submitStaffMessage } from '@/lib/workforce/staff-messages-actions';
 import { ActionsMenu, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
-import { buttonDisabled, buttonPrimary, colors, input, mutedText } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { describeWriteError } from './error-copy';
 import { tStaffDashboard } from './staff-dashboard-i18n';
 
 export interface StaffMailPopupProps {
@@ -59,6 +60,7 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
   const [composeValue, setComposeValue] = useState('');
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   // No generic "close" key exists in this dashboard's dictionary yet --
   // matches `monthly-shift-preference-modal.tsx`'s own inline JA/EN
   // fallback for the same reason, rather than adding one just for this
@@ -71,6 +73,7 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
   useEffect(() => {
     if (!open) {
       setComposeValue('');
+      setSendError(null);
       return;
     }
     for (const m of messages ?? []) {
@@ -103,12 +106,17 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
   function handleSend() {
     const body = composeValue.trim();
     if (!body) return;
+    setSendError(null);
     setPendingAction('send');
     startTransition(async () => {
       const formData = new FormData();
       formData.set('body', body);
       const result = await submitStaffMessage(formData);
-      if (result.status === 'success') setComposeValue('');
+      if (result.status === 'success') {
+        setComposeValue('');
+      } else {
+        setSendError(describeWriteError(result, lang));
+      }
       onChange();
       setPendingAction(null);
     });
@@ -154,6 +162,7 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
       )}
 
       <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 12, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sendError ? <div style={alertDanger}>{sendError}</div> : null}
         <textarea
           style={{ ...input, minHeight: 64, resize: 'vertical' }}
           maxLength={500}
