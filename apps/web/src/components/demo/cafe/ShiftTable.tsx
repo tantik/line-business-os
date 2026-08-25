@@ -77,6 +77,13 @@ export const ShiftTable = memo(function ShiftTable({
   const allShiftTypeIds = shiftTypes.map((type) => type.id);
   const emptyChip = shiftChipColors(null);
   const chipByShiftTypeId = new Map(shiftTypes.map((type) => [type.id, shiftChipColors(type.id, allShiftTypeIds)]));
+  // 1-based display-order index, used only in `compact` mode as a short
+  // numeric badge instead of a shift type's full (often full-time-range)
+  // `label` -- that label was overflowing/truncating on a ~375px mobile
+  // cell (Founder Preview QA, 2026-08-25). Same ordering `ShiftLegend`'s own
+  // `numbered` mode uses (both index the same `shiftTypes` array passed in
+  // by the caller), so cell "3" and legend "[3]" always agree.
+  const shiftTypeIndexById = new Map(shiftTypes.map((type, index) => [type.id, index + 1]));
 
   function isCellClickable(staffId: string, date: string): boolean {
     if (!onCellClick) return false;
@@ -203,8 +210,13 @@ export const ShiftTable = memo(function ShiftTable({
                   // real time on the assignment itself -- show that instead of a blank dash,
                   // rather than silently dropping a shift that already counts toward scheduled
                   // hours (Cafe v2.1 QA audit P1-6, 2026-08-17).
-                  const cellLabel =
-                    shiftType?.label ?? (assignment?.startTime && assignment?.endTime ? `${assignment.startTime}-${assignment.endTime}` : '－');
+                  const cellLabel = shiftType
+                    ? compact
+                      ? String(shiftTypeIndexById.get(shiftType.id) ?? shiftType.label)
+                      : shiftType.label
+                    : assignment?.startTime && assignment?.endTime
+                      ? `${assignment.startTime}-${assignment.endTime}`
+                      : '－';
                   const chip = assignment?.shiftTypeId ? chipByShiftTypeId.get(assignment.shiftTypeId) ?? emptyChip : emptyChip;
                   const isToday = date === todayIso;
                   const strongest = isToday && isSelfRow;
