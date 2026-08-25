@@ -119,6 +119,22 @@ any other post-v2.1 category.
 
 ### 2.4 Cafe Commercial Launch Readiness (separate, higher gate — step 1 in progress)
 
+**Superseded ordering notice (2026-08-25):** the "Sequence (recommended)"
+step 2 below ("Platform Foundation critical path" right after step 1's
+Cafe IA/visual reconciliation, i.e. before any Cafe v2.2/Product-Growth
+work) is **superseded** by `docs/strategy/oruwa-master-roadmap.md`
+(Founder-approved 2026-08-25), which places Cafe v2.2 Product Research/
+Implementation/Acceptance (its Phases 2-4) and SaaS Hardening (Phase 5)
+*before* Platform Foundation Reconciliation (Phase 6). This also matches
+the Founder's 2026-08-23-stated roadmap (see the
+`project_roadmap_v21_v22_provisioning_sales` memory: v2.1 -> v2.2 ->
+hardening -> ...). The step 1 content below (Cafe IA/visual reconciliation,
+mechanical items, Hardening register) remains factually accurate and
+still-relevant detail — only its position relative to Platform Foundation
+in the "Sequence (recommended)" list is stale. Read
+`docs/strategy/oruwa-master-roadmap.md` for the current phase order; this
+section stays as a historical record of what step 1 actually contained.
+
 **"Cafe v2.1 CLOSED" (§2.3) is a bounded, code-scoped closure — F1/F2 only,
 against the frozen Whole-Product Gate backlog.** It is not the same claim as
 "Cafe is ready to sell." Founder decision 2026-08-16: a distinct, higher gate
@@ -256,7 +272,53 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-25 pointer (newest — read this one first).** A full,
+**2026-08-25 pointer, ROADMAP_SYNC (newest — read this one first).** The
+Founder recorded a full **Master Roadmap** (Phases 1-14, Cafe v2.1
+completion through Product #2 development) as the current Founder-approved
+sequencing for the whole project, now at
+`docs/strategy/oruwa-master-roadmap.md`. Reconciled against this
+repository's authoritative docs same session:
+
+- `docs/foundation/platform-foundation-roadmap.md` (Accepted, higher in the
+  decision hierarchy) and `docs/strategy/go-to-market-roadmap.md` do
+  **not** contradict the new roadmap — both were read in full; the
+  Platform Foundation critical path's own gate ("close it before opening a
+  *second* vertical") and the go-to-market doc's M1-M5 milestones map
+  cleanly onto the new Phases 1-14 without needing edits.
+- The one real, material contradiction found: **this file's own §2.4
+  "Sequence (recommended)" step 2** placed "Platform Foundation critical
+  path" immediately after step 1 (Cafe IA/visual reconciliation), i.e.
+  before any Cafe v2.2 work — the new master roadmap places Cafe v2.2
+  (Phases 2-4) and SaaS Hardening (Phase 5) *before* Platform Foundation
+  Reconciliation (Phase 6). §2.4 now carries a superseded-ordering notice
+  pointing here rather than being silently rewritten (its step-1 content
+  stays factually accurate history).
+- A minor terminology nuance (not edited): `CLAUDE.md`'s "Every product
+  runs as a module inside one shared Core" phrasing could be misread as
+  "Cafe = one domain module," which the master roadmap explicitly
+  corrects (Cafe is a *vertical product/package* composed of several
+  domain capabilities — Workforce, Inventory, Purchases, Recipes,
+  Notifications, etc. — matching `platform-foundation-roadmap.md` §4.3's
+  existing Vertical-Products tier exactly). `CLAUDE.md` is a pointer file
+  whose rule changes belong in `AGENTS.md`/`.cursor/rules/*` first per its
+  own text — flagged here, not silently edited.
+- **Practical gap surfaced this session, load-bearing for Phase 1 step 4**
+  ("AI CTO executes Final Integrated QA, Founder is not the QA engineer"):
+  this session had **no browser-automation tool available** — the entire
+  Staff Shift Schedule v2 QA loop (previous entry below) was
+  Founder-screenshot-driven, not independent Claude browser verification.
+  Whether a given future session can actually execute Phase 1 step 4 as
+  specified depends on that session's actual tooling — check this before
+  assuming it, don't assume either way from this note alone.
+- No `main` touched, no migration, no Cloud write, no production activity.
+
+Production remains untouched. The Master Roadmap document is the current
+plan of record; treat `current-task.md`'s own §2.4/§5 as the tactical
+execution log underneath it, not a competing plan. **Current authorized
+work remains only Cafe v2.1 completion (Phase 1)** — nothing in Phases 2-14
+is authorized to start by this entry.
+
+**2026-08-25 pointer (older — read after the one above).** A full,
 same-day session rebuilt the real (protected) Staff page's **Shift
 Schedule module** (Staff Shift Schedule v2 mission): compact Mon–Sun
 weekly grid at every viewport, real names (never "Me"), Planned-vs-Actual
