@@ -272,7 +272,37 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-25 pointer, ROADMAP_SYNC (newest — read this one first).** The
+**2026-08-26 pointer (newest — read this one first).** A same-day session
+(started as a "continue Manager+Staff combined QA pass" follow-on to the
+2026-08-25 Staff Shift Schedule v2 entry below, using this project's first
+working chrome-devtools MCP browser tool) found that Staff's "今日の
+メッセージ" card was a dead end — a Manager could only ever see it by
+accident — and the Founder expanded the fix into a full **Staff↔Manager
+Mail module** (two-way messaging, per-employee threads, Manager sees all
+staff via a persistent chip in "要確認", Staff gets a 4th entry-point
+button replacing the deleted Daily-message card). **Merged to `dev`,
+PR #444, commit `af5193f`.** 3 migrations (0090/0091/0092) pushed to
+Supabase Cloud dev with Founder approval — 0092 fixed a real bug
+(`sender_user_id` never stamped on INSERT) found only via live
+chrome-devtools MCP QA against the real Cloud DB, not caught by pgTAP or
+mocked unit tests. Live QA passed both directions (Staff send → Manager
+reads/replies → Staff sees the reply) on the PR's own Vercel Preview.
+Archive-only, no per-message Delete (Founder correction mid-build). A real
+privacy-purge cascade for `permanently_delete_employee` (keep the
+employee's name for historical records, strip everything else including
+Mail, on a genuine offboarding) was surfaced as a separate, deferred,
+not-yet-scoped future item with real Japan APPI/labor-record-retention
+legal weight — do not improvise it, see the
+`project_permanent_delete_privacy_purge_future` memory. Full state, the
+exact 4-migration list, and the live-QA evidence are in
+`docs/ai/CAFE_STAFF_MANAGER_MAIL_MODULE_HANDOFF_2026-08-26.md` — read that
+file first if anything about the Mail module, `workforce.staff_messages`,
+the "要確認" mail chip, or the deleted Daily-message card comes up. Not
+independently re-verified on `preview.oruwa.jp` after the merge — a fresh
+session should do a quick sanity check there before assuming it deployed
+cleanly.
+
+**2026-08-25 pointer, ROADMAP_SYNC (older — read after the one above).** The
 Founder recorded a full **Master Roadmap** (Phases 1-14, Cafe v2.1
 completion through Product #2 development) as the current Founder-approved
 sequencing for the whole project, now at
