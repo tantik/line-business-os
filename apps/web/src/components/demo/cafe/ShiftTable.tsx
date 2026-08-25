@@ -220,6 +220,18 @@ export const ShiftTable = memo(function ShiftTable({
                     <td
                       key={date}
                       onClick={clickable ? () => onCellClick?.(staff.id, date) : undefined}
+                      role={clickable ? 'button' : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      onKeyDown={
+                        clickable
+                          ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                onCellClick?.(staff.id, date);
+                              }
+                            }
+                          : undefined
+                      }
                       style={{
                         position: 'relative',
                         borderBottom: `1px solid ${demoColors.border}`,

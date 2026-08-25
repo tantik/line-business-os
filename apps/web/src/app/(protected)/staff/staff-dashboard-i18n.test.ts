@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  customShiftTimeRangeLabel,
   describeExchangeError,
+  earningsEstimatedSuffix,
+  earningsWorkedHoursValue,
   existingExchangeMessage,
   inventoryShortageLabel,
   scheduledThisWeekValue,
@@ -30,7 +33,7 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'scheduledThisWeekLabel', 'meLabel', 'colleaguePrefixLabel', 'shiftLabel', 'timeLabel',
   'clockInLabel', 'clockOutLabel', 'transportationLabel', 'noShiftOrReport', 'requestChangeHeading',
   'exchangeSubmitted', 'inventoryTitle', 'inventoryDescription', 'inventorySufficient', 'inventoryOpen',
-  'inventoryNotEnabled', 'requestTypeLabel', 'optionExchange', 'optionCancel', 'reasonLabel', 'submit',
+  'inventoryNotEnabled', 'requestTypeLabel', 'optionExchange', 'optionChange', 'requestedShiftTypeLabel', 'optionCancel', 'reasonLabel', 'submit',
   'submitting', 'submitEyebrow', 'dateLabel', 'statusLabel',
   'shiftPreferencesHeading', 'shiftPreferencesUnavailable', 'shiftPreferencesEmpty', 'preferenceColumnLabel',
   'preferenceUnavailableValue', 'shiftTypesUnavailable', 'unavailableThisDayLabel', 'shiftTypeLabel',
@@ -42,6 +45,7 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'correctionRequestHeading', 'correctionRequestDescription', 'relatedWorkReportLabel', 'relatedWorkReportNone',
   'correctionMessageLabel', 'submitCorrectionRequest', 'correctionRequestSubmitted',
   'myCorrectionsHeading', 'myCorrectionsUnavailable', 'myCorrectionsEmpty', 'relatedWorkReportColumnLabel',
+  'plannedShiftLabel', 'requestCorrectionButton', 'correctionRequestStatusHeading', 'correctionRequestedChangeLabel',
   'navPurchases', 'preferenceModalTitle',
   'workStatusHelpAriaLabel', 'workStatusHelpBody', 'scheduleHelpAriaLabel', 'scheduleHelpBody',
   'transportHelpAriaLabel', 'transportHelpBody', 'transportPlaceholder',
@@ -97,4 +101,26 @@ test('describeExchangeError returns known, distinct-by-language copy for every s
 test('describeExchangeError falls back to a non-empty generic message for an unmapped status', () => {
   assert.ok(describeExchangeError('en', 'totally_unknown_status').length > 0);
   assert.ok(describeExchangeError('ja', 'totally_unknown_status').length > 0);
+});
+
+test('customShiftTimeRangeLabel interpolates the start/end time and differs by language, never the literal English word "Custom" alone', () => {
+  assert.match(customShiftTimeRangeLabel.en('10:00', '14:00'), /10:00/);
+  assert.match(customShiftTimeRangeLabel.en('10:00', '14:00'), /14:00/);
+  assert.match(customShiftTimeRangeLabel.ja('10:00', '14:00'), /10:00/);
+  assert.notEqual(customShiftTimeRangeLabel.en('10:00', '14:00'), customShiftTimeRangeLabel.ja('10:00', '14:00'));
+});
+
+test('earningsWorkedHoursValue interpolates the hours value and differs by language', () => {
+  assert.match(earningsWorkedHoursValue.en('12.5'), /12\.5/);
+  assert.match(earningsWorkedHoursValue.ja('12.5'), /12\.5/);
+  assert.notEqual(earningsWorkedHoursValue.en('12.5'), earningsWorkedHoursValue.ja('12.5'));
+});
+
+test('earningsEstimatedSuffix interpolates the hourly wage and estimated total and differs by language', () => {
+  // toLocaleString()'s thousands-separator formatting is locale/ICU-data
+  // dependent (this test runner's default locale renders a non-comma
+  // separator) -- assert the raw digits appear, not a specific separator.
+  assert.match(earningsEstimatedSuffix.en(1200, 15000), /1.200/);
+  assert.match(earningsEstimatedSuffix.en(1200, 15000), /15.000/);
+  assert.notEqual(earningsEstimatedSuffix.en(1200, 15000), earningsEstimatedSuffix.ja(1200, 15000));
 });
