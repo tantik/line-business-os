@@ -5,10 +5,18 @@ Read this before changing anything.
 
 ## What this is
 
-A single **multi-tenant SaaS platform** for Japanese SMBs. Multiple products
-(Workforce, Booking, Logistics, CRM, Inventory, AI) run inside one shared Core.
-**Do not build isolated one-off projects.** Every product runs inside this
-platform.
+A single **multi-tenant SaaS platform** for Japanese SMBs. Reusable domain
+capabilities (Workforce, Booking, Logistics, CRM, Inventory, AI, and future
+capabilities) compose into **vertical products/packages** (e.g. Cafe, and
+future verticals) that run inside one shared Core. A vertical product is a
+*composition* of several capabilities — it is never itself a single
+capability/module, and never an isolated one-off codebase. See
+`docs/strategy/oruwa-master-roadmap.md` §0 and
+`docs/foundation/platform-foundation-roadmap.md` §4 for the full Core
+Platform / Platform Services / Vertical Products model this maps to.
+**Do not build isolated one-off projects.** Every vertical product runs
+inside this platform, composed from shared capabilities — never a
+per-client fork; a new client is a new tenant.
 
 ## Read order for AI agents
 
