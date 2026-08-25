@@ -15,6 +15,7 @@ import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
+import { listStaffMessagesForManager } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
@@ -189,6 +190,7 @@ export default async function WorkforceManagerPage({
         invitationsResult,
         shiftExchangesResult,
         exchangeAssignmentsResult,
+        staffMessagesResult,
         inventoryItemsResult,
         purchasesItemsResult,
         recipeCategoriesResult,
@@ -208,6 +210,11 @@ export default async function WorkforceManagerPage({
         listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso: exchangeFromIso, toIsoExclusive: exchangeToIsoExclusive }),
+        // Staff<->Manager Mail (0090) -- every non-deleted employee thread's
+        // messages, tenant-scoped (RLS `wf_staff_messages_manage_select`
+        // narrows this to the caller's manage-permission location). Also the
+        // exact data the Mail popup renders below (no separate fetch).
+        listStaffMessagesForManager(supabase, activeTenant.tenantId),
         // Read-only, for the Manager Attention layer's shortage count
         // (Mission 2) -- the actual Inventory catalog/count-entry UI is not
         // duplicated here; it stays on its own canonical `/dashboard/inventory`
@@ -326,6 +333,7 @@ export default async function WorkforceManagerPage({
             invitations={invitationsResult.status === 'success' ? invitationsResult.data : null}
             shiftExchanges={shiftExchangesResult.status === 'success' ? shiftExchangesResult.data : null}
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
+            staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}

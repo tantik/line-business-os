@@ -120,6 +120,8 @@ export function AttentionPanel({
   onOpenExchanges,
   onOpenInventory,
   onViewShift,
+  unreadMailCount,
+  onOpenMail,
 }: {
   items: ManagerAttentionItem[];
   queueItems: ManagerAttentionQueueItem[];
@@ -129,6 +131,9 @@ export function AttentionPanel({
   onOpenExchanges: () => void;
   onOpenInventory: () => void;
   onViewShift: (employeeId: string, workDate: string) => void;
+  /** Staff-authored, unread, non-archived/deleted message count across every thread -- folded into this panel's Level-1 total at the render site only (Founder confirmation: Mail does not become a 5th `ManagerAttentionCategory`, it doesn't fit the strict action-required/warning severity model or the one-item-per-decision "Review all" queue). */
+  unreadMailCount: number;
+  onOpenMail: () => void;
 }) {
   const t: Translate = (key) => tManagerDashboard(lang, key);
   const [conflictsOpen, setConflictsOpen] = useState(false);
@@ -253,15 +258,37 @@ export function AttentionPanel({
   const actionRequiredItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'action_required');
   const warningItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'warning');
 
+  // Mail is deliberately not a `ManagerAttentionCategory` (see this
+  // component's own prop doc comment) -- its unread count is folded into
+  // the Level-1 total only here, at the render site, never into
+  // `computeManagerAttentionSummary`'s own business logic.
+  const combinedTotal = summary.total + unreadMailCount;
+
+  const mailChip = (
+    <button
+      type="button"
+      className={hoverStyles.buttonSecondary}
+      aria-label={t('mailChipTitle')}
+      style={chipStyle}
+      onClick={onOpenMail}
+    >
+      <span style={{ fontSize: 14 }}>{t('mailChipTitle')}</span>
+      {unreadMailCount > 0 ? <span style={{ fontSize: 14, fontWeight: 700, color: colors.warning }}>{unreadMailCount}</span> : null}
+    </button>
+  );
+
   return (
-    <section style={{ ...card, borderLeft: `3px solid ${items.length > 0 ? colors.warning : colors.success}` }}>
+    <section style={{ ...card, borderLeft: `3px solid ${combinedTotal > 0 ? colors.warning : colors.success}` }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('attentionHeading')}</h2>
-        <span style={{ fontSize: 22, fontWeight: 700, color: items.length > 0 ? colors.warning : colors.success }}>{summary.total}</span>
+        <span style={{ fontSize: 22, fontWeight: 700, color: combinedTotal > 0 ? colors.warning : colors.success }}>{combinedTotal}</span>
       </div>
 
       {items.length === 0 ? (
-        <p style={{ margin: '10px 0 0', ...mutedText }}>✓ {t('attentionAllClear')}</p>
+        <>
+          <p style={{ margin: '10px 0 0', ...mutedText }}>✓ {t('attentionAllClear')}</p>
+          <div style={chipRowStyle}>{mailChip}</div>
+        </>
       ) : (
         <>
           <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
@@ -295,6 +322,7 @@ export function AttentionPanel({
                 </button>
               );
             })}
+            {mailChip}
             <button type="button" className={hoverStyles.buttonPrimary} style={reviewAllButtonStyle} onClick={() => setReviewAllOpen(true)}>
               {t('attentionReviewAll')}
             </button>

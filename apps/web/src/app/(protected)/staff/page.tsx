@@ -12,6 +12,7 @@ import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
+import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
@@ -193,6 +194,7 @@ export default async function WorkforceStaffPage({
         attendanceResult,
         correctionRequestsResult,
         exchangesResult,
+        staffMessagesResult,
         inventoryItemsResult,
         inventoryCanManage,
         purchasesItemsResult,
@@ -211,6 +213,10 @@ export default async function WorkforceStaffPage({
         listMyAttendance(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
+        // Staff<->Manager Mail (0090) -- the caller's own single thread
+        // (self-scoped by RLS `wf_staff_messages_self_select`). Also the
+        // exact data `StaffMailPopup` renders (no separate fetch).
+        listMyStaffMessages(supabase, activeTenant.tenantId),
         // Also the exact data the Inventory popup below renders -- no
         // separate fetch, same pattern the Manager dashboard's own
         // `InventoryPopup` uses.
@@ -329,6 +335,7 @@ export default async function WorkforceStaffPage({
             attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
+            staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryCanManage={inventoryCanManage}

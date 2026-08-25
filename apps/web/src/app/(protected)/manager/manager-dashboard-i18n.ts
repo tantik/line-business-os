@@ -309,6 +309,21 @@ interface ManagerDashboardDict {
   candidateMarkedUnavailable: string;
   confirmAssignReplacementButton: string;
   assigningReplacement: string;
+  // Staff<->Manager Mail module (0090): AttentionPanel chip + StaffMessagesPopup
+  mailChipTitle: string;
+  mailHeading: string;
+  mailEmptyThreads: string;
+  mailBackToThreads: string;
+  mailArchivedTag: string;
+  mailMoreActionsAriaLabel: string;
+  mailMarkRead: string;
+  mailArchive: string;
+  mailComposePlaceholder: string;
+  mailSend: string;
+  mailSending: string;
+  mailPopupHelpAriaLabel: string;
+  mailPopupHelpTitle: string;
+  mailPopupHelpBody: string;
   // Page chrome
   pageTitle: string;
   signOut: string;
@@ -588,6 +603,20 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     candidateMarkedUnavailable: 'Marked unavailable that day',
     confirmAssignReplacementButton: 'Assign',
     assigningReplacement: 'Assigning...',
+    mailChipTitle: 'Mail',
+    mailHeading: 'Mail',
+    mailEmptyThreads: 'No messages yet.',
+    mailBackToThreads: '‹ Back to conversations',
+    mailArchivedTag: 'Archived',
+    mailMoreActionsAriaLabel: 'More actions for this message',
+    mailMarkRead: 'Mark read',
+    mailArchive: 'Archive',
+    mailComposePlaceholder: 'Write a reply',
+    mailSend: 'Send',
+    mailSending: 'Sending...',
+    mailPopupHelpAriaLabel: 'About Mail',
+    mailPopupHelpTitle: 'About Mail',
+    mailPopupHelpBody: 'A private, two-way conversation with each staff member. Click a conversation to open it, reply from the bottom of the thread. Archive tidies a message up without removing it.',
     pageTitle: 'Manager',
     signOut: 'Sign out',
     notSetLabel: 'Not set',
@@ -860,6 +889,20 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     candidateMarkedUnavailable: 'この日は「不可」と回答済み',
     confirmAssignReplacementButton: '指名する',
     assigningReplacement: '指名中...',
+    mailChipTitle: 'メール',
+    mailHeading: 'メール',
+    mailEmptyThreads: 'まだメッセージはありません。',
+    mailBackToThreads: '‹ 会話一覧に戻る',
+    mailArchivedTag: 'アーカイブ済み',
+    mailMoreActionsAriaLabel: 'このメッセージの操作',
+    mailMarkRead: '既読にする',
+    mailArchive: 'アーカイブ',
+    mailComposePlaceholder: '返信を入力',
+    mailSend: '送信',
+    mailSending: '送信中...',
+    mailPopupHelpAriaLabel: 'メールについて',
+    mailPopupHelpTitle: 'メールについて',
+    mailPopupHelpBody: '各スタッフとの1対1の会話です。会話をクリックして開き、下部から返信できます。アーカイブは削除せずに整理するためのものです。',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
     notSetLabel: '未設定',
