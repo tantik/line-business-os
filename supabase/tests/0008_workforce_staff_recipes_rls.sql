@@ -358,6 +358,12 @@ insert into core.tenants (id, slug, name) values
   ('8a000000-0000-0000-0000-00000000000a', 'pgtap-1l2-tenant-a', 'pgTAP 1L-2 Tenant A'),
   ('8b000000-0000-0000-0000-00000000000b', 'pgtap-1l2-tenant-b', 'pgTAP 1L-2 Tenant B');
 
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for both fixture tenants.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('8a000000-0000-0000-0000-00000000000a', 'workforce', true),
+  ('8b000000-0000-0000-0000-00000000000b', 'workforce', true);
+
 insert into core.locations (id, tenant_id, name) values
   ('8a200000-0000-0000-0000-000000000001', '8a000000-0000-0000-0000-00000000000a', 'Tenant A Location A'),
   ('8a200000-0000-0000-0000-000000000002', '8a000000-0000-0000-0000-00000000000a', 'Tenant A Location B');

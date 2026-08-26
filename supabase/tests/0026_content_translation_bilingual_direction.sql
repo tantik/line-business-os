@@ -18,6 +18,12 @@ select no_plan();
 insert into core.tenants (id, slug, name) values
   ('a1000000-0000-0000-0000-00000000000a', 'pgtap-bilingual-tenant-a', 'pgTAP Bilingual Tenant A');
 
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios exercise workforce.recipes and assume normal, Workforce-ON
+-- behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('a1000000-0000-0000-0000-00000000000a', 'workforce', true);
+
 insert into core.users (id, display_name) values
   ('a1900000-0000-0000-0000-000000000001', 'Manager A (recipe.manage)');
 

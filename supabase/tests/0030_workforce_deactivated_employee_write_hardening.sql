@@ -73,6 +73,10 @@ $$;
 
 insert into core.tenants (id, slug, name) values
   ('da000000-0000-0000-0000-000000000001', 'pgtap-deactivated-hardening', 'pgTAP Deactivated Hardening');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('da000000-0000-0000-0000-000000000001', 'workforce', true);
 insert into core.locations (id, tenant_id, name, timezone) values
   ('da100000-0000-0000-0000-000000000001', 'da000000-0000-0000-0000-000000000001', 'Cafe', 'Asia/Tokyo');
 insert into core.users (id, display_name) values

@@ -89,6 +89,10 @@ $$;
 
 insert into core.tenants (id, slug, name) values
   ('9e000000-0000-0000-0000-00000000000a', 'pgtap-mail-tenant-a', 'pgTAP Mail Tenant A');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9e000000-0000-0000-0000-00000000000a', 'workforce', true);
 insert into core.locations (id, tenant_id, name, timezone) values
   ('9e100000-0000-0000-0000-000000000001', '9e000000-0000-0000-0000-00000000000a', 'Tenant A Location A', 'Asia/Tokyo');
 insert into core.users (id, display_name) values
@@ -326,6 +330,10 @@ select ok(not pg_temp.as_auth_exec('9e900000-0000-0000-0000-000000000001',
 
 insert into core.tenants (id, slug, name) values
   ('9f000000-0000-0000-0000-00000000000b', 'pgtap-mail-tenant-b', 'pgTAP Mail Tenant B');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9f000000-0000-0000-0000-00000000000b', 'workforce', true);
 insert into core.users (id, display_name) values
   ('9f900000-0000-0000-0000-000000000001', 'Tenant B Owner');
 insert into core.role_assignments (tenant_id, user_id, role_id) values

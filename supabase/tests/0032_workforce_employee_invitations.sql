@@ -66,6 +66,11 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('dc000000-0000-0000-0000-000000000001', 'pgtap-invitations-tenant-a', 'pgTAP Invitations Tenant A'),
   ('dc000000-0000-0000-0000-000000000002', 'pgtap-invitations-tenant-b', 'pgTAP Invitations Tenant B');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for both fixture tenants.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('dc000000-0000-0000-0000-000000000001', 'workforce', true),
+  ('dc000000-0000-0000-0000-000000000002', 'workforce', true);
 insert into core.locations (id, tenant_id, name) values
   ('dc100000-0000-0000-0000-000000000001', 'dc000000-0000-0000-0000-000000000001', 'Tenant A Location'),
   ('dc100000-0000-0000-0000-000000000002', 'dc000000-0000-0000-0000-000000000002', 'Tenant B Location');

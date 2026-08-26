@@ -17,6 +17,13 @@ insert into core.tenants (id, slug, name) values
   ('a1000000-0000-0000-0000-00000000000a', 'pgtap-content-provider-tenant-a', 'pgTAP Content Provider Tenant A'),
   ('a2000000-0000-0000-0000-00000000000b', 'pgtap-content-provider-tenant-b', 'pgTAP Content Provider Tenant B');
 
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios exercise workforce.recipes and assume normal, Workforce-ON
+-- behavior for both fixture tenants.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('a1000000-0000-0000-0000-00000000000a', 'workforce', true),
+  ('a2000000-0000-0000-0000-00000000000b', 'workforce', true);
+
 insert into workforce.recipes (id, tenant_id, title_ja, description_ja, status)
   values ('a1100000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-00000000000a', '抹茶ラテ', '抹茶を使ったラテです。', 'published');
 insert into workforce.recipes (id, tenant_id, title_ja, description_ja, status)

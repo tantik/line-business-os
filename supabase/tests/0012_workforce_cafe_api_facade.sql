@@ -44,6 +44,11 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('ce000000-0000-0000-0000-00000000000a', 'pgtap-cafe1a-tenant-e', 'pgTAP Cafe 1A Tenant E');
 
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('ce000000-0000-0000-0000-00000000000a', 'workforce', true);
+
 insert into core.locations (id, tenant_id, name) values
   ('ce200000-0000-0000-0000-000000000001', 'ce000000-0000-0000-0000-00000000000a', 'Tenant E Location 1');
 

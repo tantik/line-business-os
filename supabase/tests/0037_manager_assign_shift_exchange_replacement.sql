@@ -52,6 +52,10 @@ $$;
 -- Tenant A: the tenant under test.
 insert into core.tenants (id, slug, name) values
   ('ea000000-0000-0000-0000-000000000001', 'exchange-assign-test-a', 'Exchange Assign Test A');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('ea000000-0000-0000-0000-000000000001', 'workforce', true);
 insert into core.locations (id, tenant_id, name, timezone) values
   ('ea100000-0000-0000-0000-000000000001', 'ea000000-0000-0000-0000-000000000001', 'Cafe A', 'Asia/Tokyo'),
   ('ea100000-0000-0000-0000-000000000002', 'ea000000-0000-0000-0000-000000000001', 'Cafe A - Second Location', 'Asia/Tokyo');
@@ -81,6 +85,10 @@ insert into workforce.shifts (id, tenant_id, location_id, employee_id, shift_typ
 -- Tenant B: unrelated tenant, cross-tenant isolation only.
 insert into core.tenants (id, slug, name) values
   ('ea000000-0000-0000-0000-000000000002', 'exchange-assign-test-b', 'Exchange Assign Test B');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('ea000000-0000-0000-0000-000000000002', 'workforce', true);
 insert into core.locations (id, tenant_id, name, timezone) values
   ('ea100000-0000-0000-0000-000000000003', 'ea000000-0000-0000-0000-000000000002', 'Cafe B', 'Asia/Tokyo');
 insert into core.users (id, display_name) values
