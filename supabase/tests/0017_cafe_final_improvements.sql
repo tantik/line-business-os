@@ -45,6 +45,13 @@ $$;
 
 insert into core.tenants (id, slug, name) values
   ('fd000000-0000-0000-0000-000000000001', 'final-improvements-test', 'Final Improvements Test');
+-- WP-S3 (0095_inventory_module_access_gate.sql) gates
+-- inventory.check_sessions/check_session_items RLS on
+-- core.has_module_access(...) -- this file's role-hop RPC assertions
+-- (api.start_inventory_check_session / api.complete_inventory_check_session
+-- further down) assume normal, module-ON behavior.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('fd000000-0000-0000-0000-000000000001', 'inventory', true);
 insert into core.locations (id, tenant_id, name) values
   ('fd100000-0000-0000-0000-000000000001', 'fd000000-0000-0000-0000-000000000001', 'Cafe');
 insert into core.users (id, display_name) values

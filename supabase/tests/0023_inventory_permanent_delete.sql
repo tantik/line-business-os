@@ -67,6 +67,15 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('9c000000-0000-0000-0000-00000000000c', 'pgtap-inv-permadelete-tenant', 'pgTAP Inventory Permadelete Tenant');
 
+-- WP-S3 (0095_inventory_module_access_gate.sql) adds an explicit
+-- module-access pre-check inside inventory.permanently_delete_item()
+-- (SECURITY DEFINER, does not run under RLS) -- this file's existing
+-- role-hop assertions assume normal, module-ON behavior; module-OFF
+-- behavior for this specific function is covered separately in
+-- 0042_inventory_module_access_gate.sql.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9c000000-0000-0000-0000-00000000000c', 'inventory', true);
+
 insert into core.locations (id, tenant_id, name) values
   ('9c200000-0000-0000-0000-000000000001', '9c000000-0000-0000-0000-00000000000c', 'Location A'),
   ('9c200000-0000-0000-0000-000000000002', '9c000000-0000-0000-0000-00000000000c', 'Location B');
