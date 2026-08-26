@@ -143,25 +143,19 @@ select is(
 );
 reset role;
 
--- The item itself (inventory.items) is not module-gated until WP-S3, so it
--- still appears in the projection -- but its acknowledgement is invisible
--- (purchases_actions_select is blocked), so it reads back as 'pending'
--- again, not 'bought'. This is the expected, correctly-scoped WP-S2 result:
--- only the Purchases acknowledgement half is gated by this PR.
+-- As of WP-S3 (0095_inventory_module_access_gate.sql), inv_items_select and
+-- inv_stock_counts_select are ALSO gated on core.has_module_access(...) --
+-- so api.purchases_needed (which joins inventory.items/stock_counts
+-- directly) now goes fully empty when Inventory is OFF, not just its
+-- Purchases-acknowledgement half. This supersedes this test's original
+-- WP-S2-only expectation (the item staying visible as 'pending') now that
+-- WP-S3 has landed -- see 0095's own header note ("closing the gap WP-S2's
+-- own header note flagged as until WP-S3 lands").
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from api.purchases_needed where item_id = '9e100000-0000-0000-0000-000000000001' $$),
-  1,
-  'Inventory OFF: the item itself still appears in api.purchases_needed (Inventory itself is WP-S3, not gated by this PR)'
-);
-reset role;
-
-select is(
-  pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
-    $$ select case when purchase_status = 'pending' then 1 else 0 end
-       from api.purchases_needed where item_id = '9e100000-0000-0000-0000-000000000001' $$),
-  1,
-  'Inventory OFF: the item reads back as purchase_status = pending -- its Bought acknowledgement is hidden (purchases_actions_select blocked), not merged in'
+  0,
+  'Inventory OFF: the item no longer appears in api.purchases_needed at all -- WP-S3 gates inventory.items/stock_counts too, so both halves of the view are now blocked'
 );
 reset role;
 

@@ -101,6 +101,16 @@ insert into core.tenants (id, slug, name) values
   ('9a000000-0000-0000-0000-00000000000a', 'pgtap-inv-tenant-a', 'pgTAP Inventory Tenant A'),
   ('9b000000-0000-0000-0000-00000000000b', 'pgtap-inv-tenant-b', 'pgTAP Inventory Tenant B');
 
+-- WP-S3 (0095_inventory_module_access_gate.sql) gates Inventory RLS on
+-- core.has_module_access(...) -- this file's role-hop assertions (below)
+-- assume normal, module-ON behavior; module-OFF lifecycle behavior is
+-- covered separately in 0042_inventory_module_access_gate.sql. Tenant B is
+-- only ever used for the cross-tenant negative check further down (querying
+-- Tenant A's own rows, which are already gated by Tenant A's module state),
+-- so it needs no row of its own.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9a000000-0000-0000-0000-00000000000a', 'inventory', true);
+
 insert into core.locations (id, tenant_id, name) values
   ('9a200000-0000-0000-0000-000000000001', '9a000000-0000-0000-0000-00000000000a', 'Tenant A Location A'),
   ('9a200000-0000-0000-0000-000000000002', '9a000000-0000-0000-0000-00000000000a', 'Tenant A Location B'),
