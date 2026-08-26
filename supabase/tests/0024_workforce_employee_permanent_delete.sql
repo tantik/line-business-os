@@ -82,11 +82,20 @@ insert into workforce.employees (id, tenant_id, location_id, name_encrypted, is_
   ('9d300000-0000-0000-0000-000000000001', '9d000000-0000-0000-0000-00000000000d',
    '9d200000-0000-0000-0000-000000000001', '\x00', false),
   ('9d300000-0000-0000-0000-000000000002', '9d000000-0000-0000-0000-00000000000d',
+   '9d200000-0000-0000-0000-000000000001', '\x00', false),
+  ('9d300000-0000-0000-0000-000000000003', '9d000000-0000-0000-0000-00000000000d',
    '9d200000-0000-0000-0000-000000000001', '\x00', false);
 
 insert into workforce.shifts (id, tenant_id, location_id, employee_id, starts_at, ends_at, published) values
   ('9d500000-0000-0000-0000-000000000001', '9d000000-0000-0000-0000-00000000000d',
    '9d200000-0000-0000-0000-000000000001', '9d300000-0000-0000-0000-000000000002', '2030-08-01 00:00+00', '2030-08-01 08:00+00', true);
+
+-- Employee 003 has zero shift/attendance/request/exchange history -- ONLY a
+-- Mail thread (0090/0091: staff_messages joined this guard's history check).
+insert into workforce.staff_messages (id, tenant_id, location_id, employee_id, sender_role, sender_user_id, body) values
+  ('9d600000-0000-0000-0000-000000000001', '9d000000-0000-0000-0000-00000000000d',
+   '9d200000-0000-0000-0000-000000000001', '9d300000-0000-0000-0000-000000000003',
+   'staff', '9d900000-0000-0000-0000-000000000001', 'pgTAP fixture message');
 
 -- Staff (staff.manage absent) cannot permanently delete -- refused (zero rows), employee still exists.
 select is(
@@ -132,6 +141,25 @@ select ok(
 select ok(
   exists(select 1 from workforce.shifts where employee_id = '9d300000-0000-0000-0000-000000000002'),
   'shift history for that employee is untouched'
+);
+
+-- Manager at Location A is refused for the employee whose ONLY history is a
+-- Mail thread (staff_messages) -- proves 0091's added union arm, not just
+-- shifts/attendance/requests/exchanges.
+select results_eq(
+  $$ select deleted, blocked_by_history from pg_temp.as_auth_permadelete('9d900000-0000-0000-0000-000000000002',
+       '9d000000-0000-0000-0000-00000000000d', '9d300000-0000-0000-0000-000000000003') $$,
+  $$ values (false, true) $$,
+  'manager is refused permanent delete of an employee whose only history is a staff_messages thread'
+);
+reset role;
+select ok(
+  exists(select 1 from workforce.employees where id = '9d300000-0000-0000-0000-000000000003'),
+  'employee with only message history still exists -- refusal never cascades or removes it'
+);
+select ok(
+  exists(select 1 from workforce.staff_messages where employee_id = '9d300000-0000-0000-0000-000000000003'),
+  'message history for that employee is untouched'
 );
 
 -- Manager at Location A can permanently delete the employee with zero history.

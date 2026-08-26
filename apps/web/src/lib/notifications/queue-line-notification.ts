@@ -23,7 +23,12 @@
  * own outcome.
  */
 
-export type LineNotificationEventType = 'correction_decision' | 'shift_exchange_decision' | 'schedule_published' | 'recipe_updated';
+export type LineNotificationEventType =
+  | 'correction_decision'
+  | 'shift_exchange_decision'
+  | 'schedule_published'
+  | 'recipe_updated'
+  | 'staff_message';
 
 export interface LineNotificationEvent {
   type: LineNotificationEventType;

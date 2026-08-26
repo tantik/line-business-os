@@ -116,7 +116,22 @@ interface StaffDashboardDict {
   navRecipes: string;
   navInventory: string;
   navPurchases: string;
+  navMail: string;
   entryPointsHeading: string;
+  // Staff<->Manager Mail module (0090): replaces the deleted DailyMessageForm card
+  mailHeading: string;
+  mailEmpty: string;
+  mailYouLabel: string;
+  mailManagerLabel: string;
+  mailArchivedTag: string;
+  mailMoreActionsAriaLabel: string;
+  mailMarkRead: string;
+  mailArchive: string;
+  mailComposePlaceholder: string;
+  mailSend: string;
+  mailSending: string;
+  mailHelpAriaLabel: string;
+  mailHelpBody: string;
   /** Also doubles as the "Submit next month's shift preference" module's heading and button label on the Staff dashboard. */
   preferenceModalTitle: string;
   // "?" help popovers (2026-08-24 redesign, matching the Manager dashboard's HelpIconButton pattern)
@@ -127,11 +142,6 @@ interface StaffDashboardDict {
   transportHelpAriaLabel: string;
   transportHelpBody: string;
   transportPlaceholder: string;
-  messageHelpAriaLabel: string;
-  messageHelpBody: string;
-  messagePlaceholder: string;
-  sendButton: string;
-  messageSentStatus: string;
   savingStatus: string;
   savedStatus: string;
   saveErrorStatus: string;
@@ -246,7 +256,21 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
     navPurchases: 'Purchases',
+    navMail: 'Mail',
     entryPointsHeading: 'Staff & recipe & Inventory management',
+    mailHeading: 'Mail',
+    mailEmpty: 'No messages yet.',
+    mailYouLabel: 'You',
+    mailManagerLabel: 'Manager',
+    mailArchivedTag: 'Archived',
+    mailMoreActionsAriaLabel: 'More actions for this message',
+    mailMarkRead: 'Mark read',
+    mailArchive: 'Archive',
+    mailComposePlaceholder: 'Send a message to your manager',
+    mailSend: 'Send',
+    mailSending: 'Sending...',
+    mailHelpAriaLabel: 'About Mail',
+    mailHelpBody: 'A private, two-way conversation with your manager. Send a message any time -- your manager sees it and can reply here.',
     preferenceModalTitle: "Submit next month's shift preference",
     workStatusHelpAriaLabel: 'About work status',
     workStatusHelpBody: 'Tap the big button to clock in when your shift starts, and to clock out when it ends. On clock-out, choose your actual break time -- your manager sees this in real time.',
@@ -255,11 +279,6 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportHelpAriaLabel: 'About transportation cost',
     transportHelpBody: "Enter today's transportation cost. It saves automatically as soon as you type it, and your manager sees it right away for payroll calculations.",
     transportPlaceholder: "Record today's transport cost",
-    messageHelpAriaLabel: 'About the daily message',
-    messageHelpBody: 'Send your manager a short note -- for example, something that happened during your shift, or anything they should know about.',
-    messagePlaceholder: 'Send a message to your manager',
-    sendButton: 'Send',
-    messageSentStatus: 'Message sent',
     savingStatus: 'Saving...',
     savedStatus: 'Saved',
     saveErrorStatus: 'Could not save',
@@ -371,7 +390,21 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navRecipes: 'レシピ',
     navInventory: '在庫',
     navPurchases: '仕入れ',
+    navMail: 'メール',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
+    mailHeading: 'メール',
+    mailEmpty: 'まだメッセージはありません。',
+    mailYouLabel: '自分',
+    mailManagerLabel: 'マネージャー',
+    mailArchivedTag: 'アーカイブ済み',
+    mailMoreActionsAriaLabel: 'このメッセージの操作',
+    mailMarkRead: '既読にする',
+    mailArchive: 'アーカイブ',
+    mailComposePlaceholder: 'マネージャーにメッセージを送る',
+    mailSend: '送信',
+    mailSending: '送信中...',
+    mailHelpAriaLabel: 'メールについて',
+    mailHelpBody: 'マネージャーとの1対1の会話です。いつでもメッセージを送信でき、マネージャーがここで返信します。',
     preferenceModalTitle: '来月のシフト希望を提出',
     workStatusHelpAriaLabel: '勤務状況について',
     workStatusHelpBody: 'シフト開始時に大きなボタンをタップして出勤、終了時にタップして退勤してください。退勤時に実際の休憩時間を選択します -- マネージャーはリアルタイムで確認できます。',
@@ -380,11 +413,6 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportHelpAriaLabel: '交通費について',
     transportHelpBody: '本日の交通費を入力してください。入力すると自動的に保存され、マネージャーが給与計算のためすぐに確認できます。',
     transportPlaceholder: '本日の交通費を記録',
-    messageHelpAriaLabel: '当日のメッセージについて',
-    messageHelpBody: 'マネージャーへ短いメッセージを送れます -- 例えば勤務中に起きたことや、伝えておきたいことなど。',
-    messagePlaceholder: 'マネージャーにメッセージを送る',
-    sendButton: '送信',
-    messageSentStatus: 'メッセージを送信しました',
     savingStatus: '保存中...',
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',
@@ -447,9 +475,15 @@ export const earningsEstimatedSuffix: Record<Lang, (hourlyWageYen: number, estim
   ja: (hourlyWageYen, estimatedYen) => ` ・ 時給¥${hourlyWageYen.toLocaleString('ja-JP')} ・ 推定¥${estimatedYen.toLocaleString('ja-JP')}`,
 };
 
+/** `shift_exchange_requests.status` values that can reach `existingExchangeMessage` -- see the `status !== 'open' && status !== 'accepted'` filter in `staff-schedule-view-model.ts`. */
+const exchangeStatusLabel: Record<Lang, Record<string, string>> = {
+  en: { open: 'open', accepted: 'accepted' },
+  ja: { open: '受付中', accepted: '承認済み' },
+};
+
 export const existingExchangeMessage: Record<Lang, (status: string) => string> = {
-  en: (status) => `A ${status} exchange request already exists for this shift.`,
-  ja: (status) => `このシフトにはすでに${status}状態の交換リクエストがあります。`,
+  en: (status) => `A ${exchangeStatusLabel.en[status] ?? status} exchange request already exists for this shift.`,
+  ja: (status) => `このシフトにはすでに${exchangeStatusLabel.ja[status] ?? status}状態の交換リクエストがあります。`,
 };
 
 /** Minimal JA/EN mapping for the `WorkforceWriteResult` statuses the shift-exchange request form can actually surface -- scoped counterpart to `error-copy.ts`'s English-only `describeWriteError`, for this consolidation's new exchange flow only. */

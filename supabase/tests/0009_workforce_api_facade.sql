@@ -413,7 +413,9 @@ select is(
         -- 0034_workforce_schedule_settings.sql: a later, separate migration.
         'schedule_settings', 'shift_exchanges',
         -- 0064_workforce_employee_invitations.sql: a later, separate migration.
-        'employee_invitations'
+        'employee_invitations',
+        -- 0090_workforce_staff_messages.sql: a later, separate migration.
+        'staff_messages'
       )),
   0,
   'authenticated has no grants on any other workforce table (e.g. leave_requests)'

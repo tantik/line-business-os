@@ -9,6 +9,7 @@ import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
+import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
@@ -48,8 +49,7 @@ import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { CorrectionRequestForm } from './correction-request-form';
 import { WorkStatusCard } from './work-status-card';
 import { TransportForm } from './transport-form';
-import { DailyMessageForm } from './daily-message-form';
-import transportMessageRow from './transport-message-row.module.css';
+import { StaffMailPopup } from './staff-mail-popup';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { useIsCompactSchedule } from './use-compact-schedule';
 import { AccountMenu } from '../_ui/account-menu';
@@ -135,6 +135,8 @@ export interface StaffDashboardClientProps {
   correctionRequests: WorkforceShiftRequest[] | null;
   /** This location's shift-exchange requests (RLS-scoped to the caller's tenant/location; a plain Staff reader sees requester/replacement rows they're a party to plus open offers, per `api.workforce_shift_exchanges`). */
   exchanges: WorkforceShiftExchange[] | null;
+  /** The caller's own single thread (self-scoped by RLS, `wf_staff_messages_self_select`) -- Staff<->Manager Mail module (0090), also the exact data `StaffMailPopup` renders (no separate fetch). `null` when the read failed. */
+  staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the entry-point card below; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
   /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
@@ -204,6 +206,7 @@ function StaffDashboardBody({
   attendance,
   correctionRequests,
   exchanges,
+  staffMessages,
   inventoryEnabled,
   inventoryItems,
   inventoryCanManage,
@@ -229,6 +232,7 @@ function StaffDashboardBody({
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
+  const [mailPopupOpen, setMailPopupOpen] = useState(false);
   // Full 7-day week always visible, no page-level horizontal scroll, at
   // 375px/390px viewport widths (Staff Shift Schedule v2, 2026-08-25) --
   // switches `ShiftTable`'s existing (previously unused) `compact` prop.
@@ -305,6 +309,16 @@ function StaffDashboardBody({
   const inventoryBoughtItemIds = useMemo(
     () => (purchasesItems ?? []).filter((i) => i.purchaseStatus === 'bought').map((i) => i.itemId),
     [purchasesItems],
+  );
+
+  // Staff<->Manager Mail (0090): manager-authored, unread, non-archived/
+  // deleted messages in the caller's own single thread -- shown as inline
+  // label text on the Mail entry-point button (Founder's own devtools
+  // mockup rendered the count that way, e.g. "Mail 1" -- `EntryPointsCardButton`
+  // has no separate badge prop today, see that button's own `label` below).
+  const unreadMailCount = useMemo(
+    () => (staffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
+    [staffMessages],
   );
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
@@ -531,6 +545,14 @@ function StaffDashboardBody({
             onClick: () => {
               markPopupTriggerClick('purchases');
               setPurchasesPopupOpen(true);
+            },
+          },
+          {
+            key: 'mail',
+            label: unreadMailCount > 0 ? `${t('navMail')} ${unreadMailCount}` : t('navMail'),
+            onClick: () => {
+              markPopupTriggerClick('staff-mail');
+              setMailPopupOpen(true);
             },
           },
         ]}
@@ -788,21 +810,23 @@ function StaffDashboardBody({
         <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</p>
       </Modal>
 
-      <div className={transportMessageRow.row}>
+      <div style={{ marginTop: 16 }}>
         <TransportForm
           workDate={todayIso}
           defaultTransportationCost={todayAttendance?.transportationCost ?? null}
           lang={lang}
           onSuccess={refreshAfterQuietSave}
         />
-
-        <DailyMessageForm
-          workDate={todayIso}
-          defaultDailyMessage={todayAttendance?.dailyMessage ?? null}
-          lang={lang}
-          onSuccess={refreshAfterQuietSave}
-        />
       </div>
+
+      <StaffMailPopup
+        open={mailPopupOpen}
+        onClose={() => setMailPopupOpen(false)}
+        messages={staffMessages}
+        timeZone={timeZone}
+        lang={lang}
+        onChange={() => router.refresh()}
+      />
 
       <section style={{ ...card, marginTop: 16 }}>
         {shiftTypes === null ? (

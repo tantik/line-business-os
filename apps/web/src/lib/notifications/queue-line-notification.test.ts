@@ -15,6 +15,9 @@ test('queueLineNotification never throws for any valid event shape', () => {
   assert.doesNotThrow(() =>
     queueLineNotification({ type: 'recipe_updated', tenantId: 'tenant-a', targetStaffId: null, payload: { recipeId: 'recipe-1' } }),
   );
+  assert.doesNotThrow(() =>
+    queueLineNotification({ type: 'staff_message', tenantId: 'tenant-a', targetStaffId: 'staff-1', payload: { messageId: 'msg-1', senderRole: 'manager' } }),
+  );
 });
 
 test('queueLineNotification returns void (no result to accidentally branch on)', () => {

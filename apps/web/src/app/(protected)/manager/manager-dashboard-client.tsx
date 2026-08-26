@@ -11,6 +11,7 @@ import type { WorkforceShiftRequest, ShiftRequestDecision } from '@/lib/workforc
 import type { WorkforceShiftAssignment } from '@/lib/workforce/shift-assignments';
 import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
+import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
@@ -19,6 +20,11 @@ import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/
 import { setEmployeeActive } from '@/lib/workforce/staff-actions';
 import { decideCorrectionRequest } from '@/lib/workforce/attendance-actions';
 import { assignShiftExchangeReplacement, decideShiftExchange } from '@/lib/workforce/shift-exchange-actions';
+import {
+  archiveStaffMessageAction,
+  markStaffMessageReadAction,
+  submitManagerMessage,
+} from '@/lib/workforce/staff-messages-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import {
@@ -50,6 +56,7 @@ import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
 import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
+import { StaffMessagesPopup } from './staff-messages-popup';
 import { SettingsSection } from './settings-section';
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
@@ -198,6 +205,8 @@ export interface ManagerDashboardClientProps {
   invitations: WorkforceEmployeeInvitation[] | null;
   shiftExchanges: WorkforceShiftExchange[] | null;
   exchangeAssignments: WorkforceShiftAssignment[] | null;
+  /** Every non-deleted employee thread's messages, tenant-scoped (RLS narrows by the caller's manage-permission location) -- Staff<->Manager Mail module (0090). `null` when the read failed. */
+  staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the Attention layer's inventory line; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
@@ -281,6 +290,7 @@ function ManagerDashboardBody({
   invitations,
   shiftExchanges,
   exchangeAssignments,
+  staffMessages,
   inventoryEnabled,
   inventoryItems,
   inventoryMediaUrlByItemId,
@@ -324,6 +334,7 @@ function ManagerDashboardBody({
   // WP-11: Correction/Exchange requests moved from always-visible sections into popups, triggered from AttentionPanel's cards.
   const [correctionsPopupOpen, setCorrectionsPopupOpen] = useState(false);
   const [exchangesPopupOpen, setExchangesPopupOpen] = useState(false);
+  const [staffMessagesPopupOpen, setStaffMessagesPopupOpen] = useState(false);
   // Shift-requests review popup (v2.1 UI-only, Settings entry point).
   const [shiftRequestsPopupOpen, setShiftRequestsPopupOpen] = useState(false);
   // WP A6: the cell editor is now a design-kit `Modal` (`ShiftCellEditorModal`),
@@ -425,6 +436,15 @@ function ManagerDashboardBody({
   const decidedCorrections = useMemo(
     () => (correctionRequests ?? []).filter((r) => r.status !== 'pending').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [correctionRequests],
+  );
+
+  // Staff<->Manager Mail (0090): staff-authored, unread, non-archived/deleted
+  // messages across every thread -- folded into AttentionPanel's Level-1
+  // total at that component's own render site (Mail is deliberately not a
+  // `ManagerAttentionCategory`, see attention-panel.tsx's own doc comment).
+  const unreadMailCount = useMemo(
+    () => (staffMessages ?? []).filter((m) => m.senderRole === 'staff' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
+    [staffMessages],
   );
 
   // 'open' (no candidate yet, or a plain change/cancel request) and
@@ -854,6 +874,50 @@ function ManagerDashboardBody({
     });
   }
 
+  // Staff<->Manager Mail (0090): mark-read/archive/delete are quiet, no
+  // page-level banner (mark-read in particular can fire several times in a
+  // row when a thread with multiple unread messages is opened -- see
+  // `StaffMessagesPopup`'s own opening effect) -- same `startTransition`/
+  // `pendingAction`/`router.refresh()` shape as `handleDecideCorrection`
+  // otherwise.
+  function handleMarkMessageRead(messageId: string) {
+    setPendingAction(`mark-read-message-${messageId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('messageId', messageId);
+      await markStaffMessageReadAction(formData);
+      router.refresh();
+      setPendingAction(null);
+    });
+  }
+
+  function handleArchiveMessage(messageId: string) {
+    setPendingAction(`archive-message-${messageId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('messageId', messageId);
+      await archiveStaffMessageAction(formData);
+      router.refresh();
+      setPendingAction(null);
+    });
+  }
+
+  function handleSendManagerMessage(employeeId: string, body: string) {
+    setBanner(null);
+    setPendingAction(`send-message-${employeeId}`);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('employeeId', employeeId);
+      formData.set('body', body);
+      const result = await submitManagerMessage(formData);
+      if (result.status !== 'success') {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      router.refresh();
+      setPendingAction(null);
+    });
+  }
+
   return (
     <>
       <header
@@ -954,6 +1018,11 @@ function ManagerDashboardBody({
           setInventoryPopupOpen(true);
         }}
         onViewShift={handleViewShift}
+        unreadMailCount={unreadMailCount}
+        onOpenMail={() => {
+          markPopupTriggerClick('staff-messages');
+          setStaffMessagesPopupOpen(true);
+        }}
       />
 
       {banner ? (
@@ -1312,6 +1381,20 @@ function ManagerDashboardBody({
         isPending={isPending}
         pendingAction={pendingAction}
         onDecide={handleDecideCorrection}
+        lang={lang}
+      />
+
+      <StaffMessagesPopup
+        open={staffMessagesPopupOpen}
+        onClose={() => setStaffMessagesPopupOpen(false)}
+        messages={staffMessages}
+        staffById={staffById}
+        timeZone={timeZone}
+        isPending={isPending}
+        pendingAction={pendingAction}
+        onMarkRead={handleMarkMessageRead}
+        onArchive={handleArchiveMessage}
+        onSend={handleSendManagerMessage}
         lang={lang}
       />
 
