@@ -52,6 +52,10 @@ insert into core.tenants (id, slug, name) values
 -- further down) assume normal, module-ON behavior.
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('fd000000-0000-0000-0000-000000000001', 'inventory', true);
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's shift-exchange scenarios assume normal, Workforce-ON behavior.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('fd000000-0000-0000-0000-000000000001', 'workforce', true);
 insert into core.locations (id, tenant_id, name) values
   ('fd100000-0000-0000-0000-000000000001', 'fd000000-0000-0000-0000-000000000001', 'Cafe');
 insert into core.users (id, display_name) values

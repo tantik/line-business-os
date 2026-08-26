@@ -36,6 +36,10 @@ $$;
 
 insert into core.tenants (id, slug, name) values
   ('dd000000-0000-0000-0000-000000000001', 'pgtap-account-access', 'pgTAP Account Access');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('dd000000-0000-0000-0000-000000000001', 'workforce', true);
 insert into core.locations (id, tenant_id, name) values
   ('dd100000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001', 'Loc');
 insert into core.users (id, display_name) values

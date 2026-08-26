@@ -36,6 +36,11 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('cf000000-0000-0000-0000-000000000001', 'recipe-manage-a', 'Recipe A'),
   ('cf000000-0000-0000-0000-000000000002', 'recipe-manage-b', 'Recipe B');
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for both fixture tenants.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('cf000000-0000-0000-0000-000000000001', 'workforce', true),
+  ('cf000000-0000-0000-0000-000000000002', 'workforce', true);
 insert into core.locations (id, tenant_id, name) values
   ('cf100000-0000-0000-0000-000000000001', 'cf000000-0000-0000-0000-000000000001', 'Cafe A'),
   ('cf100000-0000-0000-0000-000000000002', 'cf000000-0000-0000-0000-000000000002', 'Cafe B');

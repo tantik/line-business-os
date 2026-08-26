@@ -61,6 +61,11 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('9d000000-0000-0000-0000-00000000000d', 'pgtap-wf-permadelete-tenant', 'pgTAP Workforce Permadelete Tenant');
 
+-- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
+-- this file's scenarios assume normal, Workforce-ON behavior for the fixture tenant.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9d000000-0000-0000-0000-00000000000d', 'workforce', true);
+
 insert into core.locations (id, tenant_id, name, timezone) values
   ('9d200000-0000-0000-0000-000000000001', '9d000000-0000-0000-0000-00000000000d', 'Location A', 'Asia/Tokyo'),
   ('9d200000-0000-0000-0000-000000000002', '9d000000-0000-0000-0000-00000000000d', 'Location B', 'Asia/Tokyo');
