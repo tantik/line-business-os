@@ -40,9 +40,14 @@ verified stage, active constraints, and the next gate.
 
 Cafe Package v2.0 remains frozen (bug/security/accessibility/localization
 fixes and bounded release polish only; new features require a new Product
-Review). **Cafe Package v2.1 is CLOSED** (Final Founder Acceptance recorded
-2026-08-16, see §2.3). This is not a Commercial Release — production remains
-separately gated and was not enabled (see "Verified baseline" below).
+Review). **Cafe Package v2.1 is CLOSED** (bounded F1/F2 code closure with
+Final Founder Acceptance recorded 2026-08-16, see §2.3; the Founder then
+closed the full v2.1 product-development phase — everything shipped since,
+through this session's photo-optimization fix — with a second, broader
+**Founder Acceptance = PASS on 2026-08-26**, see §5's newest pointer and
+`docs/ai/CAFE_V2_1_FOUNDER_ACCEPTANCE_CLOSURE_2026-08-26.md`). This is not a
+Commercial Release — production remains separately gated and was not
+enabled (see "Verified baseline" below).
 
 Verified baseline:
 
@@ -272,7 +277,21 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-26 pointer (newest — read this one first).** A same-day session
+**2026-08-26 pointer, FOUNDER ACCEPTANCE CLOSURE (newest — read this one
+first).** **Founder Acceptance: Cafe v2.1 = PASS.** The Founder closed the
+whole Cafe v2.1 product-development phase (not just the bounded F1/F2 code
+closure from 2026-08-16, §2.3) — full detail, scope, and what carries
+forward unchanged in
+`docs/ai/CAFE_V2_1_FOUNDER_ACCEPTANCE_CLOSURE_2026-08-26.md`. **No new Cafe
+features are authorized to start** against this phase. The next product
+phase is **Cafe v2.2 Product Research**, currently being run separately,
+outside this repo/session, with ChatGPT — not this session's job to start,
+continue, or second-guess. A fresh session should not begin any v2.2 work
+(implementation or research) until the Founder brings a concrete, scoped
+v2.2 mission back into this repo. Production remains untouched and
+separately gated, unaffected by this entry.
+
+**2026-08-26 pointer (older — read after the one above).** A same-day session
 (started as a "continue Manager+Staff combined QA pass" follow-on to the
 2026-08-25 Staff Shift Schedule v2 entry below, using this project's first
 working chrome-devtools MCP browser tool) found that Staff's "今日の
