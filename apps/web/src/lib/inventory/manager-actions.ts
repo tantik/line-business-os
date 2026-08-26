@@ -6,6 +6,7 @@ import { parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from 
 import { parseUuid } from './validation';
 import { listInventoryItemStatus, permanentlyDeleteInventoryItem, setInventoryItemActive, upsertInventoryItem, type InventoryItem } from './items';
 import type { InventoryWriteResult } from './result-types';
+import { optimizeImageForWeb } from '@/lib/media/optimize-image';
 
 /**
  * Server Actions for the Inventory catalog (manager-only; enforced by RLS --
@@ -68,10 +69,15 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
 
   let nextMediaPath = mediaPath;
   if (photo instanceof File && photo.size > 0) {
-    const extension = photo.type === 'image/png' ? 'png' : photo.type === 'image/webp' ? 'webp' : 'jpg';
-    nextMediaPath = `${tenantId}/${input.locationId}/${saved.data.itemId}/${crypto.randomUUID()}.${extension}`;
-    const upload = await supabase.storage.from('inventory-media').upload(nextMediaPath, photo, {
-      contentType: photo.type, cacheControl: '3600', upsert: false,
+    let optimized;
+    try {
+      optimized = await optimizeImageForWeb(await photo.arrayBuffer());
+    } catch {
+      return { status: 'unexpected_error', message: 'Could not process the photo.' };
+    }
+    nextMediaPath = `${tenantId}/${input.locationId}/${saved.data.itemId}/${crypto.randomUUID()}.${optimized.extension}`;
+    const upload = await supabase.storage.from('inventory-media').upload(nextMediaPath, optimized.buffer, {
+      contentType: optimized.contentType, cacheControl: '3600', upsert: false,
     });
     if (upload.error) return { status: 'unexpected_error', message: 'Could not upload the photo.' };
     const mediaSaved = await upsertInventoryItem(supabase, tenantId, {

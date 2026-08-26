@@ -357,6 +357,7 @@ export function RecipesListBody({
                       onClick={openDetail}
                       onMouseEnter={() => onHoverRecipe?.(recipe.recipeId)}
                       onFocus={() => onHoverRecipe?.(recipe.recipeId)}
+                      onPointerDown={() => onHoverRecipe?.(recipe.recipeId)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();

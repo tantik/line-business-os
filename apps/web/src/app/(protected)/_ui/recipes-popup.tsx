@@ -61,10 +61,22 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   // or a click that beat the hover fetch to the punch).
   const detailCacheRef = useRef(new Map<string, RecipeDetailForPopup>());
 
+  // The list view already holds a signed URL per recipe (`mediaUrlByRecipeId`,
+  // fetched once by the page). `getRecipeDetailForPopup` mints its own signed
+  // URL for the same underlying file, which the browser treats as a
+  // different resource (different token in the query string) and re-fetches
+  // in full instead of reusing the thumbnail's cached bytes. Since the photo
+  // itself hasn't changed between list and detail within the same popup
+  // session, prefer the already-fetched URL whenever one exists.
+  function withKnownMediaUrl(recipeId: string, detail: RecipeDetailForPopup): RecipeDetailForPopup {
+    const known = mediaUrlByRecipeId[recipeId];
+    return known ? { ...detail, mediaUrl: known } : detail;
+  }
+
   function prefetchRecipe(recipeId: string) {
     if (detailCacheRef.current.has(recipeId)) return;
     getRecipeDetailForPopup(recipeId).then((result) => {
-      if (result.status === 'success' && result.data) detailCacheRef.current.set(recipeId, result.data);
+      if (result.status === 'success' && result.data) detailCacheRef.current.set(recipeId, withKnownMediaUrl(recipeId, result.data));
     });
   }
 
@@ -80,8 +92,9 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     startTransition(async () => {
       const result = await getRecipeDetailForPopup(recipeId);
       if (result.status === 'success' && result.data) {
-        detailCacheRef.current.set(recipeId, result.data);
-        setDetail(result.data);
+        const withUrl = withKnownMediaUrl(recipeId, result.data);
+        detailCacheRef.current.set(recipeId, withUrl);
+        setDetail(withUrl);
       } else {
         setDetailError(t('unavailable'));
       }
