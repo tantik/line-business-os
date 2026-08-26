@@ -31,6 +31,7 @@ import { resolveContentTranslationProvider } from '@/lib/content/translation-pro
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
+import { optimizeImageForWeb } from '@/lib/media/optimize-image';
 
 /**
  * Server Actions for Manager recipe CRUD (Cafe v2.1 QA audit P1-2,
@@ -113,10 +114,15 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
 
   let nextMediaPath = input.mediaPath;
   if (photo instanceof File && photo.size > 0) {
-    const extension = photo.type === 'image/png' ? 'png' : photo.type === 'image/webp' ? 'webp' : 'jpg';
-    nextMediaPath = `${tenantId}/${locationResult.data}/${saved.data.recipeId}/${crypto.randomUUID()}.${extension}`;
-    const upload = await supabase.storage.from('recipe-media').upload(nextMediaPath, photo, {
-      contentType: photo.type, cacheControl: '3600', upsert: false,
+    let optimized;
+    try {
+      optimized = await optimizeImageForWeb(await photo.arrayBuffer());
+    } catch {
+      return { status: 'unexpected_error', message: 'Could not process the photo.' };
+    }
+    nextMediaPath = `${tenantId}/${locationResult.data}/${saved.data.recipeId}/${crypto.randomUUID()}.${optimized.extension}`;
+    const upload = await supabase.storage.from('recipe-media').upload(nextMediaPath, optimized.buffer, {
+      contentType: optimized.contentType, cacheControl: '3600', upsert: false,
     });
     if (upload.error) return { status: 'unexpected_error', message: 'Could not upload the photo.' };
     const mediaSaved = await upsertWorkforceRecipe(supabase, tenantId, locationResult.data, { ...input, recipeId: saved.data.recipeId, mediaPath: nextMediaPath });
