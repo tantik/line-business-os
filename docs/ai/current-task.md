@@ -277,8 +277,34 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-26 pointer, FOUNDER ACCEPTANCE CLOSURE (newest — read this one
-first).** **Founder Acceptance: Cafe v2.1 = PASS.** The Founder closed the
+**2026-08-26 pointer, MODULE ACCESS SECURITY REMEDIATION CLOSED (newest —
+read this one first).** A separate, security-focused mission (started
+2026-08-26, run across this file's own governance model, not part of Cafe
+product work) closed all six Work Packages of **Module Access Security
+Remediation**: `core.has_module_access(tenant_id, module)` now gates every
+tenant-facing RLS policy/RPC/view/SECURITY DEFINER function across
+Purchases, Inventory, Booking, Workforce, and AI (plus the primitive itself,
+WP-S1) — turning a module OFF now actually blocks tenant-facing access to
+that domain's data, ANDed alongside existing permission checks (never
+replacing them), with existing data preserved and access restored unchanged
+when the module is turned back ON. **6 PRs merged to `dev`** (#448–#451,
+#453, #454); `main` untouched; **no Supabase Cloud/remote DB write or
+production deploy at any point** — every migration (`0093`–`0098`) exists
+only on `dev` today. Full status matrix, deliberate exceptions needing
+Founder awareness (a product-policy split on Workforce employee-invitation
+gating; two pre-existing, out-of-scope permanent-delete quirks found but not
+fixed in Inventory and Workforce), and what remains explicitly open (remote
+apply, live verification) are in
+`docs/ai/MODULE_ACCESS_SECURITY_REMEDIATION_COMPLETION_REPORT_2026-08-26.md`
+— read that file first if anything about module gating, `tenant_modules`,
+or `core.has_module_access` comes up. **This mission is CLOSED pending
+Founder acceptance of that report; no further work under its name is
+authorized, and this closure does not itself authorize Cafe v2.2 WP1
+Foundation Prerequisite or any other next mission** — the next piece of work
+is a separate Founder decision, same as every prior closure in this file.
+
+**2026-08-26 pointer, FOUNDER ACCEPTANCE CLOSURE (older — read after the one
+above).** **Founder Acceptance: Cafe v2.1 = PASS.** The Founder closed the
 whole Cafe v2.1 product-development phase (not just the bounded F1/F2 code
 closure from 2026-08-16, §2.3) — full detail, scope, and what carries
 forward unchanged in
