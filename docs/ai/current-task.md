@@ -277,8 +277,32 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-26 pointer, MODULE ACCESS SECURITY REMEDIATION CLOSED (newest —
-read this one first).** A separate, security-focused mission (started
+**2026-08-26 pointer, MODULE ACCESS SECURITY CLOUD/PREVIEW ROLLOUT COMPLETE
+(newest — read this one first).** After the Module Access Security
+Remediation mission closed on `dev` (see the pointer directly below), the
+Founder manually applied migrations `0093`-`0098` to the linked Supabase
+Cloud dev project (`pnpm exec supabase db push`, ledger verified
+Local = Remote through `0098`) and live-verified the ON → OFF → ON module
+lifecycle on Preview for Workforce and Inventory/Purchases (data preserved,
+no browser console errors; Purchases confirmed to ride Inventory's own
+module flag as designed). Booking and AI were not live-tested this rollout
+(no reachable tenant-facing surface for either yet, per the REMEDIATION
+report). Full facts, exact preflight state, and what is/isn't claimed as
+verified are in
+`docs/ai/MODULE_ACCESS_SECURITY_CLOUD_PREVIEW_ROLLOUT_COMPLETION_2026-08-26.md`
+— read that file first if anything about the Cloud dev rollout, `db push`,
+or live module-toggle verification comes up. One small UX-only follow-up
+was spun out (Purchases' entry-point button stays visible on Staff's
+dashboard when Inventory is OFF, even though opening it is correctly
+blocked) — tracked separately in
+`docs/ai/PURCHASES_VISIBILITY_INVENTORY_OFF_FOLLOWUP_2026-08-26.md`, not
+fixed by this entry and not auto-authorized to start. No migration, RLS, or
+`tenant_modules` change was made by this docs-only PR; `main` was not
+touched; production remains not applicable (none exists). This entry does
+not authorize any new product mission.
+
+**2026-08-26 pointer, MODULE ACCESS SECURITY REMEDIATION CLOSED (older —
+read after the one above).** A separate, security-focused mission (started
 2026-08-26, run across this file's own governance model, not part of Cafe
 product work) closed all six Work Packages of **Module Access Security
 Remediation**: `core.has_module_access(tenant_id, module)` now gates every
