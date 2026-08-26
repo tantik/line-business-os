@@ -16,9 +16,16 @@
 --   * inv_check_sessions_read/write             (0045)
 --   * inv_check_session_items_read/write        (0045)
 --   * inventory_media_select/insert/delete      (0085, storage.objects)
---   * inventory.permanently_delete_item()       (0082's body) -- SECURITY
+--   * inventory.permanently_delete_item()       (0085's body -- SECURITY
 --     DEFINER, does not run under RLS at all, so the check must be explicit
---     inside the function body, not left to a table policy.
+--     inside the function body, not left to a table policy. Note: 0085's
+--     body blocks deletion when stock-count history exists, not 0082's
+--     later cascade-delete-history behavior -- 0085 dropped and recreated
+--     the function to add media_path support and, in doing so, reverted to
+--     0055's original block-on-history logic; this is a pre-existing
+--     discrepancy already live on dev, out of WP-S3's scope to reconcile.
+--     This migration extends 0085's actual current body unchanged, adding
+--     only the module-access check.
 --
 -- api.inventory_items / api.inventory_item_status (0037/0046/0085) are both
 -- security_invoker views with no WHERE clause of their own beyond the base
@@ -159,10 +166,18 @@ create policy inv_check_session_items_write on inventory.check_session_items
   );
 
 -- --- inventory.permanently_delete_item() -- SECURITY DEFINER, no RLS -------
--- Re-declares the exact 0082 body plus one new module-access pre-check,
--- placed first (before the permission/history checks) so an OFF tenant gets
--- the same not-found-shaped empty result every other guard in this function
--- already returns for unauthorized/not-found -- no new error shape.
+-- Re-declares the exact current live body (0085 -- which, despite its own
+-- header note claiming to build on 0082's cascade-delete/never-block
+-- behavior, actually re-added 0055's original block-on-history logic when
+-- it dropped and recreated this function to add media_path support; this is
+-- a pre-existing discrepancy in the current dev codebase, NOT something
+-- this migration changes -- WP-S3's scope is module-access gating only, not
+-- reconciling that unrelated business-logic question, which stays exactly
+-- as it already behaves on dev today) plus one new module-access
+-- pre-check, placed first (before the not-found/permission/history checks)
+-- so an OFF tenant gets the same not-found-shaped empty result every other
+-- guard in this function already returns for unauthorized/not-found -- no
+-- new error shape.
 create or replace function inventory.permanently_delete_item(
   p_tenant_id uuid,
   p_item_id uuid
@@ -219,7 +234,7 @@ end;
 $$;
 
 comment on function inventory.permanently_delete_item(uuid, uuid) is
-  'Hard-deletes an inventory item only when the caller holds inventory.item.manage for its location, the tenant''s Inventory module is ON (WP-S3), and it has zero inventory.stock_counts history. SECURITY DEFINER because inventory.items has no DELETE RLS policy by design (0036) -- this function is the sole, guarded exception, and re-implements both the module-access and manage-permission checks inline since it cannot rely on RLS for either. Lives outside the api schema per ADR 0008 (no SECURITY DEFINER object in api); api.permanently_delete_inventory_item is its invoker-only passthrough. Returns zero rows for module-off/not-found/unauthorized (indistinguishable to the caller, matching every other Inventory write path); returns (false, true, media_path) when blocked by existing stock-count history; returns (true, false, media_path) on success -- media_path lets the caller clean up the Storage object.';
+  'Hard-deletes an inventory item only when the caller holds inventory.item.manage for its location, the tenant''s Inventory module is ON (WP-S3), and it has zero inventory.stock_counts history. SECURITY DEFINER because inventory.items has no DELETE RLS policy by design (0036) -- this function is the sole, guarded exception, and re-implements both the module-access and manage-permission checks inline since it cannot rely on RLS for either. Lives outside the api schema per ADR 0008 (no SECURITY DEFINER object in api); api.permanently_delete_inventory_item is its invoker-only passthrough. Returns zero rows for module-off/not-found/unauthorized (indistinguishable to the caller, matching every other Inventory write path); returns (false, true, media_path) when blocked by existing stock-count history (0085''s current live behavior, unchanged by WP-S3); returns (true, false, media_path) on success -- media_path lets the caller clean up the Storage object.';
 
 -- --- inventory-media Storage bucket (0085) ----------------------------------
 drop policy if exists inventory_media_select on storage.objects;
