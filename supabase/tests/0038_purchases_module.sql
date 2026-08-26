@@ -79,6 +79,14 @@ select ok(
 insert into core.tenants (id, slug, name) values
   ('9c000000-0000-0000-0000-00000000000a', 'pgtap-purch-tenant-a', 'pgTAP Purchases Tenant A');
 
+-- Purchases rides the Inventory module flag (0089's header note; enforced by
+-- WP-S2's 0094_purchases_module_access_gate.sql). This whole file's
+-- scenarios assume normal, Inventory-ON behavior, so the fixture tenant
+-- needs an explicit ON row -- module-OFF behavior itself is covered
+-- separately in 0041_purchases_module_access_gate.sql.
+insert into core.tenant_modules (tenant_id, module, is_enabled) values
+  ('9c000000-0000-0000-0000-00000000000a', 'inventory', true);
+
 insert into core.locations (id, tenant_id, name) values
   ('9c200000-0000-0000-0000-000000000001', '9c000000-0000-0000-0000-00000000000a', 'Tenant A Location A');
 
