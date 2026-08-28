@@ -307,7 +307,7 @@ explicit Founder prompt) has run its design + review + first-slice phases:
   Module Access Security Remediation report §6 — **zero new failures**.
   `pnpm -w typecheck` / `lint` / `test` (1267 pass) / `build` all green
   (SQL-only change, no `apps/*`).
-- **PR `#___` opened against `dev`** (branch
+- **PR #459 opened against `dev`** (branch
   `feature/operations-foundation-wp1a`). **RED path** (`supabase/
   migrations/**`) → autonomous `dev` merge is structurally forbidden;
   **the PR is left for Founder merge.**
