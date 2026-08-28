@@ -60,7 +60,7 @@ ONE ORUWA SaaS
 |---|---|---|
 | 1 | Cafe v2.1 Completion | **CURRENT** |
 | 2 | Cafe v2.2 Product Research | Not started |
-| 3 | Cafe v2.2 Implementation | Not started |
+| 3 | Cafe v2.2 Implementation | Not started — except **WP1 Operations scope authorized** 2026-08-28 (`docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md`); WP1-A implementation not started, needs its own explicit Founder prompt |
 | 4 | Full Cafe v2.2 Acceptance | Not started |
 | 5 | SaaS Hardening | Not started |
 | 6 | Platform Foundation Reconciliation | Not started (forensic triage exists, see below) |
@@ -137,7 +137,15 @@ research is input, not automatically current — refresh at Phase 2 start.
 Scoped only after Phase 2's Founder decision. Known candidates needing
 re-evaluation at that point (not pre-authorized now): real Shift
 Preferences persistence/backend, automatic scheduling, LINE notifications,
-Email notifications, related workflows. Approved conceptual scheduling
+Email notifications, related workflows.
+
+**WP1 Operations exception (2026-08-28):** the Founder authorized one
+concrete, bounded work package — **WP1 Operations** — as the first piece of
+Phase 3, ahead of a completed full Phase 2 Top-5 research cycle. Scope is
+fixed at `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md`
+(the source of truth). This does not authorize any other v2.2 work and does
+not replace broader Phase 2 research for further v2.2 scope. WP1-A
+implementation still needs its own explicit Founder prompt. Approved conceptual scheduling
 priority model (already Founder-decided, holds regardless of Phase 2's
 outcome): **Manual Manager Assignment > Manager-approved/locked preference
 > Employee preference > Algorithmic fallback** — automation must never

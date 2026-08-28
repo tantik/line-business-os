@@ -277,8 +277,55 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-28 pointer, CAFE v2.2 WP1 OPERATIONS SCOPE AUTHORIZED (newest —
+read this one first).** A docs-only product/governance mission recorded the
+Founder-approved product scope for **Cafe v2.2 WP1 Operations** at
+`docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` — now the
+source of truth for WP1 product scope. This **resolves the prior governance
+contradiction**: the 2026-08-26 Founder Acceptance Closure and the pointers
+below correctly said *"no Cafe v2.2 work authorized in this repo; v2.2
+Product Research runs externally with ChatGPT"* — that remains true for
+**everything except WP1 Operations**, for which the Founder has now
+explicitly provided the gate. Those older pointers and
+`docs/ai/CAFE_V2_1_FOUNDER_ACCEPTANCE_CLOSURE_2026-08-26.md` §3 are **not
+deleted or rewritten** — they are true history; this entry is the explicit
+later Founder decision that supersedes them for WP1 Operations only.
+
+Founder decisions recorded (full text in the scope doc):
+- **D1** — WP1 Operations authorized as the next product work package. A
+  **separate WP1-A implementation mission** may then begin, but **only on a
+  separate explicit Founder prompt** — this scope doc does NOT authorize
+  writing code/SQL/migrations/RLS/tests.
+- **D2** — photo/evidence NOT in the initial WP1 MVP (checkbox / numeric /
+  text only); architecture must not block adding it later; no Storage/media
+  infra built now.
+- **D3** — HACCP is NOT a separate module/capability; Operations = generic
+  reusable module, Cafe HACCP = presets/config on top. No `haccp` module
+  code, no `has_capability('haccp')`.
+- **D4** — normal overdue task → `warning`; critical operational condition →
+  `action_required`. Exact derivation is an implementation decision.
+- **D5** — Operations designed reusable from day one; no Cafe/HACCP hardcode
+  in the generic domain.
+
+Also fixed by the scope doc (product boundaries, not re-litigated elsewhere):
+Operations must be a full backend-enforced ON/OFF module using the existing
+`core.has_module_access` pattern (no frontend-only gating); NO capability
+framework built in WP1; recurrence is "simple" (daily / weekdays / time
+window) but the instance-generation mechanism is an un-fixed implementation
+decision; a task must be considered expected in its period regardless of
+whether Staff opened the app. Technical hypotheses from the prior
+`CAFE_V2_2_WP1_OPERATIONS_RECOVERY_REPORT` (table count/names, jsonb shapes,
+enums, RPC names, migration count, lazy generation) are explicitly **NOT**
+promoted to Founder-approved decisions — they belong to WP1-A technical
+design.
+
+**Implementation authorization state: AUTHORIZED for a separate WP1-A
+mission on its own explicit Founder prompt. WP1 implementation has NOT
+started.** This docs-only PR changed no application code, SQL, migration, or
+RLS; `main` untouched; no Cloud/DB write; production not applicable.
+
 **2026-08-26 pointer, MODULE ACCESS SECURITY CLOUD/PREVIEW ROLLOUT COMPLETE
-(newest — read this one first).** After the Module Access Security
+(read after the one above).** After the Module Access Security
 Remediation mission closed on `dev` (see the pointer directly below), the
 Founder manually applied migrations `0093`-`0098` to the linked Supabase
 Cloud dev project (`pnpm exec supabase db push`, ledger verified
