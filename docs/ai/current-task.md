@@ -277,8 +277,65 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-28 pointer, WP1-A OPERATIONS HISTORICAL-EXPECTATION INTEGRITY —
+PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** A
+follow-up to PR #460: the Founder flagged the slice-2 "нематериализованное
+прошлое следует текущему расписанию" note as an architectural integrity
+defect for Operations / future Cafe HACCP records.
+
+- **Defect CONFIRMED by reproduction** against merged `dev`: a Manager
+  changing a schedule's recurrence today, via a raw UPDATE, retroactively
+  erased a past operational obligation for a business date with no
+  materialised `task_instance` (`api.operations_expected_tasks` evaluated
+  every date against the schedule's *current* columns).
+- **Fix — effective-dated schedule versioning** (migration `0102`,
+  additive; **`0099`/`0100`/`0101` untouched**): `task_schedules.schedule_group_id`
+  (stable logical identity across versions, backfilled `= id`);
+  `CHECK (is_active or effective_to is not null)`; an `EXCLUDE`/`btree_gist`
+  constraint forbidding overlapping versions of one logical schedule; a
+  `BEFORE UPDATE` guard trigger making a *started* version immutable in
+  recurrence/timing/identity (its `effective_to` may only move forward);
+  `api.operations_expected_tasks` rebuilt to pick the version whose
+  `[effective_from, effective_to]` range contains the business date and to
+  stop consulting `task_schedules.is_active`; two `SECURITY INVOKER` write
+  RPCs — `api.operations_revise_schedule` (atomic close-current + new
+  version, default effective from next business date) and
+  `api.operations_deactivate_schedule` (retire at a boundary, retroactive
+  rejected).
+- **Edit semantics**: a revision's earliest effect is the next business
+  date (same-day/in-window changes cannot rewrite today's occurrence —
+  trade-off documented). **Deactivation**: `effective_to` boundary, past
+  preserved, future stops.
+- **Template/item classification** (scope §11) in the migration header:
+  name/label edits SAFE; `is_active`/`is_required`/`numeric_min/max` changes
+  ALREADY PRESERVED (threshold violation is a persisted `task_exceptions`
+  row — regression-tested); `response_type` change and
+  `checklist_templates.is_active` retroactivity = same defect class,
+  **tracked follow-ups** (no tenant-facing write path exists yet).
+- **Tests**: new `supabase/tests/0048_operations_schedule_versioning.sql`
+  (defect reproduction + the mandated matrix: past obligation survives
+  recurrence change / deactivation; future uses new recurrence; no
+  duplicate occurrence across versions; materialised instance stays
+  associated; module OFF/ON; cross-tenant + cross-location revise/deactivate
+  rejected; `EXCLUDE` rejects overlap; threshold history). `0047` adjusted
+  (2 changes — fixture for the new CHECK; "history after edit" test now
+  drives the revise RPC since raw recurrence UPDATE is blocked).
+- Verification (local): `supabase db reset` + `supabase test db` —
+  `0046`/`0047`/`0048` pass; full suite = **exactly the 11 known
+  pre-existing failures**, zero new. `turbo run typecheck lint build test` —
+  30/30. Independent fresh-context review with a reproduction requirement:
+  recorded in the PR / handoff.
+- **PR #462 opened against `dev`** (branch
+  `fix/operations-historical-expectation-integrity`). **RED path** →
+  autonomous `dev` merge forbidden; **left for Founder merge.**
+- **No `supabase db push`, no Cloud write, no `tenant_modules`/Preview
+  change, no production. `main` untouched.** `0102` on the feature branch
+  only.
+- Full handoff:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_HISTORICAL_EXPECTATION_HANDOFF_2026-08-28.md`.
+
 **2026-08-28 pointer, WP1-A OPERATIONS SLICE 2 (scheduling & execution) —
-MERGED (PR #460, newest — read this one first).** Founder merged PR #460
+MERGED (PR #460, read after the one above).** Founder merged PR #460
 into `dev` (`origin/dev` = `f18b884`); `main` untouched, no Cloud apply.
 Slice 2 continued the WP1-A implementation mission, inside the fixed WP1
 product scope, as its own bounded PR:

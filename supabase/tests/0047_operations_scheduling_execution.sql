@@ -75,19 +75,22 @@ insert into operations.checklist_items (id, tenant_id, template_id, label, respo
 --  S_daily_past : daily, due 00:00, effective 20d ago  -> past dates are OVERDUE, today overdue-ish
 --  S_daily_future : daily, due 23:59, effective today   -> today NOT_STARTED (before close)
 --  S_weekday    : only the isodow of (current_date + 3), effective today
---  S_disabled   : daily but is_active = false
+--  S_retired    : daily, retired (effective_to in the past) -> no future tasks
 --  S_tmpl_off   : daily on the disabled template
 --  S_l2         : daily on L2
 --  S_closing    : cross-midnight, due 23:00 window_end 02:00
+-- (effective_to + schedule_group_id added to the column list: the 0102
+--  retired-has-end CHECK, and schedule_group_id = id so tests can address a
+--  logical schedule by a stable literal.)
 insert into operations.task_schedules
-  (id, tenant_id, location_id, template_id, recurrence_kind, weekdays, due_time, window_end_time, effective_from, is_active) values
-  ('05c00000-0000-0000-0000-0000000000d1', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '00:00', null, current_date - 20, true),
-  ('05c00000-0000-0000-0000-0000000000d2', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '23:59', null, current_date, true),
-  ('05c00000-0000-0000-0000-0000000000d3', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'weekdays', array[extract(isodow from current_date + 3)::smallint], '08:00', '10:00', current_date, true),
-  ('05c00000-0000-0000-0000-0000000000d4', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '08:00', null, current_date - 5, false),
-  ('05c00000-0000-0000-0000-0000000000d5', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a3', 'daily', null, '08:00', null, current_date - 5, true),
-  ('05c00000-0000-0000-0000-0000000000d6', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000002', '0a1e0000-0000-0000-0000-0000000000a2', 'daily', null, '08:00', null, current_date - 5, true),
-  ('05c00000-0000-0000-0000-0000000000d7', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '23:00', '02:00', current_date - 5, true);
+  (id, schedule_group_id, tenant_id, location_id, template_id, recurrence_kind, weekdays, due_time, window_end_time, effective_from, effective_to, is_active) values
+  ('05c00000-0000-0000-0000-0000000000d1', '05c00000-0000-0000-0000-0000000000d1', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '00:00', null, current_date - 20, null, true),
+  ('05c00000-0000-0000-0000-0000000000d2', '05c00000-0000-0000-0000-0000000000d2', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '23:59', null, current_date, null, true),
+  ('05c00000-0000-0000-0000-0000000000d3', '05c00000-0000-0000-0000-0000000000d3', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'weekdays', array[extract(isodow from current_date + 3)::smallint], '08:00', '10:00', current_date, null, true),
+  ('05c00000-0000-0000-0000-0000000000d4', '05c00000-0000-0000-0000-0000000000d4', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '08:00', null, current_date - 5, current_date - 5, false),
+  ('05c00000-0000-0000-0000-0000000000d5', '05c00000-0000-0000-0000-0000000000d5', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a3', 'daily', null, '08:00', null, current_date - 5, null, true),
+  ('05c00000-0000-0000-0000-0000000000d6', '05c00000-0000-0000-0000-0000000000d6', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000002', '0a1e0000-0000-0000-0000-0000000000a2', 'daily', null, '08:00', null, current_date - 5, null, true),
+  ('05c00000-0000-0000-0000-0000000000d7', '05c00000-0000-0000-0000-0000000000d7', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '0a1e0000-0000-0000-0000-0000000000a1', 'daily', null, '23:00', '02:00', current_date - 5, null, true);
 
 -- --- Role-hop helpers ---------------------------------------------------
 create function pg_temp.as_auth_count(p_sub text, p_sql text)
@@ -191,12 +194,12 @@ select is(
        where schedule_id = '05c00000-0000-0000-0000-0000000000d1' and state = 'overdue' $$),
   1, 'recurrence: task whose window has closed with no completion is overdue');
 
--- disabled schedule -> not expected
+-- retired schedule (effective_to in the past) -> no expected tasks after the boundary
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-00000000000a',
     $$ select count(*)::int from api.operations_expected_tasks(current_date - 3, current_date)
        where schedule_id = '05c00000-0000-0000-0000-0000000000d4' $$),
-  0, 'recurrence: an is_active=false schedule produces no expected tasks');
+  0, 'recurrence: a retired schedule (past effective_to) produces no expected tasks after its boundary');
 
 -- disabled template -> its schedule produces no expected tasks
 select is(
@@ -448,28 +451,47 @@ select is(
 -- HISTORICAL EXPECTATION AFTER A SCHEDULE EDIT
 -- ============================================================================
 -- schedule d3 has a materialised instance (via the reported problem above) for
--- today. Flip d3 to a weekday that matches NEITHER today NOR tomorrow -> other
--- dates stop being expected, but the already-materialised occurrence must NOT
--- disappear.
-update operations.task_schedules
-  set weekdays = array[(
-        select min(x)::smallint from generate_series(1, 7) x
-        where x not in (extract(isodow from current_date)::int,
-                        extract(isodow from current_date + 1)::int)
-      )]
-  where id = '05c00000-0000-0000-0000-0000000000d3';
+-- today. Revising it (weekday that matches NEITHER today NOR tomorrow) must
+-- create a NEW version from tomorrow and NOT touch today's already-materialised
+-- occurrence.
+
+-- a raw retroactive UPDATE of a started version's recurrence is blocked outright
+select ok(
+  pg_temp.as_auth_throws('0a900000-0000-0000-0000-00000000000a',
+    $$ update operations.task_schedules set recurrence_kind = 'daily', weekdays = null
+       where id = '05c00000-0000-0000-0000-0000000000d3' $$),
+  'history: a raw retroactive recurrence UPDATE of a started version is blocked by the guard trigger');
+
+-- the safe path: revise -> new version from next business date
+select lives_ok(
+  $$ select pg_temp.as_auth_do('0a900000-0000-0000-0000-00000000000a',
+       $q$ select api.operations_revise_schedule(
+             '0a110000-0000-0000-0000-000000000000',
+             '05c00000-0000-0000-0000-0000000000d3',
+             'weekdays',
+             array(select x::smallint from generate_series(1,7) x
+                   where x not in (extract(isodow from current_date)::int,
+                                   extract(isodow from current_date + 1)::int)),
+             '08:00', '10:00', null) $q$) $$,
+  'history: manager revises the schedule via api.operations_revise_schedule');
 
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-00000000000a',
     $$ select count(*)::int from api.operations_expected_tasks(current_date, current_date)
-       where schedule_id = '05c00000-0000-0000-0000-0000000000d3' and instance_id is not null $$),
-  1, 'history: an already-materialised occurrence still appears after the schedule recurrence is edited');
+       where schedule_group_id = '05c00000-0000-0000-0000-0000000000d3' and instance_id is not null $$),
+  1, 'history: today''s already-materialised occurrence still appears after the revision');
+
+select is(
+  pg_temp.as_auth_count('0a900000-0000-0000-0000-00000000000a',
+    $$ select count(*)::int from api.operations_expected_tasks(current_date, current_date)
+       where schedule_group_id = '05c00000-0000-0000-0000-0000000000d3' $$),
+  1, 'history: no duplicate expected occurrence across schedule versions on the boundary day');
 
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-00000000000a',
     $$ select count(*)::int from api.operations_expected_tasks(current_date + 1, current_date + 1)
-       where schedule_id = '05c00000-0000-0000-0000-0000000000d3' $$),
-  0, 'history: after the edit, a future non-matching date is no longer expected');
+       where schedule_group_id = '05c00000-0000-0000-0000-0000000000d3' $$),
+  0, 'history: the day after the revision uses the new (non-matching) recurrence — not expected');
 
 -- ============================================================================
 -- SECURITY — module OFF
