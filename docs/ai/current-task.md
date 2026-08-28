@@ -277,8 +277,25 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-28 pointer, WP1-A OPERATIONS SCHEDULE-GUARD FLOOR (review F1) —
+PR #463 OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** The
+independent review of PR #462 (below, now MERGED as `36af7f3`) found one P2:
+`operations.task_schedules_history_guard()`'s `current_date - 1` floor still
+let a privileged raw `UPDATE` pull `effective_to` back to `current_date - 1`
+and drop *today's* not-yet-elapsed occurrence, bypassing
+`api.operations_deactivate_schedule`. **Migration `0103`** tightens the floor
+to `current_date` (sanctioned RPCs unaffected — both write
+`effective_to >= current_date`). Test `0049`. Review F2 (broad grant lets a
+Manager raw-`INSERT` a backdated non-overlapping version — fabricate
+forward, not destroy) and F4 (cosmetic comment) tracked for the future
+Operations config slice, not fixed. `supabase test db`: `0047`/`0048`/`0049`
+pass, full suite = the 11 known pre-existing failures, zero new. `turbo` —
+30/30. Additive, `0099`–`0102` untouched, RED path → left for Founder merge,
+no Cloud apply, `main` untouched. **PR #463** on branch
+`fix/operations-schedule-guard-floor`.
+
 **2026-08-28 pointer, WP1-A OPERATIONS HISTORICAL-EXPECTATION INTEGRITY —
-PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** A
+MERGED (PR #462 = `36af7f3`; read after the one above).** A
 follow-up to PR #460: the Founder flagged the slice-2 "нематериализованное
 прошлое следует текущему расписанию" note as an architectural integrity
 defect for Operations / future Cafe HACCP records.
@@ -325,9 +342,10 @@ defect for Operations / future Cafe HACCP records.
   pre-existing failures**, zero new. `turbo run typecheck lint build test` —
   30/30. Independent fresh-context review with a reproduction requirement:
   recorded in the PR / handoff.
-- **PR #462 opened against `dev`** (branch
-  `fix/operations-historical-expectation-integrity`). **RED path** →
-  autonomous `dev` merge forbidden; **left for Founder merge.**
+- **PR #462 merged into `dev` by the Founder** (`36af7f3`). Independent
+  review (with a reproduction requirement) returned **PASS, no P0/P1**; one
+  P2 (F1) fixed in follow-up PR #463 (see the pointer above), two P3 notes
+  tracked.
 - **No `supabase db push`, no Cloud write, no `tenant_modules`/Preview
   change, no production. `main` untouched.** `0102` on the feature branch
   only.
