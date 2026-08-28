@@ -277,8 +277,68 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-28 pointer, WP1-A OPERATIONS FOUNDATION — PR OPEN, AWAITING
-FOUNDER MERGE (newest — read this one first).** The separate WP1-A
+**2026-08-28 pointer, WP1-A OPERATIONS SLICE 2 (scheduling & execution) —
+PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** The
+foundation slice below (PR #459) is **merged** to `dev` (`origin/dev` =
+`823be38`). Slice 2 continues the same WP1-A implementation mission, inside
+the fixed WP1 product scope, as its own bounded PR:
+
+- **Design reconciliation done first** — verified the slice-2 design in
+  `CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md` (§B3–B6, §E–J,
+  §L–O, §Q row `0101`) against merged `0099`/`0100`: **no material
+  contradiction** with the approved product scope. Timezone: reuses the
+  existing canonical `core.locations.timezone` (no architecture gap, no
+  hardcode).
+- **Migration `0101_operations_scheduling_execution.sql`**:
+  `operations.task_schedules` (template → location → simple recurrence
+  `daily`/`weekdays` + `due_time`/`window_end_time`; typed columns, no
+  RRULE/cron), `operations.task_instances` (one occurrence per
+  `(schedule, business_date)`, **materialised lazily** by an RPC, idempotent
+  via a unique occurrence key), `operations.item_responses`
+  (`boolean`/`numeric`/`text` + parent-consistency & post-completion
+  immutability trigger), `operations.task_exceptions` (`open → resolved`
+  lifecycle **distinct** from task state; `threshold` + `reported` sources
+  this slice; D4 severity). `api.operations_expected_tasks(p_start, p_end)`
+  — deterministic expected-task projection, pure function of
+  `task_schedules` × calendar; **no stored row needed for a task to be
+  "expected"** (scope §11); missed/overdue = derived `state='overdue'`, not
+  persisted; horizon clamped `[current_date-31, current_date+62]` **inside
+  the function body** (design P1-3). `api.operations_task_instances` /
+  `_item_responses` / `_open_exceptions` `security_invoker` read views.
+  `api.operations_record_response` / `_complete_task` / `_report_problem` /
+  `_resolve_exception` `SECURITY INVOKER` write RPCs (early module /
+  permission / lifecycle / response-type raises; RLS is the real boundary).
+  Every history FK `ON DELETE RESTRICT`; module OFF hides all, deletes
+  nothing.
+- **pgTAP `supabase/tests/0047`** — 53 assertions: recurrence matrix
+  (daily / weekday match+miss / effective range / before-vs-after window /
+  missed-without-instance / schedule+template disabled / horizon clamp /
+  historical expectation after a schedule edit / cross-midnight timezone),
+  execution/lifecycle, numeric threshold → exception + severity, exception
+  lifecycle independent of completion, completed-response immutability,
+  module ON→OFF→ON with data preservation, missing-`tenant_modules`
+  fail-closed, cross-tenant + cross-location rejection, employee-cannot-
+  resolve, anon denial.
+- Verification (local): `supabase db reset` + `supabase test db` — `0047`
+  all 53 pass; full suite = **exactly the 11 known pre-existing failures**
+  (`0002`×3, `0006`×1, `0008`×1, `0012`×2, `0023`×4), **zero new**.
+  `turbo run typecheck lint build test` — 30/30 tasks pass (SQL-only
+  change). Independent fresh-context review: recorded in the PR / handoff.
+- **PR #460 opened against `dev`** (branch
+  `feat/operations-slice2-scheduling-execution`). **RED path**
+  (`supabase/migrations/**`) → autonomous `dev` merge is structurally
+  forbidden; **the PR is left for Founder merge.**
+- **No `supabase db push`, no Supabase Cloud write, no production, `main`
+  untouched.** `0101` exists only on the feature branch. Cloud/remote apply
+  of `0099`–`0101` is a separate explicit Founder-approved mission later.
+- Full handoff:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_SLICE2_HANDOFF_2026-08-28.md`.
+
+Next after Founder merges PR #460: the Cafe HACCP preset content and/or the
+Manager/Staff Operations UI slices — each its own bounded PR, still inside
+the fixed WP1 product scope; none is authorized to start by this entry.
+
+**2026-08-28 pointer, WP1-A OPERATIONS FOUNDATION — MERGED (PR #459).** The separate WP1-A
 implementation mission (authorized by D1 of the scope doc, on its own
 explicit Founder prompt) has run its design + review + first-slice phases:
 
