@@ -539,14 +539,24 @@ function StaffDashboardBody({
                 },
               ]
             : []),
-          {
-            key: 'purchases',
-            label: t('navPurchases'),
-            onClick: () => {
-              markPopupTriggerClick('purchases');
-              setPurchasesPopupOpen(true);
-            },
-          },
+          // Purchases has no module flag of its own -- it rides Inventory's
+          // (`core.has_module_access(tenant_id, 'inventory')`), so its
+          // entry point is gated by the same `inventoryEnabled` condition as
+          // Inventory itself. Matches manager-dashboard-client.tsx. The
+          // PurchasesPopup keeps its own "temporarily unavailable" fallback
+          // for other failure scenarios; this only hides the action.
+          ...(inventoryEnabled
+            ? [
+                {
+                  key: 'purchases',
+                  label: t('navPurchases'),
+                  onClick: () => {
+                    markPopupTriggerClick('purchases');
+                    setPurchasesPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
           {
             key: 'mail',
             label: unreadMailCount > 0 ? `${t('navMail')} ${unreadMailCount}` : t('navMail'),

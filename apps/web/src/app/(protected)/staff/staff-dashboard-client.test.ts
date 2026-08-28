@@ -101,3 +101,24 @@ test('the schedule heading uses the short MM/DD date form and never wraps mid-co
   assert.match(SOURCE, /shortDate\(activePeriodEnd\)/, 'the heading must use the short date form for periodEnd');
   assert.match(SOURCE, /<h2 style=\{\{ margin: 0, fontSize: 16, whiteSpace: 'nowrap' \}\}>/, 'the heading must never wrap across two lines');
 });
+
+/**
+ * Purchases-visibility-when-Inventory-OFF fix
+ * (docs/ai/PURCHASES_VISIBILITY_INVENTORY_OFF_FOLLOWUP_2026-08-26.md).
+ * Purchases has no `core.module_code` of its own; it rides Inventory's
+ * module flag. So the Staff entry-point action for Purchases must be gated
+ * by the same `inventoryEnabled` condition as the Inventory action -- when
+ * Inventory is OFF, neither action appears. Source-text guard, same
+ * convention as the guards above (no DOM/React harness).
+ */
+test('the Inventory and Purchases entry-point actions are both gated behind inventoryEnabled -- neither is included unconditionally', () => {
+  const inventoryBtn = /\.\.\.\(inventoryEnabled\s*\n?\s*\?\s*\[\s*\n?\s*\{\s*\n?\s*key: 'inventory'/;
+  const purchasesBtn = /\.\.\.\(inventoryEnabled\s*\n?\s*\?\s*\[\s*\n?\s*\{\s*\n?\s*key: 'purchases'/;
+  assert.match(SOURCE, inventoryBtn, 'the inventory button must be spread from an inventoryEnabled-guarded array');
+  assert.match(SOURCE, purchasesBtn, 'the purchases button must be spread from an inventoryEnabled-guarded array (rides Inventory module flag)');
+  assert.doesNotMatch(
+    SOURCE,
+    /\]\s*:\s*\[\]\),\s*\n\s*\{\s*\n\s*key: 'purchases'/,
+    'the purchases button must not be an unconditional entry immediately after the inventory guard',
+  );
+});
