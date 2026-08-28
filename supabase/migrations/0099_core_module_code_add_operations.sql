@@ -1,0 +1,32 @@
+-- ============================================================================
+-- 0099  core.module_code += 'operations'  (Cafe v2.2 WP1-A Operations Foundation)
+-- ----------------------------------------------------------------------------
+-- Adds the 'operations' value to the core.module_code enum so that Operations
+-- can be a full ORUWA module with a backend-enforced ON/OFF boundary via the
+-- existing core.tenant_modules row + core.has_module_access(tenant_id, module)
+-- primitive (0093), exactly like workforce / inventory / booking / ai.
+--
+-- WHY THIS IS ITS OWN MIGRATION FILE (nothing else here):
+-- A newly added enum value cannot be *used* in the same transaction that adds
+-- it. Every subsequent object that references 'operations'::core.module_code
+-- (RLS policies calling core.has_module_access(..., 'operations'),
+-- core.permissions rows tagged module = 'operations') therefore lives in
+-- 0100+, which the Supabase migration runner applies as a separate
+-- transaction. `add value if not exists` keeps this migration idempotent
+-- under `supabase db reset` / repeated application.
+--
+-- Product scope: docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md
+-- Technical design: docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md §Q
+-- D3/D5: 'operations' is a GENERIC reusable module. There is no 'haccp'
+-- value and there will not be one — Cafe HACCP is presets/content on top of
+-- the generic Operations primitives, not its own module.
+--
+-- Rollback: enum values cannot be dropped in PostgreSQL without recreating
+-- the type. If this must be reverted before anything references it, recreate
+-- core.module_code without 'operations' and re-cast every dependent column
+-- (core.tenant_modules.module, core.permissions.module). No dependent object
+-- exists yet at this migration, so a manual type recreation is the only path
+-- and should be treated as a schema surgery, not a routine rollback.
+-- ============================================================================
+
+alter type core.module_code add value if not exists 'operations';

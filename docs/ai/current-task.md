@@ -277,8 +277,51 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-28 pointer, CAFE v2.2 WP1 OPERATIONS SCOPE AUTHORIZED (newest —
-read this one first).** A docs-only product/governance mission recorded the
+**2026-08-28 pointer, WP1-A OPERATIONS FOUNDATION — PR OPEN, AWAITING
+FOUNDER MERGE (newest — read this one first).** The separate WP1-A
+implementation mission (authorized by D1 of the scope doc, on its own
+explicit Founder prompt) has run its design + review + first-slice phases:
+
+- **Technical design** produced and independently reviewed (fresh-context
+  reviewer, 14 mandated challenge points): verdict **PASS WITH REQUIRED
+  FIXES, zero P0**. Fixes folded in. Full design + review outcome:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md`.
+- **First implementation slice (foundation only)**: migration `0099`
+  (`core.module_code += 'operations'`, dedicated file) + `0100`
+  (`operations` schema, 4 enums, `checklist_templates` + `checklist_items`
+  only, module-gated RLS via `core.has_module_access(tenant_id,
+  'operations') AND core.has_permission[_in_tenant](...)`, 4 generic
+  permission keys + owner/admin/manager/employee role seed, 2 `api.*`
+  `security_invoker` read views, SELECT-only grants, anon revokes) + pgTAP
+  `supabase/tests/0046` (tenant isolation incl. cross-tenant parent
+  forgery, location isolation, permission enforcement, anon-deny, module
+  ON→OFF→ON with historical-data preservation, fail-closed with no
+  `tenant_modules` row).
+- **No** `task_schedules`/`task_instances`/`item_responses`/
+  `task_exceptions`, **no** recurrence view, **no** write RPCs, **no** UI,
+  **no** Cafe HACCP presets — all designed on paper, deferred to later
+  bounded slices (design §T).
+- Verification (local): `supabase db reset` + `supabase test db` — `0046`
+  passes; the only failures are the **11 known pre-existing** ones
+  (`0002`×3, `0006`×1, `0008`×1, `0012`×2, `0023`×4) documented in the
+  Module Access Security Remediation report §6 — **zero new failures**.
+  `pnpm -w typecheck` / `lint` / `test` (1267 pass) / `build` all green
+  (SQL-only change, no `apps/*`).
+- **PR `#___` opened against `dev`** (branch
+  `feature/operations-foundation-wp1a`). **RED path** (`supabase/
+  migrations/**`) → autonomous `dev` merge is structurally forbidden;
+  **the PR is left for Founder merge.**
+- **No `supabase db push`, no Supabase Cloud write, no production, `main`
+  untouched.** Migrations `0099`/`0100` exist only on the feature branch.
+  Cloud/remote apply is a separate explicit Founder approval later, with
+  the evidence package the mission prompt §9 requires.
+
+Next after Founder merges the PR: slice 2 (`0101` — scheduling/execution
+model + recurrence-derivation view + write RPCs), still inside the fixed
+WP1 product scope, its own bounded PR.
+
+**2026-08-28 pointer, CAFE v2.2 WP1 OPERATIONS SCOPE AUTHORIZED (read after
+the one above).** A docs-only product/governance mission recorded the
 Founder-approved product scope for **Cafe v2.2 WP1 Operations** at
 `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` — now the
 source of truth for WP1 product scope. This **resolves the prior governance
