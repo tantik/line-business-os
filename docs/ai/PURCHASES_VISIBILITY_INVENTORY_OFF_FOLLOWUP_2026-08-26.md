@@ -61,7 +61,34 @@ pattern Manager's dashboard already uses).
   security ownership model (Purchases continues to ride Inventory's module
   flag).
 
-## Status
+## Resolution (2026-08-28)
 
-Open. Not authorized to start by this document alone — a separate, small,
-explicitly scoped task/PR when picked up next.
+**CLOSED.** Fixed exactly as the "Desired behavior" section prescribed.
+
+- **Root cause:** UI-only. `staff-dashboard-client.tsx`'s `EntryPointsCard`
+  button list gated the Inventory button behind `...(inventoryEnabled ? [] : [])`
+  but included the Purchases button unconditionally. Manager's dashboard
+  already gated both. `inventoryEnabled` is derived server-side in
+  `staff/page.tsx` from the `inventory` module flag.
+- **Files changed:**
+  - `apps/web/src/app/(protected)/staff/staff-dashboard-client.tsx` — wrap the
+    Purchases entry-point button in the same `inventoryEnabled` guard as
+    Inventory. PurchasesPopup's "temporarily unavailable" fallback left intact
+    for other failure scenarios.
+  - `apps/web/src/app/(protected)/staff/staff-dashboard-client.test.ts` —
+    source-text regression guard asserting both actions are gated and Purchases
+    is not an unconditional entry.
+- **Tests:** new guard runs via the existing `pnpm --filter @line-os/web test`
+  script (file already listed). Full suite 1267 pass; typecheck, lint, build
+  all green.
+- **Reviewer:** independent fresh-context review — PASS, no findings (UI-only
+  confirmed, no backend/RLS/migration/ownership change, Inventory ON unchanged,
+  Inventory OFF hides both, fallback kept, no scope creep).
+- **PR:** #457 → `dev`.
+- **Merge:** autonomous DEV merge via `scripts/ai-dev-merge.sh` (UI-only
+  STANDARD fix, all gates green, reviewer PASS).
+- **Security/RLS/DB:** NOT CHANGED.
+- **Live verification:** Inventory ON state only (no Cloud `tenant_modules`
+  write performed). Live Inventory OFF acceptance relies on the Founder's
+  existing rollout verification plus the new automated regression test; not
+  re-tested live after the fix.
