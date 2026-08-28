@@ -1,8 +1,37 @@
 # Cafe v2.2 WP1-A — Operations — Historical Expectation Integrity — Handoff (2026-08-28)
 
-Status: **PR #462 open against `dev`, CI green, independent review in
-progress. RED path → left for Founder merge. No Cloud apply. `main`
+Status: **PR #462 MERGED into `dev` by the Founder (`36af7f3`). Independent
+review: PASS, no P0/P1; one P2 (F1) fixed in follow-up PR #463 (open, RED
+path, awaiting Founder merge); two P3 notes tracked. No Cloud apply. `main`
 untouched.**
+
+## 0. Post-merge — independent review outcome
+
+The fresh-context reviewer reproduced the mandated scenario itself and
+confirmed the fix holds (past non-materialised obligation survives both a
+recurrence revision and a deactivation; tenant/location/module boundaries
+intact; full-suite baseline unchanged). **PASS with one P2:**
+
+- **F1 (P2) — FIXED in PR #463 / migration `0103`.** The guard trigger's
+  backward-movement floor for `effective_to` was
+  `greatest(old.effective_from, current_date - 1)`, so a privileged raw
+  `UPDATE effective_to = current_date - 1` still succeeded and dropped
+  *today's* not-yet-elapsed occurrence (bypassing
+  `api.operations_deactivate_schedule`, which rejects
+  `effective_to < current_date`). `0103` tightens the floor to
+  `current_date`; the sanctioned RPCs (both write `effective_to >=
+  current_date`) are unaffected. Test `0049`.
+- **F2 (P3) — tracked.** The `grant insert, update` also lets a Manager
+  raw-`INSERT` a backdated but non-overlapping version into an existing
+  `schedule_group_id` — fabricate an obligation *forward*, not destroy
+  history. The future Operations config slice should add
+  `FOR INSERT WITH CHECK (effective_from >= current_date)` or move the RPCs
+  to `SECURITY DEFINER` and revoke direct DML.
+- **F3 (P3) — accepted.** A `postgres`/owner role with
+  `ALTER TABLE ... DISABLE TRIGGER` can still rewrite history — outside the
+  tenant-facing threat model, consistent with the rest of the schema.
+- **F4 (P3, cosmetic) — a misleading "yesterday's" comment in `0048`.**
+  Tracked; the assertion itself is valid.
 
 Read first: `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md`,
 `docs/ai/current-task.md` §5, the scope
