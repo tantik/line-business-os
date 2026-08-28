@@ -278,10 +278,10 @@ duplicated here.
 ## 5. Exact next gate
 
 **2026-08-28 pointer, WP1-A OPERATIONS SLICE 2 (scheduling & execution) —
-PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** The
-foundation slice below (PR #459) is **merged** to `dev` (`origin/dev` =
-`823be38`). Slice 2 continues the same WP1-A implementation mission, inside
-the fixed WP1 product scope, as its own bounded PR:
+MERGED (PR #460, newest — read this one first).** Founder merged PR #460
+into `dev` (`origin/dev` = `f18b884`); `main` untouched, no Cloud apply.
+Slice 2 continued the WP1-A implementation mission, inside the fixed WP1
+product scope, as its own bounded PR:
 
 - **Design reconciliation done first** — verified the slice-2 design in
   `CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md` (§B3–B6, §E–J,
@@ -324,13 +324,14 @@ the fixed WP1 product scope, as its own bounded PR:
   (`0002`×3, `0006`×1, `0008`×1, `0012`×2, `0023`×4), **zero new**.
   `turbo run typecheck lint build test` — 30/30 tasks pass (SQL-only
   change). Independent fresh-context review: recorded in the PR / handoff.
-- **PR #460 opened against `dev`** (branch
-  `feat/operations-slice2-scheduling-execution`). **RED path**
-  (`supabase/migrations/**`) → autonomous `dev` merge is structurally
-  forbidden; **the PR is left for Founder merge.**
-- **No `supabase db push`, no Supabase Cloud write, no production, `main`
-  untouched.** `0101` exists only on the feature branch. Cloud/remote apply
-  of `0099`–`0101` is a separate explicit Founder-approved mission later.
+- Independent fresh-context review: **PASS, no P0/P1/P2**; 3 P3 fixes
+  applied before merge (F1 INSERT-immutability backstop, F2
+  `task_exceptions` location guard, F3 dead-code removal).
+- **PR #460 merged into `dev` by the Founder** (`f18b884`). `main`
+  untouched.
+- **No `supabase db push`, no Supabase Cloud write, no production.**
+  `0099`–`0101` exist on `dev` only; Cloud/remote apply of the whole
+  Operations stack is a separate explicit Founder-approved mission later.
 - Full handoff:
   `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_SLICE2_HANDOFF_2026-08-28.md`.
 
