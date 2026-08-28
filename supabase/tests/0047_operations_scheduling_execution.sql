@@ -374,6 +374,24 @@ select ok(
          '0a170000-0000-0000-0000-000000000002', false, null, null) $$),
   'execution: cannot record/modify a response after the task is completed');
 
+-- data-level backstop: a direct INSERT of a new response into a completed
+-- instance is rejected by the guard trigger (F1)
+select throws_ok(
+  $$ insert into operations.item_responses (tenant_id, location_id, instance_id, item_id, response_text, recorded_by)
+     select ti.tenant_id, ti.location_id, ti.id, '0a170000-0000-0000-0000-000000000003', 'late', '0a900000-0000-0000-0000-00000000000c'
+     from operations.task_instances ti where ti.schedule_id = '05c00000-0000-0000-0000-0000000000d2' $$,
+  'P0001', 'operations_response_immutable_after_completion',
+  'immutability: a direct INSERT into a completed instance is blocked by the guard trigger');
+
+-- data-level backstop: a task_exception whose location_id != its instance's is
+-- rejected by the guard trigger (F2)
+select throws_ok(
+  $$ insert into operations.task_exceptions (tenant_id, location_id, instance_id, severity, source, note)
+     select ti.tenant_id, '0a100000-0000-0000-0000-000000000002', ti.id, 'warning', 'reported', 'x'
+     from operations.task_instances ti where ti.schedule_id = '05c00000-0000-0000-0000-0000000000d2' $$,
+  'P0001', 'operations_exception_location_mismatch',
+  'integrity: a task_exception whose location_id differs from its instance is rejected');
+
 -- second completion attempt rejected
 select ok(
   pg_temp.as_auth_throws('0a900000-0000-0000-0000-00000000000c',

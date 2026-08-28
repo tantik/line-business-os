@@ -71,7 +71,9 @@
 --   drop view if exists api.operations_task_instances;
 --   drop function if exists api.operations_expected_tasks(date, date);
 --   drop function if exists operations.schedule_business_date(uuid, uuid, timestamptz);
---   drop function if exists operations.can_execute_at(uuid, uuid);
+--   drop function if exists operations.location_timezone(uuid, uuid);
+--   drop function if exists operations.task_exceptions_guard();
+--   drop function if exists operations.item_responses_guard();
 --   drop table if exists operations.task_exceptions;
 --   drop table if exists operations.item_responses;
 --   drop table if exists operations.task_instances;
@@ -282,7 +284,10 @@ begin
     raise exception 'operations_response_location_mismatch' using errcode = 'P0001';
   end if;
 
-  if tg_op = 'UPDATE' and v_instance_status = 'completed' then
+  if v_instance_status = 'completed' then
+    -- Immutable after completion: neither a new response row nor an edit to an
+    -- existing one (scope §19). The RPC path already blocks this earlier; this
+    -- is the data-level backstop for both INSERT and UPDATE.
     raise exception 'operations_response_immutable_after_completion' using errcode = 'P0001';
   end if;
 
@@ -290,35 +295,48 @@ begin
 end;
 $$;
 comment on function operations.item_responses_guard() is
-  'BEFORE INSERT/UPDATE on operations.item_responses: (1) the item must belong to the same template the instance runs (design P2-1); (2) denormalised location_id must match the instance; (3) no UPDATE once the instance is completed (scope §19 immutability).';
+  'BEFORE INSERT/UPDATE on operations.item_responses: (1) the item must belong to the same template the instance runs (design P2-1); (2) denormalised location_id must match the instance; (3) no INSERT or UPDATE once the instance is completed (scope §19 immutability).';
 
 drop trigger if exists item_responses_guard on operations.item_responses;
 create trigger item_responses_guard
   before insert or update on operations.item_responses
   for each row execute function operations.item_responses_guard();
 
+-- --- task_exceptions: denormalised location_id must match the instance -----
+-- Symmetric with item_responses_guard: a forged/mismatched location_id would
+-- (within one tenant, across locations) let a caller with task.execute at
+-- location L1 attach an exception to an L2 instance and pollute the L2
+-- Attention feed. Cross-tenant is already blocked by the composite FK.
+create or replace function operations.task_exceptions_guard()
+returns trigger language plpgsql as $$
+declare
+  v_instance_location uuid;
+begin
+  select ti.location_id into v_instance_location
+  from operations.task_instances ti
+  where ti.tenant_id = new.tenant_id and ti.id = new.instance_id;
+
+  if v_instance_location is null then
+    raise exception 'operations_instance_not_found' using errcode = 'P0002';
+  end if;
+  if new.location_id <> v_instance_location then
+    raise exception 'operations_exception_location_mismatch' using errcode = 'P0001';
+  end if;
+
+  return new;
+end;
+$$;
+comment on function operations.task_exceptions_guard() is
+  'BEFORE INSERT/UPDATE on operations.task_exceptions: the denormalised location_id must equal the parent instance''s location_id (within-tenant cross-location integrity; cross-tenant is the composite FK''s job).';
+
+drop trigger if exists task_exceptions_guard on operations.task_exceptions;
+create trigger task_exceptions_guard
+  before insert or update on operations.task_exceptions
+  for each row execute function operations.task_exceptions_guard();
+
 -- ============================================================================
 -- Helper functions
 -- ============================================================================
-
--- Can the current caller EXECUTE operational tasks at this schedule's location,
--- with the operations module ON? Plain STABLE SQL — explicit core.has_*
--- checks keyed off the looked-up schedule's own tenant_id/location_id.
-create or replace function operations.can_execute_at(p_tenant_id uuid, p_schedule_id uuid)
-returns boolean language sql stable as $$
-  select exists (
-    select 1 from operations.task_schedules s
-    where s.tenant_id = p_tenant_id
-      and s.id = p_schedule_id
-      and core.has_module_access(s.tenant_id, 'operations')
-      and core.has_permission(s.tenant_id, 'operations.task.execute', s.location_id)
-  );
-$$;
-comment on function operations.can_execute_at(uuid, uuid) is
-  'True when operations is ON for the schedule''s tenant AND the caller holds operations.task.execute at the schedule''s location. Plain STABLE SQL, no elevated privilege.';
-
-revoke all on function operations.can_execute_at(uuid, uuid) from public;
-grant execute on function operations.can_execute_at(uuid, uuid) to authenticated;
 
 -- The operational period (location-local calendar date the window OPENS) for a
 -- schedule at a given instant. Cross-midnight rule (design P1-2): a task
