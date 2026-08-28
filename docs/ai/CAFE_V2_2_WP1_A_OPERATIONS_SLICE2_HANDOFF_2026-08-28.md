@@ -166,9 +166,24 @@ a new `item_responses` for the next period's instance; a corrective note is
   failures.**
 - `pnpm exec turbo run typecheck lint build test --force` — **30/30 tasks
   pass** (SQL-only change; no `apps/*` / `packages/*` touched).
-- Independent fresh-context review: launched against PR #460 with the 13
-  mandated challenge lenses; outcome recorded in the PR thread / this file
-  once complete.
+- Independent fresh-context review (13 mandated challenge lenses, reviewer
+  re-ran `supabase test db` itself and reproduced the result exactly):
+  **PASS — merge-ready. No P0/P1/P2.** 7 findings, all P3 or
+  tracking-class. Three cheap P3 fixes applied in commit `1db623f`:
+  - **F1** — `item_responses_guard` now blocks INSERT (not only UPDATE)
+    into a completed instance (data-level backstop for §19).
+  - **F2** — new `task_exceptions_guard` trigger: denormalised
+    `location_id` must equal the parent instance's (within-tenant
+    cross-location integrity).
+  - **F3** — removed the unused `operations.can_execute_at()` helper
+    (dead code).
+  - **F5** (`complete_task` schedule lookup omits `is_active`) — left as
+    is: finishing an in-progress task on a since-deactivated schedule is
+    correct behaviour.
+  - **F6** (retroactive recurrence narrowing revises non-materialised past
+    expectation) / **F7** (audit wiring deferred) — accepted per design
+    (§12 minimal freeze boundary; audit is an app-layer slice concern,
+    §O).
 
 ## 7. Boundaries honoured
 
