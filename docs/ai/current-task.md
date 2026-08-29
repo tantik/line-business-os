@@ -277,8 +277,23 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-29 pointer, SESSION HANDOFF — read
+`docs/ai/SESSION_HANDOFF_2026-08-29.md` first (newest).** One long session
+closed out Operations WP1 (`0099`–`0105`, PRs #462–#465, all merged),
+reconciled the Platform Foundation into `dev` (`0106`–`0113`, PR #466/#467
+merged), and the **Founder applied `0099`–`0113` to Cloud DEV** —
+post-apply verification PASSED, Operations registered `beta` but **enabled
+for no tenant**, `core.has_module_access` unchanged, Foundation data
+untouched. In flight: **PR #468** (Supabase legacy `service_role` → current
+Secret API Key, Phase 1 dual-support code — independent review PASS, OPEN,
+awaiting Founder merge; Cloud steps A–E are Founder-run, not started).
+Not started: Operations module-ON Cloud smoke (`smoke-tenant-b`); Cafe HACCP
+presets; Manager/Staff Operations UI. Full detail + immediate next steps +
+hard rules: `docs/ai/SESSION_HANDOFF_2026-08-29.md`.
+
 **2026-08-29 pointer, PLATFORM FOUNDATION ↔ dev RECONCILIATION (Option A) —
-PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** Forensic
+MERGED (PR #466 `ae515fd` / #467 `7fda53f`); `0099`–`0113` applied to Cloud
+DEV by the Founder, post-apply verification PASSED.** Forensic
 finding (full record:
 `docs/ai/PLATFORM_FOUNDATION_RECONCILIATION_HANDOFF_2026-08-29.md`, supersedes
 the 2026-08-23 triage): the Platform Foundation critical path
