@@ -61,10 +61,17 @@ insert into core.role_assignments (tenant_id, user_id, role_id, location_id) val
   ('0b220000-0000-0000-0000-000000000000', '0b900000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000005', null);
 
 -- Templates (superuser fixture insert — bypasses RLS)
-insert into operations.checklist_templates (id, tenant_id, location_id, name, category, is_active) values
-  ('0a1e0000-0000-0000-0000-0000000000a1', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', 'A L1 opening',  'Opening', true),
-  ('0a1e0000-0000-0000-0000-0000000000a2', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000002', 'A L2 opening',  'Opening', true),
-  ('0a1e0000-0000-0000-0000-0000000000a3', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', 'A L1 disabled', 'Cleaning', false);
+-- a3 is a RETIRED template: is_active=false plus a retirement boundary in the
+-- past (0104 CHECK requires a deactivated template to carry one). Its schedule
+-- (S_tmpl_off / d5) is effective current_date-5; retired_on = current_date-4 is
+-- AFTER the schedule's effective_from, so the assertion below genuinely tests
+-- "no expected tasks after the template's retirement boundary" (query range
+-- starts at current_date-3), via the retirement-dating model rather than a
+-- bare is_active gate.
+insert into operations.checklist_templates (id, tenant_id, location_id, name, category, is_active, retired_on) values
+  ('0a1e0000-0000-0000-0000-0000000000a1', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', 'A L1 opening',  'Opening', true, null),
+  ('0a1e0000-0000-0000-0000-0000000000a2', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000002', 'A L2 opening',  'Opening', true, null),
+  ('0a1e0000-0000-0000-0000-0000000000a3', '0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', 'A L1 retired',  'Cleaning', false, current_date - 4);
 
 insert into operations.checklist_items (id, tenant_id, template_id, label, response_type, is_critical, is_required, numeric_min, numeric_max, numeric_unit, sort_order) values
   ('0a170000-0000-0000-0000-000000000001', '0a110000-0000-0000-0000-000000000000', '0a1e0000-0000-0000-0000-0000000000a1', 'Fridge temp',   'numeric', true,  true, 1, 5, 'C', 1),
@@ -201,12 +208,13 @@ select is(
        where schedule_id = '05c00000-0000-0000-0000-0000000000d4' $$),
   0, 'recurrence: a retired schedule (past effective_to) produces no expected tasks after its boundary');
 
--- disabled template -> its schedule produces no expected tasks
+-- retired template (retired_on in the past) -> its schedule produces no
+-- expected tasks after the boundary
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-00000000000a',
     $$ select count(*)::int from api.operations_expected_tasks(current_date - 3, current_date)
        where schedule_id = '05c00000-0000-0000-0000-0000000000d5' $$),
-  0, 'recurrence: a schedule on an is_active=false template produces no expected tasks');
+  0, 'recurrence: a schedule on a retired template produces no expected tasks after the boundary');
 
 -- horizon clamp: a caller asking for a huge past range gets nothing older than current_date - 31
 select is(
