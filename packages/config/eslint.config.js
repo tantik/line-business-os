@@ -22,26 +22,29 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
-      // SECURITY GUARDRAIL: the Supabase service_role key bypasses RLS and must
+      // SECURITY GUARDRAIL: the privileged Supabase keys bypass RLS and must
       // never be read via process.env in application code (especially the web
-      // client). Server code must go through the validated `serverEnv()` accessor
-      // in @line-os/config. This is an ERROR so `pnpm lint` fails on violation.
+      // client). Server code goes through the validated `serverEnv()` accessor
+      // in @line-os/config; the browser reads only `@line-os/config/env/public`.
+      // ERROR so `pnpm lint` fails on violation. Covers the legacy service_role
+      // key AND the current secret-key model (SUPABASE_SECRET_KEY /
+      // SUPABASE_SECRET_KEYS).
       'no-restricted-syntax': [
         'error',
-        {
-          // Dot access: process.env.SUPABASE_SERVICE_ROLE_KEY
-          selector:
-            "MemberExpression[object.object.name='process'][object.property.name='env'][property.name='SUPABASE_SERVICE_ROLE_KEY']",
-          message:
-            'Do not read SUPABASE_SERVICE_ROLE_KEY from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.',
-        },
-        {
-          // Bracket access: process.env['SUPABASE_SERVICE_ROLE_KEY']
-          selector:
-            "MemberExpression[object.object.name='process'][object.property.name='env'][property.value='SUPABASE_SERVICE_ROLE_KEY']",
-          message:
-            'Do not read SUPABASE_SERVICE_ROLE_KEY from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.',
-        },
+        ...['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'].flatMap(
+          (name) => [
+            {
+              // Dot access: process.env.<name>
+              selector: `MemberExpression[object.object.name='process'][object.property.name='env'][property.name='${name}']`,
+              message: `Do not read ${name} from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.`,
+            },
+            {
+              // Bracket access: process.env['<name>']
+              selector: `MemberExpression[object.object.name='process'][object.property.name='env'][property.value='${name}']`,
+              message: `Do not read ${name} from process.env. It bypasses RLS and must never reach the web client; server code uses serverEnv() from @line-os/config.`,
+            },
+          ],
+        ),
       ],
     },
   },

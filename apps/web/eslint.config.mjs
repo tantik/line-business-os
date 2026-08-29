@@ -23,7 +23,12 @@ export default [
               name: '@line-os/db',
               importNames: ['createServiceClient'],
               message:
-                'apps/web must never import createServiceClient. The web bundle uses the anon key + RLS only; service_role is server-only.',
+                'apps/web must never import createServiceClient. The web bundle uses the anon key + RLS only; the privileged key is server-only.',
+            },
+            {
+              name: '@line-os/config/env',
+              message:
+                'apps/web must import "@line-os/config/env/public" (browser-safe: NEXT_PUBLIC_* only). "@line-os/config/env" carries the server schema (privileged Supabase key field declarations) and must not enter the web bundle.',
             },
           ],
         },

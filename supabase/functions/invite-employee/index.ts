@@ -10,8 +10,13 @@
 // explicit local-only dev spike, never deployed -- neither is an acceptable
 // home for this call.
 //
+// PRIVILEGED KEY: resolved via `_shared/supabase-secret-key.ts` — the current
+// `SUPABASE_SECRET_KEYS["default"]` (an `sb_secret_*` value) when present, with
+// a temporary fallback to the legacy `SUPABASE_SERVICE_ROLE_KEY` JWT during the
+// migration (docs/operations/supabase-secret-key-migration-runbook.md).
+//
 // SECURITY MODEL:
-//   * service_role is used for EXACTLY TWO calls: `admin.inviteUserByEmail`
+//   * the privileged key is used for EXACTLY TWO calls: `admin.inviteUserByEmail`
 //     and (on its "already registered" error) `admin.listUsers`. Nothing
 //     else in this function uses the service_role client -- in particular,
 //     the actual `workforce.employee_invitations` row write goes through
@@ -78,6 +83,7 @@
 // ============================================================================
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { resolveSupabaseSecretKey } from '../_shared/supabase-secret-key.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALREADY_REGISTERED_MARKERS = ['already been registered', 'already registered', 'already exists', 'duplicate'];
@@ -234,10 +240,22 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const encryptionKey = Deno.env.get('PII_ENCRYPTION_KEY');
   const siteUrl = Deno.env.get('SITE_URL');
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !encryptionKey || !siteUrl) {
+  if (!supabaseUrl || !anonKey || !encryptionKey || !siteUrl) {
+    return jsonResponse(500, { error: 'missing_configuration' });
+  }
+  // Privileged key for the Auth Admin API calls below: current
+  // `SUPABASE_SECRET_KEYS["default"]`, temporary fallback to the legacy
+  // `SUPABASE_SERVICE_ROLE_KEY` during the migration
+  // (docs/operations/supabase-secret-key-migration-runbook.md).
+  let privilegedKey: string;
+  try {
+    privilegedKey = resolveSupabaseSecretKey({
+      SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
+      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    }).key;
+  } catch {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
 
@@ -286,9 +304,9 @@ Deno.serve(async (req: Request) => {
   const invitationId = crypto.randomUUID();
   const redirectTo = `${siteUrl.replace(/\/$/, '')}/auth/accept-invite?invitation_id=${invitationId}`;
 
-  // The ONLY use of service_role in this entire function: the Supabase Auth
-  // Admin API calls. Nothing else below uses this client.
-  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+  // The ONLY use of the privileged key in this entire function: the Supabase
+  // Auth Admin API calls. Nothing else below uses this client.
+  const serviceClient = createClient(supabaseUrl, privilegedKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 

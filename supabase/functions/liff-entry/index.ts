@@ -60,6 +60,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@5';
+import { resolveSupabaseSecretKey } from '../_shared/supabase-secret-key.ts';
 
 const LINE_ISSUER = 'https://access.line.me';
 const LINE_JWKS_URL = 'https://api.line.me/oauth2/v2.1/certs';
@@ -176,17 +177,28 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const encryptionKey = Deno.env.get('PII_ENCRYPTION_KEY');
   const hashPepper = Deno.env.get('PII_HASH_PEPPER');
-  if (!supabaseUrl || !serviceRoleKey || !encryptionKey || !hashPepper) {
+  if (!supabaseUrl || !encryptionKey || !hashPepper) {
+    return jsonResponse(500, { error: 'missing_configuration' });
+  }
+  // Privileged key: current `SUPABASE_SECRET_KEYS["default"]`, with a temporary
+  // fallback to the legacy `SUPABASE_SERVICE_ROLE_KEY` during the migration
+  // (docs/operations/supabase-secret-key-migration-runbook.md).
+  let privilegedKey: string;
+  try {
+    privilegedKey = resolveSupabaseSecretKey({
+      SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
+      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    }).key;
+  } catch {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
 
-  // service_role: no caller session exists yet at this point in the flow, so
-  // there is no user-scoped client to use. Scoped strictly to the reads/call
-  // documented in the header comment above.
-  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+  // Privileged client: no caller session exists yet at this point in the flow,
+  // so there is no user-scoped client to use. Scoped strictly to the
+  // reads/call documented in the header comment above.
+  const serviceClient = createClient(supabaseUrl, privilegedKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 

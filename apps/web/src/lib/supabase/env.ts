@@ -1,4 +1,4 @@
-import { parsePublicEnv } from '@line-os/config/env';
+import { parsePublicEnv } from '@line-os/config/env/public';
 
 /**
  * Browser-safe Supabase public configuration for apps/web.

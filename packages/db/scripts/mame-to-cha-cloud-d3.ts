@@ -22,6 +22,13 @@ export const MAME_TO_CHA_CLOUD_D3_IDENTITIES = {
 
 export interface MameToChaCloudD3Env {
   MAME_TO_CHA_CLOUD_SUPABASE_URL?: string;
+  /**
+   * Preferred: one `sb_secret_*` value for the mame-to-cha Cloud DEV project.
+   * Falls back to the legacy `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY`
+   * during the migration (docs/operations/supabase-secret-key-migration-runbook.md).
+   */
+  MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY?: string;
+  /** Legacy JWT service_role key — temporary fallback only. */
   MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY?: string;
   MAME_TO_CHA_CLOUD_MANAGER_PASSWORD?: string;
   MAME_TO_CHA_CLOUD_STAFF_PASSWORD?: string;
@@ -64,6 +71,21 @@ function requireSecret(env: MameToChaCloudD3Env, name: keyof MameToChaCloudD3Env
     throw new Error(`${name} is required.`);
   }
   return value;
+}
+
+/**
+ * Privileged key for the mame-to-cha Cloud DEV project: prefer the current
+ * `sb_secret_*` value, fall back to the legacy JWT during the migration.
+ * Value-free error if neither is set.
+ */
+function requireMameToChaCloudSecretKey(env: MameToChaCloudD3Env): string {
+  const secret = env.MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY;
+  if (secret !== undefined && secret.trim() !== '') return secret;
+  const legacy = env.MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY;
+  if (legacy !== undefined && legacy.trim() !== '') return legacy;
+  throw new Error(
+    'MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY (preferred) or MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY (legacy) is required.',
+  );
 }
 
 export interface CloudD3Deps {
@@ -122,11 +144,11 @@ export async function runMameToChaCloudD3FromEnv(
 
   const supabaseUrl = requireSecret(env, 'MAME_TO_CHA_CLOUD_SUPABASE_URL');
   assertMameToChaAcceptanceSupabaseUrl(supabaseUrl);
-  const serviceRoleKey = requireSecret(env, 'MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY');
+  const privilegedKey = requireMameToChaCloudSecretKey(env);
   const managerPassword = requireSecret(env, 'MAME_TO_CHA_CLOUD_MANAGER_PASSWORD');
   const staffPassword = requireSecret(env, 'MAME_TO_CHA_CLOUD_STAFF_PASSWORD');
   const buildClient = deps.buildClient ?? (async (url, key) => defaultBuildSupabaseAdminClient(url, key));
-  const client = await buildClient(supabaseUrl, serviceRoleKey);
+  const client = await buildClient(supabaseUrl, privilegedKey);
 
   let manager;
   let staff;
