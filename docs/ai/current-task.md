@@ -277,8 +277,40 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-29 pointer, WP1-A OPERATIONS TEMPLATE HISTORICAL INTEGRITY —
+PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** Closes the
+sibling defect 0102 explicitly left open: deactivating a `checklist_template`
+today (`is_active = false`) retroactively hid a PAST non-materialised expected
+obligation, because `api.operations_expected_tasks` gated the `expected`
+projection on `checklist_templates.is_active` (a mutable boolean evaluated
+against every historical date). **CONFIRMED** by reproduction against `dev`
+(0102/0103 applied): Day 1 one `state='overdue'` row → Day 2 `is_active=false`
+→ 0 rows. **Fix — retirement dating (`0104`, additive), the direct analogue of
+0102's schedule effective-dating:** `checklist_templates.retired_on date`
+(the last business date a template may generate expected tasks; NULL = not
+retired), `CHECK (is_active or retired_on is not null)`, a `BEFORE UPDATE`
+guard `operations.checklist_templates_history_guard()` (retired_on set/advanced
+only, never retroactive, no un-retire once elapsed — mirrors
+`task_schedules_history_guard()`), and `api.operations_expected_tasks`
+(create-or-replace, SAME signature) no longer consulting `is_active` — a
+template applies to a date iff `retired_on is null or d <= retired_on`. No
+write RPC added (there is still no tenant-facing write path to
+`checklist_templates`); setting `retired_on` is the future Operations config
+slice's job, which the CHECK + guard now constrain. Item-level surfaces
+(`response_type` etc.) NOT touched — classified in the handoff; `response_type`
+freeze is deferred to the config slice; schedule raw-INSERT F2 still TRACKED.
+Test `0050` (defect reproduction + A–H + the retirement boundary); `0047`
+fixture adjusted (its `is_active=false` template now carries a past
+`retired_on`, same assertion). `supabase test db`: `0046`–`0050` pass, full
+suite = the 11 known pre-existing failures, zero new. `turbo` — 30/30.
+Additive, `0099`–`0103` untouched, RED path → left for Founder merge, no Cloud
+apply, `main` untouched. Branch
+`fix/operations-template-historical-integrity`. Handoff:
+`docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TEMPLATE_HISTORICAL_INTEGRITY_HANDOFF_2026-08-29.md`.
+Next: the Operations Configuration API slice (own Founder prompt).
+
 **2026-08-28 pointer, WP1-A OPERATIONS SCHEDULE-GUARD FLOOR (review F1) —
-PR #463 OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** The
+PR #463 MERGED into `dev` (`fa1cbb1`).** The
 independent review of PR #462 (below, now MERGED as `36af7f3`) found one P2:
 `operations.task_schedules_history_guard()`'s `current_date - 1` floor still
 let a privileged raw `UPDATE` pull `effective_to` back to `current_date - 1`
