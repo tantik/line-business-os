@@ -277,8 +277,45 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-08-29 pointer, WP1-A OPERATIONS CONFIGURATION API — PR OPEN, AWAITING
+FOUNDER MERGE (newest — read this one first).** Builds the tenant-facing
+controlled write boundary for Manager configuration (templates → items →
+schedules) so a future Manager UI never writes the internal `operations`
+tables directly. Migration `0105`, additive. **9 new `api.*` RPCs** (all
+`SECURITY INVOKER`, `operations.template.manage` + module gated, actor
+server-side): `operations_create_template` / `operations_update_template`
+(metadata only) / `operations_retire_template` (atomic is_active+retired_on);
+`operations_add_template_item` / `operations_update_template_item` (no
+response_type param) / `operations_retire_template_item` /
+`operations_replace_template_item` (the sanctioned response_type-change path);
+`operations_create_schedule` (fresh schedule_group) /
+`operations_cancel_scheduled_revision` (delete a not-yet-effective version +
+reopen predecessor). `operations_revise_schedule` / `operations_deactivate_schedule`
+(0102) reused unchanged. **Closes 3 mandatory invariants**, all reproduced
+against merged `dev` first: (a) **F2** — an authenticated Manager could
+raw-INSERT a backdated non-overlapping schedule version / raw-UPDATE a future
+version's effective_from into the past → RLS write policies split +
+`effective_from >= current_date` INSERT check + guard extended; (b)
+**effective_to elapsed forward-advance** (PR #464 review P3) → schedule
+history guard now freezes an elapsed `effective_to` entirely (mirrors 0104);
+(c) **template is_active/retired_on coherence** → `operations_retire_template`
+is the only atomic path. **response_type**: immutable once "operationalized"
+(= has responses OR its template has a schedule), enforced by
+`operations.checklist_items_definition_guard` (also freezes `is_critical`);
+change = replace item. **is_overdue_critical** documented as an intentional
+live signal, not frozen history. ADR 0008 preserved (only new SECURITY
+DEFINER is `operations.item_is_operationalized`, a factual check in the
+operations schema). Test `0051` (45 assertions, mission A–O). `supabase test
+db`: `0046`–`0051` pass, full suite = the 11 known pre-existing failures,
+zero new. `turbo` — 30/30. Additive, `0099`–`0104` untouched, RED path →
+left for Founder merge, no Cloud apply, `main` untouched. Branch
+`fix/operations-configuration-api`. Handoff:
+`docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_CONFIGURATION_API_HANDOFF_2026-08-29.md`.
+Next: Cafe HACCP preset content and/or Manager/Staff Operations UI slices
+(each its own Founder prompt).
+
 **2026-08-29 pointer, WP1-A OPERATIONS TEMPLATE HISTORICAL INTEGRITY —
-PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** Closes the
+MERGED (PR #464 = `d619c48`; read after the one above).** Closes the
 sibling defect 0102 explicitly left open: deactivating a `checklist_template`
 today (`is_active = false`) retroactively hid a PAST non-materialised expected
 obligation, because `api.operations_expected_tasks` gated the `expected`
@@ -303,11 +340,10 @@ Test `0050` (defect reproduction + A–H + the retirement boundary); `0047`
 fixture adjusted (its `is_active=false` template now carries a past
 `retired_on`, same assertion). `supabase test db`: `0046`–`0050` pass, full
 suite = the 11 known pre-existing failures, zero new. `turbo` — 30/30.
-Additive, `0099`–`0103` untouched, RED path → left for Founder merge, no Cloud
-apply, `main` untouched. Branch
-`fix/operations-template-historical-integrity`. Handoff:
+Additive, `0099`–`0103` untouched. **Merged into `dev` by the Founder
+(`d619c48`, PR #464).** No Cloud apply, `main` untouched. Handoff:
 `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TEMPLATE_HISTORICAL_INTEGRITY_HANDOFF_2026-08-29.md`.
-Next: the Operations Configuration API slice (own Founder prompt).
+The Operations Configuration API slice (the pointer above) is its follow-up.
 
 **2026-08-28 pointer, WP1-A OPERATIONS SCHEDULE-GUARD FLOOR (review F1) —
 PR #463 MERGED into `dev` (`fa1cbb1`).** The
