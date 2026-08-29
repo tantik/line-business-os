@@ -188,8 +188,8 @@ Where to find each:
 
 These are the env variable **names** used by the project. Real values live only
 in the untracked repo-root `.env` / a secrets manager. `.env.example` already
-documents the local-first Supabase variables; the Cloud dev project reuses the same names
-with Cloud values supplied at runtime:
+documents the local-first Supabase variables; the Cloud dev project reuses the
+same names with Cloud values supplied at runtime:
 
 ```
 SUPABASE_URL=<project-api-url>

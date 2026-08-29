@@ -84,8 +84,8 @@ Cloud rollout can happen incrementally.
 > generic ORUWA operator env files — do **not** put `SUPABASE_SECRET_KEY` in
 > them and do **not** extend them (see §0). Nothing in `packages/db` loads any
 > env file automatically; `serverEnv()` reads `process.env`, so the operator
-> populates the environment themselves (e.g. a dot-sourced `.env`, `node
-> --env-file=.env`, or PowerShell session vars from the password manager).
+> populates the environment themselves (e.g. a dot-sourced `.env`, or
+> PowerShell session vars from the password manager).
 
 4. In the repo-root gitignored **`.env`** (create it from `.env.example` if it
    does not exist): set `SUPABASE_SECRET_KEY=<new sb_secret_*>` alongside the

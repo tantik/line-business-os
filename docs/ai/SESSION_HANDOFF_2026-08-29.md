@@ -104,7 +104,8 @@ memory `project_supabase_secret_key_migration`.
   candidate.
 - **PR #468 (Phase 1, code only, OPEN):**
   - `@line-os/config` `serverEnv()` accepts `SUPABASE_SECRET_KEY` (preferred)
-    OR legacy `SUPABASE_SERVICE_ROLE_KEY` (fallback); exactly one required.
+    OR legacy `SUPABASE_SERVICE_ROLE_KEY` (fallback); at least one required
+    (if both set, `SUPABASE_SECRET_KEY` wins — see PR #470).
     `serverEnv().supabasePrivilegedKey` + `.supabasePrivilegedKeySource`.
     `packages/db` `createServiceClient()` uses it.
   - Edge resolver `supabase/functions/_shared/supabase-secret-key.ts` (pure
