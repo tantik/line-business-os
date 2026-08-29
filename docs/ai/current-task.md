@@ -277,8 +277,45 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-08-29 pointer, WP1-A OPERATIONS CONFIGURATION API — PR OPEN, AWAITING
-FOUNDER MERGE (newest — read this one first).** Builds the tenant-facing
+**2026-08-29 pointer, PLATFORM FOUNDATION ↔ dev RECONCILIATION (Option A) —
+PR OPEN, AWAITING FOUNDER MERGE (newest — read this one first).** Forensic
+finding (full record:
+`docs/ai/PLATFORM_FOUNDATION_RECONCILIATION_HANDOFF_2026-08-29.md`, supersedes
+the 2026-08-23 triage): the Platform Foundation critical path
+(Entitlements → Module Registry → Nav/Settings → Notifications → Event Bus,
+`main`'s historical `0069`–`0073`) was merged to `main` and pushed to
+Supabase Cloud dev on 2026-08-16, then `main`/`dev` diverged; on 2026-08-20
+`supabase migration repair --status reverted 0060 0070 0071 0072 0073`
+hid it in Cloud dev's LEDGER while every schema object stayed physically
+present (verified byte-exact, 2026-08-29). Side effect: `dev`'s own `0069`
+(a workforce identity-leak fix — different migration) never reached Cloud
+dev. **Founder decision 2026-08-29: Option A** — `dev` is authoritative;
+re-express the retained Foundation as NEW forward-only migrations; NO
+`migration repair`; NO restoring old files under historical numbers; NO
+edits to applied historical migrations; `main` reconciliation is a separate
+future task; Cloud dev read-only. **8 new migrations `0106`–`0113`:**
+`0106` entitlements (**`core.has_module_access` deliberately NOT changed** —
+`dev`'s `0093` simple form stays canonical; plan-lifecycle wiring is a
+deferred decision), `0107` module registry (+ nav cols folded in),
+`0108` `tenant_settings` + `core.settings.manage`, `0109` notifications
+outbox, `0110` event bus, `0111` register `operations` in `module_registry`
+(lifecycle `beta`, no deps, nav NULL — does NOT enable it for any tenant),
+`0112` re-home `dev` `0069`'s `my_pending_employee_invitations` RPCs,
+`0113` current-`dev`-`0081`-body `upsert_workforce_recipe` + the one-line
+tenant-wide fix. All migrations dual-target (fresh local reset creates;
+Cloud dev converges — explicit idempotency, no `EXCEPTION WHEN others`,
+verified by re-apply: zero errors, zero data duplication). Eventual Cloud
+`db push` order = `0099`–`0105` then `0106`–`0113` (designed safe for that
+order). Tests `0052`–`0054` (Foundation security + Operations registration +
+both re-homed fixes, incl. reproductions). `supabase test db`: `0046`–`0054`
+green, full suite = the 11 known pre-existing failures, zero new. `turbo` —
+30/30. Fresh Cloud dev logical backup at
+`D:\Dev\oruwa-backups\2026-08-29-pre-platform-reconciliation\` (not Storage
+bytes). RED path → left for Founder merge, no Cloud apply, `main` untouched.
+Branch `feat/platform-foundation-reconciliation`.
+
+**2026-08-29 pointer, WP1-A OPERATIONS CONFIGURATION API — MERGED (PR #465 =
+`d9907ea`; read after the one above).** Builds the tenant-facing
 controlled write boundary for Manager configuration (templates → items →
 schedules) so a future Manager UI never writes the internal `operations`
 tables directly. Migration `0105`, additive. **9 new `api.*` RPCs** (all
@@ -307,12 +344,13 @@ live signal, not frozen history. ADR 0008 preserved (only new SECURITY
 DEFINER is `operations.item_is_operationalized`, a factual check in the
 operations schema). Test `0051` (45 assertions, mission A–O). `supabase test
 db`: `0046`–`0051` pass, full suite = the 11 known pre-existing failures,
-zero new. `turbo` — 30/30. Additive, `0099`–`0104` untouched, RED path →
-left for Founder merge, no Cloud apply, `main` untouched. Branch
-`fix/operations-configuration-api`. Handoff:
+zero new. `turbo` — 30/30. Additive, `0099`–`0104` untouched. **Merged into
+`dev` by the Founder (`d9907ea`, PR #465).** No Cloud apply, `main` untouched.
+Handoff:
 `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_CONFIGURATION_API_HANDOFF_2026-08-29.md`.
-Next: Cafe HACCP preset content and/or Manager/Staff Operations UI slices
-(each its own Founder prompt).
+Next after the Platform Foundation reconciliation PR (pointer above): Cafe
+HACCP preset content and/or Manager/Staff Operations UI slices (each its own
+Founder prompt).
 
 **2026-08-29 pointer, WP1-A OPERATIONS TEMPLATE HISTORICAL INTEGRITY —
 MERGED (PR #464 = `d619c48`; read after the one above).** Closes the
