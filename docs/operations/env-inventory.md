@@ -27,10 +27,25 @@
 
 ## 1. Local development
 
+> **Generic ORUWA server/operator secret store = repo-root `.env`.** The
+> tenant-neutral server/operator variables below (and the Supabase server
+> variables in §2) live in the gitignored repo-root **`.env`**, created from
+> `.env.example`. Nothing loads it automatically — `serverEnv()` reads
+> `process.env` — so the operator dot-sources it, passes `node --env-file=.env`,
+> or exports the values into the shell from a password manager before running
+> `pnpm --filter @line-os/db …`. **Cloud DEV operator runs use the same generic
+> variable names** with Cloud DEV values (see `docs/supabase-cloud-dev-setup.md`).
+>
+> Repo-root `.env.local` and `.env.cloud.local` are **deprecated Mame To Cha
+> tooling** (`MAME_TO_CHA_LOCAL_*` / `MAME_TO_CHA_CLOUD_*`) — not generic ORUWA
+> operator env files. Do not add generic variables to them or extend them; they
+> are a deletion candidate in a later cleanup. `apps/web/.env.local` is the
+> separate web-app env and never holds a privileged key.
+
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `NODE_ENV` | Runtime mode (`development` / `test` / `production`). | Process env / host config | public | now |
-| `DATABASE_URL` | Postgres connection string for server-side tooling (migrations, seed, jobs). | Root gitignored env / password manager | **secret** | now |
+| `DATABASE_URL` | Postgres connection string for server-side tooling (migrations, seed, jobs). | Repo-root `.env` (gitignored) / password manager | **secret** | now |
 | `PII_ENCRYPTION_KEY` | Key for encrypting PII columns (`*_encrypted`). | Server-only secret store / password manager | **secret** | now |
 | `PII_HASH_PEPPER` | Pepper for PII blind-index hashes (`*_hash`). | Server-only secret store / password manager | **secret** | now |
 | `API_PORT` | Port for the local API app. | Process env (non-sensitive) | public | future |
@@ -42,10 +57,10 @@
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project API URL used by the browser client. | Web app env (public) / Vercel project env | public | now |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key for the browser (safe **only with RLS**). | Web app env (public) / Vercel project env | public | now |
-| `SUPABASE_URL` | Supabase project API URL for server code (`apps/api`, `apps/worker`, `packages/db`). | Server secret store / password manager | secret-adjacent (server) | now |
-| `SUPABASE_ANON_KEY` | Anon key for server-side anon-context clients. | Server secret store | public-equivalent (server) | now |
+| `SUPABASE_URL` | Supabase project API URL for server code (`apps/api`, `apps/worker`, `packages/db`). | Repo-root `.env` (gitignored) / password manager | secret-adjacent (server) | now |
+| `SUPABASE_ANON_KEY` | Anon key for server-side anon-context clients. | Repo-root `.env` (gitignored) | public-equivalent (server) | now |
 | `SUPABASE_SECRET_KEY` | **Preferred** privileged (RLS-bypassing) Supabase key — one `sb_secret_*` value (current model). **Server-only.** Never import in `apps/web`. `serverEnv()` picks this over the legacy key. | Server secret store / password manager | **secret** | now (transition) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Legacy** JWT `service_role` key. Bypasses RLS. **Server-only.** Temporary fallback while Cloud DEV migrates to `SUPABASE_SECRET_KEY` (`docs/operations/supabase-secret-key-migration-runbook.md`); removed after. Exactly one of this / `SUPABASE_SECRET_KEY` must be set. | Server secret store / password manager | **secret** | now (being retired) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Legacy** JWT `service_role` key. Bypasses RLS. **Server-only.** Temporary fallback while Cloud DEV migrates to `SUPABASE_SECRET_KEY` (`docs/operations/supabase-secret-key-migration-runbook.md`); removed after. At least one of this / `SUPABASE_SECRET_KEY` must be set; if both are set, `SUPABASE_SECRET_KEY` is used and this stays as the untriggered rollback fallback. | Server secret store / password manager | **secret** | now (being retired) |
 | `SUPABASE_SECRET_KEYS` | Edge-Functions-only: JSON object of `sb_secret_*` keys that Supabase injects into a hosted function; the `_shared/supabase-secret-key.ts` resolver uses the `"default"` entry. Not read by any Node/Vercel/CI code. | Supabase Edge Function secrets (managed) | **secret** | now (transition) |
 | `SUPABASE_PROJECT_REF` | Supabase project reference id (for CLI / Cloud ops). | Password manager / CI secret | secret-adjacent | future |
 | `SUPABASE_DB_PASSWORD` | Database password (cannot be re-read; reset if lost). | Password manager only | **secret** | future |

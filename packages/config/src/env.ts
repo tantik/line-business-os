@@ -24,9 +24,12 @@ import {
  *   value. PREFERRED.
  * - `SUPABASE_SERVICE_ROLE_KEY` — the legacy JWT service_role key. Accepted as
  *   a TEMPORARY fallback while Cloud DEV is migrated; removed in a later PR.
- * - Exactly one of the two must be set. `serverEnv().supabasePrivilegedKey`
- *   resolves it (secret key first); `supabasePrivilegedKeySource` records
- *   which one was used. Both are RLS-bypassing and server-only.
+ * - At least one of the two must be set; SUPABASE_SECRET_KEY is preferred. If
+ *   both are set, SUPABASE_SECRET_KEY wins and the legacy key stays as an
+ *   untriggered fallback (useful for rollback during the migration).
+ *   `serverEnv().supabasePrivilegedKey` resolves it (secret key first);
+ *   `supabasePrivilegedKeySource` records which one was used. Both are
+ *   RLS-bypassing and server-only.
  */
 
 // Re-export the browser-safe surface unchanged.
@@ -72,7 +75,7 @@ const serverBaseSchema = z.object({
 });
 
 const PRIVILEGED_KEY_MESSAGE =
-  'Set SUPABASE_SECRET_KEY (preferred: an sb_secret_* value) or the legacy SUPABASE_SERVICE_ROLE_KEY. Exactly one is required.';
+  'Set SUPABASE_SECRET_KEY (preferred: an sb_secret_* value) or the legacy SUPABASE_SERVICE_ROLE_KEY. At least one is required; if both are set, SUPABASE_SECRET_KEY is used.';
 
 const serverSchema = serverBaseSchema
   .superRefine((env, ctx) => {

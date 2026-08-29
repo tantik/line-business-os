@@ -96,8 +96,8 @@ Important boundaries that remain true after this apply:
 
 > No real project ref, database password, direct connection string,
 > anon/publishable key, service-role/secret key, or access token is recorded in
-> this document or anywhere in the repo. Real values live only in untracked
-> `.env.local` / a secrets manager.
+> this document or anywhere in the repo. Real values live only in the untracked
+> repo-root `.env` / a secrets manager.
 
 ## Required human-created Supabase project
 
@@ -139,14 +139,16 @@ development project and not production.
 
 After the human creates the project, collect these from the Supabase dashboard
 (Project Settings → API / Database). **Store them outside the repo** (password
-manager + untracked `.env.local`). The values below are **placeholders only**:
+manager + the untracked repo-root `.env`; see
+`docs/operations/env-inventory.md`). The values below are **placeholders only**:
 
 ```
 SUPABASE_PROJECT_REF=<supabase-project-ref>
 SUPABASE_DB_PASSWORD=<database-password>
 SUPABASE_URL=<project-api-url>
 SUPABASE_ANON_KEY=<anon-or-publishable-key>
-SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-or-secret-key>
+SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
+SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
 SUPABASE_ACCESS_TOKEN=<personal-access-token-for-ci-only-if-needed-later>
 ```
 
@@ -158,7 +160,8 @@ Where to find each:
 | `SUPABASE_DB_PASSWORD` | Set during project creation | Cannot be re-read; reset if lost. Store in a password manager. |
 | `SUPABASE_URL` | Project Settings → API (Project URL) | Public API URL. |
 | `SUPABASE_ANON_KEY` | Project Settings → API (anon / publishable key) | Frontend-safe **only with RLS**. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API (service_role / secret key) | **Server-only.** Bypasses RLS. Never ship to the browser. |
+| `SUPABASE_SECRET_KEY` | Project Settings → API Keys (current Secret key, `sb_secret_*`) | **Preferred** privileged key. **Server-only.** Bypasses RLS. Never ship to the browser. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API (legacy service_role key) | **Server-only.** Legacy fallback during the secret-key migration. Bypasses RLS. Never ship to the browser. |
 | `SUPABASE_ACCESS_TOKEN` | Account → Access Tokens | Personal access token for CI **only if needed later**; not required for this phase. |
 
 ## Secret handling rules
@@ -171,9 +174,11 @@ Where to find each:
   isolation — never the service role key.
 - **No real secret is ever committed.** No real project refs, URLs, keys,
   passwords, service-role keys, or access tokens go into git — ever.
-- **`.env.local` must remain untracked.** Keep real values in `.env.local` (or
-  your environment / a secrets manager). Confirm it is git-ignored and never
-  staged.
+- **The repo-root `.env` must remain untracked.** Keep real generic
+  server/operator values in the repo-root `.env` (or your environment / a
+  secrets manager). Confirm it is git-ignored and never staged. (`.env.local` /
+  `.env.cloud.local` are deprecated Mame To Cha tooling — not the generic
+  operator store; see `docs/operations/env-inventory.md`.)
 - **`.env.example` may contain placeholders only.** It documents variable names
   and shape, never real values.
 - **`SUPABASE_DB_PASSWORD` and `SUPABASE_ACCESS_TOKEN` live only in a password
@@ -182,14 +187,15 @@ Where to find each:
 ## Placeholder env names
 
 These are the env variable **names** used by the project. Real values live only
-in untracked `.env.local` / a secrets manager. `.env.example` already documents
-the local-first Supabase variables; the Cloud dev project reuses the same names
+in the untracked repo-root `.env` / a secrets manager. `.env.example` already
+documents the local-first Supabase variables; the Cloud dev project reuses the same names
 with Cloud values supplied at runtime:
 
 ```
 SUPABASE_URL=<project-api-url>
 SUPABASE_ANON_KEY=<anon-or-publishable-key>
-SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-or-secret-key>
+SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
+SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
 
 # Used by the Supabase CLI / tooling when (and only when) linking is approved:
 SUPABASE_PROJECT_REF=<supabase-project-ref>
@@ -320,9 +326,9 @@ Rollback notes:
 - [x] Human created the Cloud dev project in the dashboard (dev environment
       only; production project does not exist yet).
 - [x] Region chosen to match the production target (e.g. Tokyo / nearest APAC).
-- [x] Required values collected into untracked `.env.local` / password manager
-      (placeholders only in the repo).
-- [x] Confirmed `.env.local` is untracked and no real secret is staged.
+- [x] Required values collected into the untracked repo-root `.env` / password
+      manager (placeholders only in the repo).
+- [x] Confirmed the repo-root `.env` is untracked and no real secret is staged.
 - [x] Confirmed `.env.example` contains placeholders only.
 - [x] Local DB gate passed (local only).
 - [x] Link plan reviewed and approved by the repo owner.
