@@ -30,10 +30,13 @@
 
 - **Node/operator** (`@line-os/config`): `serverEnv()` now accepts **either**
   `SUPABASE_SECRET_KEY` (preferred, one `sb_secret_*` value) **or** the legacy
-  `SUPABASE_SERVICE_ROLE_KEY` (temporary fallback). Exactly one must be set —
-  a value-free config error otherwise. `serverEnv().supabasePrivilegedKey`
-  resolves it (secret key first); `supabasePrivilegedKeySource` records which
-  was used. `packages/db`'s `createServiceClient()` reads `supabasePrivilegedKey`.
+  `SUPABASE_SERVICE_ROLE_KEY` (temporary fallback). **At least one** must be
+  set — a value-free config error otherwise. If **both** are set,
+  `SUPABASE_SECRET_KEY` wins and the legacy key stays as an untriggered
+  fallback (this is the intended rollback shape during the migration).
+  `serverEnv().supabasePrivilegedKey` resolves it (secret key first);
+  `supabasePrivilegedKeySource` records which was used. `packages/db`'s
+  `createServiceClient()` reads `supabasePrivilegedKey`.
 - **Edge Functions**: a shared `supabase/functions/_shared/supabase-secret-key.ts`
   resolver — reads `SUPABASE_SECRET_KEYS` (JSON), uses the `"default"` entry,
   falls back to `SUPABASE_SERVICE_ROLE_KEY`, fails closed with a value-free
@@ -69,13 +72,32 @@ Cloud rollout can happen incrementally.
 3. Do **not** disable or delete anything yet.
 
 ### Phase B — update the operator local secret store
-4. In the operator's gitignored local env (`.env.cloud.local`, and
-   `.env.local.backup` if it holds a copy): set `SUPABASE_SECRET_KEY=<new sb_secret_*>`.
-   Leave `SUPABASE_SERVICE_ROLE_KEY` in place for now (fallback / rollback).
-   (The deprecated `mame-to-cha-cloud-*` tooling is out of scope — see §0.)
+
+> **Which file.** The generic ORUWA server/operator secret store is the
+> repo-root **`.env`** (gitignored by the `.env` / `.env.*` rules; only
+> `.env.example` is tracked). It carries the generic, tenant-neutral variable
+> names documented in `.env.example` and `docs/operations/env-inventory.md`;
+> Cloud DEV uses those **same names** with Cloud DEV values.
+>
+> The repo-root **`.env.local`** and **`.env.cloud.local`** are **deprecated
+> Mame To Cha tooling** (`MAME_TO_CHA_LOCAL_*` / `MAME_TO_CHA_CLOUD_*`), not
+> generic ORUWA operator env files — do **not** put `SUPABASE_SECRET_KEY` in
+> them and do **not** extend them (see §0). Nothing in `packages/db` loads any
+> env file automatically; `serverEnv()` reads `process.env`, so the operator
+> populates the environment themselves (e.g. a dot-sourced `.env`, `node
+> --env-file=.env`, or PowerShell session vars from the password manager).
+
+4. In the repo-root gitignored **`.env`** (create it from `.env.example` if it
+   does not exist): set `SUPABASE_SECRET_KEY=<new sb_secret_*>` alongside the
+   other generic Cloud DEV values (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+   `DATABASE_URL`, `PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `LINE_*`). Leave
+   `SUPABASE_SERVICE_ROLE_KEY` in place for now — with both set,
+   `SUPABASE_SECRET_KEY` is used and the legacy key is the untriggered
+   rollback fallback.
 5. Smoke one privileged operator path with the new key, e.g.
    `pnpm exec supabase migration list --linked` (unchanged) plus a dry-run of
-   an onboarding/seed script if practical. Confirm success.
+   an onboarding/seed script if practical. Confirm success (the diagnostic
+   `supabasePrivilegedKeySource` should read `secret_key`).
 
 ### Phase C — Edge Functions on the new resolver
 6. Merge this PR (Phase 1 code) to `dev`.
@@ -102,8 +124,8 @@ Cloud rollout can happen incrementally.
     authorises.
 11. Re-run §3. The Edge Functions and operator scripts must still work purely
     on the new key.
-12. Remove `SUPABASE_SERVICE_ROLE_KEY` from the operator local store and the DEV
-    Edge Function secrets.
+12. Remove `SUPABASE_SERVICE_ROLE_KEY` from the operator local store (repo-root
+    `.env`) and the DEV Edge Function secrets.
 
 ### Phase F — later: remove the fallback from the repo
 13. A follow-up PR deletes the legacy branch from `resolveSupabaseSecretKey`,
@@ -138,7 +160,9 @@ Cloud rollout can happen incrementally.
 - Phase C fails: the resolver's legacy fallback still works — unset/clear
   `SUPABASE_SECRET_KEYS` (or fix its JSON) and the functions revert to the
   legacy key. Re-deploy if needed.
-- Phase B fails: restore the operator local store to the legacy value.
+- Phase B fails: in repo-root `.env`, clear or comment out `SUPABASE_SECRET_KEY`
+  and keep `SUPABASE_SERVICE_ROLE_KEY` set — `serverEnv()` falls back to
+  `legacy_service_role` with no other change.
 - Phase E is the only irreversible step. Do not do it until §3 has passed
   twice and the new key has baked. If it is done and something breaks,
   create a fresh `sb_secret_*` key (Phase A again) rather than un-disabling.

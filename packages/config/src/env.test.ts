@@ -81,7 +81,7 @@ test('parseServerEnv: neither privileged key present -> a value-free config erro
   assert.equal(result.success, false);
   if (!result.success) {
     assert.ok(result.missing.includes('SUPABASE_SECRET_KEY'));
-    assert.match(result.message, /Exactly one is required/);
+    assert.match(result.message, /At least one is required/);
   }
 });
 
