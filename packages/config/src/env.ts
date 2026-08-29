@@ -1,24 +1,60 @@
 import { z } from 'zod';
+import {
+  type EnvSource,
+  type ParseEnvResult,
+  formatIssues,
+} from './env.public.js';
 
 /**
  * Centralized, validated environment access.
  *
  * Security model:
- * - `serverEnv()` may read secrets (service_role, PII keys, LINE secrets).
- *   It MUST only be imported from server contexts (apps/api, apps/worker,
- *   packages/db, packages/line server code).
- * - `publicEnv()` only exposes values safe to ship to the browser.
+ * - `serverEnv()` may read secrets (privileged Supabase key, PII keys, LINE
+ *   secrets). It MUST only be imported from server contexts (apps/api,
+ *   apps/worker, packages/db, packages/line server code) — never a client
+ *   component/route. Client code imports `@line-os/config/env/public`.
+ * - The browser-safe surface (`publicEnv()`, `parsePublicEnv`, `PublicEnv`)
+ *   lives in `./env.public.ts` and is re-exported here for compatibility.
  *
  * Fail-fast: parsing throws at boot if a required variable is missing.
+ *
+ * PRIVILEGED SUPABASE KEY (transition, Phase 1 of the legacy-key migration —
+ * docs/operations/supabase-secret-key-migration-runbook.md):
+ * - `SUPABASE_SECRET_KEY` — the current Supabase model: one `sb_secret_*`
+ *   value. PREFERRED.
+ * - `SUPABASE_SERVICE_ROLE_KEY` — the legacy JWT service_role key. Accepted as
+ *   a TEMPORARY fallback while Cloud DEV is migrated; removed in a later PR.
+ * - Exactly one of the two must be set. `serverEnv().supabasePrivilegedKey`
+ *   resolves it (secret key first); `supabasePrivilegedKeySource` records
+ *   which one was used. Both are RLS-bypassing and server-only.
  */
 
-const serverSchema = z.object({
+// Re-export the browser-safe surface unchanged.
+export {
+  type EnvSource,
+  type ParseEnvResult,
+  type PublicEnv,
+  formatIssues,
+  parsePublicEnv,
+  publicEnv,
+} from './env.public.js';
+
+/** Treat an unset OR empty/whitespace-only value as absent. */
+const optionalSecret = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().min(1).optional(),
+);
+
+const serverBaseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // Supabase / Postgres
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // Privileged key — see the module header. Both optional at the field level
+  // (empty string == absent); the object-level check below requires exactly one.
+  SUPABASE_SECRET_KEY: optionalSecret,
+  SUPABASE_SERVICE_ROLE_KEY: optionalSecret,
   DATABASE_URL: z.string().min(1),
 
   // PII protection
@@ -35,51 +71,34 @@ const serverSchema = z.object({
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
 });
 
-const publicSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  NEXT_PUBLIC_LIFF_ID: z.string().optional(),
-});
+const PRIVILEGED_KEY_MESSAGE =
+  'Set SUPABASE_SECRET_KEY (preferred: an sb_secret_* value) or the legacy SUPABASE_SERVICE_ROLE_KEY. Exactly one is required.';
+
+const serverSchema = serverBaseSchema
+  .superRefine((env, ctx) => {
+    if (!env.SUPABASE_SECRET_KEY && !env.SUPABASE_SERVICE_ROLE_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SUPABASE_SECRET_KEY'],
+        message: PRIVILEGED_KEY_MESSAGE,
+      });
+    }
+  })
+  .transform((env) => {
+    // superRefine guarantees at least one is present.
+    const usingSecretKey = Boolean(env.SUPABASE_SECRET_KEY);
+    return {
+      ...env,
+      supabasePrivilegedKey: (env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY) as string,
+      supabasePrivilegedKeySource: usingSecretKey
+        ? ('secret_key' as const)
+        : ('legacy_service_role' as const),
+    };
+  });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
-export type PublicEnv = z.infer<typeof publicSchema>;
-
-/** Source object shape accepted by the parse helpers (e.g. `process.env`). */
-export type EnvSource = Record<string, string | undefined>;
-
-/**
- * Result of a non-throwing env parse. `missing` lists the offending variable
- * names (paths) and `message` describes the problems. Neither field ever
- * contains an actual secret VALUE — only names and zod constraint messages — so
- * results are safe to log or surface in development/test errors.
- */
-export type ParseEnvResult<T> =
-  | { success: true; data: T }
-  | { success: false; missing: string[]; message: string };
 
 let cachedServer: ServerEnv | null = null;
-let cachedPublic: PublicEnv | null = null;
-
-function formatIssues(error: z.ZodError): string {
-  return error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
-}
-
-/**
- * Validate the browser-safe public env from an arbitrary source WITHOUT
- * throwing. Only reads `NEXT_PUBLIC_*` names, so it is safe to call from browser
- * code (the source there only carries inlined public values). Useful for
- * rendering a "missing configuration" state instead of crashing.
- */
-export function parsePublicEnv(source: EnvSource): ParseEnvResult<PublicEnv> {
-  const parsed = publicSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: source.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: source.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    NEXT_PUBLIC_LIFF_ID: source.NEXT_PUBLIC_LIFF_ID,
-  });
-  if (parsed.success) return { success: true, data: parsed.data };
-  const missing = [...new Set(parsed.error.issues.map((i) => i.path.join('.')))];
-  return { success: false, missing, message: formatIssues(parsed.error) };
-}
 
 /**
  * Validate the server env (which MAY include secrets) from an arbitrary source
@@ -100,14 +119,4 @@ export function serverEnv(): ServerEnv {
   }
   cachedServer = parsed.data;
   return cachedServer;
-}
-
-export function publicEnv(): PublicEnv {
-  if (cachedPublic) return cachedPublic;
-  const parsed = parsePublicEnv(process.env);
-  if (!parsed.success) {
-    throw new Error(`Invalid public environment:\n${parsed.message}`);
-  }
-  cachedPublic = parsed.data;
-  return cachedPublic;
 }

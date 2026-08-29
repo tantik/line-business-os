@@ -44,7 +44,9 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key for the browser (safe **only with RLS**). | Web app env (public) / Vercel project env | public | now |
 | `SUPABASE_URL` | Supabase project API URL for server code (`apps/api`, `apps/worker`, `packages/db`). | Server secret store / password manager | secret-adjacent (server) | now |
 | `SUPABASE_ANON_KEY` | Anon key for server-side anon-context clients. | Server secret store | public-equivalent (server) | now |
-| `SUPABASE_SERVICE_ROLE_KEY` | **service_role** key. Bypasses RLS. **Server-only.** Never import in `apps/web`. | Server secret store / password manager | **secret** | now |
+| `SUPABASE_SECRET_KEY` | **Preferred** privileged (RLS-bypassing) Supabase key — one `sb_secret_*` value (current model). **Server-only.** Never import in `apps/web`. `serverEnv()` picks this over the legacy key. | Server secret store / password manager | **secret** | now (transition) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Legacy** JWT `service_role` key. Bypasses RLS. **Server-only.** Temporary fallback while Cloud DEV migrates to `SUPABASE_SECRET_KEY` (`docs/operations/supabase-secret-key-migration-runbook.md`); removed after. Exactly one of this / `SUPABASE_SECRET_KEY` must be set. | Server secret store / password manager | **secret** | now (being retired) |
+| `SUPABASE_SECRET_KEYS` | Edge-Functions-only: JSON object of `sb_secret_*` keys that Supabase injects into a hosted function; the `_shared/supabase-secret-key.ts` resolver uses the `"default"` entry. Not read by any Node/Vercel/CI code. | Supabase Edge Function secrets (managed) | **secret** | now (transition) |
 | `SUPABASE_PROJECT_REF` | Supabase project reference id (for CLI / Cloud ops). | Password manager / CI secret | secret-adjacent | future |
 | `SUPABASE_DB_PASSWORD` | Database password (cannot be re-read; reset if lost). | Password manager only | **secret** | future |
 | `SUPABASE_ACCESS_TOKEN` | Personal access token for CLI/CI Cloud operations. | Password manager / CI secret only | **secret** | future |
@@ -58,7 +60,7 @@
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Same public Supabase URL, set in the Vercel project. | Vercel project env (public) | public | future |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same public anon key, set in the Vercel project. | Vercel project env (public) | public | future |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key for any server runtime (route handlers / server actions) — only if/when server writes are deployed. | Vercel project env (secret, server scope) | **secret** | future |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key for any server runtime (route handlers / server actions) — only if/when server writes are deployed. **Founder-verified 2026-08: NOT set in the current Vercel project** (Preview uses the anon key + RLS only), so the secret-key migration requires no Vercel change. | Vercel project env (secret, server scope) | **secret** | future |
 | Server secrets (`PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `DATABASE_URL`) | Required by any deployed server runtime that touches PII or the DB directly. | Vercel project env (secret, server scope) | **secret** | future |
 
 > When deploying, set public (`NEXT_PUBLIC_*`) and secret variables in the Vercel
