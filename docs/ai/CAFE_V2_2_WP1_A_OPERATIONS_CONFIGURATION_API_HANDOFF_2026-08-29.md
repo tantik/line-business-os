@@ -218,6 +218,11 @@ rejected (N); 0046–0050 unaffected (O — verified by the full suite).
 - Editing a not-yet-effective future schedule version's recurrence in place —
   `revise` targets the current version only; the path is cancel + recreate.
   Acceptable for MVP.
+- Location-scoped Manager can create tenant-wide templates (review P3-b) —
+  Founder decision whether to tighten; would touch `0100`/`0046`.
+- Cancelling a stacked middle revision requires undoing later ones first
+  (LIFO, review P2) — acceptable; a "cancel a specific middle version and
+  re-stitch boundaries" operation is deferred, not needed for MVP.
 - The cosmetic `is_active=true` + elapsed `retired_on` incoherence (§12) —
   a future template-edit UI concern.
 - Manager/Staff Operations UI, Cafe HACCP presets, Manager Attention
@@ -226,16 +231,42 @@ rejected (N); 0046–0050 unaffected (O — verified by the full suite).
 - Cloud/remote apply of `0099`–`0105` — separate explicit Founder-approved
   mission with the full evidence package.
 
-## 18. Independent review
+## 18. Independent review — DONE, **PASS WITH REQUIRED FIXES → fixed**
 
-Fresh-context reviewer must challenge: tenant isolation; module-OFF
-enforcement; permission boundaries; raw-DML bypass (INSERT/UPDATE/DELETE on
-all three tables); `response_type` historical integrity + the
-"operationalized" definition; schedule history fabrication (forward and
-backward); template state coherence; future-version cancellation safety
-(especially the physical DELETE + predecessor re-open); over-engineering.
-Resolve P0/P1/P2 before the PR is presented as ready; fix trivial/safe P3 or
-route explicitly.
+Fresh-context reviewer ran its own SQL against the live DB (not the author's
+tests): tenant isolation, location isolation, module OFF (all 10 RPCs),
+missing-module-row, employee lockout, raw INSERT/UPDATE/DELETE on all three
+tables, F2 forward+backward, `response_type`/`is_critical` freeze, ADR 0008
+(`0 rows` for `SECURITY DEFINER` in `api`), and the full suite (11 known
+failures, zero new) — **all hold**. Verdict: **PASS WITH REQUIRED FIXES**.
+
+- **P2 (REQUIRED) — FIXED.** `api.operations_cancel_scheduled_revision` was
+  wrong for a **non-latest** future version: `operations_revise_schedule`
+  can stack V1→V2→V3; cancelling the middle V2 re-opened its predecessor
+  open-ended → `EXCLUDE` abort with a raw `23P01` (not a distinguishable
+  raise), and the semantics were wrong anyway. **Fix:** cancellation is now
+  **LIFO** — the RPC rejects a target that has a later sibling in the group
+  (`operations_schedule_later_revision_exists`); undo stacked revisions
+  newest-first. Predecessor re-open is then always unambiguous and never
+  overlaps. Test `0051` N-group extended.
+- **P3-a — FIXED.** A raw forward-dated `INSERT` (which the tightened policy
+  still allows, `effective_from >= current_date`) did not check template
+  retirement or template/location match. `operations_schedules_insert` `WITH
+  CHECK` now also requires the bound template to exist in the tenant, be
+  non-retired, and (if location-scoped) match the schedule's location.
+- **P3-c — FIXED.** A cross-tenant `p_location_id` on `create_template` /
+  `create_schedule` failed with a raw FK `23503` instead of a clean raise.
+  Both now pre-check with `operations.location_timezone(...) is null` →
+  `operations_location_not_found` (a SECURITY DEFINER factual helper, so it
+  is not blocked by `core.locations`' membership-gated RLS).
+- **P3-b — documented, not changed (Founder note).** A **location-scoped**
+  Manager can create and manage **tenant-wide** templates
+  (`core.has_permission_in_tenant` is true for any location holder). This is
+  consistent with 0100's merged RLS model and `workforce.recipes`, but this
+  slice is the first *write* path to exercise it. If the Founder wants
+  tenant-wide template creation to require a tenant-wide assignment, that is
+  a small follow-up to 0100's `has_permission_in_tenant` branches (and would
+  touch `0046`), out of scope here.
 
 ## 19. Boundaries honoured
 

@@ -62,13 +62,15 @@
 -- and thereby rewrite the flag on past occurrences.
 --
 -- FUTURE-VERSION CANCELLATION (scope): api.operations_cancel_scheduled_revision
--- physically DELETEs a task_schedules version that is GENUINELY not yet
--- effective (effective_from > current_date) and has zero task_instances (it
--- cannot have any — instances only ever materialise for the current business
--- date), and re-opens the predecessor version that api.operations_revise_schedule
--- closed the day before. Non-destructive to elapsed history; no obligation
--- fabricated. A narrow RLS DELETE policy (effective_from > current_date AND no
--- instances) is the durable boundary.
+-- physically DELETEs the LATEST task_schedules version of a logical schedule
+-- that is GENUINELY not yet effective (effective_from > current_date) and has
+-- zero task_instances (it cannot have any — instances only ever materialise
+-- for the current business date), and re-opens the predecessor version that
+-- api.operations_revise_schedule closed the day before. Cancellation is LIFO:
+-- a stacked later revision must be undone first, which keeps the predecessor
+-- re-open unambiguous and never overlaps a later sibling. Non-destructive to
+-- elapsed history; no obligation fabricated. A narrow RLS DELETE policy
+-- (effective_from > current_date AND no instances) is the durable boundary.
 --
 -- NO edit to 0099-0104. Additive only; no row deleted by the migration
 -- itself; no historical Operations data dropped. NO Cloud apply. RED path.
@@ -157,6 +159,17 @@ create policy operations_schedules_insert on operations.task_schedules
     and effective_from >= current_date
     and effective_to is null
     and is_active
+    -- the bound template must exist in the same tenant, be non-retired, and
+    -- (if location-scoped) match this schedule's location — so a raw
+    -- forward-dated INSERT cannot bypass the RPC's business validation
+    -- (review 0105 P3-a).
+    and exists (
+      select 1 from operations.checklist_templates ct
+      where ct.tenant_id = task_schedules.tenant_id
+        and ct.id = task_schedules.template_id
+        and ct.retired_on is null
+        and (ct.location_id is null or ct.location_id = task_schedules.location_id)
+    )
   );
 
 create policy operations_schedules_update on operations.task_schedules
@@ -337,13 +350,14 @@ begin
       raise exception 'operations_permission_denied' using errcode = 'P0001';
     end if;
   else
+    if operations.location_timezone(p_tenant_id, p_location_id) is null then
+      raise exception 'operations_location_not_found' using errcode = 'P0002';
+    end if;
     if not core.has_permission(p_tenant_id, 'operations.template.manage', p_location_id) then
       raise exception 'operations_permission_denied' using errcode = 'P0001';
     end if;
   end if;
 
-  -- a bad / cross-tenant p_location_id is rejected by the composite FK
-  -- (tenant_id, location_id) -> core.locations(tenant_id, id).
   insert into operations.checklist_templates (tenant_id, location_id, name, category, description)
   values (p_tenant_id, p_location_id, btrim(p_name), p_category, p_description)
   returning id into v_id;
@@ -711,6 +725,9 @@ begin
   if p_location_id is null then
     raise exception 'operations_schedule_location_required' using errcode = 'P0001';
   end if;
+  if operations.location_timezone(p_tenant_id, p_location_id) is null then
+    raise exception 'operations_location_not_found' using errcode = 'P0002';
+  end if;
   if not core.has_permission(p_tenant_id, 'operations.template.manage', p_location_id) then
     raise exception 'operations_permission_denied' using errcode = 'P0001';
   end if;
@@ -786,9 +803,22 @@ begin
   if v_from <= current_date then
     raise exception 'operations_schedule_version_already_effective' using errcode = 'P0001';
   end if;
+  -- cancellation is LIFO: only the LATEST not-yet-effective version of a
+  -- logical schedule may be cancelled. Undo stacked revisions newest first —
+  -- this keeps predecessor re-opening unambiguous and never overlaps a later
+  -- sibling (review 0105 P2).
+  if exists (
+    select 1 from operations.task_schedules s
+    where s.tenant_id = p_tenant_id
+      and s.schedule_group_id = v_group
+      and s.effective_from > v_from
+  ) then
+    raise exception 'operations_schedule_later_revision_exists' using errcode = 'P0001';
+  end if;
 
   -- the predecessor version that a revision closed the day before this one
   -- takes effect (if any) — re-open it so the schedule stays continuous.
+  -- Safe now that this is the latest version: no later sibling can overlap.
   select s.id into v_pred_id
   from operations.task_schedules s
   where s.tenant_id = p_tenant_id
@@ -815,7 +845,7 @@ begin
 end;
 $$;
 comment on function api.operations_cancel_scheduled_revision(uuid, uuid) is
-  'Cancel a task_schedules version that is not yet effective (effective_from > current_date) and has no execution history: physically deletes it and re-opens the predecessor version a prior revision closed. Non-destructive to elapsed history; fabricates nothing. Requires operations.template.manage at the location + module ON. SECURITY INVOKER; the operations_schedules_delete RLS policy is the durable boundary.';
+  'Cancel the LATEST not-yet-effective version of a logical schedule (effective_from > current_date, no task_instances): physically deletes it and re-opens the predecessor a prior revision closed. LIFO — a later stacked revision must be cancelled first (operations_schedule_later_revision_exists). Non-destructive to elapsed history; fabricates nothing. Requires operations.template.manage at the location + module ON. SECURITY INVOKER; the operations_schedules_delete RLS policy is the durable boundary.';
 
 -- ============================================================================
 -- 6. Grants on the new RPCs — authenticated only; anon/public revoked.

@@ -347,6 +347,57 @@ select is(
   (select is_active::text || ' ' || coalesce(effective_to::text, 'null') from operations.task_schedules where id = (select v from t_ids where k='sched2')),
   'true null', 'N: the predecessor is active and open-ended again');
 
+-- N (P2 regression): cancellation is LIFO — a non-latest future version cannot
+-- be cancelled while a later stacked revision exists.
+insert into t_ids values ('sched3', pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+  $$ select api.operations_create_schedule('0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001', '%s', 'daily', '09:00'::time)::text $$,
+  (select v from t_ids where k='tmpl2')))::uuid);
+insert into t_ids values ('sched3_v2', pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+  $$ select (api.operations_revise_schedule('0a110000-0000-0000-0000-000000000000', '%s', 'daily', null, '07:00'::time, null, current_date + 1)).schedule_id::text $$,
+  (select v from t_ids where k='sched3')))::uuid);
+insert into t_ids values ('sched3_v3', pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+  $$ select (api.operations_revise_schedule('0a110000-0000-0000-0000-000000000000', '%s', 'daily', null, '06:00'::time, null, current_date + 5)).schedule_id::text $$,
+  (select v from t_ids where k='sched3_v2')))::uuid);
+
+select is(
+  pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+    $$ select api.operations_cancel_scheduled_revision('0a110000-0000-0000-0000-000000000000', '%s')::text $$,
+    (select v from t_ids where k='sched3_v2'))),
+  'ERR: operations_schedule_later_revision_exists',
+  'N: cancelling a non-latest future version is rejected (LIFO)');
+
+select is(
+  pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+    $$ select (api.operations_cancel_scheduled_revision('0a110000-0000-0000-0000-000000000000', '%s')).cancelled_schedule_id::text $$,
+    (select v from t_ids where k='sched3_v3'))),
+  (select v::text from t_ids where k='sched3_v3'),
+  'N: cancelling the latest future version first succeeds');
+select is(
+  (select coalesce(effective_to::text,'null') from operations.task_schedules where id = (select v from t_ids where k='sched3_v2')),
+  'null', 'N: after cancelling v3, v2 is re-opened (open-ended) and no EXCLUDE overlap');
+
+-- N (P3-a regression): a raw forward-dated INSERT cannot bind a RETIRED
+-- template (tmplL was retired in section L).
+select ok(pg_temp.threw('0a900000-0000-0000-0000-00000000000a', format(
+  $$ insert into operations.task_schedules
+       (tenant_id, location_id, template_id, recurrence_kind, due_time, effective_from)
+     values ('0a110000-0000-0000-0000-000000000000', '0a100000-0000-0000-0000-000000000001',
+             '%s', 'daily', '09:00', current_date + 3) $$, (select v from t_ids where k='tmplL'))),
+  'N: raw forward-dated INSERT on a retired template is rejected (RLS insert policy)');
+
+-- N (P3-c regression): a cross-tenant location_id gives a clean not_found, not a raw FK error.
+select is(
+  pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a', format(
+    $$ select api.operations_create_schedule('0a110000-0000-0000-0000-000000000000', '0b100000-0000-0000-0000-000000000001', '%s', 'daily', '09:00'::time)::text $$,
+    (select v from t_ids where k='tmpl2'))),
+  'ERR: operations_location_not_found',
+  'N: create_schedule with a cross-tenant location_id -> clean operations_location_not_found');
+select is(
+  pg_temp.as_auth('0a900000-0000-0000-0000-00000000000a',
+    $$ select api.operations_create_template('0a110000-0000-0000-0000-000000000000', 'X', '0b100000-0000-0000-0000-000000000001')::text $$),
+  'ERR: operations_location_not_found',
+  'N: create_template with a cross-tenant location_id -> clean operations_location_not_found');
+
 -- cannot cancel a version that is already effective
 select ok(pg_temp.threw('0a900000-0000-0000-0000-00000000000a', format(
   $$ select api.operations_cancel_scheduled_revision('0a110000-0000-0000-0000-000000000000', '%s') $$,
