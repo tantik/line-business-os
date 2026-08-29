@@ -102,46 +102,6 @@ test('D3 validates gate, target, and all secrets before constructing a client', 
   assert.equal(constructed, 0);
 });
 
-test('D3 prefers MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY over the legacy service-role key', async () => {
-  let usedKey: string | undefined;
-  const client = new FakeAdminClient();
-  await runMameToChaCloudD3FromEnv(
-    EXECUTE_INPUT,
-    {
-      ...ENV,
-      MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY: 'FAKE-secret-key-d3',
-      MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY: 'legacy-synthetic-d3',
-    },
-    {
-      buildClient: async (_url, key) => {
-        usedKey = key;
-        return client;
-      },
-    },
-  );
-  assert.equal(usedKey, 'FAKE-secret-key-d3');
-});
-
-test('D3 falls back to the legacy service-role key when SECRET_KEY is absent', async () => {
-  let usedKey: string | undefined;
-  const client = new FakeAdminClient();
-  await runMameToChaCloudD3FromEnv(EXECUTE_INPUT, ENV, {
-    buildClient: async (_url, key) => {
-      usedKey = key;
-      return client;
-    },
-  });
-  assert.equal(usedKey, ENV.MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY);
-});
-
-test('D3 fails closed (value-free) when neither privileged key is set', async () => {
-  const { MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY: _drop, ...envNoKey } = ENV;
-  await assert.rejects(
-    () => runMameToChaCloudD3FromEnv(EXECUTE_INPUT, envNoKey, { buildClient: async () => new FakeAdminClient() }),
-    /MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY \(preferred\) or MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY \(legacy\) is required/,
-  );
-});
-
 test('D3 never echoes a password, key, or email when Auth fails', async () => {
   const secret = 'do-not-echo-this-secret';
   const client = new FakeAdminClient();

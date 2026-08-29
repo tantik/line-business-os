@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePublicEnv, parseServerEnv } from './env.js';
+import { parsePublicEnv, parseServerEnv, serverEnv } from './env.js';
 
 const VALID_URL = 'http://127.0.0.1:54321';
 const FAKE_ANON_KEY = 'anon-key-value-should-never-be-logged';
@@ -137,5 +137,27 @@ test('parseServerEnv never echoes a privileged key VALUE in its error message', 
   if (!result.success) {
     assert.ok(!result.message.includes(FAKE_SECRET_KEY));
     assert.ok(!result.message.includes(FAKE_LEGACY_KEY));
+  }
+});
+
+test('serverEnv() boot error is value-free (reuses the parse message)', () => {
+  const saved = process.env;
+  try {
+    process.env = {
+      NODE_ENV: 'test',
+      SUPABASE_URL: 'not-a-url',
+      SUPABASE_SECRET_KEY: FAKE_SECRET_KEY,
+    } as NodeJS.ProcessEnv;
+    assert.throws(
+      () => serverEnv(),
+      (err: unknown) => {
+        const msg = (err as Error).message;
+        assert.match(msg, /Invalid server environment/);
+        assert.ok(!msg.includes(FAKE_SECRET_KEY));
+        return true;
+      },
+    );
+  } finally {
+    process.env = saved;
   }
 });

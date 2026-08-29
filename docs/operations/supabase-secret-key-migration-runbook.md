@@ -23,8 +23,8 @@
 | `apps/api` / `apps/worker` deployed | not deployed anywhere (no deploy config in repo) | n/a |
 | Edge Functions `liff-entry`, `invite-employee` | `SUPABASE_SERVICE_ROLE_KEY` (auto-injected) for Auth-Admin / pre-session reads | resolver prefers `SUPABASE_SECRET_KEYS["default"]`, falls back to legacy |
 | Operator scripts `seed`, `oruwa-cafe-fixture` | `SUPABASE_SERVICE_ROLE_KEY` via `serverEnv()` → `createServiceClient()` | `SUPABASE_SECRET_KEY` preferred, legacy fallback |
-| Operator script `mame-to-cha-cloud-d3` | `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | `MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY` preferred, legacy fallback |
 | Local Supabase (`supabase start`) | the universal local-dev demo `service_role` JWT (non-secret) | **not migrated** — it is not a real credential |
+| `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_CLOUD_*` vars) | legacy: `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated.** Mame To Cha is a historical prototype/pilot, not part of the current ORUWA architecture (Founder, 2026-08). These scripts + `MAME_TO_CHA_*` env vars are deprecated tooling from a completed one-off provisioning campaign; not referenced by CI or any runtime (only their unit tests run, with fake clients / no real credentials). Do not add new `MAME_TO_CHA_*` secret variables. Candidate for deletion in a separate cleanup PR. |
 
 ## 1. What Phase 1 (this PR) changed — code only, no keys
 
@@ -38,8 +38,9 @@
   resolver — reads `SUPABASE_SECRET_KEYS` (JSON), uses the `"default"` entry,
   falls back to `SUPABASE_SERVICE_ROLE_KEY`, fails closed with a value-free
   error, never logs the secret. Both `liff-entry` and `invite-employee` use it.
-- **`mame-to-cha-cloud-d3`**: `MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY` preferred,
-  legacy `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` fallback.
+- **`mame-to-cha-cloud-*`**: deliberately **not touched** — deprecated,
+  customer-specific pilot tooling (see the table above). Its unit tests still
+  pass unchanged.
 - **Guards**: the ESLint `no-restricted-syntax` guard now also blocks
   `process.env.SUPABASE_SECRET_KEY` / `SUPABASE_SECRET_KEYS`; `apps/web` may
   no longer import `@line-os/config/env` (only `@line-os/config/env/public`,
@@ -71,47 +72,48 @@ Cloud rollout can happen incrementally.
 4. In the operator's gitignored local env (`.env.cloud.local`, and
    `.env.local.backup` if it holds a copy): set `SUPABASE_SECRET_KEY=<new sb_secret_*>`.
    Leave `SUPABASE_SERVICE_ROLE_KEY` in place for now (fallback / rollback).
-5. If mame-to-cha Cloud provisioning may run: also set
-   `MAME_TO_CHA_CLOUD_SUPABASE_SECRET_KEY=<new sb_secret_*>`.
-6. Smoke one privileged operator path with the new key, e.g.
+   (The deprecated `mame-to-cha-cloud-*` tooling is out of scope — see §0.)
+5. Smoke one privileged operator path with the new key, e.g.
    `pnpm exec supabase migration list --linked` (unchanged) plus a dry-run of
    an onboarding/seed script if practical. Confirm success.
 
 ### Phase C — Edge Functions on the new resolver
-7. Merge this PR (Phase 1 code) to `dev`.
-8. `[verify]` Set the DEV project's Edge Function secret **`SUPABASE_SECRET_KEYS`**
-   to a JSON object with a `"default"` entry pointing at the new `sb_secret_*`
-   key — via the Supabase dashboard (Edge Functions → Secrets) or
-   `supabase secrets set SUPABASE_SECRET_KEYS='{"default":"sb_secret_…"}'`
+6. Merge this PR (Phase 1 code) to `dev`.
+7. `[verify]` Set the DEV project's Edge Function secret **`SUPABASE_SECRET_KEYS`**
+   to a JSON object with a `"default"` entry pointing at the new secret key —
+   via the Supabase dashboard (Edge Functions → Secrets) or
+   `supabase secrets set SUPABASE_SECRET_KEYS='{"default":"<new-secret-key>"}'`
    (Founder-run; the agent cannot). If the platform already injects
    `SUPABASE_SECRET_KEYS` automatically for the new key, `[verify]` its shape
    and skip the manual set.
-9. `[verify]` Deploy both functions from `dev`:
+8. `[verify]` Deploy both functions from `dev`:
    `supabase functions deploy liff-entry invite-employee` (Founder-run).
-10. The resolver will now pick `SUPABASE_SECRET_KEYS["default"]`; the legacy
-    env var remains as an untriggered fallback.
+9. The resolver will now pick `SUPABASE_SECRET_KEYS["default"]`; the legacy
+   env var remains as an untriggered fallback.
 
 ### Phase D — verify (see §3)
 
 ### Phase E — disable the exposed legacy `service_role`
-11. Only after §3 fully passes: `[verify]` in the DEV project's dashboard,
+10. Only after §3 fully passes: `[verify]` in the DEV project's dashboard,
     disable/revoke the **legacy `service_role` key** (NOT the JWT signing
     secret; NOT the `anon` key). If the legacy system only supports a JWT
     signing-secret roll (which also invalidates `anon`), **STOP and escalate
     to the Founder** — that is a different, wider operation than this closeout
     authorises.
-12. Re-run §3. The Edge Functions and operator scripts must still work purely
+11. Re-run §3. The Edge Functions and operator scripts must still work purely
     on the new key.
-13. Remove `SUPABASE_SERVICE_ROLE_KEY` / `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY`
-    from the operator local store and the DEV Edge Function secrets.
+12. Remove `SUPABASE_SERVICE_ROLE_KEY` from the operator local store and the DEV
+    Edge Function secrets.
 
 ### Phase F — later: remove the fallback from the repo
-14. A follow-up PR deletes the legacy branch from
-    `resolveSupabaseSecretKey`, makes `SUPABASE_SECRET_KEY` required in
-    `serverEnv()`, drops `SUPABASE_SERVICE_ROLE_KEY` from the schema /
-    `.env.example` / `turbo.json` / `mame-to-cha-cloud-d3`, and tightens the
-    ESLint guard message. Only after Cloud DEV has run clean on the new key
-    for a sensible bake period.
+13. A follow-up PR deletes the legacy branch from `resolveSupabaseSecretKey`,
+    makes `SUPABASE_SECRET_KEY` required in `serverEnv()`, drops
+    `SUPABASE_SERVICE_ROLE_KEY` from the schema / `.env.example` / `turbo.json`,
+    and tightens the ESLint guard message. Only after Cloud DEV has run clean
+    on the new key for a sensible bake period. **Separately** (or in the same
+    cleanup PR): delete the deprecated `packages/db/scripts/mame-to-cha-cloud-*`
+    tooling + `MAME_TO_CHA_*` env vars — Mame To Cha is a retired pilot, not
+    current architecture.
 
 ## 3. Verification checklist (run after Phase C, again after Phase E)
 
