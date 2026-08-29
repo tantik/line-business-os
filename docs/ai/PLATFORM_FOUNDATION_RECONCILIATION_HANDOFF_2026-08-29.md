@@ -212,6 +212,10 @@ isolation).
   decision once Billing / a Customer Portal exists.
 - **`main` branch reconciliation / release governance** — out of scope by
   Founder direction.
+- **Tenant read access to its own entitlement limits** (review P3-a):
+  `core.plan_default_limits` / `core.tenant_entitlement_limits` `_select`
+  policies are inert until a `grant select … to authenticated` is added —
+  do that as part of whatever surface first needs a tenant to see its limits.
 - **UI/worker adoption** of any Foundation contract (nav from
   `module_registry`, a `/dashboard/settings` route, a `core.notifications`
   dispatch worker, any `core.events` producer/consumer) — each its own
@@ -234,14 +238,40 @@ isolation).
 - `pnpm exec turbo run typecheck lint build test --force` — **30/30**.
 - §6 + §7 bugs reproduced on pre-fix `dev`, both confirmed fixed after.
 
-## 13. Independent review
+## 13. Independent review — DONE, **PASS**
 
-To run: a fresh-context reviewer must challenge tenant isolation, RLS,
-permission boundaries, Foundation idempotency, Cloud-existing-object
-compatibility, migration-number correctness, accidental data overwrite,
-module-registry-vs-runtime-gating, the Operations registration, the re-homed
-`0069` security fix, the tenant-wide recipe fix, and over-engineering.
-Resolve P0/P1/P2 before the PR is presented as ready.
+A fresh-context reviewer ran its own SQL against a clean `db reset`, re-applied
+all 8 migrations against the populated DB (idempotency), diffed `0112`/`0113`
+against their historical sources, dumped `pg_policies` / `pg_get_functiondef`,
+and ran the full `supabase test db` (52 files / 1246 tests — exactly the 11
+known pre-existing failures, zero new). **Verdict: PASS. No P0/P1/P2.**
+
+Cleared: idempotency (re-apply = zero errors, zero duplicate rows, no
+`tenant_plans` overwrite; no `EXCEPTION WHEN others`); `core.has_module_access`
+byte-identical to `0093`'s simple form (no `tenant_plans` join, no staff
+bypass); every RLS policy matches `main` `0069`–`0073` with none weakened;
+`can_enable_module` used in no RLS policy and fail-closed on an absent registry
+row; `0111` inserts no `tenant_modules` row and `has_module_access(t,'operations')`
+stays false; `0112` bodies byte-identical to `dev` `0069` with correct
+DEFINER/INVOKER split; `0113` = `dev` `0081` body + only the two `WHERE`-clause
+disjuncts, keeps `p_status … 'archived'` (not `main` `0060`'s stale set),
+location + tenant isolation intact; `0106`–`0113` free numbers, forward-only,
+no historical file modified/renamed/deleted; Cloud push order `0099…0105` then
+`0106…0113` is safe.
+
+**Three P3 notes — non-blocking, no fix required (all "faithful to `main`"):**
+- **P3-a.** `core.plan_default_limits` and `core.tenant_entitlement_limits`
+  have `_select` RLS policies but **no table-level `SELECT` grant to
+  `authenticated`**, so those policies are currently inert for tenant users
+  (reads fail-closed at the grant layer) — exactly as `main`'s `0069` left
+  `tenant_plans`/`entitlement_plans` (which DID get the grant). A future
+  "tenant can view its own effective limits" surface must add the grant; not
+  doing it now keeps the reconciliation faithful and fail-closed.
+- **P3-b.** `notifications_write` is `FOR ALL` not `FOR INSERT` — matches
+  `main` `0072`; moot (no DML grant to `authenticated`).
+- **P3-c.** `0108` upserts the `core.settings.manage` permission with
+  `on conflict (key) do update` (to static literal values) rather than
+  `do nothing` — identical effect, matches `main` `0071`.
 
 ## 14. Boundaries honoured
 
