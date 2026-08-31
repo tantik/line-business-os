@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   resolveSupabaseSecretKey,
   SupabaseSecretKeyConfigError,
+  type SupabaseSecretKeySource,
 } from './supabase-secret-key.ts';
 
 // Synthetic non-key placeholder strings only (deliberately NOT shaped like a
@@ -88,6 +89,36 @@ test('neither source present -> fail closed with a value-free error', () => {
       return true;
     },
   );
+});
+
+test('invite-employee Phase C diagnostic: payload carries only the source enum, never a key', () => {
+  // invite-employee/index.ts cannot be imported here (top-level Deno.serve +
+  // Deno.env), so this locks the two invariants the diagnostic depends on at
+  // the resolver boundary: (a) resolved.source is ONLY ever the resolver enum,
+  // across every success path, so the logged `source` field can never be a
+  // free-form or secret-derived string; (b) a payload built from resolved.source
+  // alone (the exact shape index.ts logs) carries no key value. A reviewer
+  // changing the index.ts console.log payload must keep it to {event, source}.
+  const ALLOWED_SOURCES = new Set(['secret_keys_default', 'legacy_service_role']);
+  const successCases: SupabaseSecretKeySource[] = [
+    { SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET_DEFAULT, other: SECRET_OTHER }), SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+    { SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+    { SUPABASE_SECRET_KEYS: JSON.stringify({ webhook: SECRET_OTHER }), SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+  ];
+  for (const source of successCases) {
+    const resolved = resolveSupabaseSecretKey(source);
+    assert.ok(ALLOWED_SOURCES.has(resolved.source), `unexpected source enum: ${resolved.source}`);
+    const diagnostic = JSON.stringify({
+      event: 'invite-employee.privileged_key_source',
+      source: resolved.source,
+    });
+    const parsed = JSON.parse(diagnostic) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(parsed).sort(), ['event', 'source']);
+    assert.equal(parsed.source, resolved.source);
+    for (const secret of [SECRET_DEFAULT, SECRET_OTHER, LEGACY_JWT]) {
+      assert.ok(!diagnostic.includes(secret), `diagnostic payload leaked a secret: ${diagnostic}`);
+    }
+  }
 });
 
 test('the resolved key value never appears in any thrown error message', () => {
