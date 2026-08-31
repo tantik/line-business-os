@@ -47,7 +47,10 @@
   `SUPABASE_PUBLISHABLE_KEYS` (JSON), uses `"default"`, falls back to
   `SUPABASE_ANON_KEY`, fails closed, never logs. `invite-employee` uses it for
   its user-scoped client (the caller's forwarded JWT and RLS are unchanged);
-  `liff-entry` is out of scope for now.
+  `liff-entry` is out of scope for now. Locally, `supabase functions serve`
+  still injects `SUPABASE_ANON_KEY`, so no local change is needed; set
+  `SUPABASE_PUBLISHABLE_KEYS={"default":"<publishable-value>"}` in the
+  gitignored `supabase/functions/.env` only to exercise the new path locally.
 - **`mame-to-cha-cloud-*`**: deliberately **not touched** — deprecated,
   customer-specific pilot tooling (see the table above). Its unit tests still
   pass unchanged.
