@@ -146,7 +146,8 @@ manager + the untracked repo-root `.env`; see
 SUPABASE_PROJECT_REF=<supabase-project-ref>
 SUPABASE_DB_PASSWORD=<database-password>
 SUPABASE_URL=<project-api-url>
-SUPABASE_ANON_KEY=<anon-or-publishable-key>
+SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
+SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
 SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
 SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
 SUPABASE_ACCESS_TOKEN=<personal-access-token-for-ci-only-if-needed-later>
@@ -159,7 +160,8 @@ Where to find each:
 | `SUPABASE_PROJECT_REF` | Project Settings → General (Reference ID) | Also visible in the project URL. |
 | `SUPABASE_DB_PASSWORD` | Set during project creation | Cannot be re-read; reset if lost. Store in a password manager. |
 | `SUPABASE_URL` | Project Settings → API (Project URL) | Public API URL. |
-| `SUPABASE_ANON_KEY` | Project Settings → API (anon / publishable key) | Frontend-safe **only with RLS**. |
+| `SUPABASE_PUBLISHABLE_KEY` | Project Settings → API Keys (current Publishable key, `sb_publishable_*`) | **Preferred** low-privilege app key. Frontend-safe **only with RLS**. |
+| `SUPABASE_ANON_KEY` | Project Settings → API (legacy anon key) | Legacy fallback during the key migration. Frontend-safe **only with RLS**. |
 | `SUPABASE_SECRET_KEY` | Project Settings → API Keys (current Secret key, `sb_secret_*`) | **Preferred** privileged key. **Server-only.** Bypasses RLS. Never ship to the browser. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API (legacy service_role key) | **Server-only.** Legacy fallback during the secret-key migration. Bypasses RLS. Never ship to the browser. |
 | `SUPABASE_ACCESS_TOKEN` | Account → Access Tokens | Personal access token for CI **only if needed later**; not required for this phase. |
@@ -193,7 +195,8 @@ same names with Cloud values supplied at runtime:
 
 ```
 SUPABASE_URL=<project-api-url>
-SUPABASE_ANON_KEY=<anon-or-publishable-key>
+SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
+SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
 SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
 SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
 
@@ -204,7 +207,8 @@ SUPABASE_ACCESS_TOKEN=<personal-access-token-for-ci-only-if-needed-later>
 
 # Frontend public mirrors (only NEXT_PUBLIC_* reach the browser):
 NEXT_PUBLIC_SUPABASE_URL=<project-api-url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-or-publishable-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
 ```
 
 > Only the anon/publishable key and URL belong in `NEXT_PUBLIC_*`. The

@@ -10,21 +10,21 @@ import { requirePublicSupabaseEnv } from '@/lib/supabase/env';
  * with `verify_jwt = false` (it performs its own strong verification of the
  * LINE ID token instead of relying on the platform's generic Supabase-JWT
  * gate). Runs client-side (the LIFF entry page), so this only ever sends the
- * public anon key, never a secret.
+ * public low-privilege key (publishable or legacy anon), never a secret.
  */
 export type LiffEntryOutcome =
   | { status: 'success'; tokenHash: string; type: 'magiclink' }
   | { status: 'error'; code: string };
 
 export async function exchangeLiffIdToken(idToken: string): Promise<LiffEntryOutcome> {
-  const { url, anonKey } = requirePublicSupabaseEnv();
+  const { url, key } = requirePublicSupabaseEnv();
   const endpoint = `${url.replace(/\/$/, '')}/functions/v1/liff-entry`;
 
   let response: Response;
   try {
     response = await fetch(endpoint, {
       method: 'POST',
-      headers: { apikey: anonKey, 'Content-Type': 'application/json' },
+      headers: { apikey: key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken }),
     });
   } catch {

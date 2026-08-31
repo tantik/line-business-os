@@ -185,7 +185,7 @@ export async function inviteOrResendWorkforceEmployee(
   employeeId: string,
   action?: 'recover',
 ): Promise<WorkforceWriteResult<InviteEmployeeResult>> {
-  const { url, anonKey } = requirePublicSupabaseEnv();
+  const { url, key } = requirePublicSupabaseEnv();
   const endpoint = `${url.replace(/\/$/, '')}/functions/v1/invite-employee`;
 
   let response: Response;
@@ -194,7 +194,7 @@ export async function inviteOrResendWorkforceEmployee(
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        apikey: anonKey,
+        apikey: key,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(action ? { tenantId, employeeId, action } : { tenantId, employeeId }),

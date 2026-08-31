@@ -18,11 +18,11 @@ const FIXED_NOW = new Date('2026-06-26T11:30:00.000Z');
 
 const okEnv = (): ReadPublicSupabaseEnvResult => ({
   ok: true,
-  config: { url: FAKE_URL, anonKey: FAKE_ANON },
+  config: { url: FAKE_URL, key: FAKE_ANON, keySource: 'legacy_anon' },
 });
 const missingEnv = (): ReadPublicSupabaseEnvResult => ({
   ok: false,
-  missing: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'],
+  missing: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'],
 });
 
 /** Minimal `fetch` stub returning a Response-like object with `.ok`. */

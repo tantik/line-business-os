@@ -1,219 +1,259 @@
-# Supabase Legacy service_role → Current Secret API Key — Migration Runbook
+# Supabase Legacy JWT API Keys → Current API Key Model — Migration Runbook
 
-- Status: **Active — Phase 1 (dual-support code) merged; Cloud steps not yet run.**
+- Status: **Active — code compatibility layer for BOTH keys merged/​in-review;
+  Cloud cutover steps not yet run.**
 - Scope: **Cloud DEV only** (`line-business-os-dev` / `pehcoenozjtsjdvjietj`).
-  Production is a separate project with its own independent keys and is **not
-  touched** by this migration.
-- Trigger: a DEV `service_role` credential was displayed in a Claude session
-  and is treated as exposed. Founder decision (2026-08): do **not** rotate the
-  legacy JWT signing secret; instead migrate privileged backend usage to the
-  current **Secret API Key** model (`sb_secret_*`), then disable the exposed
-  legacy `service_role` once all dependents are on the new key.
+  **Production is a separate project (`jsgmmsdkuptdsxtcxhsv`) with its own
+  independent keys and is NOT touched or considered migrated by this work.**
+  Production must be audited and migrated independently, later.
+- Trigger: a DEV `service_role` credential was displayed in a Claude session and
+  is treated as exposed. Founder decision (2026-08): do **not** rotate the
+  legacy JWT signing secret; instead migrate backend + app usage to the current
+  API key model, then disable the exposed legacy keys once all dependents are
+  off them.
+
+This runbook covers **both** halves of the legacy→current key migration:
+
+| Legacy (JWT) | Current (API key) | Privilege | Consumers |
+|---|---|---|---|
+| `anon` | `sb_publishable_*` | low — app key, RLS still applies | browser, SSR, middleware, Node user client, `invite-employee` user-scoped client, operator user clients |
+| `service_role` | `sb_secret_*` | high — bypasses RLS, server-only | `invite-employee` Auth-Admin calls, operator `createServiceClient()` scripts |
 
 > **Do NOT rotate the JWT signing secret. Do NOT touch production. Do NOT
-> disable the legacy `anon` key** — the browser + Preview app rely on it and
-> it is not part of this closeout.
+> disable any legacy key until its "legacy consumers = 0" gate (§6) passes.**
 
 ## 0. Dependency map (from the Phase 1 inventory)
 
-| Consumer | Uses | After migration |
+| Consumer | Legacy uses | After migration |
 |---|---|---|
-| `apps/web` (Preview + build) | **nothing** — anon key + RLS only. Founder verified Vercel has **no** `SUPABASE_SERVICE_ROLE_KEY`. | no change |
-| CI / GitHub Actions | nothing — `.github/workflows/ci.yml` passes no Supabase secret | no change |
-| `apps/api` / `apps/worker` deployed | not deployed anywhere (no deploy config in repo) | n/a |
-| Edge Functions `liff-entry`, `invite-employee` | `SUPABASE_SERVICE_ROLE_KEY` (auto-injected) for Auth-Admin / pre-session reads | resolver prefers `SUPABASE_SECRET_KEYS["default"]`, falls back to legacy |
-| Edge Function `invite-employee` user-scoped client | `SUPABASE_ANON_KEY` (auto-injected) as the app API key alongside the caller's forwarded JWT | resolver prefers `SUPABASE_PUBLISHABLE_KEYS["default"]`, falls back to legacy `SUPABASE_ANON_KEY` (RLS unchanged) |
-| Operator scripts `seed`, `oruwa-cafe-fixture` | `SUPABASE_SERVICE_ROLE_KEY` via `serverEnv()` → `createServiceClient()` | `SUPABASE_SECRET_KEY` preferred, legacy fallback |
-| Local Supabase (`supabase start`) | the universal local-dev demo `service_role` JWT (non-secret) | **not migrated** — it is not a real credential |
-| `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_CLOUD_*` vars) | legacy: `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated.** Mame To Cha is a historical prototype/pilot, not part of the current ORUWA architecture (Founder, 2026-08). These scripts + `MAME_TO_CHA_*` env vars are deprecated tooling from a completed one-off provisioning campaign; not referenced by CI or any runtime (only their unit tests run, with fake clients / no real credentials). Do not add new `MAME_TO_CHA_*` secret variables. Candidate for deletion in a separate cleanup PR. |
+| `apps/web` browser / SSR / middleware | `NEXT_PUBLIC_SUPABASE_ANON_KEY` (+ RLS) | central resolver prefers `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `apps/web` health / invitations / liff-entry callers | same, via `requirePublicSupabaseEnv()` | same central resolver (one code path) |
+| CI / GitHub Actions | nothing — no Supabase key passed | no change |
+| `packages/db` `createUserClient()` (used by `apps/api`) | `SUPABASE_ANON_KEY` via `serverEnv()` | `serverEnv().supabaseUserKey` — `SUPABASE_PUBLISHABLE_KEY` preferred, `SUPABASE_ANON_KEY` fallback |
+| `packages/db` `createServiceClient()` (`seed`, `oruwa-cafe-fixture`) | `SUPABASE_SERVICE_ROLE_KEY` via `serverEnv()` | `serverEnv().supabasePrivilegedKey` — `SUPABASE_SECRET_KEY` preferred, legacy fallback |
+| `apps/api` / `apps/worker` deployed | not deployed anywhere (no deploy config in repo) | code compatible; nothing to deploy |
+| Edge `invite-employee` privileged calls | `SUPABASE_SERVICE_ROLE_KEY` (auto-injected) | `_shared/supabase-secret-key.ts` → `SUPABASE_SECRET_KEYS["default"]`, legacy fallback |
+| Edge `invite-employee` user-scoped client | `SUPABASE_ANON_KEY` (auto-injected) alongside caller JWT | `_shared/supabase-publishable-key.ts` → `SUPABASE_PUBLISHABLE_KEYS["default"]`, legacy `SUPABASE_ANON_KEY` fallback (RLS unchanged) |
+| Edge `liff-entry` | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` (auto-injected) | **not deployed; deferred LINE/LIFF work; not in scope.** `verify_jwt = false` unchanged. |
+| Local Supabase (`supabase start`) | universal local-dev demo JWTs (non-secret) | **not migrated** — not real credentials |
+| `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_*`) | legacy `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated** — deprecated historical pilot tooling, not current ORUWA architecture (Founder, 2026-08). Not referenced by CI or any runtime (only unit tests, with fake clients). Do not add new `MAME_TO_CHA_*` vars. Candidate for deletion in a separate cleanup PR. |
+| Vercel env (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, Prod+Preview) | historical | **not changed by the code phase.** Preview gets `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` added in §2; Production is separate. |
 
-## 1. What Phase 1 (this PR) changed — code only, no keys
+## 1. Phase 1 — code compatibility (this PR / the one before it)
 
-- **Node/operator** (`@line-os/config`): `serverEnv()` now accepts **either**
-  `SUPABASE_SECRET_KEY` (preferred, one `sb_secret_*` value) **or** the legacy
-  `SUPABASE_SERVICE_ROLE_KEY` (temporary fallback). **At least one** must be
-  set — a value-free config error otherwise. If **both** are set,
-  `SUPABASE_SECRET_KEY` wins and the legacy key stays as an untriggered
-  fallback (this is the intended rollback shape during the migration).
-  `serverEnv().supabasePrivilegedKey` resolves it (secret key first);
-  `supabasePrivilegedKeySource` records which was used. `packages/db`'s
-  `createServiceClient()` reads `supabasePrivilegedKey`.
-- **Edge Functions**: a shared `supabase/functions/_shared/supabase-secret-key.ts`
-  resolver — reads `SUPABASE_SECRET_KEYS` (JSON), uses the `"default"` entry,
-  falls back to `SUPABASE_SERVICE_ROLE_KEY`, fails closed with a value-free
-  error, never logs the secret. Both `liff-entry` and `invite-employee` use it.
-  A companion `supabase/functions/_shared/supabase-publishable-key.ts` resolver
-  does the same for the **user-scoped** client API key — reads
-  `SUPABASE_PUBLISHABLE_KEYS` (JSON), uses `"default"`, falls back to
-  `SUPABASE_ANON_KEY`, fails closed, never logs. `invite-employee` uses it for
-  its user-scoped client (the caller's forwarded JWT and RLS are unchanged);
-  `liff-entry` is out of scope for now. Locally, `supabase functions serve`
-  still injects `SUPABASE_ANON_KEY`, so no local change is needed; set
-  `SUPABASE_PUBLISHABLE_KEYS={"default":"<publishable-value>"}` in the
-  gitignored `supabase/functions/.env` only to exercise the new path locally.
-- **`mame-to-cha-cloud-*`**: deliberately **not touched** — deprecated,
-  customer-specific pilot tooling (see the table above). Its unit tests still
-  pass unchanged.
-- **Guards**: the ESLint `no-restricted-syntax` guard now also blocks
-  `process.env.SUPABASE_SECRET_KEY` / `SUPABASE_SECRET_KEYS`; `apps/web` may
-  no longer import `@line-os/config/env` (only `@line-os/config/env/public`,
-  browser-safe).
-- **Bundle hygiene (was P3)**: the browser-safe schema is split into
-  `@line-os/config/env/public`, so a client route can no longer drag the
-  server-env zod schema (with the privileged-key field names) into the web
-  bundle. Verified: those names no longer appear in `apps/web/.next/static/**`.
-- **`.env.example`** / `supabase/functions/.env.example` document the new vars.
+**No keys, no Cloud, no Vercel, no deploy. Dual support so the cutover can be
+incremental and reversible.**
 
-**Legacy support is NOT removed in Phase 1** — this is dual support so the
-Cloud rollout can happen incrementally.
+- **Low-privilege key — web** (`@line-os/config/env/public`): the public schema
+  accepts **either** `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (preferred) **or**
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` (temporary fallback). At least one — a
+  value-free config error otherwise. `parsePublicEnv()` exposes
+  `supabasePublishableKey` + `supabasePublishableKeySource`
+  (`publishable` | `legacy_anon`). `apps/web/src/lib/supabase/env.ts` is the one
+  place that feeds it `process.env`; browser client, server client, middleware,
+  health probe, invitations caller and the LIFF caller all consume that single
+  resolved `{ url, key, keySource }`.
+- **Low-privilege key — Node** (`@line-os/config/env`): `serverEnv()` accepts
+  **either** `SUPABASE_PUBLISHABLE_KEY` (preferred) **or** `SUPABASE_ANON_KEY`
+  (fallback); at least one. `serverEnv().supabaseUserKey` resolves it,
+  `supabaseUserKeySource` records which. `packages/db`'s `createUserClient()`
+  uses `supabaseUserKey` — sent **alongside** the caller's `accessToken`, which
+  stays the identity context; RLS unchanged. It never uses a privileged key.
+- **Precedence lives once** in `resolveLowPrivilegeSupabaseKey`
+  (`packages/config/src/env.public.ts` — no secret, no `.default()`), shared by
+  the public schema and the server schema (`./env.ts` re-imports it) so the
+  fallback logic cannot drift between clients.
+- **Privileged key — Node** (unchanged from the earlier PR): `serverEnv()`
+  accepts `SUPABASE_SECRET_KEY` (preferred) or `SUPABASE_SERVICE_ROLE_KEY`
+  (fallback); `serverEnv().supabasePrivilegedKey` /
+  `supabasePrivilegedKeySource`. `createServiceClient()` reads it. **Not
+  changed by the low-privilege PR.**
+- **Edge Functions** (unchanged from the earlier PR):
+  `_shared/supabase-secret-key.ts` (privileged) and
+  `_shared/supabase-publishable-key.ts` (user-scoped) resolvers — read the
+  JSON `SUPABASE_*_KEYS` env, use `"default"`, fall back to the legacy env var,
+  fail closed, never log the value. `invite-employee` uses both; `liff-entry`
+  uses the secret-key resolver only. **No Edge change in the low-privilege
+  web/Node PR.**
+- **Operator tooling**: `oruwa-cafe-fixture-write.ts` signs in with
+  `serverEnv().supabaseUserKey`; `generate-recipe-translations.ts` rides the
+  web resolver (`requirePublicSupabaseEnv()`); `seed.ts` uses only
+  `createServiceClient()` (no low-privilege key needed — the shared schema's
+  "at least one low-privilege key" requirement is a minimal contract, not a new
+  dependency). `mame-to-cha-cloud-*` deliberately untouched.
+- **Guards**: the ESLint `no-restricted-syntax` guard blocks `process.env`
+  reads of the **privileged** keys (`SUPABASE_SERVICE_ROLE_KEY` /
+  `SUPABASE_SECRET_KEY` / `SUPABASE_SECRET_KEYS`) in app code; the
+  low-privilege publishable key is intentionally **not** guarded (it is an app
+  key). `apps/web` may import only `@line-os/config/env/public`.
+- **Tracked config**: `.env.example`, `turbo.json`,
+  `supabase/functions/.env.example` document the new preferred vars with
+  placeholders; legacy `anon` vars marked temporary fallback.
 
-## 2. Cloud rollout — DO EACH PHASE, VERIFY, THEN PROCEED
+**Legacy support is NOT removed in Phase 1.**
 
-> Every dashboard action is marked `[verify]` — confirm against the **current**
-> Supabase dashboard / docs before doing it; the API-key UI and the exact
-> behaviour of "disable legacy key" evolve.
+## 2. Phase 2 — Preview publishable-key cutover (Vercel Preview only)
 
-### Phase A — create the DEV Secret API Key
-1. `[verify]` Supabase dashboard → **project `pehcoenozjtsjdvjietj`** → Project
-   Settings → API Keys → create a new **Secret key** (`sb_secret_*`).
-2. Capture the value **directly into the password manager**. Never into a
-   terminal, an editor buffer an assistant can read, a screenshot, a log, or
-   chat.
-3. Do **not** disable or delete anything yet.
+> `[verify]` every dashboard action against the current Supabase / Vercel UI.
 
-### Phase B — update the operator local secret store
+1. `[verify]` Supabase dashboard → project `pehcoenozjtsjdvjietj` → Project
+   Settings → API Keys → confirm a **Publishable key** (`sb_publishable_*`)
+   exists (create if not). Publishable keys are not secret, but still capture
+   the value into the password manager rather than a terminal / chat.
+2. In **Vercel → the `apps/web` project → Settings → Environment Variables**,
+   add `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = <sb_publishable_*>` scoped to
+   **Preview only**. **Do not touch** the existing
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SUPABASE_URL` (Prod+Preview) —
+   they remain as the rollback fallback.
+3. Redeploy the Preview branch. The central resolver now returns
+   `keySource = 'publishable'` on Preview; Production still uses `legacy_anon`.
 
-> **Which file.** The generic ORUWA server/operator secret store is the
-> repo-root **`.env`** (gitignored by the `.env` / `.env.*` rules; only
-> `.env.example` is tracked). It carries the generic, tenant-neutral variable
-> names documented in `.env.example` and `docs/operations/env-inventory.md`;
-> Cloud DEV uses those **same names** with Cloud DEV values.
->
-> The repo-root **`.env.local`** and **`.env.cloud.local`** are **deprecated
-> Mame To Cha tooling** (`MAME_TO_CHA_LOCAL_*` / `MAME_TO_CHA_CLOUD_*`), not
-> generic ORUWA operator env files — do **not** put `SUPABASE_SECRET_KEY` in
-> them and do **not** extend them (see §0). Nothing in `packages/db` loads any
-> env file automatically; `serverEnv()` reads `process.env`, so the operator
-> populates the environment themselves (e.g. a dot-sourced `.env`, or
-> PowerShell session vars from the password manager).
+## 3. Phase 3 — Preview acceptance
 
-4. In the repo-root gitignored **`.env`** (create it from `.env.example` if it
-   does not exist): set `SUPABASE_SECRET_KEY=<new sb_secret_*>` alongside the
-   other generic Cloud DEV values (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-   `DATABASE_URL`, `PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `LINE_*`). Leave
-   `SUPABASE_SERVICE_ROLE_KEY` in place for now — with both set,
-   `SUPABASE_SECRET_KEY` is used and the legacy key is the untriggered
-   rollback fallback.
-5. **Verify the new key — dedicated READ-ONLY smoke.** Run the purpose-built
-   verification (`packages/db/scripts/secret-key-smoke-cli.ts`), which consumes
-   **only** `SUPABASE_URL` + `SUPABASE_SECRET_KEY`, builds a server-side
-   Supabase client from the secret key, and makes exactly **one** privileged
-   read-only Auth-Admin call (`getUserById` on the all-zero UUID — an endpoint
-   the `anon` key cannot reach; it returns no user). It does **not** read the
-   legacy key, does **not** import `serverEnv()`, and performs **no** write,
-   seed, onboarding, migration, or RPC. It prints a single category token.
-
-   Value-free supply (no secret is pasted into a terminal, an assistant, or a
-   commit):
-   - Create a **gitignored** env file — the `.env.*` rule already ignores it —
-     e.g. `packages/db/.env.secret-key-smoke.local`, and paste
-     `SUPABASE_URL=…` and `SUPABASE_SECRET_KEY=…` into it directly from the
-     password manager.
-   - Run:
-     `node --import tsx --env-file=packages/db/.env.secret-key-smoke.local packages/db/scripts/secret-key-smoke-cli.ts`
-     (or `pnpm --filter @line-os/db exec node --import tsx --env-file=… scripts/secret-key-smoke-cli.ts`).
-   - Expected: `SECRET_KEY_SMOKE_OK`. Any other token
-     (`SMOKE_FAIL_KEY_REJECTED`, `SMOKE_FAIL_ENV_MISSING`,
-     `SMOKE_FAIL_ENV_INVALID`, `SMOKE_FAIL_RATE_LIMITED`,
-     `SMOKE_FAIL_UPSTREAM`, `SMOKE_FAIL_TRANSPORT`, `SMOKE_FAIL_UNKNOWN`)
-     → **stop**, do not proceed to Phase C.
-   - **Delete the env file** afterwards and confirm `git status` is clean.
-
-   Optionally also run `pnpm exec supabase migration list --linked` (read-only,
-   unchanged) as a second confirmation; a full operator-script run with only
-   `SUPABASE_SECRET_KEY` set (`supabasePrivilegedKeySource` reads `secret_key`)
-   is deferred to the Phase D verification checklist (§3) so Phase B stays
-   read-only.
-
-### Phase C — Edge Functions on the new resolver
-6. Merge this PR (Phase 1 code) to `dev`.
-7. `[verify]` Set the DEV project's Edge Function secret **`SUPABASE_SECRET_KEYS`**
-   to a JSON object with a `"default"` entry pointing at the new secret key —
-   via the Supabase dashboard (Edge Functions → Secrets) or
-   `supabase secrets set SUPABASE_SECRET_KEYS='{"default":"<new-secret-key>"}'`
-   (Founder-run; the agent cannot). If the platform already injects
-   `SUPABASE_SECRET_KEYS` automatically for the new key, `[verify]` its shape
-   and skip the manual set.
-8. `[verify]` Deploy both functions from `dev`:
-   `supabase functions deploy liff-entry invite-employee` (Founder-run).
-   `SUPABASE_PUBLISHABLE_KEYS` is auto-injected by the platform for the
-   project's publishable keys — `[verify]` a `"default"` entry exists; no
-   manual set is normally needed.
-9. The resolvers will now pick `SUPABASE_SECRET_KEYS["default"]` (privileged)
-   and `SUPABASE_PUBLISHABLE_KEYS["default"]` (invite-employee user-scoped);
-   the legacy env vars remain as untriggered fallbacks. Confirm from the
-   function logs: `invite-employee.privileged_key_source` =
-   `secret_keys_default` and `invite-employee.publishable_key_source` =
-   `publishable_keys_default`.
-
-### Phase D — verify (see §3)
-
-### Phase E — disable the exposed legacy `service_role`
-10. Only after §3 fully passes: `[verify]` in the DEV project's dashboard,
-    disable/revoke the **legacy `service_role` key** (NOT the JWT signing
-    secret; NOT the `anon` key). If the legacy system only supports a JWT
-    signing-secret roll (which also invalidates `anon`), **STOP and escalate
-    to the Founder** — that is a different, wider operation than this closeout
-    authorises.
-11. Re-run §3. The Edge Functions and operator scripts must still work purely
-    on the new key.
-12. Remove `SUPABASE_SERVICE_ROLE_KEY` from the operator local store (repo-root
-    `.env`) and the DEV Edge Function secrets.
-
-### Phase F — later: remove the fallback from the repo
-13. A follow-up PR deletes the legacy branch from `resolveSupabaseSecretKey`,
-    makes `SUPABASE_SECRET_KEY` required in `serverEnv()`, drops
-    `SUPABASE_SERVICE_ROLE_KEY` from the schema / `.env.example` / `turbo.json`,
-    and tightens the ESLint guard message. Only after Cloud DEV has run clean
-    on the new key for a sensible bake period. **Separately** (or in the same
-    cleanup PR): delete the deprecated `packages/db/scripts/mame-to-cha-cloud-*`
-    tooling + `MAME_TO_CHA_*` env vars — Mame To Cha is a retired pilot, not
-    current architecture.
-
-## 3. Verification checklist (run after Phase C, again after Phase E)
-
-- **Preview `/api/health`** → `200` `{app/config/supabase: ok}` (catches an
-  accidental `anon` break too).
+- **Preview `/api/health`** → `200` `{app/config/supabase: ok}`.
 - **App login** on Preview → succeeds; a protected dashboard page renders real
-  tenant-scoped data (browser anon + RLS path).
-- **`invite-employee`** → invite a test employee on a DEV smoke tenant →
-  succeeds (proves the new privileged key reached the function).
-- **`liff-entry`** → exercise the LIFF entry path if practical → succeeds.
-- **Operator script** → run one privileged path (`supabase migration list
-  --linked`, or a seed/onboarding dry-run) with only `SUPABASE_SECRET_KEY` set
-  → succeeds.
-- **Browser has no privileged key** → grep the deployed Preview client bundle
-  / check DevTools for any `sb_secret_` or 3-part JWT with a privileged role →
-  only the public anon key is present.
-- **Production untouched** → `supabase projects list` shows `jsgmmsdkuptdsxtcxhsv`
-  unchanged; no production deploy triggered.
+  tenant-scoped data (browser publishable + RLS path).
+- **`invite-employee`** on a DEV smoke tenant → succeeds (its own resolver,
+  already Cloud-verified — this just confirms nothing regressed).
+- **Tenant isolation spot check** — a Manager on tenant A cannot read tenant B
+  data on Preview (RLS still the boundary with the publishable key).
+- **Browser bundle** → DevTools / deployed `_next/static` shows only the
+  publishable key; **no** `sb_secret_`, no `service_role`, no 3-part JWT with a
+  privileged role.
+- Founder sign-off recorded before Phase 4.
 
-## 4. Rollback
+## 4. Phase 4 — operator cutover
 
-- Phase C fails: the resolver's legacy fallback still works — unset/clear
-  `SUPABASE_SECRET_KEYS` (or fix its JSON) and the functions revert to the
-  legacy key. Re-deploy if needed.
-- Phase B fails: in repo-root `.env`, clear or comment out `SUPABASE_SECRET_KEY`
-  and keep `SUPABASE_SERVICE_ROLE_KEY` set — `serverEnv()` falls back to
-  `legacy_service_role` with no other change.
-- Phase E is the only irreversible step. Do not do it until §3 has passed
-  twice and the new key has baked. If it is done and something breaks,
-  create a fresh `sb_secret_*` key (Phase A again) rather than un-disabling.
+- In the repo-root gitignored **`.env`** (the generic ORUWA operator secret
+  store — see `.env.example`, `docs/operations/env-inventory.md`): set
+  `SUPABASE_PUBLISHABLE_KEY=<sb_publishable_*>` and
+  `SUPABASE_SECRET_KEY=<sb_secret_*>` alongside the other Cloud DEV values.
+  Leave `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in place as
+  untriggered rollback fallbacks.
+- **Verify the privileged key — dedicated READ-ONLY smoke**
+  (`packages/db/scripts/secret-key-smoke-cli.ts`): consumes only `SUPABASE_URL`
+  + `SUPABASE_SECRET_KEY`, one privileged read-only Auth-Admin call
+  (`getUserById` on the all-zero UUID), prints one token. Value-free supply via
+  a gitignored `packages/db/.env.secret-key-smoke.local`; run
+  `node --import tsx --env-file=packages/db/.env.secret-key-smoke.local packages/db/scripts/secret-key-smoke-cli.ts`;
+  expect `SECRET_KEY_SMOKE_OK`; delete the env file; `git status` clean.
+- **Verify the low-privilege key**: run one operator user-client path with
+  **only** `SUPABASE_PUBLISHABLE_KEY` set (no `SUPABASE_ANON_KEY`) —
+  e.g. `oruwa-cafe-fixture-write.ts` **dry run** (no `--confirm-apply`) — and
+  confirm `supabaseUserKeySource` resolves `publishable` and the sign-in +
+  read succeed. **No Cloud writes, no seed, no real invitations.**
+- `pnpm exec supabase migration list --linked` (read-only) as a second check.
 
-## 5. Explicit non-goals
+## 5. Phase 5 — Edge Functions on the new resolvers
+
+6. Merge the Phase 1 code to `dev`.
+7. `[verify]` Set the DEV project's Edge Function secret **`SUPABASE_SECRET_KEYS`**
+   to `{"default":"<new-secret-key>"}` (Supabase dashboard → Edge Functions →
+   Secrets, or `supabase secrets set` — Founder-run). `SUPABASE_PUBLISHABLE_KEYS`
+   is auto-injected by the platform; `[verify]` a `"default"` entry exists.
+8. `[verify]` Deploy `supabase functions deploy invite-employee` from `dev`
+   (Founder-run). **Do NOT deploy `liff-entry`.**
+9. Confirm from the function logs:
+   `invite-employee.privileged_key_source = secret_keys_default` and
+   `invite-employee.publishable_key_source = publishable_keys_default`.
+   *(As of 2026-08, Cloud DEV already reports both — re-confirm after any
+   redeploy.)*
+
+## 6. Legacy consumers = 0 gate
+
+Do **not** proceed to §7 until **all** of these hold for Cloud DEV:
+
+- Preview redeployed with `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; acceptance
+  (§3) passed and Founder-signed.
+- Operator `.env` on `SUPABASE_PUBLISHABLE_KEY` + `SUPABASE_SECRET_KEY`; both
+  smokes (§4) green.
+- `invite-employee` redeployed; logs show `secret_keys_default` +
+  `publishable_keys_default` (§5.9).
+- A fresh static scan (§ "Legacy inventory", below) shows **zero** ACTIVE
+  DIRECT LEGACY references — only TEMPORARY FALLBACK / TEST / DOC /
+  DEPRECATED-MAME-TO-CHA remain.
+- Vercel **Production** still intentionally on the legacy `anon` key (that is a
+  separate, later migration — not a blocker for disabling DEV keys, because DEV
+  and Prod are separate projects with separate keys).
+
+## 7. Phase 7 — Founder-controlled DEV legacy JWT disable
+
+**Founder action only. Irreversible-ish (see §8).** Only after §6 fully passes:
+
+- `[verify]` In the DEV project's dashboard, disable/revoke the **legacy
+  `anon` key** and the **legacy `service_role` key** (NOT the JWT signing
+  secret). If the platform only offers a JWT signing-secret roll (which also
+  invalidates any remaining JWT-based key), **STOP and escalate** — that is a
+  wider operation than this closeout authorises.
+- Remove `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from the operator
+  `.env` and from the DEV Edge Function secrets.
+
+## 8. Phase 8 — post-disable acceptance
+
+Re-run §3 **and** §4 with the legacy keys gone. Everything must work purely on
+`sb_publishable_*` / `sb_secret_*`:
+
+- Preview `/api/health` `200`; login; tenant-scoped render; tenant isolation.
+- `invite-employee` on a DEV smoke tenant.
+- Both operator smokes.
+- Browser bundle clean.
+- `supabase projects list` shows Production (`jsgmmsdkuptdsxtcxhsv`) unchanged;
+  no production deploy triggered.
+
+## 9. Rollback
+
+- **Phase 2 fails**: delete `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from Vercel
+  Preview and redeploy — the resolver reverts to `legacy_anon`.
+- **Phase 4 fails**: clear `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY`
+  from the operator `.env`, keep the legacy vars — resolvers fall back with no
+  other change.
+- **Phase 5 fails**: unset/clear `SUPABASE_SECRET_KEYS` (or fix its JSON) — the
+  Edge resolvers revert to the legacy env vars; redeploy.
+- **Phase 7 is the only hard-to-reverse step.** Do not do it until §3/§4 have
+  passed twice and the new keys have baked. If it is done and something breaks,
+  create fresh `sb_publishable_*` / `sb_secret_*` keys rather than trying to
+  un-disable.
+
+## 10. Phase 9 — cleanup (later, separate PRs)
+
+- A follow-up PR removes the legacy branch from
+  `resolveLowPrivilegeSupabaseKey` and `resolveSupabaseSecretKey` /
+  `resolveSupabasePublishableKey`, makes `SUPABASE_PUBLISHABLE_KEY` /
+  `SUPABASE_SECRET_KEY` (and their `NEXT_PUBLIC_` / `_KEYS` forms) required,
+  drops the legacy vars from the schemas, `.env.example`, `turbo.json`, and
+  tightens the ESLint guard message. Only after Cloud DEV has run clean on the
+  new keys for a sensible bake period.
+- **Separately**: delete the deprecated
+  `packages/db/scripts/mame-to-cha-cloud-*` tooling + `MAME_TO_CHA_*` env vars.
+- **Production** (`jsgmmsdkuptdsxtcxhsv`): its own independent audit + migration
+  + cutover + acceptance, tracked separately. **Not covered here and not
+  implied by any DEV phase above.**
+
+## Legacy inventory — classification after the code phase
+
+Re-run a repo-wide search for `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`,
+`SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS` and classify each hit:
+
+- **ACTIVE DIRECT LEGACY** — a current ORUWA runtime/tooling path that reads a
+  legacy var with no publishable/secret preference in front of it. **Must be 0**
+  after the code phase.
+- **TEMPORARY FALLBACK** — the `?? legacy` branch inside a resolver, or a legacy
+  var in `.env.example` / `turbo.json` marked temporary. Expected; removed in
+  §10.
+- **TEST** — fixtures / unit tests exercising the fallback or asserting
+  value-free errors.
+- **DOC** — this runbook, `docs/operations/env-inventory.md`, ADRs.
+- **DEPRECATED / HISTORICAL** — `mame-to-cha-cloud-*` + `MAME_TO_CHA_*`. Not
+  migrated by design.
+
+## Explicit non-goals
 
 - **No JWT signing-secret rotation.**
-- **No production project change.**
-- **No `anon` key change.**
-- **No `db push` / `migration repair` / RLS / migration change.**
-- **No removal of legacy support in this phase** (that is Phase F).
+- **No production project change** — Production is separate and not migrated by
+  this work.
+- **No `db push` / `migration repair` / RLS / migration / permission change.**
+- **No `verify_jwt` change** (`invite-employee` stays `true`, `liff-entry`
+  stays `false`).
+- **No `liff-entry` deploy.**
+- **No removal of legacy support before §6** (that is §10).

@@ -9,6 +9,6 @@ import { requirePublicSupabaseEnv } from './env';
  * referenced anywhere under apps/web.
  */
 export function createClient() {
-  const { url, anonKey } = requirePublicSupabaseEnv();
-  return createBrowserClient(url, anonKey);
+  const { url, key } = requirePublicSupabaseEnv();
+  return createBrowserClient(url, key);
 }

@@ -15,10 +15,10 @@ import { requirePublicSupabaseEnv } from './env';
  * (`updateSession`) is responsible for refreshing/persisting the session.
  */
 export async function createClient() {
-  const { url, anonKey } = requirePublicSupabaseEnv();
+  const { url, key } = requirePublicSupabaseEnv();
   const cookieStore = await cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient(url, key, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
