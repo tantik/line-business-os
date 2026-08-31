@@ -114,8 +114,9 @@ Cloud rollout can happen incrementally.
      (or `pnpm --filter @line-os/db exec node --import tsx --env-file=… scripts/secret-key-smoke-cli.ts`).
    - Expected: `SECRET_KEY_SMOKE_OK`. Any other token
      (`SMOKE_FAIL_KEY_REJECTED`, `SMOKE_FAIL_ENV_MISSING`,
-     `SMOKE_FAIL_ENV_INVALID`, `SMOKE_FAIL_UPSTREAM`, `SMOKE_FAIL_TRANSPORT`,
-     `SMOKE_FAIL_UNKNOWN`) → **stop**, do not proceed to Phase C.
+     `SMOKE_FAIL_ENV_INVALID`, `SMOKE_FAIL_RATE_LIMITED`,
+     `SMOKE_FAIL_UPSTREAM`, `SMOKE_FAIL_TRANSPORT`, `SMOKE_FAIL_UNKNOWN`)
+     → **stop**, do not proceed to Phase C.
    - **Delete the env file** afterwards and confirm `git status` is clean.
 
    Optionally also run `pnpm exec supabase migration list --linked` (read-only,

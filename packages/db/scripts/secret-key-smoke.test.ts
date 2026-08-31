@@ -88,6 +88,10 @@ test('classify: 401 / 403 -> KEY_REJECTED', () => {
   assert.equal(classifyProbeOutcome({ status: 403, threw: false }).category, 'SMOKE_FAIL_KEY_REJECTED');
 });
 
+test('classify: 429 -> RATE_LIMITED', () => {
+  assert.equal(classifyProbeOutcome({ status: 429, threw: false }).category, 'SMOKE_FAIL_RATE_LIMITED');
+});
+
 test('classify: 5xx -> UPSTREAM, transport throw -> TRANSPORT, null -> UNKNOWN', () => {
   assert.equal(classifyProbeOutcome({ status: 503, threw: false }).category, 'SMOKE_FAIL_UPSTREAM');
   assert.equal(classifyProbeOutcome({ status: null, threw: true }).category, 'SMOKE_FAIL_TRANSPORT');

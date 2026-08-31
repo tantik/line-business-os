@@ -61,6 +61,7 @@ export type SecretKeySmokeCategory =
   | 'SMOKE_FAIL_ENV_MISSING'
   | 'SMOKE_FAIL_ENV_INVALID'
   | 'SMOKE_FAIL_KEY_REJECTED'
+  | 'SMOKE_FAIL_RATE_LIMITED'
   | 'SMOKE_FAIL_UPSTREAM'
   | 'SMOKE_FAIL_TRANSPORT'
   | 'SMOKE_FAIL_UNKNOWN';
@@ -161,6 +162,7 @@ export function classifyProbeOutcome(outcome: SecretKeySmokeProbeOutcome): Secre
   if (status === 401 || status === 403) {
     return { category: 'SMOKE_FAIL_KEY_REJECTED', detail: `status=${status}` };
   }
+  if (status === 429) return { category: 'SMOKE_FAIL_RATE_LIMITED', detail: `status=${status}` };
   if (status >= 500) return { category: 'SMOKE_FAIL_UPSTREAM', detail: `status=${status}` };
   return { category: 'SMOKE_FAIL_UNKNOWN', detail: `status=${status}` };
 }
@@ -199,8 +201,9 @@ export async function runSecretKeySmoke(deps: SecretKeySmokeDeps = {}): Promise<
 /**
  * Default probe client: a lazily-imported `@supabase/supabase-js` client that
  * performs ONE Auth Admin `getUserById(NIL_UUID)` — a read-only, privileged-
- * only call that returns no user. Extracts only a numeric status; never reads
- * the response body, an error message, or a header.
+ * only call. By the GoTrue endpoint contract the all-zero UUID resolves to no
+ * user (HTTP 404), so no row is returned; this module additionally never reads
+ * the response body, an error message, or a header — only a numeric status.
  */
 export async function defaultBuildSecretKeySmokeClient(
   url: string,
