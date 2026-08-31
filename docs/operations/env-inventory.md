@@ -31,9 +31,9 @@
 > tenant-neutral server/operator variables below (and the Supabase server
 > variables in §2) live in the gitignored repo-root **`.env`**, created from
 > `.env.example`. Nothing loads it automatically — `serverEnv()` reads
-> `process.env` — so the operator dot-sources it, passes `node --env-file=.env`,
-> or exports the values into the shell from a password manager before running
-> `pnpm --filter @line-os/db …`. **Cloud DEV operator runs use the same generic
+> `process.env` — so the operator loads it into the shell themselves (e.g. a
+> dot-sourced `.env`, or exporting the values from a password manager) before
+> running `pnpm --filter @line-os/db …`. **Cloud DEV operator runs use the same generic
 > variable names** with Cloud DEV values (see `docs/supabase-cloud-dev-setup.md`).
 >
 > Repo-root `.env.local` and `.env.cloud.local` are **deprecated Mame To Cha
