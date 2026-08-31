@@ -65,9 +65,11 @@ export interface ResolvedLowPrivilegeKey {
   source: LowPrivilegeKeySource;
 }
 
-/** Treat `undefined` / empty / whitespace-only as absent. */
+/** Treat `undefined` / empty / whitespace-only as absent; return the trimmed value. */
 function presentKey(value: string | undefined): string | undefined {
-  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
 }
 
 /**

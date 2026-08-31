@@ -38,3 +38,10 @@ test('whitespace-only values are treated as absent', () => {
   });
   assert.equal(resolveLowPrivilegeSupabaseKey({ publishableKey: '  ', anonKey: '\t\n' }), null);
 });
+
+test('surrounding whitespace on a real value is trimmed off', () => {
+  assert.deepEqual(
+    resolveLowPrivilegeSupabaseKey({ publishableKey: `  ${PUBLISHABLE}\n`, anonKey: undefined }),
+    { key: PUBLISHABLE, source: 'publishable' },
+  );
+});
