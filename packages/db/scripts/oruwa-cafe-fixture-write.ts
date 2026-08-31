@@ -94,7 +94,7 @@ async function getManagerClient(): Promise<ReturnType<typeof createUserClient>> 
       'ORUWA_CAFE_MANAGER_PASSWORD env var is required (used to read the active employee roster and, on --confirm-apply, to record the fixture inventory shortage item\'s stock count -- see this file\'s module doc comment for why a service-role call cannot do either).',
     );
   }
-  const signInClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  const signInClient = createClient(env.SUPABASE_URL, env.supabaseUserKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: signInData, error: signInError } = await signInClient.auth.signInWithPassword({

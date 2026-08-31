@@ -65,15 +65,16 @@ export function deriveHealthStatus(checks: HealthChecks): HealthStatus {
  * Read-only Supabase Auth health probe: `GET <url>/auth/v1/health`.
  *
  * - Unauthenticated, no tenant data, no RLS-protected rows; touches nothing
- *   product-related. Sends only the public anon key as the `apikey` header
- *   (some Supabase deployments require it on Auth endpoints).
+ *   product-related. Sends only the public low-privilege key (publishable or
+ *   legacy anon) as the `apikey` header (some Supabase deployments require it
+ *   on Auth endpoints).
  * - Short timeout via `AbortController`. Any non-2xx, timeout, or thrown error
  *   maps to `'unreachable'`. The raw response body and raw error are never
  *   returned or serialized.
  */
 export async function probeSupabaseAuthHealth(
   url: string,
-  anonKey: string,
+  apiKey: string,
   options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
 ): Promise<SupabaseCheck> {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
@@ -86,7 +87,7 @@ export async function probeSupabaseAuthHealth(
     const endpoint = `${url.replace(/\/+$/, '')}/auth/v1/health`;
     const res = await fetchImpl(endpoint, {
       method: 'GET',
-      headers: { apikey: anonKey },
+      headers: { apikey: apiKey },
       signal: controller.signal,
     });
     return res.ok ? 'ok' : 'unreachable';
@@ -129,7 +130,7 @@ export async function getHealthReport(deps: HealthReportDeps = {}): Promise<Heal
     supabase = 'skipped';
   } else {
     config = 'ok';
-    supabase = await probeSupabaseAuthHealth(env.config.url, env.config.anonKey, {
+    supabase = await probeSupabaseAuthHealth(env.config.url, env.config.key, {
       fetchImpl: deps.fetchImpl,
       timeoutMs: deps.timeoutMs,
     });

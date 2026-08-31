@@ -17,7 +17,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const env = readPublicSupabaseEnv();
   if (!env.ok) return response;
 
-  const supabase = createServerClient(env.config.url, env.config.anonKey, {
+  const supabase = createServerClient(env.config.url, env.config.key, {
     cookies: {
       getAll() {
         return request.cookies.getAll();

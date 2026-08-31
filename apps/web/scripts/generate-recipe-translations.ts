@@ -30,7 +30,8 @@
  *
  * SECURITY / SCOPE
  * - Authenticates as a REAL manager user via Supabase Auth password sign-in
- *   (anon key only) -- never a service-role key. Every read/write below runs
+ *   (low-privilege key only: publishable-preferred, legacy anon fallback) --
+ *   never a service-role / secret key. Every read/write below runs
  *   under that user's session, so RLS is the enforcing boundary throughout,
  *   exactly as it is for the real app.
  * - Never writes to `content.translations` directly -- only ever through
@@ -56,7 +57,9 @@
  * `RECIPE_TRANSLATION_CONFIRM=yes`; interactively, a y/n prompt is shown.
  *
  * REQUIRED ENVIRONMENT (never hardcode; export in your shell before running):
- *   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY  -- same values apps/web uses
+ *   NEXT_PUBLIC_SUPABASE_URL  -- same value apps/web uses
+ *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
+ *       (temporary fallback)  -- same low-privilege key apps/web uses
  *   RECIPE_TRANSLATION_MANAGER_EMAIL, RECIPE_TRANSLATION_MANAGER_PASSWORD
  *       -- a real manager account with workforce.recipe.manage for the target tenant
  *   CONTENT_TRANSLATION_PROVIDER=google, GOOGLE_TRANSLATE_API_KEY  -- same vars the app reads
@@ -123,11 +126,11 @@ function requireEnv(name: string): string {
 }
 
 async function main() {
-  const { url, anonKey } = requirePublicSupabaseEnv();
+  const { url, key } = requirePublicSupabaseEnv();
   const managerEmail = requireEnv('RECIPE_TRANSLATION_MANAGER_EMAIL');
   const managerPassword = requireEnv('RECIPE_TRANSLATION_MANAGER_PASSWORD');
 
-  const supabase = createClient(url, anonKey);
+  const supabase = createClient(url, key);
 
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: managerEmail,

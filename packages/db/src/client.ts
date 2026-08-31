@@ -13,6 +13,11 @@ import { serverEnv } from '@line-os/config/env';
  *   client bundle.
  * - `createUserClient(accessToken)` acts as the end user; RLS applies. Use this
  *   for request-scoped access so tenant isolation is enforced by the database.
+ *   Its API key is the LOW-PRIVILEGE key from `serverEnv().supabaseUserKey`
+ *   (an `sb_publishable_*` value when `SUPABASE_PUBLISHABLE_KEY` is set,
+ *   otherwise the legacy `anon` JWT during the transition). That key is sent
+ *   ALONGSIDE the caller's `accessToken`, which remains the identity/auth
+ *   context — it never uses a privileged / RLS-bypassing key.
  */
 
 export function createServiceClient(): SupabaseClient {
@@ -24,7 +29,7 @@ export function createServiceClient(): SupabaseClient {
 
 export function createUserClient(accessToken: string): SupabaseClient {
   const env = serverEnv();
-  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  return createClient(env.SUPABASE_URL, env.supabaseUserKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });

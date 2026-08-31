@@ -2,7 +2,9 @@ import { z } from 'zod';
 import {
   type EnvSource,
   type ParseEnvResult,
+  type LowPrivilegeKeySource,
   formatIssues,
+  resolveLowPrivilegeSupabaseKey,
 } from './env.public.js';
 
 /**
@@ -30,6 +32,17 @@ import {
  *   `serverEnv().supabasePrivilegedKey` resolves it (secret key first);
  *   `supabasePrivilegedKeySource` records which one was used. Both are
  *   RLS-bypassing and server-only.
+ *
+ * LOW-PRIVILEGE SUPABASE API KEY (same migration, `anon` → publishable):
+ * - `SUPABASE_PUBLISHABLE_KEY` — the current model: one `sb_publishable_*`
+ *   value. PREFERRED.
+ * - `SUPABASE_ANON_KEY` — the legacy `anon` JWT. Accepted as a TEMPORARY
+ *   fallback while Cloud DEV is migrated; removed in a later PR.
+ * - At least one of the two must be set; publishable is preferred. This is the
+ *   app-level key for `createUserClient()` — it is sent ALONGSIDE the caller's
+ *   own JWT, so RLS and permission checks are unchanged. It is NOT privileged
+ *   and never bypasses RLS. `serverEnv().supabaseUserKey` resolves it;
+ *   `supabaseUserKeySource` records which one was used.
  */
 
 // Re-export the browser-safe surface unchanged.
@@ -43,7 +56,7 @@ export {
 } from './env.public.js';
 
 /** Treat an unset OR empty/whitespace-only value as absent. */
-const optionalSecret = z.preprocess(
+const optionalKey = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
   z.string().min(1).optional(),
 );
@@ -53,11 +66,15 @@ const serverBaseSchema = z.object({
 
   // Supabase / Postgres
   SUPABASE_URL: z.string().url(),
-  SUPABASE_ANON_KEY: z.string().min(1),
+  // Low-privilege app API key — publishable preferred, legacy `anon` temporary
+  // fallback. Both optional at the field level (empty string == absent); the
+  // object-level check below requires at least one.
+  SUPABASE_PUBLISHABLE_KEY: optionalKey,
+  SUPABASE_ANON_KEY: optionalKey,
   // Privileged key — see the module header. Both optional at the field level
-  // (empty string == absent); the object-level check below requires exactly one.
-  SUPABASE_SECRET_KEY: optionalSecret,
-  SUPABASE_SERVICE_ROLE_KEY: optionalSecret,
+  // (empty string == absent); the object-level check below requires at least one.
+  SUPABASE_SECRET_KEY: optionalKey,
+  SUPABASE_SERVICE_ROLE_KEY: optionalKey,
   DATABASE_URL: z.string().min(1),
 
   // PII protection
@@ -77,8 +94,18 @@ const serverBaseSchema = z.object({
 const PRIVILEGED_KEY_MESSAGE =
   'Set SUPABASE_SECRET_KEY (preferred: an sb_secret_* value) or the legacy SUPABASE_SERVICE_ROLE_KEY. At least one is required; if both are set, SUPABASE_SECRET_KEY is used.';
 
+const LOW_PRIVILEGE_KEY_MESSAGE =
+  'Set SUPABASE_PUBLISHABLE_KEY (preferred: an sb_publishable_* value) or the legacy SUPABASE_ANON_KEY. At least one is required; if both are set, SUPABASE_PUBLISHABLE_KEY is used.';
+
 const serverSchema = serverBaseSchema
   .superRefine((env, ctx) => {
+    if (!env.SUPABASE_PUBLISHABLE_KEY && !env.SUPABASE_ANON_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SUPABASE_PUBLISHABLE_KEY'],
+        message: LOW_PRIVILEGE_KEY_MESSAGE,
+      });
+    }
     if (!env.SUPABASE_SECRET_KEY && !env.SUPABASE_SERVICE_ROLE_KEY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -88,14 +115,20 @@ const serverSchema = serverBaseSchema
     }
   })
   .transform((env) => {
-    // superRefine guarantees at least one is present.
+    // superRefine guarantees at least one of each pair is present.
     const usingSecretKey = Boolean(env.SUPABASE_SECRET_KEY);
+    const lowPrivilege = resolveLowPrivilegeSupabaseKey({
+      publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
+      anonKey: env.SUPABASE_ANON_KEY,
+    }) as { key: string; source: LowPrivilegeKeySource };
     return {
       ...env,
       supabasePrivilegedKey: (env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY) as string,
       supabasePrivilegedKeySource: usingSecretKey
         ? ('secret_key' as const)
         : ('legacy_service_role' as const),
+      supabaseUserKey: lowPrivilege.key,
+      supabaseUserKeySource: lowPrivilege.source,
     };
   });
 
