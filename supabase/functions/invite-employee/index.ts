@@ -15,6 +15,13 @@
 // a temporary fallback to the legacy `SUPABASE_SERVICE_ROLE_KEY` JWT during the
 // migration (docs/operations/supabase-secret-key-migration-runbook.md).
 //
+// USER-SCOPED KEY: the user-scoped client's API key is resolved via
+// `_shared/supabase-publishable-key.ts` — the current
+// `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key when present, with a
+// temporary fallback to the legacy `SUPABASE_ANON_KEY` JWT during the same
+// migration. This is only the application API key; the caller's forwarded JWT
+// is still the identity/auth context and RLS is unchanged.
+//
 // SECURITY MODEL:
 //   * the privileged key is used for EXACTLY TWO calls: `admin.inviteUserByEmail`
 //     and (on its "already registered" error) `admin.listUsers`. Nothing
@@ -84,6 +91,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveSupabaseSecretKey } from '../_shared/supabase-secret-key.ts';
+import { resolveSupabasePublishableKey } from '../_shared/supabase-publishable-key.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALREADY_REGISTERED_MARKERS = ['already been registered', 'already registered', 'already exists', 'duplicate'];
@@ -239,10 +247,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const encryptionKey = Deno.env.get('PII_ENCRYPTION_KEY');
   const siteUrl = Deno.env.get('SITE_URL');
-  if (!supabaseUrl || !anonKey || !encryptionKey || !siteUrl) {
+  if (!supabaseUrl || !encryptionKey || !siteUrl) {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
   // Privileged key for the Auth Admin API calls below: current
@@ -272,11 +279,39 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
 
+  // User-scoped client API key: the Supabase-injected
+  // `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key, with a temporary
+  // fallback to the legacy `SUPABASE_ANON_KEY` during the migration
+  // (docs/operations/supabase-secret-key-migration-runbook.md). This is ONLY
+  // the application's API key -- it is not privileged and does not bypass RLS.
+  // The caller's own JWT (forwarded below as the Authorization header) remains
+  // the identity/auth context; RLS and the permission checks apply unchanged.
+  let publishableKey: string;
+  try {
+    const resolvedPublishable = resolveSupabasePublishableKey({
+      SUPABASE_PUBLISHABLE_KEYS: Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'),
+      SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY'),
+    });
+    // Migration diagnostic: emit ONLY which source the publishable key
+    // resolved from -- the `SupabasePublishableKeySourceKind` enum,
+    // `publishable_keys_default` or `legacy_anon` -- so the exposed legacy
+    // `SUPABASE_ANON_KEY` path can be confirmed retired once every hosted call
+    // is on the publishable key. Never logs the key, any env value, the
+    // Authorization header/JWT, the request body, or any PII.
+    console.log(JSON.stringify({
+      event: 'invite-employee.publishable_key_source',
+      source: resolvedPublishable.source,
+    }));
+    publishableKey = resolvedPublishable.key;
+  } catch {
+    return jsonResponse(500, { error: 'missing_configuration' });
+  }
+
   // User-scoped client: every call below carries the CALLER'S OWN JWT, so
   // RLS/has_permission checks apply exactly as they would for any other
   // authenticated request -- this function never widens what the caller
   // can read or do beyond what their own token already permits.
-  const userClient = createClient(supabaseUrl, anonKey, {
+  const userClient = createClient(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { autoRefreshToken: false, persistSession: false },
   });

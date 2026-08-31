@@ -22,6 +22,7 @@
 | CI / GitHub Actions | nothing — `.github/workflows/ci.yml` passes no Supabase secret | no change |
 | `apps/api` / `apps/worker` deployed | not deployed anywhere (no deploy config in repo) | n/a |
 | Edge Functions `liff-entry`, `invite-employee` | `SUPABASE_SERVICE_ROLE_KEY` (auto-injected) for Auth-Admin / pre-session reads | resolver prefers `SUPABASE_SECRET_KEYS["default"]`, falls back to legacy |
+| Edge Function `invite-employee` user-scoped client | `SUPABASE_ANON_KEY` (auto-injected) as the app API key alongside the caller's forwarded JWT | resolver prefers `SUPABASE_PUBLISHABLE_KEYS["default"]`, falls back to legacy `SUPABASE_ANON_KEY` (RLS unchanged) |
 | Operator scripts `seed`, `oruwa-cafe-fixture` | `SUPABASE_SERVICE_ROLE_KEY` via `serverEnv()` → `createServiceClient()` | `SUPABASE_SECRET_KEY` preferred, legacy fallback |
 | Local Supabase (`supabase start`) | the universal local-dev demo `service_role` JWT (non-secret) | **not migrated** — it is not a real credential |
 | `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_CLOUD_*` vars) | legacy: `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated.** Mame To Cha is a historical prototype/pilot, not part of the current ORUWA architecture (Founder, 2026-08). These scripts + `MAME_TO_CHA_*` env vars are deprecated tooling from a completed one-off provisioning campaign; not referenced by CI or any runtime (only their unit tests run, with fake clients / no real credentials). Do not add new `MAME_TO_CHA_*` secret variables. Candidate for deletion in a separate cleanup PR. |
@@ -41,6 +42,12 @@
   resolver — reads `SUPABASE_SECRET_KEYS` (JSON), uses the `"default"` entry,
   falls back to `SUPABASE_SERVICE_ROLE_KEY`, fails closed with a value-free
   error, never logs the secret. Both `liff-entry` and `invite-employee` use it.
+  A companion `supabase/functions/_shared/supabase-publishable-key.ts` resolver
+  does the same for the **user-scoped** client API key — reads
+  `SUPABASE_PUBLISHABLE_KEYS` (JSON), uses `"default"`, falls back to
+  `SUPABASE_ANON_KEY`, fails closed, never logs. `invite-employee` uses it for
+  its user-scoped client (the caller's forwarded JWT and RLS are unchanged);
+  `liff-entry` is out of scope for now.
 - **`mame-to-cha-cloud-*`**: deliberately **not touched** — deprecated,
   customer-specific pilot tooling (see the table above). Its unit tests still
   pass unchanged.
@@ -136,8 +143,15 @@ Cloud rollout can happen incrementally.
    and skip the manual set.
 8. `[verify]` Deploy both functions from `dev`:
    `supabase functions deploy liff-entry invite-employee` (Founder-run).
-9. The resolver will now pick `SUPABASE_SECRET_KEYS["default"]`; the legacy
-   env var remains as an untriggered fallback.
+   `SUPABASE_PUBLISHABLE_KEYS` is auto-injected by the platform for the
+   project's publishable keys — `[verify]` a `"default"` entry exists; no
+   manual set is normally needed.
+9. The resolvers will now pick `SUPABASE_SECRET_KEYS["default"]` (privileged)
+   and `SUPABASE_PUBLISHABLE_KEYS["default"]` (invite-employee user-scoped);
+   the legacy env vars remain as untriggered fallbacks. Confirm from the
+   function logs: `invite-employee.privileged_key_source` =
+   `secret_keys_default` and `invite-employee.publishable_key_source` =
+   `publishable_keys_default`.
 
 ### Phase D — verify (see §3)
 
