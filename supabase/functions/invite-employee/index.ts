@@ -251,10 +251,23 @@ Deno.serve(async (req: Request) => {
   // (docs/operations/supabase-secret-key-migration-runbook.md).
   let privilegedKey: string;
   try {
-    privilegedKey = resolveSupabaseSecretKey({
+    const resolved = resolveSupabaseSecretKey({
       SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
       SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-    }).key;
+    });
+    // Phase C migration diagnostic
+    // (docs/operations/supabase-secret-key-migration-runbook.md): emit ONLY
+    // which source the privileged key resolved from -- the
+    // `SupabaseSecretKeySourceKind` enum, `secret_keys_default` or
+    // `legacy_service_role` -- so the exposed legacy `SUPABASE_SERVICE_ROLE_KEY`
+    // can be disabled once every hosted call is confirmed on the new key.
+    // Never logs the key, any env value, the Authorization header/JWT, the
+    // request body, or any PII (email/tenantId/employeeId).
+    console.log(JSON.stringify({
+      event: 'invite-employee.privileged_key_source',
+      source: resolved.source,
+    }));
+    privilegedKey = resolved.key;
   } catch {
     return jsonResponse(500, { error: 'missing_configuration' });
   }

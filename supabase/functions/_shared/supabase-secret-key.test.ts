@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   resolveSupabaseSecretKey,
   SupabaseSecretKeyConfigError,
+  type SupabaseSecretKeySource,
 } from './supabase-secret-key.ts';
 
 // Synthetic non-key placeholder strings only (deliberately NOT shaped like a
@@ -88,6 +89,33 @@ test('neither source present -> fail closed with a value-free error', () => {
       return true;
     },
   );
+});
+
+test('invite-employee Phase C diagnostic: payload carries only the source enum, never a key', () => {
+  // Mirrors supabase/functions/invite-employee/index.ts: after a successful
+  // resolve it logs JSON.stringify({ event, source: resolved.source }) and
+  // nothing else. Guarantees (a) source is only ever the resolver enum and
+  // (b) no secret value can reach that diagnostic line.
+  const ALLOWED_SOURCES = new Set(['secret_keys_default', 'legacy_service_role']);
+  const successCases: SupabaseSecretKeySource[] = [
+    { SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET_DEFAULT, other: SECRET_OTHER }), SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+    { SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+    { SUPABASE_SECRET_KEYS: JSON.stringify({ webhook: SECRET_OTHER }), SUPABASE_SERVICE_ROLE_KEY: LEGACY_JWT },
+  ];
+  for (const source of successCases) {
+    const resolved = resolveSupabaseSecretKey(source);
+    assert.ok(ALLOWED_SOURCES.has(resolved.source), `unexpected source enum: ${resolved.source}`);
+    const diagnostic = JSON.stringify({
+      event: 'invite-employee.privileged_key_source',
+      source: resolved.source,
+    });
+    const parsed = JSON.parse(diagnostic) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(parsed).sort(), ['event', 'source']);
+    assert.equal(parsed.source, resolved.source);
+    for (const secret of [SECRET_DEFAULT, SECRET_OTHER, LEGACY_JWT]) {
+      assert.ok(!diagnostic.includes(secret), `diagnostic payload leaked a secret: ${diagnostic}`);
+    }
+  }
 });
 
 test('the resolved key value never appears in any thrown error message', () => {
