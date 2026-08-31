@@ -94,10 +94,35 @@ Cloud rollout can happen incrementally.
    `SUPABASE_SERVICE_ROLE_KEY` in place for now — with both set,
    `SUPABASE_SECRET_KEY` is used and the legacy key is the untriggered
    rollback fallback.
-5. Smoke one privileged operator path with the new key, e.g.
-   `pnpm exec supabase migration list --linked` (unchanged) plus a dry-run of
-   an onboarding/seed script if practical. Confirm success (the diagnostic
-   `supabasePrivilegedKeySource` should read `secret_key`).
+5. **Verify the new key — dedicated READ-ONLY smoke.** Run the purpose-built
+   verification (`packages/db/scripts/secret-key-smoke-cli.ts`), which consumes
+   **only** `SUPABASE_URL` + `SUPABASE_SECRET_KEY`, builds a server-side
+   Supabase client from the secret key, and makes exactly **one** privileged
+   read-only Auth-Admin call (`getUserById` on the all-zero UUID — an endpoint
+   the `anon` key cannot reach; it returns no user). It does **not** read the
+   legacy key, does **not** import `serverEnv()`, and performs **no** write,
+   seed, onboarding, migration, or RPC. It prints a single category token.
+
+   Value-free supply (no secret is pasted into a terminal, an assistant, or a
+   commit):
+   - Create a **gitignored** env file — the `.env.*` rule already ignores it —
+     e.g. `packages/db/.env.secret-key-smoke.local`, and paste
+     `SUPABASE_URL=…` and `SUPABASE_SECRET_KEY=…` into it directly from the
+     password manager.
+   - Run:
+     `node --import tsx --env-file=packages/db/.env.secret-key-smoke.local packages/db/scripts/secret-key-smoke-cli.ts`
+     (or `pnpm --filter @line-os/db exec node --import tsx --env-file=… scripts/secret-key-smoke-cli.ts`).
+   - Expected: `SECRET_KEY_SMOKE_OK`. Any other token
+     (`SMOKE_FAIL_KEY_REJECTED`, `SMOKE_FAIL_ENV_MISSING`,
+     `SMOKE_FAIL_ENV_INVALID`, `SMOKE_FAIL_UPSTREAM`, `SMOKE_FAIL_TRANSPORT`,
+     `SMOKE_FAIL_UNKNOWN`) → **stop**, do not proceed to Phase C.
+   - **Delete the env file** afterwards and confirm `git status` is clean.
+
+   Optionally also run `pnpm exec supabase migration list --linked` (read-only,
+   unchanged) as a second confirmation; a full operator-script run with only
+   `SUPABASE_SECRET_KEY` set (`supabasePrivilegedKeySource` reads `secret_key`)
+   is deferred to the Phase D verification checklist (§3) so Phase B stays
+   read-only.
 
 ### Phase C — Edge Functions on the new resolver
 6. Merge this PR (Phase 1 code) to `dev`.
