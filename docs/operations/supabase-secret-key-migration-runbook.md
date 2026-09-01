@@ -39,7 +39,7 @@ This runbook covers **both** halves of the legacy→current key migration:
 | Edge `invite-employee` user-scoped client | `SUPABASE_ANON_KEY` (auto-injected) alongside caller JWT | `_shared/supabase-publishable-key.ts` → `SUPABASE_PUBLISHABLE_KEYS["default"]`, legacy `SUPABASE_ANON_KEY` fallback (RLS unchanged) |
 | Edge `liff-entry` | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` (auto-injected) | **not deployed; deferred LINE/LIFF work; not in scope.** `verify_jwt = false` unchanged. |
 | Local Supabase (`supabase start`) | universal local-dev demo JWTs (non-secret) | **not migrated** — not real credentials |
-| `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_*`) | legacy `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated** — deprecated historical pilot tooling, not current ORUWA architecture (Founder, 2026-08). Not referenced by CI or any runtime (only unit tests, with fake clients). Do not add new `MAME_TO_CHA_*` vars. Candidate for deletion in a separate cleanup PR. |
+| `packages/db/scripts/mame-to-cha-cloud-*` (`MAME_TO_CHA_CLOUD_*`) | legacy `MAME_TO_CHA_CLOUD_SUPABASE_SERVICE_ROLE_KEY` | **NOT migrated; REMOVED Sept 2026** — deprecated Cloud-specific pilot tooling, deleted in the bounded Mame To Cha Cloud cleanup. Was never referenced by CI or any runtime (only unit tests, with fake clients). Do not add new `MAME_TO_CHA_*` vars. Remaining non-cloud `MAME_TO_CHA_LOCAL_*` pilot/rehearsal tooling is deferred pending a generic-fixture reconciliation. |
 | Vercel env (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, Prod+Preview) | historical | **not changed by the code phase.** Preview gets `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` added in §2; Production is separate. |
 
 ## 1. Phase 1 — code compatibility (this PR / the one before it)
@@ -83,7 +83,8 @@ incremental and reversible.**
   web resolver (`requirePublicSupabaseEnv()`); `seed.ts` uses only
   `createServiceClient()` (no low-privilege key needed — the shared schema's
   "at least one low-privilege key" requirement is a minimal contract, not a new
-  dependency). `mame-to-cha-cloud-*` deliberately untouched.
+  dependency). `mame-to-cha-cloud-*` deliberately untouched (that Cloud-specific
+  tooling was later deleted outright, Sept 2026).
 - **Guards**: the ESLint `no-restricted-syntax` guard blocks `process.env`
   reads of the **privileged** keys (`SUPABASE_SERVICE_ROLE_KEY` /
   `SUPABASE_SECRET_KEY` / `SUPABASE_SECRET_KEYS`) in app code; the
@@ -243,9 +244,11 @@ Re-run §3 **and** §4 with the legacy keys gone. Everything must work purely on
   longer sufficient on its own — active ORUWA runtime no longer accepts the
   legacy variable names, so a rollback ALSO requires reverting the Phase 9 code
   and restoring the legacy vars in the schemas / `.env` / `turbo.json`.
-- **Still deferred — separate PRs:** delete the deprecated
-  `packages/db/scripts/mame-to-cha-cloud-*` tooling + `MAME_TO_CHA_*` env vars
-  (kept, classified as historical, this phase).
+- **Done in a later separate PR:** the deprecated Cloud-specific
+  `packages/db/scripts/mame-to-cha-cloud-*` tooling + `MAME_TO_CHA_CLOUD_*` env
+  vars were deleted (Sept 2026). The remaining non-cloud `MAME_TO_CHA_LOCAL_*`
+  pilot/rehearsal tooling stays deferred pending a generic-fixture / onboarding
+  reconciliation.
 - **Production** (`jsgmmsdkuptdsxtcxhsv`): its own independent audit + migration
   + cutover + acceptance, tracked separately. **Not covered here and not
   implied by any DEV phase above.**
@@ -265,8 +268,9 @@ Re-run a repo-wide search for `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_ANON_KE
 - **TEST** — fixtures / unit tests exercising the fallback or asserting
   value-free errors.
 - **DOC** — this runbook, `docs/operations/env-inventory.md`, ADRs.
-- **DEPRECATED / HISTORICAL** — `mame-to-cha-cloud-*` + `MAME_TO_CHA_*`. Not
-  migrated by design.
+- **DEPRECATED / HISTORICAL** — Cloud-specific `mame-to-cha-cloud-*` +
+  `MAME_TO_CHA_CLOUD_*`: not migrated by design, deleted Sept 2026. Non-cloud
+  `MAME_TO_CHA_LOCAL_*` pilot/rehearsal tooling: still present, deferred.
 
 ## Explicit non-goals
 

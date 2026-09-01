@@ -382,9 +382,15 @@ Milestones that materially change future development speed:
   per-consumer** (§6, §14) — not tracked as one debt item to burn down.
 - Operations module unproven on Cloud (module-ON smoke never run) and has no
   Manager/Staff UI; no Cafe HACCP preset content. → §14 steps 4–6.
-- **Deprecated `MAME_TO_CHA_*` cleanup** — `packages/db/scripts/mame-to-cha-cloud-*`
-  + `MAME_TO_CHA_*` env vars; retired pilot tooling, unreferenced by runtime.
-  → §14 step 2 (its own bounded task).
+- **Deprecated Mame To Cha tooling cleanup** — §14 step 2 (bounded task).
+  **Cloud-specific part DONE (Sept 2026):** the 27 `packages/db/scripts/mame-to-cha-cloud-*`
+  files + their `package.json` scripts/test-list entries + `MAME_TO_CHA_CLOUD_*`
+  doc references were deleted. **Deferred:** the non-cloud `mame-to-cha-*`
+  pilot/rehearsal family (`fixture`/`write`/`state`/`verify`/`plan`/`dates`/`auth`/
+  `cleanup`/`rehearsal`/`env-guard`/`schema-check`/`showcase` + `MAME_TO_CHA_LOCAL_*`)
+  stays — `oruwa-cafe-fixture-write.ts` still depends on `mame-to-cha-dates.ts`;
+  removing the family needs a separate generic-fixture / onboarding
+  reconciliation. **Not all `MAME_TO_CHA_*` legacy is eliminated.**
 - **ENV Cleanup & Consolidation** — not started. → §14 step 3 (its own bounded
   task, separate from the Mame cleanup).
 - Cafe Hardening / Deferred Debt register (P2/P3 from the Whole-Product Gate).
@@ -428,8 +434,11 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
 
 1. **Docs reconciliation** — install `cto-context.md`, align `master-state.md`
    *(this PR)*.
-2. **Deprecated `MAME_TO_CHA_*` cleanup** — its own bounded task. Verify
-   runtime references, preserve recoverability.
+2. **Deprecated Mame To Cha tooling cleanup** — its own bounded task.
+   **Cloud-specific part DONE (Sept 2026):** `mame-to-cha-cloud-*` deleted.
+   Non-cloud pilot/rehearsal family deferred pending a generic-fixture /
+   onboarding reconciliation (see P2 debt above). Not all `MAME_TO_CHA_*`
+   legacy is gone.
 3. **ENV Cleanup & Consolidation** — its own bounded task. **Separate from
    step 2 — do not combine.**
 4. **Operations Cloud module-ON smoke** (`smoke-tenant-b`, per the existing
@@ -548,7 +557,8 @@ CURRENT:
   Canonical Cafe v2.2 WP sequence + acceptance model decided 2026-09-01 (§7).
 
 NEXT (canonical sequence, §14 — each step on its own Founder prompt):
-  1 docs reconciliation (this PR) → 2 MAME_TO_CHA_* cleanup → 3 ENV Cleanup &
+  1 docs reconciliation → 2 Mame To Cha tooling cleanup (Cloud-specific part
+  DONE; non-cloud family deferred) → 3 ENV Cleanup &
   Consolidation (separate task) → 4 Operations Cloud module-ON smoke →
   5 Operations Manager/Staff UI → 6 Cafe HACCP presets → 7 WP1 acceptance →
   8-9 WP2 Issues & Handover (+acceptance) → 10-11 WP3 Owner Weekly Review →
