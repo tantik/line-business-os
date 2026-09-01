@@ -5,16 +5,20 @@
 | Checkpoint | #1 |
 | Date | 2026-09-01 |
 | Repository | `tantik/line-business-os` |
-| Verified baseline | `dev` HEAD `ffc4b2e`; `origin/dev` == local `dev`; working tree clean; CI green |
+| Verified baseline (at #1) | `dev` HEAD `ffc4b2e`; `origin/dev` == local `dev`; working tree clean; CI green |
+| Last reconciled | 2026-09-01 — canonical Cafe v2.2 WP sequence + acceptance model + next-step order (Founder/CTO decision); `cto-context.md` installed |
 | Cloud DEV | `line-business-os-dev` / `pehcoenozjtsjdvjietj` |
 | Production | `jsgmmsdkuptdsxtcxhsv` — **separate project, effectively empty, untouched** |
+| Companion | `docs/project/cto-context.md` — the durable *why* behind these decisions |
 | Governed by | `docs/foundation/core-laws-and-product-dna.md` (supreme), then `docs/foundation/platform-foundation-roadmap.md` (engineering order), then `docs/strategy/oruwa-master-roadmap.md` (phase sequence) |
 
 > **Purpose.** One-read recovery of "what ORUWA is, what has actually been
 > built, what decisions bind, what is unfinished, what happens next." Not a
-> changelog. When this file and an older document disagree, this file's
-> **§C (stale sources)** wins for the facts it lists; the normative docs above
-> win for principles.
+> changelog. **Recovery order:** this file → `cto-context.md` → the normative
+> docs above → code / migrations / tests. When this file and an older document
+> disagree, this file's **Appendix C (stale sources)** wins for the facts it
+> lists; the normative docs above win for principles; `cto-context.md` owns the
+> rationale and the durable decision model.
 
 ---
 
@@ -105,7 +109,7 @@ Currently enforced or actively upheld (subset of Core Laws + Platform Foundation
 - `apps/api` (NestJS) — an **explicit local-only dev spike, never deployed**.
   The service-role write path described in
   `docs/architecture/overview.md` is **superseded** for the Cafe product by the
-  `api.*` facade + `SECURITY DEFINER` RPC pattern above (see §C).
+  `api.*` facade + `SECURITY DEFINER` RPC pattern above (see Appendix C).
 - `apps/worker` — job/reminder scaffold, **not deployed**.
 - `/platform` or `/ops` internal admin namespace — reserved, not built.
 
@@ -178,8 +182,11 @@ forward-only into `dev` as `0106`–`0113` and applied to Cloud DEV (2026-08-29,
 
 **Summary:** the critical-path components are **structurally present on `dev`
 and Cloud DEV**, but several are "table + policy exist, not wired into the
-application." Phase 6 (Reconciliation) is substantially done; what remains is
-**finish-wiring + verification**, not new schema construction.
+application." Phase 6 (Reconciliation) is substantially done — no new schema
+construction is pending. **Founder/CTO decision 2026-09-01:** the remaining
+wiring is **not a standalone project** — each unwired service is completed only
+when a real consumer needs it (Cafe, SaaS Hardening, Billing, provisioning,
+Product #2). See §14.
 
 ---
 
@@ -208,21 +215,35 @@ Implemented capability groups (Manager + Staff, bilingual JA/EN, mobile):
 
 ### Cafe v2.2 (= master-roadmap Phase 3)
 
-Phase 2 (Product Research) runs **externally with ChatGPT**. Only **WP1** is
-scoped and authorized in-repo.
+**Canonical WP sequence — Founder/CTO decision 2026-09-01** (rationale in
+`cto-context.md` §5.2). Earlier drafts are superseded (git history only).
+WP1 was the pre-authorized Phase-3 exception; WP2–WP5 have an agreed bounded
+direction but are **not yet individually authorized to implement** — each
+begins on its own Founder prompt.
 
-| WP | Scope source | Status (repo evidence) |
-|---|---|---|
-| **WP1 — Operations (+ Cafe HACCP presets)** | `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` | **Backend IMPLEMENTED & merged & on Cloud DEV** (`0099`–`0105`): `operations` schema, checklist templates/items, task schedules/instances/item-responses/exceptions, effective-dated schedule versioning, template-retirement dating, 9 `api.operations_*` config RPCs, three-layer security, pgTAP-covered. Module registered **`beta`**. **Enabled for NO tenant. Module-ON Cloud smoke NOT performed. No Manager/Staff Operations UI. No Cafe HACCP preset content.** |
-| **WP2 — Issues / Handover** | *no repo document* | **NEEDS FOUNDER DEFINITION.** Named only in the checkpoint-mission prompt. |
-| **WP3 — Purchasing v2** | *no repo document* | **NEEDS FOUNDER DEFINITION.** (Purchases v1 shipped in v2.1.) |
-| **WP4 — Recipe Intelligence Lite** | *no repo document* | **NEEDS FOUNDER DEFINITION.** |
-| **WP5 — Owner / Manager Control Center** | *no repo document* | **NEEDS FOUNDER DEFINITION.** |
+| WP | Name | Bounded direction | Status |
+|---|---|---|---|
+| **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **Backend IMPLEMENTED & merged & on Cloud DEV** (`0099`–`0105`): `operations` schema, checklist templates/items, task schedules/instances/item-responses/exceptions, effective-dated schedule versioning, template-retirement dating, 9 `api.operations_*` config RPCs, three-layer security, pgTAP-covered. Module registered **`beta`**. **Enabled for NO tenant. Module-ON Cloud smoke NOT performed. No Manager/Staff Operations UI. No Cafe HACCP preset content.** |
+| **WP2** | **Issues & Handover** | Structured operational issue capture + shift/day handover. Not a generic issue tracker. | **PLANNED** — bounded direction agreed; own implementation prompt required. |
+| **WP3** | **Owner Weekly Review** | Deliberately bounded management workflow: *what happened → what needs attention → what repeats → what action is required*. **Not** a generic dashboard / "Control Center". | **PLANNED** — own implementation prompt required. |
+| **WP4** | **Purchasing v2** | Supplier records, item↔supplier mapping, pack/unit/lead-time, draft→approval flow, ordered/expected/partially-received/received/variance/closed states, inventory-recount linkage. **Not** invoices/payments/accounting/supplier-APIs/WMS/autonomous ordering. Must not be merged with WP1 Operations. | **PLANNED** — own implementation prompt required. (Purchases v1 shipped in v2.1.) |
+| **WP5** | **Recipe Intelligence Lite** | Recipe↔Inventory ingredients/BOM, controlled units, allergens, **estimated operational cost** with price precedence `confirmed receiving price → manual default price → unknown`; missing price **never** shows as `0`; estimates never presented as accounting-exact. Operational cost guidance, not accounting. | **PLANNED** — own implementation prompt required. |
 
-Approved conceptual scheduling priority (holds regardless of Phase 2):
-**Manual Manager Assignment > Manager-locked preference > Employee preference
-> Algorithmic fallback** — automation must never silently overwrite a manual
-assignment.
+Phase 2 Cafe v2.2 Product Research (ChatGPT + Founder-led) may still refine
+scope **within** these WP boundaries; it does not re-open the WP list/order.
+
+Approved scheduling priority: **Manual Manager Assignment > Manager-locked
+preference > Employee preference > Algorithmic fallback** — automation must
+never silently overwrite a manual assignment.
+
+### Cafe v2.2 acceptance model (Founder/CTO decision 2026-09-01)
+
+**Both levels apply — no conflict:**
+
+- a **bounded WP acceptance gate after each of WP1…WP5** (role-aware,
+  tenant-aware, environment-aware runtime verification, not just CI);
+- a single **Full Cafe v2.2 Integrated Acceptance** after WP5
+  (master-roadmap Phase 4).
 
 ---
 
@@ -295,17 +316,21 @@ Founder
 - **Founder-facing language:** **Russian** (machine-readable content excepted).
 
 Canonical detail: `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md`,
-`docs/ai/oaes-project-profile.md`.
+`docs/ai/oaes-project-profile.md`. **Canonical durable statements:**
+the human-approval boundary list → `cto-context.md` §8; the forecasting policy →
+`cto-context.md` §10; the "why" behind the operating model → `cto-context.md`
+§9. The three summaries below are pointers, not the source of truth.
 
-### Forecasting policy (binding)
+### Forecasting policy (summary — canonical: `cto-context.md` §10)
 
 For significant ORUWA work, estimates state **best case / working estimate /
 risk range / assumptions & schedule risks** — the optimistic number is never
-presented as the commitment. When scope, a security finding, architecture
-work, or an external dependency changes materially, **recalculate the ETA
-explicitly**. Do not reuse the retired "~8 weeks" figure.
+presented as the commitment. Separate coding / review-fix / deployment-lead /
+authenticated-acceptance / Founder-decision time. Recalculate the ETA
+explicitly when scope, a security finding, architecture work, or an external
+dependency changes materially. Do not reuse the retired "~8 weeks" figure.
 
-### Architecture-selection principle (binding)
+### Architecture-selection principle (summary — canonical: `cto-context.md` §4.1)
 
 Prefer current, well-supported, secure, extensible solutions of reasonable
 complexity; weigh future migration/rework cost. Do **not** take temporary
@@ -353,20 +378,23 @@ Milestones that materially change future development speed:
 
 - Platform Foundation "present but not wired": entitlements not enforced at the
   module gate; module registry not driving navigation; notifications outbox
-  has no dispatcher; event bus has no consumers.
+  has no dispatcher; event bus has no consumers. **By decision, closed only
+  per-consumer** (§6, §14) — not tracked as one debt item to burn down.
 - Operations module unproven on Cloud (module-ON smoke never run) and has no
-  Manager/Staff UI; no Cafe HACCP preset content.
-- **ENV Cleanup & Consolidation** — not started.
+  Manager/Staff UI; no Cafe HACCP preset content. → §14 steps 4–6.
+- **Deprecated `MAME_TO_CHA_*` cleanup** — `packages/db/scripts/mame-to-cha-cloud-*`
+  + `MAME_TO_CHA_*` env vars; retired pilot tooling, unreferenced by runtime.
+  → §14 step 2 (its own bounded task).
+- **ENV Cleanup & Consolidation** — not started. → §14 step 3 (its own bounded
+  task, separate from the Mame cleanup).
 - Cafe Hardening / Deferred Debt register (P2/P3 from the Whole-Product Gate).
-- Delete deprecated `packages/db/scripts/mame-to-cha-cloud-*` + `MAME_TO_CHA_*`
-  (retired pilot tooling; kept only as historical).
 
 **P3**
 
 - Stale normative-adjacent docs describe an early/superseded state and mislead
   a fresh reader: `PROJECT_BRIEF.md` §11–17, `docs/product/modules.md`,
   `docs/architecture/overview.md` (request-flow + "anon key"), `AGENTS.md`
-  read-order §10–12, several `docs/phase-1*.md`. See §C.
+  read-order §10–12, several `docs/phase-1*.md`. See Appendix C.
 - Three Platform-Foundation-reconciliation P3s (inputs for a future Operations
   config write-path / limit-view UI).
 - "Surface A" (`mame-to-cha` preview tree) retain-vs-retire — Founder decision.
@@ -394,34 +422,42 @@ onboarding" claim before a successful rehearsal.
 
 Master roadmap phase pointer: **Phase 1 (Cafe v2.1 Completion) is effectively
 CLOSED.** The repo sits between Phase 1 and the continuation of Phase 3 (Cafe
-v2.2 WP1-A). Phase 6 (Platform Foundation Reconciliation) is **substantially
-done** — it collapses to "finish wiring + verify".
+v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
 
-Founder's stated near-term direction (this session), to be sequenced by the
-Founder/CTO:
+### Canonical current sequence (Founder/CTO decision 2026-09-01)
 
-1. **Master State Checkpoint #1** — this document.
-2. **ENV Cleanup & Consolidation** — env vars/docs sprawl.
-3. **Deprecated Mame To Cha cleanup** — delete `mame-to-cha-cloud-*` +
-   `MAME_TO_CHA_*`.
-4. **Continue / finish Cafe v2.2** — Operations Cloud module-ON smoke →
-   Manager/Staff Operations UI → Cafe HACCP presets; then WP2–WP5 **once
-   defined**.
-5. **Full Cafe v2.2 Acceptance** (master-roadmap Phase 4).
-6. **SaaS Hardening** (Phase 5) — security/architecture/reliability/performance
-   audit; finish-wiring the Foundation Services.
-7. **Tenant Provisioning + Clean Tenant Acceptance** (Phases 7–8) — the
-   "new tenant with zero code change" test (`go-to-market-roadmap.md` §7).
-8. **Commercial Infrastructure** (Phase 9) — Demo, Customer Portal, ORUWA
-   Admin, Billing.
-9. **Go-to-Market + AI Sales + Real Commercial Validation** (Phases 10–12).
-10. **Product #2 Research → Development** (Phases 13–14).
+1. **Docs reconciliation** — install `cto-context.md`, align `master-state.md`
+   *(this PR)*.
+2. **Deprecated `MAME_TO_CHA_*` cleanup** — its own bounded task. Verify
+   runtime references, preserve recoverability.
+3. **ENV Cleanup & Consolidation** — its own bounded task. **Separate from
+   step 2 — do not combine.**
+4. **Operations Cloud module-ON smoke** (`smoke-tenant-b`, per the existing
+   runbook) — proves the WP1-A backend on Cloud DEV.
+5. **Operations Manager/Staff UI**.
+6. **Cafe HACCP presets**.
+7. **WP1 bounded acceptance gate**.
+8. **WP2 Issues & Handover** → 9. **WP2 bounded acceptance**.
+10. **WP3 Owner Weekly Review** → 11. **WP3 bounded acceptance**.
+12. **WP4 Purchasing v2** → 13. **WP4 bounded acceptance**.
+14. **WP5 Recipe Intelligence Lite** → 15. **WP5 bounded acceptance**.
+16. **Full Cafe v2.2 Integrated Acceptance** (master-roadmap Phase 4).
 
-**FOUNDER/CTO DECISION REQUIRED:** the exact ordering of items 2–4 (ENV Cleanup
-vs Mame cleanup vs Operations Cloud smoke vs Operations UI vs starting the
-Foundation finish-wiring). Repo evidence does not fix this. No phase beyond the
-current one is authorized to start without a distinct Founder go-ahead.
-**No dates.**
+Then (master-roadmap Phases 5–14, unchanged): SaaS Hardening → Tenant
+Provisioning + Clean Tenant Acceptance → Commercial Infrastructure (Demo,
+Customer Portal, ORUWA Admin, Billing) → Go-to-Market + AI Sales + Real
+Commercial Validation → Product #2 Research → Development.
+
+### Platform Foundation (Founder/CTO decision 2026-09-01)
+
+**No standalone "finish all Platform Foundation wiring" project.** Each unwired
+Foundation Service (entitlement enforcement at the module gate, registry-driven
+nav, notification dispatcher, event-bus consumers) is completed **only when a
+real consumer needs it** — Cafe, SaaS Hardening, Billing, provisioning, Product
+#2, or another demonstrated consumer. Do not complete abstractions for
+architectural completeness.
+
+Each step above begins only on a distinct Founder go-ahead. **No dates.**
 
 ---
 
@@ -444,19 +480,28 @@ require new **vertical-specific** capabilities, not a rebuilt platform
 
 ## 16. Founder Decisions Currently Binding
 
+Full rationale for each: `cto-context.md` (the "why" document).
+
 - `dev` is the authoritative lineage; `main` reconciliation is a separate
-  future task; release governance not yet decided.
-- Autonomous DEV merge via `scripts/ai-dev-merge.sh`; `main` / production /
-  RED = Founder-only.
-- Founder-facing language = Russian.
+  future task. **`dev → main → production` release governance is DEFERRED —
+  P1 before the first production release**; not designed yet. `main` merge and
+  production deploy stay two separate Founder gates.
+- Autonomous DEV merge via `scripts/ai-dev-merge.sh` (base=`dev` only, RED-path
+  auto-refusal; raw `gh pr merge` denied in `.claude/settings.json`);
+  `main` / production / RED = Founder-only.
+- Founder-facing language = **Russian** (machine-readable content excepted).
 - Master roadmap (2026-08-25) sequences **Cafe v2.2 before Platform Foundation
   Reconciliation**, superseding `current-task.md` §2.4's earlier ordering.
-- **WP1 Operations authorized** (only WP1; only via a separate implementation
-  prompt — that prompt was given, WP1-A backend is done). No other v2.2 work
-  authorized.
+- **Canonical Cafe v2.2 = WP1 Operations+HACCP → WP2 Issues & Handover → WP3
+  Owner Weekly Review → WP4 Purchasing v2 → WP5 Recipe Intelligence Lite**
+  (Founder/CTO decision 2026-09-01, §7). Per-WP acceptance gate **and** a final
+  Full Integrated Acceptance. WP1 backend done; WP2–WP5 each need their own
+  implementation prompt.
 - Operations = a **generic reusable module**; Cafe HACCP = **presets on top**.
   No `haccp` module code, no HACCP capability check, no capability-framework
   redesign in WP1. Photo/evidence **not** in the WP1 MVP.
+- Platform Foundation wiring is **consumer-driven, not a standalone project**
+  (§6, §14).
 - Scheduling priority: Manual > locked preference > employee preference >
   algorithm.
 - Supabase: **no JWT signing-secret rotation; Production untouched;** Cloud DEV
@@ -476,10 +521,9 @@ require new **vertical-specific** capabilities, not a rebuilt platform
 | Risk | Impact | Current mitigation | Resolve by |
 |---|---|---|---|
 | `main` ↔ `dev` divergence + undefined release path | First production release needs a dedicated reconciliation; `db pull`/`diff` noisy on 5 migration numbers | Documented; `dev` declared authoritative | Before Phase 9 / first sale |
-| Foundation Services "present but not wired" | A 2nd vertical or Billing will hit half-built pieces | Phases 5–6 (finish-wiring + verify) | Before Product #2 / Billing |
-| Operations unproven on Cloud + no UI | Cafe v2.2 not deliverable | Backend pgTAP-covered; smoke runbook exists | Cafe v2.2 continuation |
+| Foundation Services "present but not wired" | A 2nd vertical or Billing will hit half-built pieces | Consumer-driven completion (§6, §14); no burn-down project | When a real consumer needs each |
+| Operations unproven on Cloud + no UI | Cafe v2.2 not deliverable | Backend pgTAP-covered; smoke runbook exists | §14 steps 4–6 |
 | No production env / billing / provisioning | Cannot onboard a paying customer | Roadmap Phases 7–9 | Before real commercial validation |
-| WP2–WP5 undefined | Roadmap item 4 cannot be planned | Named only in a prompt | Founder defines scope |
 | Browser-QA tooling varies per session | Final Integrated QA may fall back to Founder-screenshot loop | Screenshot loop proven workable | Check at Phase 1 step 4 / hardening start |
 | `/dashboard/admin` ungated (Defect A) | Defense-in-depth gap if a privileged action is added | Inert today (RLS-scoped, disabled placeholders) | Before wiring any admin action |
 | Native JP copy not reviewed (`I18N-JA-1`) | Product polish / credibility | English-safe fallback copy in place | Before commercial launch |
@@ -496,28 +540,32 @@ LAST CLOSED:
   ACTIVE ORUWA RUNTIME LEGACY FALLBACK = 0.
 
 CURRENT:
-  Master State Checkpoint #1 (this document). Repo on dev ffc4b2e, clean,
-  CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations WP1-A backend merged +
-  on Cloud DEV, module 'beta', enabled for NO tenant, no UI. Platform
-  Foundation critical path structurally reconciled onto dev + Cloud DEV
-  (several pieces "table exists, not wired").
+  Master State Checkpoint #1 + CTO Context #1 canonical documents. Repo on dev
+  (>= 615925e), clean, CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations
+  WP1-A backend merged + on Cloud DEV, module 'beta', enabled for NO tenant,
+  no UI. Platform Foundation critical path structurally reconciled onto dev +
+  Cloud DEV (several pieces "table exists, not wired" — closed per-consumer).
+  Canonical Cafe v2.2 WP sequence + acceptance model decided 2026-09-01 (§7).
 
-NEXT (Founder selects the order):
-  ENV Cleanup & Consolidation  |  deprecated Mame To Cha cleanup  |
-  Cafe v2.2 continuation (Operations Cloud module-ON smoke → Manager/Staff
-  Operations UI → Cafe HACCP presets)  |  SaaS Hardening.
-  Master roadmap suggests: finish Cafe v2.2 → Phase 4 acceptance → Phase 5
-  hardening.
+NEXT (canonical sequence, §14 — each step on its own Founder prompt):
+  1 docs reconciliation (this PR) → 2 MAME_TO_CHA_* cleanup → 3 ENV Cleanup &
+  Consolidation (separate task) → 4 Operations Cloud module-ON smoke →
+  5 Operations Manager/Staff UI → 6 Cafe HACCP presets → 7 WP1 acceptance →
+  8-9 WP2 Issues & Handover (+acceptance) → 10-11 WP3 Owner Weekly Review →
+  12-13 WP4 Purchasing v2 → 14-15 WP5 Recipe Intelligence Lite →
+  16 Full Cafe v2.2 Integrated Acceptance → master-roadmap Phases 5-14.
 
 BLOCKERS:
-  None blocking this checkpoint or dev development.
+  None blocking these checkpoint documents or dev development.
   For "take a paying customer": no production environment, no billing, no
-  provisioning, no Customer Portal, main/release governance undefined.
+  provisioning, no Customer Portal; dev→main→production release governance
+  DEFERRED / P1 before first production release.
 
 DO NOT START YET (each needs an explicit Founder prompt):
-  Cafe v2.2 WP2–WP5 (undefined), Product #2 research, Platform Billing,
-  Customer Portal, ORUWA internal Admin, production deploy, dev→main merge,
-  any new vertical.
+  §14 steps 2+, Product #2 research, Platform Billing, Customer Portal, ORUWA
+  internal Admin, production deploy, dev→main merge, dev→main→production release
+  governance design, any new vertical, any standalone Platform Foundation
+  wiring project.
 ```
 
 ---
@@ -538,9 +586,16 @@ in favour of current code / Cloud DEV state / Founder-verified baseline:
 | Platform Foundation existence | 2026-08-23 triage ("`main` carries it, `dev` never received it") | Superseded by the 2026-08-29 reconciliation — `0106`–`0113` on `dev` + Cloud DEV (§6). |
 | Cafe Commercial Launch ordering | `current-task.md` §2.4 "Sequence" (Platform Foundation before v2.2) | `oruwa-master-roadmap.md` (Founder-approved) places v2.2 first. |
 
-Do **not** fix these in the same task that produced this checkpoint — they are
-recorded as P3 debt (§12). The normative documents
-(`core-laws-and-product-dna.md`, `platform-foundation-roadmap.md`,
+Do **not** fix these here — they are recorded as P3 debt (§12). The normative
+documents (`core-laws-and-product-dna.md`, `platform-foundation-roadmap.md`,
 `oruwa-master-roadmap.md`, `oaes-project-profile.md`,
 `ORUWA_AI_ENGINEERING_OPERATING_MODEL.md`, `security-requirements.md`,
 `docs/adr/*`) were **not** found stale and remain authoritative.
+`docs/project/cto-context.md` is a **companion canonical document** (the *why*),
+not a lower-level or stale source.
+
+> **Reconciliation note (2026-09-01):** an earlier revision of §7 recorded "two
+> conflicting Founder sketches" for Cafe v2.2. That conflict is **resolved** —
+> §7 now records the single canonical WP1–WP5 sequence and the dual acceptance
+> model (Founder/CTO decision). The superseded sketches are not reproduced here;
+> they survive only in git history.
