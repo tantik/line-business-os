@@ -24,6 +24,57 @@
 - **When**
   - `now` — needed for the current phase / first clients.
   - `future` — reserved for a later module or deployment target; not required yet.
+  - `reserved` — declared in code but with no current consumer; kept on purpose.
+
+## 0. Ownership, trust boundaries, and scope of this document
+
+**Trust categories** (each active variable belongs to exactly one):
+
+| Category | Meaning | Lives in |
+| -------- | ------- | -------- |
+| **Public / browser** | `NEXT_PUBLIC_*` — inlined into the client bundle by Next.js. Never a secret. | `apps/web/.env.local` (local) / Vercel public scope |
+| **Server application** | Server-only, non-secret configuration (ports, origins, provider selectors, feature flags). | `apps/web/.env.local` server scope / apps/api process env / Vercel server scope |
+| **Privileged server secret** | RLS-bypassing keys, DB credentials, PII keys, LINE secrets, provider API keys. | repo-root `.env` + operator shell / password manager; Vercel server scope only if a runtime that needs them is deployed |
+| **Edge Function secret / config** | Consumed by hosted Edge Functions. | Supabase function secrets / `supabase/functions/.env` (local) |
+| **Operator / local tooling** | Credentials/config used only by local admin scripts (migrations, seed, backup, fixtures, smoke). No deployed app runtime reads them. | operator shell / password manager only |
+| **CI / build** | Required by CI/build/test only. **Currently none** — `.github/workflows/ci.yml` runs with no env and no secrets; tests use synthetic inline values. | — |
+
+**Intentional public/server name splits** (same value, two names — this is by
+design, not duplication; do **not** rename to unify):
+
+- `SUPABASE_URL` (server, read by `serverEnv()` for `packages/db` operator
+  scripts and `apps/api`/`apps/worker`) vs `NEXT_PUBLIC_SUPABASE_URL` (browser,
+  inlined by Next.js). Next.js only inlines a value into the client bundle when
+  the name carries the `NEXT_PUBLIC_` prefix, so each trust surface needs its
+  own name.
+- `SUPABASE_PUBLISHABLE_KEY` (server) vs `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  (browser) — same rationale. Both are the low-privilege `sb_publishable_*`
+  value; it is never a secret and never bypasses RLS.
+
+**`SITE_URL` vs `WEB_ORIGIN`** (related but distinct; **not** renamed here):
+
+- `SITE_URL` — the URL a Supabase invite email's verification link redirects
+  back to. Read by the Edge Functions (`invite-employee`) and mirrored by
+  `supabase/config.toml` `[auth] site_url` for local dev.
+- `WEB_ORIGIN` — the allowed web origin for `apps/api` (CORS / link building),
+  read by `serverEnv()`. `apps/api` is not deployed yet.
+- They often hold the same value locally but have different owners and
+  consumers; unifying them is deferred to a future deployment-hardening task.
+
+**Scope of this document / repository ENV cleanup.** This file and the
+repository ENV cleanup cover **tracked repository surfaces only**
+(`.env.example`, `turbo.json`, `supabase/functions/.env.example`, docs). They
+do **not** resolve:
+
+- **Local operator ENV drift** — gitignored files on an operator machine
+  (`.env`, `.env.local`, `.env.cloud.local`, `apps/web/.env.local*`,
+  `supabase/functions/.env`, stale `*.backup` / `*.cloud-backup*` files). Some
+  still carry the Phase-9 legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` name or the
+  removed `MAME_TO_CHA_CLOUD_*` names. Reconciling those is a **separate,
+  controlled operator-local task**, not this repository PR.
+- **External environment verification** — Vercel Preview/Production and Supabase
+  Cloud DEV/Production variable sets. A **separate future gate**; Production
+  untouched.
 
 ## 1. Local development
 
@@ -101,7 +152,7 @@
 | `CONTENT_TRANSLATION_PROVIDER` | Explicit selector for `apps/web`'s recipe translation provider -- `deepl`, `openai`, or `google`. No fallback based on "whichever key happens to be set"; unset or unsupported means auto-translation is off (Manager can still translate manually). No code-level default provider -- an unset value always means manual-only. | Vercel project env (Preview) | public-ish (not a secret, but server-read only) | now |
 | `OPENAI_TRANSLATION_MODEL` | Overrides the default OpenAI chat-completions model (`gpt-4o-mini`) used for recipe translation. Optional. | Vercel project env (Preview) | public-ish | now |
 | `DEEPL_API_KEY` | API key for `apps/web`'s recipe content-translation provider (`DeepLContentTranslationProvider`), when `CONTENT_TRANSLATION_PROVIDER=deepl`. Server-only, never `NEXT_PUBLIC_`. | Server secret store / Vercel project env (Preview, server-only) | **secret** | now |
-| `DEEPL_API_URL` | Optional override of the DeepL endpoint (defaults to the free/pro endpoint resolved from the key format). | Vercel project env (Preview) | public-ish | future |
+| `DEEPL_API_URL` | Optional override of the DeepL endpoint (defaults to the free/pro endpoint resolved from the key format). Read **now** by `apps/web/src/lib/content/translation-env.ts`. | Vercel project env (Preview) | public-ish | now (optional) |
 | `GOOGLE_TRANSLATE_API_KEY` | API key for `apps/web`'s recipe content-translation provider (`GoogleContentTranslationProvider`, Google Cloud Translation API Basic v2), when `CONTENT_TRANSLATION_PROVIDER=google`. Server-only, never `NEXT_PUBLIC_`, never reachable from a `'use client'` file (enforced by the same repo-wide scan test); sent via the `x-goog-api-key` request header, never as a URL query parameter. | Server secret store / Vercel project env (Preview, server-only) | **secret** | now |
 | `CONTENT_TRANSLATION_AUTO_ENABLED` | Kill switch for automatic translation regardless of provider config (`false`/`0` disables it). Defaults to enabled. | Vercel project env (Preview) | public-ish | now |
 
@@ -116,8 +167,8 @@
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `LINE_CHANNEL_SECRET` | Secret for verifying LINE webhook signatures against the raw body. | Server secret store / provider dashboard | **secret** | future |
 | `LINE_CHANNEL_ACCESS_TOKEN` | Token for calling LINE Messaging APIs. | Server secret store / provider dashboard | **secret** | future |
-| `LINE_LIFF_ID` | LIFF app id (server-side reference). | Server config | public-ish | future |
-| `NEXT_PUBLIC_LIFF_ID` | LIFF app id exposed to the browser. | Web app env (public) | public | future |
+| `LINE_LIFF_ID` | LIFF app id, server-side reference. **RESERVED / CURRENTLY UNUSED** — declared `.optional()` in the `serverEnv()` schema (`packages/config/src/env.ts`) but **no code consumer**; the browser path uses `NEXT_PUBLIC_LIFF_ID`. Kept deliberately for the planned LINE/LIFF server integration (Founder/CTO decision 2026-09) rather than removed-and-later-reintroduced. | Server config | public-ish | reserved |
+| `NEXT_PUBLIC_LIFF_ID` | LIFF app id exposed to the browser. Read via direct `process.env.NEXT_PUBLIC_LIFF_ID` in `apps/web/src/app/liff-entry/page.tsx` and inlined into the client bundle by Next.js (hence in `turbo.json` `globalEnv`). The `liff-entry` flow renders a "not configured" state when unset. | Web app env (public) | public | now (feature gated off) |
 
 ## 6. Backup
 
@@ -242,6 +293,31 @@ or pasted into chat.
 
 After clearing, verify `git status` is clean (no env file or artifact was
 committed).
+
+## 8. Operator scripting / fixtures (local-only, no deployed runtime)
+
+> These are **operator / local tooling** variables (trust category in §0). No
+> deployed app runtime reads them; set them in the operator shell for the
+> duration of a run and clear them afterward. **Names only — never values.**
+
+| Variable | Purpose | Where it should live | Visibility | When |
+| -------- | ------- | -------------------- | ---------- | ---- |
+| `LINE_OS_API_INTERNAL_URL` | `apps/web` → `apps/api` base URL for the local/dev auth-boundary smoke helper (`apps/web/src/lib/api/auth-boundary-smoke.ts`). Server-read only; **never** `NEXT_PUBLIC_`-prefixed. | `apps/web/.env.local` (local dev) | public-ish (URL) | now (dev-only) |
+| `STAFF_AUTH_CONCURRENCY_DB_URL` | Postgres connection for the ad-hoc staff-auth concurrency check (`packages/db/scripts/staff-auth-concurrency-check.ts`). | Operator shell / password manager | **secret** | now (ad-hoc) |
+| `ORUWA_CAFE_MANAGER_PASSWORD` | Reference-tenant manager account password used by the oruwa-cafe fixture writer (`pnpm --filter @line-os/db oruwa-cafe-fixture`) to read the roster and record a stock count (a `service_role` call cannot do either). | Operator shell / password manager | **secret** | now (fixture) |
+| `RECIPE_TRANSLATION_MANAGER_EMAIL` / `RECIPE_TRANSLATION_MANAGER_PASSWORD` | Manager sign-in credentials for the recipe-translation generator script (`apps/web/scripts/generate-recipe-translations.ts`). | Operator shell / password manager | **secret** | now (script) |
+| `RECIPE_TRANSLATION_TENANT_SLUG` | Optional tenant slug for the same script; defaults to `mame-to-cha` (the reference tenant). | Operator shell | public-ish | now (optional) |
+| `RECIPE_TRANSLATION_CONFIRM` / `RECIPE_TRANSLATION_REPLACE_STALE_REVIEWED` | Optional non-interactive/behaviour flags for the same script. | Operator shell | public | now (optional) |
+
+## 9. Deferred legacy — non-cloud Mame To Cha tooling
+
+The remaining non-cloud `mame-to-cha-*` operator scripts still read
+`MAME_TO_CHA_LOCAL_*`, `MAME_TO_CHA_FIXTURE`, `MAME_TO_CHA_WRITE_SQL`, and
+`MAME_TO_CHA_CLEANUP_SQL` (repo-root `.env.local`). These are **deferred
+technical debt**, kept together with the rest of the non-cloud pilot/rehearsal
+tooling pending a generic fixture/onboarding reconciliation. This ENV cleanup
+does **not** touch them. The Cloud-specific `mame-to-cha-cloud-*` tooling and
+its `MAME_TO_CHA_CLOUD_*` vars were removed in Sept 2026 (PR #480).
 
 ## Rules (always)
 
