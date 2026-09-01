@@ -392,7 +392,8 @@ Milestones that materially change future development speed:
   removing the family needs a separate generic-fixture / onboarding
   reconciliation. **Not all `MAME_TO_CHA_*` legacy is eliminated.**
 - **ENV Cleanup & Consolidation** — §14 step 3 (its own bounded task, separate
-  from the Mame cleanup). **IN PROGRESS**, three bounded substeps:
+  from the Mame cleanup). **CLOSED** (3A + 3B + 3C all accepted; see below).
+  Three bounded substeps:
   - **3A Repository ENV cleanup** — `.env.example` + `docs/operations/env-inventory.md`
     reconciliation, Turbo env/cache correctness, `supabase/functions/.env.example`
     clarification. **DONE — PR #481 MERGED; dev baseline after merge = `022a3b7`.**
@@ -407,18 +408,34 @@ Milestones that materially change future development speed:
     starts against LOCAL Supabase with no env fail-closed error. **Accepted
     deferred / blocked exceptions (do NOT reopen 3B):** `.env.local.backup`
     intentionally preserved — deletion **BLOCKED** until PII-key recovery is
-    independently proven; `apps/web/.env.local.cloud-backup` unchanged — its
-    Cloud DEV reconciliation belongs to **3C**; root `.env.local` /
+    independently proven; `apps/web/.env.local.cloud-backup` unchanged — 3C
+    verified it holds only browser-public Cloud DEV config; its
+    replacement-or-retirement is a **standalone follow-up** (public-only, not
+    blocking); root `.env.local` /
     `.env.cloud.local` stay **deferred with the non-cloud Mame reconciliation**;
     `apps/web/.env.translation-script.local` **deferred until translation work
     resumes**; `supabase/functions/.env` local completeness **deferred until
     local Edge development is required**. Not every local ENV file was cleaned
     or deleted — only the bounded approved set.
-  - **3C External ENV verification** — **TODO.** Read-only verification of
-    relevant current non-Production environments (Vercel Preview / Supabase
-    Cloud DEV / relevant external secret surfaces), as separately authorized
-    later. **Production out of scope.**
-  Step 3 is CLOSED only after 3A + 3B + 3C are all accepted.
+  - **3C External ENV verification** — **DONE** (Sept 2026; read-only audit +
+    one bounded Founder-approved cleanup). Verified: Vercel Preview carries
+    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, targets
+    Supabase Cloud DEV, `/api/health` = 200 `{app,config,supabase: ok}`; no
+    privileged Supabase key on any Vercel surface; Cloud DEV publishable +
+    secret key models AVAILABLE; hosted Edge `invite-employee` ACTIVE with the
+    full required secret name set; `liff-entry` not deployed; no external
+    `MAME_TO_CHA_*`. Cleanup: obsolete `NEXT_PUBLIC_SUPABASE_ANON_KEY` removed
+    from Vercel Preview — the shared Vercel record also targeted Production, so
+    the CLI removal took it out of **Production** too; **Founder accepted
+    leaving it ABSENT from Vercel Production** (deprecated credential, not
+    restored, not inspected/extracted). Full incident record + Vercel
+    multi-target ENV safety rule:
+    `docs/operations/supabase-secret-key-migration-runbook.md` §11.
+    **Production safety gate:** a future Production deployment is **BLOCKED**
+    pending a separate, explicitly Founder-approved Production ENV / API-key
+    readiness review + migration. Production is **not** declared ready by
+    Step 3.
+  Step 3 CLOSED — 3A + 3B + 3C all accepted (2026-09).
 - Cafe Hardening / Deferred Debt register (P2/P3 from the Whole-Product Gate).
 
 **P3**
@@ -466,21 +483,25 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    onboarding reconciliation (see P2 debt above). Not all `MAME_TO_CHA_*`
    legacy is gone.
 3. **ENV Cleanup & Consolidation** — its own bounded task. **Separate from
-   step 2 — do not combine.** **IN PROGRESS** — three substeps:
+   step 2 — do not combine.** **CLOSED** (2026-09) — three substeps:
    **3A Repository ENV cleanup** (DONE — PR #481 MERGED, dev baseline `022a3b7`) →
    **3B Local Operator ENV cleanup** (DONE — Founder/CTO closeout; status in
    PR #482, merged, dev baseline `c2a632c`; operator-machine files only, no PR;
    bounded approved set, with accepted deferred/blocked exceptions) →
-   **3C External ENV verification** (TODO — read-only, non-Production).
-   Step 3 CLOSED only after 3A + 3B + 3C accepted. Deferred and **outside**
-   Step 3 completion criteria: `env-registry.yaml` / registry sync test,
+   **3C External ENV verification** (DONE — read-only audit + one bounded
+   Founder-approved Vercel Preview cleanup; `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   also left ABSENT from Vercel Production by Founder decision after the shared
+   record's removal — see runbook §11). Deferred and **outside** Step 3
+   completion criteria: `env-registry.yaml` / registry sync test,
    `@line-os/secrets` / structural refactor, P2 `pii-env.ts` /
    `translation-env.ts` hardening, non-cloud Mame fixture/rehearsal
-   reconciliation, `SITE_URL` / `WEB_ORIGIN` normalization, Production ENV
-   design/migration.
+   reconciliation, `SITE_URL` / `WEB_ORIGIN` normalization. **Production ENV /
+   API-key readiness + migration is a separate controlled future gate; a
+   future Production deployment is BLOCKED until the Founder explicitly
+   approves it.**
 4. **Operations Cloud module-ON smoke** (`smoke-tenant-b`, per the existing
-   runbook) — proves the WP1-A backend on Cloud DEV. **Blocked until Step 3
-   (3A+3B+3C) is CLOSED.**
+   runbook) — proves the WP1-A backend on Cloud DEV. **UNBLOCKED — canonical
+   next implementation step** (Step 3 CLOSED). Still its own Founder prompt.
 5. **Operations Manager/Staff UI**.
 6. **Cafe HACCP presets**.
 7. **WP1 bounded acceptance gate**.
@@ -581,23 +602,35 @@ Full rationale for each: `cto-context.md` (the "why" document).
 
 ```
 LAST CLOSED:
-  Supabase Cloud DEV API-key migration — legacy anon/service_role API keys
-  DISABLED; new sb_publishable_*/sb_secret_* model mandatory; legacy fallbacks
-  removed from active code (PR #477, dev ffc4b2e, 2026-09-01).
-  ACTIVE ORUWA RUNTIME LEGACY FALLBACK = 0.
+  Step 3 ENV Cleanup & Consolidation — CLOSED (2026-09): 3A repo cleanup
+  (PR #481), 3B local-operator cleanup (PR #482), 3C external verification
+  (read-only audit + one bounded Founder-approved Vercel Preview cleanup;
+  runbook §11). ACTIVE ORUWA RUNTIME LEGACY FALLBACK = 0 (Supabase Cloud DEV
+  API-key migration, PR #477). Production ENV/key migration NOT done — separate
+  future gate; Production deploy BLOCKED.
 
 CURRENT:
-  Step 3 ENV Cleanup & Consolidation — IN PROGRESS. 3A Repository ENV cleanup
-  DONE (PR #481 merged; dev baseline 022a3b7). 3B Local Operator ENV cleanup
-  DONE (Founder/CTO closeout; status recorded by PR #482 merged, dev baseline
-  c2a632c; operator-machine gitignored files only, never in a PR — two obsolete
-  dated backups removed + apps/web/.env.local made Phase-9-correct for LOCAL
-  Supabase; accepted deferred/blocked exceptions: .env.local.backup deletion
-  BLOCKED pending proven PII recovery, apps/web/.env.local.cloud-backup pending
-  3C, root .env.local/.env.cloud.local + translation + local-Edge env all
-  deferred). 3C External ENV verification TODO (read-only, non-Production).
-  Step 3 not CLOSED; Operations (step 4) remains blocked. Step 2 Mame cleanup:
-  Cloud-specific part DONE (PR #480 merged), non-cloud family deferred.
+  Step 3 ENV Cleanup & Consolidation — CLOSED (2026-09). 3A DONE (PR #481,
+  baseline 022a3b7). 3B DONE (PR #482, baseline c2a632c; operator-machine
+  gitignored files only — 2 obsolete dated backups removed + apps/web/.env.local
+  Phase-9-correct for LOCAL Supabase). 3C DONE (read-only external audit + one
+  bounded Founder-approved cleanup: obsolete NEXT_PUBLIC_SUPABASE_ANON_KEY
+  removed from Vercel Preview; the shared Vercel record also targeted Production
+  so the CLI removal took it from Production too — Founder ACCEPTED leaving it
+  ABSENT from Vercel Production, deprecated credential, not restored/inspected;
+  incident + Vercel multi-target safety rule in runbook §11). Preview verified:
+  /api/health 200 {app,config,supabase: ok}, publishable key present, legacy
+  anon absent, targets Cloud DEV. Accepted deferred/blocked debt preserved:
+  .env.local.backup deletion BLOCKED (PII recovery unproven); root
+  .env.local/.env.cloud.local + translation-script.local + local Edge
+  supabase/functions/.env deferred; apps/web/.env.local.cloud-backup public-only
+  retirement follow-up; platform-managed Edge legacy names; unused OPENAI_API_KEY.
+  PRODUCTION NOT READY — Production ENV/API-key readiness + migration is a
+  separate controlled future gate; a future Production deployment is BLOCKED
+  until the Founder explicitly approves it.
+  Operations Cloud module-ON smoke (step 4) — UNBLOCKED, canonical next step.
+  Step 2 Mame cleanup: Cloud-specific part DONE (PR #480 merged), non-cloud
+  family deferred.
   Master State Checkpoint #1 + CTO Context #1 canonical documents. Repo on dev
   (>= 615925e), clean, CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations
   WP1-A backend merged + on Cloud DEV, module 'beta', enabled for NO tenant,
@@ -607,10 +640,12 @@ CURRENT:
 
 NEXT (canonical sequence, §14 — each step on its own Founder prompt):
   1 docs reconciliation → 2 Mame To Cha tooling cleanup (Cloud-specific part
-  DONE; non-cloud family deferred) → 3 ENV Cleanup & Consolidation IN PROGRESS
-  [3A repo cleanup = PR #481 MERGED → 3B local-operator ENV cleanup DONE
-  (PR #482 MERGED; NOT Operations) → 3C external ENV verification, read-only]
-  → 4 Operations Cloud module-ON smoke (blocked until 3A+3B+3C closed) →
+  DONE; non-cloud family deferred) → 3 ENV Cleanup & Consolidation CLOSED
+  [3A = PR #481 MERGED · 3B = PR #482 MERGED · 3C = done (audit + bounded Vercel
+  Preview cleanup; NEXT_PUBLIC_SUPABASE_ANON_KEY also left ABSENT from Vercel
+  Production by Founder decision — runbook §11)] → **4 Operations Cloud
+  module-ON smoke — UNBLOCKED, canonical next step** (Production deploy stays
+  BLOCKED pending a separate Production ENV/key readiness gate) →
   5 Operations Manager/Staff UI → 6 Cafe HACCP presets → 7 WP1 acceptance →
   8-9 WP2 Issues & Handover (+acceptance) → 10-11 WP3 Owner Weekly Review →
   12-13 WP4 Purchasing v2 → 14-15 WP5 Recipe Intelligence Lite →

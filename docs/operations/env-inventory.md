@@ -97,9 +97,28 @@ do **not** resolve:
     `supabase/functions/.env.example` (missing `PII_HASH_PEPPER`,
     `SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`). Local Edge development
     is deferred, so this does **not** block Step 3B.
-- **External environment verification** — Vercel Preview/Production and Supabase
-  Cloud DEV/Production variable sets. A **separate future gate (Step 3C)**;
-  Production untouched.
+- **External environment verification (Step 3C)** — completed Sept 2026
+  (read-only audit + one bounded Founder-approved cleanup). Confirmed state
+  (names/scope/presence only — no values):
+  - **Vercel Preview** carries `NEXT_PUBLIC_SUPABASE_URL` +
+    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; targets Supabase **Cloud DEV**;
+    `/api/health` = 200 `{app,config,supabase: ok}`. No privileged Supabase key
+    on any Vercel surface (least privilege). No `MAME_TO_CHA_*` externally.
+  - **Vercel Preview** legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` removed (obsolete
+    after Phase 9; no code consumer). The `vercel env rm ... preview` also
+    removed the shared record's **Production** target — Founder **accepted**
+    leaving `NEXT_PUBLIC_SUPABASE_ANON_KEY` **ABSENT** from Vercel Production
+    (deprecated credential; not restored). Full record + safety rule:
+    `docs/operations/supabase-secret-key-migration-runbook.md` §11.
+  - **Supabase Cloud DEV**: publishable + secret key models AVAILABLE; hosted
+    Edge `invite-employee` ACTIVE with full required secret name set;
+    `liff-entry` NOT DEPLOYED (expected). Platform-injected legacy Edge names
+    (`SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`) present but unused —
+    harmless, not removable via normal tooling.
+  - **Production** remains a **separate controlled gate**: a future Production
+    deployment is **BLOCKED** pending an explicit Founder-approved Production
+    ENV / API-key readiness review + migration. Production Supabase project /
+    API keys / deployment were **not** migrated by Step 3.
 
 ## 1. Local development
 
