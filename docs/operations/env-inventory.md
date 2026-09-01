@@ -36,11 +36,14 @@
 > running `pnpm --filter @line-os/db …`. **Cloud DEV operator runs use the same generic
 > variable names** with Cloud DEV values (see `docs/supabase-cloud-dev-setup.md`).
 >
-> Repo-root `.env.local` and `.env.cloud.local` are **deprecated Mame To Cha
-> tooling** (`MAME_TO_CHA_LOCAL_*` / `MAME_TO_CHA_CLOUD_*`) — not generic ORUWA
-> operator env files. Do not add generic variables to them or extend them; they
-> are a deletion candidate in a later cleanup. `apps/web/.env.local` is the
-> separate web-app env and never holds a privileged key.
+> Repo-root `.env.local` is **deprecated non-cloud Mame To Cha pilot/rehearsal
+> tooling** (`MAME_TO_CHA_LOCAL_*`) — not a generic ORUWA operator env file. Do
+> not add generic variables to it or extend it; it is a deletion candidate
+> pending a generic-fixture/onboarding reconciliation. The Cloud-specific Mame
+> To Cha tooling (`packages/db/scripts/mame-to-cha-cloud-*`) and its
+> `.env.cloud.local` / `MAME_TO_CHA_CLOUD_*` vars were removed Sept 2026.
+> `apps/web/.env.local` is the separate web-app env and never holds a
+> privileged key.
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
@@ -67,8 +70,10 @@
 > `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are no longer read by any
 > active ORUWA runtime/tooling and were removed from the schemas /
 > `.env.example` / `turbo.json`. Cloud DEV's legacy JWT-based API keys are
-> disabled. (The `MAME_TO_CHA_*` deprecated pilot tooling still names its own
-> separate legacy vars — untouched, slated for deletion.)
+> disabled. (The remaining non-cloud `MAME_TO_CHA_LOCAL_*` deprecated pilot
+> tooling still names its own separate legacy vars — untouched, deferred for
+> deletion. The Cloud-specific `MAME_TO_CHA_CLOUD_*` tooling was removed Sept
+> 2026.)
 | `SUPABASE_PROJECT_REF` | Supabase project reference id (for CLI / Cloud ops). | Password manager / CI secret | secret-adjacent | future |
 | `SUPABASE_DB_PASSWORD` | Database password (cannot be re-read; reset if lost). | Password manager only | **secret** | future |
 | `SUPABASE_ACCESS_TOKEN` | Personal access token for CLI/CI Cloud operations. | Password manager / CI secret only | **secret** | future |
