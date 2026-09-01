@@ -58,8 +58,8 @@
  *
  * REQUIRED ENVIRONMENT (never hardcode; export in your shell before running):
  *   NEXT_PUBLIC_SUPABASE_URL  -- same value apps/web uses
- *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (preferred) or NEXT_PUBLIC_SUPABASE_ANON_KEY
- *       (temporary fallback)  -- same low-privilege key apps/web uses
+ *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY  -- same low-privilege key apps/web
+ *       uses (an sb_publishable_* value; required, no legacy anon fallback)
  *   RECIPE_TRANSLATION_MANAGER_EMAIL, RECIPE_TRANSLATION_MANAGER_PASSWORD
  *       -- a real manager account with workforce.recipe.manage for the target tenant
  *   CONTENT_TRANSLATION_PROVIDER=google, GOOGLE_TRANSLATE_API_KEY  -- same vars the app reads

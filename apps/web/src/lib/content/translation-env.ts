@@ -3,9 +3,9 @@
  * Translation) for apps/web, read directly
  * from `process.env` -- deliberately NOT routed through
  * `packages/config/src/env.ts`'s `serverEnv()`, which requires the FULL
- * cross-service server schema (including `SUPABASE_SERVICE_ROLE_KEY`) to be
- * present and is meant for apps/api/apps/worker. apps/web must never hold or
- * validate against that secret (see AGENTS.md / ADR 0005) -- this module
+ * cross-service server schema (including the privileged `SUPABASE_SECRET_KEY`)
+ * to be present and is meant for apps/api/apps/worker. apps/web must never hold
+ * or validate against that secret (see AGENTS.md / ADR 0005) -- this module
  * mirrors `apps/web/src/lib/supabase/env.ts`'s pattern instead: a small,
  * scoped, non-throwing reader for just the vars this feature needs.
  *

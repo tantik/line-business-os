@@ -65,9 +65,8 @@ export function deriveHealthStatus(checks: HealthChecks): HealthStatus {
  * Read-only Supabase Auth health probe: `GET <url>/auth/v1/health`.
  *
  * - Unauthenticated, no tenant data, no RLS-protected rows; touches nothing
- *   product-related. Sends only the public low-privilege key (publishable or
- *   legacy anon) as the `apikey` header (some Supabase deployments require it
- *   on Auth endpoints).
+ *   product-related. Sends only the public low-privilege publishable key as the
+ *   `apikey` header (some Supabase deployments require it on Auth endpoints).
  * - Short timeout via `AbortController`. Any non-2xx, timeout, or thrown error
  *   maps to `'unreachable'`. The raw response body and raw error are never
  *   returned or serialized.

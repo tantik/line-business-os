@@ -56,15 +56,19 @@
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project API URL used by the browser client. | Web app env (public) / Vercel project env | public | now |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | **Preferred** low-privilege browser API key — one `sb_publishable_*` value (current model). Safe **only with RLS**. The public env resolver picks this over the legacy key. | Web app env (public) / Vercel project env (Preview first) | public | now (transition) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Legacy** JWT `anon` key for the browser (safe **only with RLS**). Temporary fallback while Cloud DEV / Vercel migrate to `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`docs/operations/supabase-secret-key-migration-runbook.md`); removed after. At least one of this / the publishable key must be set; publishable wins if both. | Web app env (public) / Vercel project env | public | now (being retired) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | **Required** low-privilege browser API key — one `sb_publishable_*` value (current model). Safe **only with RLS**. The public env resolver requires it and fails closed if unset. | Web app env (public) / Vercel project env | public | now |
 | `SUPABASE_URL` | Supabase project API URL for server code (`apps/api`, `apps/worker`, `packages/db`). | Repo-root `.env` (gitignored) / password manager | secret-adjacent (server) | now |
-| `SUPABASE_PUBLISHABLE_KEY` | **Preferred** low-privilege server API key — one `sb_publishable_*` value. Sent alongside the caller JWT by `createUserClient()`; RLS still applies. `serverEnv().supabaseUserKey` picks this over the legacy key. | Repo-root `.env` (gitignored) | public-equivalent (server) | now (transition) |
-| `SUPABASE_ANON_KEY` | **Legacy** JWT `anon` key for server-side user-context clients. Temporary fallback while Cloud DEV migrates to `SUPABASE_PUBLISHABLE_KEY`; removed after. At least one of this / the publishable key must be set; publishable wins if both. | Repo-root `.env` (gitignored) | public-equivalent (server) | now (being retired) |
-| `SUPABASE_SECRET_KEY` | **Preferred** privileged (RLS-bypassing) Supabase key — one `sb_secret_*` value (current model). **Server-only.** Never import in `apps/web`. `serverEnv()` picks this over the legacy key. | Server secret store / password manager | **secret** | now (transition) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Legacy** JWT `service_role` key. Bypasses RLS. **Server-only.** Temporary fallback while Cloud DEV migrates to `SUPABASE_SECRET_KEY` (`docs/operations/supabase-secret-key-migration-runbook.md`); removed after. At least one of this / `SUPABASE_SECRET_KEY` must be set; if both are set, `SUPABASE_SECRET_KEY` is used and this stays as the untriggered rollback fallback. | Server secret store / password manager | **secret** | now (being retired) |
-| `SUPABASE_SECRET_KEYS` | Edge-Functions-only: JSON object of `sb_secret_*` keys that Supabase injects into a hosted function; the `_shared/supabase-secret-key.ts` resolver uses the `"default"` entry. Not read by any Node/Vercel/CI code. | Supabase Edge Function secrets (managed) | **secret** | now (transition) |
-| `SUPABASE_PUBLISHABLE_KEYS` | Edge-Functions-only: JSON object of `sb_publishable_*` keys Supabase injects into a hosted function; the `_shared/supabase-publishable-key.ts` resolver uses the `"default"` entry for the user-scoped client (caller JWT still the identity; RLS unchanged). Not read by any Node/Vercel/CI code. | Supabase Edge Function env (auto-injected) | public-equivalent | now (transition) |
+| `SUPABASE_PUBLISHABLE_KEY` | **Required** low-privilege server API key — one `sb_publishable_*` value. Sent alongside the caller JWT by `createUserClient()`; RLS still applies. `serverEnv().supabaseUserKey` requires it and fails closed if unset. | Repo-root `.env` (gitignored) | public-equivalent (server) | now |
+| `SUPABASE_SECRET_KEY` | **Required** privileged (RLS-bypassing) Supabase key — one `sb_secret_*` value (current model). **Server-only.** Never import in `apps/web`. `serverEnv()` requires it and fails closed if unset. | Server secret store / password manager | **secret** | now |
+| `SUPABASE_SECRET_KEYS` | Edge-Functions-only: JSON object of `sb_secret_*` keys that Supabase injects into a hosted function; the `_shared/supabase-secret-key.ts` resolver **requires** the `"default"` entry (no legacy fallback). Not read by any Node/Vercel/CI code. | Supabase Edge Function secrets (managed) | **secret** | now |
+| `SUPABASE_PUBLISHABLE_KEYS` | Edge-Functions-only: JSON object of `sb_publishable_*` keys Supabase injects into a hosted function; the `_shared/supabase-publishable-key.ts` resolver **requires** the `"default"` entry for the user-scoped client (caller JWT still the identity; RLS unchanged; no legacy fallback). Not read by any Node/Vercel/CI code. | Supabase Edge Function env (auto-injected) | public-equivalent | now |
+
+> **Legacy retired (Phase 9, Sept 2026):** `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+> `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are no longer read by any
+> active ORUWA runtime/tooling and were removed from the schemas /
+> `.env.example` / `turbo.json`. Cloud DEV's legacy JWT-based API keys are
+> disabled. (The `MAME_TO_CHA_*` deprecated pilot tooling still names its own
+> separate legacy vars — untouched, slated for deletion.)
 | `SUPABASE_PROJECT_REF` | Supabase project reference id (for CLI / Cloud ops). | Password manager / CI secret | secret-adjacent | future |
 | `SUPABASE_DB_PASSWORD` | Database password (cannot be re-read; reset if lost). | Password manager only | **secret** | future |
 | `SUPABASE_ACCESS_TOKEN` | Personal access token for CLI/CI Cloud operations. | Password manager / CI secret only | **secret** | future |
@@ -77,8 +81,8 @@
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Same public Supabase URL, set in the Vercel project. | Vercel project env (public) | public | future |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same public anon key, set in the Vercel project. | Vercel project env (public) | public | future |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key for any server runtime (route handlers / server actions) — only if/when server writes are deployed. **Founder-verified 2026-08: NOT set in the current Vercel project** (Preview uses the anon key + RLS only), so the secret-key migration requires no Vercel change. | Vercel project env (secret, server scope) | **secret** | future |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same public publishable key, set in the Vercel project. | Vercel project env (public) | public | future |
+| `SUPABASE_SECRET_KEY` | Server-only key for any server runtime (route handlers / server actions) — only if/when server writes are deployed. **Founder-verified 2026-08: no privileged key is set in the current Vercel project** (Preview uses the publishable key + RLS only), so the key migration requires no Vercel change. | Vercel project env (secret, server scope) | **secret** | future |
 | Server secrets (`PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `DATABASE_URL`) | Required by any deployed server runtime that touches PII or the DB directly. | Vercel project env (secret, server scope) | **secret** | future |
 
 > When deploying, set public (`NEXT_PUBLIC_*`) and secret variables in the Vercel
@@ -216,9 +220,10 @@ temporarily pointed at local for verification and then **restored to Cloud** fro
 not committed, contains no values in Git).
 
 **Key-type clarity (Stage 3e finding).** For local Auth + Data API checks, use
-the **anon / publishable** key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` /
-`SUPABASE_ANON_KEY`). Do **not** use the **Storage Access Key** (wrong key type)
-and **never** use `SUPABASE_SERVICE_ROLE_KEY` for onboarding or app-facing reads.
+the **publishable** key (`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` /
+`SUPABASE_PUBLISHABLE_KEY`). Do **not** use the **Storage Access Key** (wrong
+key type) and **never** use the privileged `SUPABASE_SECRET_KEY` for onboarding
+or app-facing reads.
 
 **Temporary shell values to clear after a run.** These are set only for the
 duration of a local onboarding run and must be cleared afterward. They hold

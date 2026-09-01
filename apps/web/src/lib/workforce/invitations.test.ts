@@ -13,7 +13,7 @@ import { recordingClient } from './test-helpers.js';
 const TENANT_ID = 'tenant-a';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test-value';
 
 test('listWorkforceEmployeeInvitations maps rows and derives isExpired', async () => {
   const future = new Date(Date.now() + 86_400_000).toISOString();

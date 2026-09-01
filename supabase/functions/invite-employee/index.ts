@@ -11,16 +11,17 @@
 // home for this call.
 //
 // PRIVILEGED KEY: resolved via `_shared/supabase-secret-key.ts` — the current
-// `SUPABASE_SECRET_KEYS["default"]` (an `sb_secret_*` value) when present, with
-// a temporary fallback to the legacy `SUPABASE_SERVICE_ROLE_KEY` JWT during the
-// migration (docs/operations/supabase-secret-key-migration-runbook.md).
+// `SUPABASE_SECRET_KEYS["default"]` (an `sb_secret_*` value), REQUIRED. No
+// legacy `SUPABASE_SERVICE_ROLE_KEY` fallback — Cloud DEV's legacy JWT-based
+// API keys are disabled (Phase 9,
+// docs/operations/supabase-secret-key-migration-runbook.md).
 //
 // USER-SCOPED KEY: the user-scoped client's API key is resolved via
 // `_shared/supabase-publishable-key.ts` — the current
-// `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key when present, with a
-// temporary fallback to the legacy `SUPABASE_ANON_KEY` JWT during the same
-// migration. This is only the application API key; the caller's forwarded JWT
-// is still the identity/auth context and RLS is unchanged.
+// `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key, REQUIRED, no legacy
+// `SUPABASE_ANON_KEY` fallback. This is only the application API key; the
+// caller's forwarded JWT is still the identity/auth context and RLS is
+// unchanged.
 //
 // SECURITY MODEL:
 //   * the privileged key is used for EXACTLY TWO calls: `admin.inviteUserByEmail`
@@ -252,24 +253,21 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !encryptionKey || !siteUrl) {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
-  // Privileged key for the Auth Admin API calls below: current
-  // `SUPABASE_SECRET_KEYS["default"]`, temporary fallback to the legacy
-  // `SUPABASE_SERVICE_ROLE_KEY` during the migration
-  // (docs/operations/supabase-secret-key-migration-runbook.md).
+  // Privileged key for the Auth Admin API calls below: the Supabase-injected
+  // `SUPABASE_SECRET_KEYS["default"]` (`sb_secret_*`). No legacy
+  // `SUPABASE_SERVICE_ROLE_KEY` fallback -- Cloud DEV's legacy JWT-based API
+  // keys are disabled (Phase 9,
+  // docs/operations/supabase-secret-key-migration-runbook.md).
   let privilegedKey: string;
   try {
     const resolved = resolveSupabaseSecretKey({
       SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
-      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     });
-    // Phase C migration diagnostic
-    // (docs/operations/supabase-secret-key-migration-runbook.md): emit ONLY
-    // which source the privileged key resolved from -- the
-    // `SupabaseSecretKeySourceKind` enum, `secret_keys_default` or
-    // `legacy_service_role` -- so the exposed legacy `SUPABASE_SERVICE_ROLE_KEY`
-    // can be disabled once every hosted call is confirmed on the new key.
-    // Never logs the key, any env value, the Authorization header/JWT, the
-    // request body, or any PII (email/tenantId/employeeId).
+    // Migration diagnostic: emit ONLY which source the privileged key resolved
+    // from -- the `SupabaseSecretKeySourceKind` enum (`secret_keys_default`) --
+    // a deployment sanity signal confirming the strict new-key resolver is
+    // live. Never logs the key, any env value, the Authorization header/JWT,
+    // the request body, or any PII (email/tenantId/employeeId).
     console.log(JSON.stringify({
       event: 'invite-employee.privileged_key_source',
       source: resolved.source,
@@ -280,24 +278,21 @@ Deno.serve(async (req: Request) => {
   }
 
   // User-scoped client API key: the Supabase-injected
-  // `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key, with a temporary
-  // fallback to the legacy `SUPABASE_ANON_KEY` during the migration
-  // (docs/operations/supabase-secret-key-migration-runbook.md). This is ONLY
-  // the application's API key -- it is not privileged and does not bypass RLS.
-  // The caller's own JWT (forwarded below as the Authorization header) remains
-  // the identity/auth context; RLS and the permission checks apply unchanged.
+  // `SUPABASE_PUBLISHABLE_KEYS["default"]` publishable key. No legacy
+  // `SUPABASE_ANON_KEY` fallback (Phase 9). This is ONLY the application's API
+  // key -- it is not privileged and does not bypass RLS. The caller's own JWT
+  // (forwarded below as the Authorization header) remains the identity/auth
+  // context; RLS and the permission checks apply unchanged.
   let publishableKey: string;
   try {
     const resolvedPublishable = resolveSupabasePublishableKey({
       SUPABASE_PUBLISHABLE_KEYS: Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'),
-      SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY'),
     });
-    // Migration diagnostic: emit ONLY which source the publishable key
-    // resolved from -- the `SupabasePublishableKeySourceKind` enum,
-    // `publishable_keys_default` or `legacy_anon` -- so the exposed legacy
-    // `SUPABASE_ANON_KEY` path can be confirmed retired once every hosted call
-    // is on the publishable key. Never logs the key, any env value, the
-    // Authorization header/JWT, the request body, or any PII.
+    // Migration diagnostic: emit ONLY which source the publishable key resolved
+    // from -- the `SupabasePublishableKeySourceKind` enum
+    // (`publishable_keys_default`) -- a deployment sanity signal. Never logs the
+    // key, any env value, the Authorization header/JWT, the request body, or
+    // any PII.
     console.log(JSON.stringify({
       event: 'invite-employee.publishable_key_source',
       source: resolvedPublishable.source,

@@ -1,7 +1,10 @@
 # Supabase Legacy JWT API Keys → Current API Key Model — Migration Runbook
 
-- Status: **Active — code compatibility layer for BOTH keys merged/​in-review;
-  Cloud cutover steps not yet run.**
+- Status: **Cloud DEV cutover COMPLETE. Legacy JWT-based `anon` + `service_role`
+  API keys are DISABLED on Cloud DEV. Phase 9 (Sept 2026) removed the legacy
+  fallbacks from active ORUWA code/config/tests — the new API-key model is now
+  MANDATORY.** Remaining: the Mame To Cha tooling deletion (§10) and the
+  independent Production migration (separate, not covered here).
 - Scope: **Cloud DEV only** (`line-business-os-dev` / `pehcoenozjtsjdvjietj`).
   **Production is a separate project (`jsgmmsdkuptdsxtcxhsv`) with its own
   independent keys and is NOT touched or considered migrated by this work.**
@@ -202,29 +205,47 @@ Re-run §3 **and** §4 with the legacy keys gone. Everything must work purely on
 
 ## 9. Rollback
 
-- **Phase 2 fails**: delete `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from Vercel
-  Preview and redeploy — the resolver reverts to `legacy_anon`.
-- **Phase 4 fails**: clear `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY`
-  from the operator `.env`, keep the legacy vars — resolvers fall back with no
-  other change.
-- **Phase 5 fails**: unset/clear `SUPABASE_SECRET_KEYS` (or fix its JSON) — the
-  Edge resolvers revert to the legacy env vars; redeploy.
-- **Phase 7 is the only hard-to-reverse step.** Do not do it until §3/§4 have
-  passed twice and the new keys have baked. If it is done and something breaks,
-  create fresh `sb_publishable_*` / `sb_secret_*` keys rather than trying to
-  un-disable.
+> **After Phase 9 (Sept 2026) the "revert to the legacy env var" rollbacks
+> below no longer apply** — active ORUWA runtime no longer has a legacy
+> fallback. A rollback now means: revert the Phase 9 code PR (restoring the
+> legacy vars in the schemas / resolvers / `.env` / `turbo.json`), redeploy
+> `apps/web` + the Edge functions, AND re-enable the legacy Cloud DEV API keys.
+> Prefer minting fresh `sb_publishable_*` / `sb_secret_*` keys over any of this.
 
-## 10. Phase 9 — cleanup (later, separate PRs)
+- **Phase 2 fails** (pre-Phase-9): delete `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  from Vercel Preview and redeploy — the resolver reverts to `legacy_anon`.
+- **Phase 4 fails** (pre-Phase-9): clear `SUPABASE_PUBLISHABLE_KEY` /
+  `SUPABASE_SECRET_KEY` from the operator `.env`, keep the legacy vars —
+  resolvers fall back with no other change.
+- **Phase 5 fails** (pre-Phase-9): unset/clear `SUPABASE_SECRET_KEYS` (or fix
+  its JSON) — the Edge resolvers revert to the legacy env vars; redeploy.
+- **Phase 7 is the only hard-to-reverse Cloud step.** If something breaks after
+  disable, create fresh `sb_publishable_*` / `sb_secret_*` keys rather than
+  trying to un-disable.
 
-- A follow-up PR removes the legacy branch from
-  `resolveLowPrivilegeSupabaseKey` and `resolveSupabaseSecretKey` /
-  `resolveSupabasePublishableKey`, makes `SUPABASE_PUBLISHABLE_KEY` /
-  `SUPABASE_SECRET_KEY` (and their `NEXT_PUBLIC_` / `_KEYS` forms) required,
-  drops the legacy vars from the schemas, `.env.example`, `turbo.json`, and
-  tightens the ESLint guard message. Only after Cloud DEV has run clean on the
-  new keys for a sensible bake period.
-- **Separately**: delete the deprecated
-  `packages/db/scripts/mame-to-cha-cloud-*` tooling + `MAME_TO_CHA_*` env vars.
+## 10. Phase 9 — remove the legacy fallbacks (DONE, Sept 2026)
+
+- **DONE:** removed the legacy branch from `resolveLowPrivilegeSupabaseKey`,
+  `resolveSupabaseSecretKey`, and `resolveSupabasePublishableKey`; made
+  `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` (and their `NEXT_PUBLIC_` /
+  `_KEYS` forms) **required — fail closed** if unset; dropped the legacy vars
+  from the schemas, `.env.example`, `supabase/functions/.env.example`,
+  `turbo.json`, and the `MissingConfigState` UI copy. `invite-employee` /
+  `liff-entry` Edge resolvers now require `SUPABASE_SECRET_KEYS["default"]` /
+  `SUPABASE_PUBLISHABLE_KEYS["default"]` (malformed / missing `"default"` fails
+  closed). No Edge deploy, no `verify_jwt` change, no invitation-behavior
+  change in that PR.
+- **Local Edge dev note:** `supabase functions serve` no longer works for
+  `invite-employee` / `liff-entry` on the injected legacy vars alone — set
+  `SUPABASE_SECRET_KEYS` and `SUPABASE_PUBLISHABLE_KEYS` (JSON, `"default"`) in
+  `supabase/functions/.env` (see `.env.example` there).
+- **Rollback implication:** re-enabling the legacy Cloud DEV API keys is no
+  longer sufficient on its own — active ORUWA runtime no longer accepts the
+  legacy variable names, so a rollback ALSO requires reverting the Phase 9 code
+  and restoring the legacy vars in the schemas / `.env` / `turbo.json`.
+- **Still deferred — separate PRs:** delete the deprecated
+  `packages/db/scripts/mame-to-cha-cloud-*` tooling + `MAME_TO_CHA_*` env vars
+  (kept, classified as historical, this phase).
 - **Production** (`jsgmmsdkuptdsxtcxhsv`): its own independent audit + migration
   + cutover + acceptance, tracked separately. **Not covered here and not
   implied by any DEV phase above.**

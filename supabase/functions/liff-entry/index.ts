@@ -43,7 +43,8 @@
 //     user id -- only an opaque, single-use `tokenHash` the client
 //     immediately hands to `/auth/liff-callback` (apps/web), which calls
 //     `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` using the
-//     ANON key server-side -- the exact same token_hash/verifyOtp pattern
+//     publishable (low-privilege) key server-side -- the exact same
+//     token_hash/verifyOtp pattern
 //     already proven by `apps/web/src/app/auth/accept-invite/route.ts`, not a
 //     new bespoke session-minting mechanism.
 //
@@ -182,14 +183,17 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !encryptionKey || !hashPepper) {
     return jsonResponse(500, { error: 'missing_configuration' });
   }
-  // Privileged key: current `SUPABASE_SECRET_KEYS["default"]`, with a temporary
-  // fallback to the legacy `SUPABASE_SERVICE_ROLE_KEY` during the migration
-  // (docs/operations/supabase-secret-key-migration-runbook.md).
+  // Privileged key: the Supabase-injected `SUPABASE_SECRET_KEYS["default"]`
+  // (`sb_secret_*`), REQUIRED. No legacy `SUPABASE_SERVICE_ROLE_KEY` fallback --
+  // Cloud DEV's legacy JWT-based API keys are disabled (Phase 9,
+  // docs/operations/supabase-secret-key-migration-runbook.md). This function is
+  // NOT deployed (deferred LINE/LIFF work); it shares the strict resolver for
+  // consistency. Local `supabase functions serve` needs SUPABASE_SECRET_KEYS in
+  // supabase/functions/.env (see .env.example there).
   let privilegedKey: string;
   try {
     privilegedKey = resolveSupabaseSecretKey({
       SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
-      SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     }).key;
   } catch {
     return jsonResponse(500, { error: 'missing_configuration' });
