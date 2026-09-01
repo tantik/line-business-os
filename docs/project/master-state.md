@@ -408,8 +408,10 @@ Milestones that materially change future development speed:
     starts against LOCAL Supabase with no env fail-closed error. **Accepted
     deferred / blocked exceptions (do NOT reopen 3B):** `.env.local.backup`
     intentionally preserved — deletion **BLOCKED** until PII-key recovery is
-    independently proven; `apps/web/.env.local.cloud-backup` unchanged — its
-    Cloud DEV reconciliation belongs to **3C**; root `.env.local` /
+    independently proven; `apps/web/.env.local.cloud-backup` unchanged — 3C
+    verified it holds only browser-public Cloud DEV config; its
+    replacement-or-retirement is a **standalone follow-up** (public-only, not
+    blocking); root `.env.local` /
     `.env.cloud.local` stay **deferred with the non-cloud Mame reconciliation**;
     `apps/web/.env.translation-script.local` **deferred until translation work
     resumes**; `supabase/functions/.env` local completeness **deferred until
