@@ -41,25 +41,12 @@ export function formatIssues(error: z.ZodError): string {
 }
 
 // ---------------------------------------------------------------------------
-// LOW-PRIVILEGE Supabase API key — the ONE place the read/trim rule lives. Both
-// the public schema below and the server schema in `./env.ts` (which re-imports
-// it) use it, so the browser client, server client, middleware, and the Node
-// user client cannot drift apart.
-//
-// The low-privilege key is the app-level key sent ALONGSIDE the caller's own
-// JWT so RLS and permission checks apply unchanged — it is NOT privileged and
-// never bypasses RLS. Phase 9: the current `sb_publishable_*` key is REQUIRED;
-// there is no legacy `anon` fallback. Fail closed (value-free) if it is absent.
+// LOW-PRIVILEGE Supabase API key: the app-level key sent ALONGSIDE the caller's
+// own JWT so RLS and permission checks apply unchanged — NOT privileged, never
+// bypasses RLS. Phase 9: the current `sb_publishable_*` key is REQUIRED (this
+// schema and the server schema in `./env.ts` both `z.string().min(1)` it and
+// fail closed value-free); there is no legacy `anon` fallback.
 // ---------------------------------------------------------------------------
-
-/** Treat `undefined` / empty / whitespace-only as absent; return the trimmed value, else `null`. */
-export function resolveLowPrivilegeSupabaseKey(input: {
-  publishableKey: string | undefined;
-}): string | null {
-  if (typeof input.publishableKey !== 'string') return null;
-  const trimmed = input.publishableKey.trim();
-  return trimmed === '' ? null : trimmed;
-}
 
 /** Treat an unset OR empty/whitespace-only value as absent. */
 const requiredPublicKey = z.preprocess(
@@ -75,14 +62,11 @@ const publicBaseSchema = z.object({
   NEXT_PUBLIC_LIFF_ID: z.string().optional(),
 });
 
-const publicSchema = publicBaseSchema.transform((env) => {
-  // The schema guarantees a non-empty publishable key; trim any surrounding
-  // whitespace for the resolved value.
-  const key = resolveLowPrivilegeSupabaseKey({
-    publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  }) as string;
-  return { ...env, supabasePublishableKey: key };
-});
+const publicSchema = publicBaseSchema.transform((env) => ({
+  ...env,
+  // The schema guarantees a non-empty key; trim any surrounding whitespace.
+  supabasePublishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.trim(),
+}));
 
 export type PublicEnv = z.infer<typeof publicSchema>;
 

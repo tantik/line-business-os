@@ -3,7 +3,6 @@ import {
   type EnvSource,
   type ParseEnvResult,
   formatIssues,
-  resolveLowPrivilegeSupabaseKey,
 } from './env.public.js';
 
 /**
@@ -75,18 +74,13 @@ const serverBaseSchema = z.object({
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
 });
 
-const serverSchema = serverBaseSchema.transform((env) => {
+const serverSchema = serverBaseSchema.transform((env) => ({
+  ...env,
   // The schema guarantees both keys are present and non-empty; trim the
   // low-privilege value's surrounding whitespace for the resolved form.
-  const userKey = resolveLowPrivilegeSupabaseKey({
-    publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
-  }) as string;
-  return {
-    ...env,
-    supabasePrivilegedKey: env.SUPABASE_SECRET_KEY,
-    supabaseUserKey: userKey,
-  };
-});
+  supabasePrivilegedKey: env.SUPABASE_SECRET_KEY,
+  supabaseUserKey: env.SUPABASE_PUBLISHABLE_KEY.trim(),
+}));
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
