@@ -208,10 +208,15 @@ Re-run §3 **and** §4 with the legacy keys gone. Everything must work purely on
 
 > **After Phase 9 (Sept 2026) the "revert to the legacy env var" rollbacks
 > below no longer apply** — active ORUWA runtime no longer has a legacy
-> fallback. A rollback now means: revert the Phase 9 code PR (restoring the
-> legacy vars in the schemas / resolvers / `.env` / `turbo.json`), redeploy
-> `apps/web` + the Edge functions, AND re-enable the legacy Cloud DEV API keys.
-> Prefer minting fresh `sb_publishable_*` / `sb_secret_*` keys over any of this.
+> fallback. Concretely: the current browser/public runtime **requires**
+> `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; if it is missing the config resolver
+> **fails closed** (`readPublicSupabaseEnv()` → `config: missing`), it does
+> **not** fall back to `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Re-adding
+> `NEXT_PUBLIC_SUPABASE_ANON_KEY` alone is **not** a valid rollback — a real
+> rollback means: revert the Phase 9 code PR (restoring the legacy vars in the
+> schemas / resolvers / `.env` / `turbo.json`), redeploy `apps/web` + the Edge
+> functions, AND re-enable the legacy Cloud DEV API keys. Prefer minting fresh
+> `sb_publishable_*` / `sb_secret_*` keys over any of this.
 
 - **Phase 2 fails** (pre-Phase-9): delete `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
   from Vercel Preview and redeploy — the resolver reverts to `legacy_anon`.
@@ -252,6 +257,64 @@ Re-run §3 **and** §4 with the legacy keys gone. Everything must work purely on
 - **Production** (`jsgmmsdkuptdsxtcxhsv`): its own independent audit + migration
   + cutover + acceptance, tracked separately. **Not covered here and not
   implied by any DEV phase above.**
+
+## 11. Step 3C — external verification + Vercel Preview legacy-anon cleanup (Sept 2026)
+
+Part of ENV Cleanup & Consolidation Step 3C (external, non-Production,
+read-only audit + one bounded Founder-approved cleanup).
+
+**External state verified (read-only, names/scope/presence only — no values):**
+
+- Supabase **Cloud DEV** (`pehcoenozjtsjdvjietj`, linked/ACTIVE): publishable
+  and secret key models both AVAILABLE; legacy anon/service_role recorded
+  DISABLED per Phases 7–8 (not independently re-verified in 3C — would require
+  a key readout). Hosted Edge `invite-employee` = ACTIVE v6, `verify_jwt=true`,
+  with the full required secret name set present
+  (`SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`, `PII_ENCRYPTION_KEY`,
+  `SITE_URL`, platform `SUPABASE_URL`). `liff-entry` = NOT DEPLOYED (expected).
+  Edge also carries platform-auto-injected legacy names `SUPABASE_ANON_KEY` /
+  `SUPABASE_SERVICE_ROLE_KEY` — no code consumer, not removable via normal
+  tooling, harmless.
+- **Vercel Preview**: `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  present; Preview `/api/health` = 200 `{app,config,supabase: ok}`; Preview
+  targets Cloud DEV. No privileged Supabase key on any Vercel surface (least
+  privilege upheld). No `MAME_TO_CHA_*` in Vercel or Edge.
+
+**Bounded cleanup — Vercel multi-target ENV incident (Founder-approved intent;
+unintended scope):**
+
+- **Intended:** remove `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the **Vercel Preview
+  scope only** (obsolete after Phase 9; no code consumer).
+- **Actual:** the Vercel var was one record with `target: [production, preview]`.
+  `vercel env rm NEXT_PUBLIC_SUPABASE_ANON_KEY preview` (CLI 59.10.0) deleted
+  the **whole record**, removing it from **Preview and Production**. The CLI
+  `--help` ("Remove a variable from a specific Environment") did not match this
+  behavior.
+- **Impact:** no Production deployment was rebuilt; the currently-served
+  Production build (~15 days old) has the value inlined at build time and was
+  unaffected; no outage observed or claimed. The deleted Production value is
+  **not** recoverable from Vercel and there is no local copy of it (local
+  backups hold the Cloud DEV anon key, a different project).
+- **Founder decision:** **do not restore** `NEXT_PUBLIC_SUPABASE_ANON_KEY` to
+  Vercel Production. It is a deprecated browser credential; Production is not an
+  active commercial environment; restoring it would re-introduce legacy state
+  that a later Production migration would remove again. The deleted key was not
+  inspected, extracted, reconstructed, or restored.
+
+**Production safety gate (canonical):** `NEXT_PUBLIC_SUPABASE_ANON_KEY` is now
+**ABSENT** from Vercel Production. This does **not** mean Production is migrated
+or ready. **A future Production deployment is BLOCKED** until a separate
+Production ENV / API-key readiness review + migration is explicitly approved by
+the Founder.
+
+**Operational lesson — Vercel multi-target ENV records:** never assume
+`vercel env rm <name> <environment>` detaches one target from a shared record;
+it can delete the whole record. Any future Production-sensitive ENV mutation
+requires, in order: (1) read-only inspection of the actual record and its
+target list; (2) verification against current provider documentation;
+(3) proof of the mutation's semantics via a non-sensitive / non-Production
+mechanism where practical; (4) explicit Founder approval; (5) a
+rollback/recovery source established **before** the mutation.
 
 ## Legacy inventory — classification after the code phase
 
