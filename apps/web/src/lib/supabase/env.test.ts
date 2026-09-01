@@ -15,7 +15,7 @@ beforeEach(() => {
   delete process.env[ANON_KEY];
 });
 
-test('publishable key present -> publishable selected', () => {
+test('publishable key present -> resolved', () => {
   process.env[URL_KEY] = VALID_URL;
   process.env[PUBLISHABLE_KEY] = FAKE_PUBLISHABLE;
   const result = readPublicSupabaseEnv();
@@ -23,58 +23,37 @@ test('publishable key present -> publishable selected', () => {
   if (result.ok) {
     assert.equal(result.config.url, VALID_URL);
     assert.equal(result.config.key, FAKE_PUBLISHABLE);
-    assert.equal(result.config.keySource, 'publishable');
   }
 });
 
-test('publishable absent + legacy anon present -> legacy fallback', () => {
+test('legacy anon key alone does NOT satisfy public config -> fail closed', () => {
   process.env[URL_KEY] = VALID_URL;
   process.env[ANON_KEY] = FAKE_ANON;
   const result = readPublicSupabaseEnv();
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.config.key, FAKE_ANON);
-    assert.equal(result.config.keySource, 'legacy_anon');
-  }
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.ok(result.missing.includes(PUBLISHABLE_KEY));
 });
 
-test('both present -> publishable wins', () => {
+test('legacy anon present but publishable also present -> publishable is used', () => {
   process.env[URL_KEY] = VALID_URL;
   process.env[PUBLISHABLE_KEY] = FAKE_PUBLISHABLE;
   process.env[ANON_KEY] = FAKE_ANON;
   const result = readPublicSupabaseEnv();
   assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.config.key, FAKE_PUBLISHABLE);
-    assert.equal(result.config.keySource, 'publishable');
-  }
+  if (result.ok) assert.equal(result.config.key, FAKE_PUBLISHABLE);
 });
 
-test('neither key present -> fail closed, reported by name', () => {
+test('no publishable key present -> fail closed, reported by name', () => {
   process.env[URL_KEY] = VALID_URL;
   const result = readPublicSupabaseEnv();
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.ok(result.missing.includes(PUBLISHABLE_KEY));
-  }
+  if (!result.ok) assert.ok(result.missing.includes(PUBLISHABLE_KEY));
 });
 
-test('whitespace-only publishable key is treated as absent -> legacy fallback', () => {
+test('whitespace-only publishable key is treated as absent -> fail closed', () => {
   process.env[URL_KEY] = VALID_URL;
   process.env[PUBLISHABLE_KEY] = '   ';
   process.env[ANON_KEY] = FAKE_ANON;
-  const result = readPublicSupabaseEnv();
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.config.key, FAKE_ANON);
-    assert.equal(result.config.keySource, 'legacy_anon');
-  }
-});
-
-test('whitespace-only for both keys -> fail closed', () => {
-  process.env[URL_KEY] = VALID_URL;
-  process.env[PUBLISHABLE_KEY] = '  ';
-  process.env[ANON_KEY] = '\t';
   const result = readPublicSupabaseEnv();
   assert.equal(result.ok, false);
 });
@@ -83,9 +62,7 @@ test('readPublicSupabaseEnv reports missing url by name', () => {
   process.env[PUBLISHABLE_KEY] = FAKE_PUBLISHABLE;
   const result = readPublicSupabaseEnv();
   assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.ok(result.missing.includes(URL_KEY));
-  }
+  if (!result.ok) assert.ok(result.missing.includes(URL_KEY));
 });
 
 test('requirePublicSupabaseEnv throws a name-only error, never a key value', () => {
@@ -95,6 +72,7 @@ test('requirePublicSupabaseEnv throws a name-only error, never a key value', () 
     (err: unknown) => {
       assert.ok(err instanceof Error);
       assert.ok(err.message.includes(URL_KEY));
+      assert.ok(err.message.includes(PUBLISHABLE_KEY));
       assert.ok(!err.message.includes(FAKE_ANON));
       assert.ok(!err.message.includes(FAKE_PUBLISHABLE));
       return true;

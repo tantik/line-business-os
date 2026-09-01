@@ -6,8 +6,8 @@
  * (employees, bookings with customer PII) so columns are populated correctly.
  *
  * Usage: pnpm --filter @line-os/db seed
- * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PII_ENCRYPTION_KEY,
- *           PII_HASH_PEPPER in the environment.
+ * Requires: SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_PUBLISHABLE_KEY,
+ *           PII_ENCRYPTION_KEY, PII_HASH_PEPPER in the environment.
  */
 import { serverEnv } from '@line-os/config/env';
 import { createServiceClient } from '../src/client.js';

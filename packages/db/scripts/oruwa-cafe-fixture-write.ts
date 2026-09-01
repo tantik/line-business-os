@@ -9,8 +9,9 @@
  * established in this package. Re-running without `--confirm-apply` is
  * always safe (read-only).
  *
- * CONNECTION -- this targets whatever `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`
- * currently resolve to (local or the linked Cloud dev project), same
+ * CONNECTION -- this targets whatever `SUPABASE_URL` / `SUPABASE_SECRET_KEY` /
+ * `SUPABASE_PUBLISHABLE_KEY` currently resolve to (local or the linked Cloud
+ * dev project), same
  * operator-controlled-target convention as `scripts/seed.ts`. Unlike
  * `onboard-db.ts`/`mame-to-cha-*`, this tool is NOT gated to
  * `assertLocalDatabaseUrl` -- it deliberately targets Cloud (that is the

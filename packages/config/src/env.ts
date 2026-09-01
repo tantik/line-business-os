@@ -2,9 +2,7 @@ import { z } from 'zod';
 import {
   type EnvSource,
   type ParseEnvResult,
-  type LowPrivilegeKeySource,
   formatIssues,
-  resolveLowPrivilegeSupabaseKey,
 } from './env.public.js';
 
 /**
@@ -20,29 +18,19 @@ import {
  *
  * Fail-fast: parsing throws at boot if a required variable is missing.
  *
- * PRIVILEGED SUPABASE KEY (transition, Phase 1 of the legacy-key migration —
- * docs/operations/supabase-secret-key-migration-runbook.md):
- * - `SUPABASE_SECRET_KEY` — the current Supabase model: one `sb_secret_*`
- *   value. PREFERRED.
- * - `SUPABASE_SERVICE_ROLE_KEY` — the legacy JWT service_role key. Accepted as
- *   a TEMPORARY fallback while Cloud DEV is migrated; removed in a later PR.
- * - At least one of the two must be set; SUPABASE_SECRET_KEY is preferred. If
- *   both are set, SUPABASE_SECRET_KEY wins and the legacy key stays as an
- *   untriggered fallback (useful for rollback during the migration).
- *   `serverEnv().supabasePrivilegedKey` resolves it (secret key first);
- *   `supabasePrivilegedKeySource` records which one was used. Both are
- *   RLS-bypassing and server-only.
- *
- * LOW-PRIVILEGE SUPABASE API KEY (same migration, `anon` → publishable):
- * - `SUPABASE_PUBLISHABLE_KEY` — the current model: one `sb_publishable_*`
- *   value. PREFERRED.
- * - `SUPABASE_ANON_KEY` — the legacy `anon` JWT. Accepted as a TEMPORARY
- *   fallback while Cloud DEV is migrated; removed in a later PR.
- * - At least one of the two must be set; publishable is preferred. This is the
- *   app-level key for `createUserClient()` — it is sent ALONGSIDE the caller's
- *   own JWT, so RLS and permission checks are unchanged. It is NOT privileged
- *   and never bypasses RLS. `serverEnv().supabaseUserKey` resolves it;
- *   `supabaseUserKeySource` records which one was used.
+ * SUPABASE API KEYS (Phase 9 of the legacy-key migration —
+ * docs/operations/supabase-secret-key-migration-runbook.md; Cloud DEV's legacy
+ * JWT-based `anon`/`service_role` API keys are disabled):
+ * - `SUPABASE_SECRET_KEY` — the current privileged (RLS-bypassing, server-only)
+ *   key: one `sb_secret_*` value. REQUIRED. `serverEnv().supabasePrivilegedKey`
+ *   exposes it; `createServiceClient()` reads it.
+ * - `SUPABASE_PUBLISHABLE_KEY` — the current low-privilege app key: one
+ *   `sb_publishable_*` value. REQUIRED. It is sent ALONGSIDE the caller's own
+ *   JWT by `createUserClient()`, so RLS and permission checks are unchanged; it
+ *   never bypasses RLS. `serverEnv().supabaseUserKey` exposes it.
+ * - The legacy `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` fallbacks were
+ *   removed in Phase 9. A rollback that re-enables the legacy Cloud keys would
+ *   ALSO need this code reverted.
  */
 
 // Re-export the browser-safe surface unchanged.
@@ -56,9 +44,9 @@ export {
 } from './env.public.js';
 
 /** Treat an unset OR empty/whitespace-only value as absent. */
-const optionalKey = z.preprocess(
+const requiredKey = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
-  z.string().min(1).optional(),
+  z.string().min(1),
 );
 
 const serverBaseSchema = z.object({
@@ -66,15 +54,10 @@ const serverBaseSchema = z.object({
 
   // Supabase / Postgres
   SUPABASE_URL: z.string().url(),
-  // Low-privilege app API key — publishable preferred, legacy `anon` temporary
-  // fallback. Both optional at the field level (empty string == absent); the
-  // object-level check below requires at least one.
-  SUPABASE_PUBLISHABLE_KEY: optionalKey,
-  SUPABASE_ANON_KEY: optionalKey,
-  // Privileged key — see the module header. Both optional at the field level
-  // (empty string == absent); the object-level check below requires at least one.
-  SUPABASE_SECRET_KEY: optionalKey,
-  SUPABASE_SERVICE_ROLE_KEY: optionalKey,
+  // Low-privilege app API key — the current `sb_publishable_*` model, REQUIRED.
+  SUPABASE_PUBLISHABLE_KEY: requiredKey,
+  // Privileged key — the current `sb_secret_*` model, REQUIRED. Server-only.
+  SUPABASE_SECRET_KEY: requiredKey,
   DATABASE_URL: z.string().min(1),
 
   // PII protection
@@ -91,46 +74,13 @@ const serverBaseSchema = z.object({
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
 });
 
-const PRIVILEGED_KEY_MESSAGE =
-  'Set SUPABASE_SECRET_KEY (preferred: an sb_secret_* value) or the legacy SUPABASE_SERVICE_ROLE_KEY. At least one is required; if both are set, SUPABASE_SECRET_KEY is used.';
-
-const LOW_PRIVILEGE_KEY_MESSAGE =
-  'Set SUPABASE_PUBLISHABLE_KEY (preferred: an sb_publishable_* value) or the legacy SUPABASE_ANON_KEY. At least one is required; if both are set, SUPABASE_PUBLISHABLE_KEY is used.';
-
-const serverSchema = serverBaseSchema
-  .superRefine((env, ctx) => {
-    if (!env.SUPABASE_PUBLISHABLE_KEY && !env.SUPABASE_ANON_KEY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['SUPABASE_PUBLISHABLE_KEY'],
-        message: LOW_PRIVILEGE_KEY_MESSAGE,
-      });
-    }
-    if (!env.SUPABASE_SECRET_KEY && !env.SUPABASE_SERVICE_ROLE_KEY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['SUPABASE_SECRET_KEY'],
-        message: PRIVILEGED_KEY_MESSAGE,
-      });
-    }
-  })
-  .transform((env) => {
-    // superRefine guarantees at least one of each pair is present.
-    const usingSecretKey = Boolean(env.SUPABASE_SECRET_KEY);
-    const lowPrivilege = resolveLowPrivilegeSupabaseKey({
-      publishableKey: env.SUPABASE_PUBLISHABLE_KEY,
-      anonKey: env.SUPABASE_ANON_KEY,
-    }) as { key: string; source: LowPrivilegeKeySource };
-    return {
-      ...env,
-      supabasePrivilegedKey: (env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY) as string,
-      supabasePrivilegedKeySource: usingSecretKey
-        ? ('secret_key' as const)
-        : ('legacy_service_role' as const),
-      supabaseUserKey: lowPrivilege.key,
-      supabaseUserKeySource: lowPrivilege.source,
-    };
-  });
+const serverSchema = serverBaseSchema.transform((env) => ({
+  ...env,
+  // The schema guarantees both keys are present and non-empty; trim the
+  // low-privilege value's surrounding whitespace for the resolved form.
+  supabasePrivilegedKey: env.SUPABASE_SECRET_KEY,
+  supabaseUserKey: env.SUPABASE_PUBLISHABLE_KEY.trim(),
+}));
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 

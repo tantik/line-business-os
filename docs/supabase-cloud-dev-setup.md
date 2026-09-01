@@ -146,10 +146,8 @@ manager + the untracked repo-root `.env`; see
 SUPABASE_PROJECT_REF=<supabase-project-ref>
 SUPABASE_DB_PASSWORD=<database-password>
 SUPABASE_URL=<project-api-url>
-SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
-SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
-SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
-SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
+SUPABASE_PUBLISHABLE_KEY=<required-current-sb_publishable_*-key>
+SUPABASE_SECRET_KEY=<required-current-sb_secret_*-key>
 SUPABASE_ACCESS_TOKEN=<personal-access-token-for-ci-only-if-needed-later>
 ```
 
@@ -160,20 +158,20 @@ Where to find each:
 | `SUPABASE_PROJECT_REF` | Project Settings → General (Reference ID) | Also visible in the project URL. |
 | `SUPABASE_DB_PASSWORD` | Set during project creation | Cannot be re-read; reset if lost. Store in a password manager. |
 | `SUPABASE_URL` | Project Settings → API (Project URL) | Public API URL. |
-| `SUPABASE_PUBLISHABLE_KEY` | Project Settings → API Keys (current Publishable key, `sb_publishable_*`) | **Preferred** low-privilege app key. Frontend-safe **only with RLS**. |
-| `SUPABASE_ANON_KEY` | Project Settings → API (legacy anon key) | Legacy fallback during the key migration. Frontend-safe **only with RLS**. |
-| `SUPABASE_SECRET_KEY` | Project Settings → API Keys (current Secret key, `sb_secret_*`) | **Preferred** privileged key. **Server-only.** Bypasses RLS. Never ship to the browser. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API (legacy service_role key) | **Server-only.** Legacy fallback during the secret-key migration. Bypasses RLS. Never ship to the browser. |
+| `SUPABASE_PUBLISHABLE_KEY` | Project Settings → API Keys (Publishable key, `sb_publishable_*`) | **Required** low-privilege app key. Frontend-safe **only with RLS**. |
+| `SUPABASE_SECRET_KEY` | Project Settings → API Keys (Secret key, `sb_secret_*`) | **Required** privileged key. **Server-only.** Bypasses RLS. Never ship to the browser. |
 | `SUPABASE_ACCESS_TOKEN` | Account → Access Tokens | Personal access token for CI **only if needed later**; not required for this phase. |
 
 ## Secret handling rules
 
-- **service_role / secret key is server-only.** It bypasses RLS by design and
-  belongs only in `apps/api`, `apps/worker`, and `packages/db` server contexts.
-  Never import it or read `SUPABASE_SERVICE_ROLE_KEY` in `apps/web`.
-- **anon / publishable key can be used by the frontend only with RLS.** The web
-  app relies on the anon key plus PostgreSQL Row Level Security for tenant
-  isolation — never the service role key.
+- **The secret key is server-only.** It bypasses RLS by design and belongs only
+  in `apps/api`, `apps/worker`, and `packages/db` server contexts. Never import
+  it or read `SUPABASE_SECRET_KEY` in `apps/web`.
+- **The publishable key can be used by the frontend only with RLS.** The web app
+  relies on the publishable key plus PostgreSQL Row Level Security for tenant
+  isolation — never the secret key. (Phase 9, Sept 2026: Cloud DEV's legacy
+  JWT-based `anon`/`service_role` API keys are disabled; the legacy fallbacks
+  were removed from active ORUWA code.)
 - **No real secret is ever committed.** No real project refs, URLs, keys,
   passwords, service-role keys, or access tokens go into git — ever.
 - **The repo-root `.env` must remain untracked.** Keep real generic
@@ -195,10 +193,10 @@ same names with Cloud values supplied at runtime:
 
 ```
 SUPABASE_URL=<project-api-url>
-SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
-SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
-SUPABASE_SECRET_KEY=<preferred-current-sb_secret_*-key>
-SUPABASE_SERVICE_ROLE_KEY=<legacy-service_role-key-fallback-during-migration>
+SUPABASE_PUBLISHABLE_KEY=<required-current-sb_publishable_*-key>
+SUPABASE_SECRET_KEY=<required-current-sb_secret_*-key>
+# Legacy SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY removed in Phase 9
+# (Sept 2026) — Cloud DEV's legacy JWT-based API keys are disabled.
 
 # Used by the Supabase CLI / tooling when (and only when) linking is approved:
 SUPABASE_PROJECT_REF=<supabase-project-ref>
@@ -207,12 +205,11 @@ SUPABASE_ACCESS_TOKEN=<personal-access-token-for-ci-only-if-needed-later>
 
 # Frontend public mirrors (only NEXT_PUBLIC_* reach the browser):
 NEXT_PUBLIC_SUPABASE_URL=<project-api-url>
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<preferred-current-sb_publishable_*-key>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<legacy-anon-key-fallback-during-migration>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<required-current-sb_publishable_*-key>
 ```
 
-> Only the anon/publishable key and URL belong in `NEXT_PUBLIC_*`. The
-> service-role key must never be placed in any `NEXT_PUBLIC_*` variable.
+> Only the publishable key and URL belong in `NEXT_PUBLIC_*`. The secret key
+> must never be placed in any `NEXT_PUBLIC_*` variable.
 
 ## Safe commands after approval
 

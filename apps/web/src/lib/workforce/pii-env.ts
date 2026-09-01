@@ -10,13 +10,13 @@
  * `'use server'` action files or server components, never from client code.
  *
  * Deliberately does NOT import `@line-os/config`'s `serverEnv()`: that schema
- * bundles `PII_ENCRYPTION_KEY`/`PII_HASH_PEPPER` together with
- * `SUPABASE_SERVICE_ROLE_KEY`, and its own doc comment restricts it to
+ * bundles `PII_ENCRYPTION_KEY`/`PII_HASH_PEPPER` together with the privileged
+ * `SUPABASE_SECRET_KEY`, and its own doc comment restricts it to
  * apps/api, apps/worker, packages/db, and packages/line server code --
  * apps/web is not one of them (see CLAUDE.md's "never expose service_role to
  * the frontend or bundle it into apps/web"). Reading these two values
- * independently means apps/web's env surface never has to name
- * `SUPABASE_SERVICE_ROLE_KEY` at all, let alone require it to be set.
+ * independently means apps/web's env surface never has to name the privileged
+ * `SUPABASE_SECRET_KEY` at all, let alone require it to be set.
  *
  * Mirrors `lib/supabase/env.ts`'s non-throwing-read / throwing-require split.
  */

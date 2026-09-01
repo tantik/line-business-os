@@ -57,9 +57,9 @@ export function MissingConfigState() {
     <StateShell title="Configuration required">
       <p style={mutedText}>
         The application is missing required Supabase configuration. Set{' '}
-        <code>NEXT_PUBLIC_SUPABASE_URL</code> and either{' '}
-        <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> (preferred) or{' '}
-        <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> (see <code>.env.example</code>).
+        <code>NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+        <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> (an{' '}
+        <code>sb_publishable_*</code> value; see <code>.env.example</code>).
       </p>
     </StateShell>
   );

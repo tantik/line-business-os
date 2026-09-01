@@ -13,12 +13,12 @@ import type { ReadPublicSupabaseEnvResult } from '../supabase/env.js';
 // Recognizable fakes so the serialization-safety test can prove these values
 // never leak into the response. They are NOT real secrets.
 const FAKE_URL = 'https://fake-project-ref.supabase.co';
-const FAKE_ANON = 'fake.anon.jwtlike.value';
+const FAKE_PUBLISHABLE = 'sb_publishable_fake-value-should-never-leak';
 const FIXED_NOW = new Date('2026-06-26T11:30:00.000Z');
 
 const okEnv = (): ReadPublicSupabaseEnvResult => ({
   ok: true,
-  config: { url: FAKE_URL, key: FAKE_ANON, keySource: 'legacy_anon' },
+  config: { url: FAKE_URL, key: FAKE_PUBLISHABLE },
 });
 const missingEnv = (): ReadPublicSupabaseEnvResult => ({
   ok: false,
@@ -83,7 +83,7 @@ test('supabase probe failure (non-2xx) returns unhealthy (503) and supabase "unr
 });
 
 test('supabase probe throw/timeout maps to "unreachable" (no raw error surfaced)', async () => {
-  const result = await probeSupabaseAuthHealth(FAKE_URL, FAKE_ANON, {
+  const result = await probeSupabaseAuthHealth(FAKE_URL, FAKE_PUBLISHABLE, {
     fetchImpl: fetchThatThrows,
     timeoutMs: 50,
   });
@@ -96,14 +96,14 @@ test('probe hits the auth health path only and sends the apikey header', async (
   const recordingFetch = (async (input: unknown, init?: RequestInit) => {
     calledUrl = String(input);
     const headers = (init?.headers ?? {}) as Record<string, string>;
-    sentApiKey = headers.apikey === FAKE_ANON;
+    sentApiKey = headers.apikey === FAKE_PUBLISHABLE;
     return { ok: true } as Response;
   }) as unknown as typeof fetch;
 
-  const result = await probeSupabaseAuthHealth(FAKE_URL, FAKE_ANON, { fetchImpl: recordingFetch });
+  const result = await probeSupabaseAuthHealth(FAKE_URL, FAKE_PUBLISHABLE, { fetchImpl: recordingFetch });
   assert.equal(result, 'ok');
   assert.equal(calledUrl, `${FAKE_URL}/auth/v1/health`);
-  assert.ok(sentApiKey, 'probe must send the public anon key as the apikey header');
+  assert.ok(sentApiKey, 'probe must send the publishable key as the apikey header');
 });
 
 test('status/code helpers: degraded is 200, unhealthy is 503', () => {
@@ -131,7 +131,7 @@ test('serialized report leaks no secrets, ids, URLs, or tenant data', async () =
 
   // No raw config values.
   assert.ok(!serialized.includes(FAKE_URL), 'must not include the Supabase URL');
-  assert.ok(!serialized.includes(FAKE_ANON), 'must not include the anon key');
+  assert.ok(!serialized.includes(FAKE_PUBLISHABLE), 'must not include the publishable key');
   assert.ok(!/supabase\.co/i.test(serialized), 'must not include any supabase host');
 
   // No service-role references.
