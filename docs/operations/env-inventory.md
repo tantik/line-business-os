@@ -68,13 +68,38 @@ do **not** resolve:
 
 - **Local operator ENV drift** — gitignored files on an operator machine
   (`.env`, `.env.local`, `.env.cloud.local`, `apps/web/.env.local*`,
-  `supabase/functions/.env`, stale `*.backup` / `*.cloud-backup*` files). Some
-  still carry the Phase-9 legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` name or the
-  removed `MAME_TO_CHA_CLOUD_*` names. Reconciling those is a **separate,
-  controlled operator-local task**, not this repository PR.
+  `supabase/functions/.env`, stale `*.backup` / `*.cloud-backup*` files).
+  Reconciling those is a **separate, controlled operator-local task (Step 3B)**,
+  never in a repository PR. Step-3B state (operator machine, 2026-09):
+  - Normal local `apps/web` development targets the **LOCAL Supabase stack**
+    (`pnpm db:start`), per `README.md`. `apps/web/.env.local` requires exactly
+    `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (values
+    from `supabase status` — the local demo stack output, regenerated on
+    restart, not secrets). The legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` is
+    obsolete (Phase 9) and must not appear. `VERCEL_OIDC_TOKEN` is not ORUWA
+    config — the Vercel CLI re-establishes it if ever needed.
+  - `apps/web/.env.local` reconciled to that shape; two obsolete dated
+    `apps/web/.env.local.cloud-backup-2026063*` copies removed.
+  - `apps/web/.env.local.cloud-backup` (non-dated) targets **Cloud DEV** and is
+    **REPLACE PENDING 3C** — obtaining/validating the current Cloud DEV
+    publishable config belongs with external verification.
+  - `.env.local.backup` deletion is **BLOCKED** pending proven `PII_ENCRYPTION_KEY`
+    / `PII_HASH_PEPPER` recovery (no PASS/FAIL PII smoke exists; values not
+    inspectable safely).
+  - Root `.env.local` and `.env.cloud.local` stay **deferred with the non-cloud
+    Mame reconciliation** (their names feed only deferred `mame-to-cha-*` tooling;
+    `MAME_TO_CHA_CLOUD_DATABASE_URL` is still read — fallback-only — by
+    `mame-to-cha-showcase.ts`).
+  - `apps/web/.env.translation-script.local` cleanup is **deferred** (translation
+    generation is not on any active canonical step). Currently configured
+    provider category = `google` (name only; no credential value recorded).
+  - Local `supabase/functions/.env` is **incomplete** relative to
+    `supabase/functions/.env.example` (missing `PII_HASH_PEPPER`,
+    `SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`). Local Edge development
+    is deferred, so this does **not** block Step 3B.
 - **External environment verification** — Vercel Preview/Production and Supabase
-  Cloud DEV/Production variable sets. A **separate future gate**; Production
-  untouched.
+  Cloud DEV/Production variable sets. A **separate future gate (Step 3C)**;
+  Production untouched.
 
 ## 1. Local development
 

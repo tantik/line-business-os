@@ -395,14 +395,20 @@ Milestones that materially change future development speed:
   from the Mame cleanup). **IN PROGRESS**, three bounded substeps:
   - **3A Repository ENV cleanup** — `.env.example` + `docs/operations/env-inventory.md`
     reconciliation, Turbo env/cache correctness, `supabase/functions/.env.example`
-    clarification. **DONE by PR #481 once merged.** Phase-1 audit found no
-    P0/P1 ENV security issue.
-  - **3B Local Operator ENV cleanup** — **TODO.** Gitignored/local ENV drift on
-    the Founder/operator machine: local legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-    references, missing `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the local web
-    env, obsolete `.env.cloud.local`, obsolete local ENV backup/dump files,
-    generic-PII-vs-deferred-Mame local separation where needed. **No local
-    files are changed by PR #481.**
+    clarification. **DONE — PR #481 MERGED; dev baseline after merge = `022a3b7`.**
+    Phase-1 audit found no P0/P1 ENV security issue.
+  - **3B Local Operator ENV cleanup** — **IN PROGRESS.** Gitignored/local ENV
+    files on the operator machine (not in any PR). Done: two obsolete dated
+    `apps/web/.env.local.cloud-backup-2026063*` removed; `apps/web/.env.local`
+    made Phase-9-correct for **LOCAL Supabase** (`NEXT_PUBLIC_SUPABASE_URL` +
+    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    and `VERCEL_OIDC_TOKEN` removed). Deferred / not done: `.env.local.backup`
+    deletion **BLOCKED** pending proven PII-key recovery; root `.env.local` /
+    `.env.cloud.local` stay with the non-cloud Mame reconciliation;
+    `apps/web/.env.local.cloud-backup` = **REPLACE PENDING 3C** (its target is
+    Cloud DEV); `apps/web/.env.translation-script.local` deferred (translation
+    work not active); `supabase/functions/.env` incomplete but local Edge dev
+    deferred. **No local files are changed by any PR.**
   - **3C External ENV verification** — **TODO.** Read-only verification of
     relevant current non-Production environments (Vercel Preview / Supabase
     Cloud DEV / relevant external secret surfaces), as separately authorized
@@ -456,9 +462,9 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    legacy is gone.
 3. **ENV Cleanup & Consolidation** — its own bounded task. **Separate from
    step 2 — do not combine.** **IN PROGRESS** — three substeps:
-   **3A Repository ENV cleanup** (DONE by PR #481 once merged) →
-   **3B Local Operator ENV cleanup** (TODO — the canonical next action after
-   PR #481 merges, *not* Operations) →
+   **3A Repository ENV cleanup** (DONE — PR #481 MERGED, dev baseline `022a3b7`) →
+   **3B Local Operator ENV cleanup** (IN PROGRESS — operator-machine files only,
+   no PR; *not* Operations) →
    **3C External ENV verification** (TODO — read-only, non-Production).
    Step 3 CLOSED only after 3A + 3B + 3C accepted. Deferred and **outside**
    Step 3 completion criteria: `env-registry.yaml` / registry sync test,
@@ -576,8 +582,11 @@ LAST CLOSED:
 
 CURRENT:
   Step 3 ENV Cleanup & Consolidation — IN PROGRESS. 3A Repository ENV cleanup
-  in review (PR #481, not merged); 3B Local Operator ENV cleanup + 3C External
-  ENV verification both TODO. Step 3 not CLOSED. Step 2 Mame cleanup:
+  DONE (PR #481 merged; dev baseline after merge = 022a3b7). 3B Local Operator
+  ENV cleanup IN PROGRESS (repo-doc PR open; two obsolete dated local backups
+  removed + apps/web/.env.local made Phase-9-correct for LOCAL Supabase on the
+  operator machine — outside the PR). 3C External ENV verification TODO. Step 3
+  not CLOSED; Operations (step 4) remains blocked. Step 2 Mame cleanup:
   Cloud-specific part DONE (PR #480 merged), non-cloud family deferred.
   Master State Checkpoint #1 + CTO Context #1 canonical documents. Repo on dev
   (>= 615925e), clean, CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations
@@ -589,8 +598,8 @@ CURRENT:
 NEXT (canonical sequence, §14 — each step on its own Founder prompt):
   1 docs reconciliation → 2 Mame To Cha tooling cleanup (Cloud-specific part
   DONE; non-cloud family deferred) → 3 ENV Cleanup & Consolidation IN PROGRESS
-  [3A repo cleanup = PR #481 in review → 3B local-operator ENV cleanup (next
-  action after #481, NOT Operations) → 3C external ENV verification, read-only]
+  [3A repo cleanup = PR #481 MERGED → 3B local-operator ENV cleanup IN PROGRESS
+  (NOT Operations) → 3C external ENV verification, read-only]
   → 4 Operations Cloud module-ON smoke (blocked until 3A+3B+3C closed) →
   5 Operations Manager/Staff UI → 6 Cafe HACCP presets → 7 WP1 acceptance →
   8-9 WP2 Issues & Handover (+acceptance) → 10-11 WP3 Owner Weekly Review →
