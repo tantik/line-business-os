@@ -100,6 +100,9 @@ select set_config('smoke.l_other',    '5b0a0000-0000-4000-a000-000000000002', tr
 select set_config('smoke.t_disabled', '5b0a0000-0000-4000-b000-000000000000', true);
 select set_config('smoke.l_disabled', '5b0a0000-0000-4000-b000-000000000001', true);
 select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', true);
+select set_config('smoke.t_enabled2', '5b0a0000-0000-4000-c000-000000000000', true);
+select set_config('smoke.l_enabled2', '5b0a0000-0000-4000-c000-000000000001', true);
+select set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', true);
 \o
 
 -- ==========================================================================
@@ -117,11 +120,11 @@ select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', tr
 -- `jwt_secret` or any other column.
 --
 -- Decision (FAIL CLOSED):
---   * known Production ref observed anywhere      -> FAIL
---   * any observed ref <> expected Cloud DEV ref  -> FAIL
---   * expected Cloud DEV ref observed             -> PASS
---   * only the local sentinel observed + allow_local=1 -> PASS (local mirror)
---   * nothing observed / cannot prove             -> FAIL
+--   * known Production ref on ANY signal                    -> FAIL
+--   * an AUTHORITATIVE signal (S1/S3) <> expected Cloud DEV -> FAIL
+--   * expected Cloud DEV ref on S1/S3 OR corroborated by S2 -> PASS
+--   * only the local sentinel + allow_local=1               -> PASS (local mirror)
+--   * nothing provable                                      -> FAIL
 -- ==========================================================================
 do $$
 declare
@@ -129,7 +132,8 @@ declare
   v_prod     text := current_setting('smoke.known_prod_ref');
   v_allow_local boolean := current_setting('smoke.allow_local') = '1';
   v_s1 text; v_s2 text; v_s3 text;
-  v_refs text[] := '{}';
+  v_auth text[] := '{}';   -- authoritative ref claims (S1 pooler user, S3 GUC)
+  v_s2arr text[] := '{}';  -- corroborating _realtime external_id values
   v_is_local boolean := false;
   r text;
 begin
@@ -153,41 +157,49 @@ begin
     v_s3 := null;
   end;
 
-  -- v_s2 may be a comma-joined list of external_ids; S1/S3 are single values.
-  foreach r in array (
-    coalesce(string_to_array(v_s2, ','), '{}')
-    || case when v_s1 is null then '{}'::text[] else array[v_s1] end
-    || case when v_s3 is null then '{}'::text[] else array[v_s3] end
-  ) loop
-    r := btrim(r);
-    if r is null or r = '' then continue; end if;
-    if r = 'realtime-dev' then
-      v_is_local := true;
-    elsif not (r = any (v_refs)) then
-      v_refs := v_refs || r;
-    end if;
-  end loop;
+  -- AUTHORITATIVE ref claims: only the pooler username (strict format) and an
+  -- explicit GUC. A mismatch here means "wrong target" -> abort.
+  if v_s1 is not null then v_auth := v_auth || v_s1; end if;
+  if v_s3 is not null then v_auth := v_auth || v_s3; end if;
 
-  -- Hard stops
-  if v_prod = any (v_refs) then
-    raise exception 'CLOUD_TARGET = FAIL: target names the known PRODUCTION project ref — refusing to mutate. (signals: user=%, realtime=%, guc=%)',
+  -- S2 (_realtime.tenants) is a CORROBORATING signal only: it can positively
+  -- confirm the expected ref, and it always trips the Production tripwire, but
+  -- an unexpected S2 value never by itself aborts a run whose pooler username
+  -- is correct (defends against Realtime storing a project *name* / suffix).
+  v_s2arr := array(select btrim(x) from unnest(coalesce(string_to_array(v_s2, ','), '{}')) x where btrim(x) <> '');
+  if 'realtime-dev' = any (v_s2arr) then v_is_local := true; end if;
+
+  -- (1) PRODUCTION tripwire — on every signal, authoritative or not.
+  if v_prod = any (v_auth) or v_prod = any (v_s2arr) then
+    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (user=%, realtime=%, guc=%)',
       coalesce(v_s1,'-'), coalesce(v_s2,'-'), coalesce(v_s3,'-');
   end if;
 
-  foreach r in array v_refs loop
+  -- (2) authoritative-signal mismatch — wrong Cloud target.
+  foreach r in array v_auth loop
     if r <> v_expected then
-      raise exception 'CLOUD_TARGET = FAIL: target names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', r, v_expected;
+      raise exception 'CLOUD_TARGET = FAIL: an authoritative signal names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', r, v_expected;
     end if;
   end loop;
 
-  if v_expected = any (v_refs) then
-    raise notice 'CLOUD_TARGET = PASS (Cloud DEV project ref confirmed database-side: % signal(s))', array_length(v_refs, 1);
+  -- (2b) contradiction — local sentinel present alongside a foreign project ref.
+  if v_is_local then
+    foreach r in array v_s2arr loop
+      if r <> 'realtime-dev' and r <> v_expected then
+        raise exception 'CLOUD_TARGET = FAIL: _realtime.tenants holds both the local sentinel and a foreign project ref "%" — cannot classify the target, refusing to mutate.', r;
+      end if;
+    end loop;
+  end if;
+
+  -- (3) decide (fail closed)
+  if v_expected = any (v_auth) or v_expected = any (v_s2arr) then
+    raise notice 'CLOUD_TARGET = PASS (Cloud DEV project ref % confirmed database-side)', v_expected;
   elsif v_is_local and v_allow_local then
     raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — this is the LOCAL MIRROR run, not Cloud DEV';
   elsif v_is_local then
-    raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 to run the local mirror, or connect to Cloud DEV via the Session pooler.';
+    raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 for the local mirror, or connect to Cloud DEV via the Session pooler.';
   else
-    raise exception 'CLOUD_TARGET = FAIL: could not prove the target project database-side (no pooler username, no readable _realtime.tenants, no project_ref GUC). Connect through the Supabase Session pooler so current_user = postgres.<project_ref>.';
+    raise exception 'CLOUD_TARGET = FAIL: could not prove the target project database-side (no pooler username of the form postgres.<project_ref>, no readable _realtime.tenants, no project_ref GUC). Connect through the Supabase Session pooler.';
   end if;
 end $$;
 
@@ -263,28 +275,38 @@ begin
     (current_setting('smoke.u_manager')::uuid,  'SMOKE Operations Manager (synthetic, rolled back)'),
     (current_setting('smoke.u_employee')::uuid, 'SMOKE Operations Employee (synthetic, rolled back)'),
     (current_setting('smoke.u_other')::uuid,    'SMOKE other-location Manager (synthetic, rolled back)'),
-    (current_setting('smoke.u_dis_mgr')::uuid,  'SMOKE Disabled-tenant Manager (synthetic, rolled back)');
+    (current_setting('smoke.u_dis_mgr')::uuid,  'SMOKE Disabled-tenant Manager (synthetic, rolled back)'),
+    (current_setting('smoke.u_mgr2')::uuid,     'SMOKE second-enabled-tenant Manager (synthetic, rolled back)');
 
   insert into core.tenants (id, slug, name, kind) values
     (current_setting('smoke.t_disabled')::uuid,
      'smoke-operations-disabled-'||substr(md5(random()::text),1,8),
-     'SMOKE disabled tenant (synthetic, rolled back)', 'demo');
+     'SMOKE disabled tenant (synthetic, rolled back)', 'demo'),
+    (current_setting('smoke.t_enabled2')::uuid,
+     'smoke-operations-enabled2-'||substr(md5(random()::text),1,8),
+     'SMOKE second enabled tenant (synthetic, rolled back)', 'demo');
   insert into core.locations (id, tenant_id, name, timezone) values
     (current_setting('smoke.l_disabled')::uuid, current_setting('smoke.t_disabled')::uuid, 'SMOKE disabled / L1', 'Asia/Tokyo'),
-    (current_setting('smoke.l_other')::uuid,    v_tenant,                                   'SMOKE other location / L2 (synthetic, rolled back)', 'Asia/Tokyo');
+    (current_setting('smoke.l_enabled2')::uuid, current_setting('smoke.t_enabled2')::uuid, 'SMOKE enabled2 / L1', 'Asia/Tokyo'),
+    (current_setting('smoke.l_other')::uuid,    v_tenant,                                  'SMOKE other location / L2 (synthetic, rolled back)', 'Asia/Tokyo');
 
   insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
     (v_tenant, current_setting('smoke.u_manager')::uuid,  '00000000-0000-0000-0000-000000000005', null),
     (v_tenant, current_setting('smoke.u_employee')::uuid, '00000000-0000-0000-0000-000000000006', v_loc),
     (v_tenant, current_setting('smoke.u_other')::uuid,    '00000000-0000-0000-0000-000000000005', current_setting('smoke.l_other')::uuid),
-    (current_setting('smoke.t_disabled')::uuid, current_setting('smoke.u_dis_mgr')::uuid, '00000000-0000-0000-0000-000000000005', null);
+    (current_setting('smoke.t_disabled')::uuid, current_setting('smoke.u_dis_mgr')::uuid, '00000000-0000-0000-0000-000000000005', null),
+    (current_setting('smoke.t_enabled2')::uuid, current_setting('smoke.u_mgr2')::uuid,    '00000000-0000-0000-0000-000000000005', null);
 
   -- The synthetic "disabled" tenant carries an EXPLICIT is_enabled = false row
   -- (not a missing row) so Scenario B exercises the real ON->OFF toggle path,
   -- the one the runbook's persistent enable/disable snippet relies on. (The
   -- missing-row fail-closed branch is covered by the local pgTAP, tenant NIL.)
   insert into core.tenant_modules (tenant_id, module, is_enabled) values
-    (current_setting('smoke.t_disabled')::uuid, 'operations', false);
+    (current_setting('smoke.t_disabled')::uuid, 'operations', false),
+    -- t_enabled2: Operations ON, but the smoke Manager has NO role in it — used
+    -- by Scenario C to prove cross-tenant write denial by PERMISSION/RLS, past
+    -- the module gate (which the disabled tenant would trip first).
+    (current_setting('smoke.t_enabled2')::uuid, 'operations', true);
 end $$;
 
 -- --------------------------------------------------------------------------
@@ -323,6 +345,18 @@ exception when others then
   return 'ERR:'||sqlerrm;
 end $$;
 
+-- Same, but a path that is EXPECTED to succeed: turn an unexpected error into a
+-- named "<label> = FAIL (...)" diagnostic instead of an opaque ::int cast error.
+create or replace function pg_temp.as_auth_ok(p_sub text, p_sql text, p_label text)
+returns text language plpgsql as $$
+declare r text := pg_temp.as_auth(p_sub, p_sql);
+begin
+  if r like 'ERR:%' then
+    raise exception '% = FAIL (unexpected error on a path that must succeed): %', p_label, r;
+  end if;
+  return r;
+end $$;
+
 -- ==========================================================================
 -- SCENARIO A — ENABLED_TENANT
 -- ==========================================================================
@@ -332,22 +366,31 @@ declare
   v_mgr text := current_setting('smoke.u_manager');
   v_before int; v_after int; v_res text;
 begin
-  v_before := pg_temp.as_auth(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t))::int;
+  v_before := pg_temp.as_auth_ok(v_mgr,
+    format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t),
+    'ENABLED_TENANT')::int;
 
   v_res := pg_temp.as_auth(v_mgr, format($f$ select (api.operations_create_template(%L,'SMOKE A/ENABLED template',null,'Smoke',null))::text $f$, v_t));
   if v_res like 'ERR:%' then raise exception 'ENABLED_TENANT = FAIL: manager could not create a template: %', v_res; end if;
 
-  v_after := pg_temp.as_auth(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t))::int;
+  v_after := pg_temp.as_auth_ok(v_mgr,
+    format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t),
+    'ENABLED_TENANT')::int;
   if v_after <> v_before + 1 then raise exception 'ENABLED_TENANT = FAIL: template count % -> % (expected +1)', v_before, v_after; end if;
 
-  v_res := pg_temp.as_auth(v_mgr, $f$ select count(*)::int::text from api.operations_expected_tasks(current_date, current_date) $f$);
-  if v_res like 'ERR:%' then raise exception 'ENABLED_TENANT = FAIL: api.operations_expected_tasks errored: %', v_res; end if;
+  perform pg_temp.as_auth_ok(v_mgr,
+    $f$ select count(*)::int::text from api.operations_expected_tasks(current_date, current_date) $f$,
+    'ENABLED_TENANT');
 
   raise notice 'ENABLED_TENANT = PASS (templates % -> %, expected_tasks callable)', v_before, v_after;
 end $$;
 
 -- ==========================================================================
 -- SCENARIO B — DISABLED_TENANT  (enforced, not merely hidden)
+--   The disabled tenant's Manager genuinely holds the manager role there, so
+--   the ONLY thing standing between him and the data is the module gate — that
+--   is exactly what must fail closed here. Read is checked through both the
+--   api.* facade AND the base table (RLS, not just the view).
 -- ==========================================================================
 do $$
 declare
@@ -355,38 +398,58 @@ declare
   v_mgr text := current_setting('smoke.u_dis_mgr');
   v_cnt int; v_res text;
 begin
-  v_cnt := pg_temp.as_auth(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_dis))::int;
+  v_cnt := pg_temp.as_auth_ok(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_dis), 'DISABLED_TENANT')::int;
   if v_cnt <> 0 then raise exception 'DISABLED_TENANT = FAIL: disabled-tenant manager sees % templates via api facade', v_cnt; end if;
+
+  v_cnt := pg_temp.as_auth_ok(v_mgr, format($f$ select count(*)::int from operations.checklist_templates where tenant_id = %L $f$, v_dis), 'DISABLED_TENANT')::int;
+  if v_cnt <> 0 then raise exception 'DISABLED_TENANT = FAIL: disabled-tenant manager sees % templates via the base table (RLS)', v_cnt; end if;
 
   v_res := pg_temp.as_auth(v_mgr, format($f$ select (api.operations_create_template(%L,'should fail',null,null,null))::text $f$, v_dis));
   if v_res <> 'ERR:operations_module_disabled' then
     raise exception 'DISABLED_TENANT = FAIL: write RPC returned "%" (expected ERR:operations_module_disabled)', v_res;
   end if;
 
-  raise notice 'DISABLED_TENANT = PASS (explicit is_enabled=false: no read; write RPC fails closed: operations_module_disabled)';
+  raise notice 'DISABLED_TENANT = PASS (explicit is_enabled=false: no facade read, no base-table read, write RPC fails closed)';
 end $$;
 
 -- ==========================================================================
 -- SCENARIO C — CROSS_TENANT_ISOLATION  (same path an app uses)
+--   Cross-tenant WRITE is proven against t_enabled2 (Operations ON, but the
+--   smoke Manager has no role there) so the denial comes from PERMISSION/RLS,
+--   past the module gate — not from the module gate a disabled tenant trips
+--   first. A raw INSERT is the RLS WITH CHECK backstop.
 -- ==========================================================================
 do $$
 declare
-  v_t   uuid := current_setting('smoke.tenant')::uuid;
-  v_dis uuid := current_setting('smoke.t_disabled')::uuid;
-  v_mgr text := current_setting('smoke.u_manager');
+  v_t    uuid := current_setting('smoke.tenant')::uuid;
+  v_dis  uuid := current_setting('smoke.t_disabled')::uuid;
+  v_en2  uuid := current_setting('smoke.t_enabled2')::uuid;
+  v_mgr  text := current_setting('smoke.u_manager');
   v_cnt int; v_all int; v_res text;
 begin
-  v_cnt := pg_temp.as_auth(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_dis))::int;
+  -- no cross-tenant READ (both an unrelated OFF tenant and an unrelated ON tenant)
+  v_cnt := pg_temp.as_auth_ok(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id in (%L,%L) $f$, v_dis, v_en2), 'CROSS_TENANT_ISOLATION')::int;
   if v_cnt <> 0 then raise exception 'CROSS_TENANT_ISOLATION = FAIL: smoke manager sees % rows of another tenant', v_cnt; end if;
 
-  v_all := pg_temp.as_auth(v_mgr, $f$ select count(*)::int from api.operations_templates $f$)::int;
-  v_cnt := pg_temp.as_auth(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id <> %L $f$, v_t))::int;
+  v_all := pg_temp.as_auth_ok(v_mgr, $f$ select count(*)::int from api.operations_templates $f$, 'CROSS_TENANT_ISOLATION')::int;
+  v_cnt := pg_temp.as_auth_ok(v_mgr, format($f$ select count(*)::int from api.operations_templates where tenant_id <> %L $f$, v_t), 'CROSS_TENANT_ISOLATION')::int;
   if v_cnt <> 0 then raise exception 'CROSS_TENANT_ISOLATION = FAIL: unfiltered read leaked % non-smoke rows (of % total)', v_cnt, v_all; end if;
 
-  v_res := pg_temp.as_auth(v_mgr, format($f$ select (api.operations_create_template(%L,'cross-tenant',null,null,null))::text $f$, v_dis));
-  if v_res not like 'ERR:%' then raise exception 'CROSS_TENANT_ISOLATION = FAIL: smoke manager created a template for another tenant (got "%")', v_res; end if;
+  -- cross-tenant WRITE via the sanctioned RPC, into an Operations-ON tenant:
+  -- must be denied by permission (not by the module gate).
+  v_res := pg_temp.as_auth(v_mgr, format($f$ select (api.operations_create_template(%L,'cross-tenant',null,null,null))::text $f$, v_en2));
+  if v_res <> 'ERR:operations_permission_denied' then
+    raise exception 'CROSS_TENANT_ISOLATION = FAIL: cross-tenant create into an ON tenant returned "%" (expected ERR:operations_permission_denied)', v_res;
+  end if;
 
-  raise notice 'CROSS_TENANT_ISOLATION = PASS (no cross read, no cross write; % smoke rows visible)', v_all;
+  -- raw INSERT backstop — RLS WITH CHECK must reject it too. `returning` lets
+  -- as_auth capture a value on success (=> FAIL) vs an RLS exception (=> ERR:).
+  v_res := pg_temp.as_auth(v_mgr, format($f$ insert into operations.checklist_templates (tenant_id, location_id, name) values (%L, null, 'raw cross-tenant') returning tenant_id::text $f$, v_en2));
+  if v_res not like 'ERR:%' then
+    raise exception 'CROSS_TENANT_ISOLATION = FAIL: raw cross-tenant INSERT was NOT rejected (got "%")', v_res;
+  end if;
+
+  raise notice 'CROSS_TENANT_ISOLATION = PASS (no cross read; cross write denied by permission + RLS; % smoke rows visible)', v_all;
 end $$;
 
 -- ==========================================================================
@@ -396,18 +459,19 @@ do $$
 declare
   v_t   uuid := current_setting('smoke.tenant')::uuid;
   v_emp text := current_setting('smoke.u_employee');
-  v_read int; v_res text; v_resolve int; v_execute int;
+  v_res text; v_resolve int; v_execute int;
 begin
-  v_read := pg_temp.as_auth(v_emp, format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t))::int;
-  if v_read < 1 then raise exception 'ROLE_BOUNDARY = FAIL: employee with task.read sees % tenant-wide templates (expected >= 1)', v_read; end if;
+  perform pg_temp.as_auth_ok(v_emp,
+    format($f$ select count(*)::int::text from api.operations_templates where tenant_id = %L $f$, v_t),
+    'ROLE_BOUNDARY');
 
   v_res := pg_temp.as_auth(v_emp, format($f$ select (api.operations_create_template(%L,'by employee',null,null,null))::text $f$, v_t));
   if v_res <> 'ERR:operations_permission_denied' then
     raise exception 'ROLE_BOUNDARY = FAIL: employee create-template returned "%" (expected ERR:operations_permission_denied)', v_res;
   end if;
 
-  v_resolve := pg_temp.as_auth(v_emp, format($f$ select (core.has_permission_in_tenant(%L,'operations.exception.resolve'))::int $f$, v_t))::int;
-  v_execute := pg_temp.as_auth(v_emp, format($f$ select (core.has_permission_in_tenant(%L,'operations.task.execute'))::int $f$, v_t))::int;
+  v_resolve := pg_temp.as_auth_ok(v_emp, format($f$ select (core.has_permission_in_tenant(%L,'operations.exception.resolve'))::int $f$, v_t), 'ROLE_BOUNDARY')::int;
+  v_execute := pg_temp.as_auth_ok(v_emp, format($f$ select (core.has_permission_in_tenant(%L,'operations.task.execute'))::int $f$, v_t), 'ROLE_BOUNDARY')::int;
   if v_resolve <> 0 then raise exception 'ROLE_BOUNDARY = FAIL: employee holds operations.exception.resolve'; end if;
   if v_execute <> 1 then raise exception 'ROLE_BOUNDARY = FAIL: employee does NOT hold operations.task.execute'; end if;
 
@@ -425,15 +489,16 @@ declare
   v_other text := current_setting('smoke.u_other');
   v_tmpl text; v_seen int; v_upd text; v_name text;
 begin
-  v_tmpl := pg_temp.as_auth(v_mgr, format($f$ select (api.operations_create_template(%L,'SMOKE L1-scoped template',%L,'Closing',null))::text $f$, v_t, v_loc));
-  if v_tmpl like 'ERR:%' then raise exception 'LOCATION_BOUNDARY = FAIL: could not create a location-scoped template: %', v_tmpl; end if;
+  v_tmpl := pg_temp.as_auth_ok(v_mgr,
+    format($f$ select (api.operations_create_template(%L,'SMOKE L1-scoped template',%L,'Closing',null))::text $f$, v_t, v_loc),
+    'LOCATION_BOUNDARY');
 
-  v_seen := pg_temp.as_auth(v_other, format($f$ select count(*)::int from api.operations_templates where template_id = %L $f$, v_tmpl))::int;
+  v_seen := pg_temp.as_auth_ok(v_other, format($f$ select count(*)::int from api.operations_templates where template_id = %L $f$, v_tmpl), 'LOCATION_BOUNDARY')::int;
   if v_seen <> 0 then raise exception 'LOCATION_BOUNDARY = FAIL: an L2-only manager can see the L1-scoped template'; end if;
 
   -- UPDATE on operations.checklist_templates is already granted to `authenticated`
   -- by migration 0105; RLS is the boundary under test here.
-  v_upd := pg_temp.as_auth(v_other, format($f$ with u as (update operations.checklist_templates set name='hijacked' where id = %L returning 1) select count(*)::int::text from u $f$, v_tmpl));
+  v_upd := pg_temp.as_auth_ok(v_other, format($f$ with u as (update operations.checklist_templates set name='hijacked' where id = %L returning 1) select count(*)::int::text from u $f$, v_tmpl), 'LOCATION_BOUNDARY');
   if v_upd <> '0' then raise exception 'LOCATION_BOUNDARY = FAIL: L2-only manager updated % rows of the L1-scoped template (expected 0)', v_upd; end if;
 
   select name into v_name from operations.checklist_templates where id = v_tmpl::uuid;

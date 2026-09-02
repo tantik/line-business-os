@@ -3,22 +3,30 @@
 -- ----------------------------------------------------------------------------
 -- Run with:  pnpm exec supabase db reset && pnpm exec supabase test db
 --
--- This is the LOCAL mirror of the Cloud DEV "Operations module-ON smoke"
--- (Step 4, docs/operations/operations-cloud-dev-module-on-smoke-runbook.md).
--- It does NOT re-prove the full Operations engine (0046-0051 already do that);
--- it frames the Step 4 acceptance scenarios A-E + the mandatory negative
--- enforcement tests as one categorical matrix, on a fixture shaped like the
--- Cloud DEV smoke tenants:
+-- LOCAL mirror of the Cloud DEV "Operations module-ON smoke" (Step 4,
+-- docs/operations/operations-cloud-dev-module-on-smoke-runbook.md). It does NOT
+-- re-prove the full Operations engine (0046-0051 do that) — it frames the
+-- Step 4 acceptance scenarios A-E + the mandatory negative enforcement tests as
+-- one categorical matrix, on a fixture shaped like the Cloud DEV smoke tenants:
 --
---   smoke-tenant-b   : Operations ENABLED   (core.tenant_modules is_enabled = true)
---   smoke-tenant-off : Operations row EXISTS but is_enabled = false
---   smoke-tenant-nil : NO core.tenant_modules operations row at all (fail-closed)
+--   tenant B    : Operations ENABLED   (core.tenant_modules is_enabled = true)
+--   tenant E    : Operations ENABLED   (a SECOND enabled tenant, for the
+--                 cross-tenant WRITE test — denial must come from permission/
+--                 RLS, past the module gate)
+--   tenant OFF  : Operations row EXISTS but is_enabled = false
+--   tenant NIL  : NO core.tenant_modules operations row at all (fail-closed)
 --
 -- Every application-facing assertion runs as a real `authenticated` role-hop
 -- (set role authenticated + request.jwt.claim.sub), i.e. the exact path the
 -- Next.js Server Action -> api.* facade uses. Fixture setup runs as the test
 -- superuser and is NOT the mechanism under test (Step 4 §13:
 -- "fixture setup privilege != application runtime privilege").
+--
+-- TEMPLATE COUNTS (deterministic, top-to-bottom execution):
+--   tenant B fixture templates: b1 (tenant-wide), b3 (tenant-wide), b2 (L2-scoped)
+--   Scenario A additionally creates ONE template scoped to a 3rd B location
+--   (b/L3) that NO test actor is assigned to — so it is visible only to the
+--   tenant-wide manager and never perturbs the D/E counts.
 --
 -- SCENARIO A  — ENABLED_TENANT       : entitled tenant can read + write Operations
 -- SCENARIO B  — DISABLED_TENANT      : OFF / missing row is enforced, not just hidden
@@ -38,17 +46,21 @@ select no_plan();
 -- --- Fixtures (superuser — bypasses RLS; this is setup, not the test) -----
 insert into core.tenants (id, slug, name) values
   ('50b00000-0000-0000-0000-000000000000', 'pgtap-smoke-tenant-b',   'pgTAP Smoke Tenant B (ops ON)'),
+  ('50e00000-0000-0000-0000-000000000000', 'pgtap-smoke-tenant-e',   'pgTAP Smoke Tenant E (ops ON, unrelated)'),
   ('50f00000-0000-0000-0000-000000000000', 'pgtap-smoke-tenant-off', 'pgTAP Smoke Tenant OFF (row, disabled)'),
   ('50000000-0000-0000-0000-000000000000', 'pgtap-smoke-tenant-nil', 'pgTAP Smoke Tenant NIL (no module row)');
 
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('50b00000-0000-0000-0000-000000000000', 'operations', true),
+  ('50e00000-0000-0000-0000-000000000000', 'operations', true),
   ('50f00000-0000-0000-0000-000000000000', 'operations', false);
 -- tenant NIL: deliberately no operations row.
 
 insert into core.locations (id, tenant_id, name, timezone) values
   ('50b10000-0000-0000-0000-000000000001', '50b00000-0000-0000-0000-000000000000', 'Smoke Cafe B / L1', 'Asia/Tokyo'),
   ('50b10000-0000-0000-0000-000000000002', '50b00000-0000-0000-0000-000000000000', 'Smoke Cafe B / L2', 'Asia/Tokyo'),
+  ('50b10000-0000-0000-0000-000000000003', '50b00000-0000-0000-0000-000000000000', 'Smoke Cafe B / L3', 'Asia/Tokyo'),
+  ('50e10000-0000-0000-0000-000000000001', '50e00000-0000-0000-0000-000000000000', 'Cafe E / L1',       'Asia/Tokyo'),
   ('50f10000-0000-0000-0000-000000000001', '50f00000-0000-0000-0000-000000000000', 'OFF Cafe / L1',     'Asia/Tokyo'),
   ('50010000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000000', 'NIL Cafe / L1',     'Asia/Tokyo');
 
@@ -57,6 +69,7 @@ insert into core.users (id, display_name) values
   ('50b90000-0000-0000-0000-0000000000a2', 'B Manager L1 only'),
   ('50b90000-0000-0000-0000-0000000000e1', 'B Employee L1'),
   ('50b90000-0000-0000-0000-0000000000c1', 'B Client L1 (no ops perm)'),
+  ('50e90000-0000-0000-0000-0000000000a1', 'E Manager tenant-wide'),
   ('50f90000-0000-0000-0000-0000000000a1', 'OFF Manager tenant-wide'),
   ('50090000-0000-0000-0000-0000000000a1', 'NIL Manager tenant-wide'),
   ('50ff0000-0000-0000-0000-0000000000ff', 'Non-member');
@@ -67,13 +80,16 @@ insert into core.role_assignments (tenant_id, user_id, role_id, location_id) val
   ('50b00000-0000-0000-0000-000000000000', '50b90000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000005', '50b10000-0000-0000-0000-000000000001'),
   ('50b00000-0000-0000-0000-000000000000', '50b90000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000006', '50b10000-0000-0000-0000-000000000001'),
   ('50b00000-0000-0000-0000-000000000000', '50b90000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-000000000007', '50b10000-0000-0000-0000-000000000001'),
+  ('50e00000-0000-0000-0000-000000000000', '50e90000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000005', null),
   ('50f00000-0000-0000-0000-000000000000', '50f90000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000005', null),
   ('50000000-0000-0000-0000-000000000000', '50090000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000005', null);
 
--- Seed templates directly (superuser fixture). B: one tenant-wide, one L2-scoped.
--- OFF tenant: one tenant-wide template that already exists from "when it was ON".
+-- Seed templates directly (superuser fixture).
+--   tenant B: b1 + b3 tenant-wide, b2 location-scoped to B/L2
+--   tenant OFF: one tenant-wide template that already exists "from when it was ON"
 insert into operations.checklist_templates (id, tenant_id, location_id, name, category) values
   ('50b1e000-0000-0000-0000-0000000000b1', '50b00000-0000-0000-0000-000000000000', null,                                   'B opening (tenant-wide)', 'Opening'),
+  ('50b1e000-0000-0000-0000-0000000000b3', '50b00000-0000-0000-0000-000000000000', null,                                   'B cleaning (tenant-wide)', 'Cleaning'),
   ('50b1e000-0000-0000-0000-0000000000b2', '50b00000-0000-0000-0000-000000000000', '50b10000-0000-0000-0000-000000000002', 'B L2 closing',            'Closing'),
   ('50f1e000-0000-0000-0000-0000000000f1', '50f00000-0000-0000-0000-000000000000', null,                                   'OFF legacy template',     'Opening');
 
@@ -143,24 +159,24 @@ exception when others then
 end;
 $$;
 
-grant execute on function api.operations_create_template(uuid, text, uuid, text, text) to authenticated;
-
 -- ============================================================================
 -- SCENARIO A — ENABLED_TENANT
---   smoke-tenant-b has Operations ON. A permitted Manager can see the
---   Operations foundation and perform a safe representative write.
+--   tenant B has Operations ON. A permitted Manager can see the Operations
+--   foundation and perform a safe representative write. The template A creates
+--   is scoped to B/L3 (no test actor is assigned there) so later counts are
+--   unaffected.
 -- ============================================================================
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a1',
     $$ select count(*)::int from api.operations_templates
         where tenant_id = '50b00000-0000-0000-0000-000000000000' $$),
-  2, 'A/ENABLED: tenant-B manager reads both tenant-B templates through api.operations_templates');
+  3, 'A/ENABLED: tenant-B manager reads all 3 fixture templates (b1, b3, b2) through api.operations_templates');
 
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a1',
     $$ select count(*)::int from api.operations_template_items
         where tenant_id = '50b00000-0000-0000-0000-000000000000' $$),
-  2, 'A/ENABLED: tenant-B manager reads the 2 checklist items of the tenant-wide template');
+  2, 'A/ENABLED: tenant-B manager reads the 2 checklist items of b1');
 
 -- expected-tasks projection is reachable (no schedules yet -> 0 rows, but the
 -- call itself must not error for an entitled caller).
@@ -173,19 +189,20 @@ select is(
 select is(
   pg_temp.as_auth_errm('50b90000-0000-0000-0000-0000000000a1',
     $$ select api.operations_create_template(
-         '50b00000-0000-0000-0000-000000000000', 'Smoke A/ENABLED template', null, 'Smoke', null) $$),
-  '<<no error>>', 'A/ENABLED: tenant-B manager creates a template via api.operations_create_template');
+         '50b00000-0000-0000-0000-000000000000', 'Smoke A/ENABLED template',
+         '50b10000-0000-0000-0000-000000000003', 'Smoke', null) $$),
+  '<<no error>>', 'A/ENABLED: tenant-B manager creates a B/L3-scoped template via api.operations_create_template');
 
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a1',
     $$ select count(*)::int from api.operations_templates
         where tenant_id = '50b00000-0000-0000-0000-000000000000' $$),
-  3, 'A/ENABLED: the newly created template is now visible (2 -> 3)');
+  4, 'A/ENABLED: the newly created template is now visible to the tenant-wide manager (3 -> 4)');
 
 -- ============================================================================
 -- SCENARIO B — DISABLED_TENANT
---   Operations must be *enforced* off, not merely hidden in the UI:
---   both the read facade and the write RPC fail closed.
+--   Operations must be *enforced* off, not merely hidden: read facade, base
+--   table, and the write RPC all fail closed.
 -- ============================================================================
 select is(
   pg_temp.as_auth_count('50f90000-0000-0000-0000-0000000000a1',
@@ -197,7 +214,7 @@ select is(
   pg_temp.as_auth_count('50f90000-0000-0000-0000-0000000000a1',
     $$ select count(*)::int from operations.checklist_templates
         where tenant_id = '50f00000-0000-0000-0000-000000000000' $$),
-  0, 'B/DISABLED: OFF-tenant manager sees zero templates through the base table directly');
+  0, 'B/DISABLED: OFF-tenant manager sees zero templates through the base table directly (RLS)');
 
 select is(
   pg_temp.as_auth_errm('50f90000-0000-0000-0000-0000000000a1',
@@ -224,46 +241,48 @@ select is(
 
 -- ============================================================================
 -- SCENARIO C — CROSS_TENANT_ISOLATION
---   Using the same api.* path an application uses. Never accept
---   "the query included tenant_id" as proof.
+--   Same api.* path an application uses. The cross-tenant WRITE is proven
+--   against tenant E (Operations ON, but the B manager has no role there) so
+--   the denial is by PERMISSION/RLS, past the module gate.
 -- ============================================================================
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a1',
     $$ select count(*)::int from api.operations_templates
-        where tenant_id = '50f00000-0000-0000-0000-000000000000' $$),
-  0, 'C/CROSS-TENANT: tenant-B manager sees zero templates of the OFF tenant');
+        where tenant_id in ('50f00000-0000-0000-0000-000000000000','50e00000-0000-0000-0000-000000000000') $$),
+  0, 'C/CROSS-TENANT: tenant-B manager sees zero templates of the OFF tenant or of tenant E');
 
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a1',
-    $$ select count(*)::int from api.operations_templates $$),
-  3, 'C/CROSS-TENANT: tenant-B manager''s unfiltered api.operations_templates read returns only tenant-B rows');
+    $$ select count(*)::int from api.operations_templates
+        where tenant_id <> '50b00000-0000-0000-0000-000000000000' $$),
+  0, 'C/CROSS-TENANT: tenant-B manager''s unfiltered api.operations_templates read returns only tenant-B rows');
 
--- write attempt across the tenant boundary, via the sanctioned RPC
+-- write across the tenant boundary INTO AN ENABLED TENANT, via the sanctioned
+-- RPC: denied by permission, not by the module gate.
 select is(
   pg_temp.as_auth_errm('50b90000-0000-0000-0000-0000000000a1',
     $$ select api.operations_create_template(
-         '50000000-0000-0000-0000-000000000000', 'cross-tenant create', null, null, null) $$),
-  'operations_module_disabled', 'C/CROSS-TENANT: tenant-B manager cannot create a template for another tenant (module gate on the target tenant)');
+         '50e00000-0000-0000-0000-000000000000', 'cross-tenant create', null, null, null) $$),
+  'operations_permission_denied', 'C/CROSS-TENANT: tenant-B manager cannot create a template in tenant E (permission, past the module gate)');
 
--- raw RLS with-check backstop: even a direct INSERT for another tenant is
--- rejected. (INSERT on operations.checklist_templates is already granted to
--- `authenticated` by migration 0105 — RLS, not the table grant, is the boundary.)
+-- raw RLS with-check backstop: a direct INSERT into tenant E is rejected too.
 select ok(
   pg_temp.as_auth_throws('50b90000-0000-0000-0000-0000000000a1',
     $$ insert into operations.checklist_templates (tenant_id, location_id, name)
-       values ('50f00000-0000-0000-0000-000000000000', null, 'raw cross-tenant') $$),
-  'C/CROSS-TENANT: raw INSERT into another tenant is rejected by RLS with-check');
+       values ('50e00000-0000-0000-0000-000000000000', null, 'raw cross-tenant') $$),
+  'C/CROSS-TENANT: raw INSERT into tenant E is rejected by RLS with-check');
 
 -- ============================================================================
 -- SCENARIO D — ROLE_BOUNDARY  (Manager vs Staff / employee)
---   The foundation DOES define a Manager/Staff split: employee holds
---   task.read + task.execute only (no template.manage, no exception.resolve).
+--   Employee holds task.read + task.execute only (no template.manage, no
+--   exception.resolve). Counts are independent of Scenario A (its template is
+--   scoped to B/L3, where the employee has no role).
 -- ============================================================================
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000e1',
     $$ select count(*)::int from api.operations_templates
         where tenant_id = '50b00000-0000-0000-0000-000000000000' $$),
-  2, 'D/ROLE: tenant-B employee (task.read) at L1 sees the tenant-wide templates (read allowed)');
+  2, 'D/ROLE: tenant-B employee (task.read) at L1 sees the 2 tenant-wide templates (b1, b3) — not b2 (L2), not the A/L3 template');
 
 select is(
   pg_temp.as_auth_errm('50b90000-0000-0000-0000-0000000000e1',
@@ -301,14 +320,14 @@ select is(
 
 -- ============================================================================
 -- SCENARIO E — LOCATION_BOUNDARY
---   Operations IS location-scoped (location_id NULL = tenant-wide;
---   non-null = a real boundary via core.has_permission(..., location_id)).
+--   location_id NULL = tenant-wide; non-null = a real boundary via
+--   core.has_permission(..., location_id). Counts independent of Scenario A.
 -- ============================================================================
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a2',
     $$ select count(*)::int from api.operations_templates
         where tenant_id = '50b00000-0000-0000-0000-000000000000' $$),
-  2, 'E/LOCATION: an L1-scoped manager sees tenant-wide templates (the 2 tenant-wide), not the L2-scoped one');
+  2, 'E/LOCATION: an L1-scoped manager sees only the 2 tenant-wide templates (b1, b3) — not b2 (L2), not the A/L3 template');
 
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a2',
