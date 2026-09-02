@@ -45,7 +45,7 @@
 --   On success the tail prints one categorical block:
 --     CLOUD_TARGET=PASS  OPERATIONS_MODULE_ON=PASS  ENABLED_TENANT=PASS
 --     DISABLED_TENANT=PASS  CROSS_TENANT_ISOLATION=PASS  ROLE_BOUNDARY=PASS
---     LOCATION_BOUNDARY=PASS  SECRET_SAFETY=PASS
+--     LOCATION_BOUNDARY=PASS
 --
 -- Never prints credentials, connection strings, or PII. Project refs are
 -- public identifiers (already in docs/project/master-state.md), not secrets.
@@ -78,14 +78,6 @@
 \else
   \set allow_local '0'
 \endif
--- Last-resort operator affirmation, used ONLY when no database-side signal can
--- confirm the target. Must be typed as the exact expected Cloud DEV ref; it is
--- still checked against the Production blocklist. Never satisfies a Production
--- or mismatched target.
-\if :{?i_have_verified_target}
-\else
-  \set i_have_verified_target ''
-\endif
 
 begin;
 
@@ -98,7 +90,6 @@ set local search_path to public, core, operations, api;
 select set_config('smoke.expected_dev_ref', :'expected_dev_ref', true);
 select set_config('smoke.known_prod_ref',   :'known_prod_ref',   true);
 select set_config('smoke.allow_local',      :'allow_local',      true);
-select set_config('smoke.verified_target',  :'i_have_verified_target', true);
 select set_config('smoke.tenant_slug',      :'smoke_tenant_slug', true);
 select set_config('smoke.tenant',           :'smoke_tenant',     true);
 select set_config('smoke.location',         :'smoke_location',   true);
@@ -133,27 +124,24 @@ select set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', tr
 --   * `_realtime.tenants.external_id`  (only external_id is read — never
 --      jwt_secret; 'realtime-dev' on local Supabase). Read defensively.
 --
--- A last-resort `-v i_have_verified_target=<ref>` operator affirmation is
--- accepted ONLY when NO database-side signal is available; it must be typed as
--- the exact expected Cloud DEV ref and is still checked against Production.
+-- There is NO operator "I promise this is DEV" override — the target must be
+-- proven by database-side evidence (marker / pooler username / _realtime), or
+-- the script fails closed.
 --
 -- Decision (FAIL CLOSED):
---   * known Production ref on ANY signal (incl. the affirmation)     -> FAIL
---   * affirmation present and <> expected                            -> FAIL
+--   * known Production ref on ANY signal                             -> FAIL
 --   * marker present and = expected Cloud DEV ref                    -> PASS (authoritative)
 --   * marker present and <> expected                                 -> FAIL
 --   * no marker, pooler username present and <> expected             -> FAIL
 --   * expected ref confirmed by marker / pooler / _realtime          -> PASS
 --   * local sentinel + allow_local=1                                 -> PASS (local mirror)
---   * no DB-side signal, affirmation = expected                      -> PASS (with a WARNING)
---   * nothing provable                                               -> FAIL (3 documented options)
+--   * nothing provable                                               -> FAIL (2 documented options)
 -- ==========================================================================
 do $$
 declare
   v_expected text := current_setting('smoke.expected_dev_ref');
   v_prod     text := current_setting('smoke.known_prod_ref');
   v_allow_local boolean := current_setting('smoke.allow_local') = '1';
-  v_affirm text := nullif(btrim(current_setting('smoke.verified_target')), '');
   v_marker text; v_user text; v_rt text;
   v_rtarr text[] := '{}';   -- _realtime external_id values
   v_is_local boolean := false;
@@ -178,13 +166,10 @@ begin
   v_rtarr := array(select btrim(x) from unnest(coalesce(string_to_array(v_rt, ','), '{}')) x where btrim(x) <> '');
   if 'realtime-dev' = any (v_rtarr) then v_is_local := true; end if;
 
-  -- (1) PRODUCTION tripwire — every signal, INCLUDING the operator affirmation.
-  if v_prod in (v_marker, v_user, v_affirm) or v_prod = any (v_rtarr) then
-    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (marker=%, user=%, realtime=%, affirm=%)',
-      coalesce(v_marker,'-'), coalesce(v_user,'-'), coalesce(v_rt,'-'), coalesce(v_affirm,'-');
-  end if;
-  if v_affirm is not null and v_affirm <> v_expected then
-    raise exception 'CLOUD_TARGET = FAIL: -v i_have_verified_target="%" is not the expected Cloud DEV ref "%".', v_affirm, v_expected;
+  -- (1) PRODUCTION tripwire — every signal.
+  if v_prod in (v_marker, v_user) or v_prod = any (v_rtarr) then
+    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (marker=%, user=%, realtime=%)',
+      coalesce(v_marker,'-'), coalesce(v_user,'-'), coalesce(v_rt,'-');
   end if;
 
   -- (2b) contradiction — local sentinel alongside a foreign project ref.
@@ -211,13 +196,8 @@ begin
     raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — LOCAL MIRROR run, not Cloud DEV';
   elsif v_is_local then
     raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 for the local mirror.';
-  elsif v_affirm = v_expected then
-    -- last resort: no DB-side signal, operator has typed the exact DEV ref
-    -- (already checked != Production above).
-    raise warning 'CLOUD_TARGET: no database-side signal could confirm the target; proceeding ONLY on the operator affirmation -v i_have_verified_target=%. Verify the project in the Supabase dashboard before trusting this run.', v_expected;
-    raise notice 'CLOUD_TARGET = PASS (operator affirmation; no DB-side proof available)';
   else
-    raise exception 'CLOUD_TARGET = FAIL: cannot prove the target project database-side. Do ONE of: (a) connect as a role that can SELECT _realtime.tenants; (b) have an admin run  ALTER DATABASE postgres SET oruwa.cloud_target_ref = %  on Cloud DEV and reconnect; (c) after confirming the project ref in the Supabase dashboard, re-run with  -v i_have_verified_target=%', quote_literal(v_expected), v_expected;
+    raise exception 'CLOUD_TARGET = FAIL: cannot prove the target project database-side — refusing to mutate. Do ONE of: (a) connect as a role that can SELECT _realtime.tenants (the project ref lives in _realtime.tenants.external_id); (b) have an admin set the marker once on Cloud DEV and reconnect:  ALTER DATABASE postgres SET oruwa.cloud_target_ref = %', quote_literal(v_expected);
   end if;
 end $$;
 
@@ -468,11 +448,13 @@ begin
     raise exception 'CROSS_TENANT_ISOLATION = FAIL: cross-tenant create into an ON tenant returned "%" (expected ERR:operations_permission_denied)', v_res;
   end if;
 
-  -- raw INSERT backstop — RLS WITH CHECK must reject it too. `returning` lets
-  -- as_auth capture a value on success (=> FAIL) vs an RLS exception (=> ERR:).
+  -- raw INSERT backstop — must be rejected SPECIFICALLY by the RLS WITH CHECK
+  -- policy (not by a missing grant / trigger / constraint, which would make
+  -- this a false-positive). `returning` lets as_auth distinguish success
+  -- (=> FAIL) from an exception (=> ERR:<message>).
   v_res := pg_temp.as_auth(v_mgr, format($f$ insert into operations.checklist_templates (tenant_id, location_id, name) values (%L, null, 'raw cross-tenant') returning tenant_id::text $f$, v_en2));
-  if v_res not like 'ERR:%' then
-    raise exception 'CROSS_TENANT_ISOLATION = FAIL: raw cross-tenant INSERT was NOT rejected (got "%")', v_res;
+  if v_res not like 'ERR:%row-level security%' then
+    raise exception 'CROSS_TENANT_ISOLATION = FAIL: raw cross-tenant INSERT was not rejected by RLS WITH CHECK (got "%")', v_res;
   end if;
 
   raise notice 'CROSS_TENANT_ISOLATION = PASS (no cross read; cross write denied by permission + RLS; % smoke rows visible)', v_all;
@@ -538,7 +520,11 @@ begin
   raise notice 'LOCATION_BOUNDARY = PASS (L1-scoped template invisible + immutable to an L2-only actor)';
 end $$;
 
-do $$ begin raise notice 'SECRET_SAFETY = PASS (no credential is read or printed by this script)'; end $$;
+-- Secret safety is a property of this script BY CONSTRUCTION, not a runtime
+-- check: it never reads a key/secret/PII column (the only _realtime read
+-- selects `external_id` alone) and never echoes the connection string. It is
+-- deliberately NOT reported as a "scenario" — an unconditional PASS notice
+-- would be a vacuous assertion.
 
 \echo ''
 \echo '=================================================================='
@@ -546,7 +532,7 @@ do $$ begin raise notice 'SECRET_SAFETY = PASS (no credential is read or printed
 \echo '   CLOUD_TARGET=PASS           OPERATIONS_MODULE_ON=PASS'
 \echo '   ENABLED_TENANT=PASS         DISABLED_TENANT=PASS'
 \echo '   CROSS_TENANT_ISOLATION=PASS ROLE_BOUNDARY=PASS'
-\echo '   LOCATION_BOUNDARY=PASS      SECRET_SAFETY=PASS'
+\echo '   LOCATION_BOUNDARY=PASS'
 \echo ' Nothing was committed — rolling back all smoke data now.'
 \echo '=================================================================='
 

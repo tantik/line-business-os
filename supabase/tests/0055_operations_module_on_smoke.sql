@@ -265,12 +265,16 @@ select is(
          '50e00000-0000-0000-0000-000000000000', 'cross-tenant create', null, null, null) $$),
   'operations_permission_denied', 'C/CROSS-TENANT: tenant-B manager cannot create a template in tenant E (permission, past the module gate)');
 
--- raw RLS with-check backstop: a direct INSERT into tenant E is rejected too.
+-- raw RLS with-check backstop: a direct INSERT into tenant E must be rejected
+-- SPECIFICALLY by the RLS WITH CHECK policy (not a missing grant / trigger /
+-- constraint — that would be a false positive). `authenticated` holds INSERT
+-- on this table via migration 0105, so the statement genuinely reaches RLS.
 select ok(
-  pg_temp.as_auth_throws('50b90000-0000-0000-0000-0000000000a1',
+  pg_temp.as_auth_errm('50b90000-0000-0000-0000-0000000000a1',
     $$ insert into operations.checklist_templates (tenant_id, location_id, name)
-       values ('50e00000-0000-0000-0000-000000000000', null, 'raw cross-tenant') $$),
-  'C/CROSS-TENANT: raw INSERT into tenant E is rejected by RLS with-check');
+       values ('50e00000-0000-0000-0000-000000000000', null, 'raw cross-tenant') $$)
+    like '%row-level security%',
+  'C/CROSS-TENANT: raw INSERT into tenant E is rejected by the RLS WITH CHECK policy');
 
 -- ============================================================================
 -- SCENARIO D — ROLE_BOUNDARY  (Manager vs Staff / employee)

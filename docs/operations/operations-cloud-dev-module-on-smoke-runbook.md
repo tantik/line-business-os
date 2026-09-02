@@ -70,30 +70,25 @@ metadata (never the connection string):
 | marker | `current_setting('oruwa.cloud_target_ref', true)` | **authoritative** if set |
 | pooler user | `current_user` = `postgres.<project_ref>` (if the pooler carries it) | corroborating + Production tripwire |
 | realtime | `_realtime.tenants.external_id` (only `external_id`, never `jwt_secret`; `realtime-dev` on local) | corroborating + Production tripwire |
-| affirmation | `-v i_have_verified_target=<ref>` — **last resort**, only when no signal above is available | operator-typed, still Production-checked |
 
-Decision (**fail closed**): known **Production** ref (`jsgmmsdkuptdsxtcxhsv`) on
-any signal (including the affirmation) ⇒ abort; marker or affirmation present
-and ≠ `pehcoenozjtsjdvjietj` ⇒ abort; the expected DEV ref confirmed by marker /
-pooler / `_realtime` ⇒ proceed; no DB-side signal but the affirmation equals the
-expected ref ⇒ proceed **with a WARNING**; nothing provable ⇒ abort.
+There is **no operator "I promise this is DEV" override** — the target is proven
+by database-side evidence or the script fails closed. Decision (**fail
+closed**): known **Production** ref (`jsgmmsdkuptdsxtcxhsv`) on any signal ⇒
+abort; marker present and ≠ `pehcoenozjtsjdvjietj` ⇒ abort; the expected DEV ref
+confirmed by marker / pooler / `_realtime` ⇒ proceed; nothing provable ⇒ abort.
 
 ### Satisfying the guard on Cloud DEV — pick whichever works
 
 1. **Just run it.** On most Supabase projects the connecting `postgres` role can
    `SELECT` from `_realtime.tenants`, so the guard confirms the ref itself and
    you need nothing extra.
-2. **Set the marker** (an admin who can `ALTER DATABASE` — e.g. via the Supabase
+2. **Set the marker** — for a role that can `ALTER DATABASE` (the Supabase
    dashboard's *Custom Postgres Config*, or `supabase_admin`):
    ```sql
    ALTER DATABASE postgres SET oruwa.cloud_target_ref = 'pehcoenozjtsjdvjietj';
    ```
    Non-secret, reversible (`… RESET oruwa.cloud_target_ref`), effective on the
-   next connection. Never set it on Production.
-3. **Last resort** — after confirming the project ref in the Supabase dashboard,
-   re-run with `-v i_have_verified_target=pehcoenozjtsjdvjietj`. The guard still
-   refuses if that value is the Production ref or anything other than the
-   expected DEV ref, and prints a WARNING.
+   next connection. **Never set it on Production.**
 
 ## The smoke script — `scripts/smoke/operations-cloud-dev-module-on-smoke.sql`
 
@@ -116,10 +111,8 @@ because nothing is committed.
 psql "$SUPABASE_DEV_DB_URL" -v ON_ERROR_STOP=1 -q \
   -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
 
-# If STEP 0a says it "cannot prove the target", use option 2 or 3 above, e.g.:
-# psql "$SUPABASE_DEV_DB_URL" -v ON_ERROR_STOP=1 -q \
-#   -v i_have_verified_target=pehcoenozjtsjdvjietj \
-#   -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
+# If STEP 0a says it "cannot prove the target", use option 2 above (set the
+# marker), or connect as a role that can SELECT _realtime.tenants.
 ```
 
 **psql only.** The script uses psql meta-commands (`\if`, `\o`, `\echo`) and
@@ -136,7 +129,7 @@ NOTICE:  DISABLED_TENANT = PASS (explicit is_enabled=false: no facade read, no b
 NOTICE:  CROSS_TENANT_ISOLATION = PASS (no cross read; cross write denied by permission + RLS; N smoke rows visible)
 NOTICE:  ROLE_BOUNDARY = PASS (employee: read yes, configure no, resolve no, execute yes)
 NOTICE:  LOCATION_BOUNDARY = PASS (L1-scoped template invisible + immutable to an L2-only actor)
-NOTICE:  SECRET_SAFETY = PASS
+
 ==================================================================
  OPERATIONS CLOUD DEV MODULE-ON SMOKE — ALL SCENARIOS PASSED
  ...
@@ -156,7 +149,7 @@ transaction rolls back, a failed run leaves Cloud DEV exactly as it was.
 | C — cross-tenant | smoke Manager sees 0 rows of an unrelated OFF tenant *and* an unrelated **enabled** tenant (both seeded); unfiltered read returns only smoke rows; a cross-tenant create **into the enabled tenant** ⇒ `operations_permission_denied` (denied by permission/RLS, past the module gate); raw cross-tenant INSERT rejected by RLS `WITH CHECK` | `CROSS_TENANT_ISOLATION` |
 | D — role boundary | Employee: read yes; `create_template` ⇒ `operations_permission_denied`; holds `task.execute`, not `exception.resolve` | `ROLE_BOUNDARY` |
 | E — location boundary | L1-scoped template invisible to an L2-only Manager and 0 rows on his UPDATE | `LOCATION_BOUNDARY` |
-| secret safety | script reads/prints no key or PII | `SECRET_SAFETY` |
+| secret safety | by construction — no key/secret/PII column is read, no connection string echoed (not a runtime scenario) | — |
 
 ## If a persistent enable is ever wanted (NOT this step)
 
