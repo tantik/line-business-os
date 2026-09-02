@@ -78,6 +78,14 @@
 \else
   \set allow_local '0'
 \endif
+-- Last-resort operator affirmation, used ONLY when no database-side signal can
+-- confirm the target. Must be typed as the exact expected Cloud DEV ref; it is
+-- still checked against the Production blocklist. Never satisfies a Production
+-- or mismatched target.
+\if :{?i_have_verified_target}
+\else
+  \set i_have_verified_target ''
+\endif
 
 begin;
 
@@ -90,6 +98,7 @@ set local search_path to public, core, operations, api;
 select set_config('smoke.expected_dev_ref', :'expected_dev_ref', true);
 select set_config('smoke.known_prod_ref',   :'known_prod_ref',   true);
 select set_config('smoke.allow_local',      :'allow_local',      true);
+select set_config('smoke.verified_target',  :'i_have_verified_target', true);
 select set_config('smoke.tenant_slug',      :'smoke_tenant_slug', true);
 select set_config('smoke.tenant',           :'smoke_tenant',     true);
 select set_config('smoke.location',         :'smoke_location',   true);
@@ -108,98 +117,107 @@ select set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', tr
 -- ==========================================================================
 -- STEP 0a — CLOUD TARGET GUARD  (runs BEFORE any mutation)
 -- --------------------------------------------------------------------------
--- Collects every database-side signal that can name the Supabase project:
---   S1  current_user matching `postgres.<20 lowercase chars>`  (Session/
---       Transaction pooler — Supabase's documented pooler username format)
---   S2  _realtime.tenants.external_id  (Realtime's own per-project tenant row;
---       on hosted Supabase this IS the project ref; on local it is
---       'realtime-dev'). Read defensively — schema may be unreadable.
---   S3  current_setting('supabase.project_ref', true)  (custom GUC, if a
---       project ever sets one via ALTER SYSTEM/ALTER DATABASE — null today)
--- Only `external_id` / `name` are ever read from _realtime.tenants — never
--- `jwt_secret` or any other column.
+-- Supabase/Postgres exposes NO universally-reliable zero-setup way to read
+-- the project ref from inside the database (the pooler may report `current_user`
+-- as plain `postgres`; `_realtime.tenants` readability is role-dependent). So
+-- the AUTHORITATIVE signal is an explicit, non-secret marker the operator sets
+-- ONCE per Cloud project (see the runbook, "one-time setup"):
+--
+--     ALTER DATABASE postgres SET oruwa.cloud_target_ref = 'pehcoenozjtsjdvjietj';   -- on Cloud DEV
+--
+-- Read here as `current_setting('oruwa.cloud_target_ref', true)`. Two
+-- best-effort corroborating signals are also collected (they can positively
+-- confirm the expected ref and they always trip the Production tripwire, but
+-- an unexpected value from them never aborts a run):
+--   * pooler username  `current_user` = `postgres.<project_ref>`  (if present)
+--   * `_realtime.tenants.external_id`  (only external_id is read — never
+--      jwt_secret; 'realtime-dev' on local Supabase). Read defensively.
+--
+-- A last-resort `-v i_have_verified_target=<ref>` operator affirmation is
+-- accepted ONLY when NO database-side signal is available; it must be typed as
+-- the exact expected Cloud DEV ref and is still checked against Production.
 --
 -- Decision (FAIL CLOSED):
---   * known Production ref on ANY signal                    -> FAIL
---   * an AUTHORITATIVE signal (S1/S3) <> expected Cloud DEV -> FAIL
---   * expected Cloud DEV ref on S1/S3 OR corroborated by S2 -> PASS
---   * only the local sentinel + allow_local=1               -> PASS (local mirror)
---   * nothing provable                                      -> FAIL
+--   * known Production ref on ANY signal (incl. the affirmation)     -> FAIL
+--   * affirmation present and <> expected                            -> FAIL
+--   * marker present and = expected Cloud DEV ref                    -> PASS (authoritative)
+--   * marker present and <> expected                                 -> FAIL
+--   * no marker, pooler username present and <> expected             -> FAIL
+--   * expected ref confirmed by marker / pooler / _realtime          -> PASS
+--   * local sentinel + allow_local=1                                 -> PASS (local mirror)
+--   * no DB-side signal, affirmation = expected                      -> PASS (with a WARNING)
+--   * nothing provable                                               -> FAIL (3 documented options)
 -- ==========================================================================
 do $$
 declare
   v_expected text := current_setting('smoke.expected_dev_ref');
   v_prod     text := current_setting('smoke.known_prod_ref');
   v_allow_local boolean := current_setting('smoke.allow_local') = '1';
-  v_s1 text; v_s2 text; v_s3 text;
-  v_auth text[] := '{}';   -- authoritative ref claims (S1 pooler user, S3 GUC)
-  v_s2arr text[] := '{}';  -- corroborating _realtime external_id values
+  v_affirm text := nullif(btrim(current_setting('smoke.verified_target')), '');
+  v_marker text; v_user text; v_rt text;
+  v_rtarr text[] := '{}';   -- _realtime external_id values
   v_is_local boolean := false;
   r text;
 begin
-  -- S1 — pooler username
-  if current_user ~ '^postgres\.[a-z0-9]{20}$' then
-    v_s1 := split_part(current_user, '.', 2);
-  end if;
-
-  -- S2 — realtime tenant id(s). Defensive: schema/table/privilege may be
-  -- absent. Collect EVERY row (hosted has one; more => check them all).
+  -- authoritative marker
   begin
-    execute 'select string_agg(distinct external_id, '','') from _realtime.tenants' into v_s2;
-  exception when others then
-    v_s2 := null;
+    v_marker := nullif(btrim(current_setting('oruwa.cloud_target_ref', true)), '');
+  exception when others then v_marker := null;
   end;
 
-  -- S3 — optional custom GUC
-  begin
-    v_s3 := nullif(current_setting('supabase.project_ref', true), '');
-  exception when others then
-    v_s3 := null;
-  end;
-
-  -- AUTHORITATIVE ref claims: only the pooler username (strict format) and an
-  -- explicit GUC. A mismatch here means "wrong target" -> abort.
-  if v_s1 is not null then v_auth := v_auth || v_s1; end if;
-  if v_s3 is not null then v_auth := v_auth || v_s3; end if;
-
-  -- S2 (_realtime.tenants) is a CORROBORATING signal only: it can positively
-  -- confirm the expected ref, and it always trips the Production tripwire, but
-  -- an unexpected S2 value never by itself aborts a run whose pooler username
-  -- is correct (defends against Realtime storing a project *name* / suffix).
-  v_s2arr := array(select btrim(x) from unnest(coalesce(string_to_array(v_s2, ','), '{}')) x where btrim(x) <> '');
-  if 'realtime-dev' = any (v_s2arr) then v_is_local := true; end if;
-
-  -- (1) PRODUCTION tripwire — on every signal, authoritative or not.
-  if v_prod = any (v_auth) or v_prod = any (v_s2arr) then
-    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (user=%, realtime=%, guc=%)',
-      coalesce(v_s1,'-'), coalesce(v_s2,'-'), coalesce(v_s3,'-');
+  -- corroborator 1 — pooler username
+  if current_user ~ '^postgres\.[a-z0-9]{16,32}$' then
+    v_user := split_part(current_user, '.', 2);
   end if;
 
-  -- (2) authoritative-signal mismatch — wrong Cloud target.
-  foreach r in array v_auth loop
-    if r <> v_expected then
-      raise exception 'CLOUD_TARGET = FAIL: an authoritative signal names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', r, v_expected;
-    end if;
-  end loop;
+  -- corroborator 2 — _realtime.tenants.external_id (defensive; only external_id)
+  begin
+    execute 'select string_agg(distinct external_id, '','') from _realtime.tenants' into v_rt;
+  exception when others then v_rt := null;
+  end;
+  v_rtarr := array(select btrim(x) from unnest(coalesce(string_to_array(v_rt, ','), '{}')) x where btrim(x) <> '');
+  if 'realtime-dev' = any (v_rtarr) then v_is_local := true; end if;
 
-  -- (2b) contradiction — local sentinel present alongside a foreign project ref.
+  -- (1) PRODUCTION tripwire — every signal, INCLUDING the operator affirmation.
+  if v_prod in (v_marker, v_user, v_affirm) or v_prod = any (v_rtarr) then
+    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (marker=%, user=%, realtime=%, affirm=%)',
+      coalesce(v_marker,'-'), coalesce(v_user,'-'), coalesce(v_rt,'-'), coalesce(v_affirm,'-');
+  end if;
+  if v_affirm is not null and v_affirm <> v_expected then
+    raise exception 'CLOUD_TARGET = FAIL: -v i_have_verified_target="%" is not the expected Cloud DEV ref "%".', v_affirm, v_expected;
+  end if;
+
+  -- (2b) contradiction — local sentinel alongside a foreign project ref.
   if v_is_local then
-    foreach r in array v_s2arr loop
+    foreach r in array v_rtarr loop
       if r <> 'realtime-dev' and r <> v_expected then
-        raise exception 'CLOUD_TARGET = FAIL: _realtime.tenants holds both the local sentinel and a foreign project ref "%" — cannot classify the target, refusing to mutate.', r;
+        raise exception 'CLOUD_TARGET = FAIL: _realtime.tenants holds both the local sentinel and a foreign project ref "%" — cannot classify the target.', r;
       end if;
     end loop;
   end if;
 
-  -- (3) decide (fail closed)
-  if v_expected = any (v_auth) or v_expected = any (v_s2arr) then
-    raise notice 'CLOUD_TARGET = PASS (Cloud DEV project ref % confirmed database-side)', v_expected;
+  -- (2) decide (fail closed)
+  if v_marker is not null then
+    if v_marker = v_expected then
+      raise notice 'CLOUD_TARGET = PASS (authoritative marker oruwa.cloud_target_ref = %)', v_expected;
+    else
+      raise exception 'CLOUD_TARGET = FAIL: marker oruwa.cloud_target_ref = "%" is not the expected Cloud DEV ref "%" — refusing to mutate.', v_marker, v_expected;
+    end if;
+  elsif v_user is not null and v_user <> v_expected then
+    raise exception 'CLOUD_TARGET = FAIL: pooler username names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', v_user, v_expected;
+  elsif v_user = v_expected or v_expected = any (v_rtarr) then
+    raise notice 'CLOUD_TARGET = PASS (expected Cloud DEV ref % corroborated database-side)', v_expected;
   elsif v_is_local and v_allow_local then
-    raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — this is the LOCAL MIRROR run, not Cloud DEV';
+    raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — LOCAL MIRROR run, not Cloud DEV';
   elsif v_is_local then
-    raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 for the local mirror, or connect to Cloud DEV via the Session pooler.';
+    raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 for the local mirror.';
+  elsif v_affirm = v_expected then
+    -- last resort: no DB-side signal, operator has typed the exact DEV ref
+    -- (already checked != Production above).
+    raise warning 'CLOUD_TARGET: no database-side signal could confirm the target; proceeding ONLY on the operator affirmation -v i_have_verified_target=%. Verify the project in the Supabase dashboard before trusting this run.', v_expected;
+    raise notice 'CLOUD_TARGET = PASS (operator affirmation; no DB-side proof available)';
   else
-    raise exception 'CLOUD_TARGET = FAIL: could not prove the target project database-side (no pooler username of the form postgres.<project_ref>, no readable _realtime.tenants, no project_ref GUC). Connect through the Supabase Session pooler.';
+    raise exception 'CLOUD_TARGET = FAIL: cannot prove the target project database-side. Do ONE of: (a) connect as a role that can SELECT _realtime.tenants; (b) have an admin run  ALTER DATABASE postgres SET oruwa.cloud_target_ref = %  on Cloud DEV and reconnect; (c) after confirming the project ref in the Supabase dashboard, re-run with  -v i_have_verified_target=%', quote_literal(v_expected), v_expected;
   end if;
 end $$;
 
@@ -307,6 +325,14 @@ begin
     -- by Scenario C to prove cross-tenant write denial by PERMISSION/RLS, past
     -- the module gate (which the disabled tenant would trip first).
     (current_setting('smoke.t_enabled2')::uuid, 'operations', true);
+
+  -- Seed a real template into BOTH the disabled and the second-enabled tenant
+  -- (superuser fixture insert, bypasses RLS). Without these, Scenario B/C's
+  -- "sees 0 rows" assertions would pass vacuously (nothing to see) instead of
+  -- proving the module gate / tenant isolation actually hides real data.
+  insert into operations.checklist_templates (tenant_id, location_id, name, category) values
+    (current_setting('smoke.t_disabled')::uuid, null, 'SMOKE disabled-tenant legacy template', 'Opening'),
+    (current_setting('smoke.t_enabled2')::uuid, null, 'SMOKE tenant-E template',               'Opening');
 end $$;
 
 -- --------------------------------------------------------------------------
@@ -459,11 +485,16 @@ do $$
 declare
   v_t   uuid := current_setting('smoke.tenant')::uuid;
   v_emp text := current_setting('smoke.u_employee');
-  v_res text; v_resolve int; v_execute int;
+  v_res text; v_read int; v_resolve int; v_execute int;
 begin
-  perform pg_temp.as_auth_ok(v_emp,
-    format($f$ select count(*)::int::text from api.operations_templates where tenant_id = %L $f$, v_t),
-    'ROLE_BOUNDARY');
+  -- Staff CAN read: the tenant-wide template Scenario A created must be visible
+  -- to the smoke-location employee (operations.task.read via RLS).
+  v_read := pg_temp.as_auth_ok(v_emp,
+    format($f$ select count(*)::int from api.operations_templates where tenant_id = %L $f$, v_t),
+    'ROLE_BOUNDARY')::int;
+  if v_read < 1 then
+    raise exception 'ROLE_BOUNDARY = FAIL: employee (operations.task.read) sees % templates (expected >= 1)', v_read;
+  end if;
 
   v_res := pg_temp.as_auth(v_emp, format($f$ select (api.operations_create_template(%L,'by employee',null,null,null))::text $f$, v_t));
   if v_res <> 'ERR:operations_permission_denied' then
