@@ -85,8 +85,11 @@ set local search_path to public, core, operations, api;
 
 -- psql does NOT interpolate :'x' inside a dollar-quoted body — stash every
 -- parameter into transaction-local GUCs here (plain SQL). is_local => they
--- vanish on ROLLBACK regardless.
-\o /dev/null
+-- vanish on ROLLBACK regardless. Values are non-secret (project ref, smoke
+-- uuids); the harmless one-column echo is suppressed with \t / \pset (portable
+-- to native Windows psql, unlike `\o /dev/null`).
+\t on
+\pset format unaligned
 select set_config('smoke.expected_dev_ref', :'expected_dev_ref', true);
 select set_config('smoke.known_prod_ref',   :'known_prod_ref',   true);
 select set_config('smoke.allow_local',      :'allow_local',      true);
@@ -103,7 +106,8 @@ select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', tr
 select set_config('smoke.t_enabled2', '5b0a0000-0000-4000-c000-000000000000', true);
 select set_config('smoke.l_enabled2', '5b0a0000-0000-4000-c000-000000000001', true);
 select set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', true);
-\o
+\t off
+\pset format aligned
 
 -- ==========================================================================
 -- STEP 0a — CLOUD TARGET GUARD  (runs BEFORE any mutation)
