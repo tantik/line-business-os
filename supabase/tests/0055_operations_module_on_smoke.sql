@@ -245,14 +245,14 @@ select is(
          '50000000-0000-0000-0000-000000000000', 'cross-tenant create', null, null, null) $$),
   'operations_module_disabled', 'C/CROSS-TENANT: tenant-B manager cannot create a template for another tenant (module gate on the target tenant)');
 
--- raw RLS with-check backstop: even a direct INSERT for tenant NIL is rejected
-grant insert on operations.checklist_templates to authenticated;
+-- raw RLS with-check backstop: even a direct INSERT for another tenant is
+-- rejected. (INSERT on operations.checklist_templates is already granted to
+-- `authenticated` by migration 0105 — RLS, not the table grant, is the boundary.)
 select ok(
   pg_temp.as_auth_throws('50b90000-0000-0000-0000-0000000000a1',
     $$ insert into operations.checklist_templates (tenant_id, location_id, name)
        values ('50f00000-0000-0000-0000-000000000000', null, 'raw cross-tenant') $$),
   'C/CROSS-TENANT: raw INSERT into another tenant is rejected by RLS with-check');
-revoke insert on operations.checklist_templates from authenticated;
 
 -- ============================================================================
 -- SCENARIO D — ROLE_BOUNDARY  (Manager vs Staff / employee)
@@ -316,7 +316,8 @@ select is(
         where template_id = '50b1e000-0000-0000-0000-0000000000b2' $$),
   0, 'E/LOCATION: the L1-scoped manager cannot see the L2-scoped template');
 
-grant update on operations.checklist_templates to authenticated;
+-- (UPDATE on operations.checklist_templates is already granted to
+-- `authenticated` by migration 0105 — RLS is the boundary being tested here.)
 select is(
   pg_temp.as_auth_count('50b90000-0000-0000-0000-0000000000a2',
     $$ with u as (
@@ -324,7 +325,6 @@ select is(
          where id = '50b1e000-0000-0000-0000-0000000000b2' returning 1
        ) select count(*)::int from u $$),
   0, 'E/LOCATION: the L1-scoped manager cannot UPDATE the L2-scoped template (0 rows affected)');
-revoke update on operations.checklist_templates from authenticated;
 
 select is(
   (select name from operations.checklist_templates where id = '50b1e000-0000-0000-0000-0000000000b2'),

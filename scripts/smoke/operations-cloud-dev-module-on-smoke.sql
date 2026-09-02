@@ -46,9 +46,11 @@
 \else
   \set smoke_tenant '37088bfe-14f9-4604-af39-61dd09d37b0c'
 \endif
+-- If not given, the smoke location is auto-resolved from the tenant's single
+-- location in STEP 0 (smoke-tenant-b has exactly one). No fabricated default.
 \if :{?smoke_location}
 \else
-  \set smoke_location 'a902c7f6-0000-0000-0000-000000000000'
+  \set smoke_location ''
 \endif
 
 begin;
@@ -80,10 +82,12 @@ select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', tr
 -- --------------------------------------------------------------------------
 do $$
 declare
-  v_tenant uuid := current_setting('smoke.tenant')::uuid;
-  v_loc    uuid := current_setting('smoke.location')::uuid;
-  v_slug   text;
-  v_kind   text;
+  v_tenant  uuid := current_setting('smoke.tenant')::uuid;
+  v_loc_raw text := current_setting('smoke.location');
+  v_loc     uuid;
+  v_slug    text;
+  v_kind    text;
+  v_nloc    int;
 begin
   select slug, kind::text into v_slug, v_kind from core.tenants where id = v_tenant;
   if v_slug is null then
@@ -92,8 +96,22 @@ begin
   if v_kind is distinct from 'demo' then
     raise exception 'PREFLIGHT FAIL: smoke tenant % has kind=% (expected demo) — refusing to run', v_slug, v_kind;
   end if;
-  if not exists (select 1 from core.locations where id = v_loc and tenant_id = v_tenant) then
-    raise exception 'PREFLIGHT FAIL: location % does not belong to smoke tenant %', v_loc, v_slug;
+
+  if v_loc_raw is null or v_loc_raw = '' then
+    select count(*) into v_nloc from core.locations where tenant_id = v_tenant;
+    if v_nloc = 0 then
+      raise exception 'PREFLIGHT FAIL: smoke tenant % has no location — pass -v smoke_location=<uuid>', v_slug;
+    end if;
+    if v_nloc > 1 then
+      raise exception 'PREFLIGHT FAIL: smoke tenant % has % locations — pass -v smoke_location=<uuid> to pick one', v_slug, v_nloc;
+    end if;
+    select id into v_loc from core.locations where tenant_id = v_tenant;
+    perform set_config('smoke.location', v_loc::text, true);
+  else
+    v_loc := v_loc_raw::uuid;
+    if not exists (select 1 from core.locations where id = v_loc and tenant_id = v_tenant) then
+      raise exception 'PREFLIGHT FAIL: location % does not belong to smoke tenant %', v_loc, v_slug;
+    end if;
   end if;
   if exists (select 1 from core.tenant_modules where tenant_id = v_tenant and module = 'operations' and is_enabled) then
     raise notice 'PREFLIGHT NOTE: operations already enabled for % — smoke still valid, nothing is committed', v_slug;
@@ -129,6 +147,13 @@ begin
     (v_tenant, current_setting('smoke.u_employee')::uuid, '00000000-0000-0000-0000-000000000006', v_loc),
     (v_tenant, current_setting('smoke.u_other')::uuid,    '00000000-0000-0000-0000-000000000005', current_setting('smoke.l_other')::uuid),
     (current_setting('smoke.t_disabled')::uuid, current_setting('smoke.u_dis_mgr')::uuid, '00000000-0000-0000-0000-000000000005', null);
+
+  -- The synthetic "disabled" tenant carries an EXPLICIT is_enabled = false row
+  -- (not a missing row) so Scenario B exercises the real ON->OFF toggle path,
+  -- the one the runbook's persistent enable/disable snippet relies on. (The
+  -- missing-row fail-closed branch is covered by the local pgTAP, tenant NIL.)
+  insert into core.tenant_modules (tenant_id, module, is_enabled) values
+    (current_setting('smoke.t_disabled')::uuid, 'operations', false);
 end $$;
 
 -- --------------------------------------------------------------------------
@@ -207,7 +232,7 @@ begin
     raise exception 'DISABLED_TENANT = FAIL: write RPC returned "%" (expected ERR:operations_module_disabled)', v_res;
   end if;
 
-  raise notice 'DISABLED_TENANT = PASS (no read; write RPC fails closed: operations_module_disabled)';
+  raise notice 'DISABLED_TENANT = PASS (explicit is_enabled=false: no read; write RPC fails closed: operations_module_disabled)';
 end $$;
 
 -- ==========================================================================
@@ -275,9 +300,9 @@ begin
   v_seen := pg_temp.as_auth(v_other, format($f$ select count(*)::int from api.operations_templates where template_id = %L $f$, v_tmpl))::int;
   if v_seen <> 0 then raise exception 'LOCATION_BOUNDARY = FAIL: an L2-only manager can see the L1-scoped template'; end if;
 
-  grant update on operations.checklist_templates to authenticated;
+  -- UPDATE on operations.checklist_templates is already granted to `authenticated`
+  -- by migration 0105; RLS is the boundary under test here.
   v_upd := pg_temp.as_auth(v_other, format($f$ with u as (update operations.checklist_templates set name='hijacked' where id = %L returning 1) select count(*)::int::text from u $f$, v_tmpl));
-  revoke update on operations.checklist_templates from authenticated;
   if v_upd <> '0' then raise exception 'LOCATION_BOUNDARY = FAIL: L2-only manager updated % rows of the L1-scoped template (expected 0)', v_upd; end if;
 
   select name into v_name from operations.checklist_templates where id = v_tmpl::uuid;

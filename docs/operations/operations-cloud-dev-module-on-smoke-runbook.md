@@ -43,9 +43,12 @@ Postgres write (psql or Supabase Studio SQL editor), not an `api.*` call.
 | Field | Value |
 |---|---|
 | tenant | `smoke-tenant-b` — `37088bfe-14f9-4604-af39-61dd09d37b0c` (`kind = demo`) |
-| location | `Smoke Cafe B` — `a902c7f6-…` (verify the full uuid in Studio before running) |
+| location | `Smoke Cafe B` — auto-resolved by the script (smoke-tenant-b has exactly one location) |
 
-If either id has drifted, pass the real ones to the smoke script with
+The script defaults `smoke_tenant` to the uuid above and **auto-resolves the
+location** from that tenant's single `core.locations` row — no location uuid
+needs to be supplied or looked up. If the tenant id has drifted, or the tenant
+ever grows a second location, pass explicit values:
 `-v smoke_tenant=<uuid> -v smoke_location=<uuid>`.
 
 ## The smoke script — `scripts/smoke/operations-cloud-dev-module-on-smoke.sql`
@@ -67,8 +70,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
   -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
 ```
 
-Or paste the file into **Studio → SQL Editor** and run it (Studio wraps
-statements in a transaction; the trailing `ROLLBACK` still applies).
+**psql only.** The script uses psql meta-commands (`\if`, `\o`, `\echo`) and
+will not run as-is in the Studio SQL Editor. If you must use Studio, run the
+equivalent by hand instead: `begin;` → the enable `insert` for smoke-tenant-b →
+your checks → `rollback;` (see "If a persistent enable is ever wanted" below for
+the raw statements).
 
 ### Expected output (stderr NOTICEs + final banner)
 
@@ -96,7 +102,7 @@ transaction rolls back, a failed run leaves Cloud DEV exactly as it was.
 | Step-4 scenario | Script check | Category |
 |---|---|---|
 | A — enabled tenant | Manager reads `api.operations_templates`, creates a template via `api.operations_create_template`, calls `api.operations_expected_tasks` | `ENABLED_TENANT` |
-| B — disabled tenant | never-entitled tenant: 0 rows through the facade **and** `api.operations_create_template` ⇒ `operations_module_disabled` | `DISABLED_TENANT` |
+| B — disabled tenant | synthetic tenant with an **explicit `is_enabled = false`** row (the real ON→OFF toggle path): 0 rows through the facade **and** `api.operations_create_template` ⇒ `operations_module_disabled`. (The missing-row fail-closed branch is covered by the local pgTAP.) | `DISABLED_TENANT` |
 | C — cross-tenant | smoke Manager sees 0 rows of the other tenant; unfiltered read returns only smoke rows; cross-tenant create rejected | `CROSS_TENANT_ISOLATION` |
 | D — role boundary | Employee: read yes; `create_template` ⇒ `operations_permission_denied`; holds `task.execute`, not `exception.resolve` | `ROLE_BOUNDARY` |
 | E — location boundary | L1-scoped template invisible to an L2-only Manager and 0 rows on his UPDATE | `LOCATION_BOUNDARY` |
