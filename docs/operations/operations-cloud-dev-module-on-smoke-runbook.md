@@ -36,50 +36,75 @@ on conflict (tenant_id, module) do update set is_enabled = true;
 ```
 
 and nothing else. `core` is **not** exposed to PostgREST, so this is a direct
-Postgres write (psql or Supabase Studio SQL editor), not an `api.*` call.
+Postgres write (psql), not an `api.*` call.
 
-## Smoke tenant
+## Smoke tenant — resolved automatically, no Studio lookup
 
 | Field | Value |
 |---|---|
-| tenant | `smoke-tenant-b` — `37088bfe-14f9-4604-af39-61dd09d37b0c` (`kind = demo`) |
-| location | `Smoke Cafe B` — auto-resolved by the script (smoke-tenant-b has exactly one location) |
+| tenant slug | `smoke-tenant-b` (stable identity; how the script finds it) |
+| tenant uuid | `37088bfe-14f9-4604-af39-61dd09d37b0c` (cross-check anchor — must match the slug) |
+| kind | `demo` (enforced) |
+| location | the tenant's single `core.locations` row (auto-resolved) |
 
-The script defaults `smoke_tenant` to the uuid above and **auto-resolves the
-location** from that tenant's single `core.locations` row — no location uuid
-needs to be supplied or looked up. If the tenant id has drifted, or the tenant
-ever grows a second location, pass explicit values:
-`-v smoke_tenant=<uuid> -v smoke_location=<uuid>`.
+STEP 0b of the script resolves the tenant **by slug**, then requires: exactly
+one match, `kind = 'demo'`, and that its id equals the recorded uuid anchor —
+any disagreement **fails closed before any write**. The location is the tenant's
+one `core.locations` row; 0 or >1 ⇒ fail (pass `-v smoke_location=<uuid>`). You
+never open Supabase Studio to look anything up.
+
+For a deliberately different smoke tenant, override slug **and** uuid together:
+`-v smoke_tenant_slug=<slug> -v smoke_tenant=<uuid>`.
+
+## Cloud target guard — the script proves it is on Cloud DEV, not Production
+
+STEP 0a runs **before any INSERT/UPDATE** and refuses to continue unless the
+connected database is machine-proven to be the expected Cloud DEV project.
+It reads only database-side connection metadata (never the connection string):
+
+| Signal | Source |
+|---|---|
+| S1 | `current_user` — on a Supabase **pooler** connection this is `postgres.<project_ref>` |
+| S2 | `_realtime.tenants.external_id` — Realtime's own per-project id (the project ref on hosted Supabase; `realtime-dev` on local) — only `external_id` is read, never `jwt_secret` |
+| S3 | `current_setting('supabase.project_ref', true)` — a custom GUC if one is ever set (null today) |
+
+Decision (**fail closed**): the known **Production** ref (`jsgmmsdkuptdsxtcxhsv`)
+observed anywhere ⇒ abort; any observed ref ≠ the expected Cloud DEV ref
+(`pehcoenozjtsjdvjietj`) ⇒ abort; expected ref observed ⇒ proceed; nothing
+observed / cannot prove ⇒ abort with instructions to reconnect via the pooler.
+
+**Connect through the Supabase Session pooler** so S1 always carries the ref —
+that is the reliable path and does not depend on `_realtime` read privileges.
 
 ## The smoke script — `scripts/smoke/operations-cloud-dev-module-on-smoke.sql`
 
 Self-contained. **Commits nothing** — the whole run is one transaction that ends
-in `ROLLBACK`. It creates synthetic actors (a tenant-wide Manager, an
-L1-scoped Employee, an L2-only Manager, and a Manager on a throw-away
-never-entitled tenant), enables `operations` for the smoke tenant, runs every
-Step-4 scenario as a real `authenticated` role-hop through the `api.*` facade,
-then rolls everything back. No Supabase Auth users are created. No cleanup step
-is needed because nothing is committed.
+in `ROLLBACK`. After the two STEP 0 gates it creates synthetic actors (a
+tenant-wide Manager, an L1-scoped Employee, an L2-only Manager, and a Manager on
+a throw-away never-entitled tenant), enables `operations` for the smoke tenant,
+runs every Step-4 scenario as a real `authenticated` role-hop through the
+`api.*` facade, then rolls everything back. No Supabase Auth users are created.
+No cleanup step is needed because nothing is committed.
 
-### Run it
+### Run it (Founder / operator)
 
 ```bash
-# DATABASE_URL = the Cloud DEV direct Postgres connection string (session pooler
-# or direct 5432). Never paste it into a file; never echo it.
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
+# Use the Supabase Session pooler connection string for the Cloud DEV project.
+# In the Supabase dashboard: Project Settings -> Database -> Connection string
+# -> "Session pooler". The username is postgres.<project_ref>.
+# Put it in a shell variable; never paste it into a file, never echo it.
+psql "$SUPABASE_DEV_POOLER_URL" -v ON_ERROR_STOP=1 -q \
   -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
 ```
 
 **psql only.** The script uses psql meta-commands (`\if`, `\o`, `\echo`) and
-will not run as-is in the Studio SQL Editor. If you must use Studio, run the
-equivalent by hand instead: `begin;` → the enable `insert` for smoke-tenant-b →
-your checks → `rollback;` (see "If a persistent enable is ever wanted" below for
-the raw statements).
+will not run in the Studio SQL Editor.
 
 ### Expected output (stderr NOTICEs + final banner)
 
 ```
-NOTICE:  PREFLIGHT OK: tenant=smoke-tenant-b ... location=...
+NOTICE:  CLOUD_TARGET = PASS (Cloud DEV project ref confirmed database-side: N signal(s))
+NOTICE:  PREFLIGHT OK: tenant="smoke-tenant-b" id=37088bfe-... (kind=demo) location=...
 NOTICE:  OPERATIONS_MODULE_ON = PASS
 NOTICE:  ENABLED_TENANT = PASS (templates N -> N+1, expected_tasks callable)
 NOTICE:  DISABLED_TENANT = PASS (no read; write RPC fails closed: operations_module_disabled)
@@ -112,7 +137,8 @@ transaction rolls back, a failed run leaves Cloud DEV exactly as it was.
 
 To click Operations through on Vercel Preview you would need a **committed**
 `core.tenant_modules` row for the smoke tenant (and real Auth users). That is a
-separate, explicitly Founder-approved action. To do it and then undo it:
+separate, explicitly Founder-approved action. These are plain SQL statements
+(Studio SQL editor is fine). To do it and then undo it:
 
 ```sql
 -- enable (persistent)
@@ -133,7 +159,21 @@ unchanged if re-enabled.
 
 ## Local mirror
 
-`supabase/tests/0055_operations_module_on_smoke.sql` (pgTAP, runs in
-`pnpm exec supabase test db`) is the local equivalent — the same Step-4
-scenario matrix on a fixture shaped like the Cloud DEV smoke tenants. Keep the
-two in sync.
+Two ways to exercise this locally:
+
+- `supabase/tests/0055_operations_module_on_smoke.sql` — pgTAP, runs in
+  `pnpm exec supabase test db`; the same Step-4 scenario matrix on a fixture
+  shaped like the Cloud DEV smoke tenants.
+- The Cloud script itself against local Supabase, with `-v allow_local=1`
+  (honoured **only** when the target proves to be local Supabase — Realtime id
+  `realtime-dev`; it can never let a Production or unknown target through):
+
+  ```bash
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+    -v ON_ERROR_STOP=1 -q -v allow_local=1 \
+    -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
+  ```
+
+  A local `smoke-tenant-b` (slug, `kind=demo`, one location) must exist first.
+
+Keep the pgTAP mirror and the Cloud script scenario list in sync.

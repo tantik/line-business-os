@@ -13,60 +13,86 @@
 --   "disabled" tenant, and every template created through the API are all
 --   discarded when the script finishes. There is no cleanup step because there
 --   is nothing to clean up. Re-running is always safe and side-effect-free.
---   (A genuinely persistent enablement for Vercel Preview click-through would
---   be a SEPARATE, explicitly Founder-approved action — not this script.)
 --
---   Requirements: a direct Postgres connection to Cloud DEV (psql), and the
---   smoke tenant + location below must already exist on Cloud DEV. It does NOT
---   create Supabase Auth users and does NOT touch Production.
+--   TWO machine-verified gates run BEFORE any INSERT/UPDATE (STEP 0):
+--     0a  CLOUD TARGET GUARD — proves the connected database is the expected
+--         ORUWA Cloud DEV project (ref `pehcoenozjtsjdvjietj`) and is NOT the
+--         known Production project (ref `jsgmmsdkuptdsxtcxhsv`), using
+--         database-side connection metadata only. Fails closed if the target
+--         cannot be proven, differs, or looks like Production.
+--     0b  SMOKE TENANT / LOCATION — resolves smoke-tenant-b from its stable
+--         slug, cross-checks it against the historically-recorded UUID,
+--         requires kind=demo and exactly one location. Fails closed on any
+--         ambiguity. No manual Supabase Studio lookup is needed.
 --
--- HOW TO RUN (operator / Founder; Cloud DEV connection string in $DATABASE_URL):
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+-- HOW TO RUN — see docs/operations/operations-cloud-dev-module-on-smoke-runbook.md
+--   Connect through the Supabase **Session pooler** so the DB-side username
+--   carries the project ref (`current_user` = `postgres.<project_ref>`):
+--     psql "$SUPABASE_DEV_POOLER_URL" -v ON_ERROR_STOP=1 -q \
 --       -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
+--   The connection string is never read, echoed, or logged by this script.
 --
---   Override the target tenant/location if the documented ids ever change:
---     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
---       -v smoke_tenant=<uuid> -v smoke_location=<uuid> \
+-- LOCAL MIRROR RUN (for validating the mechanism against local Supabase):
+--     psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+--       -v ON_ERROR_STOP=1 -q -v allow_local=1 \
 --       -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
+--   `allow_local=1` is honoured ONLY when the target proves to be local
+--   Supabase (realtime tenant id `realtime-dev`); it can never let a
+--   Production or unknown target through.
 --
 -- RESULT
---   Every check RAISES EXCEPTION on failure, so a non-zero psql exit code = a
---   FAILED smoke. On success the tail prints one categorical block:
---     OPERATIONS_MODULE_ON=PASS  ENABLED_TENANT=PASS  DISABLED_TENANT=PASS
---     CROSS_TENANT_ISOLATION=PASS  ROLE_BOUNDARY=PASS  LOCATION_BOUNDARY=PASS
---     SECRET_SAFETY=PASS
+--   Every check RAISES EXCEPTION on failure => non-zero psql exit = FAIL.
+--   On success the tail prints one categorical block:
+--     CLOUD_TARGET=PASS  OPERATIONS_MODULE_ON=PASS  ENABLED_TENANT=PASS
+--     DISABLED_TENANT=PASS  CROSS_TENANT_ISOLATION=PASS  ROLE_BOUNDARY=PASS
+--     LOCATION_BOUNDARY=PASS  SECRET_SAFETY=PASS
 --
--- Never prints credentials or PII. All actor identifiers are synthetic.
--- Local mirror: pgTAP supabase/tests/0055_operations_module_on_smoke.sql.
+-- Never prints credentials, connection strings, or PII. Project refs are
+-- public identifiers (already in docs/project/master-state.md), not secrets.
+-- pgTAP local mirror of the scenarios: supabase/tests/0055_operations_module_on_smoke.sql.
 -- ============================================================================
 
 \set ON_ERROR_STOP on
 
+-- Public, non-secret identifiers (verbatim from docs/project/master-state.md).
+\set expected_dev_ref  'pehcoenozjtsjdvjietj'
+\set known_prod_ref    'jsgmmsdkuptdsxtcxhsv'
+
+-- Stable smoke-tenant identity. Slug is primary; UUID is a cross-check anchor
+-- (they MUST agree or the run fails closed). Override both together only for a
+-- deliberate, different smoke tenant.
+\if :{?smoke_tenant_slug}
+\else
+  \set smoke_tenant_slug 'smoke-tenant-b'
+\endif
 \if :{?smoke_tenant}
 \else
   \set smoke_tenant '37088bfe-14f9-4604-af39-61dd09d37b0c'
 \endif
--- If not given, the smoke location is auto-resolved from the tenant's single
--- location in STEP 0 (smoke-tenant-b has exactly one). No fabricated default.
+-- Location is auto-resolved from the tenant's single location unless given.
 \if :{?smoke_location}
 \else
   \set smoke_location ''
+\endif
+\if :{?allow_local}
+\else
+  \set allow_local '0'
 \endif
 
 begin;
 
 set local search_path to public, core, operations, api;
 
--- The two runtime parameters must be stashed into transaction-local GUCs via
--- PLAIN SQL — psql does NOT interpolate :'x' inside a dollar-quoted body, so
--- this is the only place the -v / \set values can cross into PL/pgSQL.
--- is_local => they vanish on ROLLBACK regardless.
+-- psql does NOT interpolate :'x' inside a dollar-quoted body — stash every
+-- parameter into transaction-local GUCs here (plain SQL). is_local => they
+-- vanish on ROLLBACK regardless.
 \o /dev/null
-select set_config('smoke.tenant',   :'smoke_tenant',   true);
-select set_config('smoke.location', :'smoke_location', true);
-
--- Synthetic actor / tenant ids are fixed constants (private, obviously-fake
--- uuid range) — set here so every block below reads them the same way.
+select set_config('smoke.expected_dev_ref', :'expected_dev_ref', true);
+select set_config('smoke.known_prod_ref',   :'known_prod_ref',   true);
+select set_config('smoke.allow_local',      :'allow_local',      true);
+select set_config('smoke.tenant_slug',      :'smoke_tenant_slug', true);
+select set_config('smoke.tenant',           :'smoke_tenant',     true);
+select set_config('smoke.location',         :'smoke_location',   true);
 select set_config('smoke.u_manager',  '5b0a0000-0000-4000-a000-0000000000a1', true);
 select set_config('smoke.u_employee', '5b0a0000-0000-4000-a000-0000000000e1', true);
 select set_config('smoke.u_other',    '5b0a0000-0000-4000-a000-0000000000a2', true);
@@ -76,47 +102,152 @@ select set_config('smoke.l_disabled', '5b0a0000-0000-4000-b000-000000000001', tr
 select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', true);
 \o
 
+-- ==========================================================================
+-- STEP 0a — CLOUD TARGET GUARD  (runs BEFORE any mutation)
 -- --------------------------------------------------------------------------
--- STEP 0 — preflight. Target tenant + location MUST already exist; refuse to
--- run against anything that is not clearly a demo/smoke tenant.
--- --------------------------------------------------------------------------
+-- Collects every database-side signal that can name the Supabase project:
+--   S1  current_user matching `postgres.<20 lowercase chars>`  (Session/
+--       Transaction pooler — Supabase's documented pooler username format)
+--   S2  _realtime.tenants.external_id  (Realtime's own per-project tenant row;
+--       on hosted Supabase this IS the project ref; on local it is
+--       'realtime-dev'). Read defensively — schema may be unreadable.
+--   S3  current_setting('supabase.project_ref', true)  (custom GUC, if a
+--       project ever sets one via ALTER SYSTEM/ALTER DATABASE — null today)
+-- Only `external_id` / `name` are ever read from _realtime.tenants — never
+-- `jwt_secret` or any other column.
+--
+-- Decision (FAIL CLOSED):
+--   * known Production ref observed anywhere      -> FAIL
+--   * any observed ref <> expected Cloud DEV ref  -> FAIL
+--   * expected Cloud DEV ref observed             -> PASS
+--   * only the local sentinel observed + allow_local=1 -> PASS (local mirror)
+--   * nothing observed / cannot prove             -> FAIL
+-- ==========================================================================
 do $$
 declare
-  v_tenant  uuid := current_setting('smoke.tenant')::uuid;
-  v_loc_raw text := current_setting('smoke.location');
-  v_loc     uuid;
-  v_slug    text;
-  v_kind    text;
-  v_nloc    int;
+  v_expected text := current_setting('smoke.expected_dev_ref');
+  v_prod     text := current_setting('smoke.known_prod_ref');
+  v_allow_local boolean := current_setting('smoke.allow_local') = '1';
+  v_s1 text; v_s2 text; v_s3 text;
+  v_refs text[] := '{}';
+  v_is_local boolean := false;
+  r text;
 begin
-  select slug, kind::text into v_slug, v_kind from core.tenants where id = v_tenant;
-  if v_slug is null then
-    raise exception 'PREFLIGHT FAIL: smoke tenant % not found on this database', v_tenant;
+  -- S1 — pooler username
+  if current_user ~ '^postgres\.[a-z0-9]{20}$' then
+    v_s1 := split_part(current_user, '.', 2);
   end if;
+
+  -- S2 — realtime tenant id(s). Defensive: schema/table/privilege may be
+  -- absent. Collect EVERY row (hosted has one; more => check them all).
+  begin
+    execute 'select string_agg(distinct external_id, '','') from _realtime.tenants' into v_s2;
+  exception when others then
+    v_s2 := null;
+  end;
+
+  -- S3 — optional custom GUC
+  begin
+    v_s3 := nullif(current_setting('supabase.project_ref', true), '');
+  exception when others then
+    v_s3 := null;
+  end;
+
+  -- v_s2 may be a comma-joined list of external_ids; S1/S3 are single values.
+  foreach r in array (
+    coalesce(string_to_array(v_s2, ','), '{}')
+    || case when v_s1 is null then '{}'::text[] else array[v_s1] end
+    || case when v_s3 is null then '{}'::text[] else array[v_s3] end
+  ) loop
+    r := btrim(r);
+    if r is null or r = '' then continue; end if;
+    if r = 'realtime-dev' then
+      v_is_local := true;
+    elsif not (r = any (v_refs)) then
+      v_refs := v_refs || r;
+    end if;
+  end loop;
+
+  -- Hard stops
+  if v_prod = any (v_refs) then
+    raise exception 'CLOUD_TARGET = FAIL: target names the known PRODUCTION project ref — refusing to mutate. (signals: user=%, realtime=%, guc=%)',
+      coalesce(v_s1,'-'), coalesce(v_s2,'-'), coalesce(v_s3,'-');
+  end if;
+
+  foreach r in array v_refs loop
+    if r <> v_expected then
+      raise exception 'CLOUD_TARGET = FAIL: target names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', r, v_expected;
+    end if;
+  end loop;
+
+  if v_expected = any (v_refs) then
+    raise notice 'CLOUD_TARGET = PASS (Cloud DEV project ref confirmed database-side: % signal(s))', array_length(v_refs, 1);
+  elsif v_is_local and v_allow_local then
+    raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — this is the LOCAL MIRROR run, not Cloud DEV';
+  elsif v_is_local then
+    raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 to run the local mirror, or connect to Cloud DEV via the Session pooler.';
+  else
+    raise exception 'CLOUD_TARGET = FAIL: could not prove the target project database-side (no pooler username, no readable _realtime.tenants, no project_ref GUC). Connect through the Supabase Session pooler so current_user = postgres.<project_ref>.';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- STEP 0b — SMOKE TENANT + LOCATION  (resolve + verify; no manual lookup)
+-- --------------------------------------------------------------------------
+--   * resolve by the stable slug (default 'smoke-tenant-b')
+--   * exactly one such tenant, kind=demo
+--   * its id MUST equal the historically-recorded UUID anchor (or the one
+--     passed with -v smoke_tenant) — disagreement fails closed
+--   * exactly one location (or -v smoke_location=<uuid> belonging to it)
+-- ==========================================================================
+do $$
+declare
+  v_slug     text := current_setting('smoke.tenant_slug');
+  v_anchor   uuid := current_setting('smoke.tenant')::uuid;
+  v_loc_raw  text := current_setting('smoke.location');
+  v_n        int;
+  v_id       uuid;
+  v_kind     text;
+  v_loc      uuid;
+  v_nloc     int;
+begin
+  select count(*) into v_n from core.tenants where slug = v_slug;
+  if v_n = 0 then
+    raise exception 'TENANT_RESOLVE = FAIL: no tenant with slug "%" on this database', v_slug;
+  end if;
+  if v_n > 1 then
+    raise exception 'TENANT_RESOLVE = FAIL: % tenants share slug "%" (slug must be unique) — refusing to guess', v_n, v_slug;
+  end if;
+
+  select id, kind::text into v_id, v_kind from core.tenants where slug = v_slug;
   if v_kind is distinct from 'demo' then
-    raise exception 'PREFLIGHT FAIL: smoke tenant % has kind=% (expected demo) — refusing to run', v_slug, v_kind;
+    raise exception 'TENANT_RESOLVE = FAIL: tenant "%" has kind=% (expected demo) — refusing to run', v_slug, v_kind;
+  end if;
+  if v_id <> v_anchor then
+    raise exception 'TENANT_RESOLVE = FAIL: slug "%" resolves to % but the recorded UUID anchor is % — they must agree (pass -v smoke_tenant / -v smoke_tenant_slug together for a deliberate different tenant)', v_slug, v_id, v_anchor;
   end if;
 
   if v_loc_raw is null or v_loc_raw = '' then
-    select count(*) into v_nloc from core.locations where tenant_id = v_tenant;
-    if v_nloc = 0 then
-      raise exception 'PREFLIGHT FAIL: smoke tenant % has no location — pass -v smoke_location=<uuid>', v_slug;
+    select count(*) into v_nloc from core.locations where tenant_id = v_id;
+    if v_nloc <> 1 then
+      raise exception 'LOCATION_RESOLVE = FAIL: tenant "%" has % locations (expected exactly 1) — pass -v smoke_location=<uuid>', v_slug, v_nloc;
     end if;
-    if v_nloc > 1 then
-      raise exception 'PREFLIGHT FAIL: smoke tenant % has % locations — pass -v smoke_location=<uuid> to pick one', v_slug, v_nloc;
-    end if;
-    select id into v_loc from core.locations where tenant_id = v_tenant;
-    perform set_config('smoke.location', v_loc::text, true);
+    select id into v_loc from core.locations where tenant_id = v_id;
   else
     v_loc := v_loc_raw::uuid;
-    if not exists (select 1 from core.locations where id = v_loc and tenant_id = v_tenant) then
-      raise exception 'PREFLIGHT FAIL: location % does not belong to smoke tenant %', v_loc, v_slug;
+    if not exists (select 1 from core.locations where id = v_loc and tenant_id = v_id) then
+      raise exception 'LOCATION_RESOLVE = FAIL: location % does not belong to tenant "%"', v_loc, v_slug;
     end if;
   end if;
-  if exists (select 1 from core.tenant_modules where tenant_id = v_tenant and module = 'operations' and is_enabled) then
-    raise notice 'PREFLIGHT NOTE: operations already enabled for % — smoke still valid, nothing is committed', v_slug;
+
+  -- publish the verified ids for the scenario blocks
+  perform set_config('smoke.tenant',   v_id::uuid::text,  true);
+  perform set_config('smoke.location', v_loc::uuid::text, true);
+
+  if exists (select 1 from core.tenant_modules where tenant_id = v_id and module = 'operations' and is_enabled) then
+    raise notice 'PREFLIGHT NOTE: operations already enabled for "%" — smoke still valid, nothing is committed', v_slug;
   end if;
-  raise notice 'PREFLIGHT OK: tenant=% (kind=%) location=%', v_slug, v_kind, v_loc;
+  raise notice 'PREFLIGHT OK: tenant="%" id=% (kind=demo) location=%', v_slug, v_id, v_loc;
 end $$;
 
 -- --------------------------------------------------------------------------
@@ -316,10 +447,10 @@ do $$ begin raise notice 'SECRET_SAFETY = PASS (no credential is read or printed
 \echo ''
 \echo '=================================================================='
 \echo ' OPERATIONS CLOUD DEV MODULE-ON SMOKE — ALL SCENARIOS PASSED'
-\echo '   OPERATIONS_MODULE_ON=PASS   ENABLED_TENANT=PASS'
-\echo '   DISABLED_TENANT=PASS        CROSS_TENANT_ISOLATION=PASS'
-\echo '   ROLE_BOUNDARY=PASS          LOCATION_BOUNDARY=PASS'
-\echo '   SECRET_SAFETY=PASS'
+\echo '   CLOUD_TARGET=PASS           OPERATIONS_MODULE_ON=PASS'
+\echo '   ENABLED_TENANT=PASS         DISABLED_TENANT=PASS'
+\echo '   CROSS_TENANT_ISOLATION=PASS ROLE_BOUNDARY=PASS'
+\echo '   LOCATION_BOUNDARY=PASS      SECRET_SAFETY=PASS'
 \echo ' Nothing was committed — rolling back all smoke data now.'
 \echo '=================================================================='
 
