@@ -258,12 +258,18 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   }
 
   // Stale-proposal guard: the period query above is already bounded to
-  // [periodStart, periodEnd]. If it still holds any unconfirmed
-  // (`published === false`) row for this location, an earlier auto-create run
-  // was never confirmed or undone -- running again would silently stack a
-  // second set of drafts. Refuse until the manager resolves the first set.
+  // [periodStart, periodEnd]. If it still holds an unconfirmed
+  // (`published === false`) row that is still assigned to someone, an earlier
+  // auto-create run was never confirmed or undone -- running again would
+  // silently stack a second set of drafts. Refuse until the manager resolves
+  // the first set.
+  //
+  // `employeeId === null` rows are deliberately excluded: `undoAutoDistribution`
+  // nulls `employee_id` rather than deleting (no DELETE grant in this slice),
+  // so an undone run leaves behind invisible orphan rows. Counting those as a
+  // "proposal" would permanently wedge the feature after the first Undo.
   const hasUnconfirmedProposal = existingResult.data.some(
-    (a) => a.locationId === locationId && a.published === false,
+    (a) => a.locationId === locationId && a.published === false && a.employeeId !== null,
   );
   if (hasUnconfirmedProposal) return { status: 'invalid_config', reason: 'stale_proposal' };
 
