@@ -8,6 +8,7 @@ import {
   attentionSummarySubtitle,
   autoCreateConfigErrorMessage,
   autoCreateCreatedMessage,
+  autoCreateLastResultSummary,
   autoCreateShortageLine,
   autoCreateUnplacedLine,
   breakMinutesValue,
@@ -65,7 +66,6 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'autoCreateConfirmTitle', 'autoCreateConfirmBody', 'autoCreateResultTitle', 'autoCreateManualPreservedNote',
   'autoCreateShortagesHeading', 'autoCreateUnplacedHeading', 'autoCreateNonSubmittersHeading', 'autoCreateNoIssues',
   'autoCreateUndoButton', 'autoCreateUndoing', 'autoCreateUndone',
-  'autoCreateErrorNoWindows', 'autoCreateErrorNoRequirement', 'autoCreateErrorStaleProposal',
   'estimatedLabourCostLabel',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
@@ -180,10 +180,19 @@ test('unplacedReasonLabel returns non-empty, language-distinct copy for every re
 });
 
 test('autoCreateConfigErrorMessage returns distinct JA/EN copy for each invalid-config reason', () => {
-  for (const reason of ['no_active_windows', 'no_staffing_requirement', 'stale_proposal'] as const) {
+  for (const reason of ['no_active_windows', 'no_staffing_requirement'] as const) {
     assert.ok(autoCreateConfigErrorMessage.ja(reason).length > 0);
     assert.notEqual(autoCreateConfigErrorMessage.ja(reason), autoCreateConfigErrorMessage.en(reason));
   }
+});
+
+test('autoCreateLastResultSummary always shows the created count and omits zero attention counts', () => {
+  assert.match(autoCreateLastResultSummary.en(5, 0, 0, 0), /5/);
+  assert.doesNotMatch(autoCreateLastResultSummary.en(5, 0, 0, 0), /short|unassigned|preferences/);
+  const full = autoCreateLastResultSummary.en(5, 2, 1, 3);
+  assert.match(full, /2 short/);
+  assert.match(full, /1 unassigned/);
+  assert.notEqual(autoCreateLastResultSummary.en(5, 2, 1, 3), autoCreateLastResultSummary.ja(5, 2, 1, 3));
 });
 
 test('auto-create result line builders interpolate their inputs and differ by language', () => {

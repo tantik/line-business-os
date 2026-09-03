@@ -49,14 +49,18 @@ test('staffing windows + headcount + hours cap are all resolved server-side', ()
   assert.match(body, /shiftTypesResult\.data\.filter\(\(st\) => st\.locationId === locationId\)/);
 });
 
-test('distinct invalid_config outcomes for no-windows / no-requirement / stale-proposal', () => {
+test('distinct invalid_config outcomes for no-windows / no-requirement (a re-run is NOT an error)', () => {
   const body = runAutoDistributionBody();
   assert.match(body, /return \{ status: 'invalid_config', reason: 'no_active_windows' \}/);
   assert.match(body, /reason: 'no_staffing_requirement'/);
-  assert.match(body, /reason: 'stale_proposal'/);
+  assert.doesNotMatch(body, /stale_proposal/);
 });
 
-test('the stale-proposal guard ignores undo-orphaned (employee_id null) rows', () => {
+test('a re-run replaces the previous unconfirmed proposal: clears published=false rows for the period before inserting the new set', () => {
   const body = runAutoDistributionBody();
-  assert.match(body, /a\.published === false && a\.employeeId !== null/);
+  const clearIdx = body.indexOf('clearUnconfirmedDraftAssignmentsInPeriod(');
+  const insertIdx = body.indexOf('insertDraftShiftAssignments(');
+  assert.ok(clearIdx >= 0, 'must call clearUnconfirmedDraftAssignmentsInPeriod');
+  assert.ok(clearIdx < insertIdx, 'the clear must run before the insert');
+  assert.match(body, /if \(clearResult\.status !== 'success'\) return clearResult;/);
 });

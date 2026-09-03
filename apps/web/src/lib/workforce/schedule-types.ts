@@ -23,11 +23,11 @@ export interface RunAutoDistributionActionResult {
  *     that maps to a staffing window (AM/PM/ALL/A-P/SHORT_AM).
  *   - `no_staffing_requirement`: every weekday's "required staff per shift"
  *     setting is 0, so a run could only ever be a no-op.
- *   - `stale_proposal`: the period still holds unconfirmed auto-created
- *     shifts from an earlier run -- confirm or undo them first, so drafts
- *     never silently pile up.
+ *
+ * A re-run for a week that already has an unconfirmed proposal is NOT an
+ * error: `runAutoDistribution` clears that proposal first and replaces it.
  */
-export type RunAutoDistributionInvalidConfigReason = 'no_active_windows' | 'no_staffing_requirement' | 'stale_proposal';
+export type RunAutoDistributionInvalidConfigReason = 'no_active_windows' | 'no_staffing_requirement';
 
 export type RunAutoDistributionActionOutcome =
   | WorkforceWriteResult<RunAutoDistributionActionResult>

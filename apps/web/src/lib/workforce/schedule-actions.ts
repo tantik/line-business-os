@@ -9,6 +9,7 @@ import { listWorkforceStaffDirectory } from './employees';
 import { listWorkforceShiftTypes } from './shift-types';
 import { listShiftRequestsForManager, submitShiftPreference as submitShiftPreferenceWrite } from './shift-requests';
 import {
+  clearUnconfirmedDraftAssignmentsInPeriod,
   createShiftAssignment as createShiftAssignmentWrite,
   insertDraftShiftAssignments,
   listShiftAssignments,
@@ -257,22 +258,6 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
     return { status: 'invalid_config', reason: 'no_staffing_requirement' };
   }
 
-  // Stale-proposal guard: the period query above is already bounded to
-  // [periodStart, periodEnd]. If it still holds an unconfirmed
-  // (`published === false`) row that is still assigned to someone, an earlier
-  // auto-create run was never confirmed or undone -- running again would
-  // silently stack a second set of drafts. Refuse until the manager resolves
-  // the first set.
-  //
-  // `employeeId === null` rows are deliberately excluded: `undoAutoDistribution`
-  // nulls `employee_id` rather than deleting (no DELETE grant in this slice),
-  // so an undone run leaves behind invisible orphan rows. Counting those as a
-  // "proposal" would permanently wedge the feature after the first Undo.
-  const hasUnconfirmedProposal = existingResult.data.some(
-    (a) => a.locationId === locationId && a.published === false && a.employeeId !== null,
-  );
-  if (hasUnconfirmedProposal) return { status: 'invalid_config', reason: 'stale_proposal' };
-
   const employees: AutoDistributeEmployee[] = staffResult.data
     .filter((s) => s.locationId === locationId)
     .map((s) => ({ employeeId: s.staffId, isActive: s.isActive }));
@@ -311,6 +296,19 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
       overwriteExisting: false,
     },
   });
+
+  // Re-running "auto-create" for a week REPLACES the previous unconfirmed
+  // proposal rather than stacking a second one: clear this location/period's
+  // `published = false` rows first. `published = true` (confirmed/manual)
+  // shifts are never matched, so a manager's own shifts survive untouched.
+  const clearResult = await clearUnconfirmedDraftAssignmentsInPeriod(
+    supabase,
+    tenantId,
+    locationId,
+    fromIso,
+    toIsoExclusive,
+  );
+  if (clearResult.status !== 'success') return clearResult;
 
   const insertRows = result.draftAssignments.map((draft) =>
     mapDraftAssignmentToInsertRow(draft, tenantId, locationId, timeZone),

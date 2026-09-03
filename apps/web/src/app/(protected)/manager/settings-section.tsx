@@ -11,7 +11,12 @@ import styles from './settings-section.module.css';
 import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design-kit';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { shiftRequestsMissingLabel, shiftRequestsSubmittedLabel, tManagerDashboard } from './manager-dashboard-i18n';
+import {
+  autoCreateLastResultSummary,
+  shiftRequestsMissingLabel,
+  shiftRequestsSubmittedLabel,
+  tManagerDashboard,
+} from './manager-dashboard-i18n';
 
 export interface SettingsSectionProps {
   locationId: string;
@@ -490,7 +495,13 @@ export function SettingsSection({
 
           {lastAutoCreateResult ? (
             <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>
-              {t('automationLastResultHeading')}: {t('automationManualCreateButton')} — {lastAutoCreateResult.created}
+              {t('automationLastResultHeading')}:{' '}
+              {autoCreateLastResultSummary[lang](
+                lastAutoCreateResult.created,
+                lastAutoCreateResult.shortages,
+                lastAutoCreateResult.unplaced,
+                lastAutoCreateResult.missingPreferences,
+              )}
             </p>
           ) : null}
 

@@ -226,9 +226,6 @@ interface ManagerDashboardDict {
   autoCreateUndoButton: string;
   autoCreateUndoing: string;
   autoCreateUndone: string;
-  autoCreateErrorNoWindows: string;
-  autoCreateErrorNoRequirement: string;
-  autoCreateErrorStaleProposal: string;
   // "Estimated labour cost" box below the schedule grid (Round 3, 2026-08-22)
   estimatedLabourCostLabel: string;
   // Shift types section
@@ -539,13 +536,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: 'About automatic schedule',
     automationHelpTitle: 'About automatic schedule',
     automationHelpBody:
-      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences and your settings. Confirmed and manual shifts are always kept.',
+      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences and your settings. Running it again replaces that week\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept.',
     automationComingSoonNote: 'Coming soon',
     automationManualCreateButton: 'Create schedule automatically',
     automationManualCreateRunning: 'Creating...',
     automationLastResultHeading: 'Last result',
     autoCreateConfirmTitle: 'Create this week\'s schedule automatically?',
-    autoCreateConfirmBody: 'Staff will be assigned based on their preferences and your settings. Confirmed and manual shifts are left as they are.',
+    autoCreateConfirmBody: 'Staff will be assigned based on their preferences and your settings. This week\'s unconfirmed automatic shifts will be replaced with the new set. Confirmed and manual shifts are left as they are.',
     autoCreateResultTitle: 'Automatic creation result',
     autoCreateManualPreservedNote: 'Confirmed and manual shifts were not changed.',
     autoCreateShortagesHeading: 'Time slots still short',
@@ -555,9 +552,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     autoCreateUndoButton: 'Undo automatic creation',
     autoCreateUndoing: 'Undoing...',
     autoCreateUndone: 'Automatic creation undone -- the shifts it created were removed.',
-    autoCreateErrorNoWindows: 'No active shift types are set for this location yet. Add shift types in Settings first.',
-    autoCreateErrorNoRequirement: 'No required staff count is set for any weekday. Set "Required staff per shift" in Settings first.',
-    autoCreateErrorStaleProposal: 'This week still has unconfirmed automatically-created shifts. Confirm or undo them first.',
     estimatedLabourCostLabel: 'Estimated labour cost',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
@@ -844,13 +838,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: '自動スケジュールについて',
     automationHelpTitle: '自動スケジュールについて',
     automationHelpBody:
-      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望と設定にもとづいて割り当てできます。確定済み・手動のシフトは常にそのまま残ります。',
+      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望と設定にもとづいて割り当てできます。もう一度実行すると、その週の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残ります。',
     automationComingSoonNote: '準備中',
     automationManualCreateButton: '自動でシフトを作成',
     automationManualCreateRunning: '作成中...',
     automationLastResultHeading: '直近の結果',
     autoCreateConfirmTitle: 'この週のシフトを自動で作成しますか？',
-    autoCreateConfirmBody: 'スタッフの希望と設定にもとづいて割り当てます。確定済み・手動のシフトはそのまま残ります。',
+    autoCreateConfirmBody: 'スタッフの希望と設定にもとづいて割り当てます。この週の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトはそのまま残ります。',
     autoCreateResultTitle: '自動作成の結果',
     autoCreateManualPreservedNote: '確定済み・手動のシフトは変更していません',
     autoCreateShortagesHeading: '不足している時間帯',
@@ -860,9 +854,6 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     autoCreateUndoButton: '自動作成を取り消す',
     autoCreateUndoing: '取り消し中...',
     autoCreateUndone: '自動作成を取り消しました -- 作成されたシフトは削除されました。',
-    autoCreateErrorNoWindows: 'この店舗には有効なシフト種別がまだ設定されていません。先に設定でシフト種別を追加してください。',
-    autoCreateErrorNoRequirement: 'どの曜日にも必要人数が設定されていません。先に設定の「1シフトあたりの必要人数」を設定してください。',
-    autoCreateErrorStaleProposal: 'この期間には未確定の自動シフト案があります。先に確定するか取り消してください。',
     estimatedLabourCostLabel: '概算人件費',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
@@ -1142,8 +1133,6 @@ export const autoCreateConfigErrorMessage: Record<Lang, (reason: RunAutoDistribu
         'No active shift types are set for this location yet. Add shift types in Settings first.',
       no_staffing_requirement:
         'No required staff count is set for any weekday. Set "Required staff per shift" in Settings first.',
-      stale_proposal:
-        'This week still has unconfirmed automatically-created shifts. Confirm or undo them first.',
     })[reason],
   ja: (reason) =>
     ({
@@ -1151,8 +1140,6 @@ export const autoCreateConfigErrorMessage: Record<Lang, (reason: RunAutoDistribu
         'この店舗には有効なシフト種別がまだ設定されていません。先に設定でシフト種別を追加してください。',
       no_staffing_requirement:
         'どの曜日にも必要人数が設定されていません。先に設定の「1シフトあたりの必要人数」を設定してください。',
-      stale_proposal:
-        'この期間には未確定の自動シフト案があります。先に確定するか取り消してください。',
     })[reason],
 };
 
@@ -1171,4 +1158,29 @@ export const autoCreateShortageLine: Record<Lang, (date: string, windowLabel: st
 export const autoCreateUnplacedLine: Record<Lang, (staffName: string, date: string, reason: string) => string> = {
   en: (staffName, date, reason) => `${staffName} · ${date} — ${reason}`,
   ja: (staffName, date, reason) => `${staffName}・${date} — ${reason}`,
+};
+
+/**
+ * One-line "last result" summary for the Settings section: always the created
+ * count, then a dot-separated tail of only the non-zero attention counts
+ * (shortages / unplaced preferences / staff who did not submit preferences).
+ */
+export const autoCreateLastResultSummary: Record<
+  Lang,
+  (created: number, shortages: number, unplaced: number, missingPreferences: number) => string
+> = {
+  en: (created, shortages, unplaced, missingPreferences) => {
+    const parts = [`Created ${created}`];
+    if (shortages > 0) parts.push(`${shortages} short`);
+    if (unplaced > 0) parts.push(`${unplaced} unassigned`);
+    if (missingPreferences > 0) parts.push(`${missingPreferences} without preferences`);
+    return parts.join(' · ');
+  },
+  ja: (created, shortages, unplaced, missingPreferences) => {
+    const parts = [`作成${created}件`];
+    if (shortages > 0) parts.push(`不足${shortages}`);
+    if (unplaced > 0) parts.push(`未割り当て${unplaced}`);
+    if (missingPreferences > 0) parts.push(`希望未提出${missingPreferences}`);
+    return parts.join('・');
+  },
 };
