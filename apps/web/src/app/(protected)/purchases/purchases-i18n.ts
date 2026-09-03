@@ -60,7 +60,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpAriaLabel: 'About purchases',
     popupHelpTitle: 'About purchases',
     popupHelpBody:
-      'This list shows items Inventory says are currently short, with how many to buy. Pressing Bought only records that you bought it -- it does not change Inventory. Once someone updates the actual quantity in Inventory, this list updates automatically: an item that is now sufficient disappears, and an item that is still short shows as Pending again with the new amount, even if it was already marked Bought.',
+      'Shows items that need restocking and the quantity to buy. Marking an item as Bought records the purchase but does not change its stock count. After the actual quantity is updated in Inventory, items with enough stock disappear and any remaining shortage returns to Pending.',
     notShortError: 'This item no longer needs buying.',
     closeButton: 'Close',
   },
@@ -89,7 +89,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpAriaLabel: '購入について',
     popupHelpTitle: '購入について',
     popupHelpBody:
-      'このリストは在庫が不足している商品と必要な購入数を表示します。「購入済み」を押しても在庫は変更されません -- 購入したことを記録するだけです。在庫で実数を更新すると、このリストは自動的に更新されます: 十分になった商品は消え、まだ不足している商品は新しい数量で「未購入」に戻ります(すでに購入済みとしていても)。',
+      '補充が必要な商品と購入数を表示します。「購入済み」は購入したことを記録するだけで、在庫数は変わりません。在庫画面で実数を更新すると、十分な商品は一覧から消え、不足が残る商品は新しい数量で「未購入」に戻ります。',
     notShortError: 'この商品はもう購入する必要がありません。',
     closeButton: '閉じる',
   },

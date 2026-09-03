@@ -31,7 +31,7 @@ export interface HelpIconButtonProps {
  */
 export function HelpIconButton({ ariaLabel, onClick }: HelpIconButtonProps) {
   return (
-    <button type="button" className={hoverStyles.iconButton} aria-label={ariaLabel} onClick={onClick} style={helpIconButtonStyle}>
+    <button type="button" className={hoverStyles.iconButton} aria-label={ariaLabel} aria-haspopup="dialog" onClick={onClick} style={helpIconButtonStyle}>
       ?
     </button>
   );
