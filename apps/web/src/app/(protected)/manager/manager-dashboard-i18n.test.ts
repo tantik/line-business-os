@@ -6,10 +6,16 @@ import {
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
   attentionSummarySubtitle,
+  autoCreateConfigErrorMessage,
+  autoCreateCreatedMessage,
+  autoCreateShortageLine,
+  autoCreateUnplacedLine,
   breakMinutesValue,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
+  unplacedReasonLabel,
+  windowCodeLabel,
 } from './manager-dashboard-i18n.js';
 
 /**
@@ -54,6 +60,12 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'assignCellAriaLabelPrefix', 'editCellAriaLabelPrefix', 'correctPastScheduleAriaLabelPrefix',
   'automationSectionHeading', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
   'automationHelpAriaLabel', 'automationHelpTitle', 'automationHelpBody',
+  'automationComingSoonNote', 'automationManualCreateButton', 'automationManualCreateRunning',
+  'automationLastResultHeading',
+  'autoCreateConfirmTitle', 'autoCreateConfirmBody', 'autoCreateResultTitle', 'autoCreateManualPreservedNote',
+  'autoCreateShortagesHeading', 'autoCreateUnplacedHeading', 'autoCreateNonSubmittersHeading', 'autoCreateNoIssues',
+  'autoCreateUndoButton', 'autoCreateUndoing', 'autoCreateUndone',
+  'autoCreateErrorNoWindows', 'autoCreateErrorNoRequirement', 'autoCreateErrorStaleProposal',
   'estimatedLabourCostLabel',
   'correctionsHeading', 'correctionsUnavailable', 'needsActionEyebrow', 'noPendingCorrections', 'colMessage',
   'colAttendance', 'colTransportation', 'colDailyMessage', 'approve', 'reject', 'recentlyDecided', 'colStatus2',
@@ -143,6 +155,45 @@ test('attentionSummarySubtitle omits a zero half instead of claiming "0 warnings
 test('attentionInventoryShortageSummary interpolates the count and differs by language', () => {
   assert.match(attentionInventoryShortageSummary.en(3), /3/);
   assert.notEqual(attentionInventoryShortageSummary.en(3), attentionInventoryShortageSummary.ja(3));
+});
+
+test('windowCodeLabel covers every window code in both languages with distinct JA/EN copy', () => {
+  for (const code of ['AM', 'PM', 'ALL', 'A-P', 'SHORT_AM'] as const) {
+    assert.ok(windowCodeLabel.ja[code].length > 0);
+    assert.ok(windowCodeLabel.en[code].length > 0);
+    assert.notEqual(windowCodeLabel.ja[code], windowCodeLabel.en[code]);
+  }
+});
+
+test('unplacedReasonLabel returns non-empty, language-distinct copy for every reason', () => {
+  for (const reason of [
+    'headcount_filled',
+    'no_staffing_requirement',
+    'max_period_hours_exceeded',
+    'already_assigned',
+    'unknown_shift_type',
+    'inactive_shift_type',
+  ] as const) {
+    assert.ok(unplacedReasonLabel.ja(reason).length > 0);
+    assert.notEqual(unplacedReasonLabel.ja(reason), unplacedReasonLabel.en(reason));
+  }
+});
+
+test('autoCreateConfigErrorMessage returns distinct JA/EN copy for each invalid-config reason', () => {
+  for (const reason of ['no_active_windows', 'no_staffing_requirement', 'stale_proposal'] as const) {
+    assert.ok(autoCreateConfigErrorMessage.ja(reason).length > 0);
+    assert.notEqual(autoCreateConfigErrorMessage.ja(reason), autoCreateConfigErrorMessage.en(reason));
+  }
+});
+
+test('auto-create result line builders interpolate their inputs and differ by language', () => {
+  assert.match(autoCreateCreatedMessage.en(3), /3/);
+  assert.notEqual(autoCreateCreatedMessage.en(3), autoCreateCreatedMessage.ja(3));
+  assert.match(autoCreateShortageLine.en('2026-09-07', 'Morning', 2), /2026-09-07/);
+  assert.match(autoCreateShortageLine.ja('2026-09-07', '午前', 2), /午前/);
+  assert.notEqual(autoCreateShortageLine.en('2026-09-07', 'x', 1), autoCreateShortageLine.ja('2026-09-07', 'x', 1));
+  assert.match(autoCreateUnplacedLine.en('Aki', '2026-09-07', 'full'), /Aki/);
+  assert.notEqual(autoCreateUnplacedLine.en('Aki', '2026-09-07', 'x'), autoCreateUnplacedLine.ja('Aki', '2026-09-07', 'x'));
 });
 
 test('Manager help copy describes user outcomes without internal implementation terms', () => {

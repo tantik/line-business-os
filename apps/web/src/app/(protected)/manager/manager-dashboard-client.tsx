@@ -38,11 +38,19 @@ import {
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import {
+  autoCreateConfigErrorMessage,
+  autoCreateCreatedMessage,
+  autoCreateShortageLine,
+  autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
+  unplacedReasonLabel,
+  windowCodeLabel,
 } from './manager-dashboard-i18n';
+import { runAutoDistribution, undoAutoDistribution } from '@/lib/workforce/schedule-actions';
+import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { AttentionPanel } from './attention-panel';
 import { EntryPointsCard } from '../_ui/entry-points-card';
 import { BrandBadge } from '../_ui/brand-badge';
@@ -344,6 +352,15 @@ function ManagerDashboardBody({
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
   const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
+  // Manual "auto-create schedule" (restored 2026-09-03). The client sends
+  // only { locationId, periodStart, periodEnd } for the week being viewed;
+  // the server owns the staffing windows / headcount / hours cap.
+  const [autoCreateConfirmOpen, setAutoCreateConfirmOpen] = useState(false);
+  const [autoCreateResult, setAutoCreateResult] = useState<RunAutoDistributionActionResult | null>(null);
+  const [lastAutoCreateResult, setLastAutoCreateResult] = useState<
+    { created: number; shortages: number; unplaced: number; missingPreferences: number } | null
+  >(null);
+  const [autoCreateUndoing, setAutoCreateUndoing] = useState(false);
 
   const [activeWeekOffset, setActiveWeekOffset] = useState(weekOffset);
   // Seeded once from the already-fetched -8..+8 week `exchangeAssignments`
@@ -817,6 +834,51 @@ function ManagerDashboardBody({
         setBanner({ tone: 'error', message: describeWriteError(result) });
       }
       setPendingAction(null);
+    });
+  }
+
+  function handleAutoCreate() {
+    setBanner(null);
+    setAutoCreateResult(null);
+    setPendingAction('auto-create');
+    startTransition(async () => {
+      const result = await runAutoDistribution({
+        locationId,
+        periodStart: activePeriodStart,
+        periodEnd: activePeriodEnd,
+      });
+      if (result.status === 'success') {
+        const data = result.data;
+        setAutoCreateResult(data);
+        setLastAutoCreateResult({
+          created: data.draftCount,
+          shortages: data.shortages.length,
+          unplaced: data.unplaced.length,
+          missingPreferences: data.nonSubmitters.length,
+        });
+        router.refresh();
+      } else if (result.status === 'invalid_config') {
+        setBanner({ tone: 'error', message: autoCreateConfigErrorMessage[lang](result.reason) });
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setPendingAction(null);
+    });
+  }
+
+  function handleUndoAutoCreate(assignmentIds: string[]) {
+    setAutoCreateUndoing(true);
+    startTransition(async () => {
+      const result = await undoAutoDistribution({ assignmentIds });
+      if (result.status === 'success') {
+        setAutoCreateResult(null);
+        setLastAutoCreateResult(null);
+        setBanner({ tone: 'success', message: t('autoCreateUndone') });
+        router.refresh();
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result) });
+      }
+      setAutoCreateUndoing(false);
     });
   }
 
@@ -1354,8 +1416,100 @@ function ManagerDashboardBody({
         onRequirementsChanged={() => router.refresh()}
         shiftRequestsSummary={shiftRequestsSummary}
         onOpenShiftRequests={() => setShiftRequestsPopupOpen(true)}
+        onAutoCreate={() => setAutoCreateConfirmOpen(true)}
+        autoCreatePending={isPending && pendingAction === 'auto-create'}
+        lastAutoCreateResult={lastAutoCreateResult}
         lang={lang}
       />
+
+      <ConfirmDialog
+        open={autoCreateConfirmOpen}
+        title={t('autoCreateConfirmTitle')}
+        confirmLabel={t('automationManualCreateButton')}
+        cancelLabel={t('cancel')}
+        pending={isPending && pendingAction === 'auto-create'}
+        onCancel={() => setAutoCreateConfirmOpen(false)}
+        onConfirm={() => {
+          setAutoCreateConfirmOpen(false);
+          handleAutoCreate();
+        }}
+      >
+        <p style={{ margin: 0 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</p>
+        <p style={{ margin: '8px 0 0' }}>{t('autoCreateConfirmBody')}</p>
+      </ConfirmDialog>
+
+      <Modal
+        open={autoCreateResult !== null}
+        onClose={() => setAutoCreateResult(null)}
+        title={t('autoCreateResultTitle')}
+        closeLabel={t('cancel')}
+        width="min(520px, 94vw)"
+      >
+        {autoCreateResult ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{autoCreateCreatedMessage[lang](autoCreateResult.draftCount)}</p>
+
+            {autoCreateResult.shortages.length === 0 && autoCreateResult.unplaced.length === 0 ? (
+              <p style={{ margin: 0, ...mutedText }}>{t('autoCreateNoIssues')}</p>
+            ) : null}
+
+            {autoCreateResult.shortages.length > 0 ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateShortagesHeading')}</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                  {autoCreateResult.shortages.map((s) => (
+                    <li key={`${s.workDate}-${s.windowCode}`}>
+                      {autoCreateShortageLine[lang](s.workDate, windowCodeLabel[lang][s.windowCode], s.shortage)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {autoCreateResult.unplaced.length > 0 ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateUnplacedHeading')}</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                  {autoCreateResult.unplaced.map((u, i) => (
+                    <li key={`${u.employeeId}-${u.workDate}-${i}`}>
+                      {autoCreateUnplacedLine[lang](
+                        staffById.get(u.employeeId)?.name ?? u.employeeId,
+                        u.workDate,
+                        unplacedReasonLabel[lang](u.reason),
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {autoCreateResult.nonSubmitters.length > 0 ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateNonSubmittersHeading')}</div>
+                <p style={{ margin: 0, fontSize: 13 }}>
+                  {autoCreateResult.nonSubmitters
+                    .map((n) => staffById.get(n.employeeId)?.name ?? n.employeeId)
+                    .join('、')}
+                </p>
+              </div>
+            ) : null}
+
+            <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('autoCreateManualPreservedNote')}</p>
+
+            {autoCreateResult.createdAssignmentIds.length > 0 ? (
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={autoCreateUndoing ? buttonDisabled : buttonSecondary}
+                disabled={autoCreateUndoing}
+                onClick={() => handleUndoAutoCreate(autoCreateResult.createdAssignmentIds)}
+              >
+                {autoCreateUndoing ? t('autoCreateUndoing') : t('autoCreateUndoButton')}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
 
       <ShiftRequestsReviewPopup
         open={shiftRequestsPopupOpen}

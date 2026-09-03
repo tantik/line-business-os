@@ -1,4 +1,6 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
+import type { UnplacedReason, WindowCode } from '@/lib/workforce/auto-distribute';
+import type { RunAutoDistributionInvalidConfigReason } from '@/lib/workforce/schedule-types';
 
 /**
  * JA/EN strings for the canonical dashboard Manager surface (Cafe v2.1
@@ -204,6 +206,29 @@ interface ManagerDashboardDict {
   automationHelpAriaLabel: string;
   automationHelpTitle: string;
   automationHelpBody: string;
+  // Manual "auto-create schedule" workflow (restored 2026-09-03): the
+  // monthly scheduled job is still coming-soon (the day-of-month input is
+  // disabled), but a manager can run the fill manually for the week they are
+  // viewing. Server derives the staffing windows + headcount; confirmed and
+  // manual shifts are always kept.
+  automationComingSoonNote: string;
+  automationManualCreateButton: string;
+  automationManualCreateRunning: string;
+  automationLastResultHeading: string;
+  autoCreateConfirmTitle: string;
+  autoCreateConfirmBody: string;
+  autoCreateResultTitle: string;
+  autoCreateManualPreservedNote: string;
+  autoCreateShortagesHeading: string;
+  autoCreateUnplacedHeading: string;
+  autoCreateNonSubmittersHeading: string;
+  autoCreateNoIssues: string;
+  autoCreateUndoButton: string;
+  autoCreateUndoing: string;
+  autoCreateUndone: string;
+  autoCreateErrorNoWindows: string;
+  autoCreateErrorNoRequirement: string;
+  autoCreateErrorStaleProposal: string;
   // "Estimated labour cost" box below the schedule grid (Round 3, 2026-08-22)
   estimatedLabourCostLabel: string;
   // Shift types section
@@ -514,7 +539,25 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: 'About automatic schedule',
     automationHelpTitle: 'About automatic schedule',
     automationHelpBody:
-      'Automatic schedule creation is not active yet. The date above is reserved for this future function and does not currently create or change any shifts.',
+      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences and your settings. Confirmed and manual shifts are always kept.',
+    automationComingSoonNote: 'Coming soon',
+    automationManualCreateButton: 'Create schedule automatically',
+    automationManualCreateRunning: 'Creating...',
+    automationLastResultHeading: 'Last result',
+    autoCreateConfirmTitle: 'Create this week\'s schedule automatically?',
+    autoCreateConfirmBody: 'Staff will be assigned based on their preferences and your settings. Confirmed and manual shifts are left as they are.',
+    autoCreateResultTitle: 'Automatic creation result',
+    autoCreateManualPreservedNote: 'Confirmed and manual shifts were not changed.',
+    autoCreateShortagesHeading: 'Time slots still short',
+    autoCreateUnplacedHeading: 'Preferences that could not be assigned',
+    autoCreateNonSubmittersHeading: 'Staff who have not submitted preferences',
+    autoCreateNoIssues: 'No shortages or unassigned preferences.',
+    autoCreateUndoButton: 'Undo automatic creation',
+    autoCreateUndoing: 'Undoing...',
+    autoCreateUndone: 'Automatic creation undone -- the shifts it created were removed.',
+    autoCreateErrorNoWindows: 'No active shift types are set for this location yet. Add shift types in Settings first.',
+    autoCreateErrorNoRequirement: 'No required staff count is set for any weekday. Set "Required staff per shift" in Settings first.',
+    autoCreateErrorStaleProposal: 'This week still has unconfirmed automatically-created shifts. Confirm or undo them first.',
     estimatedLabourCostLabel: 'Estimated labour cost',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
@@ -801,7 +844,25 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: '自動スケジュールについて',
     automationHelpTitle: '自動スケジュールについて',
     automationHelpBody:
-      '自動スケジュール作成は現在利用できません。上の日付は今後の機能のための設定で、現時点ではシフトの作成や変更は行われません。',
+      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望と設定にもとづいて割り当てできます。確定済み・手動のシフトは常にそのまま残ります。',
+    automationComingSoonNote: '準備中',
+    automationManualCreateButton: '自動でシフトを作成',
+    automationManualCreateRunning: '作成中...',
+    automationLastResultHeading: '直近の結果',
+    autoCreateConfirmTitle: 'この週のシフトを自動で作成しますか？',
+    autoCreateConfirmBody: 'スタッフの希望と設定にもとづいて割り当てます。確定済み・手動のシフトはそのまま残ります。',
+    autoCreateResultTitle: '自動作成の結果',
+    autoCreateManualPreservedNote: '確定済み・手動のシフトは変更していません',
+    autoCreateShortagesHeading: '不足している時間帯',
+    autoCreateUnplacedHeading: '割り当てできなかった希望',
+    autoCreateNonSubmittersHeading: '希望シフト未提出のスタッフ',
+    autoCreateNoIssues: '不足や未割り当ての希望はありません。',
+    autoCreateUndoButton: '自動作成を取り消す',
+    autoCreateUndoing: '取り消し中...',
+    autoCreateUndone: '自動作成を取り消しました -- 作成されたシフトは削除されました。',
+    autoCreateErrorNoWindows: 'この店舗には有効なシフト種別がまだ設定されていません。先に設定でシフト種別を追加してください。',
+    autoCreateErrorNoRequirement: 'どの曜日にも必要人数が設定されていません。先に設定の「1シフトあたりの必要人数」を設定してください。',
+    autoCreateErrorStaleProposal: 'この期間には未確定の自動シフト案があります。先に確定するか取り消してください。',
     estimatedLabourCostLabel: '概算人件費',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
@@ -1040,4 +1101,74 @@ export const attentionInventoryShortageSummary: Record<Lang, (count: number) => 
 export const dailyStaffingShortageExplanation: Record<Lang, (required: number, scheduled: number, missing: number) => string> = {
   en: (required, scheduled, missing) => `Staffing shortage — required ${required}, scheduled ${scheduled}, missing ${missing}`,
   ja: (required, scheduled, missing) => `人員不足 -- 必要${required}名、予定${scheduled}名、不足${missing}名`,
+};
+
+// ============================================================================
+// Manual "auto-create schedule" result copy (restored 2026-09-03)
+// ============================================================================
+
+/** Plain-Japanese (and English) label for each staffing window code. */
+export const windowCodeLabel: Record<Lang, Record<WindowCode, string>> = {
+  en: { AM: 'Morning', PM: 'Afternoon', ALL: 'All day', 'A-P': 'Midday', SHORT_AM: 'Early short' },
+  ja: { AM: '午前', PM: '午後', ALL: '終日', 'A-P': '昼', SHORT_AM: '早番' },
+};
+
+/** Why a submitted preference did not become a shift, in plain language. */
+export const unplacedReasonLabel: Record<Lang, (reason: UnplacedReason) => string> = {
+  en: (reason) =>
+    ({
+      headcount_filled: 'the time slot was already full',
+      no_staffing_requirement: 'no staff was needed for that time slot',
+      max_period_hours_exceeded: 'it would exceed the staff member\'s hours limit',
+      already_assigned: 'the staff member already has a shift that day',
+      unknown_shift_type: 'the requested shift type no longer exists',
+      inactive_shift_type: 'the requested shift type is no longer active',
+    })[reason] ?? 'it could not be assigned',
+  ja: (reason) =>
+    ({
+      headcount_filled: 'その時間帯はすでに定員に達していました',
+      no_staffing_requirement: 'その時間帯に必要な人員がありませんでした',
+      max_period_hours_exceeded: '勤務時間の上限を超えるため割り当てできませんでした',
+      already_assigned: 'その日はすでに別のシフトがあります',
+      unknown_shift_type: '希望されたシフト種別が存在しません',
+      inactive_shift_type: '希望されたシフト種別は無効になっています',
+    })[reason] ?? '割り当てできませんでした',
+};
+
+export const autoCreateConfigErrorMessage: Record<Lang, (reason: RunAutoDistributionInvalidConfigReason) => string> = {
+  en: (reason) =>
+    ({
+      no_active_windows:
+        'No active shift types are set for this location yet. Add shift types in Settings first.',
+      no_staffing_requirement:
+        'No required staff count is set for any weekday. Set "Required staff per shift" in Settings first.',
+      stale_proposal:
+        'This week still has unconfirmed automatically-created shifts. Confirm or undo them first.',
+    })[reason],
+  ja: (reason) =>
+    ({
+      no_active_windows:
+        'この店舗には有効なシフト種別がまだ設定されていません。先に設定でシフト種別を追加してください。',
+      no_staffing_requirement:
+        'どの曜日にも必要人数が設定されていません。先に設定の「1シフトあたりの必要人数」を設定してください。',
+      stale_proposal:
+        'この期間には未確定の自動シフト案があります。先に確定するか取り消してください。',
+    })[reason],
+};
+
+export const autoCreateCreatedMessage: Record<Lang, (count: number) => string> = {
+  en: (count) => `Created ${count} shift(s).`,
+  ja: (count) => `${count}件のシフトを作成しました`,
+};
+
+/** One shortage row: date, window label, how many people are still missing. */
+export const autoCreateShortageLine: Record<Lang, (date: string, windowLabel: string, missing: number) => string> = {
+  en: (date, windowLabel, missing) => `${date} · ${windowLabel} — ${missing} short`,
+  ja: (date, windowLabel, missing) => `${date}・${windowLabel} — 不足${missing}名`,
+};
+
+/** One unplaced-preference row: staff name, date, plain-language reason. */
+export const autoCreateUnplacedLine: Record<Lang, (staffName: string, date: string, reason: string) => string> = {
+  en: (staffName, date, reason) => `${staffName} · ${date} — ${reason}`,
+  ja: (staffName, date, reason) => `${staffName}・${date} — ${reason}`,
 };

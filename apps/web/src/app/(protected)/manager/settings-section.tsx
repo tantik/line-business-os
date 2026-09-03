@@ -30,6 +30,17 @@ export interface SettingsSectionProps {
   /** Shift-requests review popup summary (v2.1 UI-only) -- null while `staff`/`requests` haven't loaded. */
   shiftRequestsSummary: { submitted: number; total: number; missing: number } | null;
   onOpenShiftRequests: () => void;
+  /**
+   * Manual "auto-create schedule" (restored 2026-09-03): the parent
+   * (`manager-dashboard-client.tsx`) owns the confirm dialog, the result
+   * view, the pending state, and the last-result summary -- this section
+   * only renders the trigger button and a compact "last result" line. The
+   * monthly scheduled job is still coming-soon (the day-of-month input is
+   * disabled); this button runs the fill once for the week being viewed.
+   */
+  onAutoCreate: () => void;
+  autoCreatePending: boolean;
+  lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
   lang: Lang;
 }
 
@@ -56,6 +67,9 @@ export function SettingsSection({
   onRequirementsChanged,
   shiftRequestsSummary,
   onOpenShiftRequests,
+  onAutoCreate,
+  autoCreatePending,
+  lastAutoCreateResult,
   lang,
 }: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -462,7 +476,25 @@ export function SettingsSection({
             <HelpIconButton ariaLabel={t('automationHelpAriaLabel')} onClick={() => setAutomationHelpOpen(true)} />
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+            <button
+              type="button"
+              className={hoverStyles.buttonPrimary}
+              style={autoCreatePending ? buttonDisabled : buttonPrimary}
+              disabled={autoCreatePending}
+              onClick={onAutoCreate}
+            >
+              {autoCreatePending ? t('automationManualCreateRunning') : t('automationManualCreateButton')}
+            </button>
+          </div>
+
+          {lastAutoCreateResult ? (
+            <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>
+              {t('automationLastResultHeading')}: {t('automationManualCreateButton')} — {lastAutoCreateResult.created}
+            </p>
+          ) : null}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', marginTop: 16, opacity: 0.6 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13 }}>{t('automationCreateOnLabel')}</span>
               <input
@@ -471,15 +503,15 @@ export function SettingsSection({
                 min={1}
                 max={28}
                 value={autoCreateDayOfMonth}
-                onChange={(event) => {
-                  const parsed = Number(event.currentTarget.value);
-                  setAutoCreateDayOfMonth(Number.isInteger(parsed) ? Math.max(1, Math.min(28, parsed)) : autoCreateDayOfMonth);
-                  scheduleAutosave();
-                }}
+                disabled
+                readOnly
                 aria-label={t('automationCreateOnLabel')}
               />
               <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
             </label>
+            <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: colors.surfaceElevated }}>
+              {t('automationComingSoonNote')}
+            </span>
           </div>
         </div>
 
