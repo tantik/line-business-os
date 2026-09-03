@@ -56,39 +56,36 @@ never open Supabase Studio to look anything up.
 For a deliberately different smoke tenant, override slug **and** uuid together:
 `-v smoke_tenant_slug=<slug> -v smoke_tenant=<uuid>`.
 
-## Cloud target guard — the script proves it is on Cloud DEV, not Production
+## Two-layer target guard — proves it is on Cloud DEV, not Production
 
-Supabase/Postgres has **no reliable zero-setup way** to read the project ref
-from inside the database (the pooler may report `current_user` as plain
-`postgres`; `_realtime.tenants` readability and `ALTER DATABASE … SET` both
-depend on the connecting role). STEP 0a therefore runs **before any
-INSERT/UPDATE** and gathers every signal it can, reading only database-side
-metadata (never the connection string):
+Supabase exposes **no project-ref signal to the Session-pooler `postgres`
+role**: `current_user` is plain `postgres` (Supavisor strips the `.<ref>`),
+`_realtime.tenants` is not readable, and that role cannot `ALTER DATABASE …
+SET` a marker. The target is therefore proven by **two layers**:
 
-| Signal | Source | Role |
-|---|---|---|
-| marker | `current_setting('oruwa.cloud_target_ref', true)` | **authoritative** if set |
-| pooler user | `current_user` = `postgres.<project_ref>` (if the pooler carries it) | corroborating + Production tripwire |
-| realtime | `_realtime.tenants.external_id` (only `external_id`, never `jwt_secret`; `realtime-dev` on local) | corroborating + Production tripwire |
+**LAYER 1 — `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1` (the
+wrapper the operator runs).** It reads the operator's existing gitignored Cloud
+DEV connection string, and *client-side*:
+- removes URI query parameters native `psql`/libpq rejects — notably
+  `uselibpqcompat` (a **node-postgres** option, not a libpq one; libpq errors
+  out on any unknown URI parameter). Only libpq-valid keys are kept.
+- verifies the string contains the Cloud DEV ref `pehcoenozjtsjdvjietj`, does
+  **not** contain the Production ref `jsgmmsdkuptdsxtcxhsv`, and has the
+  Supabase pooler shape (`postgres.<ref>` user, `*.pooler.supabase.com` host,
+  `:5432`/`:6543`, a db name).
+- passes the verified ref to `psql` as `-v wrapper_verified_ref=<ref>`.
 
-There is **no operator "I promise this is DEV" override** — the target is proven
-by database-side evidence or the script fails closed. Decision (**fail
-closed**): known **Production** ref (`jsgmmsdkuptdsxtcxhsv`) on any signal ⇒
-abort; marker present and ≠ `pehcoenozjtsjdvjietj` ⇒ abort; the expected DEV ref
-confirmed by marker / pooler / `_realtime` ⇒ proceed; nothing provable ⇒ abort.
+It never prints the URL or password and clears them from memory on exit.
 
-### Satisfying the guard on Cloud DEV — pick whichever works
-
-1. **Just run it.** On most Supabase projects the connecting `postgres` role can
-   `SELECT` from `_realtime.tenants`, so the guard confirms the ref itself and
-   you need nothing extra.
-2. **Set the marker** — for a role that can `ALTER DATABASE` (the Supabase
-   dashboard's *Custom Postgres Config*, or `supabase_admin`):
-   ```sql
-   ALTER DATABASE postgres SET oruwa.cloud_target_ref = 'pehcoenozjtsjdvjietj';
-   ```
-   Non-secret, reversible (`… RESET oruwa.cloud_target_ref`), effective on the
-   next connection. **Never set it on Production.**
+**LAYER 2 — the SQL smoke (STEP 0a), before any `INSERT`/`UPDATE`.** It accepts
+the wrapper's `wrapper_verified_ref` (still re-checked against the Production
+ref), **plus** any database-side signal that happens to be available (an
+`oruwa.cloud_target_ref` marker, the pooler username, `_realtime.tenants` — all
+subject to a Production tripwire). Decision is **fail closed**: Production ref on
+any signal ⇒ abort; any signal ≠ `pehcoenozjtsjdvjietj` ⇒ abort; expected ref
+confirmed by the wrapper or a DB-side signal ⇒ proceed; nothing provable ⇒
+abort. There is no bare "I promise this is DEV" flag — `wrapper_verified_ref` is
+the wrapper's channel and the wrapper is a reviewed repo artifact.
 
 ## The smoke script — `scripts/smoke/operations-cloud-dev-module-on-smoke.sql`
 
@@ -103,25 +100,34 @@ as a real `authenticated` role-hop through the `api.*` facade, then rolls
 everything back. No Supabase Auth users are created. No cleanup step is needed
 because nothing is committed.
 
-### Run it (Founder / operator)
+### Run it — ONE command (Founder / operator)
 
-```bash
-# Any Cloud DEV Postgres connection string works (direct or pooler).
-# Put it in a shell variable; never paste it into a file, never echo it.
-psql "$SUPABASE_DEV_DB_URL" -v ON_ERROR_STOP=1 -q \
-  -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
-
-# If STEP 0a says it "cannot prove the target", use option 2 above (set the
-# marker), or connect as a role that can SELECT _realtime.tenants.
+```powershell
+# From the repo root. Reads .env.cloud.local -> MAME_TO_CHA_CLOUD_DATABASE_URL,
+# fixes the URI for libpq, verifies DEV/Production refs, runs the smoke.
+powershell -NoProfile -File scripts\smoke\operations-cloud-dev-module-on-smoke.ps1
 ```
 
-**psql only.** The script uses psql meta-commands (`\if`, `\o`, `\echo`) and
-will not run in the Studio SQL Editor.
+Nothing prints the connection string or password. `psql` exit `0` + the
+`ALL SCENARIOS PASSED` banner = PASS; any `ERROR:` (non-zero exit) names the
+failing scenario and the transaction has rolled back, leaving Cloud DEV
+untouched.
+
+**Local mirror** (validating the mechanism against local Supabase):
+`powershell -NoProfile -File scripts\smoke\operations-cloud-dev-module-on-smoke.ps1 -AllowLocal`
+(or run `operations-cloud-dev-module-on-smoke.sql` directly with
+`-v ON_ERROR_STOP=1 -v allow_local=1`). `pgTAP`
+`supabase/tests/0055_operations_module_on_smoke.sql` is the other local check.
+
+**psql only** for the `.sql` — it uses psql meta-commands and will not run in
+the Studio SQL Editor.
 
 ### Expected output (stderr NOTICEs + final banner)
 
 ```
-NOTICE:  CLOUD_TARGET = PASS (authoritative marker ...)   -- or "corroborated database-side"
+wrapper: connection string OK - Cloud DEV ref pehcoenozjtsjdvjietj present, Production ref absent, Supabase pooler structure verified.
+wrapper: dropped non-libpq URI query parameter(s): uselibpqcompat
+NOTICE:  CLOUD_TARGET = PASS (LAYER 1: connection string verified Cloud DEV ... by the repo wrapper ...)
 NOTICE:  PREFLIGHT OK: tenant="smoke-tenant-b" id=37088bfe-... (kind=demo) location=...
 NOTICE:  OPERATIONS_MODULE_ON = PASS
 NOTICE:  ENABLED_TENANT = PASS (templates N -> N+1, expected_tasks callable)

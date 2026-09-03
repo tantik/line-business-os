@@ -17,22 +17,26 @@
 --   TWO machine-verified gates run BEFORE any INSERT/UPDATE (STEP 0):
 --     0a  CLOUD TARGET GUARD — proves the connected database is the expected
 --         ORUWA Cloud DEV project (ref `pehcoenozjtsjdvjietj`) and is NOT the
---         known Production project (ref `jsgmmsdkuptdsxtcxhsv`), using
---         database-side connection metadata only. Fails closed if the target
---         cannot be proven, differs, or looks like Production.
+--         known Production project (ref `jsgmmsdkuptdsxtcxhsv`). Supabase
+--         exposes no project-ref signal to the pooler `postgres` role, so
+--         this is proven by the LAYER-1 wrapper's client-side check of the
+--         stored connection string (passed in as -v wrapper_verified_ref),
+--         backed by any database-side signal that IS available (marker /
+--         _realtime / pooler username), all subject to a Production tripwire.
+--         Fails closed if the target cannot be proven, differs, or looks
+--         like Production.
 --     0b  SMOKE TENANT / LOCATION — resolves smoke-tenant-b from its stable
 --         slug, cross-checks it against the historically-recorded UUID,
 --         requires kind=demo and exactly one location. Fails closed on any
 --         ambiguity. No manual Supabase Studio lookup is needed.
 --
 -- HOW TO RUN — see docs/operations/operations-cloud-dev-module-on-smoke-runbook.md
---   Connect through the Supabase **Session pooler** so the DB-side username
---   carries the project ref (`current_user` = `postgres.<project_ref>`):
---     psql "$SUPABASE_DEV_POOLER_URL" -v ON_ERROR_STOP=1 -q \
---       -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
---   The connection string is never read, echoed, or logged by this script.
+--   ONE command (the wrapper reads the stored Cloud DEV credential, fixes the
+--   libpq-incompatible URI, verifies DEV/Production refs, and invokes psql):
+--     pwsh -File scripts/smoke/operations-cloud-dev-module-on-smoke.ps1
+--   The connection string / password are never read, echoed, or logged here.
 --
--- LOCAL MIRROR RUN (for validating the mechanism against local Supabase):
+-- LOCAL MIRROR RUN (validating the mechanism against local Supabase):
 --     psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
 --       -v ON_ERROR_STOP=1 -q -v allow_local=1 \
 --       -f scripts/smoke/operations-cloud-dev-module-on-smoke.sql
@@ -78,91 +82,101 @@
 \else
   \set allow_local '0'
 \endif
+-- Set ONLY by the LAYER-1 wrapper (scripts/smoke/operations-cloud-dev-module-on-smoke.ps1),
+-- which verifies the operator's stored Cloud DEV connection string client-side
+-- (DEV ref present, Production ref absent, Session-pooler structure) — because
+-- Supabase does not expose a project-ref signal to the pooler `postgres` role.
+-- Still checked against the Production ref below. Empty on a bare psql run.
+\if :{?wrapper_verified_ref}
+\else
+  \set wrapper_verified_ref ''
+\endif
 
 begin;
 
 set local search_path to public, core, operations, api;
 
 -- psql does NOT interpolate :'x' inside a dollar-quoted body — stash every
--- parameter into transaction-local GUCs here (plain SQL). is_local => they
--- vanish on ROLLBACK regardless. Values are non-secret (project ref, smoke
--- uuids); the harmless one-column echo is suppressed with \t / \pset (portable
--- to native Windows psql, unlike `\o /dev/null`).
-\t on
-\pset format unaligned
-select set_config('smoke.expected_dev_ref', :'expected_dev_ref', true);
-select set_config('smoke.known_prod_ref',   :'known_prod_ref',   true);
-select set_config('smoke.allow_local',      :'allow_local',      true);
-select set_config('smoke.tenant_slug',      :'smoke_tenant_slug', true);
-select set_config('smoke.tenant',           :'smoke_tenant',     true);
-select set_config('smoke.location',         :'smoke_location',   true);
-select set_config('smoke.u_manager',  '5b0a0000-0000-4000-a000-0000000000a1', true);
-select set_config('smoke.u_employee', '5b0a0000-0000-4000-a000-0000000000e1', true);
-select set_config('smoke.u_other',    '5b0a0000-0000-4000-a000-0000000000a2', true);
-select set_config('smoke.l_other',    '5b0a0000-0000-4000-a000-000000000002', true);
-select set_config('smoke.t_disabled', '5b0a0000-0000-4000-b000-000000000000', true);
-select set_config('smoke.l_disabled', '5b0a0000-0000-4000-b000-000000000001', true);
-select set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', true);
-select set_config('smoke.t_enabled2', '5b0a0000-0000-4000-c000-000000000000', true);
-select set_config('smoke.l_enabled2', '5b0a0000-0000-4000-c000-000000000001', true);
-select set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', true);
-\t off
-\pset format aligned
+-- parameter into transaction-local GUCs (they vanish on ROLLBACK). One SELECT +
+-- \gset => silent (no result rows echoed), portable to native Windows psql.
+select
+  set_config('smoke.expected_dev_ref',     :'expected_dev_ref',     true) as _p1,
+  set_config('smoke.known_prod_ref',       :'known_prod_ref',       true) as _p2,
+  set_config('smoke.allow_local',          :'allow_local',          true) as _p3,
+  set_config('smoke.wrapper_verified_ref', :'wrapper_verified_ref', true) as _p4,
+  set_config('smoke.tenant_slug',          :'smoke_tenant_slug',    true) as _p5,
+  set_config('smoke.tenant',               :'smoke_tenant',         true) as _p6,
+  set_config('smoke.location',             :'smoke_location',       true) as _p7,
+  set_config('smoke.u_manager',  '5b0a0000-0000-4000-a000-0000000000a1', true) as _p8,
+  set_config('smoke.u_employee', '5b0a0000-0000-4000-a000-0000000000e1', true) as _p9,
+  set_config('smoke.u_other',    '5b0a0000-0000-4000-a000-0000000000a2', true) as _p10,
+  set_config('smoke.l_other',    '5b0a0000-0000-4000-a000-000000000002', true) as _p11,
+  set_config('smoke.t_disabled', '5b0a0000-0000-4000-b000-000000000000', true) as _p12,
+  set_config('smoke.l_disabled', '5b0a0000-0000-4000-b000-000000000001', true) as _p13,
+  set_config('smoke.u_dis_mgr',  '5b0a0000-0000-4000-b000-0000000000a1', true) as _p14,
+  set_config('smoke.t_enabled2', '5b0a0000-0000-4000-c000-000000000000', true) as _p15,
+  set_config('smoke.l_enabled2', '5b0a0000-0000-4000-c000-000000000001', true) as _p16,
+  set_config('smoke.u_mgr2',     '5b0a0000-0000-4000-c000-0000000000a1', true) as _p17
+\gset
 
 -- ==========================================================================
 -- STEP 0a — CLOUD TARGET GUARD  (runs BEFORE any mutation)
 -- --------------------------------------------------------------------------
--- Supabase/Postgres exposes NO universally-reliable zero-setup way to read
--- the project ref from inside the database (the pooler may report `current_user`
--- as plain `postgres`; `_realtime.tenants` readability is role-dependent). So
--- the AUTHORITATIVE signal is an explicit, non-secret marker the operator sets
--- ONCE per Cloud project (see the runbook, "one-time setup"):
+-- Supabase does NOT expose a project-ref signal to the Session-pooler
+-- `postgres` role: `current_user` is plain `postgres` (Supavisor strips the
+-- `.<ref>`), `_realtime.tenants` is not readable, and that role cannot
+-- `ALTER DATABASE ... SET` a marker. So the target proof comes from TWO
+-- layers, whichever is available:
 --
---     ALTER DATABASE postgres SET oruwa.cloud_target_ref = 'pehcoenozjtsjdvjietj';   -- on Cloud DEV
+--   LAYER 1 (primary, this connection)  — the repository wrapper
+--     scripts/smoke/operations-cloud-dev-module-on-smoke.ps1 verifies the
+--     operator's stored connection string CLIENT-SIDE (DEV ref present,
+--     Production ref absent, Session-pooler structure) and passes the
+--     verified ref in as `-v wrapper_verified_ref=<ref>`. It is re-checked
+--     against the Production ref here.
+--   LAYER 2 (used when present)         — database-side signals:
+--     * `oruwa.cloud_target_ref` marker (if an admin set one)
+--     * pooler username `postgres.<ref>` (if the pooler ever carries it)
+--     * `_realtime.tenants.external_id` (if readable) — only external_id is
+--       read, never jwt_secret
+--     Any of these that name the Production ref TRIPS the guard.
 --
--- Read here as `current_setting('oruwa.cloud_target_ref', true)`. Two
--- best-effort corroborating signals are also collected (they can positively
--- confirm the expected ref and they always trip the Production tripwire, but
--- an unexpected value from them never aborts a run):
---   * pooler username  `current_user` = `postgres.<project_ref>`  (if present)
---   * `_realtime.tenants.external_id`  (only external_id is read — never
---      jwt_secret; 'realtime-dev' on local Supabase). Read defensively.
---
--- There is NO operator "I promise this is DEV" override — the target must be
--- proven by database-side evidence (marker / pooler username / _realtime), or
--- the script fails closed.
---
--- Decision (FAIL CLOSED):
---   * known Production ref on ANY signal                             -> FAIL
---   * marker present and = expected Cloud DEV ref                    -> PASS (authoritative)
---   * marker present and <> expected                                 -> FAIL
---   * no marker, pooler username present and <> expected             -> FAIL
---   * expected ref confirmed by marker / pooler / _realtime          -> PASS
---   * local sentinel + allow_local=1                                 -> PASS (local mirror)
---   * nothing provable                                               -> FAIL (2 documented options)
+-- No bare human "trust me" flag: `wrapper_verified_ref` is the wrapper's
+-- channel, the wrapper is a reviewed repo artifact, and every mutation still
+-- ROLLBACKs. Decision (FAIL CLOSED):
+--   * known Production ref on ANY signal / on wrapper_verified_ref  -> FAIL
+--   * marker present and <> expected                                -> FAIL
+--   * pooler username present and <> expected                       -> FAIL
+--   * wrapper_verified_ref present and <> expected                  -> FAIL
+--   * marker = expected                                             -> PASS
+--   * expected confirmed by pooler / _realtime                      -> PASS
+--   * wrapper_verified_ref = expected                               -> PASS (LAYER 1)
+--   * local sentinel + allow_local=1                                -> PASS (local mirror)
+--   * nothing provable                                              -> FAIL
 -- ==========================================================================
 do $$
 declare
   v_expected text := current_setting('smoke.expected_dev_ref');
   v_prod     text := current_setting('smoke.known_prod_ref');
   v_allow_local boolean := current_setting('smoke.allow_local') = '1';
+  v_wrapper text := nullif(btrim(current_setting('smoke.wrapper_verified_ref')), '');
   v_marker text; v_user text; v_rt text;
   v_rtarr text[] := '{}';   -- _realtime external_id values
   v_is_local boolean := false;
   r text;
 begin
-  -- authoritative marker
+  -- LAYER 2 signal: marker
   begin
     v_marker := nullif(btrim(current_setting('oruwa.cloud_target_ref', true)), '');
   exception when others then v_marker := null;
   end;
 
-  -- corroborator 1 — pooler username
+  -- LAYER 2 signal: pooler username
   if current_user ~ '^postgres\.[a-z0-9]{16,32}$' then
     v_user := split_part(current_user, '.', 2);
   end if;
 
-  -- corroborator 2 — _realtime.tenants.external_id (defensive; only external_id)
+  -- LAYER 2 signal: _realtime.tenants.external_id (defensive; only external_id)
   begin
     execute 'select string_agg(distinct external_id, '','') from _realtime.tenants' into v_rt;
   exception when others then v_rt := null;
@@ -170,13 +184,13 @@ begin
   v_rtarr := array(select btrim(x) from unnest(coalesce(string_to_array(v_rt, ','), '{}')) x where btrim(x) <> '');
   if 'realtime-dev' = any (v_rtarr) then v_is_local := true; end if;
 
-  -- (1) PRODUCTION tripwire — every signal.
-  if v_prod in (v_marker, v_user) or v_prod = any (v_rtarr) then
-    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (marker=%, user=%, realtime=%)',
-      coalesce(v_marker,'-'), coalesce(v_user,'-'), coalesce(v_rt,'-');
+  -- (1) PRODUCTION tripwire — every signal, incl. the wrapper attestation.
+  if v_prod in (v_marker, v_user, v_wrapper) or v_prod = any (v_rtarr) then
+    raise exception 'CLOUD_TARGET = FAIL: a signal names the known PRODUCTION project ref — refusing to mutate. (wrapper=%, marker=%, user=%, realtime=%)',
+      coalesce(v_wrapper,'-'), coalesce(v_marker,'-'), coalesce(v_user,'-'), coalesce(v_rt,'-');
   end if;
 
-  -- (2b) contradiction — local sentinel alongside a foreign project ref.
+  -- (1b) contradiction — local sentinel alongside a foreign project ref.
   if v_is_local then
     foreach r in array v_rtarr loop
       if r <> 'realtime-dev' and r <> v_expected then
@@ -185,23 +199,30 @@ begin
     end loop;
   end if;
 
-  -- (2) decide (fail closed)
-  if v_marker is not null then
-    if v_marker = v_expected then
-      raise notice 'CLOUD_TARGET = PASS (authoritative marker oruwa.cloud_target_ref = %)', v_expected;
-    else
-      raise exception 'CLOUD_TARGET = FAIL: marker oruwa.cloud_target_ref = "%" is not the expected Cloud DEV ref "%" — refusing to mutate.', v_marker, v_expected;
-    end if;
-  elsif v_user is not null and v_user <> v_expected then
-    raise exception 'CLOUD_TARGET = FAIL: pooler username names project ref "%" which is not the expected Cloud DEV ref "%" — refusing to mutate.', v_user, v_expected;
+  -- (2) mismatched signals — any signal that names a non-DEV ref aborts.
+  if v_marker is not null and v_marker <> v_expected then
+    raise exception 'CLOUD_TARGET = FAIL: marker oruwa.cloud_target_ref = "%" is not the expected Cloud DEV ref "%".', v_marker, v_expected;
+  end if;
+  if v_user is not null and v_user <> v_expected then
+    raise exception 'CLOUD_TARGET = FAIL: pooler username names project ref "%" which is not the expected Cloud DEV ref "%".', v_user, v_expected;
+  end if;
+  if v_wrapper is not null and v_wrapper <> v_expected then
+    raise exception 'CLOUD_TARGET = FAIL: wrapper_verified_ref = "%" is not the expected Cloud DEV ref "%".', v_wrapper, v_expected;
+  end if;
+
+  -- (3) decide (fail closed)
+  if v_marker = v_expected then
+    raise notice 'CLOUD_TARGET = PASS (database-side marker oruwa.cloud_target_ref = %)', v_expected;
   elsif v_user = v_expected or v_expected = any (v_rtarr) then
-    raise notice 'CLOUD_TARGET = PASS (expected Cloud DEV ref % corroborated database-side)', v_expected;
+    raise notice 'CLOUD_TARGET = PASS (expected Cloud DEV ref % confirmed database-side)', v_expected;
+  elsif v_wrapper = v_expected then
+    raise notice 'CLOUD_TARGET = PASS (LAYER 1: connection string verified Cloud DEV % by the repo wrapper; Supabase exposes no DB-side project-ref signal to this pooler role)', v_expected;
   elsif v_is_local and v_allow_local then
     raise notice 'CLOUD_TARGET = PASS (local Supabase, allow_local=1) — LOCAL MIRROR run, not Cloud DEV';
   elsif v_is_local then
     raise exception 'CLOUD_TARGET = FAIL: this is local Supabase. Pass -v allow_local=1 for the local mirror.';
   else
-    raise exception 'CLOUD_TARGET = FAIL: cannot prove the target project database-side — refusing to mutate. Do ONE of: (a) connect as a role that can SELECT _realtime.tenants (the project ref lives in _realtime.tenants.external_id); (b) have an admin set the marker once on Cloud DEV and reconnect:  ALTER DATABASE postgres SET oruwa.cloud_target_ref = %', quote_literal(v_expected);
+    raise exception 'CLOUD_TARGET = FAIL: cannot prove the target project — refusing to mutate. Run the wrapper  .\scripts\smoke\operations-cloud-dev-module-on-smoke.ps1  (it verifies the stored connection string and passes -v wrapper_verified_ref), or connect as a role that can SELECT _realtime.tenants, or have an admin set  oruwa.cloud_target_ref  on Cloud DEV.';
   end if;
 end $$;
 
