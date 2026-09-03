@@ -504,6 +504,14 @@ function ManagerDashboardBody({
   const localAssignments = useMemo(
     () =>
       scheduleWindowAssignments
+        // Drop rows with no assignee: `undoAutoDistribution` and the pre-run
+        // proposal-replace both null `employee_id` (never DELETE -- no grant
+        // in this slice), and a manual unassign keeps a published audit row
+        // the same way. Such rows are invisible in the grid (cells key by
+        // employee) but were still being counted in `dailyStaffingCoverage`
+        // and the week legend -- an orphaned row could hide a real shortage
+        // "!" marker. Filter them out once, here, at the single source.
+        .filter((a) => a.employeeId !== null)
         .map((a) => {
           const start = utcIsoToLocalDateTime(a.startsAt, timeZone);
           const end = utcIsoToLocalDateTime(a.endsAt, timeZone);

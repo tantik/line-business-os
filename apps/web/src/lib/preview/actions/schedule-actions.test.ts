@@ -117,6 +117,14 @@ test('previewRunAutoDistribution reports a distinct invalid_input reason for eac
   assert.ok(/invalidAutoDistributionInput\('no_active_windows'\)/.test(body), 'zero active windows must report no_active_windows, not a generic status');
 });
 
+test('previewRunAutoDistribution scopes the existing-shift snapshot to the resolved location before autoDistribute', () => {
+  const body = fnBody('previewRunAutoDistribution', 'previewPublishSchedule');
+  assert.ok(
+    /existingResult\.data\s*\n\s*\.filter\(\(a\) => a\.locationId === locationId\)\s*\n\s*\.map\(\(a\) => toAutoDistributeExistingAssignment/.test(body),
+    'existing assignments must be location-filtered so a sibling location cannot influence the run',
+  );
+});
+
 test('previewPublishSchedule injects the resolved location before parsing', () => {
   const body = fnBody('previewPublishSchedule');
   assert.ok(/withResolvedLocationId\(formData, locationId\)/.test(body));

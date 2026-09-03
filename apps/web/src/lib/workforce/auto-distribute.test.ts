@@ -615,3 +615,56 @@ test('an unconfirmed auto draft (published: false) is NOT preserved -- the day i
   assert.equal(result.draftAssignments[0]?.shiftTypeId, 'st-am');
   assert.equal(result.draftAssignments[0]?.published, false);
 });
+
+// -- Location isolation safety-net (algorithm level) ------------------------
+// The canonical/preview Server Actions scope `existingAssignments` to the
+// resolved location before calling `autoDistribute`. This test locks the
+// algorithm's own guarantee that a stray existing assignment for an
+// employee NOT in the `employees` snapshot (e.g. a sibling-location
+// employee, or a foreign row that slipped through) contributes nothing:
+// no preserved headcount, no hours seeded, no date blocked, no shortage
+// change.
+
+test('an existing assignment for an employee absent from the employees snapshot is ignored entirely', () => {
+  const employees = [makeEmployee({ employeeId: 'locA-1' })];
+  // A published ALL-day shift on the target Monday for someone the snapshot
+  // does not contain (imagine Location B's employee, same tenant).
+  const foreignExisting = [
+    makeExisting({
+      employeeId: 'locB-9',
+      workDate: '2026-08-03',
+      shiftTypeId: 'st-all',
+      startsAtLocal: '08:30',
+      endsAtLocal: '17:30',
+      breakMinutes: 60,
+      published: true,
+    }),
+  ];
+  const preferences = [makePreference({ employeeId: 'locA-1', workDate: '2026-08-03', shiftTypeId: 'st-all' })];
+  const staffingRequirements = [{ weekday: 1, windowCode: 'ALL' as const, requiredHeadcount: 1 }];
+
+  const withForeign = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences,
+    staffingRequirements,
+    existingAssignments: foreignExisting,
+    options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03', overwriteExisting: false }),
+  });
+  const withoutForeign = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences,
+    staffingRequirements,
+    existingAssignments: [],
+    options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03', overwriteExisting: false }),
+  });
+
+  // The foreign published shift does NOT pre-fill the ALL window: locA-1 is
+  // still placed, and the outcome is byte-identical to the no-foreign run.
+  assert.deepEqual(withForeign.draftAssignments, withoutForeign.draftAssignments);
+  assert.deepEqual(withForeign.shortages, withoutForeign.shortages);
+  assert.deepEqual(withForeign.unplaced, withoutForeign.unplaced);
+  assert.equal(withForeign.draftAssignments.length, 1);
+  assert.equal(withForeign.draftAssignments[0]?.employeeId, 'locA-1');
+});
