@@ -6,7 +6,7 @@
 | Date | 2026-09-01 |
 | Repository | `tantik/line-business-os` |
 | Verified baseline (at #1) | `dev` HEAD `ffc4b2e`; `origin/dev` == local `dev`; working tree clean; CI green |
-| Last reconciled | 2026-09-01 — canonical Cafe v2.2 WP sequence + acceptance model + next-step order (Founder/CTO decision); `cto-context.md` installed |
+| Last reconciled | 2026-09-03 — Step 4 Operations Cloud DEV module-ON smoke PASSED (Founder-run) + PR #485 merged; canonical next step = Operations Manager/Staff UI. Prev: 2026-09-01 canonical Cafe v2.2 WP sequence + acceptance model + `cto-context.md` |
 | Cloud DEV | `line-business-os-dev` / `pehcoenozjtsjdvjietj` |
 | Production | `jsgmmsdkuptdsxtcxhsv` — **separate project, effectively empty, untouched** |
 | Companion | `docs/project/cto-context.md` — the durable *why* behind these decisions |
@@ -223,7 +223,7 @@ begins on its own Founder prompt.
 
 | WP | Name | Bounded direction | Status |
 |---|---|---|---|
-| **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **Backend IMPLEMENTED & merged & on Cloud DEV** (`0099`–`0105`): `operations` schema, checklist templates/items, task schedules/instances/item-responses/exceptions, effective-dated schedule versioning, template-retirement dating, 9 `api.operations_*` config RPCs, three-layer security, pgTAP-covered. Module registered **`beta`**. **Enabled for NO tenant. Module-ON Cloud smoke NOT performed. No Manager/Staff Operations UI. No Cafe HACCP preset content.** |
+| **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **Backend IMPLEMENTED & merged & on Cloud DEV** (`0099`–`0105`): `operations` schema, checklist templates/items, task schedules/instances/item-responses/exceptions, effective-dated schedule versioning, template-retirement dating, 9 `api.operations_*` config RPCs, three-layer security, pgTAP-covered. Module registered **`beta`**. **Module-ON Cloud DEV smoke PASSED (2026-09-03, Founder-run, `smoke-tenant-b`)** — enable + read/write via `api.*`, disabled-tenant/cross-tenant/role/location boundaries all enforced; the smoke ran in one transaction that ROLLED BACK, so `operations` is still **enabled for NO tenant** and no smoke data persisted. **No Manager/Staff Operations UI. No Cafe HACCP preset content.** |
 | **WP2** | **Issues & Handover** | Structured operational issue capture + shift/day handover. Not a generic issue tracker. | **PLANNED** — bounded direction agreed; own implementation prompt required. |
 | **WP3** | **Owner Weekly Review** | Deliberately bounded management workflow: *what happened → what needs attention → what repeats → what action is required*. **Not** a generic dashboard / "Control Center". | **PLANNED** — own implementation prompt required. |
 | **WP4** | **Purchasing v2** | Supplier records, item↔supplier mapping, pack/unit/lead-time, draft→approval flow, ordered/expected/partially-received/received/variance/closed states, inventory-recount linkage. **Not** invoices/payments/accounting/supplier-APIs/WMS/autonomous ordering. Must not be merged with WP1 Operations. | **PLANNED** — own implementation prompt required. (Purchases v1 shipped in v2.1.) |
@@ -380,8 +380,9 @@ Milestones that materially change future development speed:
   module gate; module registry not driving navigation; notifications outbox
   has no dispatcher; event bus has no consumers. **By decision, closed only
   per-consumer** (§6, §14) — not tracked as one debt item to burn down.
-- Operations module unproven on Cloud (module-ON smoke never run) and has no
-  Manager/Staff UI; no Cafe HACCP preset content. → §14 steps 4–6.
+- Operations module has **no Manager/Staff UI** and **no Cafe HACCP preset
+  content**. → §14 steps 5–6. (The Cloud DEV module-ON smoke is now DONE — see
+  §14 step 4 / §7.)
 - **Deprecated Mame To Cha tooling cleanup** — §14 step 2 (bounded task).
   **Cloud-specific part DONE (Sept 2026):** the 27 `packages/db/scripts/mame-to-cha-cloud-*`
   files + their `package.json` scripts/test-list entries + `MAME_TO_CHA_CLOUD_*`
@@ -499,10 +500,17 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    API-key readiness + migration is a separate controlled future gate; a
    future Production deployment is BLOCKED until the Founder explicitly
    approves it.**
-4. **Operations Cloud module-ON smoke** (`smoke-tenant-b`, per the existing
-   runbook) — proves the WP1-A backend on Cloud DEV. **UNBLOCKED — canonical
-   next implementation step** (Step 3 CLOSED). Still its own Founder prompt.
-5. **Operations Manager/Staff UI**.
+4. **Operations Cloud module-ON smoke** (`smoke-tenant-b`) — **DONE
+   (2026-09-03).** Founder-run against Cloud DEV via
+   `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1`: `CLOUD_TARGET`,
+   `OPERATIONS_MODULE_ON`, `ENABLED_TENANT`, `DISABLED_TENANT`,
+   `CROSS_TENANT_ISOLATION`, `ROLE_BOUNDARY`, `LOCATION_BOUNDARY` all **PASS**;
+   the run rolled back (no persisted smoke data, `operations` still enabled for
+   no tenant). Local mirror: pgTAP `supabase/tests/0055_*` + the `.ps1 -AllowLocal`
+   path. Tooling merged via PR #485. Runbook:
+   `docs/operations/operations-cloud-dev-module-on-smoke-runbook.md`.
+5. **Operations Manager/Staff UI** — **canonical next implementation step.**
+   Its own Founder prompt. (Operations UI itself is NOT started.)
 6. **Cafe HACCP presets**.
 7. **WP1 bounded acceptance gate**.
 8. **WP2 Issues & Handover** → 9. **WP2 bounded acceptance**.
@@ -590,7 +598,7 @@ Full rationale for each: `cto-context.md` (the "why" document).
 |---|---|---|---|
 | `main` ↔ `dev` divergence + undefined release path | First production release needs a dedicated reconciliation; `db pull`/`diff` noisy on 5 migration numbers | Documented; `dev` declared authoritative | Before Phase 9 / first sale |
 | Foundation Services "present but not wired" | A 2nd vertical or Billing will hit half-built pieces | Consumer-driven completion (§6, §14); no burn-down project | When a real consumer needs each |
-| Operations unproven on Cloud + no UI | Cafe v2.2 not deliverable | Backend pgTAP-covered; smoke runbook exists | §14 steps 4–6 |
+| Operations has no Manager/Staff UI | Cafe v2.2 not deliverable | Backend pgTAP-covered + Cloud DEV module-ON smoke PASSED (2026-09-03) | §14 steps 5–6 |
 | No production env / billing / provisioning | Cannot onboard a paying customer | Roadmap Phases 7–9 | Before real commercial validation |
 | Browser-QA tooling varies per session | Final Integrated QA may fall back to Founder-screenshot loop | Screenshot loop proven workable | Check at Phase 1 step 4 / hardening start |
 | `/dashboard/admin` ungated (Defect A) | Defense-in-depth gap if a privileged action is added | Inert today (RLS-scoped, disabled placeholders) | Before wiring any admin action |
@@ -602,12 +610,20 @@ Full rationale for each: `cto-context.md` (the "why" document).
 
 ```
 LAST CLOSED:
-  Step 3 ENV Cleanup & Consolidation — CLOSED (2026-09): 3A repo cleanup
-  (PR #481), 3B local-operator cleanup (PR #482), 3C external verification
-  (read-only audit + one bounded Founder-approved Vercel Preview cleanup;
-  runbook §11). ACTIVE ORUWA RUNTIME LEGACY FALLBACK = 0 (Supabase Cloud DEV
-  API-key migration, PR #477). Production ENV/key migration NOT done — separate
-  future gate; Production deploy BLOCKED.
+  Step 4 Operations Cloud DEV module-ON smoke — DONE (2026-09-03).
+  Founder-run against Cloud DEV via
+  scripts/smoke/operations-cloud-dev-module-on-smoke.ps1: CLOUD_TARGET /
+  OPERATIONS_MODULE_ON / ENABLED_TENANT / DISABLED_TENANT /
+  CROSS_TENANT_ISOLATION / ROLE_BOUNDARY / LOCATION_BOUNDARY all PASS; the
+  transaction rolled back — no persisted smoke data, operations still enabled
+  for NO tenant. Tooling merged: PR #485 (dev HEAD 8b7026c) — pgTAP
+  supabase/tests/0055_* + the standalone psql smoke + a PowerShell LAYER-1
+  wrapper (target guard + libpq URI fix) + runbook. No migration / schema /
+  RLS / application-behaviour change.
+  Prev: Step 3 ENV Cleanup & Consolidation — CLOSED (2026-09): 3A (PR #481),
+  3B (PR #482), 3C external verification (runbook §11). ACTIVE ORUWA RUNTIME
+  LEGACY FALLBACK = 0 (PR #477). Production ENV/key migration NOT done —
+  separate future gate; Production deploy BLOCKED.
 
 CURRENT:
   Step 3 ENV Cleanup & Consolidation — CLOSED (2026-09). 3A DONE (PR #481,
@@ -627,15 +643,18 @@ CURRENT:
   retirement follow-up; platform-managed Edge legacy names; unused OPENAI_API_KEY.
   PRODUCTION NOT READY — Production ENV/API-key readiness + migration is a
   separate controlled future gate; a future Production deployment is BLOCKED
-  until the Founder explicitly approves it.
-  Operations Cloud module-ON smoke (step 4) — UNBLOCKED, canonical next step.
+  until the Founder explicitly approves it. Production project untouched.
+  Operations Cloud DEV module-ON smoke (step 4) — DONE (2026-09-03, PR #485).
+  Canonical next implementation step = Operations Manager/Staff UI (step 5) —
+  NOT started, its own Founder prompt.
   Step 2 Mame cleanup: Cloud-specific part DONE (PR #480 merged), non-cloud
   family deferred.
   Master State Checkpoint #1 + CTO Context #1 canonical documents. Repo on dev
-  (>= 615925e), clean, CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations
+  (>= 8b7026c), clean, CI-green. Cafe v2.1 CLOSED (Founder PASS). Operations
   WP1-A backend merged + on Cloud DEV, module 'beta', enabled for NO tenant,
-  no UI. Platform Foundation critical path structurally reconciled onto dev +
-  Cloud DEV (several pieces "table exists, not wired" — closed per-consumer).
+  Cloud module-ON smoke PASSED, no UI. Platform Foundation critical path
+  structurally reconciled onto dev + Cloud DEV (several pieces "table exists,
+  not wired" — closed per-consumer).
   Canonical Cafe v2.2 WP sequence + acceptance model decided 2026-09-01 (§7).
 
 NEXT (canonical sequence, §14 — each step on its own Founder prompt):
@@ -643,10 +662,11 @@ NEXT (canonical sequence, §14 — each step on its own Founder prompt):
   DONE; non-cloud family deferred) → 3 ENV Cleanup & Consolidation CLOSED
   [3A = PR #481 MERGED · 3B = PR #482 MERGED · 3C = done (audit + bounded Vercel
   Preview cleanup; NEXT_PUBLIC_SUPABASE_ANON_KEY also left ABSENT from Vercel
-  Production by Founder decision — runbook §11)] → **4 Operations Cloud
-  module-ON smoke — UNBLOCKED, canonical next step** (Production deploy stays
-  BLOCKED pending a separate Production ENV/key readiness gate) →
-  5 Operations Manager/Staff UI → 6 Cafe HACCP presets → 7 WP1 acceptance →
+  Production by Founder decision — runbook §11)] → 4 Operations Cloud DEV
+  module-ON smoke — **DONE (2026-09-03, PR #485; all scenarios PASS, rolled
+  back)** → **5 Operations Manager/Staff UI — canonical next step** (Production
+  deploy stays BLOCKED pending a separate Production ENV/key readiness gate) →
+  6 Cafe HACCP presets → 7 WP1 acceptance →
   8-9 WP2 Issues & Handover (+acceptance) → 10-11 WP3 Owner Weekly Review →
   12-13 WP4 Purchasing v2 → 14-15 WP5 Recipe Intelligence Lite →
   16 Full Cafe v2.2 Integrated Acceptance → master-roadmap Phases 5-14.
