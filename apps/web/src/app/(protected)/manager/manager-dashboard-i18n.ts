@@ -166,6 +166,7 @@ interface ManagerDashboardDict {
   staffNamePopupCopyFailed: string;
   // Settings section (A8)
   settingsCardTitle: string;
+  settingsHelpAriaLabel: string;
   settingsHelpBody: string;
   requiredHeadcountHeading: string;
   maxWorkHoursLabel: string;
@@ -376,13 +377,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionConflictsPopupHelpAriaLabel: 'About unavailable conflicts',
     attentionConflictsPopupHelpTitle: 'About unavailable conflicts',
     attentionConflictsPopupHelpBody:
-      'Shows every published shift assigned to a staff member who separately marked that same day "Unavailable" in their submitted shift preferences -- previously publishable with no warning at all. This does not block publishing; it flags shifts worth double-checking. "View shift" jumps to the affected week and opens that exact shift so you can reassign or confirm it.',
+      'Shows shifts assigned on a day the staff member marked as unavailable. Review each item and open the shift if you need to confirm or change the assignment. This warning does not change the schedule automatically.',
     attentionReviewAll: 'Review all',
     attentionReviewAllTitle: 'All attention items',
     attentionReviewAllHelpAriaLabel: 'About all attention items',
     attentionReviewAllHelpTitle: 'About all attention items',
     attentionReviewAllHelpBody:
-      'Every current Needs Attention item in one place, grouped the same way the summary above counts them: "Requires action" (attendance corrections and shift exchanges -- someone is waiting on your decision) and "Warnings" (schedule conflicts and inventory shortages -- worth a look, but nothing to approve/reject). Each item\'s own button takes you straight to where you resolve it.',
+      'Shows all current items that need your attention. "Requires action" means someone is waiting for your decision. "Warnings" highlight situations to check, such as a schedule conflict or low stock. Open an item to review or resolve it.',
     attentionWarningsGroupHeading: 'Warnings',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
@@ -464,12 +465,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmUnassignShift: 'Remove this shift from the schedule?',
     scheduleHelpAriaLabel: 'About the shift schedule',
     scheduleHelpTitle: 'About the shift schedule',
-    scheduleHelpBody: 'Click any cell to assign, edit, or remove a shift. Every change is visible to staff immediately -- there is no separate publish step.',
+    scheduleHelpBody: 'Select a staff member\'s date cell to assign, change, or remove a shift. Saved changes appear on the staff schedule immediately.',
     pendingCorrectionCellAriaLabel: 'This shift has a pending correction request awaiting your review',
     staffPopupHelpAriaLabel: 'About staff management',
     staffPopupHelpTitle: 'About staff management',
     staffPopupHelpBody:
-      'Deactivating a staff member hides them from scheduling without deleting their history; reactivate anytime. Deleting a staff member is permanent and only allowed once they have no protected shift/attendance history.',
+      'Deactivate a staff member to remove them from future scheduling while keeping their records. You can reactivate them later. Permanent deletion is available only when there are no work records that must be retained.',
     staffNamePopupTitlePrefix: 'Staff',
     staffNamePopupMonth: 'Month',
     staffNamePopupWorkedHours: 'Worked hours (this month)',
@@ -479,8 +480,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopied: 'Copied.',
     staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
     settingsCardTitle: 'Settings',
+    settingsHelpAriaLabel: 'About settings',
     settingsHelpBody:
-      'These settings control auto-distribution (required staff per weekday) and the max monthly hours guardrail. Shift types define the reusable start/end/break templates offered when assigning a shift.',
+      'Set the usual staffing needed for each weekday, the monthly working-hours limit, and the standard shift patterns used when creating the schedule.',
     requiredHeadcountHeading: 'Required staff per shift, by weekday',
     maxWorkHoursLabel: 'Max staff working hours / month',
     weekdayAriaSuffix: ' required headcount',
@@ -512,7 +514,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: 'About automatic schedule',
     automationHelpTitle: 'About automatic schedule',
     automationHelpBody:
-      'This capability is currently in development and not active yet. Once built, it will automatically create and publish a schedule on the day of the month set above. Manual manager changes will always take priority over anything automation creates -- automation only ever fills in what a manager has not already scheduled.',
+      'Automatic schedule creation is not active yet. The date above is reserved for this future function and does not currently create or change any shifts.',
     estimatedLabourCostLabel: 'Estimated labour cost',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
@@ -540,7 +542,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'About shift requests',
     shiftRequestsPopupHelpTitle: 'About shift requests',
     shiftRequestsPopupHelpBody:
-      'Shows which active staff have submitted shift preferences for this month, and which haven\'t. Use the week arrows to browse the month\'s weeks. Clicking an employee\'s name here (in red) opens a reminder you can copy and send yourself -- this doesn\'t send anything automatically yet. Clicking a submitted preference lets you mark it "Approved" so you remember to prioritize it -- this is a visual note for now and doesn\'t change the schedule yet. "+" means no preference was submitted for that day; "—" means the employee marked themselves unavailable that day.',
+      'Check who has submitted next month\'s availability and review each person\'s preferred shifts. A red name means the request is still missing; open it to copy a reminder. Marking a request as approved records your review but does not change the schedule. "+" means no preference was entered for that day, and "—" means unavailable.',
     submittedPreferencesEmpty: 'No active staff to show.',
     noPreferenceSubmittedHint: 'No preference submitted for this day',
     markedUnavailableHint: 'Marked unavailable this day',
@@ -574,7 +576,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionsPopupHelpAriaLabel: 'About correction requests',
     correctionsPopupHelpTitle: 'About correction requests',
     correctionsPopupHelpBody:
-      'Staff submit these when their actual clock-in/out or break differs from what was recorded. Approving applies the requested change to their attendance record; rejecting leaves the original record untouched. "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
+      'Staff send a correction request when their clock-in, clock-out, or break record is wrong. Approving updates the attendance record; rejecting keeps the original record. Use the archive to review older decisions.',
     exchangesHeading: 'Shift exchange requests',
     exchangesUnavailable: 'Shift exchange requests are temporarily unavailable.',
     noPendingExchanges: 'No pending shift exchange requests.',
@@ -589,7 +591,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangesPopupHelpAriaLabel: 'About shift exchange requests',
     exchangesPopupHelpTitle: 'About shift exchange requests',
     exchangesPopupHelpBody:
-      'Staff request these to change, cancel, or exchange a published shift with a colleague. An Exchange request has nothing to approve until it has a replacement -- either a colleague accepts it themselves, or you assign one directly. "Recently decided" shows the last 10 by default -- use "Show archive" to see the full history.',
+      'Staff use these requests to change, cancel, or exchange an assigned shift. An exchange can be approved after a replacement accepts it or you select a replacement. Use the archive to review older decisions.',
     exchangeReplacementLabel: 'Replacement',
     exchangeReplacementNotAssigned: 'Not assigned',
     exchangeWaitingForCandidate: 'Waiting for candidate',
@@ -616,7 +618,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     mailSending: 'Sending...',
     mailPopupHelpAriaLabel: 'About Mail',
     mailPopupHelpTitle: 'About Mail',
-    mailPopupHelpBody: 'A private, two-way conversation with each staff member. Click a conversation to open it, reply from the bottom of the thread. Archive tidies a message up without removing it.',
+    mailPopupHelpBody: 'Use Mail for a private conversation with each staff member. Open a conversation to read or reply. Archiving removes it from the active list without deleting it.',
     pageTitle: 'Manager',
     signOut: 'Sign out',
     notSetLabel: 'Not set',
@@ -663,13 +665,13 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionConflictsPopupHelpAriaLabel: '不可との重複について',
     attentionConflictsPopupHelpTitle: '不可との重複について',
     attentionConflictsPopupHelpBody:
-      'スタッフが提出したシフト希望で「不可」と回答した日に、公開済みのシフトが割り当てられているケースを表示します -- これまで警告なしに公開できてしまっていた状態です。公開自体を止めるものではなく、確認しておくべきシフトを知らせるものです。「シフトを見る」で該当の週・シフトへ直接移動し、再割り当てや確認ができます。',
+      'スタッフが勤務不可と回答した日に、シフトが割り当てられている項目を表示します。内容を確認し、必要な場合は「シフトを見る」から担当者を変更してください。この警告によってスケジュールが自動で変更されることはありません。',
     attentionReviewAll: 'すべて確認',
     attentionReviewAllTitle: 'すべての要確認項目',
     attentionReviewAllHelpAriaLabel: 'すべての要確認項目について',
     attentionReviewAllHelpTitle: 'すべての要確認項目について',
     attentionReviewAllHelpBody:
-      '現在の「要確認」項目をすべてまとめて表示し、上の集計と同じ基準でグループ分けします -- 「対応が必要」（勤怠修正・シフト交換など、あなたの判断待ち）と「注意事項」（スケジュールの重複・在庫不足など、承認/却下は不要だが確認しておきたいもの）。各項目のボタンから、そのまま解決先の画面に移動できます。',
+      '現在の要確認項目をまとめて表示します。「対応が必要」は、スタッフが店長の判断を待っている項目です。「注意事項」は、シフトの重複や在庫不足など確認しておきたい状態です。項目を開くと、そのまま確認や対応ができます。',
     attentionWarningsGroupHeading: '注意事項',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
@@ -751,12 +753,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmUnassignShift: 'このシフトをスケジュールから削除しますか？',
     scheduleHelpAriaLabel: 'シフトスケジュールについて',
     scheduleHelpTitle: 'シフトスケジュールについて',
-    scheduleHelpBody: 'セルをクリックしてシフトの割り当て・編集・削除ができます。変更内容はすぐにスタッフに表示されます -- 別途の公開操作はありません。',
+    scheduleHelpBody: 'スタッフと日付が交わるセルを選ぶと、シフトの割り当て・変更・削除ができます。保存した内容は、スタッフのシフト表にすぐ反映されます。',
     pendingCorrectionCellAriaLabel: 'このシフトには確認待ちの修正申請があります',
     staffPopupHelpAriaLabel: 'スタッフ管理について',
     staffPopupHelpTitle: 'スタッフ管理について',
     staffPopupHelpBody:
-      '無効化すると履歴を削除せずにシフト作成の対象から外れます -- いつでも再度有効化できます。削除は完全かつ元に戻せず、保護対象のシフト・勤怠履歴がない場合のみ実行できます。',
+      'スタッフを無効化すると、記録を残したまま今後のシフト作成対象から外せます。必要になれば再度有効化できます。完全削除は、保存が必要な勤務記録がない場合に限り実行できます。',
     staffNamePopupTitlePrefix: 'スタッフ',
     staffNamePopupMonth: '対象月',
     staffNamePopupWorkedHours: '実働時間（今月）',
@@ -766,8 +768,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopied: 'コピーしました。',
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
     settingsCardTitle: '設定',
+    settingsHelpAriaLabel: '設定について',
     settingsHelpBody:
-      'ここでの設定は自動割り当て（曜日ごとの必要人数）と月間最大勤務時間の上限に反映されます。シフト種別は、シフト割り当て時に選べる開始・終了・休憩のテンプレートです。',
+      '曜日ごとに通常必要な人数、スタッフの月間勤務時間の上限、スケジュール作成時に使う標準的なシフト時間を設定します。',
     requiredHeadcountHeading: '曜日ごとの各シフト必要人数',
     maxWorkHoursLabel: 'スタッフ最大勤務時間 / 月',
     weekdayAriaSuffix: '曜日の必要人数',
@@ -798,7 +801,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: '自動スケジュールについて',
     automationHelpTitle: '自動スケジュールについて',
     automationHelpBody:
-      'この機能は現在開発中で、まだ有効化されていません。実装後は、上記で設定した日にスケジュールを自動的に作成・公開します。手動でのマネージャーの変更は、自動作成された内容より常に優先されます -- 自動作成はマネージャーがまだ設定していない部分だけを埋めます。',
+      '自動スケジュール作成は現在利用できません。上の日付は今後の機能のための設定で、現時点ではシフトの作成や変更は行われません。',
     estimatedLabourCostLabel: '概算人件費',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
@@ -826,7 +829,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
     shiftRequestsPopupHelpTitle: 'シフト希望について',
     shiftRequestsPopupHelpBody:
-      '今月シフト希望を提出した有効なスタッフと、まだ提出していないスタッフを表示します。週の矢印でその月の各週を切り替えられます。赤色の名前をクリックすると、自分でコピーして送れるリマインダーが表示されます -- まだ自動送信はされません。提出済みの希望をクリックすると「承認済み」として記録できます -- 現時点では表示上のメモのみで、まだスケジュールには反映されません。「+」はその日に希望が提出されていないことを、「—」はその日にスタッフが「勤務不可」としたことを示します。',
+      '来月のシフト希望を提出したスタッフと、未提出のスタッフを確認できます。赤色の名前を開くと、送信用のリマインダー文をコピーできます。「承認済み」は店長が確認した記録で、スケジュールは変更しません。「+」は希望未入力、「—」は勤務不可を表します。',
     submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
     noPreferenceSubmittedHint: 'この日は希望が提出されていません',
     markedUnavailableHint: 'この日は勤務不可としています',
@@ -860,7 +863,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionsPopupHelpAriaLabel: '修正依頼について',
     correctionsPopupHelpTitle: '修正依頼について',
     correctionsPopupHelpBody:
-      '実際の出退勤や休憩が記録と異なる場合にスタッフが申請します。承認すると勤怠記録に反映され、却下すると元の記録は変更されません。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
+      '出勤・退勤・休憩の記録に誤りがある場合、スタッフから修正依頼が届きます。承認すると勤怠記録が更新され、却下すると元の記録が残ります。過去の対応はアーカイブから確認できます。',
     exchangesHeading: 'シフト交換リクエスト',
     exchangesUnavailable: 'シフト交換リクエストは一時的に利用できません。',
     noPendingExchanges: '保留中のシフト交換リクエストはありません。',
@@ -875,7 +878,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangesPopupHelpAriaLabel: 'シフト交換リクエストについて',
     exchangesPopupHelpTitle: 'シフト交換リクエストについて',
     exchangesPopupHelpBody:
-      '公開済みのシフトの変更・キャンセル・同僚との交換をスタッフが申請します。交換リクエストは交換相手が決まるまで承認できません -- 同僚が自分で承諾するか、あなたが直接指名できます。「最近対応した項目」はデフォルトで直近10件のみ表示 -- 「アーカイブを表示」で全履歴を確認できます。',
+      '割り当て済みのシフトについて、変更・キャンセル・同僚との交換申請を確認できます。交換は、代わりのスタッフが承諾するか、店長が担当者を選ぶと承認できます。過去の対応はアーカイブから確認できます。',
     exchangeReplacementLabel: '交換相手',
     exchangeReplacementNotAssigned: '未指定',
     exchangeWaitingForCandidate: '交換相手を待っています',
@@ -902,7 +905,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     mailSending: '送信中...',
     mailPopupHelpAriaLabel: 'メールについて',
     mailPopupHelpTitle: 'メールについて',
-    mailPopupHelpBody: '各スタッフとの1対1の会話です。会話をクリックして開き、下部から返信できます。アーカイブは削除せずに整理するためのものです。',
+    mailPopupHelpBody: 'スタッフごとの個別連絡に使います。会話を開くと内容の確認と返信ができます。アーカイブすると、削除せずに対応中の一覧から外せます。',
     pageTitle: 'マネージャー',
     signOut: 'サインアウト',
     notSetLabel: '未設定',

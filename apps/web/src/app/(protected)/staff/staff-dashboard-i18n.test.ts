@@ -130,3 +130,10 @@ test('earningsEstimatedSuffix interpolates the hourly wage and estimated total a
   assert.match(earningsEstimatedSuffix.en(1200, 15000), /15.000/);
   assert.notEqual(earningsEstimatedSuffix.en(1200, 15000), earningsEstimatedSuffix.ja(1200, 15000));
 });
+
+test('Staff schedule help matches the immediate-assignment workflow in both languages', () => {
+  assert.doesNotMatch(tStaffDashboard('en', 'scheduleHelpBody'), /published/i);
+  assert.doesNotMatch(tStaffDashboard('ja', 'scheduleHelpBody'), /公開/);
+  assert.match(tStaffDashboard('en', 'scheduleHelpBody'), /assigned/i);
+  assert.match(tStaffDashboard('ja', 'scheduleHelpBody'), /割り当て/);
+});

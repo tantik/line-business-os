@@ -145,3 +145,25 @@ test('attentionInventoryShortageSummary interpolates the count and differs by la
   assert.notEqual(attentionInventoryShortageSummary.en(3), attentionInventoryShortageSummary.ja(3));
 });
 
+test('Manager help copy describes user outcomes without internal implementation terms', () => {
+  const helpKeys = [
+    'attentionConflictsPopupHelpBody',
+    'attentionReviewAllHelpBody',
+    'scheduleHelpBody',
+    'staffPopupHelpBody',
+    'settingsHelpBody',
+    'automationHelpBody',
+    'shiftRequestsPopupHelpBody',
+    'correctionsPopupHelpBody',
+    'exchangesPopupHelpBody',
+    'mailPopupHelpBody',
+  ] as const;
+
+  for (const lang of LANGS) {
+    for (const key of helpKeys) {
+      const copy = tManagerDashboard(lang, key);
+      assert.doesNotMatch(copy, /guardrail|reusable template|internal algorithm|API|database|RLS|tenant/i);
+    }
+  }
+});
+

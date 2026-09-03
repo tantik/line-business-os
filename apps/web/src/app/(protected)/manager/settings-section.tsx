@@ -194,7 +194,7 @@ export function SettingsSection({
     <section style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{t('settingsCardTitle')}</h2>
-        <HelpIconButton ariaLabel={t('settingsCardTitle')} onClick={() => setHelpOpen(true)} />
+        <HelpIconButton ariaLabel={t('settingsHelpAriaLabel')} onClick={() => setHelpOpen(true)} />
       </div>
 
       <div style={{ marginTop: 18 }}>

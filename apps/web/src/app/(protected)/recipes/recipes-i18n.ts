@@ -135,7 +135,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpAriaLabel: 'About recipes',
     popupHelpTitle: 'About recipes',
     popupHelpBody:
-      'Recipes and instructions are shared reference material for staff. Draft items are only visible to managers; publish a recipe to make it visible to staff. Use the Archive/Draft buttons above the list to browse by status, and Delete only once you are sure a recipe will never be needed again.',
+      'Recipes and work instructions help staff follow the same procedure. Drafts are visible only to managers; publish an item when staff should be able to open it. Archive items you may need later, and use permanent deletion only when the content is no longer required.',
   },
   ja: {
     pageTitle: 'レシピ',
@@ -196,7 +196,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpAriaLabel: 'レシピについて',
     popupHelpTitle: 'レシピについて',
     popupHelpBody:
-      'レシピ・手順書はスタッフ向けの共有資料です。下書きはマネージャーのみ閲覧でき、公開するとスタッフにも表示されます。一覧上部のアーカイブ・下書きボタンでステータス別に絞り込めます。削除は今後二度と必要ないと確信できる場合のみ使用してください。',
+      'レシピと手順書は、スタッフが同じ手順で作業するための共有資料です。下書きはマネージャーだけに表示され、公開するとスタッフも確認できます。後で使う可能性がある場合はアーカイブし、完全削除は不要になった内容にのみ使用してください。',
   },
 };
 

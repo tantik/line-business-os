@@ -158,7 +158,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     popupHelpAriaLabel: 'About inventory',
     popupHelpTitle: 'About inventory',
     popupHelpBody:
-      'The actual quantity autosaves as you type -- there is no separate Save button. Press Enter (or just wait a moment) to save right away. "Reorder at" is the threshold below which an item shows as a shortage; "Target" is the amount a full restock should bring it back up to. Deactivating hides an item from the daily count without deleting its history.',
+      'Enter the quantity currently on hand; it saves automatically. "Reorder at" is the level that triggers a restock warning. "Target" is the quantity to aim for after restocking. Deactivating removes an item from daily checks while keeping its history.',
     colItem: 'Item',
     colTarget: 'Target',
     colReorderAt: 'Reorder at',
@@ -241,7 +241,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     popupHelpAriaLabel: '在庫について',
     popupHelpTitle: '在庫について',
     popupHelpBody:
-      '実数は入力すると自動的に保存されます -- 保存ボタンはありません。Enterキー(または少し待つだけ)ですぐに保存されます。「発注点」はこれを下回ると不足として表示されるしきい値、「目標」は補充で戻すべき量です。無効化すると履歴を削除せずに日次カウントから非表示になります。',
+      '現在ある数量を入力すると自動保存されます。「発注点」は補充の警告を出す基準、「目標」は補充後にそろえておきたい数量です。商品を無効化すると、履歴を残したまま日々の在庫確認から外せます。',
     colItem: '商品',
     colTarget: '目標',
     colReorderAt: '発注点',
