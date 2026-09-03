@@ -166,6 +166,7 @@ interface ManagerDashboardDict {
   staffNamePopupCopyFailed: string;
   // Settings section (A8)
   settingsCardTitle: string;
+  settingsHelpAriaLabel: string;
   settingsHelpBody: string;
   requiredHeadcountHeading: string;
   maxWorkHoursLabel: string;
@@ -479,6 +480,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopied: 'Copied.',
     staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
     settingsCardTitle: 'Settings',
+    settingsHelpAriaLabel: 'About settings',
     settingsHelpBody:
       'Set the usual staffing needed for each weekday, the monthly working-hours limit, and the standard shift patterns used when creating the schedule.',
     requiredHeadcountHeading: 'Required staff per shift, by weekday',
@@ -766,6 +768,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopied: 'コピーしました。',
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
     settingsCardTitle: '設定',
+    settingsHelpAriaLabel: '設定について',
     settingsHelpBody:
       '曜日ごとに通常必要な人数、スタッフの月間勤務時間の上限、スケジュール作成時に使う標準的なシフト時間を設定します。',
     requiredHeadcountHeading: '曜日ごとの各シフト必要人数',
