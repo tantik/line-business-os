@@ -53,18 +53,24 @@ $code = 1   # default: failure unless psql sets it
 $EXPECTED_DEV_REF = 'pehcoenozjtsjdvjietj'
 $KNOWN_PROD_REF   = 'jsgmmsdkuptdsxtcxhsv'
 
-# libpq-accepted URI query keywords (PostgreSQL docs 34.1.2). Anything else is
-# dropped from the query string before psql sees it.
-$LIBPQ_QUERY_KEYS = @(
-  'host','hostaddr','port','dbname','user','password','passfile','require_auth',
-  'channel_binding','connect_timeout','client_encoding','options',
-  'application_name','fallback_application_name','keepalives','keepalives_idle',
-  'keepalives_interval','keepalives_count','tcp_user_timeout','replication',
-  'gssencmode','sslmode','requiressl','sslnegotiation','sslcompression',
-  'sslcert','sslkey','sslpassword','sslcertmode','sslrootcert','sslcrl',
-  'sslcrldir','sslsni','requirepeer','ssl_min_protocol_version',
-  'ssl_max_protocol_version','krbsrvname','gsslib','gssdelegation','service',
-  'target_session_attrs','load_balance_hosts'
+# Query parameters that change WHO / WHERE / HOW psql connects. If any of these
+# appear in the query string the wrapper REFUSES the run: the connection target
+# must be fully specified in the URI authority so LAYER 1's host/user/ref checks
+# actually describe what psql will connect to.
+$TARGET_OVERRIDE_KEYS = @(
+  'host','hostaddr','port','dbname','user','password','passfile','service',
+  'options','require_auth','load_balance_hosts','target_session_attrs',
+  'replication','krbsrvname','gsslib'
+)
+# Benign libpq query keywords that are safe to keep as-is.
+$SAFE_QUERY_KEYS = @(
+  'sslmode','sslnegotiation','sslrootcert','sslcert','sslkey','sslpassword',
+  'sslcertmode','sslcrl','sslcrldir','sslsni','ssl_min_protocol_version',
+  'ssl_max_protocol_version','sslcompression','requiressl','requirepeer',
+  'gssencmode','gssdelegation','channel_binding','application_name',
+  'fallback_application_name','connect_timeout','client_encoding',
+  'keepalives','keepalives_idle','keepalives_interval','keepalives_count',
+  'tcp_user_timeout'
 )
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -105,31 +111,48 @@ try {
   }
   if ([string]::IsNullOrWhiteSpace($rawUrl)) { throw "$VarName is empty" }
 
-  # --- libpq compatibility: strip non-libpq query parameters ---------
-  $cleanUrl = $rawUrl
-  $dropped  = @()
-  if ($rawUrl -match '^([^?]+)\?(.*)$') {
-    $base  = $matches[1]
-    $pairs = $matches[2] -split '&' | Where-Object { $_ -ne '' }
-    $keep  = @()
-    foreach ($pair in $pairs) {
-      $k = ($pair -split '=', 2)[0]
-      if ($LIBPQ_QUERY_KEYS -contains $k) { $keep += $pair } else { $dropped += $k }
+  # --- parse with .NET Uri (robust: a '?' inside a %XX-encoded password
+  #     does not truncate the base the way a naive split would) -----------
+  try { $u = [System.Uri]::new($rawUrl) }
+  catch { throw 'connection string is not a valid URI (is a special char in the password unencoded? it must be %XX-encoded)' }
+
+  if ($u.Scheme -notin @('postgres','postgresql')) { throw "scheme is '$($u.Scheme)', not postgres(ql); aborting" }
+  if ([string]::IsNullOrEmpty($u.UserInfo)) { throw 'no userinfo in the URI; aborting' }
+  if ([string]::IsNullOrEmpty($u.Host))     { throw 'no host in the URI; aborting' }
+
+  $urlUser = ($u.UserInfo -split ':', 2)[0]          # 'postgres.<ref>'
+  $urlHost = $u.Host
+  $urlPort = $u.Port
+  $urlDb   = $u.AbsolutePath.Trim('/')
+
+  # --- query string: REFUSE connection-target overrides, keep only the
+  #     benign libpq keys, drop everything else (e.g. uselibpqcompat) ------
+  $dropped = @()
+  $keep    = @()
+  foreach ($pair in (($u.Query.TrimStart('?')) -split '&' | Where-Object { $_ -ne '' })) {
+    $k = ($pair -split '=', 2)[0]
+    if ($TARGET_OVERRIDE_KEYS -contains $k) {
+      throw "connection-target query parameter '$k' present; refusing (the target must be in the URI authority, not the query string)"
+    } elseif ($SAFE_QUERY_KEYS -contains $k) {
+      $keep += $pair
+    } else {
+      $dropped += $k
     }
-    $cleanUrl = if ($keep.Count) { $base + '?' + ($keep -join '&') } else { $base }
   }
+  # base = the raw string minus its (literal, trailing) query part -> the
+  # password is preserved byte-for-byte (no .NET re-encoding).
+  $base = $rawUrl.Substring(0, $rawUrl.Length - $u.Query.Length)
+  $cleanUrl = if ($keep.Count) { $base + '?' + ($keep -join '&') } else { $base }
 
-  # --- verify: Cloud DEV, not Production, pooler shape --------------
-  if ($cleanUrl -match $KNOWN_PROD_REF) { throw 'connection string contains the PRODUCTION project ref; aborting' }
-  if ($cleanUrl -notmatch $EXPECTED_DEV_REF) { throw "connection string does not contain the expected Cloud DEV ref $EXPECTED_DEV_REF; aborting" }
-  if ($cleanUrl -notmatch '^postgres(ql)?://') { throw 'not a postgres URI; aborting' }
-  if ($cleanUrl -notmatch ('://postgres\.([a-z0-9]' + '{16,32}):')) { throw 'userinfo is not postgres.<project_ref> (Supabase pooler); aborting' }
-  $urlRef = $matches[1]
-  if ($urlRef -ne $EXPECTED_DEV_REF) { throw "pooler username ref ($urlRef) is not the expected Cloud DEV ref; aborting" }
-  if ($cleanUrl -notmatch 'pooler\.supabase\.com') { throw 'host is not *.pooler.supabase.com (Supabase pooler); aborting' }
-  if ($cleanUrl -notmatch ':(5432|6543)/[A-Za-z0-9_-]+') { throw 'no session/transaction pooler port + database name in the URI; aborting' }
+  # --- verify the EFFECTIVE (post-transform) target -------------------
+  if ($urlUser -match $KNOWN_PROD_REF -or $urlHost -match $KNOWN_PROD_REF) { throw 'target names the PRODUCTION project ref; aborting' }
+  if ($urlUser -notmatch '^postgres\.([a-z0-9]{16,32})$')                 { throw "userinfo user '$urlUser' is not postgres.<project_ref> (Supabase pooler); aborting" }
+  if ($matches[1] -ne $EXPECTED_DEV_REF)                                  { throw "pooler username ref ($($matches[1])) is not the expected Cloud DEV ref; aborting" }
+  if ($urlHost -notmatch '\.pooler\.supabase\.com$')                      { throw "host '$urlHost' is not *.pooler.supabase.com (Supabase pooler); aborting" }
+  if (@(5432, 6543) -notcontains $urlPort)                                { throw "port $urlPort is not 5432 (session) or 6543 (transaction) pooler; aborting" }
+  if ([string]::IsNullOrWhiteSpace($urlDb))                               { throw 'no database name in the URI; aborting' }
 
-  Write-Host "wrapper: connection string OK - Cloud DEV ref $EXPECTED_DEV_REF present, Production ref absent, Supabase pooler structure verified."
+  Write-Host "wrapper: connection target OK - user postgres.$EXPECTED_DEV_REF, host $urlHost, port $urlPort, db $urlDb; Production ref absent."
   if ($dropped.Count) { Write-Host ('wrapper: dropped non-libpq URI query parameter(s): ' + ($dropped -join ', ')) }
 
   # --- invoke LAYER 2 -----------------------------------------------
