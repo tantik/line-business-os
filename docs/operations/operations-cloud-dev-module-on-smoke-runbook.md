@@ -66,16 +66,27 @@ SET` a marker. The target is therefore proven by **two layers**:
 **LAYER 1 — `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1` (the
 wrapper the operator runs).** It reads the operator's existing gitignored Cloud
 DEV connection string, and *client-side*:
-- removes URI query parameters native `psql`/libpq rejects — notably
-  `uselibpqcompat` (a **node-postgres** option, not a libpq one; libpq errors
-  out on any unknown URI parameter). Only libpq-valid keys are kept.
-- verifies the string contains the Cloud DEV ref `pehcoenozjtsjdvjietj`, does
-  **not** contain the Production ref `jsgmmsdkuptdsxtcxhsv`, and has the
-  Supabase pooler shape (`postgres.<ref>` user, `*.pooler.supabase.com` host,
-  `:5432`/`:6543`, a db name).
+- parses it with `[System.Uri]`, then removes URI query parameters native
+  `psql`/libpq rejects — notably `uselibpqcompat` (a **node-postgres** option,
+  not a libpq one; libpq errors out on any unknown URI parameter) — keeping
+  only a benign libpq allowlist (`sslmode`, ssl* certs, timeouts,
+  `application_name`, …).
+- **REFUSES the run** if a connection-target parameter
+  (`host` `hostaddr` `port` `dbname` `user` `options` `service` …) is in the
+  query string — the target must live in the URI authority so the checks
+  below actually describe where `psql` connects.
+- verifies the **effective parsed** target: user `postgres.pehcoenozjtsjdvjietj`,
+  host `*.pooler.supabase.com`, pooler port (5432/6543), a db name, and the
+  Production ref `jsgmmsdkuptdsxtcxhsv` nowhere.
+- rebuilds a **password-less** connection URL and passes the password to
+  `psql` via the `PGPASSWORD` env var (cleared on exit) — never on argv.
 - passes the verified ref to `psql` as `-v wrapper_verified_ref=<ref>`.
 
-It never prints the URL or password and clears them from memory on exit.
+It never prints the URL or password. On a bad stored URL it prints
+`wrapper: FAIL - <reason>` and exits non-zero without invoking `psql`. If the
+reason is a connection-target query parameter, fix `.env.cloud.local` so the
+whole target is in the URI authority
+(`postgresql://postgres.<ref>:<pw>@<host>:5432/postgres?sslmode=require`).
 
 **LAYER 2 — the SQL smoke (STEP 0a), before any `INSERT`/`UPDATE`.** It accepts
 the wrapper's `wrapper_verified_ref` (still re-checked against the Production
@@ -125,7 +136,7 @@ the Studio SQL Editor.
 ### Expected output (stderr NOTICEs + final banner)
 
 ```
-wrapper: connection string OK - Cloud DEV ref pehcoenozjtsjdvjietj present, Production ref absent, Supabase pooler structure verified.
+wrapper: connection target OK - user postgres.pehcoenozjtsjdvjietj, host <h>, port 5432, db postgres; Production ref absent.
 wrapper: dropped non-libpq URI query parameter(s): uselibpqcompat
 NOTICE:  CLOUD_TARGET = PASS (LAYER 1: connection string verified Cloud DEV ... by the repo wrapper ...)
 NOTICE:  PREFLIGHT OK: tenant="smoke-tenant-b" id=37088bfe-... (kind=demo) location=...

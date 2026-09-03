@@ -8,16 +8,20 @@
     * reads the operator's existing gitignored Cloud DEV connection string
       (.env.cloud.local -> MAME_TO_CHA_CLOUD_DATABASE_URL by default);
     * removes URI query parameters that native psql/libpq rejects (e.g.
-      'uselibpqcompat', a node-postgres option), keeping only libpq-valid keys;
-    * verifies the string is the Cloud DEV project (ref 'pehcoenozjtsjdvjietj'
-      present) and is NOT Production (ref 'jsgmmsdkuptdsxtcxhsv' absent), and
-      that it has the Supabase Session/Transaction pooler shape;
+      'uselibpqcompat', a node-postgres option), keeping only a benign libpq
+      allowlist, and REFUSES the run if a connection-target parameter
+      (host/hostaddr/port/dbname/user/options/service/...) is in the query;
+    * verifies the EFFECTIVE target is the Cloud DEV project (user
+      'postgres.pehcoenozjtsjdvjietj', '*.pooler.supabase.com' host, pooler
+      port) and is NOT Production (ref 'jsgmmsdkuptdsxtcxhsv' anywhere);
     * invokes psql on the LAYER 2 SQL smoke, passing the verified ref as
       "-v wrapper_verified_ref=<ref>" (Supabase exposes no project-ref signal
       to the pooler 'postgres' role, so the SQL cannot re-derive it itself);
     * propagates psql's exit code;
-    * never prints the URL, password, or any credential; clears them from
-      memory on exit.
+    * never prints the URL or password; passes the password to psql via the
+      PGPASSWORD environment variable (cleared on exit), never on argv.
+      (Like any process, the password may transiently exist in this process's
+      own memory during the run.)
 
   The SQL smoke commits NOTHING (one transaction, ROLLBACK at the end).
 
@@ -120,7 +124,8 @@ try {
   if ([string]::IsNullOrEmpty($u.UserInfo)) { throw 'no userinfo in the URI; aborting' }
   if ([string]::IsNullOrEmpty($u.Host))     { throw 'no host in the URI; aborting' }
 
-  $urlUser = ($u.UserInfo -split ':', 2)[0]          # 'postgres.<ref>'
+  $urlUser = [System.Uri]::UnescapeDataString(($u.UserInfo -split ':', 2)[0])   # 'postgres.<ref>'
+  $urlPass = if ($u.UserInfo -match ':') { [System.Uri]::UnescapeDataString(($u.UserInfo -split ':', 2)[1]) } else { '' }
   $urlHost = $u.Host
   $urlPort = $u.Port
   $urlDb   = $u.AbsolutePath.Trim('/')
@@ -139,12 +144,8 @@ try {
       $dropped += $k
     }
   }
-  # base = the raw string minus its (literal, trailing) query part -> the
-  # password is preserved byte-for-byte (no .NET re-encoding).
-  $base = $rawUrl.Substring(0, $rawUrl.Length - $u.Query.Length)
-  $cleanUrl = if ($keep.Count) { $base + '?' + ($keep -join '&') } else { $base }
 
-  # --- verify the EFFECTIVE (post-transform) target -------------------
+  # --- verify the EFFECTIVE target from the parsed components -----------
   if ($urlUser -match $KNOWN_PROD_REF -or $urlHost -match $KNOWN_PROD_REF) { throw 'target names the PRODUCTION project ref; aborting' }
   if ($urlUser -notmatch '^postgres\.([a-z0-9]{16,32})$')                 { throw "userinfo user '$urlUser' is not postgres.<project_ref> (Supabase pooler); aborting" }
   if ($matches[1] -ne $EXPECTED_DEV_REF)                                  { throw "pooler username ref ($($matches[1])) is not the expected Cloud DEV ref; aborting" }
@@ -152,13 +153,22 @@ try {
   if (@(5432, 6543) -notcontains $urlPort)                                { throw "port $urlPort is not 5432 (session) or 6543 (transaction) pooler; aborting" }
   if ([string]::IsNullOrWhiteSpace($urlDb))                               { throw 'no database name in the URI; aborting' }
 
+  # --- rebuild a password-LESS connection URL from the verified parts --
+  $q       = if ($keep.Count) { '?' + ($keep -join '&') } else { '' }
+  $connUrl = $u.Scheme + '://' + $urlUser + '@' + $urlHost + ':' + $urlPort + '/' + $urlDb + $q
+
   Write-Host "wrapper: connection target OK - user postgres.$EXPECTED_DEV_REF, host $urlHost, port $urlPort, db $urlDb; Production ref absent."
   if ($dropped.Count) { Write-Host ('wrapper: dropped non-libpq URI query parameter(s): ' + ($dropped -join ', ')) }
 
-  # --- invoke LAYER 2 -----------------------------------------------
+  # --- invoke LAYER 2 (password via PGPASSWORD env, never on argv) ----
   $psql = Resolve-Psql
-  & $psql $cleanUrl -v ON_ERROR_STOP=1 -q -v wrapper_verified_ref=$EXPECTED_DEV_REF -f $sqlFile @PsqlArgs
-  $code = $LASTEXITCODE
+  $env:PGPASSWORD = $urlPass
+  try {
+    & $psql $connUrl -v ON_ERROR_STOP=1 -q -v wrapper_verified_ref=$EXPECTED_DEV_REF -f $sqlFile @PsqlArgs
+    $code = $LASTEXITCODE
+  } finally {
+    Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+  }
  }
 }
 catch {
@@ -166,10 +176,10 @@ catch {
   $code = 2
 }
 finally {
-  foreach ($v in 'rawUrl','cleanUrl','base','line','DbUrl','localUrl') {
+  Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+  foreach ($v in 'rawUrl','connUrl','urlPass','line','DbUrl','localUrl') {
     Remove-Variable $v -ErrorAction SilentlyContinue
   }
-  [System.GC]::Collect()
 }
 
 exit $code
