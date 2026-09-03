@@ -277,6 +277,24 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-03 pointer, STEP 4 OPERATIONS CLOUD DEV MODULE-ON SMOKE — DONE
+(newest; canonical state now lives in `docs/project/master-state.md` §7/§14/§18,
+this is a pointer).** The Founder ran the module-ON smoke against Cloud DEV for
+`smoke-tenant-b` via `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1`:
+`CLOUD_TARGET`, `OPERATIONS_MODULE_ON`, `ENABLED_TENANT`, `DISABLED_TENANT`,
+`CROSS_TENANT_ISOLATION`, `ROLE_BOUNDARY`, `LOCATION_BOUNDARY` **all PASS**. The
+smoke runs in one transaction that **ROLLS BACK** — nothing persisted,
+`operations` is still enabled for **no tenant**, no migration / schema / RLS /
+application-behaviour change. Tooling merged via **PR #485** (`dev` HEAD
+`8b7026c`): pgTAP `supabase/tests/0055_operations_module_on_smoke.sql`, the
+standalone psql smoke, a PowerShell LAYER-1 wrapper (client-side Cloud-DEV /
+Production target guard + `uselibpqcompat` libpq-URI fix), and
+`docs/operations/operations-cloud-dev-module-on-smoke-runbook.md`. **Canonical
+next implementation step = Operations Manager/Staff UI** (its own Founder
+prompt; NOT started). Production untouched and still **NOT READY** (separate
+Founder-approved Production ENV/API-key gate; deploy BLOCKED). Cafe HACCP
+presets and WP2–WP5 remain not authorized.
+
 **2026-08-29 pointer, SESSION HANDOFF — read
 `docs/ai/SESSION_HANDOFF_2026-08-29.md` first (newest).** One long session
 closed out Operations WP1 (`0099`–`0105`, PRs #462–#465, all merged),
