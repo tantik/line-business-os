@@ -538,3 +538,80 @@ test('deriveActiveScheduleWindowCodes returns an empty array for zero active win
   assert.deepEqual(deriveActiveScheduleWindowCodes([]), []);
   assert.deepEqual(deriveActiveScheduleWindowCodes([{ code: 'AM', isActive: false }]), []);
 });
+
+// -- Manual-priority guarantee (canonical Manager auto-create) ---------------
+// The canonical `runAutoDistribution` always passes `overwriteExisting: false`.
+// A published (manager-confirmed / manual) assignment must then be preserved
+// untouched AND never re-generated, while an unconfirmed auto draft
+// (`published: false`) gets no such preservation.
+
+test('a published existing assignment is neither overwritten nor re-generated when overwriteExisting is false', () => {
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const staffingRequirements = [{ weekday: 1, windowCode: 'AM' as const, requiredHeadcount: 1 }];
+  // e1 asks for AM on 2026-08-03 (a Monday) but already has a published shift
+  // that day -- a different, manager-set one (st-pm).
+  const preferences = [makePreference({ employeeId: 'e1', workDate: '2026-08-03', shiftTypeId: 'st-am' })];
+  const existing = [
+    makeExisting({
+      employeeId: 'e1',
+      workDate: '2026-08-03',
+      shiftTypeId: 'st-pm',
+      startsAtLocal: '12:00',
+      endsAtLocal: '17:30',
+      breakMinutes: 0,
+      published: true,
+    }),
+  ];
+
+  const result = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences,
+    staffingRequirements,
+    existingAssignments: existing,
+    options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03', overwriteExisting: false }),
+  });
+
+  // Nothing new created for e1 that day: the published shift already occupies
+  // the one-shift-per-day slot and counts toward the AM headcount is NOT the
+  // point -- the point is the algorithm did not touch it and did not add a
+  // second shift for e1.
+  assert.equal(result.draftAssignments.length, 0, 'no draft may be created on top of a preserved published shift');
+  assert.ok(
+    result.unplaced.some((u) => u.employeeId === 'e1' && u.workDate === '2026-08-03' && u.reason === 'already_assigned'),
+    'the preference must be reported already_assigned, not silently placed',
+  );
+});
+
+test('an unconfirmed auto draft (published: false) is NOT preserved -- the day is free to be filled again', () => {
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const staffingRequirements = [{ weekday: 1, windowCode: 'AM' as const, requiredHeadcount: 1 }];
+  const preferences = [makePreference({ employeeId: 'e1', workDate: '2026-08-03', shiftTypeId: 'st-am' })];
+  const existing = [
+    makeExisting({
+      employeeId: 'e1',
+      workDate: '2026-08-03',
+      shiftTypeId: 'st-am',
+      startsAtLocal: '08:30',
+      endsAtLocal: '13:00',
+      breakMinutes: 0,
+      published: false,
+    }),
+  ];
+
+  const result = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences,
+    staffingRequirements,
+    existingAssignments: existing,
+    options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03', overwriteExisting: false }),
+  });
+
+  // The unpublished row does not occupy the slot: e1's AM preference is placed
+  // fresh, exactly as if the draft weren't there.
+  assert.equal(result.draftAssignments.length, 1);
+  assert.equal(result.draftAssignments[0]?.employeeId, 'e1');
+  assert.equal(result.draftAssignments[0]?.shiftTypeId, 'st-am');
+  assert.equal(result.draftAssignments[0]?.published, false);
+});

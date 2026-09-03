@@ -90,3 +90,39 @@ test('Weekly Schedule card no longer renders its own Publish schedule / Auto-cre
   assert.doesNotMatch(scheduleSection, /onClick=\{handlePublish\}/);
   assert.doesNotMatch(scheduleSection, /onClick=\{handleAutoDistribute\}/);
 });
+
+// -- Manual "auto-create schedule" workflow (restored 2026-09-03) ------------
+
+test('auto-create calls runAutoDistribution with ONLY { locationId, periodStart, periodEnd } for the viewed week -- no client staffingRequirements / overwriteExisting', () => {
+  const start = SOURCE.indexOf('function handleAutoCreate(');
+  assert.ok(start >= 0, 'expected a handleAutoCreate handler');
+  const body = SOURCE.slice(start, SOURCE.indexOf('function handleUndoAutoCreate('));
+  assert.match(body, /runAutoDistribution\(\{\s*locationId,\s*periodStart: activePeriodStart,\s*periodEnd: activePeriodEnd,\s*\}\)/);
+  assert.doesNotMatch(body, /staffingRequirements/);
+  assert.doesNotMatch(body, /overwriteExisting/);
+});
+
+test('a confirm dialog names the target period before auto-create runs', () => {
+  assert.match(SOURCE, /open=\{autoCreateConfirmOpen\}/);
+  const dialog = SOURCE.slice(SOURCE.indexOf('open={autoCreateConfirmOpen}'));
+  assert.match(dialog.slice(0, 1200),/scheduleHeadingValue\[lang\]\(activePeriodStart, activePeriodEnd\)/);
+  assert.match(dialog.slice(0, 1200),/t\('autoCreateConfirmBody'\)/);
+  assert.match(dialog.slice(0, 1200),/onConfirm=\{\(\) => \{\s*setAutoCreateConfirmOpen\(false\);\s*handleAutoCreate\(\);/);
+});
+
+test('the result view offers an Undo wired to undoAutoDistribution with the created assignment ids', () => {
+  const start = SOURCE.indexOf('function handleUndoAutoCreate(');
+  const body = SOURCE.slice(start, SOURCE.indexOf('function handleDecideCorrection('));
+  assert.match(body, /undoAutoDistribution\(\{ assignmentIds \}\)/);
+  assert.match(SOURCE, /onClick=\{\(\) => handleUndoAutoCreate\(autoCreateResult\.createdAssignmentIds\)\}/);
+});
+
+test('a server invalid_config outcome is surfaced with its own JA-safe copy, not a generic error', () => {
+  assert.match(SOURCE, /result\.status === 'invalid_config'/);
+  assert.match(SOURCE, /autoCreateConfigErrorMessage\[lang\]\(result\.reason\)/);
+});
+
+test('no client-supplied staffing-requirements default is reintroduced anywhere on the page', () => {
+  assert.doesNotMatch(SOURCE, /DEFAULT_STAFFING_REQUIREMENTS/);
+  assert.doesNotMatch(SOURCE, /staffingRequirements/);
+});

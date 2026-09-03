@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  clearUnconfirmedDraftAssignmentsInPeriod,
   createShiftAssignment,
   getShiftAssignmentById,
   insertDraftShiftAssignments,
@@ -265,6 +266,26 @@ test('publishShiftAssignments reports the published count and filters published=
   const result = await publishShiftAssignments(client, TENANT_ID, 'loc-1', '2026-08-01T00:00:00.000Z', '2026-08-08T00:00:00.000Z');
   assert.deepEqual(result, { status: 'success', data: { published: 1 } });
   assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+});
+
+test('clearUnconfirmedDraftAssignmentsInPeriod nulls employee_id, scoped to tenant + location + published=false within the period bounds', async () => {
+  const { client, calls } = recordingClient({ data: [{ assignment_id: 'a1' }, { assignment_id: 'a2' }], error: null });
+  const result = await clearUnconfirmedDraftAssignmentsInPeriod(
+    client,
+    TENANT_ID,
+    'loc-1',
+    '2026-09-07T00:00:00.000Z',
+    '2026-09-14T00:00:00.000Z',
+  );
+  assert.deepEqual(result, { status: 'success', data: { cleared: 2 } });
+  assert.ok(calls.some((c) => c.method === 'update' && (c.args[0] as { employee_id: unknown }).employee_id === null));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'tenant_id' && c.args[1] === TENANT_ID));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'location_id' && c.args[1] === 'loc-1'));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+  assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'starts_at' && c.args[1] === '2026-09-07T00:00:00.000Z'));
+  assert.ok(calls.some((c) => c.method === 'lt' && c.args[0] === 'starts_at' && c.args[1] === '2026-09-14T00:00:00.000Z'));
+  // never a DELETE -- same no-new-grant shape as unassignDraftShiftAssignments
+  assert.ok(!calls.some((c) => c.method === 'delete'));
 });
 
 test('unassignDraftShiftAssignments skips the network call for an empty id list', async () => {

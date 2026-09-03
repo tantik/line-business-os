@@ -353,6 +353,49 @@ export async function unassignDraftShiftAssignments(
 }
 
 /**
+ * Clears `employee_id` on every UNCONFIRMED (`published = false`) shift
+ * assignment for one location within a period, so a fresh
+ * `runAutoDistribution` for that week REPLACES the previous unconfirmed
+ * proposal instead of stacking a second one on top of it. Confirmed/manual
+ * rows (`published = true`) are never matched by the `published = false`
+ * filter, so a manager's own shifts are always left untouched.
+ *
+ * Same "UPDATE employee_id = null, never DELETE" shape as
+ * `unassignDraftShiftAssignments` -- needs no new grant and no migration.
+ * Tenant + location + `published = false` are all filtered server-side;
+ * RLS (`wf_shifts_manage`, `workforce.shift.write`) remains the real
+ * authorization boundary.
+ */
+export async function clearUnconfirmedDraftAssignmentsInPeriod(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  fromIso: string,
+  toIsoExclusive: string,
+): Promise<WorkforceWriteResult<{ cleared: number }>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_assignments')
+      .update({ employee_id: null })
+      .eq('tenant_id', tenantId)
+      .eq('location_id', locationId)
+      .eq('published', false)
+      .gte('starts_at', fromIso)
+      .lt('starts_at', toIsoExclusive)
+      .select('assignment_id');
+
+    if (error) return mapWorkforceWriteError(error, 'clear the previous auto-created proposal');
+    return { status: 'success', data: { cleared: (data ?? []).length } };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error clearing the previous auto-created proposal.',
+    };
+  }
+}
+
+/**
  * Converts a read shift assignment back into `autoDistribute()`'s
  * `AutoDistributeExistingAssignment` shape for the `runAutoDistribution`
  * snapshot. `locked` is always `false`: `workforce.shifts` has no `locked`

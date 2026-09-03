@@ -9,6 +9,7 @@ import { listWorkforceStaffDirectory } from './employees';
 import { listWorkforceShiftTypes } from './shift-types';
 import { listShiftRequestsForManager, submitShiftPreference as submitShiftPreferenceWrite } from './shift-requests';
 import {
+  clearUnconfirmedDraftAssignmentsInPeriod,
   createShiftAssignment as createShiftAssignmentWrite,
   insertDraftShiftAssignments,
   listShiftAssignments,
@@ -19,21 +20,31 @@ import {
   publishShiftAssignments,
   type WorkforceShiftAssignment,
 } from './shift-assignments';
-import { autoDistribute, type AutoDistributeEmployee, type AutoDistributePreference } from './auto-distribute';
+import {
+  autoDistribute,
+  deriveActiveScheduleWindowCodes,
+  type AutoDistributeEmployee,
+  type AutoDistributePreference,
+} from './auto-distribute';
+import {
+  buildAuthoritativeStaffingRequirements,
+  hasPositiveStaffingRequirement,
+} from './auto-distribution-authority';
+import { getWorkforceScheduleSettings } from './schedule-settings';
 import { getWeekPeriod } from './period';
 import { addIsoDays, localDateTimeToUtcIso } from './timezone';
 import {
   parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
-  parseRunAutoDistributionInput,
   parseSubmitMonthlyShiftPreferencesInput,
   parseSubmitShiftPreferenceInput,
   parseUndoAutoDistributionInput,
   parseUpdateShiftAssignmentInput,
 } from './schedule-input';
+import { parseIsoDate, parseUuid } from './validation';
 import type { WorkforceShiftRequest } from './shift-requests';
 import type { WorkforceWriteResult } from './result-types';
-import type { RunAutoDistributionActionResult } from './schedule-types';
+import type { RunAutoDistributionActionOutcome } from './schedule-types';
 
 /**
  * Server Actions for shift preferences, auto-distribution, manual edits, and
@@ -179,17 +190,28 @@ export async function submitMonthlyShiftPreferences(input: unknown): Promise<Wor
 }
 
 /**
- * Reads the tenant/location snapshot through the existing RLS-scoped `api`
- * read helpers, runs the pure `autoDistribute()` (Slice 1B, unchanged), and
- * bulk-inserts the resulting draft (`published: false`) assignments. Manager
- * permission is enforced entirely by RLS on the final INSERT (`wf_shifts_manage`,
- * `workforce.shift.write`) -- there is no separate pre-check here, matching
- * the "attempt, then map" convention used by every other manager-only action
- * in this codebase.
+ * Manual "auto-create schedule" for the canonical Manager dashboard. The
+ * client sends ONLY `{ locationId, periodStart, periodEnd }` -- it never
+ * supplies (and this action never reads) a staffing-requirement array, an
+ * `overwriteExisting` flag, or a max-hours cap. The staffing window matrix,
+ * the per-weekday headcount, and the monthly-hours cap are all resolved
+ * server-side from the tenant/location's own active shift types and stored
+ * `workforce_schedule_settings`, so a stale or manipulated client cannot
+ * widen a window, inflate a headcount, or overwrite a confirmed shift.
+ *
+ * `overwriteExisting` is always `false`: `autoDistribute()` then preserves
+ * every published (manager-confirmed / manual) assignment untouched and
+ * never re-generates it. Manager permission is enforced by RLS on the final
+ * INSERT (`wf_shifts_manage`, `workforce.shift.write`), same "attempt, then
+ * map" convention as every other manager-only action here.
  */
-export async function runAutoDistribution(input: unknown): Promise<WorkforceWriteResult<RunAutoDistributionActionResult>> {
-  const parsed = parseRunAutoDistributionInput(input);
-  if (!parsed) return INVALID_INPUT_RESULT;
+export async function runAutoDistribution(input: unknown): Promise<RunAutoDistributionActionOutcome> {
+  if (typeof input !== 'object' || input === null) return INVALID_INPUT_RESULT;
+  const raw = input as Record<string, unknown>;
+  const locationId = parseUuid(raw.locationId);
+  const periodStart = parseIsoDate(raw.periodStart);
+  const periodEnd = parseIsoDate(raw.periodEnd);
+  if (!locationId || !periodStart || !periodEnd || periodEnd < periodStart) return INVALID_INPUT_RESULT;
 
   const tenantContext = await requireTenantContext();
   if (tenantContext.status !== 'success') return tenantContext;
@@ -199,30 +221,49 @@ export async function runAutoDistribution(input: unknown): Promise<WorkforceWrit
 
   const locationsResult = await listTenantLocations(supabase);
   if (locationsResult.status !== 'success') return locationsResult;
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === parsed.locationId);
+  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === locationId);
   if (!location) return { status: 'not_found' };
   const timeZone = location.timezone;
 
-  const fromIso = localDateTimeToUtcIso(parsed.periodStart, '00:00', timeZone);
-  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(parsed.periodEnd, 1), '00:00', timeZone);
+  const fromIso = localDateTimeToUtcIso(periodStart, '00:00', timeZone);
+  const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', timeZone);
 
-  const [staffResult, shiftTypesResult, preferencesResult, existingResult] = await Promise.all([
+  const [staffResult, shiftTypesResult, preferencesResult, existingResult, scheduleSettingsResult] = await Promise.all([
     listWorkforceStaffDirectory(supabase, tenantId),
     listWorkforceShiftTypes(supabase, tenantId),
     listShiftRequestsForManager(supabase, tenantId, { kind: 'preference' }),
     listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
+    getWorkforceScheduleSettings(supabase, tenantId, locationId),
   ]);
   if (staffResult.status !== 'success') return staffResult;
   if (shiftTypesResult.status !== 'success') return shiftTypesResult;
   if (preferencesResult.status !== 'success') return preferencesResult;
   if (existingResult.status !== 'success') return existingResult;
+  if (scheduleSettingsResult.status !== 'success') return scheduleSettingsResult;
+
+  const scheduleSettings = scheduleSettingsResult.data;
+
+  // `listWorkforceShiftTypes` returns every shift type for the tenant -- scope
+  // to the resolved location so a sibling location's shift types can never
+  // widen the windows / headcount this run is authoritative for.
+  const locationShiftTypes = shiftTypesResult.data.filter((st) => st.locationId === locationId);
+  const activeWindowCodes = deriveActiveScheduleWindowCodes(locationShiftTypes);
+  if (activeWindowCodes.length === 0) return { status: 'invalid_config', reason: 'no_active_windows' };
+
+  const staffingRequirements = buildAuthoritativeStaffingRequirements(
+    activeWindowCodes,
+    scheduleSettings?.requiredHeadcountByWeekday,
+  );
+  if (!hasPositiveStaffingRequirement(staffingRequirements)) {
+    return { status: 'invalid_config', reason: 'no_staffing_requirement' };
+  }
 
   const employees: AutoDistributeEmployee[] = staffResult.data
-    .filter((s) => s.locationId === parsed.locationId)
+    .filter((s) => s.locationId === locationId)
     .map((s) => ({ employeeId: s.staffId, isActive: s.isActive }));
 
   const preferences: AutoDistributePreference[] = preferencesResult.data
-    .filter((r) => r.workDate >= parsed.periodStart && r.workDate <= parsed.periodEnd)
+    .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
     .map((r) => ({
       employeeId: r.employeeId,
       workDate: r.workDate,
@@ -236,7 +277,7 @@ export async function runAutoDistribution(input: unknown): Promise<WorkforceWrit
 
   const result = autoDistribute({
     employees,
-    shiftTypes: shiftTypesResult.data.map((st) => ({
+    shiftTypes: locationShiftTypes.map((st) => ({
       shiftTypeId: st.shiftTypeId,
       code: st.code,
       startsAtLocal: st.startsAtLocal,
@@ -246,18 +287,31 @@ export async function runAutoDistribution(input: unknown): Promise<WorkforceWrit
       isActive: st.isActive,
     })),
     preferences,
-    staffingRequirements: parsed.staffingRequirements,
+    staffingRequirements,
     existingAssignments,
     options: {
-      periodStart: parsed.periodStart,
-      periodEnd: parsed.periodEnd,
-      maxPeriodHours: parsed.maxPeriodHours,
-      overwriteExisting: parsed.overwriteExisting,
+      periodStart,
+      periodEnd,
+      maxPeriodHours: scheduleSettings?.maxMonthlyHours,
+      overwriteExisting: false,
     },
   });
 
+  // Re-running "auto-create" for a week REPLACES the previous unconfirmed
+  // proposal rather than stacking a second one: clear this location/period's
+  // `published = false` rows first. `published = true` (confirmed/manual)
+  // shifts are never matched, so a manager's own shifts survive untouched.
+  const clearResult = await clearUnconfirmedDraftAssignmentsInPeriod(
+    supabase,
+    tenantId,
+    locationId,
+    fromIso,
+    toIsoExclusive,
+  );
+  if (clearResult.status !== 'success') return clearResult;
+
   const insertRows = result.draftAssignments.map((draft) =>
-    mapDraftAssignmentToInsertRow(draft, tenantId, parsed.locationId, timeZone),
+    mapDraftAssignmentToInsertRow(draft, tenantId, locationId, timeZone),
   );
   const insertResult = await insertDraftShiftAssignments(supabase, insertRows);
   if (insertResult.status !== 'success') return insertResult;

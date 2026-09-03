@@ -19,8 +19,8 @@ import {
   deriveActiveScheduleWindowCodes,
   type AutoDistributeEmployee,
   type AutoDistributePreference,
-  type AutoDistributeStaffingRequirement,
 } from '@/lib/workforce/auto-distribute';
+import { buildAuthoritativeStaffingRequirements } from '@/lib/workforce/auto-distribution-authority';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import {
@@ -238,9 +238,13 @@ export async function previewRunAutoDistribution(
   const locationShiftTypes = shiftTypesResult.data.filter((st) => st.locationId === locationId);
   const activeWindowCodes = deriveActiveScheduleWindowCodes(locationShiftTypes);
   if (activeWindowCodes.length === 0) return invalidAutoDistributionInput('no_active_windows');
-  const requiredHeadcountByWeekday = scheduleSettingsResult.data?.requiredHeadcountByWeekday ?? [0, 0, 0, 0, 0, 0, 0];
-  const authoritativeStaffingRequirements: AutoDistributeStaffingRequirement[] = requiredHeadcountByWeekday.flatMap(
-    (requiredHeadcount, weekday) => activeWindowCodes.map((windowCode) => ({ weekday, windowCode, requiredHeadcount })),
+  // Shared single source of truth with the canonical Manager
+  // `runAutoDistribution` (`@/lib/workforce/auto-distribution-authority`) --
+  // one row per (weekday x active window) carrying that weekday's stored
+  // headcount, never trusted from the request body.
+  const authoritativeStaffingRequirements = buildAuthoritativeStaffingRequirements(
+    activeWindowCodes,
+    scheduleSettingsResult.data?.requiredHeadcountByWeekday,
   );
   if (!hasPositiveHeadcount(authoritativeStaffingRequirements)) return invalidAutoDistributionInput('no_positive_headcount');
   parsed.staffingRequirements = authoritativeStaffingRequirements;
