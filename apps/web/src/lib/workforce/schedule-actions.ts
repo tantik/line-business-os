@@ -271,7 +271,15 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
       isUnavailable: r.isUnavailable,
     }));
 
+  // Location isolation: `listShiftAssignments` is tenant-scoped only, so a
+  // multi-location tenant's Location B rows are in `existingResult.data` too.
+  // Scope to the resolved location BEFORE building the algorithm snapshot --
+  // Location A's auto-create must be a pure function of Location A's own
+  // employees, shift types, settings and existing shifts. Without this a
+  // Location-A employee who also holds a shift recorded at Location B would
+  // have that foreign shift block their day / count toward their hours here.
   const existingAssignments = existingResult.data
+    .filter((a) => a.locationId === locationId)
     .map((a) => toAutoDistributeExistingAssignment(a, timeZone))
     .filter((a): a is NonNullable<typeof a> => a !== null);
 

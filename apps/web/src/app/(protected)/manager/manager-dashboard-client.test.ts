@@ -126,3 +126,14 @@ test('no client-supplied staffing-requirements default is reintroduced anywhere 
   assert.doesNotMatch(SOURCE, /DEFAULT_STAFFING_REQUIREMENTS/);
   assert.doesNotMatch(SOURCE, /staffingRequirements/);
 });
+
+// `undoAutoDistribution` and the pre-run proposal-replace both null
+// `employee_id` (no DELETE grant). Those assignee-less rows must not be
+// counted by the schedule grid's staffing-coverage / legend derivations --
+// otherwise an orphaned row could mask a real shortage "!" marker.
+test('the schedule view drops assignee-less (employee_id null) rows at the single source', () => {
+  const memoStart = SOURCE.indexOf('const localAssignments = useMemo(');
+  assert.ok(memoStart >= 0);
+  const memoBody = SOURCE.slice(memoStart, SOURCE.indexOf('[scheduleWindowAssignments, dates, timeZone],'));
+  assert.match(memoBody, /\.filter\(\(a\) => a\.employeeId !== null\)/);
+});

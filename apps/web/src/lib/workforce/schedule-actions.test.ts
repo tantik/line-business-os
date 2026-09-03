@@ -64,3 +64,20 @@ test('a re-run replaces the previous unconfirmed proposal: clears published=fals
   assert.ok(clearIdx < insertIdx, 'the clear must run before the insert');
   assert.match(body, /if \(clearResult\.status !== 'success'\) return clearResult;/);
 });
+
+test('location isolation: the existing-shift snapshot is scoped to the resolved location before it reaches autoDistribute', () => {
+  const body = runAutoDistributionBody();
+  assert.match(
+    body,
+    /existingResult\.data\s*\n\s*\.filter\(\(a\) => a\.locationId === locationId\)\s*\n\s*\.map\(\(a\) => toAutoDistributeExistingAssignment\(a, timeZone\)\)/,
+    'existingResult.data must be location-filtered immediately before toAutoDistributeExistingAssignment',
+  );
+  // employees, shift types and the clear are all already location-scoped too.
+  assert.match(body, /staffResult\.data\s*\n\s*\.filter\(\(s\) => s\.locationId === locationId\)/);
+  assert.match(body, /clearUnconfirmedDraftAssignmentsInPeriod\(\s*supabase,\s*tenantId,\s*locationId,/);
+});
+
+test('generated assignments are written with the resolved locationId, never a client value', () => {
+  const body = runAutoDistributionBody();
+  assert.match(body, /mapDraftAssignmentToInsertRow\(draft, tenantId, locationId, timeZone\)/);
+});

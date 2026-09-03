@@ -262,7 +262,12 @@ export async function previewRunAutoDistribution(
       isUnavailable: r.isUnavailable,
     }));
 
+  // Location isolation (same as the canonical `runAutoDistribution`):
+  // `listShiftAssignments` is tenant-scoped only, so scope the existing-shift
+  // snapshot to the resolved location before it reaches the algorithm -- a
+  // sibling location's rows must never influence this run.
   const existingAssignments = existingResult.data
+    .filter((a) => a.locationId === locationId)
     .map((a) => toAutoDistributeExistingAssignment(a, timeZone))
     .filter((a): a is NonNullable<typeof a> => a !== null);
 
