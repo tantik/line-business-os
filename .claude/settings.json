@@ -19,16 +19,16 @@
       "Read(./**/*.key)",
 
       "Bash(supabase link*)",
-      "Bash(supabase db push*)",
-      "Bash(pnpm exec supabase db push*)",
-      "Bash(pnpm --filter * exec supabase db push*)",
-      "Bash(supabase db pull*)",
-      "Bash(pnpm exec supabase db pull*)",
-      "Bash(supabase migration repair*)",
-      "Bash(pnpm exec supabase migration repair*)",
+      "Bash(*supabase db push*)",
+      "Bash(*supabase db pull*)",
+      "Bash(*supabase migration repair*)",
+      "Bash(*supabase migration up*--linked*)",
+      "Bash(*supabase migration up*--db-url*)",
+      "Bash(*supabase functions deploy*)",
       "Bash(supabase secrets*)",
       "Bash(supabase projects delete*)",
       "Bash(supabase branches delete*)",
+      "Bash(pnpm dlx supabase*)",
 
       "Bash(vercel --prod*)",
       "Bash(vercel deploy --prod*)",
@@ -71,9 +71,17 @@
       "Bash(gh release*)",
       "Bash(gh secret*)",
       "Bash(gh variable*)",
-      "Bash(gh api -X*)",
-      "Bash(gh api --method*)",
-      "Bash(gh api -f*)",
+      "Bash(gh api*)",
+
+      "Bash(rg*--pre*)",
+      "Bash(rg*--pre-glob*)",
+      "Bash(*psql*postgres://*)",
+      "Bash(*psql*postgresql://*)",
+      "Bash(*psql*.supabase.co*)",
+      "Bash(*psql*.supabase.com*)",
+      "Bash(*psql*pooler.supabase*)",
+      "Bash(git switch -C*)",
+      "Bash(git restore*--worktree*)",
 
       "Bash(*--amend*)",
       "Bash(*--no-verify*)"
@@ -85,8 +93,6 @@
       "Bash(pnpm db:seed*)",
       "Bash(supabase migration up*)",
       "Bash(pnpm exec supabase migration up*)",
-      "Bash(supabase functions deploy*)",
-      "Bash(pnpm exec supabase functions deploy*)",
       "Bash(git push*)",
       "Bash(git rebase*)",
       "Bash(git merge*)",
@@ -160,16 +166,6 @@
       "Bash(git stash push*)",
       "Bash(git stash pop*)",
       "Bash(git stash apply*)",
-
-      "Bash(git push*origin feature/*)",
-      "Bash(git push*origin feat/*)",
-      "Bash(git push*origin fix/*)",
-      "Bash(git push*origin chore/*)",
-      "Bash(git push*origin docs/*)",
-      "Bash(git push*origin harden/*)",
-      "Bash(git push*origin test/*)",
-      "Bash(git push*origin perf/*)",
-      "Bash(git push*origin refactor/*)",
 
       "Bash(gh pr create*)",
       "Bash(gh pr checks*)",
@@ -278,6 +274,12 @@
             "type": "command",
             "shell": "bash",
             "command": "node scripts/ai-hooks/guard-no-verify.mjs",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "node scripts/ai-hooks/guard-git-push.mjs",
             "timeout": 5
           }
         ]
