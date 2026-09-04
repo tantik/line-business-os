@@ -136,6 +136,7 @@ async function runForLocation(
       .from('workforce_shift_requests')
       .select('employee_id, work_date, shift_type_id, is_unavailable, kind')
       .eq('tenant_id', tenantId)
+      .eq('location_id', locationId)
       .eq('kind', 'preference')
       .gte('work_date', target.periodStart)
       .lte('work_date', target.periodEnd),
@@ -243,13 +244,33 @@ async function runForLocation(
   // above), regardless of whether it produced any draft rows (e.g. already
   // fully staffed by manual assignments is still a legitimate, complete
   // outcome, not a config problem to retry).
-  const { error: markError } = await db
+  //
+  // Optimistic lock: the read-then-write between the top-level idempotency
+  // check (line ~116) and this write is not atomic, so two overlapping
+  // ticks for the same location could both pass that check before either
+  // writes the marker. Conditioning the UPDATE on the marker still holding
+  // the value it held when this run started closes that window -- a
+  // concurrent winner's write makes this one affect 0 rows, which is
+  // treated as "already claimed by another run" rather than an error. Worst
+  // case without this would only ever be a duplicate DRAFT insert (never a
+  // publish or notification) for a Manager to notice on review; this closes
+  // it anyway since it's a small, safe, well-scoped condition.
+  let markQuery = db
     .schema('workforce')
     .from('schedule_settings')
     .update({ auto_create_last_generated_month: target.periodStart })
     .eq('tenant_id', tenantId)
     .eq('location_id', locationId);
+  // `.eq(col, null)` is NOT the same as `IS NULL` in PostgREST -- it must be
+  // `.is(...)` for the "never run before" case, or the lock condition would
+  // never match on a location's very first scheduled run.
+  markQuery =
+    settings.auto_create_last_generated_month === null
+      ? markQuery.is('auto_create_last_generated_month', null)
+      : markQuery.eq('auto_create_last_generated_month', settings.auto_create_last_generated_month);
+  const { data: markedRows, error: markError } = await markQuery.select('tenant_id');
   if (markError) throw markError;
+  if (!markedRows || markedRows.length === 0) return null; // lost the race to a concurrent run -- its own result already accounts for this month
 
   return {
     locationId,

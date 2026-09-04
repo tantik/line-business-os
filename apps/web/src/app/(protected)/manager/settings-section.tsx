@@ -39,9 +39,11 @@ export interface SettingsSectionProps {
    * Manual "auto-create schedule" (restored 2026-09-03): the parent
    * (`manager-dashboard-client.tsx`) owns the confirm dialog, the result
    * view, the pending state, and the last-result summary -- this section
-   * only renders the trigger button and a compact "last result" line. The
-   * monthly scheduled job is still coming-soon (the day-of-month input is
-   * disabled); this button runs the fill once for the week being viewed.
+   * only renders the trigger button and a compact "last result" line. This
+   * is the separate, always-available manual regeneration path -- it runs
+   * the fill once for the week being viewed, using the exact same engine as
+   * the real scheduled monthly job (`apps/worker`'s `auto-schedule-monthly`,
+   * gated by the ON/OFF toggle + day-of-month input further down).
    */
   onAutoCreate: () => void;
   autoCreatePending: boolean;

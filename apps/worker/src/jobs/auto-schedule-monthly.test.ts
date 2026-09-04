@@ -50,9 +50,35 @@ test('idempotent: a location already marked generated for the target month is sk
   assert.ok(configErrorIdx >= 0 && markIdx > configErrorIdx);
 });
 
-test('every query is explicitly scoped to one tenant_id + location_id pair -- service_role never relied on alone for isolation', () => {
-  assert.match(SOURCE, /\.eq\('tenant_id', tenantId\)\s*\n\s*\.eq\('location_id', locationId\)/);
+test('every query against an api.workforce_* view is explicitly scoped to BOTH tenant_id and location_id -- service_role never relied on alone for isolation', () => {
+  // Checks each `.schema('api').from('workforce_...')` call site individually
+  // (not just "the pattern occurs somewhere in the file") -- a single query
+  // missing `location_id` while every other one has it previously slipped
+  // past a looser version of this same assertion (independent review,
+  // 2026-09-04: the preferences/workforce_shift_requests query was
+  // tenant-scoped only).
+  const callSites = [...SOURCE.matchAll(/\.schema\('api'\)\s*\n\s*\.from\('(workforce_[a-z_]+)'\)/g)];
+  assert.ok(callSites.length >= 4, `expected at least 4 api.workforce_* call sites, found ${callSites.length}`);
+  for (const match of callSites) {
+    const viewName = match[1];
+    const start = match.index ?? 0;
+    // Each call site's own filter chain ends at the next `db\n` (start of
+    // the next Promise.all entry / the insert / EOF) -- 500 chars is ample
+    // for a single `.select(...).eq(...).eq(...)[...]` chain in this file.
+    const chunk = SOURCE.slice(start, start + 500);
+    assert.match(chunk, /\.eq\('tenant_id', tenantId\)/, `${viewName} query missing tenant_id scope`);
+    assert.match(chunk, /\.eq\('location_id', locationId\)/, `${viewName} query missing location_id scope`);
+  }
+});
+
+test('the mapped existing-assignment snapshot is defensively re-filtered to the resolved location in JS too (belt-and-suspenders, matching the manual auto-create path)', () => {
   assert.match(SOURCE, /\.filter\(\(a\) => a\.location_id === locationId\)/);
+});
+
+test('the idempotency marker write is an optimistic-lock UPDATE (conditioned on the marker still holding its pre-run value), not a blind write -- closes the overlapping-tick race window', () => {
+  assert.match(SOURCE, /markQuery\.is\('auto_create_last_generated_month', null\)/);
+  assert.match(SOURCE, /markQuery\.eq\('auto_create_last_generated_month', settings\.auto_create_last_generated_month\)/);
+  assert.match(SOURCE, /if \(!markedRows \|\| markedRows\.length === 0\) return null;/);
 });
 
 test('never auto-publishes and never queues a LINE notification', () => {
