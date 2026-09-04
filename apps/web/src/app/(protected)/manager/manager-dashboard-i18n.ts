@@ -194,24 +194,24 @@ interface ManagerDashboardDict {
   savedStatus: string;
   saveErrorStatus: string;
   duplicateShiftTypeName: string;
-  // Automatic schedule (Round 3, 2026-08-22): a capability actively being
-  // built, not yet live -- the day-of-month input is a disabled preview of
-  // its future configuration. Round 2's Run now/Publish schedule buttons
-  // were removed here (Founder direction: the feature is mid-development,
-  // so no half-working action should be exposed) in favor of a `(?)` info
-  // popover explaining what this section will do once implemented.
+  // Automatic schedule (Auto Scheduling completion mission, 2026-09-04): now
+  // real end-to-end. A Manager turns scheduled monthly generation ON/OFF and
+  // picks the day of month (1-28) it runs on; when ON, the scheduled worker
+  // generates the NEXT calendar month's schedule as a review-pending
+  // proposal on that day (never auto-published, never sent via LINE). The
+  // manual "create schedule automatically" button below remains a separate,
+  // always-available regeneration tool for the week being viewed, sharing
+  // the exact same distribution engine.
   automationSectionHeading: string;
   automationCreateOnLabel: string;
   automationDayOfMonthSuffix: string;
   automationHelpAriaLabel: string;
   automationHelpTitle: string;
   automationHelpBody: string;
-  // Manual "auto-create schedule" workflow (restored 2026-09-03): the
-  // monthly scheduled job is still coming-soon (the day-of-month input is
-  // disabled), but a manager can run the fill manually for the week they are
-  // viewing. Server derives the staffing windows + headcount; confirmed and
-  // manual shifts are always kept.
-  automationComingSoonNote: string;
+  /** ON/OFF toggle label for the scheduled monthly auto-create job. */
+  automationEnabledLabel: string;
+  /** "Last generated: YYYY-MM" line, shown only after the scheduled worker has run at least once for this location. */
+  automationLastGeneratedLabel: string;
   automationManualCreateButton: string;
   automationManualCreateRunning: string;
   automationLastResultHeading: string;
@@ -541,8 +541,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: 'About automatic schedule',
     automationHelpTitle: 'About automatic schedule',
     automationHelpBody:
-      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences, your required-staff and monthly-hour-limit settings, and each employee\'s hours already used this month. Past dates are never touched -- if part of the displayed week is already in the past, only the remaining days are filled. A shortage is shown honestly if not enough staff are available. A staff member who has not submitted a preference may still be assigned to fill a required slot, but this is always shown separately in the result so you can review it. Running it again replaces that period\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept, and nothing is ever shown to staff automatically -- you decide when to publish.',
-    automationComingSoonNote: 'Coming soon',
+      'When "Automatic schedule" is ON, the system creates next month\'s schedule for you on the day you choose below (1-28) -- as a draft proposal, based on staff preferences, your required-staff and monthly-hour-limit settings, and each employee\'s hours already used that month. It never publishes automatically and never notifies staff -- you always review and publish it yourself, the same as any other draft. You can also use the "Create schedule automatically" button any time to fill the week you are viewing right now. Past dates are never touched -- if part of the displayed week is already in the past, only the remaining days are filled. A shortage is shown honestly if not enough staff are available. A staff member who has not submitted a preference may still be assigned to fill a required slot, but this is always shown separately in the result so you can review it. Running it again (manually, or the next scheduled run) replaces that period\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept.',
+    automationEnabledLabel: 'Automatically create next month\'s schedule',
+    automationLastGeneratedLabel: 'Last automatically created',
     automationManualCreateButton: 'Create schedule automatically',
     automationManualCreateRunning: 'Creating...',
     automationLastResultHeading: 'Last result',
@@ -846,8 +847,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: '自動スケジュールについて',
     automationHelpTitle: '自動スケジュールについて',
     automationHelpBody:
-      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望・必要人数・月間労働時間の上限・今月すでに入っている勤務時間にもとづいて割り当てできます。過去の日付は変更されません。表示中の週の一部がすでに過去の場合、残りの日だけが対象になります。人数が足りない場合はその不足がそのまま表示されます。希望を出していないスタッフも、必要な枠を埋めるために割り当てられることがありますが、その場合は結果に必ず分けて表示されるので確認できます。もう一度実行すると、その期間の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残り、スタッフに自動で公開されることもありません -- 公開のタイミングはあなたが決めます。',
-    automationComingSoonNote: '準備中',
+      '「自動スケジュール」をONにすると、下で設定した日（1〜28日）に、来月分のシフトを自動で作成します -- スタッフの希望・必要人数・月間労働時間の上限・その月すでに入っている勤務時間にもとづいた「案」で、自動で公開されることも、スタッフに通知されることもありません。内容を確認してから、いつものように公開のタイミングはあなたが決めます。いま表示している週については、「自動でシフトを作成」ボタンでいつでも作成できます。過去の日付は変更されません。表示中の週の一部がすでに過去の場合、残りの日だけが対象になります。人数が足りない場合はその不足がそのまま表示されます。希望を出していないスタッフも、必要な枠を埋めるために割り当てられることがありますが、その場合は結果に必ず分けて表示されるので確認できます。もう一度実行すると（手動でも、次回の自動実行でも）、その期間の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残ります。',
+    automationEnabledLabel: '来月のシフトを自動で作成する',
+    automationLastGeneratedLabel: '最後に自動作成した月',
     automationManualCreateButton: '自動でシフトを作成',
     automationManualCreateRunning: '作成中...',
     automationLastResultHeading: '直近の結果',

@@ -24,19 +24,26 @@ test('the "create schedule automatically" button calls onAutoCreate, reflects th
   assert.match(SOURCE, /autoCreateUnavailable \?[\s\S]{0,120}autoCreateWeekFullyPastNote/);
 });
 
-test('the day-of-month input is disabled and carries a coming-soon affordance, and no longer autosaves on change', () => {
-  const block = SOURCE.slice(SOURCE.indexOf("t('automationCreateOnLabel')"));
-  assert.match(block, /disabled\s*\n\s*readOnly/);
-  assert.match(SOURCE, /t\('automationComingSoonNote'\)/);
-  // the day-of-month <input> must not wire an onChange autosave anymore
+test('scheduled monthly auto-create has a real ON/OFF toggle and an editable day-of-month that both autosave', () => {
+  assert.match(SOURCE, /checked=\{autoCreateEnabled\}/);
+  assert.match(SOURCE, /setAutoCreateEnabled\(event\.currentTarget\.checked\)/);
+  assert.match(SOURCE, /t\('automationEnabledLabel'\)/);
+  // the day-of-month input is enabled once automation is ON and autosaves on change
   const inputStart = SOURCE.indexOf("aria-label={t('automationCreateOnLabel')}");
-  const inputChunk = SOURCE.slice(inputStart - 400, inputStart + 100);
-  assert.doesNotMatch(inputChunk, /onChange=\{\(event\) => \{[\s\S]*scheduleAutosave\(\)/);
+  const inputChunk = SOURCE.slice(inputStart - 600, inputStart + 100);
+  assert.match(inputChunk, /disabled=\{!autoCreateEnabled\}/);
+  assert.match(inputChunk, /onChange=\{\(event\) => \{[\s\S]*scheduleAutosave\(\)/);
 });
 
-test('the stored autoCreateDayOfMonth value is still passed through unchanged in the settings payload', () => {
+test('shows the last-automatically-created month only when the scheduled worker has run', () => {
+  assert.match(SOURCE, /settings\?\.autoCreateLastGeneratedMonth \?[\s\S]{0,200}automationLastGeneratedLabel/);
+});
+
+test('autoCreateDayOfMonth and autoCreateEnabled are both passed through in the settings payload', () => {
   assert.match(SOURCE, /autoCreateDayOfMonth: toSave\.autoCreateDayOfMonth,/);
+  assert.match(SOURCE, /autoCreateEnabled: toSave\.autoCreateEnabled,/);
   assert.match(SOURCE, /settings\?\.autoCreateDayOfMonth \?\? 20/);
+  assert.match(SOURCE, /settings\?\.autoCreateEnabled \?\? false/);
 });
 
 test('does not reintroduce a client-supplied staffing-requirements default', () => {

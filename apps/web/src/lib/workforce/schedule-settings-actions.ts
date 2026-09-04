@@ -57,6 +57,8 @@ export interface SaveScheduleSettingsInput {
   requiredHeadcountByWeekday: number[];
   maxMonthlyHours: number;
   autoCreateDayOfMonth: number;
+  /** Manager ON/OFF opt-in for scheduled monthly auto-create. Omit to leave the stored value untouched (mirrors `autoCreateDayOfMonth`'s existing optionality). */
+  autoCreateEnabled?: boolean;
 }
 
 export async function saveScheduleSettings(input: unknown): Promise<WorkforceWriteResult<WorkforceScheduleSettings>> {
@@ -65,6 +67,7 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
   const required = value.requiredHeadcountByWeekday;
   const maxHours = value.maxMonthlyHours;
   const autoCreateDayOfMonth = value.autoCreateDayOfMonth;
+  const autoCreateEnabled = value.autoCreateEnabled;
   if (
     !Array.isArray(required) ||
     required.length !== 7 ||
@@ -74,7 +77,8 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
     (maxHours as number) > 744 ||
     !Number.isInteger(autoCreateDayOfMonth) ||
     (autoCreateDayOfMonth as number) < 1 ||
-    (autoCreateDayOfMonth as number) > 28
+    (autoCreateDayOfMonth as number) > 28 ||
+    (autoCreateEnabled !== undefined && typeof autoCreateEnabled !== 'boolean')
   ) {
     return INVALID_INPUT_RESULT;
   }
@@ -88,6 +92,7 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
     requiredHeadcountByWeekday: required as number[],
     maxMonthlyHours: maxHours as number,
     autoCreateDayOfMonth: autoCreateDayOfMonth as number,
+    ...(autoCreateEnabled !== undefined ? { autoCreateEnabled: autoCreateEnabled as boolean } : {}),
   });
 }
 

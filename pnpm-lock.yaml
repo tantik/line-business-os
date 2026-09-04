@@ -163,6 +163,9 @@ importers:
       '@line-os/line':
         specifier: workspace:*
         version: link:../../packages/line
+      '@line-os/workforce':
+        specifier: workspace:*
+        version: link:../../packages/workforce
       croner:
         specifier: ^8.1.2
         version: 8.1.2

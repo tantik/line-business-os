@@ -39,9 +39,11 @@ export interface SettingsSectionProps {
    * Manual "auto-create schedule" (restored 2026-09-03): the parent
    * (`manager-dashboard-client.tsx`) owns the confirm dialog, the result
    * view, the pending state, and the last-result summary -- this section
-   * only renders the trigger button and a compact "last result" line. The
-   * monthly scheduled job is still coming-soon (the day-of-month input is
-   * disabled); this button runs the fill once for the week being viewed.
+   * only renders the trigger button and a compact "last result" line. This
+   * is the separate, always-available manual regeneration path -- it runs
+   * the fill once for the week being viewed, using the exact same engine as
+   * the real scheduled monthly job (`apps/worker`'s `auto-schedule-monthly`,
+   * gated by the ON/OFF toggle + day-of-month input further down).
    */
   onAutoCreate: () => void;
   autoCreatePending: boolean;
@@ -87,6 +89,7 @@ export function SettingsSection({
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [1, 1, 1, 1, 1, 1, 1]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
   const [autoCreateDayOfMonth, setAutoCreateDayOfMonth] = useState(settings?.autoCreateDayOfMonth ?? 20);
+  const [autoCreateEnabled, setAutoCreateEnabled] = useState(settings?.autoCreateEnabled ?? false);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -111,16 +114,16 @@ export function SettingsSection({
   const confirmDeactivateTarget = confirmDeactivateId ? (activeShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeactivateId) ?? null : null;
   const confirmDeleteTarget = confirmDeleteId ? (inactiveShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeleteId) ?? null : null;
 
-  const latestRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
-  const lastConfirmedRef = useRef({ requirements, maxHours, autoCreateDayOfMonth });
+  const latestRef = useRef({ requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled });
+  const lastConfirmedRef = useRef({ requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled });
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const dirtyWhileSavingRef = useRef(false);
   const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    latestRef.current = { requirements, maxHours, autoCreateDayOfMonth };
-  }, [requirements, maxHours, autoCreateDayOfMonth]);
+    latestRef.current = { requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled };
+  }, [requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled]);
 
   useEffect(
     () => () => {
@@ -145,6 +148,7 @@ export function SettingsSection({
         requiredHeadcountByWeekday: toSave.requirements,
         maxMonthlyHours: toSave.maxHours,
         autoCreateDayOfMonth: toSave.autoCreateDayOfMonth,
+        autoCreateEnabled: toSave.autoCreateEnabled,
       });
       savingRef.current = false;
       if (result.status === 'success') {
@@ -157,6 +161,7 @@ export function SettingsSection({
         setRequirements(lastConfirmedRef.current.requirements);
         setMaxHours(lastConfirmedRef.current.maxHours);
         setAutoCreateDayOfMonth(lastConfirmedRef.current.autoCreateDayOfMonth);
+        setAutoCreateEnabled(lastConfirmedRef.current.autoCreateEnabled);
         setAutosaveStatus('error');
       }
       if (dirtyWhileSavingRef.current) runAutosave();
@@ -511,7 +516,22 @@ export function SettingsSection({
             </p>
           ) : null}
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', marginTop: 16, opacity: 0.6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', marginTop: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={autoCreateEnabled}
+                onChange={(event) => {
+                  setAutoCreateEnabled(event.currentTarget.checked);
+                  scheduleAutosave();
+                }}
+                aria-label={t('automationEnabledLabel')}
+              />
+              <span style={{ fontSize: 13 }}>{t('automationEnabledLabel')}</span>
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', marginTop: 10, opacity: autoCreateEnabled ? 1 : 0.6 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13 }}>{t('automationCreateOnLabel')}</span>
               <input
@@ -520,16 +540,23 @@ export function SettingsSection({
                 min={1}
                 max={28}
                 value={autoCreateDayOfMonth}
-                disabled
-                readOnly
+                disabled={!autoCreateEnabled}
+                onChange={(event) => {
+                  const parsed = Number(event.currentTarget.value);
+                  setAutoCreateDayOfMonth(parsed);
+                  scheduleAutosave();
+                }}
                 aria-label={t('automationCreateOnLabel')}
               />
               <span style={{ fontSize: 13, ...mutedText }}>{t('automationDayOfMonthSuffix')}</span>
             </label>
-            <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: colors.surfaceElevated }}>
-              {t('automationComingSoonNote')}
-            </span>
           </div>
+
+          {settings?.autoCreateLastGeneratedMonth ? (
+            <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>
+              {t('automationLastGeneratedLabel')}: {settings.autoCreateLastGeneratedMonth.slice(0, 7)}
+            </p>
+          ) : null}
         </div>
 
         <div className={styles.shiftRequestsColumn} style={{ flex: '1 1 260px', minWidth: 220 }}>

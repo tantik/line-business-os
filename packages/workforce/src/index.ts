@@ -8,6 +8,20 @@ import { z } from 'zod';
  * location-scoped. Persistence + RLS live in supabase/migrations/0009_workforce.
  */
 
+/**
+ * Auto Scheduling completion mission (2026-09-04): `autoDistribute()` (the
+ * constraint-satisfaction engine) and its staffing-requirement-matrix helper
+ * physically live HERE now -- the one place both the canonical Manager
+ * Server Action (`apps/web`, manual "auto-create schedule") and the
+ * scheduled-monthly worker job (`apps/worker`) import them from, so there is
+ * exactly one implementation of the scheduling algorithm, never two. `apps/web`
+ * keeps its historical file paths (`lib/workforce/auto-distribute.ts` /
+ * `auto-distribution-authority.ts`) as thin re-export shims so no existing
+ * import site needed to change.
+ */
+export * from './auto-distribute.js';
+export * from './auto-distribution-authority.js';
+
 export const RequestStatus = z.enum(['pending', 'approved', 'rejected', 'cancelled']);
 export type RequestStatus = z.infer<typeof RequestStatus>;
 

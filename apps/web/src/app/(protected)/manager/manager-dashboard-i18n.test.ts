@@ -61,7 +61,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'assignCellAriaLabelPrefix', 'editCellAriaLabelPrefix', 'correctPastScheduleAriaLabelPrefix',
   'automationSectionHeading', 'automationCreateOnLabel', 'automationDayOfMonthSuffix',
   'automationHelpAriaLabel', 'automationHelpTitle', 'automationHelpBody',
-  'automationComingSoonNote', 'automationManualCreateButton', 'automationManualCreateRunning',
+  'automationEnabledLabel', 'automationLastGeneratedLabel', 'automationManualCreateButton', 'automationManualCreateRunning',
   'automationLastResultHeading',
   'autoCreateConfirmTitle', 'autoCreateConfirmBody', 'autoCreateResultTitle', 'autoCreateManualPreservedNote',
   'autoCreateShortagesHeading', 'autoCreateUnplacedHeading', 'autoCreateNonSubmittersHeading', 'autoCreateNoIssues',
