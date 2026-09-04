@@ -102,12 +102,16 @@ test('auto-create calls runAutoDistribution with ONLY { locationId, periodStart,
   assert.doesNotMatch(body, /overwriteExisting/);
 });
 
-test('a confirm dialog names the target period before auto-create runs', () => {
+test('a confirm dialog names the REAL (past-date-clamped) target period before auto-create runs, and warns when part of the displayed week is already past', () => {
   assert.match(SOURCE, /open=\{autoCreateConfirmOpen\}/);
   const dialog = SOURCE.slice(SOURCE.indexOf('open={autoCreateConfirmOpen}'));
-  assert.match(dialog.slice(0, 1200),/scheduleHeadingValue\[lang\]\(activePeriodStart, activePeriodEnd\)/);
-  assert.match(dialog.slice(0, 1200),/t\('autoCreateConfirmBody'\)/);
-  assert.match(dialog.slice(0, 1200),/onConfirm=\{\(\) => \{\s*setAutoCreateConfirmOpen\(false\);\s*handleAutoCreate\(\);/);
+  assert.match(
+    dialog.slice(0, 1600),
+    /scheduleHeadingValue\[lang\]\(\s*activePeriodStart < todayIso \? todayIso : activePeriodStart,\s*activePeriodEnd,\s*\)/,
+  );
+  assert.match(dialog.slice(0, 1600), /autoCreatePastDaysExcludedNote/);
+  assert.match(dialog.slice(0, 1600),/t\('autoCreateConfirmBody'\)/);
+  assert.match(dialog.slice(0, 1600),/onConfirm=\{\(\) => \{\s*setAutoCreateConfirmOpen\(false\);\s*handleAutoCreate\(\);/);
 });
 
 test('the result view offers an Undo wired to undoAutoDistribution with the created assignment ids', () => {

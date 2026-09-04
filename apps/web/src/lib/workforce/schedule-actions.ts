@@ -22,17 +22,20 @@ import {
 } from './shift-assignments';
 import {
   autoDistribute,
-  deriveActiveScheduleWindowCodes,
+  computeDurationHours,
   type AutoDistributeEmployee,
   type AutoDistributePreference,
+  type DraftAssignment,
+  type Shortage,
+  type UnplacedEmployee,
 } from './auto-distribute';
 import {
   buildAuthoritativeStaffingRequirements,
   hasPositiveStaffingRequirement,
 } from './auto-distribution-authority';
 import { getWorkforceScheduleSettings } from './schedule-settings';
-import { getWeekPeriod } from './period';
-import { addIsoDays, localDateTimeToUtcIso } from './timezone';
+import { getMonthPeriodForDate, getWeekPeriod } from './period';
+import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from './timezone';
 import {
   parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
@@ -55,6 +58,9 @@ import type { RunAutoDistributionActionOutcome } from './schedule-types';
  * nicety (a clearer error than an opaque RLS denial for a caller with no
  * staff row at all), not a security check.
  */
+
+/** Matches `AutoDistributeResult.assignedWithoutPreference`'s inline shape (not a named export). */
+type AssignedWithoutPreferenceEntry = { employeeId: string; workDate: string; shiftTypeId: string };
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
 const NO_STAFF_PROFILE_RESULT = { status: 'unexpected_error', message: 'You have no staff profile in this tenant.' } as const;
@@ -209,9 +215,11 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   if (typeof input !== 'object' || input === null) return INVALID_INPUT_RESULT;
   const raw = input as Record<string, unknown>;
   const locationId = parseUuid(raw.locationId);
-  const periodStart = parseIsoDate(raw.periodStart);
-  const periodEnd = parseIsoDate(raw.periodEnd);
-  if (!locationId || !periodStart || !periodEnd || periodEnd < periodStart) return INVALID_INPUT_RESULT;
+  const requestedPeriodStart = parseIsoDate(raw.periodStart);
+  const requestedPeriodEnd = parseIsoDate(raw.periodEnd);
+  if (!locationId || !requestedPeriodStart || !requestedPeriodEnd || requestedPeriodEnd < requestedPeriodStart) {
+    return INVALID_INPUT_RESULT;
+  }
 
   const tenantContext = await requireTenantContext();
   if (tenantContext.status !== 'success') return tenantContext;
@@ -225,33 +233,84 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   if (!location) return { status: 'not_found' };
   const timeZone = location.timezone;
 
+  // Historical immutability: a regeneration may never touch a date before
+  // "today" in the location's own timezone. The server clamps here rather
+  // than trusting the client's requested range -- the UI still shows the
+  // Manager the exact resulting `effectivePeriodStart`/`effectivePeriodEnd`
+  // in the result summary so they never have to do date math themselves.
+  const today = todayIsoInTimeZone(timeZone);
+  if (requestedPeriodEnd < today) {
+    return { status: 'invalid_config', reason: 'period_in_past' };
+  }
+  const periodStart = requestedPeriodStart < today ? today : requestedPeriodStart;
+  const periodEnd = requestedPeriodEnd;
+
+  // The calendar-month hour cap must be evaluated separately per calendar
+  // month (product contract 5.7). The canonical Manager UI's "auto-create"
+  // button always targets exactly the displayed Monday-Sunday week, which
+  // CAN span a month boundary (~13 weeks/year) -- rejecting that outright
+  // would make Auto Create simply not work for those weeks, so instead the
+  // requested period is split into one sub-slice PER calendar month it
+  // touches, each run through the engine with its own correct monthly hour
+  // baseline, and the results merged. A single-month period (the common
+  // case) is just one slice.
   const fromIso = localDateTimeToUtcIso(periodStart, '00:00', timeZone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(periodEnd, 1), '00:00', timeZone);
 
-  const [staffResult, shiftTypesResult, preferencesResult, existingResult, scheduleSettingsResult] = await Promise.all([
+  interface MonthSlice {
+    sliceStart: string;
+    sliceEnd: string;
+    monthPeriodStart: string;
+    monthPeriodEnd: string;
+  }
+  const monthSlices: MonthSlice[] = [];
+  {
+    let cursor = periodStart;
+    while (cursor <= periodEnd) {
+      const monthPeriod = getMonthPeriodForDate(cursor);
+      const sliceEnd = monthPeriod.periodEnd < periodEnd ? monthPeriod.periodEnd : periodEnd;
+      monthSlices.push({
+        sliceStart: cursor,
+        sliceEnd,
+        monthPeriodStart: monthPeriod.periodStart,
+        monthPeriodEnd: monthPeriod.periodEnd,
+      });
+      cursor = addIsoDays(sliceEnd, 1);
+    }
+  }
+
+  // Fetch existing assignments across the UNION of every calendar month
+  // touched (not just the requested slice) so each month's own
+  // outside-the-slice hours can be summed into that month's cap baseline.
+  const outerMonthStart = monthSlices[0]!.monthPeriodStart;
+  const outerMonthEnd = monthSlices[monthSlices.length - 1]!.monthPeriodEnd;
+  const monthFromIso = localDateTimeToUtcIso(outerMonthStart, '00:00', timeZone);
+  const monthToIsoExclusive = localDateTimeToUtcIso(addIsoDays(outerMonthEnd, 1), '00:00', timeZone);
+
+  const [staffResult, shiftTypesResult, preferencesResult, existingMonthResult, scheduleSettingsResult] = await Promise.all([
     listWorkforceStaffDirectory(supabase, tenantId),
     listWorkforceShiftTypes(supabase, tenantId),
     listShiftRequestsForManager(supabase, tenantId, { kind: 'preference' }),
-    listShiftAssignments(supabase, tenantId, { fromIso, toIsoExclusive }),
+    listShiftAssignments(supabase, tenantId, { fromIso: monthFromIso, toIsoExclusive: monthToIsoExclusive }),
     getWorkforceScheduleSettings(supabase, tenantId, locationId),
   ]);
   if (staffResult.status !== 'success') return staffResult;
   if (shiftTypesResult.status !== 'success') return shiftTypesResult;
   if (preferencesResult.status !== 'success') return preferencesResult;
-  if (existingResult.status !== 'success') return existingResult;
+  if (existingMonthResult.status !== 'success') return existingMonthResult;
   if (scheduleSettingsResult.status !== 'success') return scheduleSettingsResult;
 
   const scheduleSettings = scheduleSettingsResult.data;
 
   // `listWorkforceShiftTypes` returns every shift type for the tenant -- scope
   // to the resolved location so a sibling location's shift types can never
-  // widen the windows / headcount this run is authoritative for.
+  // widen the requirements this run is authoritative for.
   const locationShiftTypes = shiftTypesResult.data.filter((st) => st.locationId === locationId);
-  const activeWindowCodes = deriveActiveScheduleWindowCodes(locationShiftTypes);
-  if (activeWindowCodes.length === 0) return { status: 'invalid_config', reason: 'no_active_windows' };
+  const activeShiftTypeIds = locationShiftTypes.filter((st) => st.isActive).map((st) => st.shiftTypeId);
+  if (activeShiftTypeIds.length === 0) return { status: 'invalid_config', reason: 'no_active_windows' };
 
   const staffingRequirements = buildAuthoritativeStaffingRequirements(
-    activeWindowCodes,
+    activeShiftTypeIds,
     scheduleSettings?.requiredHeadcountByWeekday,
   );
   if (!hasPositiveStaffingRequirement(staffingRequirements)) {
@@ -272,40 +331,107 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
     }));
 
   // Location isolation: `listShiftAssignments` is tenant-scoped only, so a
-  // multi-location tenant's Location B rows are in `existingResult.data` too.
-  // Scope to the resolved location BEFORE building the algorithm snapshot --
-  // Location A's auto-create must be a pure function of Location A's own
-  // employees, shift types, settings and existing shifts. Without this a
-  // Location-A employee who also holds a shift recorded at Location B would
-  // have that foreign shift block their day / count toward their hours here.
-  const existingAssignments = existingResult.data
+  // multi-location tenant's Location B rows are in `existingMonthResult.data`
+  // too. Scope to the resolved location BEFORE building the algorithm
+  // snapshot -- Location A's auto-create must be a pure function of Location
+  // A's own employees, shift types, settings and existing shifts. Without
+  // this a Location-A employee who also holds a shift recorded at Location B
+  // would have that foreign shift block their day / count toward their hours
+  // here.
+  const existingAssignmentsAllTouchedMonths = existingMonthResult.data
     .filter((a) => a.locationId === locationId)
     .map((a) => toAutoDistributeExistingAssignment(a, timeZone))
     .filter((a): a is NonNullable<typeof a> => a !== null);
 
-  const result = autoDistribute({
-    employees,
-    shiftTypes: locationShiftTypes.map((st) => ({
-      shiftTypeId: st.shiftTypeId,
-      code: st.code,
-      startsAtLocal: st.startsAtLocal,
-      endsAtLocal: st.endsAtLocal,
-      breakMinutes: st.breakMinutes,
-      sortOrder: st.sortOrder,
-      isActive: st.isActive,
-    })),
-    preferences,
-    staffingRequirements,
-    existingAssignments,
-    options: {
-      periodStart,
-      periodEnd,
-      maxPeriodHours: scheduleSettings?.maxMonthlyHours,
-      overwriteExisting: false,
-    },
-  });
+  const mappedShiftTypes = locationShiftTypes.map((st) => ({
+    shiftTypeId: st.shiftTypeId,
+    code: st.code,
+    startsAtLocal: st.startsAtLocal,
+    endsAtLocal: st.endsAtLocal,
+    breakMinutes: st.breakMinutes,
+    sortOrder: st.sortOrder,
+    isActive: st.isActive,
+  }));
 
-  // Re-running "auto-create" for a week REPLACES the previous unconfirmed
+  // Run the engine once PER calendar-month slice (see monthSlices above), so
+  // the hour cap is always evaluated against that slice's own calendar
+  // month, then merge every slice's output. Dates never repeat across
+  // slices (each slice is a disjoint sub-range), so draft assignments,
+  // shortages, unplaced entries, and no-preference-fallback placements
+  // concatenate safely; `nonSubmitters` is recomputed once below over the
+  // whole requested period (an employee who submitted nothing in ANY
+  // touched slice), matching the single-slice engine's own definition.
+  const draftAssignments: DraftAssignment[] = [];
+  const shortages: Shortage[] = [];
+  const unplaced: UnplacedEmployee[] = [];
+  const assignedWithoutPreference: AssignedWithoutPreferenceEntry[] = [];
+  let preservedCount = 0;
+
+  for (const slice of monthSlices) {
+    const existingAssignmentsThisSliceMonth = existingAssignmentsAllTouchedMonths.filter(
+      (a) => a.workDate >= slice.monthPeriodStart && a.workDate <= slice.monthPeriodEnd,
+    );
+    const existingAssignmentsInSlice = existingAssignmentsThisSliceMonth.filter(
+      (a) => a.workDate >= slice.sliceStart && a.workDate <= slice.sliceEnd,
+    );
+
+    // Calendar-month hour cap: sum each employee's PUBLISHED (confirmed/
+    // manual, or already-past) hours elsewhere in THIS SLICE's own calendar
+    // month -- i.e. every existing assignment in that month OUTSIDE this
+    // slice -- and seed the engine's running hour total with it, so
+    // `maxMonthlyHours` is enforced against that whole month, never just
+    // this slice.
+    const extraHoursByEmployee: Record<string, number> = {};
+    for (const assignment of existingAssignmentsThisSliceMonth) {
+      if (assignment.workDate >= slice.sliceStart && assignment.workDate <= slice.sliceEnd) continue; // in-slice, handled by the engine itself
+      if (!assignment.published) continue; // unconfirmed drafts never count toward the cap
+      const hours = computeDurationHours(assignment.startsAtLocal, assignment.endsAtLocal, assignment.breakMinutes);
+      extraHoursByEmployee[assignment.employeeId] = (extraHoursByEmployee[assignment.employeeId] ?? 0) + hours;
+    }
+
+    const preferencesInSlice = preferences.filter(
+      (p) => p.workDate >= slice.sliceStart && p.workDate <= slice.sliceEnd,
+    );
+
+    const sliceResult = autoDistribute({
+      employees,
+      shiftTypes: mappedShiftTypes,
+      preferences: preferencesInSlice,
+      staffingRequirements,
+      existingAssignments: existingAssignmentsInSlice,
+      options: {
+        periodStart: slice.sliceStart,
+        periodEnd: slice.sliceEnd,
+        maxPeriodHours: scheduleSettings?.maxMonthlyHours,
+        extraHoursByEmployee,
+        overwriteExisting: false,
+      },
+    });
+
+    draftAssignments.push(...sliceResult.draftAssignments);
+    shortages.push(...sliceResult.shortages);
+    unplaced.push(...sliceResult.unplaced);
+    assignedWithoutPreference.push(...sliceResult.assignedWithoutPreference);
+    preservedCount += existingAssignmentsInSlice.filter((a) => a.published || a.locked).length;
+  }
+
+  draftAssignments.sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
+  shortages.sort((a, b) => a.workDate.localeCompare(b.workDate) || (a.shiftTypeId ?? '').localeCompare(b.shiftTypeId ?? ''));
+  unplaced.sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
+  assignedWithoutPreference.sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
+
+  // Whole-period nonSubmitters: an active employee at this location with
+  // zero preference rows anywhere in [periodStart, periodEnd] -- computed
+  // once here (rather than per slice) so an employee who submitted for one
+  // slice's dates but not the other's is correctly NOT reported as a
+  // non-submitter.
+  const submittedEmployeeIdsWholePeriod = new Set(preferences.map((p) => p.employeeId));
+  const nonSubmitters = employees
+    .filter((e) => e.isActive && !submittedEmployeeIdsWholePeriod.has(e.employeeId))
+    .map((e) => ({ employeeId: e.employeeId }))
+    .sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+
+  // Re-running "auto-create" for a period REPLACES the previous unconfirmed
   // proposal rather than stacking a second one: clear this location/period's
   // `published = false` rows first. `published = true` (confirmed/manual)
   // shifts are never matched, so a manager's own shifts survive untouched.
@@ -318,7 +444,7 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   );
   if (clearResult.status !== 'success') return clearResult;
 
-  const insertRows = result.draftAssignments.map((draft) =>
+  const insertRows = draftAssignments.map((draft) =>
     mapDraftAssignmentToInsertRow(draft, tenantId, locationId, timeZone),
   );
   const insertResult = await insertDraftShiftAssignments(supabase, insertRows);
@@ -327,11 +453,15 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   return {
     status: 'success',
     data: {
-      shortages: result.shortages,
-      unplaced: result.unplaced,
-      nonSubmitters: result.nonSubmitters,
+      shortages,
+      unplaced,
+      nonSubmitters,
+      assignedWithoutPreference,
+      preservedCount,
       draftCount: insertResult.data.inserted,
       createdAssignmentIds: insertResult.data.assignmentIds,
+      effectivePeriodStart: periodStart,
+      effectivePeriodEnd: periodEnd,
     },
   };
 }

@@ -45,6 +45,8 @@ export interface SettingsSectionProps {
    */
   onAutoCreate: () => void;
   autoCreatePending: boolean;
+  /** True when the displayed week is entirely in the past (before "today" in the location's own timezone) -- past shifts are immutable, so regeneration would have nothing left to do; the button is disabled rather than letting the Manager hit a guaranteed period_in_past error. */
+  autoCreateUnavailable: boolean;
   lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
   lang: Lang;
 }
@@ -74,6 +76,7 @@ export function SettingsSection({
   onOpenShiftRequests,
   onAutoCreate,
   autoCreatePending,
+  autoCreateUnavailable,
   lastAutoCreateResult,
   lang,
 }: SettingsSectionProps) {
@@ -485,13 +488,16 @@ export function SettingsSection({
             <button
               type="button"
               className={hoverStyles.buttonPrimary}
-              style={autoCreatePending ? buttonDisabled : buttonPrimary}
-              disabled={autoCreatePending}
+              style={autoCreatePending || autoCreateUnavailable ? buttonDisabled : buttonPrimary}
+              disabled={autoCreatePending || autoCreateUnavailable}
               onClick={onAutoCreate}
             >
               {autoCreatePending ? t('automationManualCreateRunning') : t('automationManualCreateButton')}
             </button>
           </div>
+          {autoCreateUnavailable ? (
+            <p style={{ margin: '8px 0 0', fontSize: 13, ...mutedText }}>{t('autoCreateWeekFullyPastNote')}</p>
+          ) : null}
 
           {lastAutoCreateResult ? (
             <p style={{ margin: '10px 0 0', fontSize: 12.5, ...mutedText }}>

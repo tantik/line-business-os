@@ -217,11 +217,16 @@ interface ManagerDashboardDict {
   automationLastResultHeading: string;
   autoCreateConfirmTitle: string;
   autoCreateConfirmBody: string;
+  /** Shown in the confirm dialog only when part of the displayed week is already past -- the run will only touch the remaining (future) days. */
+  autoCreatePastDaysExcludedNote: string;
+  /** Shown instead of the button when the WHOLE displayed week is already past -- past shifts are immutable, so there's nothing left to regenerate. */
+  autoCreateWeekFullyPastNote: string;
   autoCreateResultTitle: string;
   autoCreateManualPreservedNote: string;
   autoCreateShortagesHeading: string;
   autoCreateUnplacedHeading: string;
   autoCreateNonSubmittersHeading: string;
+  autoCreateAssignedWithoutPreferenceHeading: string;
   autoCreateNoIssues: string;
   autoCreateUndoButton: string;
   autoCreateUndoing: string;
@@ -536,18 +541,21 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: 'About automatic schedule',
     automationHelpTitle: 'About automatic schedule',
     automationHelpBody:
-      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences and your settings. Running it again replaces that week\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept.',
+      'Monthly automatic creation is coming later -- the day-of-month setting above is not active yet. You can use the "Create schedule automatically" button now to fill the week you are viewing, based on staff preferences, your required-staff and monthly-hour-limit settings, and each employee\'s hours already used this month. Past dates are never touched -- if part of the displayed week is already in the past, only the remaining days are filled. A shortage is shown honestly if not enough staff are available. A staff member who has not submitted a preference may still be assigned to fill a required slot, but this is always shown separately in the result so you can review it. Running it again replaces that period\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept, and nothing is ever shown to staff automatically -- you decide when to publish.',
     automationComingSoonNote: 'Coming soon',
     automationManualCreateButton: 'Create schedule automatically',
     automationManualCreateRunning: 'Creating...',
     automationLastResultHeading: 'Last result',
     autoCreateConfirmTitle: 'Create this week\'s schedule automatically?',
     autoCreateConfirmBody: 'Staff will be assigned based on their preferences and your settings. This week\'s unconfirmed automatic shifts will be replaced with the new set. Confirmed and manual shifts are left as they are.',
+    autoCreatePastDaysExcludedNote: 'Days already past will not be changed -- only the remaining days above will be filled.',
+    autoCreateWeekFullyPastNote: 'This whole week is already in the past, so it cannot be regenerated.',
     autoCreateResultTitle: 'Automatic creation result',
     autoCreateManualPreservedNote: 'Confirmed and manual shifts were not changed.',
     autoCreateShortagesHeading: 'Time slots still short',
     autoCreateUnplacedHeading: 'Preferences that could not be assigned',
     autoCreateNonSubmittersHeading: 'Staff who have not submitted preferences',
+    autoCreateAssignedWithoutPreferenceHeading: 'Assigned without a submitted preference (fallback)',
     autoCreateNoIssues: 'No shortages or unassigned preferences.',
     autoCreateUndoButton: 'Undo automatic creation',
     autoCreateUndoing: 'Undoing...',
@@ -838,18 +846,21 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationHelpAriaLabel: '自動スケジュールについて',
     automationHelpTitle: '自動スケジュールについて',
     automationHelpBody:
-      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望と設定にもとづいて割り当てできます。もう一度実行すると、その週の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残ります。',
+      '毎月の自動作成は今後対応予定で、上の「自動作成する日」の設定はまだ有効ではありません。いま表示している週については、「自動でシフトを作成」ボタンで、スタッフの希望・必要人数・月間労働時間の上限・今月すでに入っている勤務時間にもとづいて割り当てできます。過去の日付は変更されません。表示中の週の一部がすでに過去の場合、残りの日だけが対象になります。人数が足りない場合はその不足がそのまま表示されます。希望を出していないスタッフも、必要な枠を埋めるために割り当てられることがありますが、その場合は結果に必ず分けて表示されるので確認できます。もう一度実行すると、その期間の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残り、スタッフに自動で公開されることもありません -- 公開のタイミングはあなたが決めます。',
     automationComingSoonNote: '準備中',
     automationManualCreateButton: '自動でシフトを作成',
     automationManualCreateRunning: '作成中...',
     automationLastResultHeading: '直近の結果',
     autoCreateConfirmTitle: 'この週のシフトを自動で作成しますか？',
     autoCreateConfirmBody: 'スタッフの希望と設定にもとづいて割り当てます。この週の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトはそのまま残ります。',
+    autoCreatePastDaysExcludedNote: 'すでに過ぎた日は変更されません。残りの日のみが対象になります。',
+    autoCreateWeekFullyPastNote: 'この週はすでに過去のため、作り直すことはできません。',
     autoCreateResultTitle: '自動作成の結果',
     autoCreateManualPreservedNote: '確定済み・手動のシフトは変更していません',
     autoCreateShortagesHeading: '不足している時間帯',
     autoCreateUnplacedHeading: '割り当てできなかった希望',
     autoCreateNonSubmittersHeading: '希望シフト未提出のスタッフ',
+    autoCreateAssignedWithoutPreferenceHeading: '希望未提出のまま割り当てたスタッフ',
     autoCreateNoIssues: '不足や未割り当ての希望はありません。',
     autoCreateUndoButton: '自動作成を取り消す',
     autoCreateUndoing: '取り消し中...',
@@ -1133,6 +1144,8 @@ export const autoCreateConfigErrorMessage: Record<Lang, (reason: RunAutoDistribu
         'No active shift types are set for this location yet. Add shift types in Settings first.',
       no_staffing_requirement:
         'No required staff count is set for any weekday. Set "Required staff per shift" in Settings first.',
+      period_in_past:
+        'That whole period is already in the past. Past shifts cannot be regenerated.',
     })[reason],
   ja: (reason) =>
     ({
@@ -1140,6 +1153,8 @@ export const autoCreateConfigErrorMessage: Record<Lang, (reason: RunAutoDistribu
         'この店舗には有効なシフト種別がまだ設定されていません。先に設定でシフト種別を追加してください。',
       no_staffing_requirement:
         'どの曜日にも必要人数が設定されていません。先に設定の「1シフトあたりの必要人数」を設定してください。',
+      period_in_past:
+        'その期間はすでに過去です。過去のシフトは作り直せません。',
     })[reason],
 };
 
@@ -1148,10 +1163,22 @@ export const autoCreateCreatedMessage: Record<Lang, (count: number) => string> =
   ja: (count) => `${count}件のシフトを作成しました`,
 };
 
-/** One shortage row: date, window label, how many people are still missing. */
-export const autoCreateShortageLine: Record<Lang, (date: string, windowLabel: string, missing: number) => string> = {
-  en: (date, windowLabel, missing) => `${date} · ${windowLabel} — ${missing} short`,
-  ja: (date, windowLabel, missing) => `${date}・${windowLabel} — 不足${missing}名`,
+/** One shortage row: date, shift-type label, how many people are still missing. */
+export const autoCreateShortageLine: Record<Lang, (date: string, shiftTypeLabel: string, missing: number) => string> = {
+  en: (date, shiftTypeLabel, missing) => `${date} · ${shiftTypeLabel} — ${missing} short`,
+  ja: (date, shiftTypeLabel, missing) => `${date}・${shiftTypeLabel} — 不足${missing}名`,
+};
+
+/** One assigned-without-preference row: staff name, date, shift-type label. */
+export const autoCreateAssignedWithoutPreferenceLine: Record<Lang, (staffName: string, date: string, shiftTypeLabel: string) => string> = {
+  en: (staffName, date, shiftTypeLabel) => `${staffName} · ${date} · ${shiftTypeLabel}`,
+  ja: (staffName, date, shiftTypeLabel) => `${staffName}・${date}・${shiftTypeLabel}`,
+};
+
+/** Manual/confirmed-shifts-preserved note, count-aware -- 0 preserved is still worth stating explicitly. */
+export const autoCreatePreservedNote: Record<Lang, (count: number) => string> = {
+  en: (count) => (count > 0 ? `${count} confirmed/manual shift(s) were not changed.` : 'No confirmed or manual shifts were in this period.'),
+  ja: (count) => (count > 0 ? `確定済み・手動のシフト${count}件は変更していません。` : 'この期間に確定済み・手動のシフトはありませんでした。'),
 };
 
 /** One unplaced-preference row: staff name, date, plain-language reason. */

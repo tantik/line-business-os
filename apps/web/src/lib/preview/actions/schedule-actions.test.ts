@@ -99,11 +99,15 @@ test('previewRunAutoDistribution re-checks hasPositiveHeadcount on the fully-par
   assert.ok(guardIdx < autoDistributeIdx, 'the post-parse guard must run before the algorithm call');
 });
 
-test('previewRunAutoDistribution forwards the parsed staffingRequirements array unchanged to autoDistribute() - a valid, positive requirement set is never filtered or rewritten before reaching the algorithm', () => {
+test('previewRunAutoDistribution forwards the server-authoritative (shiftTypeId-keyed) requirements to autoDistribute() -- the client-submitted staffingRequirements is only ever used for the coarse pre-check, never forwarded to the algorithm', () => {
   const body = fnBody('previewRunAutoDistribution', 'previewPublishSchedule');
   assert.ok(
-    /staffingRequirements:\s*parsed\.staffingRequirements,/.test(body),
-    'must pass parsed.staffingRequirements directly (the same array hasPositiveHeadcount validated) into the autoDistribute() call',
+    /staffingRequirements:\s*authoritativeStaffingRequirements,/.test(body),
+    'must pass the server-authoritative requirements (buildAuthoritativeStaffingRequirements output) into the autoDistribute() call',
+  );
+  assert.ok(
+    !/staffingRequirements:\s*parsed\.staffingRequirements,/.test(body),
+    'the client-submitted (windowCode-shaped) staffingRequirements must never reach the algorithm',
   );
 });
 
