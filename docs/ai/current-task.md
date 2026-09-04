@@ -277,8 +277,32 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-04 pointer, AUTO SCHEDULING — CLOSED, DEV/Preview accepted (newest;
+canonical state now lives in `docs/project/master-state.md` §7 "Auto
+Scheduling", this is a pointer).** Out-of-band bounded mission, independent
+of the Cafe v2.2 WP sequence below — does **not** change the canonical next
+implementation step (still Operations Manager/Staff UI, unchanged). Closed:
+root-caused/fixed the CUSTOM-shift-type "no active shift types" bug,
+calendar-month 160h cap, past-date immutability, no-preference fallback +
+reporting, and the scheduled-monthly trigger (`apps/worker`, same engine as
+manual, idempotent, ON/OFF+day, draft-only/no auto-publish/no LINE). PRs
+#490/#491/#492 merged to `dev`. Migration `0114` (additive: schedule_settings
+`auto_create_enabled` + `auto_create_last_generated_month`) **APPLIED +
+VERIFIED on Cloud DEV** (Founder-run per the standing no-autonomous-write
+rule). Authenticated Preview Browser Acceptance PASS (Manager + Staff A);
+evidence boundaries honestly recorded, not false-PASS'd: monthly-160h-cap and
+manual-assignment-preservation are automated-test-only (not separately forced
+in this Browser QA run), real scheduled-cron firing is not yet observed.
+**Preview routing correction recorded this session:** canonical Browser QA
+entry is `https://preview.oruwa.jp/sign-in` → `/manager` or `/staff`, not a
+raw per-deployment Vercel URL (§7 of master-state.md now states this
+explicitly; this mission's own QA used a raw Vercel preview URL before the
+correction was given). A legacy generic-landing root surface observed on that
+raw URL is queued for the upcoming Cafe Functional Reality Audit
+(Routing/Entry Points/Legacy Surfaces) — no disposition decided.
+
 **2026-09-03 pointer, STEP 4 OPERATIONS CLOUD DEV MODULE-ON SMOKE — DONE
-(newest; canonical state now lives in `docs/project/master-state.md` §7/§14/§18,
+(canonical state now lives in `docs/project/master-state.md` §7/§14/§18,
 this is a pointer).** The Founder ran the module-ON smoke against Cloud DEV for
 `smoke-tenant-b` via `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1`:
 `CLOUD_TARGET`, `OPERATIONS_MODULE_ON`, `ENABLED_TENANT`, `DISABLED_TENANT`,

@@ -210,8 +210,50 @@ Implemented capability groups (Manager + Staff, bilingual JA/EN, mobile):
   unavailable-conflicts, inventory shortage).
 - **Staff auth provisioning:** invite → email → password → accept, proven E2E.
 
-`preview.oruwa.jp` is the acceptance surface. Cafe Hardening / Deferred Debt
-(P2/P3 from the Whole-Product Gate) remains a durable, non-blocking register.
+`preview.oruwa.jp` is the acceptance surface. **Canonical Preview entry
+routes: `https://preview.oruwa.jp/sign-in` → `https://preview.oruwa.jp/manager`
+(or `/staff`).** Raw per-deployment Vercel URLs (e.g.
+`*.vercel.app`) are not canonical acceptance targets — use them only when a
+specific PR's own ephemeral preview must be inspected before merge; routine
+Browser QA and Founder acceptance always start from `preview.oruwa.jp/sign-in`.
+Cafe Hardening / Deferred Debt (P2/P3 from the Whole-Product Gate) remains a
+durable, non-blocking register.
+
+### Auto Scheduling — CLOSED, DEV/Preview accepted (2026-09-04)
+
+Out-of-band bounded completion mission (independent of the v2.2 WP sequence
+below), Founder-directed end to end: root-caused and fixed the "no active
+shift types" bug (engine only recognized 5 hardcoded window codes;
+Manager-created shift types persist as `CUSTOM_<timestamp>` and were
+invisible to staffing-requirement matching — re-keyed the engine to
+`shiftTypeId`), corrected "max monthly hours" to a true calendar-month cap
+(seeds the engine with hours already on the books elsewhere in the month),
+enforced past-date immutability server-side, added explicit no-preference
+fallback + reporting, and added the scheduled-monthly trigger (`apps/worker`,
+reuses the same engine as the manual button, idempotent via
+`auto_create_last_generated_month`, Manager ON/OFF + day-of-month, drafts
+only — never auto-published, never queues LINE). PRs: #490, #491 (migration
+`0114`: `auto_create_enabled` + `auto_create_last_generated_month` on
+`workforce.schedule_settings`, additive/backward-compatible), #492 — all
+merged to `dev`. **Migration `0114` APPLIED + VERIFIED on Cloud DEV
+(2026-09-04)**, applied manually by the Founder per the standing "no
+autonomous Cloud DEV writes" rule, independently verified read-only
+(columns/defaults/view/grants/RLS intact; both pre-existing rows defaulted
+`auto_create_enabled = false` — no location silently auto-enabled).
+**Authenticated Preview Browser Acceptance PASS** (Manager QA + Staff A,
+`preview.oruwa.jp` — see below for the raw-Vercel-URL caveat this run used):
+CUSTOM shift-type regression fixed, manual generation + result summary,
+no-preference fallback reported, past-date protection, Undo/Rerun, automatic
+monthly ON/OFF+day persistence, and the critical no-auto-publish guarantee
+(an unreviewed auto-generated proposal is invisible to Staff) all verified
+live. Evidence boundaries (not false-PASS'd): monthly 160h cap and manual
+manual-assignment preservation are AUTOMATED TEST PASS only, not separately
+forced in this Browser QA run (test data didn't naturally produce those
+conditions); real scheduled-cron execution is NOT YET OBSERVED (worker is
+deployed and idempotent by design/tests, but no real trigger day has fired
+yet). QA cleanup done: generated drafts undone, `auto_create_enabled`
+restored to `false` and `auto_create_day_of_month` restored to its pre-QA
+`23` (verified read-only post-restore).
 
 ### Cafe v2.2 (= master-roadmap Phase 3)
 
@@ -449,6 +491,16 @@ Milestones that materially change future development speed:
   config write-path / limit-view UI).
 - "Surface A" (`mame-to-cha` preview tree) retain-vs-retire — Founder decision.
 - Native Japanese copy review (`I18N-JA-1`) — needs a native speaker.
+- **Legacy root surface** (observed 2026-09-04 via a raw Vercel deployment
+  root URL, not the canonical `preview.oruwa.jp` entry — see §7 Preview
+  routing note): a generic landing page reading "LINE Business OS" /
+  "Multi-tenant platform. Every module runs inside the shared Core." with
+  "Workforce" / "Booking" links. **No implementation decision made or
+  authorized.** Queued as an input for the upcoming **Cafe Functional
+  Reality Audit**, under Routing / Entry Points / Legacy Surfaces, to
+  determine: exact route, reachability from normal customer navigation,
+  what (if anything) depends on it, authenticated-vs-unauthenticated
+  reachability, and correct disposition (KEEP / REDIRECT / REMOVE).
 
 ---
 
