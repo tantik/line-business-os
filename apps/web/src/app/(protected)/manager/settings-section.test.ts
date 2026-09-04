@@ -13,13 +13,15 @@ const SOURCE = readFileSync(new URL('./settings-section.tsx', import.meta.url), 
 test('exposes the manual auto-create props the parent owns', () => {
   assert.match(SOURCE, /onAutoCreate: \(\) => void;/);
   assert.match(SOURCE, /autoCreatePending: boolean;/);
+  assert.match(SOURCE, /autoCreateUnavailable: boolean;/);
   assert.match(SOURCE, /lastAutoCreateResult: \{[^}]*created: number/);
 });
 
-test('the "create schedule automatically" button calls onAutoCreate and reflects the pending state', () => {
+test('the "create schedule automatically" button calls onAutoCreate, reflects the pending state, and is disabled when the whole displayed week is already past (past shifts are immutable)', () => {
   assert.match(SOURCE, /onClick=\{onAutoCreate\}/);
-  assert.match(SOURCE, /disabled=\{autoCreatePending\}/);
+  assert.match(SOURCE, /disabled=\{autoCreatePending \|\| autoCreateUnavailable\}/);
   assert.match(SOURCE, /autoCreatePending \? t\('automationManualCreateRunning'\) : t\('automationManualCreateButton'\)/);
+  assert.match(SOURCE, /autoCreateUnavailable \?[\s\S]{0,120}autoCreateWeekFullyPastNote/);
 });
 
 test('the day-of-month input is disabled and carries a coming-soon affordance, and no longer autosaves on change', () => {
