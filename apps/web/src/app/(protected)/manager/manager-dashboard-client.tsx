@@ -38,8 +38,10 @@ import {
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import {
+  autoCreateAssignedWithoutPreferenceLine,
   autoCreateConfigErrorMessage,
   autoCreateCreatedMessage,
+  autoCreatePreservedNote,
   autoCreateShortageLine,
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
@@ -47,7 +49,6 @@ import {
   staffSummaryLabel,
   tManagerDashboard,
   unplacedReasonLabel,
-  windowCodeLabel,
 } from './manager-dashboard-i18n';
 import { runAutoDistribution, undoAutoDistribution } from '@/lib/workforce/schedule-actions';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
@@ -1455,6 +1456,9 @@ function ManagerDashboardBody({
       >
         {autoCreateResult ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ margin: 0, ...mutedText, fontSize: 13 }}>
+              {scheduleHeadingValue[lang](autoCreateResult.effectivePeriodStart, autoCreateResult.effectivePeriodEnd)}
+            </p>
             <p style={{ margin: 0, fontWeight: 600 }}>{autoCreateCreatedMessage[lang](autoCreateResult.draftCount)}</p>
 
             {autoCreateResult.shortages.length === 0 && autoCreateResult.unplaced.length === 0 ? (
@@ -1465,11 +1469,15 @@ function ManagerDashboardBody({
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateShortagesHeading')}</div>
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
-                  {autoCreateResult.shortages.map((s) => (
-                    <li key={`${s.workDate}-${s.windowCode}`}>
-                      {autoCreateShortageLine[lang](s.workDate, windowCodeLabel[lang][s.windowCode], s.shortage)}
-                    </li>
-                  ))}
+                  {autoCreateResult.shortages.map((s) => {
+                    const shiftType = shiftTypeById.get(s.shiftTypeId);
+                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : s.shiftTypeId;
+                    return (
+                      <li key={`${s.workDate}-${s.shiftTypeId}`}>
+                        {autoCreateShortageLine[lang](s.workDate, shiftTypeLabel, s.shortage)}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null}
@@ -1502,7 +1510,28 @@ function ManagerDashboardBody({
               </div>
             ) : null}
 
-            <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('autoCreateManualPreservedNote')}</p>
+            {autoCreateResult.assignedWithoutPreference.length > 0 ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateAssignedWithoutPreferenceHeading')}</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                  {autoCreateResult.assignedWithoutPreference.map((a, i) => {
+                    const shiftType = shiftTypeById.get(a.shiftTypeId);
+                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : a.shiftTypeId;
+                    return (
+                      <li key={`${a.employeeId}-${a.workDate}-${i}`}>
+                        {autoCreateAssignedWithoutPreferenceLine[lang](
+                          staffById.get(a.employeeId)?.name ?? a.employeeId,
+                          a.workDate,
+                          shiftTypeLabel,
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{autoCreatePreservedNote[lang](autoCreateResult.preservedCount)}</p>
 
             {autoCreateResult.createdAssignmentIds.length > 0 ? (
               <button

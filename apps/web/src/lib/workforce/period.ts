@@ -72,6 +72,28 @@ function lastDayOfMonth(monthPrefix: string): number {
 }
 
 /**
+ * Returns the calendar-month period (first day .. last day, inclusive)
+ * containing an arbitrary `workDate` (not necessarily "now") -- used by the
+ * Auto Scheduling calendar-month hour cap (`schedule-actions.ts`) to widen a
+ * regeneration slice's own hour lookup to the whole month the slice falls
+ * in, and by the scheduled-monthly-generation "target next calendar month"
+ * rule.
+ */
+export function getMonthPeriodForDate(workDate: string): { periodStart: string; periodEnd: string; monthPrefix: string } {
+  const monthPrefix = workDate.slice(0, 7);
+  return {
+    periodStart: `${monthPrefix}-01`,
+    periodEnd: `${monthPrefix}-${String(lastDayOfMonth(monthPrefix)).padStart(2, '0')}`,
+    monthPrefix,
+  };
+}
+
+/** `'YYYY-MM'` prefix of an ISO date, e.g. `'2026-08-03'` -> `'2026-08'`. */
+export function monthPrefixOf(workDate: string): string {
+  return workDate.slice(0, 7);
+}
+
+/**
  * Returns the calendar-month period containing `nowIso`, resolved in
  * `timeZone` -- the Shift-requests review popup's outer scope (Founder:
  * "только за 1 месяц, тут истории нет"). No `monthOffset` param: v2.1 has no

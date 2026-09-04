@@ -16,9 +16,9 @@ import {
 } from '@/lib/workforce/shift-assignments';
 import {
   autoDistribute,
-  deriveActiveScheduleWindowCodes,
   type AutoDistributeEmployee,
   type AutoDistributePreference,
+  type AutoDistributeStaffingRequirement,
 } from '@/lib/workforce/auto-distribute';
 import { buildAuthoritativeStaffingRequirements } from '@/lib/workforce/auto-distribution-authority';
 import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
@@ -233,21 +233,22 @@ export async function previewRunAutoDistribution(
   // `listWorkforceShiftTypes` returns every shift type for the tenant, not
   // just the resolved location's (it has no location filter of its own) -
   // scope to the resolved `locationId` here so a shift type belonging to a
-  // different location in the same tenant can never widen the active windows
-  // or headcount this run is authoritative for.
+  // different location in the same tenant can never widen the requirements
+  // this run is authoritative for.
   const locationShiftTypes = shiftTypesResult.data.filter((st) => st.locationId === locationId);
-  const activeWindowCodes = deriveActiveScheduleWindowCodes(locationShiftTypes);
-  if (activeWindowCodes.length === 0) return invalidAutoDistributionInput('no_active_windows');
+  const activeShiftTypeIds = locationShiftTypes.filter((st) => st.isActive).map((st) => st.shiftTypeId);
+  if (activeShiftTypeIds.length === 0) return invalidAutoDistributionInput('no_active_windows');
   // Shared single source of truth with the canonical Manager
   // `runAutoDistribution` (`@/lib/workforce/auto-distribution-authority`) --
-  // one row per (weekday x active window) carrying that weekday's stored
-  // headcount, never trusted from the request body.
-  const authoritativeStaffingRequirements = buildAuthoritativeStaffingRequirements(
-    activeWindowCodes,
+  // one row per (weekday x active shift type) carrying that weekday's stored
+  // headcount, never trusted from the request body. The client-submitted
+  // `parsed.staffingRequirements` (windowCode-shaped, only used for the
+  // coarse pre-check above) is intentionally never forwarded to the engine.
+  const authoritativeStaffingRequirements: AutoDistributeStaffingRequirement[] = buildAuthoritativeStaffingRequirements(
+    activeShiftTypeIds,
     scheduleSettingsResult.data?.requiredHeadcountByWeekday,
   );
   if (!hasPositiveHeadcount(authoritativeStaffingRequirements)) return invalidAutoDistributionInput('no_positive_headcount');
-  parsed.staffingRequirements = authoritativeStaffingRequirements;
 
   const employees: AutoDistributeEmployee[] = staffResult.data
     .filter((s) => s.locationId === locationId)
@@ -283,7 +284,7 @@ export async function previewRunAutoDistribution(
       isActive: st.isActive,
     })),
     preferences,
-    staffingRequirements: parsed.staffingRequirements,
+    staffingRequirements: authoritativeStaffingRequirements,
     existingAssignments,
     options: {
       periodStart: parsed.periodStart,
@@ -303,11 +304,17 @@ export async function previewRunAutoDistribution(
       shortages: result.shortages,
       unplaced: result.unplaced,
       nonSubmitters: result.nonSubmitters,
+      assignedWithoutPreference: result.assignedWithoutPreference,
+      // The demo surface has no manual-shift-preservation concept of its own
+      // to report separately -- preserved rows are still never touched.
+      preservedCount: existingAssignments.filter((a) => a.published || a.locked).length,
       draftCount: insertResult.data.inserted,
       // The Undo button is a canonical-app-only affordance (`/manager`, PR
       // WP-G) -- the preview/demo surface doesn't wire it up, but still
       // satisfies the shared result type.
       createdAssignmentIds: insertResult.data.assignmentIds,
+      effectivePeriodStart: parsed.periodStart,
+      effectivePeriodEnd: parsed.periodEnd,
     },
   };
 }
