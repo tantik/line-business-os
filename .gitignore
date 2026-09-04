@@ -50,3 +50,11 @@ backups/
 
 # Claude Code runtime state — session id/pid/timestamp, not governance
 .claude/scheduled_tasks.lock
+
+# Claude Code per-developer local permission overlay — never commit.
+# May hold machine-specific paths or local-only allow rules; the committed
+# .claude/settings.json is the shared, reviewed governance layer.
+.claude/settings.local.json
+
+# Claude Code subagent worktrees (isolated repo checkouts, auto-created)
+.claude/worktrees/
