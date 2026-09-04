@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.7.0 |
+| Version | 1.8.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-08-23 (v1.7.0: **Permission gap audit, Browser QA follow-up** — a fresh audit of Founder permission prompts (separate session, same day) found the v1.6.0 allow-list only covered two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`), leaving genuinely read-only Preview-QA inspection tools — `resize_page`, `wait_for`, `take_snapshot`, `take_screenshot`, `list_pages`, `list_console_messages`, `get_console_message`, `list_network_requests`, `get_network_request` — still ask-gated for no RED-relevant reason: none of them can navigate, click, fill, submit, or execute script against a page. `.claude/settings.json`'s allow-list and this section's "Machine-enforced layer" paragraph were updated to add exactly those nine tools (bringing the Chrome DevTools allow-list to eleven total). Interactive/mutating tools (`click`, `fill`, `navigate_page` — whose `initScript` parameter can run arbitrary script on next page load —, `evaluate_script`, `new_page`, `close_page`, etc.) remain ask-gated, unchanged. No RED-tier, DEV-MERGE-gate, git/DB/deploy/secrets authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.6.0: **Permission gap cleanup mission** — this session's Cafe Manager Phase B QA hit repeated unnecessary Founder confirmation prompts for actions already within the Lead Agent's existing GREEN-tier/bounded-delivery-lifecycle authority (§9). `.claude/settings.json`'s "Machine-enforced layer" paragraph in this section now documents the resulting allow-list additions — `git add`, `git commit` (with new deny guards on any command containing `--amend` or `--no-verify`, so the broader `git commit*` allow cannot be used to amend a commit or skip hooks), `gh pr create`/`checks`/`view`, local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`, and two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`) used during Preview browser QA — plus a new **Command discipline** paragraph explaining why wrapping an already-allowed command in `cd ... &&` or a pipe caused avoidable prompts and should be avoided. A fresh-context Independent Reviewer pass on the first draft of this change found one real bypass: the `--no-verify` substring deny cannot catch git's short-flag form (`-n`, or a combined short-flag cluster like `-an`/`-na`), which a glob pattern cannot express. Fixed with a new `PreToolUse` hook (`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes any `git commit` command and asks for confirmation if a short-flag token containing `n` is present, rather than relying on glob matching alone. No RED-tier, DEV-MERGE-gate, or interactive/mutating-browser-tool authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
+| Last Updated | 2026-09-04 (v1.8.0: **Claude Autonomous DEV Permissions v2** — a bounded governance mission audited the real permission friction in ordinary DEV missions and rewrote §9's "Machine-enforced layer" paragraph plus the GREEN-tier row to match a widened, still-least-privilege `.claude/settings.json`. Added as GREEN: read-only shell (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls`), a larger read-only Git diagnostic set (`ls-files`/`cat-file`/`for-each-ref`/`describe`/`blame`/`shortlog`/`reflog show`/`config --get`/`remote -v`/`remote show`/ scoped `branch` read variants/`tag -l`/`pull`), feature-branch workflow (`git switch`/`checkout -b`/`restore --staged`/ scoped `stash`), non-force push made autonomous **only through the new `scripts/ai-hooks/guard-git-push.mjs` `PreToolUse` hook** — every `git push` stays in `ask`, and the hook returns `allow` solely for a simple non-force/non-mirror/non-prune/non-delete push to `origin` whose every refspec target resolves to a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`·`perf/`·`refactor/` branch (this replaced an earlier draft's glob allow rules, which an Independent Reviewer showed a trailing `*` could turn into `git push origin feature/x dev`, bypassing the DEV MERGE gate); read-only `gh` inspection (`pr diff|list|status`, `run|workflow|issue|search|label|repo|auth` viewers), local validation (`pnpm --filter … <verb>`, `pnpm -w …`, `pnpm exec tsc|eslint|vitest|playwright test|supabase test db`, `node --test`), local Supabase stack control and **local-only** Postgres (`psql -h 127.0.0.1`/`localhost -p 54322`). Newly hard-denied (defense in depth, none was previously autonomous): `vercel env rm|add|pull`/`promote`/`rollback`/`alias` (the 2026-09 shared-ENV-deletion incident), `git push -f`/`--delete`/`… :main`/`… :dev`, `git switch --discard-changes|-f|-C`, `git checkout -f`, `git restore --worktree`, `git branch -d|-D`, `git filter-branch|filter-repo`, `git update-ref`, `git reflog delete|expire`, `git clean -f|-d|-x`, `gh release|secret|variable`, **all** `gh api`, `rg --pre`, `supabase secrets`/`projects delete`/`branches delete`/`functions deploy`/`migration up --linked|--db-url`, and a single substring deny on `supabase db push`/`db pull`/`migration repair` covering every `pnpm exec`/`pnpm --filter … exec`/`pnpm dlx`/`npx` wrapper (replaced the earlier per-wrapper rules). `psql` allow-list constrained to `PGPASSWORD=postgres psql -h 127.0.0.1|localhost -p 54322` with an extra deny on any `psql` text containing a `postgres(ql)://` URI or `*.supabase.co`/`.com`/`pooler.supabase` host (libpq-conninfo override). New `ask`: local `supabase migration up`, `git rebase|merge|cherry-pick`, `gh workflow run`, state-changing `gh pr` verbs, `curl`/`wget`, `Write(supabase/migrations/**)`. **Unchanged and unweakened:** every prior RED boundary — `supabase db push` (and `pnpm exec` wrapper), `db pull`, `migration repair`, `vercel --prod`, `git push --force`, `git push origin main`, `git reset --hard`, raw `gh pr merge`, `--amend`/`--no-verify`, the DEV-MERGE-only merge path via `scripts/ai-dev-merge.sh`, and the `guard-no-verify` hook. No broad shell prefix (`Bash(git *)`, `Bash(pnpm *)`, `Bash(pnpm exec *)`, `Bash(gh *)`, `Bash(supabase *)`) is allow-listed. Cloud DB writes and `main`/Production remain separate, human-only Founder Gates. Independently reviewed before merge. Previously 2026-08-23, v1.7.0: **Permission gap audit, Browser QA follow-up** — a fresh audit of Founder permission prompts (separate session, same day) found the v1.6.0 allow-list only covered two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`), leaving genuinely read-only Preview-QA inspection tools — `resize_page`, `wait_for`, `take_snapshot`, `take_screenshot`, `list_pages`, `list_console_messages`, `get_console_message`, `list_network_requests`, `get_network_request` — still ask-gated for no RED-relevant reason: none of them can navigate, click, fill, submit, or execute script against a page. `.claude/settings.json`'s allow-list and this section's "Machine-enforced layer" paragraph were updated to add exactly those nine tools (bringing the Chrome DevTools allow-list to eleven total). Interactive/mutating tools (`click`, `fill`, `navigate_page` — whose `initScript` parameter can run arbitrary script on next page load —, `evaluate_script`, `new_page`, `close_page`, etc.) remain ask-gated, unchanged. No RED-tier, DEV-MERGE-gate, git/DB/deploy/secrets authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.6.0: **Permission gap cleanup mission** — this session's Cafe Manager Phase B QA hit repeated unnecessary Founder confirmation prompts for actions already within the Lead Agent's existing GREEN-tier/bounded-delivery-lifecycle authority (§9). `.claude/settings.json`'s "Machine-enforced layer" paragraph in this section now documents the resulting allow-list additions — `git add`, `git commit` (with new deny guards on any command containing `--amend` or `--no-verify`, so the broader `git commit*` allow cannot be used to amend a commit or skip hooks), `gh pr create`/`checks`/`view`, local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`, and two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`) used during Preview browser QA — plus a new **Command discipline** paragraph explaining why wrapping an already-allowed command in `cd ... &&` or a pipe caused avoidable prompts and should be avoided. A fresh-context Independent Reviewer pass on the first draft of this change found one real bypass: the `--no-verify` substring deny cannot catch git's short-flag form (`-n`, or a combined short-flag cluster like `-an`/`-na`), which a glob pattern cannot express. Fixed with a new `PreToolUse` hook (`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes any `git commit` command and asks for confirmation if a short-flag token containing `n` is present, rather than relying on glob matching alone. No RED-tier, DEV-MERGE-gate, or interactive/mutating-browser-tool authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -329,7 +329,7 @@ restate it elsewhere:
 
 | Tier | Meaning | Examples |
 |---|---|---|
-| **GREEN** | Routine development, autonomous by default. | Read, local edit, local test run, read-only Git diagnostics (`status`/`diff`/`log`/`show`/`fetch`/`rev-parse`/`rev-list`/`merge-base`/`merge-tree`/`ls-tree`/`ls-remote`/`branch --show-current`/`branch -a`/`branch --contains` — see `.claude/settings.json` for the exact allow-listed set; none of these can write, delete, or rewrite anything), commit, push a feature branch, open/update a PR. |
+| **GREEN** | Routine development, autonomous by default. | Read, local edit, local test run, read-only shell inspection (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls`), read-only Git diagnostics (`status`/`diff`/`log`/`show`/`fetch`/`rev-parse`/`rev-list`/`merge-base`/`merge-tree`/`ls-tree`/`ls-files`/`ls-remote`/`cat-file`/`for-each-ref`/`describe`/`blame`/`shortlog`/`reflog show`/`config --get`/`remote -v`/`remote show`/ scoped `branch` read variants/ scoped `tag -l` — see `.claude/settings.json` for the exact allow-listed set; none of these can write, delete, or rewrite anything), `git fetch`/`git pull` (fast-forward integration onto a feature branch), create/switch a feature branch (`git switch`, `git checkout -b`), `git add`/`git commit` (non-amend, hooks not skipped), push a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`·`perf/`·`refactor/` branch to `origin` (via the `guard-git-push.mjs` hook; every other push still prompts), open/update a PR and observe CI, local validation (`pnpm test`/`lint`/`typecheck`/`build`, `pnpm --filter … <verb>`, `pnpm exec turbo run`/`tsc`/`eslint`/`vitest`/`playwright test`, `node --test`), local Supabase stack control (`supabase start`/`stop`/`status`/`test db`) and local-only Postgres (`psql -h 127.0.0.1`/`localhost -p 54322`). |
 | **YELLOW** | Development actions that require review before proceeding, but not a Founder approval boundary by themselves. | Self-review/QA (§4), Independent Reviewer per §12's risk-tier policy, resolving review findings. |
 | **DEV MERGE** | AI CTO (Lead Agent) may merge autonomously, but only once every gate below has actually passed — not merely "probably fine." | A reviewed, green-CI PR merging into `dev`. See below. |
 | **RED** | Founder-controlled. No mission authorization, review pass, or CI green state grants this autonomously, ever. | `main` merge, production deploy/DB migration, destructive prod SQL/data changes, secrets/credential changes, billing/payment operations, real customer LINE broadcast, security-boundary changes, force-push/history rewrite. |
@@ -407,49 +407,104 @@ Approval is narrow beyond the bounded delivery lifecycle above: approval for
 one action does not authorize the next gate. When in doubt whether an action
 needs approval, it does.
 
-**Machine-enforced layer**: `.claude/settings.json` hard-blocks
-`supabase link/db push/db pull/migration repair`, `vercel --prod`,
-`git push --force*`, `git push origin main*`, `git reset --hard*`,
-`rm -rf*`, the raw `gh pr merge*` command, any command containing
-`--amend` (blocks `git commit --amend` in any argument position, not just
-as the first flag), and any command containing the long-form
-`--no-verify` flag. A glob deny cannot express "any short-flag cluster
-containing the letter n" (git's `-n` is shorthand for `--no-verify` on
-`git commit`, and can combine with other short flags, e.g. `-an`), so that
-gap is closed instead by a `PreToolUse` hook
-(`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes the command and
-asks for confirmation when such a token is present — and requires
-confirmation for
-`supabase db reset`, `pnpm db:seed`, `git push*`, and edits to
-`supabase/migrations/**`. It explicitly allows only
-`Bash(bash scripts/ai-dev-merge.sh*)` for merges — the DEV MERGE tier's
-guardrail script (see above), which re-verifies base=`dev` and the other
-mechanical gates itself before merging and structurally cannot target
-`main`. It also allows, as ordinary GREEN-tier development actions with no
-write-authority implication beyond what §9 already grants: `git add`,
-`git commit` (non-amend, hooks not skipped — see above), `gh pr create`/
-`gh pr checks`/`gh pr view` (the PR-open and CI-observe steps the bounded
-delivery lifecycle above already authorizes, plus read-only PR inspection),
-local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`
-(local verification, §11), and a set of non-mutating Chrome DevTools MCP
-tools used during Preview QA browser inspection — `select_page` (switch
-which open browser tab receives the next command), `emulate` and
-`resize_page` (set viewport/device size for responsive QA), `wait_for`
-(poll for text to appear), `take_snapshot` and `take_screenshot` (read the
-DOM/pixels), `list_pages` (enumerate open tabs), and the console/network
+**Machine-enforced layer**: `.claude/settings.json` is the single place in
+the repository where these boundaries are enforced by tooling rather than
+only stated in prose. Design rule: a command is allow-listed only in a
+form that cannot be turned, by additional arguments alone, into a Cloud
+write, a production action, a history rewrite, a secrets change, or a
+destructive filesystem/branch operation. **Broad shell prefixes
+(`Bash(git *)`, `Bash(pnpm *)`, `Bash(pnpm exec *)`, `Bash(gh *)`,
+`Bash(supabase *)`, `Bash(*)`) are deliberately never allow-listed** —
+each would also permit a dangerous variant. `sed`, `awk`, `find`, `xargs`,
+`curl`, `wget` are intentionally left prompting (in-place edit, `-exec`,
+arbitrary code, network writes).
+
+*Hard-blocked (`deny`):* `supabase link`; **any** command whose text
+contains `supabase db push`, `supabase db pull`, or `supabase migration
+repair` (a single substring rule — covers `pnpm exec`, `pnpm --filter …
+exec`, `pnpm dlx`, `npx` wrappers alike), `supabase functions deploy` and
+`supabase migration up --linked|--db-url` (Cloud-only, no local use),
+`supabase secrets`, `supabase projects delete`, `supabase branches
+delete`, `pnpm dlx supabase`; `vercel --prod` / `vercel deploy --prod` /
+`vercel env rm|add|pull` / `vercel promote` / `rollback` / `alias` (the
+2026-09 ENV-deletion incident: a single `vercel env rm` against `preview`
+deleted a record shared with Production); `git push --force` / `-f` /
+`--delete` / `… :main` / `… :dev`, `git push origin main`, `git reset
+--hard`, `git switch --discard-changes|-f|-C`, `git checkout -f`, `git
+restore --worktree`, `git branch -d|-D`, `git filter-branch|filter-repo`,
+`git update-ref`, `git reflog delete|expire`, `git clean -f|-d|-x`;
+`rm -rf`, `Remove-Item -Recurse -Force`; the raw `gh pr merge` command,
+`gh release`, `gh secret`, `gh variable`, and **all** `gh api` (no
+read-only `gh api` use is allow-listed, and its `-F|--field|--input`
+forms mutate); `rg --pre|--pre-glob` (external preprocessor); any command
+containing `--amend` or the long-form `--no-verify` in any argument
+position.
+
+*Confirmation-gated (`ask`):* `supabase db reset` / `pnpm db:seed` /
+local `supabase migration up`; **every `git push`** (the
+`guard-git-push.mjs` hook below is the only thing that can make a push
+autonomous, and only for a non-force push whose every target is a
+sanctioned feature-style branch on `origin` — `git push origin dev`,
+`… main`, force/mirror/prune/delete, and any non-`origin` remote all still
+prompt), `git rebase` / `git merge` / `git cherry-pick`,
+`gh workflow run|enable|disable`, `gh pr edit|close|reopen|comment|review`,
+`curl` / `wget`, and edits/writes under `supabase/migrations/**`.
+
+*Allow-listed as GREEN-tier development actions* (no write-authority
+implication beyond §9): `Bash(bash scripts/ai-dev-merge.sh *)` — the DEV
+MERGE guardrail script, the only merge path, structurally unable to target
+`main`; read-only shell (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls` and
+path helpers); the read-only Git diagnostic set enumerated in §9's GREEN
+row; `git switch` / `git checkout -b` / `git restore --staged` / `git add`
+/ `git commit` (non-amend, hooks not skipped — see below) / scoped
+`git stash push|pop|apply`; `git push` **only** as narrowed by the
+`guard-git-push.mjs` hook (see below); `gh pr create|checks|view|diff|list|
+status` and read-only `gh run|workflow|issue|search|label|repo|auth`
+inspection; local validation (`pnpm test|lint|typecheck|build|install`,
+`pnpm -w …`, `pnpm --filter … test|lint|typecheck|build`, `pnpm exec
+turbo run|tsc|eslint|vitest|playwright test|supabase test db`, `npx
+playwright test`, `node --test`); local Supabase stack control
+(`supabase start|stop|status|test db|migration list`, `docker ps`) and
+**local-only** Postgres (`PGPASSWORD=postgres psql -h 127.0.0.1`/`localhost
+-p 54322 …` — the local Supabase DB, which `supabase db reset` can
+rebuild; the hard-coded local password is useless against Cloud, and
+`deny` additionally blocks any `psql` command whose text contains a
+`postgres(ql)://` URI or a `*.supabase.co`/`.com`/`pooler.supabase` host,
+closing the libpq-conninfo-as-dbname override).
+
+Two `PreToolUse` hooks close gaps a glob cannot express.
+`scripts/ai-hooks/guard-no-verify.mjs` — a glob deny cannot match "any
+short-flag cluster containing the letter n" (git's `-n` is shorthand for
+`--no-verify` on `git commit`, e.g. `-an`), so this hook tokenizes the
+command and asks for confirmation when such a token is present.
+`scripts/ai-hooks/guard-git-push.mjs` — a glob allow cannot safely carve
+"non-force push of a feature branch" out of the blanket `git push` `ask`
+rule (a leading `*` absorbs `--mirror`/`--prune`; a trailing `*` after
+`feature/` still absorbs a second refspec such as `git push origin
+feature/x dev`, circumventing the DEV MERGE gate). The hook parses the
+push and returns `allow` **only** for a simple, non-force,
+non-mirror/prune/delete push to `origin` whose every refspec target
+resolves to a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`
+·`perf/`·`refactor/` branch; every other push (including `origin dev`/
+`main`, a bare `git push` from a non-feature branch, a chained command, or
+a non-`origin` remote) falls through to the Founder prompt. It never hard-
+blocks.
+
+*Chrome DevTools MCP* — the non-mutating inspection tools are allow-listed
+for Preview QA: `select_page`, `emulate`, `resize_page`, `wait_for`,
+`take_snapshot`, `take_screenshot`, `list_pages`, and the console/network
 readers `list_console_messages`, `get_console_message`,
-`list_network_requests`, `get_network_request`. None of these Chrome
-DevTools tools can navigate, click, fill, submit, or execute script against
-the page — they only inspect state that already exists. Interactive/mutating
-browser tools (`click`, `fill`, `navigate_page`, `evaluate_script`,
-`new_page`, `close_page`, etc.) remain ask-gated because they can execute
-real writes against the shared Preview database through the product's own
-UI, or (for `navigate_page`, via its `initScript` parameter) run arbitrary
-script on the next page load. This is the only layer in
-the repository where the boundary is enforced by tooling rather than only
-stated in prose — treat a permission prompt from it, or a BLOCK from the
-guardrail script, as the boundary firing correctly, not an obstacle to
-route around.
+`list_network_requests`, `get_network_request`. None can navigate, click,
+fill, submit, or execute script. Interactive/mutating browser tools
+(`click`, `fill`, `navigate_page`, `evaluate_script`, `new_page`,
+`close_page`, etc.) are allow-listed **only** by the Founder's explicit
+2026-08-25 browser-QA-autonomy grant (see that decision) — production
+scoping of their use remains behavioral, not structural.
+
+Treat a permission prompt from this layer, or a BLOCK from the guardrail
+script, as the boundary firing correctly, not an obstacle to route around
+— §9's "constructing a command differently to avoid an approval boundary"
+prohibition applies in full.
 
 **Command discipline**: when an operation already has an explicit
 `.claude/settings.json` allow rule, invoke it in that canonical form
@@ -503,8 +558,10 @@ between them. Merge into `dev` is likewise autonomous once §9's DEV MERGE
 conditions are confirmed PASS (Founder decision, 2026-08-23); merge into
 `main`, and everything from `approval boundary` onward that is not the
 `dev`-merge step itself, remain a human gate in every case, with no
-exception. The machine-enforced confirmation on `git push*`, the hard block
-on raw `gh pr merge*`, and the block on edits under `supabase/migrations/**`
+exception. The machine-enforced confirmation on `git push` (autonomous
+only for a non-force feature-branch push to `origin`, via
+`guard-git-push.mjs` — see §9), the hard block on raw `gh pr merge*`, and
+the block on edits under `supabase/migrations/**`
 in `.claude/settings.json` are unchanged and unweakened by this section — a
 permission prompt or a guardrail-script BLOCK is the boundary working
 correctly, not an obstacle to route around.
