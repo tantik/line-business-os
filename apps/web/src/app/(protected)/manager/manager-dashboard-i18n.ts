@@ -217,6 +217,10 @@ interface ManagerDashboardDict {
   automationLastResultHeading: string;
   autoCreateConfirmTitle: string;
   autoCreateConfirmBody: string;
+  /** Shown in the confirm dialog only when part of the displayed week is already past -- the run will only touch the remaining (future) days. */
+  autoCreatePastDaysExcludedNote: string;
+  /** Shown instead of the button when the WHOLE displayed week is already past -- past shifts are immutable, so there's nothing left to regenerate. */
+  autoCreateWeekFullyPastNote: string;
   autoCreateResultTitle: string;
   autoCreateManualPreservedNote: string;
   autoCreateShortagesHeading: string;
@@ -544,6 +548,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationLastResultHeading: 'Last result',
     autoCreateConfirmTitle: 'Create this week\'s schedule automatically?',
     autoCreateConfirmBody: 'Staff will be assigned based on their preferences and your settings. This week\'s unconfirmed automatic shifts will be replaced with the new set. Confirmed and manual shifts are left as they are.',
+    autoCreatePastDaysExcludedNote: 'Days already past will not be changed -- only the remaining days above will be filled.',
+    autoCreateWeekFullyPastNote: 'This whole week is already in the past, so it cannot be regenerated.',
     autoCreateResultTitle: 'Automatic creation result',
     autoCreateManualPreservedNote: 'Confirmed and manual shifts were not changed.',
     autoCreateShortagesHeading: 'Time slots still short',
@@ -847,6 +853,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     automationLastResultHeading: '直近の結果',
     autoCreateConfirmTitle: 'この週のシフトを自動で作成しますか？',
     autoCreateConfirmBody: 'スタッフの希望と設定にもとづいて割り当てます。この週の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトはそのまま残ります。',
+    autoCreatePastDaysExcludedNote: 'すでに過ぎた日は変更されません。残りの日のみが対象になります。',
+    autoCreateWeekFullyPastNote: 'この週はすでに過去のため、作り直すことはできません。',
     autoCreateResultTitle: '自動作成の結果',
     autoCreateManualPreservedNote: '確定済み・手動のシフトは変更していません',
     autoCreateShortagesHeading: '不足している時間帯',

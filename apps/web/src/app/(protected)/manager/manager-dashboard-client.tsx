@@ -1427,6 +1427,7 @@ function ManagerDashboardBody({
         onOpenShiftRequests={() => setShiftRequestsPopupOpen(true)}
         onAutoCreate={() => setAutoCreateConfirmOpen(true)}
         autoCreatePending={isPending && pendingAction === 'auto-create'}
+        autoCreateUnavailable={activePeriodEnd < todayIso}
         lastAutoCreateResult={lastAutoCreateResult}
         lang={lang}
       />
@@ -1443,7 +1444,20 @@ function ManagerDashboardBody({
           handleAutoCreate();
         }}
       >
-        <p style={{ margin: 0 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</p>
+        {/* Past dates are never regenerated -- show the Manager the REAL
+            target range this run will actually touch (today, if part of the
+            displayed week is already past), not just the displayed week,
+            so they never have to work out the server's clamp themselves.
+            The server re-clamps authoritatively regardless (schedule-actions.ts). */}
+        <p style={{ margin: 0 }}>
+          {scheduleHeadingValue[lang](
+            activePeriodStart < todayIso ? todayIso : activePeriodStart,
+            activePeriodEnd,
+          )}
+        </p>
+        {activePeriodStart < todayIso && activePeriodEnd >= todayIso ? (
+          <p style={{ margin: '4px 0 0', fontSize: 13, ...mutedText }}>{t('autoCreatePastDaysExcludedNote')}</p>
+        ) : null}
         <p style={{ margin: '8px 0 0' }}>{t('autoCreateConfirmBody')}</p>
       </ConfirmDialog>
 
