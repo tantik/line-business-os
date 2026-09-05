@@ -172,6 +172,10 @@ interface OperationsDict {
   completeTaskButton: string;
   taskCompletedNote: string;
   numericRangeHint: string;
+  /** Shown instead of `numericRangeHint` when a numeric item has no `numericMin`/`numericMax` set yet -- Manager config view (template/item list), where the fix is to edit the item. */
+  thresholdNotConfiguredManager: string;
+  /** Shown instead of `numericRangeHint` when a numeric item has no `numericMin`/`numericMax` set yet -- Staff task-execution view, where Staff cannot configure it themselves. */
+  thresholdNotConfiguredStaff: string;
   backToTaskList: string;
   sectionTemplatesTab: string;
   sectionTodayTab: string;
@@ -361,6 +365,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     completeTaskButton: 'Complete task',
     taskCompletedNote: 'This task is completed and can no longer be changed.',
     numericRangeHint: 'Expected range',
+    thresholdNotConfiguredManager: 'Threshold not configured',
+    thresholdNotConfiguredStaff: 'Threshold requires manager configuration',
     backToTaskList: 'Back to task list',
     sectionTemplatesTab: 'Templates',
     sectionTodayTab: 'Today',
@@ -546,6 +552,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     completeTaskButton: 'タスクを完了する',
     taskCompletedNote: 'このタスクは完了済みのため変更できません。',
     numericRangeHint: '目安の範囲',
+    thresholdNotConfiguredManager: 'しきい値未設定',
+    thresholdNotConfiguredStaff: '管理者による基準値の設定が必要です',
     backToTaskList: 'タスク一覧へ戻る',
     sectionTemplatesTab: 'テンプレート',
     sectionTodayTab: '本日',

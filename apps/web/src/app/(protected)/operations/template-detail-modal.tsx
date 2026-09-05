@@ -440,10 +440,14 @@ export function TemplateDetailModal({
                       <strong style={{ display: 'block' }}>{itemRow.label}</strong>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                         <span style={badgeStyle('neutral')}>{responseTypeLabel(t, itemRow.responseType)}</span>
-                        {itemRow.responseType === 'numeric' && (itemRow.numericMin !== null || itemRow.numericMax !== null) ? (
-                          <span style={badgeStyle('neutral')}>
-                            {itemRow.numericMin ?? '—'}–{itemRow.numericMax ?? '—'} {itemRow.numericUnit ?? ''}
-                          </span>
+                        {itemRow.responseType === 'numeric' ? (
+                          itemRow.numericMin !== null || itemRow.numericMax !== null ? (
+                            <span style={badgeStyle('neutral')}>
+                              {itemRow.numericMin ?? '—'}–{itemRow.numericMax ?? '—'} {itemRow.numericUnit ?? ''}
+                            </span>
+                          ) : (
+                            <span style={badgeStyle('warning')}>{t('thresholdNotConfiguredManager')}</span>
+                          )
                         ) : null}
                         {itemRow.isCritical ? <span style={badgeStyle('warning')}>{t('criticalBadge')}</span> : null}
                         <span style={badgeStyle(itemRow.isRequired ? 'neutral' : 'inactive')}>
