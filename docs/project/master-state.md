@@ -255,6 +255,42 @@ yet). QA cleanup done: generated drafts undone, `auto_create_enabled`
 restored to `false` and `auto_create_day_of_month` restored to its pre-QA
 `23` (verified read-only post-restore).
 
+### Help Content Pass v2 — CLOSED, DEV accepted (2026-09-05)
+
+Bounded content-only mission (PR #497, dev `b19cccb`): inventoried every
+user-facing Help surface across the current Cafe Manager/Staff product
+(all centralized behind the shared `HelpIconButton` + `Modal`
+`titleAdornment` pattern in `manager-dashboard-i18n.ts`,
+`staff-dashboard-i18n.ts`, `inventory-i18n.ts`, `purchases-i18n.ts`,
+`recipes-i18n.ts`) and verified each against actual code/backend
+behavior, not assumption. Found and closed one real gap: the Staff
+canonical dashboard's shift-preference submission and shift-exchange/
+change/cancellation request had no Help, unlike every other workflow on
+the page — added (`preferenceHelp*`, `exchangeHelp*` keys, JA/EN).
+Independent review (fresh context, two rounds) caught a genuine
+pre-existing inaccuracy this pass then corrected: `priorityExplainerBody`
+and `approvedPreferenceBody` (Manager) claimed an "approved preference"
+gets scheduling priority over an "unapproved" one — `shift-requests-
+review-popup.tsx`'s own doc comment and `packages/workforce/src/
+auto-distribute.ts` (no approval/status field; every submitted preference
+treated identically) both show that claim was false; "Approve" there is a
+local, unpersisted UI review marker only, v2.2 scope for real
+persistence/priority. Both strings rewritten to the true priority order
+(manual assignment > all submitted preferences, undifferentiated >
+automatic fallback); the new Staff-side Help was written to match from
+the start after the fix. Regression tests added in both `*-i18n.test.ts`
+files. All other existing Help content read against its own
+implementation and found already accurate (notably: Auto Scheduling
+Help already correctly states no auto-publish/no staff notification,
+matching the accepted product truth in the section above; Purchases/
+Inventory/Recipes Help correctly describe request-only / no-schedule-
+effect / draft-vs-published behavior). No new capability, no migration,
+no RLS/auth/navigation change. Browser QA: **not performed** (no
+browser/computer-use tool in this session) — content verified against
+code/tests only; a Browser Help QA pass on `preview.oruwa.jp` remains
+open, non-blocking, deferred to whenever this session type has browser
+capability or to the next Cafe QA pass.
+
 ### Cafe v2.2 (= master-roadmap Phase 3)
 
 **Canonical WP sequence — Founder/CTO decision 2026-09-01** (rationale in
