@@ -594,9 +594,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     markedUnavailableHint: 'Marked unavailable this day',
     approvePreferenceTitle: 'Approve preference',
     priorityExplainerBody:
-      'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. An approved preference (like this one)\n3. An unapproved employee preference\n4. Automatic fallback assignment',
+      'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. A submitted staff preference (approved or not -- marking approval here is a review note only and does not change this)\n3. Automatic fallback assignment',
     approvedPreferenceTitle: 'Approved preference',
-    approvedPreferenceBody: 'This preference is marked as a priority for scheduling.',
+    approvedPreferenceBody: 'This marks that you have reviewed this preference. It is a note for your own tracking and does not change how the schedule is generated.',
     removeApprovalButton: 'Remove approval',
     close: 'Close',
     sendReminderTitle: 'Remind employee',
@@ -900,9 +900,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     markedUnavailableHint: 'この日は勤務不可としています',
     approvePreferenceTitle: '希望を承認',
     priorityExplainerBody:
-      'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. 承認済みの希望（これ）\n3. 未承認のスタッフ希望\n4. 自動割り当て',
+      'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. スタッフが提出した希望（承認の有無に関わらず同じ扱いです。ここでの承認は確認済みという記録にすぎません）\n3. 自動割り当て',
     approvedPreferenceTitle: '承認済みの希望',
-    approvedPreferenceBody: 'この希望はスケジュール作成時に優先するものとして記録されています。',
+    approvedPreferenceBody: 'この希望を確認済みとして記録するものです。ご自身の確認用のメモであり、スケジュールの自動作成には影響しません。',
     removeApprovalButton: '承認を取り消す',
     close: '閉じる',
     sendReminderTitle: 'スタッフに知らせる',

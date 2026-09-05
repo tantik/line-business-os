@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import type { CSSProperties } from 'react';
-import { Modal } from '@/components/shared/design-kit';
+import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { addDays, toISODate, weekdayIndexMonFirst, WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
@@ -11,6 +11,7 @@ import { submitMonthlyShiftPreferences } from '@/lib/workforce/schedule-actions'
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input as inputStyle, mutedText } from '@/lib/ui/theme';
 import { shiftChipColors } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
+import { tStaffDashboard } from './staff-dashboard-i18n';
 
 export interface MonthlyShiftPreferenceModalProps {
   open: boolean;
@@ -59,6 +60,8 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
   const [error, setError] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<string, string | null>>({});
   const [note, setNote] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
+  const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
 
   const dates = useMemo(() => nextMonthDates(new Date()), []);
   const leadingBlanks = dates.length > 0 ? weekdayIndexMonFirst(new Date(`${dates[0]}T00:00:00`)) : 0;
@@ -136,6 +139,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
       open={open}
       onClose={handleClose}
       title={lang === 'ja' ? '来月のシフト希望を提出' : "Submit next month's shift preference"}
+      titleAdornment={<HelpIconButton ariaLabel={t('preferenceHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
       width="min(480px, 94vw)"
       closeLabel={lang === 'ja' ? '閉じる' : 'Close'}
       footer={
@@ -235,6 +239,10 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
           />
         </label>
       </div>
+
+      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('preferenceHelpTitle')} closeLabel={lang === 'ja' ? '閉じる' : 'Close'} width="min(480px, 94vw)">
+        <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('preferenceHelpBody')}</p>
+      </Modal>
     </Modal>
   );
 }

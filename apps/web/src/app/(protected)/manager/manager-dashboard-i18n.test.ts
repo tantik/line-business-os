@@ -227,3 +227,27 @@ test('Manager help copy describes user outcomes without internal implementation 
   }
 });
 
+/**
+ * Help Content Pass v2 (fix after independent review, PR #497): the
+ * "Approve preference" marker is local UI review-state only
+ * (`shift-requests-review-popup.tsx`'s own doc comment: never writes
+ * `workforce.shift_requests.status`, has no effect on
+ * `auto-distribute.ts`'s scheduling algorithm, which treats every
+ * submitted preference identically regardless of approval). Both the
+ * priority explainer and the approved-preference note must describe that
+ * real behavior, not claim approval changes scheduling priority --
+ * matching `shiftRequestsPopupHelpBody`'s own honest wording ("does not
+ * change the schedule").
+ */
+test('Manager priority/approved-preference help never claims that marking a preference "approved" changes scheduling priority', () => {
+  for (const lang of LANGS) {
+    const priority = tManagerDashboard(lang, 'priorityExplainerBody');
+    const approvedBody = tManagerDashboard(lang, 'approvedPreferenceBody');
+    assert.doesNotMatch(priority, /unapproved/i);
+    assert.doesNotMatch(approvedBody, /priorit/i);
+    assert.doesNotMatch(approvedBody, /優先/);
+  }
+  assert.match(tManagerDashboard('en', 'approvedPreferenceBody'), /does not change/i);
+  assert.match(tManagerDashboard('ja', 'approvedPreferenceBody'), /影響しません/);
+});
+
