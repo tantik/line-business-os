@@ -8,8 +8,16 @@
 #   4. PR state is OPEN
 #   5. PR is mergeable, with no conflicts and no force operation required
 #   6. every required CI check has passed (none failing, none pending)
-#   7. no changed file touches a known RED-operation path (migrations,
-#      secrets, env files, key/cert material)
+#   7. no changed file touches a known RED-operation path (secrets, env
+#      files, key/cert material, backups)
+#   8. if the PR touches supabase/migrations/**, the added SQL contains no
+#      destructive pattern (DROP TABLE/COLUMN, TRUNCATE, disabling/forcing
+#      off RLS, dropping a policy, widening anon/public grants) — see
+#      DESTRUCTIVE_SQL_REGEX below. A routine additive migration (new
+#      table/column/view/RPC/index, RLS policy add) auto-merges like any
+#      other dev-bound PR (Founder standing authority, 2026-09-05); a
+#      migration matching the destructive pattern still requires Founder
+#      approval, same as before.
 #
 # Judgment gates that cannot be mechanically verified from PR metadata
 # (implementation complete, CTO review, Independent Reviewer PASS where
@@ -69,12 +77,32 @@ if [[ "$merge_state_status" == "DIRTY" || "$merge_state_status" == "BLOCKED" ]];
   exit 1
 fi
 
-red_paths_regex='(^|/)(supabase/migrations/|\.env|backups/)|\.pem$|\.key$'
+red_paths_regex='(^|/)(\.env|backups/)|\.pem$|\.key$'
 red_hit="$(gh pr view "$PR" --json files -q '.files[].path' | grep -E "$red_paths_regex" || true)"
 if [[ -n "$red_hit" ]]; then
   echo "BLOCK: PR #$PR touches RED-operation path(s), requires Founder approval:" >&2
   echo "$red_hit" >&2
   exit 1
+fi
+
+migration_files="$(gh pr view "$PR" --json files -q '.files[].path' | grep -E '(^|/)supabase/migrations/' || true)"
+if [[ -n "$migration_files" ]]; then
+  # Destructive-pattern scan on the PR's added migration SQL only (added
+  # lines, case-insensitive) — mirrors guard-git-push.mjs's real-parsing
+  # philosophy: allow the broad routine case, keep a mechanical stop-crane
+  # on the specific dangerous shapes rather than blocking the whole category.
+  DESTRUCTIVE_SQL_REGEX='drop[[:space:]]+table|drop[[:space:]]+column|truncate|disable[[:space:]]+row[[:space:]]+level[[:space:]]+security|no[[:space:]]+force[[:space:]]+row[[:space:]]+level[[:space:]]+security|drop[[:space:]]+policy|grant[[:space:]]+.*[[:space:]]+to[[:space:]]+(anon|public)|delete[[:space:]]+from|drop[[:space:]]+function|drop[[:space:]]+view'
+  destructive_hit="$(gh pr diff "$PR" -- 'supabase/migrations/**' \
+    | grep -E '^\+' \
+    | grep -viE '^\+\+\+' \
+    | grep -iE "$DESTRUCTIVE_SQL_REGEX" || true)"
+  if [[ -n "$destructive_hit" ]]; then
+    echo "BLOCK: PR #$PR's migration(s) contain a destructive SQL pattern — requires Founder approval:" >&2
+    echo "$destructive_hit" >&2
+    exit 1
+  fi
+  echo "Migration file(s) present, no destructive pattern found — additive migration, proceeding (Founder standing authority 2026-09-05):"
+  echo "$migration_files"
 fi
 
 checks_count="$(gh pr checks "$PR" --json name -q 'length')"
