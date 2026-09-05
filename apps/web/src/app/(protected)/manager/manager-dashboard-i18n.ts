@@ -359,6 +359,7 @@ interface ManagerDashboardDict {
   navRecipes: string;
   navInventory: string;
   navPurchases: string;
+  navOperations: string;
   // Footer
   backToWorkforce: string;
   // Banner messages
@@ -671,6 +672,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     navRecipes: 'Recipes',
     navInventory: 'Inventory',
     navPurchases: 'Purchases',
+    navOperations: 'Operations',
     backToWorkforce: 'Platform dashboard',
     staffActivated: 'Staff member activated.',
     staffDeactivated: 'Staff member deactivated.',
@@ -977,6 +979,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     navRecipes: 'レシピ',
     navInventory: '在庫',
     navPurchases: '仕入れ',
+    navOperations: 'オペレーション',
     backToWorkforce: 'プラットフォームダッシュボード',
     staffActivated: 'スタッフを有効化しました。',
     staffDeactivated: 'スタッフを無効化しました。',

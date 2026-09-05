@@ -218,6 +218,8 @@ export interface ManagerDashboardClientProps {
   staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the Attention layer's inventory line; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
+  /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility; the real `/operations` page and its RLS remain the authorization boundary regardless. */
+  operationsEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
   inventoryItems: InventoryItemStatus[] | null;
   /** Signed photo URLs for `inventoryItems`, keyed by `itemId` (see `createInventoryMediaUrlMap`) -- threaded straight to the Inventory popup. */
@@ -301,6 +303,7 @@ function ManagerDashboardBody({
   exchangeAssignments,
   staffMessages,
   inventoryEnabled,
+  operationsEnabled,
   inventoryItems,
   inventoryMediaUrlByItemId,
   purchasesItems,
@@ -1064,6 +1067,15 @@ function ManagerDashboardBody({
                     markPopupTriggerClick('purchases');
                     setPurchasesPopupOpen(true);
                   },
+                },
+              ]
+            : []),
+          ...(operationsEnabled
+            ? [
+                {
+                  key: 'operations',
+                  label: t('navOperations'),
+                  href: '/operations',
                 },
               ]
             : []),
