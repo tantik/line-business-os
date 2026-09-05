@@ -136,6 +136,43 @@ interface OperationsDict {
   errScheduleVersionAlreadyEffective: string;
   errScheduleLaterRevisionExists: string;
   errScheduleVersionNotCancellable: string;
+  errItemNotInScheduleTemplate: string;
+  errItemInactive: string;
+  errResponseRequiresExactlyOneValue: string;
+  errResponseTypeMismatch: string;
+  errTaskAlreadyCompleted: string;
+  errTaskNotStarted: string;
+  errRequiredItemsIncomplete: string;
+  errInvalidSeverity: string;
+  staffPageTitle: string;
+  staffPageDescription: string;
+  backToStaff: string;
+  staffNoTasksToday: string;
+  taskStateNotStarted: string;
+  taskStateInProgress: string;
+  taskStateOverdue: string;
+  taskStateCompleted: string;
+  taskDueAt: string;
+  taskWindowUntil: string;
+  taskOpenExceptions: string;
+  checklistHeading: string;
+  noChecklistItems: string;
+  itemMissingHint: string;
+  responseSaving: string;
+  responseSaved: string;
+  reportProblemButton: string;
+  reportProblemForItemButton: string;
+  reportProblemHeading: string;
+  reportProblemNoteLabel: string;
+  reportProblemSeverityLabel: string;
+  severityWarning: string;
+  severityActionRequired: string;
+  reportProblemSubmit: string;
+  problemReported: string;
+  completeTaskButton: string;
+  taskCompletedNote: string;
+  numericRangeHint: string;
+  backToTaskList: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -270,6 +307,43 @@ const dictionary: Record<Lang, OperationsDict> = {
     errScheduleVersionAlreadyEffective: 'This revision has already taken effect and can no longer be cancelled.',
     errScheduleLaterRevisionExists: 'A later revision exists. Cancel that one first.',
     errScheduleVersionNotCancellable: 'This revision can no longer be cancelled.',
+    errItemNotInScheduleTemplate: 'This item does not belong to this task.',
+    errItemInactive: 'This item is no longer active.',
+    errResponseRequiresExactlyOneValue: 'Something went wrong recording this response. Please try again.',
+    errResponseTypeMismatch: 'That value does not match this item’s response type.',
+    errTaskAlreadyCompleted: 'This task has already been completed.',
+    errTaskNotStarted: 'This task has not been started yet.',
+    errRequiredItemsIncomplete: 'Some required items still need a response.',
+    errInvalidSeverity: 'Please choose a valid severity.',
+    staffPageTitle: 'Today’s tasks',
+    staffPageDescription: 'Operations checklist for',
+    backToStaff: 'Back to Staff',
+    staffNoTasksToday: 'No Operations tasks are expected today.',
+    taskStateNotStarted: 'Not started',
+    taskStateInProgress: 'In progress',
+    taskStateOverdue: 'Overdue',
+    taskStateCompleted: 'Completed',
+    taskDueAt: 'Due',
+    taskWindowUntil: 'until',
+    taskOpenExceptions: 'open issue(s)',
+    checklistHeading: 'Checklist',
+    noChecklistItems: 'This template has no active checklist items.',
+    itemMissingHint: 'No response yet',
+    responseSaving: 'Saving…',
+    responseSaved: 'Saved',
+    reportProblemButton: 'Report a problem',
+    reportProblemForItemButton: 'Report a problem with this item',
+    reportProblemHeading: 'Report a problem',
+    reportProblemNoteLabel: 'Note (optional)',
+    reportProblemSeverityLabel: 'Severity',
+    severityWarning: 'Warning',
+    severityActionRequired: 'Needs action',
+    reportProblemSubmit: 'Report problem',
+    problemReported: 'Problem reported.',
+    completeTaskButton: 'Complete task',
+    taskCompletedNote: 'This task is completed and can no longer be changed.',
+    numericRangeHint: 'Expected range',
+    backToTaskList: 'Back to task list',
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -400,6 +474,43 @@ const dictionary: Record<Lang, OperationsDict> = {
     errScheduleVersionAlreadyEffective: 'この変更はすでに適用されているため取り消せません。',
     errScheduleLaterRevisionExists: 'さらに後の変更が存在します。先にそちらを取り消してください。',
     errScheduleVersionNotCancellable: 'この変更は取り消せません。',
+    errItemNotInScheduleTemplate: 'この項目はこのタスクに属していません。',
+    errItemInactive: 'この項目はすでに無効です。',
+    errResponseRequiresExactlyOneValue: '回答の記録に失敗しました。もう一度お試しください。',
+    errResponseTypeMismatch: 'その値はこの項目の回答形式と一致しません。',
+    errTaskAlreadyCompleted: 'このタスクはすでに完了しています。',
+    errTaskNotStarted: 'このタスクはまだ開始されていません。',
+    errRequiredItemsIncomplete: '未回答の必須項目があります。',
+    errInvalidSeverity: '有効な重要度を選択してください。',
+    staffPageTitle: '本日のタスク',
+    staffPageDescription: 'オペレーションチェックリスト -',
+    backToStaff: 'スタッフページへ戻る',
+    staffNoTasksToday: '本日予定されているオペレーションタスクはありません。',
+    taskStateNotStarted: '未着手',
+    taskStateInProgress: '進行中',
+    taskStateOverdue: '期限超過',
+    taskStateCompleted: '完了',
+    taskDueAt: '実施時刻',
+    taskWindowUntil: 'まで',
+    taskOpenExceptions: '件の未解決の問題',
+    checklistHeading: 'チェックリスト',
+    noChecklistItems: 'このテンプレートには有効なチェック項目がありません。',
+    itemMissingHint: '未回答',
+    responseSaving: '保存中…',
+    responseSaved: '保存しました',
+    reportProblemButton: '問題を報告',
+    reportProblemForItemButton: 'この項目の問題を報告',
+    reportProblemHeading: '問題を報告',
+    reportProblemNoteLabel: 'メモ（任意）',
+    reportProblemSeverityLabel: '重要度',
+    severityWarning: '注意',
+    severityActionRequired: '要対応',
+    reportProblemSubmit: '問題を報告する',
+    problemReported: '問題を報告しました。',
+    completeTaskButton: 'タスクを完了する',
+    taskCompletedNote: 'このタスクは完了済みのため変更できません。',
+    numericRangeHint: '目安の範囲',
+    backToTaskList: 'タスク一覧へ戻る',
   },
 };
 

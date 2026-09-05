@@ -41,6 +41,15 @@ const KEYS: Parameters<typeof tOperations>[1][] = [
   'errTemplateLocationMismatch', 'errScheduleAlreadyRetired', 'errScheduleNotYetEffective',
   'errScheduleDeactivationRetroactive', 'errScheduleVersionAlreadyEffective', 'errScheduleLaterRevisionExists',
   'errScheduleVersionNotCancellable',
+  'errItemNotInScheduleTemplate', 'errItemInactive', 'errResponseRequiresExactlyOneValue', 'errResponseTypeMismatch',
+  'errTaskAlreadyCompleted', 'errTaskNotStarted', 'errRequiredItemsIncomplete', 'errInvalidSeverity',
+  'staffPageTitle', 'staffPageDescription', 'backToStaff', 'staffNoTasksToday',
+  'taskStateNotStarted', 'taskStateInProgress', 'taskStateOverdue', 'taskStateCompleted',
+  'taskDueAt', 'taskWindowUntil', 'taskOpenExceptions',
+  'checklistHeading', 'noChecklistItems', 'itemMissingHint', 'responseSaving', 'responseSaved',
+  'reportProblemButton', 'reportProblemForItemButton', 'reportProblemHeading', 'reportProblemNoteLabel',
+  'reportProblemSeverityLabel', 'severityWarning', 'severityActionRequired', 'reportProblemSubmit', 'problemReported',
+  'completeTaskButton', 'taskCompletedNote', 'numericRangeHint', 'backToTaskList',
 ];
 
 test('tOperations returns a non-empty string for every key in both languages', () => {

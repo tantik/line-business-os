@@ -29,6 +29,14 @@ const KNOWN_OPERATIONS_ERROR_KEYS: Record<string, OperationsDictKey> = {
   operations_schedule_version_already_effective: 'errScheduleVersionAlreadyEffective',
   operations_schedule_later_revision_exists: 'errScheduleLaterRevisionExists',
   operations_schedule_version_not_cancellable: 'errScheduleVersionNotCancellable',
+  operations_item_not_in_schedule_template: 'errItemNotInScheduleTemplate',
+  operations_item_inactive: 'errItemInactive',
+  operations_response_requires_exactly_one_value: 'errResponseRequiresExactlyOneValue',
+  operations_response_type_mismatch: 'errResponseTypeMismatch',
+  operations_task_already_completed: 'errTaskAlreadyCompleted',
+  operations_task_not_started: 'errTaskNotStarted',
+  operations_required_items_incomplete: 'errRequiredItemsIncomplete',
+  operations_invalid_severity: 'errInvalidSeverity',
 };
 
 /** Shared client-side error copy for every write call on this page. Bilingual (JA/EN) -- never a raw machine error code or an untranslated string reaches the UI. */
