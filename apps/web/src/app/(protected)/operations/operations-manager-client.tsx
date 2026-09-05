@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operations/templates';
 import type { OperationsSchedule } from '@/lib/operations/schedules';
+import type { OperationsExpectedTask } from '@/lib/operations/tasks';
+import type { OperationsOpenException } from '@/lib/operations/exceptions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -14,6 +16,8 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import { tOperations } from './operations-i18n';
 import { TemplateForm } from './template-form';
 import { TemplateDetailModal } from './template-detail-modal';
+import { TodayTasksSection } from './today-tasks-section';
+import { AttentionSection } from './attention-section';
 
 export interface OperationsManagerClientProps {
   tenantName: string;
@@ -22,9 +26,14 @@ export interface OperationsManagerClientProps {
   templates: OperationsTemplate[] | null;
   items: OperationsTemplateItem[] | null;
   schedules: OperationsSchedule[] | null;
+  /** Today's expected Operations tasks at this Manager's own location -- see `page.tsx`. */
+  todayTasks: OperationsExpectedTask[] | null;
+  /** Currently-open Operations exceptions at this Manager's own location -- see `page.tsx`. */
+  openExceptions: OperationsOpenException[] | null;
 }
 
 type StatusFilter = 'active' | 'retired';
+type Section = 'templates' | 'today' | 'attention';
 
 /**
  * Manager Operations Configuration -- Templates & Items only (Cafe v2.2 WP1
@@ -44,15 +53,26 @@ export function OperationsManagerClient(props: OperationsManagerClientProps) {
   );
 }
 
-function OperationsManagerBody({ tenantName, locationName, locationId, templates, items, schedules }: OperationsManagerClientProps) {
+function OperationsManagerBody({
+  tenantName,
+  locationName,
+  locationId,
+  templates,
+  items,
+  schedules,
+  todayTasks,
+  openExceptions,
+}: OperationsManagerClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tOperations>[1]) => tOperations(lang, key);
+  const [section, setSection] = useState<Section>('templates');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [adding, setAdding] = useState(false);
   const [addPending, setAddPending] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const openExceptionCount = (openExceptions ?? []).length;
 
   const visibleTemplates = useMemo(
     () => (templates ?? []).filter((template) => (statusFilter === 'active' ? template.isActive : !template.isActive)),
@@ -84,7 +104,40 @@ function OperationsManagerBody({ tenantName, locationName, locationId, templates
         </Link>
       </header>
 
-      {adding ? (
+      <div role="group" aria-label={t('sectionTemplatesTab')} style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden', marginTop: 16 }}>
+        {(['templates', 'today', 'attention'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            aria-pressed={section === tab}
+            onClick={() => setSection(tab)}
+            style={{
+              border: 0,
+              minHeight: 36,
+              padding: '7px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: section === tab ? colors.accent : 'transparent',
+              color: section === tab ? '#fff' : colors.textMuted,
+            }}
+          >
+            {tab === 'templates'
+              ? t('sectionTemplatesTab')
+              : tab === 'today'
+                ? t('sectionTodayTab')
+                : `${t('sectionAttentionTab')}${openExceptionCount > 0 ? ` (${openExceptionCount})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      {section === 'today' ? <TodayTasksSection t={t} tasks={todayTasks} /> : null}
+
+      {section === 'attention' ? (
+        <AttentionSection t={t} lang={lang} exceptions={openExceptions} tasksToday={todayTasks ?? []} items={items ?? []} onChange={refresh} />
+      ) : null}
+
+      {section === 'templates' && adding ? (
         <section style={card}>
           <h2 style={{ margin: 0, fontSize: 15 }}>{t('newTemplateHeading')}</h2>
           {addError ? <div style={{ ...alertDanger, marginTop: 12 }}>{addError}</div> : null}
@@ -118,7 +171,7 @@ function OperationsManagerBody({ tenantName, locationName, locationId, templates
             </button>
           </div>
         </section>
-      ) : (
+      ) : section === 'templates' ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, alignItems: 'center' }}>
           <div role="group" aria-label={t('filterActive')} style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden' }}>
             {(['active', 'retired'] as const).map((tab) => (
@@ -146,9 +199,9 @@ function OperationsManagerBody({ tenantName, locationName, locationId, templates
             {t('addTemplateButton')}
           </button>
         </div>
-      )}
+      ) : null}
 
-      {!adding ? (
+      {section === 'templates' && !adding ? (
         <section style={{ ...card, marginTop: 16 }}>
           {templates === null ? (
             <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>

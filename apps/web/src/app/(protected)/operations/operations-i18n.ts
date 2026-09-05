@@ -173,6 +173,21 @@ interface OperationsDict {
   taskCompletedNote: string;
   numericRangeHint: string;
   backToTaskList: string;
+  sectionTemplatesTab: string;
+  sectionTodayTab: string;
+  sectionAttentionTab: string;
+  todayNoTasksToday: string;
+  attentionNoOpenExceptions: string;
+  attentionSourceThreshold: string;
+  attentionSourceReported: string;
+  attentionItemLabel: string;
+  attentionUnknownTask: string;
+  attentionOpenedAtLabel: string;
+  resolveButton: string;
+  resolveNoteLabel: string;
+  resolveSubmit: string;
+  errExceptionNotFound: string;
+  errExceptionAlreadyResolved: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -344,6 +359,21 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskCompletedNote: 'This task is completed and can no longer be changed.',
     numericRangeHint: 'Expected range',
     backToTaskList: 'Back to task list',
+    sectionTemplatesTab: 'Templates',
+    sectionTodayTab: 'Today',
+    sectionAttentionTab: 'Attention',
+    todayNoTasksToday: 'No Operations tasks are expected today.',
+    attentionNoOpenExceptions: 'No open exceptions. Everything looks fine.',
+    attentionSourceThreshold: 'Out of range',
+    attentionSourceReported: 'Reported',
+    attentionItemLabel: 'Item',
+    attentionUnknownTask: 'Task',
+    attentionOpenedAtLabel: 'Opened',
+    resolveButton: 'Resolve',
+    resolveNoteLabel: 'Resolution note (optional)',
+    resolveSubmit: 'Mark as resolved',
+    errExceptionNotFound: 'This exception could not be found.',
+    errExceptionAlreadyResolved: 'This exception has already been resolved.',
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -511,6 +541,21 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskCompletedNote: 'このタスクは完了済みのため変更できません。',
     numericRangeHint: '目安の範囲',
     backToTaskList: 'タスク一覧へ戻る',
+    sectionTemplatesTab: 'テンプレート',
+    sectionTodayTab: '本日',
+    sectionAttentionTab: '対応が必要',
+    todayNoTasksToday: '本日予定されているオペレーションタスクはありません。',
+    attentionNoOpenExceptions: '未解決の問題はありません。',
+    attentionSourceThreshold: '範囲外の値',
+    attentionSourceReported: '報告された問題',
+    attentionItemLabel: '項目',
+    attentionUnknownTask: 'タスク',
+    attentionOpenedAtLabel: '発生日時',
+    resolveButton: '解決する',
+    resolveNoteLabel: '解決メモ（任意）',
+    resolveSubmit: '解決済みにする',
+    errExceptionNotFound: 'この問題が見つかりませんでした。',
+    errExceptionAlreadyResolved: 'この問題はすでに解決済みです。',
   },
 };
 

@@ -37,6 +37,8 @@ const KNOWN_OPERATIONS_ERROR_KEYS: Record<string, OperationsDictKey> = {
   operations_task_not_started: 'errTaskNotStarted',
   operations_required_items_incomplete: 'errRequiredItemsIncomplete',
   operations_invalid_severity: 'errInvalidSeverity',
+  operations_exception_not_found: 'errExceptionNotFound',
+  operations_exception_already_resolved: 'errExceptionAlreadyResolved',
 };
 
 /** Shared client-side error copy for every write call on this page. Bilingual (JA/EN) -- never a raw machine error code or an untranslated string reaches the UI. */
