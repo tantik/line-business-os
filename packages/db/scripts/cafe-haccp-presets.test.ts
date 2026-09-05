@@ -76,13 +76,13 @@ test('a partial context (template 1 exists with its items but no schedule yet) c
   assert.ok(plan.schedulesToCreate.some((s) => s.templateName === template1.name));
 });
 
-test('every planned numeric item carries its numericMin/numericMax/numericUnit; every boolean item carries null for all three', () => {
+test('every planned numeric item carries a real numericUnit but NO numericMin/numericMax (Founder decision: thresholds are Manager/Owner configuration, never an ORUWA-imposed default); every boolean item carries null for all three', () => {
   const plan = buildCafeHaccpPresetsPlan(CAFE_HACCP_PRESETS_MANIFEST, baseContext());
   for (const item of plan.itemsToCreate) {
     if (item.responseType === 'numeric') {
-      assert.notEqual(item.numericMin, null, `numeric item "${item.label}" must carry numericMin`);
-      assert.notEqual(item.numericMax, null, `numeric item "${item.label}" must carry numericMax`);
-      assert.notEqual(item.numericUnit, null, `numeric item "${item.label}" must carry numericUnit`);
+      assert.equal(item.numericMin, null, `numeric item "${item.label}" must NOT carry a numericMin -- ORUWA presets never impose a threshold`);
+      assert.equal(item.numericMax, null, `numeric item "${item.label}" must NOT carry a numericMax -- ORUWA presets never impose a threshold`);
+      assert.notEqual(item.numericUnit, null, `numeric item "${item.label}" must still carry numericUnit`);
     } else if (item.responseType === 'boolean') {
       assert.equal(item.numericMin, null);
       assert.equal(item.numericMax, null);
@@ -91,14 +91,24 @@ test('every planned numeric item carries its numericMin/numericMax/numericUnit; 
   }
 });
 
-test('the hot-holding temperature item is isCritical:true, isRequired:false (spot check per brief)', () => {
+test('no invented temperature default survives in the manifest: every numeric item is unset (null/null), never a guessed number, while unit stays °C', () => {
+  const numericItems = CAFE_HACCP_PRESETS_MANIFEST.templates.flatMap((t) => t.items).filter((i) => i.responseType === 'numeric');
+  assert.equal(numericItems.length, 5, 'expected exactly 5 numeric HACCP items (fridge x3: opening/closing/midday, freezer, hot-holding) -- update this count deliberately if the manifest content changes');
+  for (const item of numericItems) {
+    assert.equal(item.numericMin, null, `"${item.label}" must not carry a canonical min`);
+    assert.equal(item.numericMax, null, `"${item.label}" must not carry a canonical max`);
+    assert.equal(item.numericUnit, '°C', `"${item.label}" must still declare its unit`);
+  }
+});
+
+test('the hot-holding temperature item is isCritical:true, isRequired:false, with no canonical threshold (spot check)', () => {
   const plan = buildCafeHaccpPresetsPlan(CAFE_HACCP_PRESETS_MANIFEST, baseContext());
   const hotHolding = plan.itemsToCreate.find((i) => i.label.includes('温蔵・保温機器'));
   assert.ok(hotHolding);
   assert.equal(hotHolding.isCritical, true);
   assert.equal(hotHolding.isRequired, false);
-  assert.equal(hotHolding.numericMin, 60);
-  assert.equal(hotHolding.numericMax, 90);
+  assert.equal(hotHolding.numericMin, null);
+  assert.equal(hotHolding.numericMax, null);
   assert.equal(hotHolding.numericUnit, '°C');
 });
 

@@ -5,15 +5,45 @@
  *
  * SCOPE / GOVERNANCE NOTES (read before touching any content below):
  *
- * 1. NUMERIC RANGES ARE NOT LEGALLY VERIFIED. The four temperature ranges
- *    used below (0-10C fridge, -30 to -15C freezer, 60-90C hot-holding) are
- *    OPERATIONAL DEFAULTS based on common food-safety practice. They are NOT
- *    sourced from any approved document in this repository and have NOT been
- *    independently verified against Japanese HACCP / food sanitation law.
- *    They are flagged here per this mission's explicit instruction not to
- *    silently invent a legally meaningful number. A food-safety professional
- *    or the Founder must confirm/adjust these before they are treated as
- *    anything more than an operational starting point.
+ * 1. NUMERIC THRESHOLDS ARE INTENTIONALLY UNSET (Founder decision,
+ *    2026-09-05, second HACCP mission). An earlier version of this file
+ *    shipped canonical `numeric_min`/`numeric_max` values (0-10C fridge,
+ *    -30 to -15C freezer, 60-90C hot-holding) as "operational defaults" --
+ *    the Founder rejected treating ANY unverified number as a canonical
+ *    ORUWA default, even one flagged as unverified. The product rule going
+ *    forward: ORUWA presets define WHAT to check, the response type, the
+ *    unit, and critical/required semantics -- the actual acceptable
+ *    range for a numeric check is Manager/Owner configuration for their
+ *    specific business/location, never something this preset content
+ *    imposes. Every numeric item below therefore ships with
+ *    `numericMin: null, numericMax: null` and a real `numericUnit`
+ *    (`'°C'`) -- this is a fully supported, safe state (verified against
+ *    the schema/RPC/response-recording code before this change: a NULL
+ *    threshold can never produce a false threshold exception -- see
+ *    `operations.checklist_items_numeric_range_chk`/`..._numeric_only_chk`
+ *    in `0100_operations_module_foundation.sql` and the threshold check in
+ *    `api.operations_record_response`, `0101_operations_scheduling_execution.sql`,
+ *    which only compares against a bound when that bound is NOT NULL). Do
+ *    NOT reintroduce a guessed/"more correct" number here -- if a real
+ *    canonical default is ever wanted, it needs its own sourced, approved
+ *    decision, not a value invented inside this data file.
+ *
+ * 1a. CURRENT THRESHOLD-CONFIGURATION MODEL (record of the current product
+ *    rule, not a design decision made by this file): a numeric threshold
+ *    lives on `operations.checklist_items`, which belongs to exactly one
+ *    `checklist_template`. A template is either tenant-wide
+ *    (`location_id IS NULL`, shared verbatim by every location) or scoped
+ *    to exactly one location. There is currently **no** mechanism for one
+ *    shared template to carry a different threshold per location --
+ *    achieving different thresholds per location today requires separate,
+ *    location-scoped template copies (with their own item rows), not a
+ *    single shared template with per-location overrides. **True
+ *    per-location threshold overrides on top of one shared template are a
+ *    separate architecture decision (e.g. a location-override table) and
+ *    are explicitly NOT authorized by this change.** For the current
+ *    single-location `oruwa-cafe` reference tenant this distinction has no
+ *    practical effect; it matters the moment a second location is
+ *    provisioned under the same tenant.
  *
  * 2. NOT A CERTIFICATION. Per the approved scope doc
  *    (`docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md`
@@ -123,8 +153,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: 0,
-          numericMax: 10,
+          numericMin: null,
+          numericMax: null,
           numericUnit: '°C',
         },
       ],
@@ -159,8 +189,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: 0,
-          numericMax: 10,
+          numericMin: null,
+          numericMax: null,
           numericUnit: '°C',
         },
       ],
@@ -213,8 +243,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: 0,
-          numericMax: 10,
+          numericMin: null,
+          numericMax: null,
           numericUnit: '°C',
         },
         {
@@ -222,8 +252,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: -30,
-          numericMax: -15,
+          numericMin: null,
+          numericMax: null,
           numericUnit: '°C',
         },
         {
@@ -231,8 +261,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: false,
-          numericMin: 60,
-          numericMax: 90,
+          numericMin: null,
+          numericMax: null,
           numericUnit: '°C',
         },
       ],

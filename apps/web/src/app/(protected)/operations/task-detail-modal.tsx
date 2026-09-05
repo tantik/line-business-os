@@ -296,7 +296,9 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
               <span style={{ ...mutedText, fontSize: 12, display: 'block', marginTop: 4 }}>
                 {t('numericRangeHint')}: {item.numericMin ?? '—'}–{item.numericMax ?? '—'} {item.numericUnit ?? ''}
               </span>
-            ) : null}
+            ) : (
+              <span style={{ ...mutedText, fontSize: 12, display: 'block', marginTop: 4 }}>{t('thresholdNotConfiguredStaff')}</span>
+            )}
           </label>
           {!readOnly ? (
             <LoadingButton
