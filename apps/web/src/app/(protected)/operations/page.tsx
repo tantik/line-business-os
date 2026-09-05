@@ -7,6 +7,7 @@ import { listTenantLocations } from '@/lib/tenant/locations';
 import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
 import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
+import { listOpenOperationsExceptions } from '@/lib/operations/exceptions';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import {
@@ -36,8 +37,10 @@ export const metadata: Metadata = { title: 'Operations', robots: { index: false,
  * `/purchases` and `/manager` use) sees the Configuration UI, completely
  * unchanged from earlier slices; any other tenant member with a workforce
  * staff profile sees today's expected tasks at their own location instead.
- * Manager Attention (exceptions), photo evidence, and a Staff history view
- * are explicitly out of scope for this slice.
+ * The Manager Configuration UI also includes a read-only "Today" overview
+ * (today's expected tasks at the Manager's own location) and an "Attention"
+ * feed (open Operations exceptions, resolvable from here) -- fourth UI
+ * slice. Photo evidence and a Staff history view remain out of scope.
  */
 export default async function OperationsPage() {
   const result = await requireTenantContext();
@@ -84,11 +87,25 @@ export default async function OperationsPage() {
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
 
       if (managerAccess) {
-        const [templatesResult, itemsResult, schedulesResult] = await Promise.all([
+        const managerToday = new Date().toISOString().slice(0, 10);
+        const [templatesResult, itemsResult, schedulesResult, managerTasksResult, openExceptionsResult] = await Promise.all([
           listOperationsTemplates(supabase, activeTenant.tenantId),
           listOperationsTemplateItems(supabase, activeTenant.tenantId),
           listOperationsSchedules(supabase, activeTenant.tenantId),
+          listExpectedTasks(supabase, activeTenant.tenantId, managerToday),
+          listOpenOperationsExceptions(supabase, activeTenant.tenantId),
         ]);
+        // `operations.task.read` may be tenant-wide for some roles -- narrow
+        // to this Manager's own location here, same convention as the Staff
+        // branch below.
+        const managerTodayTasks =
+          managerTasksResult.status === 'success'
+            ? managerTasksResult.data.filter((task) => task.locationId === location.locationId)
+            : null;
+        const managerOpenExceptions =
+          openExceptionsResult.status === 'success'
+            ? openExceptionsResult.data.filter((exception) => exception.locationId === location.locationId)
+            : null;
 
         return (
           <OperationsManagerClient
@@ -98,6 +115,8 @@ export default async function OperationsPage() {
             templates={templatesResult.status === 'success' ? templatesResult.data : null}
             items={itemsResult.status === 'success' ? itemsResult.data : null}
             schedules={schedulesResult.status === 'success' ? schedulesResult.data : null}
+            todayTasks={managerTodayTasks}
+            openExceptions={managerOpenExceptions}
           />
         );
       }

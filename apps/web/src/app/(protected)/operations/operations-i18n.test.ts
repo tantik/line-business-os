@@ -50,6 +50,11 @@ const KEYS: Parameters<typeof tOperations>[1][] = [
   'reportProblemButton', 'reportProblemForItemButton', 'reportProblemHeading', 'reportProblemNoteLabel',
   'reportProblemSeverityLabel', 'severityWarning', 'severityActionRequired', 'reportProblemSubmit', 'problemReported',
   'completeTaskButton', 'taskCompletedNote', 'numericRangeHint', 'backToTaskList',
+  'sectionTemplatesTab', 'sectionTodayTab', 'sectionAttentionTab', 'todayNoTasksToday',
+  'attentionNoOpenExceptions', 'attentionSourceThreshold', 'attentionSourceReported',
+  'attentionItemLabel', 'attentionUnknownTask', 'attentionOpenedAtLabel',
+  'resolveButton', 'resolveNoteLabel', 'resolveSubmit',
+  'errExceptionNotFound', 'errExceptionAlreadyResolved',
 ];
 
 test('tOperations returns a non-empty string for every key in both languages', () => {
