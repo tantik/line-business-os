@@ -14,6 +14,10 @@ import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
+import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operations/templates';
+import type { OperationsSchedule } from '@/lib/operations/schedules';
+import type { OperationsExpectedTask } from '@/lib/operations/tasks';
+import type { OperationsOpenException } from '@/lib/operations/exceptions';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
@@ -60,6 +64,7 @@ import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
 import { RecipesPopup } from '../_ui/recipes-popup';
+import { OperationsManagerPopup } from '../_ui/operations-manager-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
@@ -226,8 +231,20 @@ export interface ManagerDashboardClientProps {
   inventoryMediaUrlByItemId: Record<string, string>;
   /** This location's Purchases shopping list, read-only -- also the exact data the Purchases popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
   purchasesItems: PurchaseNeededItem[] | null;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, or `/purchases` visit). */
-  initialPopup: 'inventory' | 'recipes' | 'purchases' | null;
+  /** Operations popup's entire read surface (Cafe v2.2 WP1) -- also the exact data `OperationsManagerPopup` renders (no separate fetch). Each `null` when the module is disabled or the read failed. */
+  operationsTemplates: OperationsTemplate[] | null;
+  operationsItems: OperationsTemplateItem[] | null;
+  /** Non-null only when the `operationsItems` read itself failed (as opposed to a legitimate empty list) -- see `page.tsx`'s `readErrorMessage`. */
+  operationsItemsError: string | null;
+  operationsSchedules: OperationsSchedule[] | null;
+  /** Non-null only when the `operationsSchedules` read itself failed (as opposed to a legitimate empty list) -- see `page.tsx`'s `readErrorMessage`. */
+  operationsSchedulesError: string | null;
+  /** Today's expected Operations tasks at this Manager's own location, already filtered server-side -- see `page.tsx`. */
+  operationsTodayTasks: OperationsExpectedTask[] | null;
+  /** Currently-open Operations exceptions at this Manager's own location, already filtered server-side -- see `page.tsx`. */
+  operationsOpenExceptions: OperationsOpenException[] | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, `/purchases`, or `/operations` visit). */
+  initialPopup: 'inventory' | 'recipes' | 'purchases' | 'operations' | null;
   /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
   initialFocusCell: { employeeId: string; workDate: string } | null;
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
@@ -307,6 +324,13 @@ function ManagerDashboardBody({
   inventoryItems,
   inventoryMediaUrlByItemId,
   purchasesItems,
+  operationsTemplates,
+  operationsItems,
+  operationsItemsError,
+  operationsSchedules,
+  operationsSchedulesError,
+  operationsTodayTasks,
+  operationsOpenExceptions,
   initialPopup,
   initialFocusCell,
   recipeGroups,
@@ -328,6 +352,7 @@ function ManagerDashboardBody({
   const [staffPopupOpen, setStaffPopupOpen] = useState(false);
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
+  const [operationsPopupOpen, setOperationsPopupOpen] = useState(initialPopup === 'operations');
   // Which Inventory tab the popup should open on -- 'all' from every normal
   // entry point, 'shortage' ("Need reorder") when opened from the Needs
   // attention panel's "Inventory shortage" item, so the manager lands
@@ -1075,7 +1100,10 @@ function ManagerDashboardBody({
                 {
                   key: 'operations',
                   label: t('navOperations'),
-                  href: '/operations',
+                  onClick: () => {
+                    markPopupTriggerClick('operations');
+                    setOperationsPopupOpen(true);
+                  },
                 },
               ]
             : []),
@@ -1180,6 +1208,21 @@ function ManagerDashboardBody({
         mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
         canManage={recipeCanManage}
         onChange={() => router.refresh()}
+      />
+
+      <OperationsManagerPopup
+        open={operationsPopupOpen}
+        onClose={() => setOperationsPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        locationId={locationId}
+        templates={operationsTemplates}
+        items={operationsItems}
+        itemsError={operationsItemsError}
+        schedules={operationsSchedules}
+        schedulesError={operationsSchedulesError}
+        todayTasks={operationsTodayTasks}
+        openExceptions={operationsOpenExceptions}
       />
 
       <section id="weekly-schedule" style={primaryCard}>

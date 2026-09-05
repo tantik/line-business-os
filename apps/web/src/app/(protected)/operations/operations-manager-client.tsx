@@ -34,18 +34,21 @@ export interface OperationsManagerClientProps {
   todayTasks: OperationsExpectedTask[] | null;
   /** Currently-open Operations exceptions at this Manager's own location -- see `page.tsx`. */
   openExceptions: OperationsOpenException[] | null;
+  /** Skips this component's own page-level `<header>` when rendered inside a popup (mirrors `PurchasesDashboardClientProps.embedded`/`InventoryDashboardClientProps.embedded`). */
+  embedded?: boolean;
 }
 
 type StatusFilter = 'active' | 'retired';
 type Section = 'templates' | 'today' | 'attention';
 
 /**
- * Manager Operations Configuration -- Templates & Items only (Cafe v2.2 WP1
- * Operations, first UI slice). No scheduling ("apply template to a
- * location"), no task execution -- those are separate, later slices. Standalone
- * page (not a Manager-dashboard popup), mirroring `/recipes/page.tsx`'s exact
- * shape: its own `LangProvider`, its own header/back-link, a list + a
- * `Modal`-based create form + a `Modal`-based detail/edit view.
+ * Manager Operations Configuration -- Templates/Items, Scheduling, Today and
+ * Attention (Cafe v2.2 WP1 Operations, all Manager-facing UI slices).
+ * Standalone-page wrapper: mounts its own `LangProvider` and page `<main>`,
+ * for the bare deep-link edge case `/operations/page.tsx` still renders
+ * directly. The canonical Manager-dashboard entry point instead opens
+ * `OperationsManagerBody` embedded in a popup (`_ui/operations-manager-popup.tsx`),
+ * mirroring `PurchasesDashboardClient`/`PurchasesDashboardBody`'s split.
  */
 export function OperationsManagerClient(props: OperationsManagerClientProps) {
   return (
@@ -57,7 +60,7 @@ export function OperationsManagerClient(props: OperationsManagerClientProps) {
   );
 }
 
-function OperationsManagerBody({
+export function OperationsManagerBody({
   tenantName,
   locationName,
   locationId,
@@ -68,6 +71,7 @@ function OperationsManagerBody({
   schedulesError,
   todayTasks,
   openExceptions,
+  embedded = false,
 }: OperationsManagerClientProps) {
   const { lang } = useLang();
   const router = useRouter();
@@ -94,23 +98,29 @@ function OperationsManagerBody({
 
   return (
     <>
-      <header>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+      {!embedded ? (
+        <header>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>{t('pageTitle')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PreviewLanguageToggle />
+              <SignOutButton label={t('signOut')} />
+            </div>
           </div>
-        </div>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {t('pageDescription')} {tenantName} · {locationName}
-        </p>
-        <Link href="/manager" style={{ ...backLink, marginTop: 12 }}>
-          {t('backToManager')}
-        </Link>
-      </header>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {t('pageDescription')} {tenantName} · {locationName}
+          </p>
+          <Link href="/manager" style={{ ...backLink, marginTop: 12 }}>
+            {t('backToManager')}
+          </Link>
+        </header>
+      ) : null}
 
-      <div role="group" aria-label={t('sectionTemplatesTab')} style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden', marginTop: 16 }}>
+      <div
+        role="group"
+        aria-label={t('sectionTemplatesTab')}
+        style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden', marginTop: embedded ? 0 : 16 }}
+      >
         {(['templates', 'today', 'attention'] as const).map((tab) => (
           <button
             key={tab}

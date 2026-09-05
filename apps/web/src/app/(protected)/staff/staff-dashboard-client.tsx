@@ -12,6 +12,8 @@ import type { WorkforceAttendance } from '@/lib/workforce/attendance';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
+import type { OperationsExpectedTask, OperationsItemResponse } from '@/lib/operations/tasks';
+import type { OperationsTemplateItem } from '@/lib/operations/templates';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
@@ -56,6 +58,7 @@ import { AccountMenu } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
+import { OperationsStaffPopup } from '../_ui/operations-staff-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -153,6 +156,14 @@ export interface StaffDashboardClientProps {
   purchasesItems: PurchaseNeededItem[] | null;
   /** Manager-only decrypted staff-id -> display-name map for the Purchases popup's "bought by" line. Always empty for a plain staff account. */
   purchasesStaffNameById: Record<string, string>;
+  /** Today's expected Operations tasks at this Staff member's own location, already filtered server-side -- also the exact data the Staff Operations popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
+  operationsTasks: OperationsExpectedTask[] | null;
+  /** Every active checklist item referenced by `operationsTasks` (tenant-wide catalog, same read `manager/page.tsx`'s Operations popup uses). `null` when the module is disabled or the read failed. */
+  operationsItems: OperationsTemplateItem[] | null;
+  /** Every already-materialised task's recorded responses, keyed by `instanceId` -- see `page.tsx`. */
+  operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]>;
+  /** Today's ISO business date, used as the Operations popup's business-date label. */
+  operationsBusinessDate: string;
   /**
    * Recipes popup data (Founder direction, 2026-08-24: Staff's Recipes
    * button opens the same popup Manager's does, instead of navigating to
@@ -164,8 +175,8 @@ export interface StaffDashboardClientProps {
   recipeMediaUrlByRecipeId: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether the popup shows Add/Edit/Delete controls. */
   recipeCanManage: boolean;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes` or `/inventory` visit). */
-  initialPopup: 'recipes' | 'inventory' | 'purchases' | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes`, `/inventory`, or `/operations` visit). */
+  initialPopup: 'recipes' | 'inventory' | 'purchases' | 'operations' | null;
   locationId: string;
 }
 
@@ -217,6 +228,10 @@ function StaffDashboardBody({
   inventoryStaffNameById,
   purchasesItems,
   purchasesStaffNameById,
+  operationsTasks,
+  operationsItems,
+  operationsResponsesByInstanceId,
+  operationsBusinessDate,
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
@@ -236,6 +251,7 @@ function StaffDashboardBody({
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
+  const [operationsPopupOpen, setOperationsPopupOpen] = useState(initialPopup === 'operations');
   const [mailPopupOpen, setMailPopupOpen] = useState(false);
   // Full 7-day week always visible, no page-level horizontal scroll, at
   // 375px/390px viewport widths (Staff Shift Schedule v2, 2026-08-25) --
@@ -569,15 +585,15 @@ function StaffDashboardBody({
               setMailPopupOpen(true);
             },
           },
-          // Real page navigation (not a popup trigger), matching Manager's
-          // own `operations` entry point (`manager-dashboard-client.tsx`) --
-          // `EntryPointsCard` already supports `href` for exactly this case.
           ...(operationsEnabled
             ? [
                 {
                   key: 'operations',
                   label: t('navOperations'),
-                  href: '/operations',
+                  onClick: () => {
+                    markPopupTriggerClick('operations');
+                    setOperationsPopupOpen(true);
+                  },
                 },
               ]
             : []),
@@ -618,6 +634,17 @@ function StaffDashboardBody({
         locationTimezone={timeZone}
         items={purchasesItems}
         staffNameById={purchasesStaffNameById}
+      />
+
+      <OperationsStaffPopup
+        open={operationsPopupOpen}
+        onClose={() => setOperationsPopupOpen(false)}
+        tenantName={tenantName}
+        locationName={locationName}
+        tasks={operationsTasks}
+        items={operationsItems}
+        responsesByInstanceId={operationsResponsesByInstanceId}
+        businessDate={operationsBusinessDate}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}

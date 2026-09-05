@@ -18,6 +18,10 @@ import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listStaffMessagesForManager } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
+import { listOperationsSchedules } from '@/lib/operations/schedules';
+import { listExpectedTasks } from '@/lib/operations/tasks';
+import { listOpenOperationsExceptions } from '@/lib/operations/exceptions';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -34,6 +38,20 @@ import {
 } from '@/components/states';
 import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { ManagerDashboardClient } from './manager-dashboard-client';
+
+/**
+ * Extracts a human-readable message from a failed `TenantAccessResult`, or
+ * `null` on success -- mirrors `/operations/page.tsx`'s own `readErrorMessage`
+ * (kept local to this page rather than shared, same light duplication this
+ * file already has for `parseWeekOffset`). Used so a genuine Operations read
+ * failure (e.g. an undeployed view, an RLS/permission error) can be shown
+ * distinctly from a legitimate empty result once threaded into the
+ * Operations popup's `TemplateDetailModal`.
+ */
+function readErrorMessage(result: { status: string; message?: string }): string | null {
+  if (result.status === 'success') return null;
+  return result.message ?? 'Unexpected error.';
+}
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -164,7 +182,15 @@ export default async function WorkforceManagerPage({
       const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
       const initialPopup =
-        rawPopup === 'inventory' ? 'inventory' : rawPopup === 'recipes' ? 'recipes' : rawPopup === 'purchases' ? 'purchases' : null;
+        rawPopup === 'inventory'
+          ? 'inventory'
+          : rawPopup === 'recipes'
+            ? 'recipes'
+            : rawPopup === 'purchases'
+              ? 'purchases'
+              : rawPopup === 'operations'
+                ? 'operations'
+                : null;
       // `?focusCell=employeeId:workDate`, set by Attention's "View shift"
       // action (manager-dashboard-client.tsx's `handleViewShift`) -- both
       // parts are opaque identifiers to this page (a UUID and an ISO date,
@@ -191,6 +217,10 @@ export default async function WorkforceManagerPage({
       const exchangeFromIso = localDateTimeToUtcIso(exchangeWindow.periodStart, '00:00', location.timezone);
       const exchangeToIsoExclusive = localDateTimeToUtcIso(addIsoDays(exchangeWindow.periodEnd, 1), '00:00', location.timezone);
 
+      // Same-day boundary for the Operations "Today" overview -- matches
+      // `/operations/page.tsx`'s own `managerToday`.
+      const managerToday = new Date().toISOString().slice(0, 10);
+
       const [
         staffResult,
         lineLinksResult,
@@ -211,6 +241,11 @@ export default async function WorkforceManagerPage({
         scheduleSettingsResult,
         recipeTitleTranslationsResult,
         myProfileResult,
+        operationsTemplatesResult,
+        operationsItemsResult,
+        operationsSchedulesResult,
+        operationsTodayTasksResult,
+        operationsOpenExceptionsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -274,6 +309,17 @@ export default async function WorkforceManagerPage({
         // roster fetch is needed here -- just match this profile's
         // `staffId` against `staffResult.data` below.
         getMyWorkforceStaffProfile(supabase, activeTenant.tenantId),
+        // Operations popup's entire read surface (Cafe v2.2 WP1, all
+        // Manager-facing UI slices) -- also the exact data
+        // `OperationsManagerPopup` renders (no separate fetch), same
+        // consolidated-Promise.all pattern every other domain on this page
+        // already follows (avoids reintroducing the sequential-round-trip
+        // perf problem `/operations/page.tsx`'s own recent fix addressed).
+        operationsEnabled ? listOperationsTemplates(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        operationsEnabled ? listOperationsTemplateItems(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        operationsEnabled ? listOperationsSchedules(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, managerToday) : Promise.resolve(null),
+        operationsEnabled ? listOpenOperationsExceptions(supabase, activeTenant.tenantId) : Promise.resolve(null),
       ]);
 
       const recipeGroups =
@@ -311,6 +357,18 @@ export default async function WorkforceManagerPage({
         inventoryItemsResult && inventoryItemsResult.status === 'success'
           ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
           : {};
+
+      // `operations.task.read`/exceptions may be tenant-wide for some roles
+      // -- narrow to this Manager's own location here, same convention
+      // `/operations/page.tsx`'s own Manager branch used.
+      const operationsTodayTasks =
+        operationsTodayTasksResult && operationsTodayTasksResult.status === 'success'
+          ? operationsTodayTasksResult.data.filter((task) => task.locationId === location.locationId)
+          : null;
+      const operationsOpenExceptions =
+        operationsOpenExceptionsResult && operationsOpenExceptionsResult.status === 'success'
+          ? operationsOpenExceptionsResult.data.filter((exception) => exception.locationId === location.locationId)
+          : null;
 
       // Header account menu's identity -- `myProfileResult` carries the
       // caller's own `staffId`/`positionLabel` but never a plain-text name
@@ -351,6 +409,13 @@ export default async function WorkforceManagerPage({
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
+            operationsTemplates={operationsTemplatesResult && operationsTemplatesResult.status === 'success' ? operationsTemplatesResult.data : null}
+            operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}
+            operationsItemsError={operationsItemsResult ? readErrorMessage(operationsItemsResult) : null}
+            operationsSchedules={operationsSchedulesResult && operationsSchedulesResult.status === 'success' ? operationsSchedulesResult.data : null}
+            operationsSchedulesError={operationsSchedulesResult ? readErrorMessage(operationsSchedulesResult) : null}
+            operationsTodayTasks={operationsTodayTasks}
+            operationsOpenExceptions={operationsOpenExceptions}
             initialPopup={initialPopup}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}

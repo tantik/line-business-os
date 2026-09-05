@@ -21,6 +21,8 @@ export interface StaffOperationsClientProps {
   items: OperationsTemplateItem[] | null;
   responsesByInstanceId: Record<string, OperationsItemResponse[]>;
   businessDate: string;
+  /** Skips this component's own page-level `<header>` when rendered inside a popup (mirrors `OperationsManagerClientProps.embedded`). */
+  embedded?: boolean;
 }
 
 /** Sort weight -- overdue and not-yet-started rise to the top (most actionable first), completed sinks to the bottom. */
@@ -68,9 +70,12 @@ function stateLabel(t: (key: Parameters<typeof tOperations>[1]) => string, state
 /**
  * Staff Operations task execution (Cafe v2.2 WP1 Operations, third UI slice)
  * -- today's expected tasks at the caller's own location, each opening a
- * checklist to record responses/report problems/complete. Standalone page,
- * mirroring `OperationsManagerClient`'s exact shape: its own `LangProvider`,
- * its own header/back-link, a list + a `Modal`-based detail view. No
+ * checklist to record responses/report problems/complete. Standalone-page
+ * wrapper: mounts its own `LangProvider` and page `<main>`, for the bare
+ * deep-link edge case `/operations/page.tsx` still renders directly. The
+ * canonical Staff-dashboard entry point instead opens `StaffOperationsBody`
+ * embedded in a popup (`_ui/operations-staff-popup.tsx`), mirroring
+ * `OperationsManagerClient`/`OperationsManagerBody`'s own split. No
  * scheduling, no template management, no Manager Attention/exceptions
  * resolution -- those remain Manager-only or later-slice surfaces.
  */
@@ -84,7 +89,15 @@ export function StaffOperationsClient(props: StaffOperationsClientProps) {
   );
 }
 
-function StaffOperationsBody({ tenantName, locationName, tasks, items, responsesByInstanceId, businessDate }: StaffOperationsClientProps) {
+export function StaffOperationsBody({
+  tenantName,
+  locationName,
+  tasks,
+  items,
+  responsesByInstanceId,
+  businessDate,
+  embedded = false,
+}: StaffOperationsClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tOperations>[1]) => tOperations(lang, key);
@@ -108,23 +121,25 @@ function StaffOperationsBody({ tenantName, locationName, tasks, items, responses
 
   return (
     <>
-      <header>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>{t('staffPageTitle')}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PreviewLanguageToggle />
-            <SignOutButton label={t('signOut')} />
+      {!embedded ? (
+        <header>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>{t('staffPageTitle')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PreviewLanguageToggle />
+              <SignOutButton label={t('signOut')} />
+            </div>
           </div>
-        </div>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>
-          {t('staffPageDescription')} {tenantName} · {locationName} · {businessDate}
-        </p>
-        <Link href="/staff" style={{ ...backLink, marginTop: 12 }}>
-          {t('backToStaff')}
-        </Link>
-      </header>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>
+            {t('staffPageDescription')} {tenantName} · {locationName} · {businessDate}
+          </p>
+          <Link href="/staff" style={{ ...backLink, marginTop: 12 }}>
+            {t('backToStaff')}
+          </Link>
+        </header>
+      ) : null}
 
-      <section style={{ ...card, marginTop: 16 }}>
+      <section style={{ ...card, marginTop: embedded ? 0 : 16 }}>
         {tasks === null ? (
           <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
         ) : sortedTasks.length === 0 ? (
