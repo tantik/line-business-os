@@ -277,9 +277,74 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-05 pointer, CAFE HACCP THRESHOLD CONFIG FIX — merged, corrects the
+pointer immediately below (newest; read this one first).** Second bounded
+mission on the same "Cafe HACCP presets" step. Founder decision: ORUWA
+presets define WHAT to check, response type, unit, and critical/required
+semantics — the actual acceptable numeric range is Manager/Owner
+configuration for their specific business/location, never an
+ORUWA-imposed default, even one explicitly flagged as unverified (as the
+pointer below originally shipped). Result:
+
+- All 5 numeric HACCP items (fridge × 3 occurrences across
+  opening/closing/temperature-midday templates, freezer, hot-holding) now
+  ship with `numericMin: null, numericMax: null` — no substituted "more
+  correct" number, `numericUnit: '°C'` and `isCritical`/`isRequired`
+  semantics unchanged from before. The 0–10°C / -30–-15°C / 60–90°C figures
+  named in the pointer below are **no longer in the codebase** — that
+  paragraph is factual history of what shipped first, not current state.
+- Verified safe against the unmodified generic Operations schema/RPCs: the
+  two CHECK constraints on `checklist_items` (`0100`) permit a numeric item
+  with NULL min/max and a real unit; `api.operations_record_response`
+  (`0101`) only opens a threshold exception when a bound is NOT NULL, so a
+  NULL threshold can never produce a false exception, and the measured
+  value is still recorded either way.
+- Minimal UX added, reusing existing Operations i18n/visual patterns (no
+  new component/module): Manager (`template-detail-modal.tsx`) shows a
+  warning badge "しきい値未設定 / Threshold not configured"; Staff
+  (`task-detail-modal.tsx`) shows muted text "管理者による基準値の設定が
+  必要です / Threshold requires manager configuration" — worded so Staff
+  never reads this as their own responsibility.
+- **Current threshold-configuration model, recorded explicitly** (not a new
+  decision, a fact about the existing architecture): a threshold lives on
+  `checklist_items`, which belongs to exactly one `checklist_template`; a
+  template is tenant-wide (`location_id IS NULL`, shared verbatim by every
+  location) OR scoped to exactly one location — never both, never
+  per-location overrides on one shared template. Achieving different
+  thresholds per location today requires separate, location-scoped
+  template copies. **True per-location threshold overrides are a separate
+  architecture decision and remain explicitly NOT authorized.**
+- Recheck gap (no ad-hoc same-day recheck task) — unchanged, still a
+  separate, un-actioned WP1 acceptance question, not touched by this fix.
+- Zero migration, zero RLS change, zero new schema/module/capability. Local
+  validation: `pnpm --filter @line-os/db` and `--filter @line-os/web`
+  typecheck/lint/test all green (500/500 and 1322/1322), `pnpm -w`
+  typecheck/lint/build all green (11/11, 19/19, 14/14). Independent
+  fresh-context review: **PASS**, no required fixes, against a 13-point
+  checklist (thresholds actually removed, no substituted guess,
+  critical/required preserved, schema-legality and no-false-exception both
+  re-derived from source rather than trusted, UX reuse, Manager-vs-Staff
+  copy intent, JA/EN test coverage, idempotency unaffected, scope
+  discipline, product-boundary note accuracy).
+- **PR #512 merged into `dev`** (squash commit `cf3c3e8`, via
+  `scripts/ai-dev-merge.sh`, all mechanical gates green). Working tree
+  clean after merge.
+- **Cloud DEV / reference-tenant status unchanged**: presets were never
+  applied to Cloud DEV under either version of this content (confirmed —
+  no apply has happened at any point in either mission), so there is no
+  stale-threshold cleanup concern. The same Founder Gate as before still
+  applies: applying to `oruwa-cafe` needs `ORUWA_CAFE_MANAGER_PASSWORD`,
+  not available to this session.
+
+**Verdict: HACCP THRESHOLD CONFIG FIX — PASS, READY FOR CLOUD DEV APPLY**
+(code-wise; the apply itself and the resulting live Browser QA remain at
+the Founder Gate, unchanged from the pointer below).
+
 **2026-09-05 pointer, CAFE HACCP PRESETS — code CLOSED, Cloud DEV apply +
-Browser QA PENDING Founder action (newest; read after this pointer, before
-the Operations Manager/Staff UI pointer below).** Implements the "Cafe
+Browser QA PENDING Founder action (older — read the pointer above first;
+its numeric-threshold content below is SUPERSEDED, see above — everything
+else in this entry, incl. mechanism/location/idempotency, remains
+accurate).** Implements the "Cafe
 HACCP presets" step named as canonical-next by the pointer immediately
 below, per Founder decision: reusable **product data + idempotent
 provisioning**, not a one-off Manager-UI hand-entry, and not a new
