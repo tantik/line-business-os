@@ -16,6 +16,19 @@ const KNOWN_OPERATIONS_ERROR_KEYS: Record<string, OperationsDictKey> = {
   operations_item_label_required: 'errItemLabelRequired',
   operations_item_not_found: 'errItemNotFound',
   operations_item_definition_frozen_after_operational: 'errItemDefinitionFrozen',
+  operations_schedule_not_found: 'errScheduleNotFound',
+  operations_schedule_location_required: 'errScheduleLocationRequired',
+  operations_schedule_effective_from_retroactive: 'errScheduleEffectiveFromRetroactive',
+  operations_schedule_revision_must_be_future: 'errScheduleRevisionMustBeFuture',
+  operations_schedule_revision_before_current_version: 'errScheduleRevisionBeforeCurrentVersion',
+  operations_schedule_not_current_version: 'errScheduleNotCurrentVersion',
+  operations_template_location_mismatch: 'errTemplateLocationMismatch',
+  operations_schedule_already_retired: 'errScheduleAlreadyRetired',
+  operations_schedule_not_yet_effective: 'errScheduleNotYetEffective',
+  operations_schedule_deactivation_retroactive: 'errScheduleDeactivationRetroactive',
+  operations_schedule_version_already_effective: 'errScheduleVersionAlreadyEffective',
+  operations_schedule_later_revision_exists: 'errScheduleLaterRevisionExists',
+  operations_schedule_version_not_cancellable: 'errScheduleVersionNotCancellable',
 };
 
 /** Shared client-side error copy for every write call on this page. Bilingual (JA/EN) -- never a raw machine error code or an untranslated string reaches the UI. */

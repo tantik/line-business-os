@@ -28,6 +28,19 @@ const KEYS: Parameters<typeof tOperations>[1][] = [
   'errNoAuthContext', 'errModuleDisabled', 'errNameRequired', 'errPermissionDenied', 'errLocationNotFound',
   'errTemplateNotFound', 'errTemplateAlreadyRetired', 'errTemplateRetireRetroactive', 'errTemplateRetired',
   'errItemLabelRequired', 'errItemNotFound', 'errItemDefinitionFrozen',
+  'schedulesHeading', 'addScheduleButton', 'noSchedulesYet', 'newScheduleHeading', 'reviseScheduleHeading',
+  'scheduleRecurrenceLabel', 'recurrenceDaily', 'recurrenceWeekdays',
+  'weekdayMon', 'weekdayTue', 'weekdayWed', 'weekdayThu', 'weekdayFri', 'weekdaySat', 'weekdaySun', 'weekdaySeparator',
+  'dueTimeLabel', 'windowEndTimeLabel', 'effectiveFromLabel', 'effectiveFromRevisionLabel',
+  'effectiveFromHintCreate', 'effectiveFromHintRevise', 'formCreateSchedule', 'formSaveRevision',
+  'scheduleActiveBadge', 'scheduleScheduledBadge', 'scheduleRetiredBadge',
+  'reviseButton', 'deactivateButton', 'confirmDeactivateScheduleTitle', 'confirmDeactivateScheduleBody',
+  'cancelRevisionButton', 'confirmCancelScheduleTitle', 'confirmCancelScheduleBody',
+  'errScheduleNotFound', 'errScheduleLocationRequired', 'errScheduleEffectiveFromRetroactive',
+  'errScheduleRevisionMustBeFuture', 'errScheduleRevisionBeforeCurrentVersion', 'errScheduleNotCurrentVersion',
+  'errTemplateLocationMismatch', 'errScheduleAlreadyRetired', 'errScheduleNotYetEffective',
+  'errScheduleDeactivationRetroactive', 'errScheduleVersionAlreadyEffective', 'errScheduleLaterRevisionExists',
+  'errScheduleVersionNotCancellable',
 ];
 
 test('tOperations returns a non-empty string for every key in both languages', () => {

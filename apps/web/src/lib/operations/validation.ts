@@ -12,6 +12,7 @@
 
 const MAX_UUID_RAW_LENGTH = 64;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LOCAL_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function asString(raw: unknown): string | null {
   return typeof raw === 'string' ? raw : null;
@@ -87,4 +88,48 @@ export function parseOptionalIsoDate(raw: unknown): string | null | undefined {
   const trimmed = value.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return undefined;
   return trimmed;
+}
+
+/** `HH:MM`, 24h, zero-padded (same convention as `@/lib/workforce/validation.ts`'s `parseLocalTime`, kept local to this capability). */
+export function parseLocalTime(raw: unknown): string | null {
+  const value = asString(raw);
+  if (value === null) return null;
+  const trimmed = value.trim();
+  return LOCAL_TIME_RE.test(trimmed) ? trimmed : null;
+}
+
+/** Optional `HH:MM`; blank means "not set" (`null`), an invalid value is rejected (`undefined`). */
+export function parseOptionalLocalTime(raw: unknown): string | null | undefined {
+  const value = asString(raw);
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return LOCAL_TIME_RE.test(trimmed) ? trimmed : undefined;
+}
+
+/** `operations.recurrence_kind` (0100): `daily` or `weekdays` only. */
+export type OperationsRecurrenceKind = 'daily' | 'weekdays';
+
+export function parseRecurrenceKind(raw: unknown): OperationsRecurrenceKind | null {
+  const value = asString(raw);
+  if (value === 'daily' || value === 'weekdays') return value;
+  return null;
+}
+
+/**
+ * ISO weekday multi-select (`1`..`7`, Mon..Sun -- `operations.task_schedules.weekdays`,
+ * 0101). Reads every `formData.getAll(fieldName)` value. Required (non-empty,
+ * unique, in range) when `required` is true (recurrenceKind === 'weekdays');
+ * otherwise absent/empty maps to `null` (the `daily` shape). Any malformed
+ * entry rejects the whole set (`undefined`), never silently drops one.
+ */
+export function parseWeekdays(values: FormDataEntryValue[], required: boolean): number[] | null | undefined {
+  if (values.length === 0) return required ? undefined : null;
+  const seen = new Set<number>();
+  for (const raw of values) {
+    const value = asString(raw);
+    if (value === null || !/^[1-7]$/.test(value.trim())) return undefined;
+    seen.add(Number(value.trim()));
+  }
+  return Array.from(seen).sort((a, b) => a - b);
 }
