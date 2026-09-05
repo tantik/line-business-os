@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
+import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import {
   ErrorState,
@@ -83,9 +84,10 @@ export default async function OperationsPage() {
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
       if (!managerAccess) redirect('/staff');
 
-      const [templatesResult, itemsResult] = await Promise.all([
+      const [templatesResult, itemsResult, schedulesResult] = await Promise.all([
         listOperationsTemplates(supabase, activeTenant.tenantId),
         listOperationsTemplateItems(supabase, activeTenant.tenantId),
+        listOperationsSchedules(supabase, activeTenant.tenantId),
       ]);
 
       return (
@@ -95,6 +97,7 @@ export default async function OperationsPage() {
           locationId={location.locationId}
           templates={templatesResult.status === 'success' ? templatesResult.data : null}
           items={itemsResult.status === 'success' ? itemsResult.data : null}
+          schedules={schedulesResult.status === 'success' ? schedulesResult.data : null}
         />
       );
     }

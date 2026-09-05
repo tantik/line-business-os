@@ -89,6 +89,53 @@ interface OperationsDict {
   errItemLabelRequired: string;
   errItemNotFound: string;
   errItemDefinitionFrozen: string;
+  schedulesHeading: string;
+  addScheduleButton: string;
+  noSchedulesYet: string;
+  newScheduleHeading: string;
+  reviseScheduleHeading: string;
+  scheduleRecurrenceLabel: string;
+  recurrenceDaily: string;
+  recurrenceWeekdays: string;
+  weekdayMon: string;
+  weekdayTue: string;
+  weekdayWed: string;
+  weekdayThu: string;
+  weekdayFri: string;
+  weekdaySat: string;
+  weekdaySun: string;
+  weekdaySeparator: string;
+  dueTimeLabel: string;
+  windowEndTimeLabel: string;
+  effectiveFromLabel: string;
+  effectiveFromRevisionLabel: string;
+  effectiveFromHintCreate: string;
+  effectiveFromHintRevise: string;
+  formCreateSchedule: string;
+  formSaveRevision: string;
+  scheduleActiveBadge: string;
+  scheduleScheduledBadge: string;
+  scheduleRetiredBadge: string;
+  reviseButton: string;
+  deactivateButton: string;
+  confirmDeactivateScheduleTitle: string;
+  confirmDeactivateScheduleBody: string;
+  cancelRevisionButton: string;
+  confirmCancelScheduleTitle: string;
+  confirmCancelScheduleBody: string;
+  errScheduleNotFound: string;
+  errScheduleLocationRequired: string;
+  errScheduleEffectiveFromRetroactive: string;
+  errScheduleRevisionMustBeFuture: string;
+  errScheduleRevisionBeforeCurrentVersion: string;
+  errScheduleNotCurrentVersion: string;
+  errTemplateLocationMismatch: string;
+  errScheduleAlreadyRetired: string;
+  errScheduleNotYetEffective: string;
+  errScheduleDeactivationRetroactive: string;
+  errScheduleVersionAlreadyEffective: string;
+  errScheduleLaterRevisionExists: string;
+  errScheduleVersionNotCancellable: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -175,6 +222,54 @@ const dictionary: Record<Lang, OperationsDict> = {
     errItemLabelRequired: 'A label is required.',
     errItemNotFound: 'This item could not be found.',
     errItemDefinitionFrozen: 'This has already been used, so it can no longer be changed this way. Use "Change response type" instead.',
+    schedulesHeading: 'Schedule',
+    addScheduleButton: '+ Add schedule',
+    noSchedulesYet: 'No schedule yet. Add one to start generating tasks from this template.',
+    newScheduleHeading: 'New schedule',
+    reviseScheduleHeading: 'Revise schedule',
+    scheduleRecurrenceLabel: 'Recurrence',
+    recurrenceDaily: 'Every day',
+    recurrenceWeekdays: 'Selected days',
+    weekdayMon: 'Mon',
+    weekdayTue: 'Tue',
+    weekdayWed: 'Wed',
+    weekdayThu: 'Thu',
+    weekdayFri: 'Fri',
+    weekdaySat: 'Sat',
+    weekdaySun: 'Sun',
+    weekdaySeparator: ', ',
+    dueTimeLabel: 'Due time',
+    windowEndTimeLabel: 'Window end (optional)',
+    effectiveFromLabel: 'Starts on',
+    effectiveFromRevisionLabel: 'Takes effect on',
+    effectiveFromHintCreate: 'Leave blank to start today.',
+    effectiveFromHintRevise: 'Leave blank to take effect from tomorrow. Must be a future date.',
+    formCreateSchedule: 'Create schedule',
+    formSaveRevision: 'Save revision',
+    scheduleActiveBadge: 'Active',
+    scheduleScheduledBadge: 'Scheduled',
+    scheduleRetiredBadge: 'Retired',
+    reviseButton: 'Revise',
+    deactivateButton: 'Deactivate',
+    confirmDeactivateScheduleTitle: 'Deactivate this schedule?',
+    confirmDeactivateScheduleBody:
+      'This schedule will stop generating new tasks after the boundary date. Past history is kept.',
+    cancelRevisionButton: 'Cancel this revision',
+    confirmCancelScheduleTitle: 'Cancel this scheduled revision?',
+    confirmCancelScheduleBody: 'This upcoming change has not taken effect yet and will be removed. The current schedule continues unchanged.',
+    errScheduleNotFound: 'This schedule could not be found.',
+    errScheduleLocationRequired: 'A location is required.',
+    errScheduleEffectiveFromRetroactive: 'The start date cannot be in the past.',
+    errScheduleRevisionMustBeFuture: 'The revision date must be in the future.',
+    errScheduleRevisionBeforeCurrentVersion: 'The revision date must be after the current version started.',
+    errScheduleNotCurrentVersion: 'Only the current version of a schedule can be revised.',
+    errTemplateLocationMismatch: 'This template belongs to a different location.',
+    errScheduleAlreadyRetired: 'This schedule has already been retired.',
+    errScheduleNotYetEffective: 'This schedule has not started yet.',
+    errScheduleDeactivationRetroactive: 'The end date cannot be in the past.',
+    errScheduleVersionAlreadyEffective: 'This revision has already taken effect and can no longer be cancelled.',
+    errScheduleLaterRevisionExists: 'A later revision exists. Cancel that one first.',
+    errScheduleVersionNotCancellable: 'This revision can no longer be cancelled.',
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -258,6 +353,53 @@ const dictionary: Record<Lang, OperationsDict> = {
     errItemLabelRequired: 'ラベルを入力してください。',
     errItemNotFound: 'この項目が見つかりませんでした。',
     errItemDefinitionFrozen: 'すでに使用されているため、この方法では変更できません。「回答形式を変更」をご利用ください。',
+    schedulesHeading: 'スケジュール',
+    addScheduleButton: '+ スケジュールを追加',
+    noSchedulesYet: 'まだスケジュールがありません。追加するとこのテンプレートからタスクが生成されます。',
+    newScheduleHeading: '新規スケジュール',
+    reviseScheduleHeading: 'スケジュールを変更',
+    scheduleRecurrenceLabel: '繰り返し',
+    recurrenceDaily: '毎日',
+    recurrenceWeekdays: '曜日を指定',
+    weekdayMon: '月',
+    weekdayTue: '火',
+    weekdayWed: '水',
+    weekdayThu: '木',
+    weekdayFri: '金',
+    weekdaySat: '土',
+    weekdaySun: '日',
+    weekdaySeparator: '・',
+    dueTimeLabel: '実施時刻',
+    windowEndTimeLabel: '受付終了時刻（任意）',
+    effectiveFromLabel: '開始日',
+    effectiveFromRevisionLabel: '適用開始日',
+    effectiveFromHintCreate: '空欄の場合は本日から開始します。',
+    effectiveFromHintRevise: '空欄の場合は明日から適用されます。未来の日付を指定してください。',
+    formCreateSchedule: 'スケジュールを作成',
+    formSaveRevision: '変更を保存',
+    scheduleActiveBadge: '有効',
+    scheduleScheduledBadge: '予定',
+    scheduleRetiredBadge: '廃止済み',
+    reviseButton: '変更する',
+    deactivateButton: '停止する',
+    confirmDeactivateScheduleTitle: 'このスケジュールを停止しますか？',
+    confirmDeactivateScheduleBody: '指定した日以降、新しいタスクは生成されなくなります。過去の履歴は保持されます。',
+    cancelRevisionButton: 'この変更を取り消す',
+    confirmCancelScheduleTitle: 'この予定された変更を取り消しますか？',
+    confirmCancelScheduleBody: 'この変更はまだ適用されておらず、取り消すと削除されます。現在のスケジュールはそのまま継続されます。',
+    errScheduleNotFound: 'このスケジュールが見つかりませんでした。',
+    errScheduleLocationRequired: '拠点を指定してください。',
+    errScheduleEffectiveFromRetroactive: '開始日を過去の日付にすることはできません。',
+    errScheduleRevisionMustBeFuture: '変更の適用日は未来の日付である必要があります。',
+    errScheduleRevisionBeforeCurrentVersion: '変更の適用日は現在のバージョンの開始日より後である必要があります。',
+    errScheduleNotCurrentVersion: '現在有効なスケジュールのみ変更できます。',
+    errTemplateLocationMismatch: 'このテンプレートは別の拠点のものです。',
+    errScheduleAlreadyRetired: 'このスケジュールはすでに停止されています。',
+    errScheduleNotYetEffective: 'このスケジュールはまだ開始されていません。',
+    errScheduleDeactivationRetroactive: '終了日を過去の日付にすることはできません。',
+    errScheduleVersionAlreadyEffective: 'この変更はすでに適用されているため取り消せません。',
+    errScheduleLaterRevisionExists: 'さらに後の変更が存在します。先にそちらを取り消してください。',
+    errScheduleVersionNotCancellable: 'この変更は取り消せません。',
   },
 };
 
