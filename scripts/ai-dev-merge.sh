@@ -91,8 +91,19 @@ if [[ -n "$migration_files" ]]; then
   # lines, case-insensitive) — mirrors guard-git-push.mjs's real-parsing
   # philosophy: allow the broad routine case, keep a mechanical stop-crane
   # on the specific dangerous shapes rather than blocking the whole category.
+  # Pulled per-file via the GitHub API's own unified-diff `patch` field
+  # (NOT `gh pr diff` with a pathspec — that flag/positional combination
+  # does not exist in `gh pr diff` and fails silently into an empty pipe,
+  # which would make this whole check a no-op false-negative; caught and
+  # fixed 2026-09-05 before this gate was ever relied on for a real merge).
   DESTRUCTIVE_SQL_REGEX='drop[[:space:]]+table|drop[[:space:]]+column|truncate|disable[[:space:]]+row[[:space:]]+level[[:space:]]+security|no[[:space:]]+force[[:space:]]+row[[:space:]]+level[[:space:]]+security|drop[[:space:]]+policy|grant[[:space:]]+.*[[:space:]]+to[[:space:]]+(anon|public)|delete[[:space:]]+from|drop[[:space:]]+function|drop[[:space:]]+view'
-  destructive_hit="$(gh pr diff "$PR" -- 'supabase/migrations/**' \
+  migration_patches="$(gh api "repos/{owner}/{repo}/pulls/$PR/files" --paginate \
+    -q '.[] | select(.filename | test("(^|/)supabase/migrations/")) | .patch // empty')"
+  if [[ -z "$migration_patches" ]]; then
+    echo "BLOCK: PR #$PR touches migration path(s) but the GitHub API returned no patch content to scan (large diff, binary, or API error) — cannot verify no destructive pattern, requires Founder approval." >&2
+    exit 1
+  fi
+  destructive_hit="$(printf '%s\n' "$migration_patches" \
     | grep -E '^\+' \
     | grep -viE '^\+\+\+' \
     | grep -iE "$DESTRUCTIVE_SQL_REGEX" || true)"
