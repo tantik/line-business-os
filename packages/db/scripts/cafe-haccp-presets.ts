@@ -95,7 +95,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
   templates: [
     {
       name: 'オープニング衛生チェック（Opening Hygiene Check）',
-      category: 'opening',
+      category: 'オープニング（Opening）',
       dueTime: '07:30',
       windowEndTime: '08:30',
       recurrenceKind: 'daily',
@@ -131,7 +131,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
     },
     {
       name: 'クロージング衛生チェック（Closing Hygiene Check）',
-      category: 'closing',
+      category: 'クロージング（Closing）',
       dueTime: '21:00',
       windowEndTime: '22:00',
       recurrenceKind: 'daily',
@@ -167,7 +167,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
     },
     {
       name: '日次清掃チェック（Daily Cleaning Check）',
-      category: 'cleaning',
+      category: '清掃（Cleaning）',
       dueTime: '15:00',
       windowEndTime: '16:00',
       recurrenceKind: 'daily',
@@ -203,7 +203,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
     },
     {
       name: '温度管理チェック（Temperature Monitoring Check）',
-      category: 'temperature',
+      category: '温度管理（Temperature）',
       dueTime: '13:00',
       windowEndTime: '14:00',
       recurrenceKind: 'daily',

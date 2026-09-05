@@ -116,3 +116,15 @@ test('exactly 4 templates, each with exactly 3 items, are defined in the manifes
     assert.equal(template.recurrenceKind, 'daily');
   }
 });
+
+test('every template name and category is bilingual (JA + EN in one string) -- category is rendered as user-visible text in the Manager UI, so it must carry the same parity as name/label', () => {
+  const JA_RE = /[぀-ヿ一-鿿]/;
+  const EN_RE = /[A-Za-z]/;
+  for (const template of CAFE_HACCP_PRESETS_MANIFEST.templates) {
+    assert.ok(JA_RE.test(template.name) && EN_RE.test(template.name), `template name "${template.name}" must be bilingual`);
+    assert.ok(JA_RE.test(template.category) && EN_RE.test(template.category), `template category "${template.category}" must be bilingual`);
+    for (const item of template.items) {
+      assert.ok(JA_RE.test(item.label) && EN_RE.test(item.label), `item label "${item.label}" must be bilingual`);
+    }
+  }
+});
