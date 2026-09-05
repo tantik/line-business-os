@@ -277,6 +277,88 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-05 pointer, CAFE HACCP PRESETS — code CLOSED, Cloud DEV apply +
+Browser QA PENDING Founder action (newest; read after this pointer, before
+the Operations Manager/Staff UI pointer below).** Implements the "Cafe
+HACCP presets" step named as canonical-next by the pointer immediately
+below, per Founder decision: reusable **product data + idempotent
+provisioning**, not a one-off Manager-UI hand-entry, and not a new
+module/schema/capability (D3/D5 held throughout).
+
+- **Exact presets implemented** — 4 checklist templates, 12 items, JA/EN
+  bilingual names/categories/labels in one string each (schema has no
+  per-locale column): `オープニング衛生チェック（Opening Hygiene Check）`
+  (category `opening`, 3 items incl. a critical 0–10°C fridge check),
+  `クロージング衛生チェック（Closing Hygiene Check）` (`closing`, 3 items),
+  `日次清掃チェック（Daily Cleaning Check）` (`cleaning`, 3 items),
+  `温度管理チェック（Temperature Monitoring Check）` (`temperature`, 3
+  items: fridge 0–10°C, freezer -30–-15°C, hot-holding 60–90°C
+  optional/`is_required=false`). All four numeric ranges are explicitly
+  flagged in-code as **unverified operational defaults** (not sourced from
+  any approved document in this repo, not confirmed against Japanese
+  food-sanitation law) pending food-safety/Founder confirmation — never
+  presented as compliance/certification, per the scope doc §7's explicit
+  boundary. "Corrective-action record"/"recheck" (also named in §7) are
+  **not** new content/schema — mapped onto the existing
+  `operations_report_problem` → `operations_resolve_exception` lifecycle
+  (CONTENT REPRESENTABLE); an ad-hoc same-day recheck (reopening a
+  completed task mid-day) is flagged as a genuine **PRODUCT GAP**, not
+  worked around.
+- **Canonical data location**: `packages/db/scripts/cafe-haccp-presets.ts`
+  (pure manifest + pure `buildCafeHaccpPresetsPlan`, no I/O — mirrors the
+  existing `oruwa-cafe-fixture.ts` convention).
+- **Installation mechanism**: `packages/db/scripts/cafe-haccp-presets-write.ts`
+  (`pnpm --filter @line-os/db cafe-haccp-presets`), dry-run by default,
+  `--confirm-apply` to write for real. Every write/read goes through the
+  **existing sanctioned RPC boundary** — `api.operations_create_template` /
+  `operations_add_template_item` / `operations_create_schedule` /
+  `api.operations_templates` / `_template_items` / `_schedules` — via a
+  real authenticated Manager-session sign-in (`manager@oruwa-cafe.test` +
+  `ORUWA_CAFE_MANAGER_PASSWORD`), **never** a raw `operations.*` table
+  write, **never** a service-role RLS bypass (every `operations_*` write
+  RPC is `SECURITY INVOKER` and resolves the acting user from the JWT, so
+  service-role has no acting user to satisfy it). Zero changes to
+  `supabase/migrations/**` or `apps/web/src/lib/operations/**` — confirmed
+  by diff, not just by design intent.
+- **Idempotency evidence**: proven at the plan-builder unit-test level
+  (`cafe-haccp-presets.test.ts`, part of `packages/db`'s test suite,
+  499/499 passing) — a context reflecting everything a first run created
+  produces a plan with **zero** creates in every category (templates,
+  items, schedules) on a second run; a partial-context case proves only
+  the genuinely missing piece gets planned. A true double-`--confirm-apply`
+  run against a real database was **not** executed (no `ORUWA_CAFE_MANAGER_PASSWORD`
+  available to this session — see Founder Gate below).
+- **Independent fresh-context review**: ran against a 12-point checklist
+  (D3, no new schema/RPC, RPC-only writes, no RLS bypass, real idempotency,
+  no duplicate-schedule risk, §7 content fit, JA/EN parity, no compliance
+  claims, evidence-flagged thresholds, no invented severity, general
+  judgment). First pass: **REQUIRED FIXES** — one real finding (template
+  `category` was English-only while rendered as user-visible text in the
+  Manager UI, breaking the file's own stated JA/EN parity contract). Fixed
+  (all 4 categories made bilingual, regression test added) and
+  re-verified — all 12 points **PASS**.
+- **PR #511 merged into `dev`** (squash commit `e812440`, via
+  `scripts/ai-dev-merge.sh` — all mechanical gates green: CI 4/4 pass,
+  no RED-operation path touched, no migration in this PR). Working tree
+  clean after merge.
+- **Founder Gate — NOT started, explicit single blocker**: applying this to
+  the live `oruwa-cafe` reference tenant on Cloud DEV requires running
+  `pnpm --filter @line-os/db cafe-haccp-presets -- --confirm-apply` with
+  `ORUWA_CAFE_MANAGER_PASSWORD` set — this session does not have that
+  credential (confirmed: it exists only as a placeholder key name in
+  `.env.example`, no real value available). This is not a schema/migration
+  write and does not need a `db push`-style approval, but it is a real data
+  write against the live Cloud DEV reference tenant, so it is left for the
+  Founder to run (or to explicitly hand the credential/authorization to a
+  future session) rather than assumed. **Until this runs, live Browser
+  Manager/Staff QA on Preview cannot be performed** (there is nothing to
+  see yet) — not claimed, not attempted.
+- **WP1 acceptance readiness**: code-complete and independently reviewed,
+  but **not yet ready for bounded WP1 Acceptance** — pending the Cloud DEV
+  apply + live Browser QA above. No `main`/production touch at any point.
+
+**Verdict: CAFE HACCP PRESETS — PASS, BROWSER QA PENDING.**
+
 **2026-09-05 pointer, OPERATIONS MANAGER/STAFF UI — CLOSED, live-QA'd on
 Preview (newest; full detail:
 `docs/ai/OPERATIONS_MANAGER_STAFF_UI_HANDOFF_2026-09-05.md`).** Closes the
