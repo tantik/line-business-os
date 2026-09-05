@@ -151,6 +151,19 @@ test('Staff shift-preference help never claims an automatic/confirmed shift, and
   assert.match(tStaffDashboard('ja', 'preferenceHelpBody'), /希望/);
 });
 
+/**
+ * Help Content Pass v2 (fix after independent review, PR #497): the
+ * scheduling engine (`packages/workforce/src/auto-distribute.ts`) has no
+ * approved/unapproved distinction -- every submitted preference is treated
+ * identically. Manager-side "approve" is a local UI review marker only
+ * (never persisted, no algorithm effect). This Help must never claim a
+ * two-tier "approved preference" priority that does not exist.
+ */
+test('Staff shift-preference help never claims a two-tier "approved vs regular" preference priority that the scheduling engine does not implement', () => {
+  assert.doesNotMatch(tStaffDashboard('en', 'preferenceHelpBody'), /approved/i);
+  assert.doesNotMatch(tStaffDashboard('ja', 'preferenceHelpBody'), /承認/);
+});
+
 test('Staff shift-exchange help states manager approval is required before the schedule changes, in both languages', () => {
   assert.match(tStaffDashboard('en', 'exchangeHelpBody'), /manager/i);
   assert.match(tStaffDashboard('en', 'exchangeHelpBody'), /approv/i);

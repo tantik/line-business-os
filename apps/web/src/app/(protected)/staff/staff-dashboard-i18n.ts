@@ -208,7 +208,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     preferenceHelpAriaLabel: 'About shift preferences',
     preferenceHelpTitle: 'About shift preferences',
     preferenceHelpBody:
-      'Tap each day to choose a shift, or leave it blank for a day off, then submit. This is a request, not a confirmed shift -- your manager builds the actual schedule using manual assignments first, then approved and regular preferences, with automatic filling only where needed. Once a day is submitted here it is locked and can no longer be changed by you; ask your manager to update it if your plans change.',
+      'Tap each day to choose a shift, or leave it blank for a day off, then submit. This is a request, not a confirmed shift -- your manager builds the actual schedule using manual assignments first, then submitted staff preferences, filling any remaining gaps automatically where needed. Once a day is submitted here it is locked and can no longer be changed by you; ask your manager to update it if your plans change.',
     preferenceColumnLabel: 'Preference',
     preferenceUnavailableValue: 'Unavailable',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable, so preferences cannot be submitted right now.',
@@ -348,7 +348,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     preferenceHelpAriaLabel: 'シフト希望について',
     preferenceHelpTitle: 'シフト希望について',
     preferenceHelpBody:
-      '各日をタップして希望のシフトを選ぶか、休みたい日は空欄のまま提出してください。これは希望であり、確定したシフトではありません。実際のスケジュールは、店長が手動で割り当てた分を優先し、次に承認済みの希望・通常の希望、最後に必要な場合のみ自動で埋める、という順番で作成されます。提出した日はその場で確定して自分では変更できなくなるため、予定が変わった場合は店長に伝えてください。',
+      '各日をタップして希望のシフトを選ぶか、休みたい日は空欄のまま提出してください。これは希望であり、確定したシフトではありません。実際のスケジュールは、店長が手動で割り当てた分を優先し、次にスタッフが提出した希望、最後に必要な場合のみ自動で埋める、という順番で作成されます。提出した日はその場で確定して自分では変更できなくなるため、予定が変わった場合は店長に伝えてください。',
     shiftPreferencesHeading: '自分が提出したシフト希望',
     shiftPreferencesUnavailable: 'シフト希望は一時的に利用できません。',
     shiftPreferencesEmpty: '今週はまだシフト希望が提出されていません。',
