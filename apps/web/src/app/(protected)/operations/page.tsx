@@ -27,6 +27,23 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Operations', robots: { index: false, follow: false } };
 
 /**
+ * Extracts a human-readable message from a failed `TenantAccessResult`, or
+ * `null` on success. Used so a genuine read failure (e.g. an undeployed view,
+ * an RLS/permission error) can be shown to the Manager distinctly from a
+ * legitimate empty result -- the two used to collapse into the same
+ * `null`/`[]` shape downstream (`schedules`/`items` in particular fed
+ * `template-detail-modal.tsx`'s "No schedule yet"/"No items yet" text even
+ * when the underlying read had actually errored, per live QA 2026-09-05).
+ * `no_membership`/`not_authenticated` carry no `message` of their own (and
+ * are not realistically reachable here -- `requireTenantContext` already
+ * resolved to `success` above -- but are handled for exhaustiveness).
+ */
+function readErrorMessage(result: { status: string; message?: string }): string | null {
+  if (result.status === 'success') return null;
+  return result.message ?? 'Unexpected error.';
+}
+
+/**
  * Operations -- Manager Configuration (Templates/Items/Scheduling, first two
  * UI slices) and Staff task execution (third UI slice; see
  * `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` §4-§5).
@@ -114,7 +131,9 @@ export default async function OperationsPage() {
             locationId={location.locationId}
             templates={templatesResult.status === 'success' ? templatesResult.data : null}
             items={itemsResult.status === 'success' ? itemsResult.data : null}
+            itemsError={readErrorMessage(itemsResult)}
             schedules={schedulesResult.status === 'success' ? schedulesResult.data : null}
+            schedulesError={readErrorMessage(schedulesResult)}
             todayTasks={managerTodayTasks}
             openExceptions={managerOpenExceptions}
           />

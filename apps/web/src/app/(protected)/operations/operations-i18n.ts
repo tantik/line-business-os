@@ -188,6 +188,9 @@ interface OperationsDict {
   resolveSubmit: string;
   errExceptionNotFound: string;
   errExceptionAlreadyResolved: string;
+  confirmAddDuplicateScheduleTitle: string;
+  confirmAddDuplicateScheduleBody: string;
+  errScheduleNotFoundStaffTask: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -374,6 +377,9 @@ const dictionary: Record<Lang, OperationsDict> = {
     resolveSubmit: 'Mark as resolved',
     errExceptionNotFound: 'This exception could not be found.',
     errExceptionAlreadyResolved: 'This exception has already been resolved.',
+    confirmAddDuplicateScheduleTitle: 'Add another schedule?',
+    confirmAddDuplicateScheduleBody: 'This template already has an active schedule. Add another one anyway?',
+    errScheduleNotFoundStaffTask: "This task's schedule is no longer active. Check with your manager.",
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -556,6 +562,9 @@ const dictionary: Record<Lang, OperationsDict> = {
     resolveSubmit: '解決済みにする',
     errExceptionNotFound: 'この問題が見つかりませんでした。',
     errExceptionAlreadyResolved: 'この問題はすでに解決済みです。',
+    confirmAddDuplicateScheduleTitle: 'スケジュールを追加しますか？',
+    confirmAddDuplicateScheduleBody: 'このテンプレートにはすでに有効なスケジュールがあります。もう一つ追加しますか？',
+    errScheduleNotFoundStaffTask: 'このタスクのスケジュールはすでに無効になっています。マネージャーに確認してください。',
   },
 };
 

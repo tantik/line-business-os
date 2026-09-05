@@ -39,8 +39,12 @@ export interface TemplateDetailModalProps {
   onClose: () => void;
   template: OperationsTemplate;
   items: OperationsTemplateItem[];
+  /** Non-null only when the `items` read itself failed -- rendered instead of "No items yet" so a real failure is never mistaken for a legitimate empty list. See `page.tsx`'s `readErrorMessage`. */
+  itemsError: string | null;
   /** Every schedule the caller may see (any template, any group). Filtered to this template's current-per-group versions internally. */
   schedules: OperationsSchedule[];
+  /** Non-null only when the `schedules` read itself failed -- rendered instead of "No schedule yet" so a real failure (e.g. an undeployed read view, live QA 2026-09-05) is never mistaken for a legitimate empty list. See `page.tsx`'s `readErrorMessage`. */
+  schedulesError: string | null;
   locationId: string;
   lang: Lang;
   onChange: () => void;
@@ -92,7 +96,18 @@ function responseTypeLabel(t: (key: Parameters<typeof tOperations>[1]) => string
  * shared `Modal`/`ConfirmDialog` shell is not designed to nest two
  * independent `Modal`s at once).
  */
-export function TemplateDetailModal({ open, onClose, template, items, schedules, locationId, lang, onChange }: TemplateDetailModalProps) {
+export function TemplateDetailModal({
+  open,
+  onClose,
+  template,
+  items,
+  itemsError,
+  schedules,
+  schedulesError,
+  locationId,
+  lang,
+  onChange,
+}: TemplateDetailModalProps) {
   const t = (key: Parameters<typeof tOperations>[1]) => tOperations(lang, key);
   const [view, setView] = useState<View>({ kind: 'overview' });
   const [formPending, setFormPending] = useState(false);
@@ -109,6 +124,12 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
   const [confirmCancelScheduleId, setConfirmCancelScheduleId] = useState<string | null>(null);
   const [isCancelSchedulePending, startCancelScheduleTransition] = useTransition();
   const [cancelScheduleError, setCancelScheduleError] = useState<string | null>(null);
+  // Live QA (2026-09-05): "+ Add schedule" let a Manager silently create
+  // unlimited near-identical active schedules for the same template (e.g. 3x
+  // daily-06:00 in a row) -- not necessarily wrong at the data level (a
+  // template can legitimately have two active schedules, e.g. an AM and a PM
+  // check), so this only asks for confirmation, never blocks it outright.
+  const [confirmAddScheduleOpen, setConfirmAddScheduleOpen] = useState(false);
 
   const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.itemId.localeCompare(b.itemId));
   const editingItem = view.kind === 'edit-item' ? sortedItems.find((i) => i.itemId === view.itemId) : undefined;
@@ -120,6 +141,15 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
     setFormError(null);
     setFormPending(false);
     setView({ kind: 'overview' });
+  }
+
+  function handleAddScheduleClick() {
+    const hasActiveSchedule = templateSchedules.some((schedule) => scheduleState(schedule) === 'active');
+    if (hasActiveSchedule) {
+      setConfirmAddScheduleOpen(true);
+      return;
+    }
+    setView({ kind: 'add-schedule' });
   }
 
   function handleModalClose() {
@@ -386,7 +416,9 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
 
             {retireItemError ? <div style={{ ...alertDanger, marginTop: 10 }}>{retireItemError}</div> : null}
 
-            {sortedItems.length === 0 ? (
+            {itemsError ? (
+              <div style={{ ...alertDanger, marginTop: 10 }}>{itemsError}</div>
+            ) : sortedItems.length === 0 ? (
               <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noItemsYet')}</p>
             ) : (
               <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
@@ -458,7 +490,7 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, fontSize: 15 }}>{t('schedulesHeading')}</h3>
               {template.isActive ? (
-                <button type="button" className={hoverStyles.buttonPrimary} style={buttonPrimary} onClick={() => setView({ kind: 'add-schedule' })}>
+                <button type="button" className={hoverStyles.buttonPrimary} style={buttonPrimary} onClick={handleAddScheduleClick}>
                   {t('addScheduleButton')}
                 </button>
               ) : null}
@@ -467,7 +499,9 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
             {deactivateScheduleError ? <div style={{ ...alertDanger, marginTop: 10 }}>{deactivateScheduleError}</div> : null}
             {cancelScheduleError ? <div style={{ ...alertDanger, marginTop: 10 }}>{cancelScheduleError}</div> : null}
 
-            {templateSchedules.length === 0 ? (
+            {schedulesError ? (
+              <div style={{ ...alertDanger, marginTop: 10 }}>{schedulesError}</div>
+            ) : templateSchedules.length === 0 ? (
               <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noSchedulesYet')}</p>
             ) : (
               <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
@@ -539,6 +573,20 @@ export function TemplateDetailModal({ open, onClose, template, items, schedules,
               </ul>
             )}
           </section>
+
+          <ConfirmDialog
+            open={confirmAddScheduleOpen}
+            title={t('confirmAddDuplicateScheduleTitle')}
+            confirmLabel={t('addScheduleButton')}
+            cancelLabel={t('formCancel')}
+            onCancel={() => setConfirmAddScheduleOpen(false)}
+            onConfirm={() => {
+              setConfirmAddScheduleOpen(false);
+              setView({ kind: 'add-schedule' });
+            }}
+          >
+            {t('confirmAddDuplicateScheduleBody')}
+          </ConfirmDialog>
 
           <ConfirmDialog
             open={confirmDeactivateScheduleId !== null}

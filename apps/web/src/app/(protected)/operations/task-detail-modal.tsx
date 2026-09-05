@@ -82,7 +82,7 @@ export function TaskDetailModal({ open, onClose, task, items, responses, lang, o
       if (result.status === 'success') {
         onChange();
       } else {
-        setCompleteError(describeOperationsWriteError(result, lang));
+        setCompleteError(describeOperationsWriteError(result, lang, 'staff'));
       }
     });
   }
@@ -211,7 +211,7 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
       if (result.status === 'success') {
         onSaved();
       } else {
-        setError(describeOperationsWriteError(result, lang));
+        setError(describeOperationsWriteError(result, lang, 'staff'));
       }
     });
   }
@@ -381,7 +381,7 @@ function ReportProblemForm({ t, lang, scheduleId, itemId, onCancel, onSuccess }:
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeOperationsWriteError(result, lang));
+        setError(describeOperationsWriteError(result, lang, 'staff'));
       }
     });
   }
