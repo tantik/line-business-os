@@ -19,7 +19,12 @@
 
 import { execSync } from "node:child_process";
 
-const ALLOWED_BRANCH = /^(feature|feat|fix|chore|docs|harden|test|perf|refactor)\//;
+const ALLOWED_BRANCH_PREFIX = /^(feature|feat|fix|chore|docs|harden|test|perf|refactor)\//;
+// `dev` is the team's working integration branch (Founder-granted standing
+// push/merge authority — see docs/ai/... routine-approvals feedback). `main`
+// is intentionally NEVER added here: it stays gated by `permissions.deny` in
+// .claude/settings.json (a hard technical block, not just an ask-prompt).
+const ALLOWED_EXACT_BRANCH = new Set(["dev"]);
 const DANGER_FLAG =
   /^(--force|--force-with-lease.*|-f|--mirror|--prune|--delete|-d|--all|--tags|--follow-tags|--recurse-submodules=on-demand)$/;
 
@@ -80,8 +85,11 @@ process.stdin.on("end", () => {
     return;
   }
 
-  const branchOk = (name) =>
-    ALLOWED_BRANCH.test(name.replace(/^\+/, "").replace(/^refs\/heads\//, ""));
+  const branchOk = (name) => {
+    const n = name.replace(/^\+/, "").replace(/^refs\/heads\//, "");
+    if (n === "main") return false;
+    return ALLOWED_EXACT_BRANCH.has(n) || ALLOWED_BRANCH_PREFIX.test(n);
+  };
 
   const targets = [];
   if (refspecs.length === 0) {
@@ -116,8 +124,8 @@ process.stdin.on("end", () => {
   const bad = targets.find((t) => !branchOk(t));
   if (bad) {
     ask(
-      `git push target '${bad}' is not a feature/feat/fix/chore/docs/harden/test/perf/refactor branch ` +
-        `(e.g. dev or main) — this path is a Founder gate, confirm manually.`,
+      `git push target '${bad}' is neither 'dev' nor a feature/feat/fix/chore/docs/harden/test/perf/refactor ` +
+        `branch (e.g. main) — this path is a Founder gate, confirm manually.`,
     );
     return;
   }
@@ -128,7 +136,7 @@ process.stdin.on("end", () => {
         hookEventName: "PreToolUse",
         permissionDecision: "allow",
         permissionDecisionReason:
-          "Non-force push of a sanctioned feature-style branch to origin (GREEN tier, Operating Model §9).",
+          "Non-force push of 'dev' or a sanctioned feature-style branch to origin (GREEN tier, Operating Model §9).",
       },
     }),
   );
