@@ -15,6 +15,8 @@ import { listMyAttendance } from '@/lib/workforce/attendance';
 import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import { listOperationsTemplateItems } from '@/lib/operations/templates';
+import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -183,7 +185,18 @@ export default async function WorkforceStaffPage({
       // bookmark/shared link (or `/inventory`'s own redirect) land straight
       // on the right one already open.
       const initialPopup =
-        rawPopup === 'recipes' ? 'recipes' : rawPopup === 'inventory' ? 'inventory' : rawPopup === 'purchases' ? 'purchases' : null;
+        rawPopup === 'recipes'
+          ? 'recipes'
+          : rawPopup === 'inventory'
+            ? 'inventory'
+            : rawPopup === 'purchases'
+              ? 'purchases'
+              : rawPopup === 'operations'
+                ? 'operations'
+                : null;
+      // Same-day boundary for the Staff Operations task list -- matches
+      // `/operations/page.tsx`'s own Staff branch.
+      const operationsToday = new Date().toISOString().slice(0, 10);
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
@@ -215,6 +228,8 @@ export default async function WorkforceStaffPage({
         recipesResult,
         recipeCanManage,
         recipeTitleTranslationsResult,
+        operationsTasksResult,
+        operationsItemsResult,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
@@ -263,6 +278,13 @@ export default async function WorkforceStaffPage({
         listWorkforceRecipes(supabase, activeTenant.tenantId),
         hasRecipeManagerAccess(supabase, activeTenant.tenantId),
         listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
+        // Also the exact data the Staff Operations popup below renders (no
+        // separate fetch), same pattern the Manager dashboard's own
+        // Operations popup uses. `operations.task.read` may be tenant-wide
+        // for some roles -- narrowed to this Staff member's own location
+        // below, mirroring `/operations/page.tsx`'s own Staff branch.
+        operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, operationsToday) : Promise.resolve(null),
+        operationsEnabled ? listOperationsTemplateItems(supabase, activeTenant.tenantId) : Promise.resolve(null),
       ]);
 
       const staffNameById: Record<string, string> =
@@ -329,6 +351,30 @@ export default async function WorkforceStaffPage({
       // second decrypted-staff-directory read.
       const purchasesStaffNameById = inventoryCanManage ? Object.fromEntries(inventoryStaffNameById) : {};
 
+      // `operations.task.read` may be tenant-wide for some roles -- narrow to
+      // this Staff member's own location here, same convention
+      // `/operations/page.tsx`'s own Staff branch used.
+      const operationsTasks =
+        operationsTasksResult && operationsTasksResult.status === 'success'
+          ? operationsTasksResult.data.filter((task) => task.locationId === location.locationId)
+          : null;
+
+      // Every already-materialised task's recorded responses, fetched once
+      // up-front (server-side) and keyed by `instanceId` -- same pattern
+      // `/operations/page.tsx`'s own Staff branch used. Any write action
+      // calls `router.refresh()`, which re-runs this whole page and
+      // refetches it.
+      const operationsInstanceIds = (operationsTasks ?? [])
+        .map((task) => task.instanceId)
+        .filter((id): id is string => id !== null);
+      const operationsResponseEntries = await Promise.all(
+        operationsInstanceIds.map(async (instanceId): Promise<[string, OperationsItemResponse[]]> => {
+          const result = await listItemResponses(supabase, activeTenant.tenantId, instanceId);
+          return [instanceId, result.status === 'success' ? result.data : []];
+        }),
+      );
+      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(operationsResponseEntries);
+
       return (
         <main style={pageStyle(1000)}>
           <StaffDashboardClient
@@ -356,6 +402,10 @@ export default async function WorkforceStaffPage({
             inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
             purchasesStaffNameById={purchasesStaffNameById}
+            operationsTasks={operationsTasks}
+            operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}
+            operationsResponsesByInstanceId={operationsResponsesByInstanceId}
+            operationsBusinessDate={operationsToday}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
