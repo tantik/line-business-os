@@ -100,6 +100,18 @@ export default async function WorkforceStaffPage({
           (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
         );
 
+      // `operations` is a separate top-level module (0099/0111) from
+      // `workforce` -- re-uses the already-fetched `modulesResult`, same
+      // pattern as `inventoryEnabled` above and `manager/page.tsx`'s own
+      // `operationsEnabled`. Gates only this entry point's visibility; the
+      // real `/operations` page and its RLS remain the authorization
+      // boundary regardless of this flag.
+      const operationsEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
+        );
+
       // Resolved before anything else: a caller with no `workforce.employees`
       // row has nothing else on this page to show, and no location/period is
       // needed to say so.
@@ -337,6 +349,7 @@ export default async function WorkforceStaffPage({
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
             staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
+            operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryCanManage={inventoryCanManage}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}

@@ -25,7 +25,11 @@ export interface OperationsManagerClientProps {
   locationId: string;
   templates: OperationsTemplate[] | null;
   items: OperationsTemplateItem[] | null;
+  /** Non-null only when the `items` read itself failed (as opposed to a legitimate empty list) -- see `page.tsx`'s `readErrorMessage`. Threaded to `TemplateDetailModal` so a real read failure is never shown as "No items yet". */
+  itemsError: string | null;
   schedules: OperationsSchedule[] | null;
+  /** Non-null only when the `schedules` read itself failed (as opposed to a legitimate empty list) -- see `page.tsx`'s `readErrorMessage`. Threaded to `TemplateDetailModal` so a real read failure is never shown as "No schedule yet" (live QA 2026-09-05: an undeployed read view was silently masked as "no schedules"). */
+  schedulesError: string | null;
   /** Today's expected Operations tasks at this Manager's own location -- see `page.tsx`. */
   todayTasks: OperationsExpectedTask[] | null;
   /** Currently-open Operations exceptions at this Manager's own location -- see `page.tsx`. */
@@ -59,7 +63,9 @@ function OperationsManagerBody({
   locationId,
   templates,
   items,
+  itemsError,
   schedules,
+  schedulesError,
   todayTasks,
   openExceptions,
 }: OperationsManagerClientProps) {
@@ -256,7 +262,9 @@ function OperationsManagerBody({
           onClose={() => setSelectedTemplateId(null)}
           template={selectedTemplate}
           items={selectedTemplateItems}
+          itemsError={itemsError}
           schedules={schedules ?? []}
+          schedulesError={schedulesError}
           locationId={locationId}
           lang={lang}
           onChange={refresh}

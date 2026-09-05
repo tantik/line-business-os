@@ -41,8 +41,29 @@ const KNOWN_OPERATIONS_ERROR_KEYS: Record<string, OperationsDictKey> = {
   operations_exception_already_resolved: 'errExceptionAlreadyResolved',
 };
 
-/** Shared client-side error copy for every write call on this page. Bilingual (JA/EN) -- never a raw machine error code or an untranslated string reaches the UI. */
-export function describeOperationsWriteError(result: Exclude<OperationsWriteResult<unknown>, { status: 'success' }>, lang: Lang): string {
+/**
+ * Shared client-side error copy for every write call on this page. Bilingual
+ * (JA/EN) -- never a raw machine error code or an untranslated string reaches
+ * the UI.
+ *
+ * `context` (default `'manager'`) lets the one shared `operations_error` code
+ * `operations_schedule_not_found` read differently depending on where it
+ * surfaces: on the Staff task-execution surface (`task-detail-modal.tsx`) it
+ * can legitimately appear when a schedule was deactivated later the same
+ * business date it generated a task for (deactivation only stops FUTURE
+ * generation -- `api.operations_expected_tasks` still lists today's task, but
+ * the write RPCs require `is_active = true`), which reads as an alarming
+ * generic "not found" with zero context for a Staff member. On the Manager
+ * Configuration surface (`template-detail-modal.tsx`) the same code means the
+ * schedule being revised/deactivated/cancelled is simply already gone, where
+ * the existing `errScheduleNotFound` copy remains correct and is left
+ * unchanged.
+ */
+export function describeOperationsWriteError(
+  result: Exclude<OperationsWriteResult<unknown>, { status: 'success' }>,
+  lang: Lang,
+  context: 'manager' | 'staff' = 'manager',
+): string {
   const t = (key: OperationsDictKey) => tOperations(lang, key);
   switch (result.status) {
     case 'not_authenticated':
@@ -50,6 +71,9 @@ export function describeOperationsWriteError(result: Exclude<OperationsWriteResu
     case 'no_membership':
       return t('errorNoMembership');
     case 'operations_error':
+      if (context === 'staff' && result.code === 'operations_schedule_not_found') {
+        return t('errScheduleNotFoundStaffTask');
+      }
       return t(KNOWN_OPERATIONS_ERROR_KEYS[result.code] ?? 'errorGeneric');
     case 'unauthorized':
     case 'config_error':

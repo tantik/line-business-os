@@ -139,6 +139,8 @@ export interface StaffDashboardClientProps {
   staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the entry-point card below; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
+  /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility, mirroring `manager-dashboard-client.tsx`'s own `operationsEnabled`; the real `/operations` page and its RLS remain the authorization boundary regardless of this flag. */
+  operationsEnabled: boolean;
   /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
   inventoryItems: InventoryItemStatus[] | null;
   /** Pure UX affordance (RLS is the real boundary regardless): whether this staff member also holds `inventory.item.manage`. Almost always false for a plain staff account. */
@@ -208,6 +210,7 @@ function StaffDashboardBody({
   exchanges,
   staffMessages,
   inventoryEnabled,
+  operationsEnabled,
   inventoryItems,
   inventoryCanManage,
   inventoryMediaUrlByItemId,
@@ -566,6 +569,18 @@ function StaffDashboardBody({
               setMailPopupOpen(true);
             },
           },
+          // Real page navigation (not a popup trigger), matching Manager's
+          // own `operations` entry point (`manager-dashboard-client.tsx`) --
+          // `EntryPointsCard` already supports `href` for exactly this case.
+          ...(operationsEnabled
+            ? [
+                {
+                  key: 'operations',
+                  label: t('navOperations'),
+                  href: '/operations',
+                },
+              ]
+            : []),
         ]}
       />
 
