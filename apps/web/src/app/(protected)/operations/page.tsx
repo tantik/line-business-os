@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
 import { listOperationsSchedules } from '@/lib/operations/schedules';
+import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
+import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import {
   ErrorState,
   MissingConfigState,
@@ -17,6 +18,7 @@ import {
 } from '@/components/states';
 import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { OperationsManagerClient } from './operations-manager-client';
+import { StaffOperationsClient } from './staff-operations-client';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -24,17 +26,18 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Operations', robots: { index: false, follow: false } };
 
 /**
- * Manager Operations Configuration -- Templates & Items only (Cafe v2.2 WP1
- * Operations, first UI slice; see
- * `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` §4).
- * No scheduling UI, no task-execution/Staff UI -- those are separate, later
- * slices, explicitly out of scope here. Reachable only when the tenant's
- * `operations` module is enabled (app-level entitlement check, not the
- * security boundary -- RLS on `api.operations_*` remains the real
- * tenant/location-isolation mechanism regardless) AND the caller is a
- * Manager (`workforce.staff.manage`, the same coarse gate `/purchases` and
- * `/manager` use) -- there is no Staff-facing surface in this slice at all,
- * so a non-manager is redirected to `/staff` rather than shown an empty page.
+ * Operations -- Manager Configuration (Templates/Items/Scheduling, first two
+ * UI slices) and Staff task execution (third UI slice; see
+ * `docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` §4-§5).
+ * Reachable only when the tenant's `operations` module is enabled
+ * (app-level entitlement check, not the security boundary -- RLS on
+ * `api.operations_*` remains the real tenant/location-isolation mechanism
+ * regardless). A Manager (`workforce.staff.manage`, the same coarse gate
+ * `/purchases` and `/manager` use) sees the Configuration UI, completely
+ * unchanged from earlier slices; any other tenant member with a workforce
+ * staff profile sees today's expected tasks at their own location instead.
+ * Manager Attention (exceptions), photo evidence, and a Staff history view
+ * are explicitly out of scope for this slice.
  */
 export default async function OperationsPage() {
   const result = await requireTenantContext();
@@ -78,26 +81,93 @@ export default async function OperationsPage() {
         );
       }
 
-      // Manager-only for this slice -- there is no Staff-facing Operations UI
-      // yet (task execution is a separate, later slice), so a non-manager
-      // tenant member is sent to their own dashboard instead of an empty page.
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
-      if (!managerAccess) redirect('/staff');
 
-      const [templatesResult, itemsResult, schedulesResult] = await Promise.all([
-        listOperationsTemplates(supabase, activeTenant.tenantId),
+      if (managerAccess) {
+        const [templatesResult, itemsResult, schedulesResult] = await Promise.all([
+          listOperationsTemplates(supabase, activeTenant.tenantId),
+          listOperationsTemplateItems(supabase, activeTenant.tenantId),
+          listOperationsSchedules(supabase, activeTenant.tenantId),
+        ]);
+
+        return (
+          <OperationsManagerClient
+            tenantName={activeTenant.tenantName}
+            locationName={location.locationName}
+            locationId={location.locationId}
+            templates={templatesResult.status === 'success' ? templatesResult.data : null}
+            items={itemsResult.status === 'success' ? itemsResult.data : null}
+            schedules={schedulesResult.status === 'success' ? schedulesResult.data : null}
+          />
+        );
+      }
+
+      // Not a Manager: resolve the caller's own workforce staff profile the
+      // same way `/staff` and `/purchases` do, rather than building a
+      // location picker -- a Staff member only ever sees their own
+      // location's tasks here.
+      const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
+      const staffProfile = staffProfileResult.status === 'success' ? staffProfileResult.data : null;
+      const staffLocation = staffProfile ? tenantLocations.find((l) => l.locationId === staffProfile.locationId && l.isActive) : null;
+
+      if (!staffProfile || !staffLocation) {
+        // Neither a Manager nor a resolvable Staff profile/location -- same
+        // "no staff profile" edge case `/staff` itself renders, kept local
+        // to this page rather than redirecting into another page's UI.
+        return (
+          <main style={pageStyle(720)}>
+            <header>
+              <h1 style={{ margin: 0 }}>Operations</h1>
+              <Link href="/staff" style={{ ...backLink, marginTop: 12 }}>
+                Back to Staff
+              </Link>
+            </header>
+            <section style={{ ...card, marginTop: 16 }}>
+              <p style={{ margin: 0, ...mutedText }}>
+                {!staffProfile
+                  ? 'You do not have a staff profile for this tenant yet. Ask your manager to add you.'
+                  : 'Your assigned location is not available. Ask your manager for help.'}
+              </p>
+            </section>
+          </main>
+        );
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const [expectedTasksResult, staffItemsResult] = await Promise.all([
+        listExpectedTasks(supabase, activeTenant.tenantId, today),
         listOperationsTemplateItems(supabase, activeTenant.tenantId),
-        listOperationsSchedules(supabase, activeTenant.tenantId),
       ]);
+      // `operations.task.read` may be tenant-wide for some roles -- narrow to
+      // this Staff member's own location here, client-facing-safe regardless
+      // (RLS is the real tenant/location boundary either way).
+      const staffTasks =
+        expectedTasksResult.status === 'success'
+          ? expectedTasksResult.data.filter((task) => task.locationId === staffLocation.locationId)
+          : null;
+
+      // Every already-materialised task's recorded responses, fetched once
+      // up-front (server-side, no browser Supabase client in this codebase)
+      // and keyed by `instanceId` -- the checklist modal below reads this
+      // map instead of fetching lazily; any write action calls
+      // `router.refresh()`, which re-runs this whole page and refetches it.
+      const instanceIds = (staffTasks ?? []).map((task) => task.instanceId).filter((id): id is string => id !== null);
+      const responseEntries = await Promise.all(
+        instanceIds.map(async (instanceId): Promise<[string, OperationsItemResponse[]]> => {
+          const result = await listItemResponses(supabase, activeTenant.tenantId, instanceId);
+          return [instanceId, result.status === 'success' ? result.data : []];
+        }),
+      );
+      const responsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(responseEntries);
 
       return (
-        <OperationsManagerClient
+        <StaffOperationsClient
           tenantName={activeTenant.tenantName}
-          locationName={location.locationName}
-          locationId={location.locationId}
-          templates={templatesResult.status === 'success' ? templatesResult.data : null}
-          items={itemsResult.status === 'success' ? itemsResult.data : null}
-          schedules={schedulesResult.status === 'success' ? schedulesResult.data : null}
+          locationName={staffLocation.locationName}
+          tasks={staffTasks}
+          items={staffItemsResult.status === 'success' ? staffItemsResult.data : null}
+          responsesByInstanceId={responsesByInstanceId}
+          businessDate={today}
         />
       );
     }
