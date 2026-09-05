@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operations/templates';
+import type { OperationsSchedule } from '@/lib/operations/schedules';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -20,6 +21,7 @@ export interface OperationsManagerClientProps {
   locationId: string;
   templates: OperationsTemplate[] | null;
   items: OperationsTemplateItem[] | null;
+  schedules: OperationsSchedule[] | null;
 }
 
 type StatusFilter = 'active' | 'retired';
@@ -42,7 +44,7 @@ export function OperationsManagerClient(props: OperationsManagerClientProps) {
   );
 }
 
-function OperationsManagerBody({ tenantName, locationName, locationId, templates, items }: OperationsManagerClientProps) {
+function OperationsManagerBody({ tenantName, locationName, locationId, templates, items, schedules }: OperationsManagerClientProps) {
   const { lang } = useLang();
   const router = useRouter();
   const t = (key: Parameters<typeof tOperations>[1]) => tOperations(lang, key);
@@ -201,6 +203,7 @@ function OperationsManagerBody({ tenantName, locationName, locationId, templates
           onClose={() => setSelectedTemplateId(null)}
           template={selectedTemplate}
           items={selectedTemplateItems}
+          schedules={schedules ?? []}
           locationId={locationId}
           lang={lang}
           onChange={refresh}
