@@ -277,9 +277,31 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-09-04 pointer, AUTO SCHEDULING — CLOSED, DEV/Preview accepted (newest;
-canonical state now lives in `docs/project/master-state.md` §7 "Auto
-Scheduling", this is a pointer).** Out-of-band bounded mission, independent
+**2026-09-05 pointer, OPERATIONS MANAGER/STAFF UI — CLOSED, live-QA'd on
+Preview (newest; full detail:
+`docs/ai/OPERATIONS_MANAGER_STAFF_UI_HANDOFF_2026-09-05.md`).** Closes the
+canonical next step named below (`master-state.md` §14 step 5). 7 PRs
+merged to `dev` (#500, #502, #505–#509): Manager Templates/Items config,
+Manager Scheduling (+ migration `0115`, additive read view), Staff task
+execution, Manager Attention/exceptions feed, live-QA polish fixes, a perf
+fix, and a refactor from a standalone `/operations` page into a
+Manager/Staff dashboard popup (matching Recipes/Inventory/Purchases/Mail).
+Full end-to-end live QA done on `preview.oruwa.jp` under real Manager and
+Staff logins (template → item → schedule → Staff completion incl. a
+threshold exception → Manager resolve), both JA/EN. Also this session:
+`scripts/ai-hooks/guard-git-push.mjs` now auto-allows non-force push to
+`dev` (not just `feature/*`); `scripts/ai-dev-merge.sh` now auto-merges
+additive migrations (destructive-SQL-pattern scan blocks the rest) —
+Founder-granted standing authority, `main` unaffected by either change.
+**Canonical next step: Cafe HACCP presets** (product content/config on the
+generic Operations module just built — see the scope doc §7 boundary list;
+no new schema/RPC expected, D3 still holds). Production remains untouched
+and separately gated.
+
+**2026-09-04 pointer, AUTO SCHEDULING — CLOSED, DEV/Preview accepted (older —
+read after the one above; canonical state now lives in
+`docs/project/master-state.md` §7 "Auto Scheduling", this is a pointer).**
+Out-of-band bounded mission, independent
 of the Cafe v2.2 WP sequence below — does **not** change the canonical next
 implementation step (still Operations Manager/Staff UI, unchanged). Closed:
 root-caused/fixed the CUSTOM-shift-type "no active shift types" bug,
