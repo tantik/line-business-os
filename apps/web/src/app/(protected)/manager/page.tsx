@@ -103,6 +103,18 @@ export default async function WorkforceManagerPage({
           (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
         );
 
+      // `operations` is a separate top-level module (0099/0111) from
+      // `workforce` -- reuses the already-fetched `modulesResult`. Gates only
+      // this dashboard's Operations entry-point link (Cafe v2.2 WP1
+      // Operations, Manager Configuration UI slice); the real `/operations`
+      // page and its RLS remain the authorization boundary regardless of
+      // this flag.
+      const operationsEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
+        );
+
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
@@ -335,6 +347,7 @@ export default async function WorkforceManagerPage({
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
             staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
+            operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
