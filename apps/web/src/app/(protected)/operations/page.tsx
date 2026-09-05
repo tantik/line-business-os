@@ -66,7 +66,15 @@ export default async function OperationsPage() {
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const modulesResult = await listTenantModules(supabase);
+      // `modulesResult`/`locationsResult` are independent reads -- fetched in
+      // parallel rather than one-after-another (each Supabase call is its own
+      // network round trip; this page previously chained 4 sequential awaits
+      // before its own Promise.all of 5 more reads, measurably slow on live
+      // QA 2026-09-05 -- ~1.5s TTLB for a page that's mostly small JSON).
+      const [modulesResult, locationsResult] = await Promise.all([
+        listTenantModules(supabase),
+        listTenantLocations(supabase),
+      ]);
       const operationsEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
@@ -75,7 +83,6 @@ export default async function OperationsPage() {
 
       if (!operationsEnabled) return <ModuleUnavailableState />;
 
-      const locationsResult = await listTenantLocations(supabase);
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
