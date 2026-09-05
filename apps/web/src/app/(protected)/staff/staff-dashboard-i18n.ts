@@ -31,6 +31,9 @@ interface StaffDashboardDict {
   transportationLabel: string;
   noShiftOrReport: string;
   requestChangeHeading: string;
+  exchangeHelpAriaLabel: string;
+  exchangeHelpTitle: string;
+  exchangeHelpBody: string;
   exchangeSubmitted: string;
   inventoryTitle: string;
   inventoryDescription: string;
@@ -52,6 +55,9 @@ interface StaffDashboardDict {
   shiftPreferencesHeading: string;
   shiftPreferencesUnavailable: string;
   shiftPreferencesEmpty: string;
+  preferenceHelpAriaLabel: string;
+  preferenceHelpTitle: string;
+  preferenceHelpBody: string;
   preferenceColumnLabel: string;
   preferenceUnavailableValue: string;
   shiftTypesUnavailable: string;
@@ -175,6 +181,10 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportationLabel: 'Transportation',
     noShiftOrReport: 'No shift or work report for this date.',
     requestChangeHeading: 'Request a shift change or cancellation',
+    exchangeHelpAriaLabel: 'About shift change requests',
+    exchangeHelpTitle: 'About shift change requests',
+    exchangeHelpBody:
+      'This submits a request -- it does not change your shift by itself. "Offer for exchange" asks a coworker to take it, or your manager can assign a replacement. "Change" asks for a different shift type. "Cancel" asks to remove this shift entirely. Your manager reviews and approves every request before the schedule changes.',
     exchangeSubmitted: 'Shift exchange request submitted.',
     inventoryTitle: 'Inventory',
     inventoryDescription: "Daily stock check for this location.",
@@ -195,6 +205,10 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     shiftPreferencesHeading: 'My submitted shift preferences',
     shiftPreferencesUnavailable: 'Your shift preferences are temporarily unavailable.',
     shiftPreferencesEmpty: 'No shift preferences submitted for this week yet.',
+    preferenceHelpAriaLabel: 'About shift preferences',
+    preferenceHelpTitle: 'About shift preferences',
+    preferenceHelpBody:
+      'Tap each day to choose a shift, or leave it blank for a day off, then submit. This is a request, not a confirmed shift -- your manager builds the actual schedule using manual assignments first, then approved and regular preferences, with automatic filling only where needed. Once a day is submitted here it is locked and can no longer be changed by you; ask your manager to update it if your plans change.',
     preferenceColumnLabel: 'Preference',
     preferenceUnavailableValue: 'Unavailable',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable, so preferences cannot be submitted right now.',
@@ -310,6 +324,10 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     transportationLabel: '交通費',
     noShiftOrReport: 'この日にはシフトも勤務報告もありません。',
     requestChangeHeading: 'シフト変更・キャンセルを申請',
+    exchangeHelpAriaLabel: 'シフト変更の申請について',
+    exchangeHelpTitle: 'シフト変更の申請について',
+    exchangeHelpBody:
+      'この操作は申請です。送信しただけではシフトは変わりません。「交換希望」は同僚に引き受けてもらう、または店長が交換相手を指名します。「変更」は別のシフト種別を希望します。「キャンセル」はこのシフトの取り消しを希望します。いずれもスケジュールが変わるのは、店長が確認して承認した後です。',
     exchangeSubmitted: 'シフト交換リクエストを送信しました。',
     inventoryTitle: '在庫',
     inventoryDescription: 'この店舗の日次在庫確認。',
@@ -327,6 +345,10 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     submitEyebrow: '提出',
     dateLabel: '日付',
     statusLabel: 'ステータス',
+    preferenceHelpAriaLabel: 'シフト希望について',
+    preferenceHelpTitle: 'シフト希望について',
+    preferenceHelpBody:
+      '各日をタップして希望のシフトを選ぶか、休みたい日は空欄のまま提出してください。これは希望であり、確定したシフトではありません。実際のスケジュールは、店長が手動で割り当てた分を優先し、次に承認済みの希望・通常の希望、最後に必要な場合のみ自動で埋める、という順番で作成されます。提出した日はその場で確定して自分では変更できなくなるため、予定が変わった場合は店長に伝えてください。',
     shiftPreferencesHeading: '自分が提出したシフト希望',
     shiftPreferencesUnavailable: 'シフト希望は一時的に利用できません。',
     shiftPreferencesEmpty: '今週はまだシフト希望が提出されていません。',

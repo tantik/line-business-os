@@ -32,10 +32,12 @@ const ALL_KEYS: Parameters<typeof tStaffDashboard>[1][] = [
   'scheduleHeading', 'all', 'onlyMe', 'prevWeek', 'thisWeek', 'nextWeek', 'scheduleUnavailable',
   'scheduledThisWeekLabel', 'meLabel', 'colleaguePrefixLabel', 'shiftLabel', 'timeLabel',
   'clockInLabel', 'clockOutLabel', 'transportationLabel', 'noShiftOrReport', 'requestChangeHeading',
+  'exchangeHelpAriaLabel', 'exchangeHelpTitle', 'exchangeHelpBody',
   'exchangeSubmitted', 'inventoryTitle', 'inventoryDescription', 'inventorySufficient', 'inventoryOpen',
   'inventoryNotEnabled', 'requestTypeLabel', 'optionExchange', 'optionChange', 'requestedShiftTypeLabel', 'optionCancel', 'reasonLabel', 'submit',
   'submitting', 'submitEyebrow', 'dateLabel', 'statusLabel',
-  'shiftPreferencesHeading', 'shiftPreferencesUnavailable', 'shiftPreferencesEmpty', 'preferenceColumnLabel',
+  'shiftPreferencesHeading', 'shiftPreferencesUnavailable', 'shiftPreferencesEmpty',
+  'preferenceHelpAriaLabel', 'preferenceHelpTitle', 'preferenceHelpBody', 'preferenceColumnLabel',
   'preferenceUnavailableValue', 'shiftTypesUnavailable', 'unavailableThisDayLabel', 'shiftTypeLabel',
   'chooseShiftType', 'submitPreference', 'shiftPreferenceSubmitted',
   'workReportsHeading', 'workReportsUnavailable', 'workReportsEmpty', 'clockInColumnLabel',
@@ -136,4 +138,22 @@ test('Staff schedule help matches the immediate-assignment workflow in both lang
   assert.doesNotMatch(tStaffDashboard('ja', 'scheduleHelpBody'), /公開/);
   assert.match(tStaffDashboard('en', 'scheduleHelpBody'), /assigned/i);
   assert.match(tStaffDashboard('ja', 'scheduleHelpBody'), /割り当て/);
+});
+
+/**
+ * Help Content Pass v2: the shift-preference and shift-exchange/change/
+ * cancel Help must never claim the request is automatically applied --
+ * both are backend-verified as request-only, decided by a manager.
+ */
+test('Staff shift-preference help never claims an automatic/confirmed shift, and explains the request is not editable once submitted', () => {
+  assert.doesNotMatch(tStaffDashboard('en', 'preferenceHelpBody'), /automatically assign/i);
+  assert.match(tStaffDashboard('en', 'preferenceHelpBody'), /request/i);
+  assert.match(tStaffDashboard('ja', 'preferenceHelpBody'), /希望/);
+});
+
+test('Staff shift-exchange help states manager approval is required before the schedule changes, in both languages', () => {
+  assert.match(tStaffDashboard('en', 'exchangeHelpBody'), /manager/i);
+  assert.match(tStaffDashboard('en', 'exchangeHelpBody'), /approv/i);
+  assert.match(tStaffDashboard('ja', 'exchangeHelpBody'), /店長/);
+  assert.match(tStaffDashboard('ja', 'exchangeHelpBody'), /承認/);
 });

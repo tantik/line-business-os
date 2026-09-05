@@ -229,6 +229,7 @@ function StaffDashboardBody({
   const [showCorrectionForm, setShowCorrectionForm] = useState(false);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
+  const [exchangeHelpOpen, setExchangeHelpOpen] = useState(false);
   const [recipesPopupOpen, setRecipesPopupOpen] = useState(initialPopup === 'recipes');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
@@ -733,7 +734,10 @@ function StaffDashboardBody({
                   </div>
                   {canRequestExchange ? (
                     <div style={{ paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-                      <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{t('requestChangeHeading')}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 4px' }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{t('requestChangeHeading')}</p>
+                        <HelpIconButton ariaLabel={t('exchangeHelpAriaLabel')} onClick={() => setExchangeHelpOpen(true)} />
+                      </div>
                       <ShiftExchangeRequestForm
                         shiftId={selectedAssignment.assignmentId}
                         shiftTypes={shiftTypes}
@@ -818,6 +822,10 @@ function StaffDashboardBody({
 
       <Modal open={scheduleHelpOpen} onClose={() => setScheduleHelpOpen(false)} title={t('scheduleHeading')} maxWidth={420}>
         <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('scheduleHelpBody')}</p>
+      </Modal>
+
+      <Modal open={exchangeHelpOpen} onClose={() => setExchangeHelpOpen(false)} title={t('exchangeHelpTitle')} maxWidth={420}>
+        <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t('exchangeHelpBody')}</p>
       </Modal>
 
       <div style={{ marginTop: 16 }}>
