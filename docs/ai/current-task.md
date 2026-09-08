@@ -277,6 +277,80 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-08 pointer, CAFE HACCP PRESETS — CLOUD DEV APPLIED, BROWSER QA
+PASS (newest; read this one first, before both pointers below).** Closes
+the Founder Gate the two pointers below left open. Third and final bounded
+mission on the "Cafe HACCP presets" step.
+
+- **QA credentials mechanism established** (Founder decision, disposable
+  DEV/Preview accounts, not production secrets): repo-root `.env`
+  (gitignored, already the documented home for `packages/db` operator
+  secrets — see `docs/operations/env-inventory.md`) now also holds
+  `ORUWA_CAFE_MANAGER_EMAIL` / `ORUWA_CAFE_MANAGER_PASSWORD` and
+  `ORUWA_CAFE_STAFF_A_EMAIL` / `ORUWA_CAFE_STAFF_A_PASSWORD` — real
+  disposable Manager/Staff sign-in credentials for `oruwa-cafe` on Cloud
+  DEV/Preview, Founder-populated once. Explicitly classified as **PUBLIC
+  DEMO/QA accounts** — exposure in a tool-call transcript when used for
+  automated sign-in is accepted by Founder decision for this specific
+  category and does not require rotation; this classification does **not**
+  extend to any Production credential, Supabase secret/service_role key,
+  API key, real customer credential/PII, or admin/platform key, which keep
+  full standing secrecy rules. `ORUWA_CAFE_STAFF_A_EMAIL` currently points
+  at the Founder's own real email (temporary, Founder-acknowledged; a
+  dedicated public demo address is a future, not-yet-authorized swap — do
+  not do this proactively). A future session can source this `.env` (e.g.
+  `set -a; source .env; set +a` before a `pnpm --filter @line-os/db ...`
+  command) to run Cloud DEV Manager-authenticated operations and Preview
+  Manager/Staff Browser QA autonomously, without asking the Founder to
+  paste a secret into chat. `serverEnv()` also requires `DATABASE_URL`,
+  `PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `LINE_CHANNEL_SECRET`,
+  `LINE_CHANNEL_ACCESS_TOKEN` to be non-empty even for scripts that never
+  use them (Zod schema validates the whole server env at once) — harmless
+  inline placeholder values for the ones truly unused by a given script are
+  fine to export for one process invocation only, never written to any
+  file.
+- **Cloud DEV apply — DONE.** Target proven via the existing
+  `publishable-key-smoke` tool (checks `SUPABASE_URL` against the
+  non-secret reviewed Cloud DEV project ref, never prints the key) before
+  any write. `pnpm --filter @line-os/db cafe-haccp-presets -- --confirm-apply`
+  created exactly 4 templates / 12 items / 4 schedules on the `oruwa-cafe`
+  reference tenant, verified by direct read-back from
+  `api.operations_templates`/`_template_items`/`_schedules`: correct
+  tenant/location, JA/EN content matches the manifest, all 5 numeric items
+  carry `numeric_unit='°C'` with `numeric_min`/`numeric_max` both `NULL`,
+  critical/required flags match, no logical duplicates, pre-existing QA
+  residue (`Opening checklist`) untouched. A post-apply dry-run showed
+  0 templates / 0 items / 0 schedules to create — idempotency proven live
+  against a real database, not just unit tests.
+- **Browser QA — PASS**, live on `preview.oruwa.jp` via chrome-devtools
+  MCP, using the QA credentials above. Manager: all 4 templates visible,
+  numeric temperature items showed "しきい値未設定"; set a *test-only*
+  0–5°C threshold on one item via the existing `ItemForm` edit path,
+  confirmed it persisted after reload. Staff (the `oruwa-cafe` employee
+  identity behind `ORUWA_CAFE_STAFF_A_EMAIL`): saw the configured range on
+  that item and "管理者による基準値の設定が必要です" on the other two
+  (no threshold yet); entered 12°C (outside the test range) — response
+  saved, task moved to 進行中 with 1 open exception; completed the task
+  (form went read-only). Manager: the exception appeared in Attention with
+  severity 要対応 (`action_required`, correct — the item is `is_critical`,
+  D4 unchanged), resolved it with a note, confirmed after reload it did not
+  reappear. **The test threshold was reverted to NULL afterward** via the
+  same Manager UI (confirmed "しきい値未設定" again on reload) — reference
+  tenant configuration left exactly as the canonical install produced it,
+  no destructive cleanup performed. A final post-QA dry-run reconfirmed
+  0/0/0 to create.
+- **Verdict: CAFE HACCP PRESETS — CLOUD DEV APPLIED, BROWSER QA PASS.**
+  Production untouched throughout (every operation structurally pinned to
+  the Cloud DEV project ref and the `oruwa-cafe` tenant id).
+
+**Next gate: none opened by this mission.** WP1 bounded Acceptance and WP2
+Issues & Handover remain explicitly **not started, not authorized** by this
+closure — same standing rule as every prior pointer in this file. The
+per-location threshold override question (flagged during the verification
+mission below) and the same-day ad-hoc recheck product gap (flagged during
+implementation) both remain open, un-actioned WP1-acceptance-time questions
+for the Founder — do not build either without a fresh explicit prompt.
+
 **2026-09-05 pointer, CAFE HACCP THRESHOLD CONFIG FIX — merged, corrects the
 pointer immediately below (newest; read this one first).** Second bounded
 mission on the same "Cafe HACCP presets" step. Founder decision: ORUWA
