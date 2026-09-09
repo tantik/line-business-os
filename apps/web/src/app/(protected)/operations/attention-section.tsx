@@ -36,6 +36,9 @@ export interface AttentionSectionProps {
  */
 export function AttentionSection({ t, lang, exceptions, tasksToday, items, onChange }: AttentionSectionProps) {
   const taskByInstanceId = new Map(tasksToday.filter((task) => task.instanceId !== null).map((task) => [task.instanceId as string, task]));
+  // `critical_missed` exceptions (0116) are instance-less -- resolve their task
+  // name by (scheduleId, businessDate) instead.
+  const taskByScheduleAndDate = new Map(tasksToday.map((task) => [`${task.scheduleId}|${task.businessDate}`, task]));
   const itemById = new Map(items.map((item) => [item.itemId, item]));
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
@@ -50,8 +53,19 @@ export function AttentionSection({ t, lang, exceptions, tasksToday, items, onCha
       ) : (
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
           {sorted.map((exception) => {
-            const task = taskByInstanceId.get(exception.instanceId) ?? null;
+            const task =
+              (exception.instanceId ? taskByInstanceId.get(exception.instanceId) : null) ??
+              (exception.scheduleId && exception.businessDate
+                ? taskByScheduleAndDate.get(`${exception.scheduleId}|${exception.businessDate}`)
+                : null) ??
+              null;
             const item = exception.itemId ? (itemById.get(exception.itemId) ?? null) : null;
+            const sourceLabel =
+              exception.source === 'threshold'
+                ? t('attentionSourceThreshold')
+                : exception.source === 'critical_missed'
+                  ? t('attentionSourceCriticalMissed')
+                  : t('attentionSourceReported');
             return (
               <li
                 key={exception.exceptionId}
@@ -69,9 +83,7 @@ export function AttentionSection({ t, lang, exceptions, tasksToday, items, onCha
                   <span style={badgeStyle(exception.severity === 'action_required' ? 'warning' : 'neutral')}>
                     {exception.severity === 'action_required' ? t('severityActionRequired') : t('severityWarning')}
                   </span>
-                  <span style={badgeStyle('neutral')}>
-                    {exception.source === 'threshold' ? t('attentionSourceThreshold') : t('attentionSourceReported')}
-                  </span>
+                  <span style={badgeStyle('neutral')}>{sourceLabel}</span>
                 </div>
                 {item ? (
                   <div style={{ ...mutedText, fontSize: 12.5 }}>
@@ -79,6 +91,12 @@ export function AttentionSection({ t, lang, exceptions, tasksToday, items, onCha
                   </div>
                 ) : null}
                 {exception.note ? <p style={{ margin: 0, fontSize: 13.5 }}>{exception.note}</p> : null}
+                {exception.source === 'critical_missed' ? (
+                  <p style={{ margin: 0, fontSize: 13.5 }}>
+                    {t('attentionCriticalMissedHint')}
+                    {exception.businessDate ? ` (${exception.businessDate})` : ''}
+                  </p>
+                ) : null}
                 <div style={{ ...mutedText, fontSize: 12 }}>
                   {t('attentionOpenedAtLabel')}: {new Date(exception.createdAt).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
                 </div>

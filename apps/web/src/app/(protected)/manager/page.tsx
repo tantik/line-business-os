@@ -21,7 +21,7 @@ import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
 import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
-import { listOpenOperationsExceptions } from '@/lib/operations/exceptions';
+import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -220,6 +220,18 @@ export default async function WorkforceManagerPage({
       // Same-day boundary for the Operations "Today" overview -- matches
       // `/operations/page.tsx`'s own `managerToday`.
       const managerToday = new Date().toISOString().slice(0, 10);
+
+      // G1 (0116): read-time materialisation of persistent `critical_missed`
+      // exceptions. A critical scheduled check whose window closed with no
+      // completion becomes a durable action_required Attention item the next
+      // time a Manager evaluates Operations. Idempotent; best-effort -- a
+      // failure here must never break the dashboard (the transient
+      // `isOverdueCritical` projection flag still covers the state), and it
+      // must run BEFORE `listOpenOperationsExceptions` below so the feed
+      // reflects it on this same load.
+      if (operationsEnabled) {
+        await flagMissedCriticalExceptions(supabase, activeTenant.tenantId);
+      }
 
       const [
         staffResult,
