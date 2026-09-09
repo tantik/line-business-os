@@ -105,6 +105,9 @@ importers:
       '@line-os/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@line-os/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
       '@line-os/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -285,8 +288,29 @@ importers:
         specifier: ^5.6.2
         version: 5.9.3
 
+  packages/tokens:
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.11.1
+        version: 9.39.4
+      eslint:
+        specifier: ^9.11.1
+        version: 9.39.4
+      tsx:
+        specifier: ^4.19.1
+        version: 4.22.4
+      typescript:
+        specifier: ^5.6.2
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.7.0
+        version: 8.61.1(eslint@9.39.4)(typescript@5.9.3)
+
   packages/ui:
     dependencies:
+      '@line-os/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       react-dom:
         specifier: ^18 || ^19
         version: 18.3.1(react@18.3.1)
@@ -1961,6 +1985,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'

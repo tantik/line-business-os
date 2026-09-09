@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { color as token } from '@line-os/tokens';
 import type { ShiftTypeDef } from './types';
 
 /**
@@ -9,31 +10,31 @@ import type { ShiftTypeDef } from './types';
  * palette and must not affect or depend on the authenticated app's look.
  */
 export const demoColors = {
-  bg: '#FAF3E7',
-  surface: '#FFFFFF',
-  surfaceElevated: '#F6EEDF',
+  bg: token.bg,
+  surface: token.surface,
+  surfaceElevated: token['surface-elevated'],
   selfRowSolidBg: '#FBF1DE',
-  border: '#E7D9C1',
+  border: token.border,
   borderStrong: '#D8C6A4',
-  textPrimary: '#362B1F',
-  textMuted: '#8B7C64',
+  textPrimary: token['text-primary'],
+  textMuted: token['text-muted'],
 
-  accent: '#4F7A52',
-  accentStrong: '#3B5C3E',
-  accentMuted: 'rgba(79, 122, 82, 0.12)',
+  accent: token.accent,
+  accentStrong: token['accent-text'],
+  accentMuted: token['accent-muted'],
 
   gold: '#C0983F',
   goldDark: '#8A6A22',
   goldMuted: 'rgba(192, 152, 63, 0.14)',
 
-  danger: '#C1503F',
-  dangerMuted: 'rgba(193, 80, 63, 0.12)',
-  dangerText: '#A6402F',
+  danger: token.danger,
+  dangerMuted: token['danger-muted'],
+  dangerText: token['danger-text'],
 
-  success: '#4F7A52',
-  successMuted: 'rgba(79, 122, 82, 0.12)',
+  success: token.success,
+  successMuted: token['success-muted'],
 
-  warning: '#B8863B',
+  warning: token.warning,
 
   todayBg: 'rgba(79, 122, 82, 0.10)',
   selfRowBg: 'rgba(192, 152, 63, 0.08)',
@@ -155,10 +156,26 @@ export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning';
 /** Same tone vocabulary/shape as `@/lib/ui/theme`'s `badgeStyle` (active/inactive/neutral/warning), rendered in the light cafe palette — a drop-in swap for any caller that already uses the dark app theme's badge helper. */
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
-    active: { background: demoColors.successMuted, color: demoColors.success, border: demoColors.success },
-    inactive: { background: demoColors.surfaceElevated, color: demoColors.textMuted, border: demoColors.border },
-    neutral: { background: demoColors.accentMuted, color: demoColors.accent, border: demoColors.accent },
-    warning: { background: demoColors.dangerMuted, color: demoColors.dangerText, border: demoColors.danger },
+    active: {
+      background: demoColors.successMuted,
+      color: demoColors.success,
+      border: demoColors.success,
+    },
+    inactive: {
+      background: demoColors.surfaceElevated,
+      color: demoColors.textMuted,
+      border: demoColors.border,
+    },
+    neutral: {
+      background: demoColors.accentMuted,
+      color: demoColors.accent,
+      border: demoColors.accent,
+    },
+    warning: {
+      background: demoColors.dangerMuted,
+      color: demoColors.dangerText,
+      border: demoColors.danger,
+    },
   };
   const t = tones[tone];
   return {
@@ -173,7 +190,11 @@ export function badgeStyle(tone: BadgeTone): CSSProperties {
   };
 }
 
-export const shiftChipStyle = (background: string, color: string, compact = false): CSSProperties => ({
+export const shiftChipStyle = (
+  background: string,
+  color: string,
+  compact = false,
+): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -195,7 +216,10 @@ export function shiftTypeDisplayLabel(type: ShiftTypeDef): string {
 }
 
 /** Compact icon (not text-pill) treatment for recipe badges — avoids large noisy badge text on the recipe strip/detail. */
-export const RECIPE_BADGE_ICON: Record<'人気' | 'New' | '季節限定', { icon: string; background: string; color: string }> = {
+export const RECIPE_BADGE_ICON: Record<
+  '人気' | 'New' | '季節限定',
+  { icon: string; background: string; color: string }
+> = {
   人気: { icon: '★', background: demoColors.badgePopularBg, color: demoColors.badgePopular },
   New: { icon: 'N', background: demoColors.badgeNewBg, color: demoColors.badgeNew },
   季節限定: { icon: 'S', background: demoColors.badgeSeasonalBg, color: demoColors.badgeSeasonal },
@@ -268,7 +292,8 @@ export function shiftChipColors(
       if (allShiftTypeIds && allShiftTypeIds.length > 0) {
         const customIds = allShiftTypeIds.filter((id) => !BUILT_IN_SHIFT_TYPE_IDS.has(id));
         const index = customIds.indexOf(shiftTypeId);
-        if (index !== -1) return CUSTOM_SHIFT_TYPE_PALETTE[index % CUSTOM_SHIFT_TYPE_PALETTE.length]!;
+        if (index !== -1)
+          return CUSTOM_SHIFT_TYPE_PALETTE[index % CUSTOM_SHIFT_TYPE_PALETTE.length]!;
       }
       let hash = 0;
       for (const char of shiftTypeId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;

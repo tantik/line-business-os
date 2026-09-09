@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { color as token } from '@line-os/tokens';
 
 /**
  * Shared UI tokens/style helpers for apps/web.
@@ -18,21 +19,30 @@ import type { CSSProperties } from 'react';
  * admin panel next to a warm consumer-facing demo.
  */
 
+/**
+ * Values now come from `@line-os/tokens` (the design-system source of truth,
+ * Phase 0). Every value below is byte-identical to the pre-Phase-0 literal —
+ * this is a re-wire, not a restyle. `accentText` is the one addition: a darker
+ * accent for links / accent-colored text on light surfaces, so it clears WCAG
+ * AA at body size (`accent` on white is only ~4.4:1). Full rationale:
+ * `docs/design/tokens.md`.
+ */
 export const colors = {
-  bg: '#FAF3E7',
-  surface: '#FFFFFF',
-  surfaceElevated: '#F6EEDF',
-  border: '#E7D9C1',
-  textPrimary: '#362B1F',
-  textMuted: '#8B7C64',
-  accent: '#4F7A52',
-  accentMuted: 'rgba(79, 122, 82, 0.12)',
-  danger: '#C1503F',
-  dangerMuted: 'rgba(193, 80, 63, 0.12)',
-  dangerText: '#A6402F',
-  success: '#4F7A52',
-  successMuted: 'rgba(79, 122, 82, 0.12)',
-  warning: '#B8863B',
+  bg: token.bg,
+  surface: token.surface,
+  surfaceElevated: token['surface-elevated'],
+  border: token.border,
+  textPrimary: token['text-primary'],
+  textMuted: token['text-muted'],
+  accent: token.accent,
+  accentText: token['accent-text'],
+  accentMuted: token['accent-muted'],
+  danger: token.danger,
+  dangerMuted: token['danger-muted'],
+  dangerText: token['danger-text'],
+  success: token.success,
+  successMuted: token['success-muted'],
+  warning: token.warning,
 } as const;
 
 /**
@@ -152,7 +162,12 @@ export const input: CSSProperties = {
 };
 
 /** Larger visible checkbox + a full min-touch-target clickable row (wrap in a <label>). */
-export const checkboxInput: CSSProperties = { width: 20, height: 20, cursor: 'pointer', flexShrink: 0 };
+export const checkboxInput: CSSProperties = {
+  width: 20,
+  height: 20,
+  cursor: 'pointer',
+  flexShrink: 0,
+};
 
 export const checkboxLabel: CSSProperties = {
   display: 'flex',
@@ -187,7 +202,11 @@ export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning';
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
     active: { background: colors.successMuted, color: colors.success, border: colors.success },
-    inactive: { background: colors.surfaceElevated, color: colors.textMuted, border: colors.border },
+    inactive: {
+      background: colors.surfaceElevated,
+      color: colors.textMuted,
+      border: colors.border,
+    },
     neutral: { background: colors.accentMuted, color: colors.accent, border: colors.accent },
     warning: { background: colors.dangerMuted, color: colors.dangerText, border: colors.danger },
   };
