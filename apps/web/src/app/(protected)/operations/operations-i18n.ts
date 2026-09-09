@@ -155,6 +155,7 @@ interface OperationsDict {
   taskDueAt: string;
   taskWindowUntil: string;
   taskOpenExceptions: string;
+  taskCriticalMissedBadge: string;
   checklistHeading: string;
   noChecklistItems: string;
   itemMissingHint: string;
@@ -184,6 +185,8 @@ interface OperationsDict {
   attentionNoOpenExceptions: string;
   attentionSourceThreshold: string;
   attentionSourceReported: string;
+  attentionSourceCriticalMissed: string;
+  attentionCriticalMissedHint: string;
   attentionItemLabel: string;
   attentionUnknownTask: string;
   attentionOpenedAtLabel: string;
@@ -348,6 +351,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskDueAt: 'Due',
     taskWindowUntil: 'until',
     taskOpenExceptions: 'open issue(s)',
+    taskCriticalMissedBadge: 'Critical check missed',
     checklistHeading: 'Checklist',
     noChecklistItems: 'This template has no active checklist items.',
     itemMissingHint: 'No response yet',
@@ -375,6 +379,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     attentionNoOpenExceptions: 'No open exceptions. Everything looks fine.',
     attentionSourceThreshold: 'Out of range',
     attentionSourceReported: 'Reported',
+    attentionSourceCriticalMissed: 'Critical check missed',
+    attentionCriticalMissedHint: 'A critical scheduled check was not completed before its window closed.',
     attentionItemLabel: 'Item',
     attentionUnknownTask: 'Task',
     attentionOpenedAtLabel: 'Opened',
@@ -535,6 +541,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskDueAt: '実施時刻',
     taskWindowUntil: 'まで',
     taskOpenExceptions: '件の未解決の問題',
+    taskCriticalMissedBadge: '重要チェック未実施',
     checklistHeading: 'チェックリスト',
     noChecklistItems: 'このテンプレートには有効なチェック項目がありません。',
     itemMissingHint: '未回答',
@@ -562,6 +569,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     attentionNoOpenExceptions: '未解決の問題はありません。',
     attentionSourceThreshold: '範囲外の値',
     attentionSourceReported: '報告された問題',
+    attentionSourceCriticalMissed: '重要チェック未実施',
+    attentionCriticalMissedHint: '重要な定期チェックが実施期限までに完了されませんでした。',
     attentionItemLabel: '項目',
     attentionUnknownTask: 'タスク',
     attentionOpenedAtLabel: '発生日時',

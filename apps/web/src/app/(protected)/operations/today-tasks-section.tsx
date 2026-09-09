@@ -98,6 +98,9 @@ export function TodayTasksSection({ t, tasks }: TodayTasksSectionProps) {
                   {task.windowEndTime ? ` ${t('taskWindowUntil')} ${task.windowEndTime.slice(0, 5)}` : ''}
                 </span>
                 <span style={badgeStyle(stateBadgeTone(task.state))}>{stateLabel(t, task.state)}</span>
+                {task.isOverdueCritical ? (
+                  <span style={badgeStyle('warning')}>{t('taskCriticalMissedBadge')}</span>
+                ) : null}
                 {task.openExceptionCount > 0 ? (
                   <span style={badgeStyle('warning')}>
                     {task.openExceptionCount} {t('taskOpenExceptions')}

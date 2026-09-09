@@ -16,14 +16,22 @@ import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
  */
 
 export type OperationsExceptionSeverity = 'warning' | 'action_required';
-export type OperationsExceptionSource = 'threshold' | 'reported';
+/**
+ * `threshold` / `reported` are instance-attached (a numeric breach / a Staff
+ * report on a task someone opened). `critical_missed` (0116) is instance-LESS:
+ * a critical scheduled check whose window closed with no completion -- it
+ * carries `scheduleId` + `businessDate` instead of an `instanceId`.
+ */
+export type OperationsExceptionSource = 'threshold' | 'reported' | 'critical_missed';
 
-/** Flat row shape returned by `api.operations_open_exceptions` (0101). Only ever `status = 'open'` -- the view has no "resolved" rows, so a resolved exception simply disappears from a subsequent read. */
+/** Flat row shape returned by `api.operations_open_exceptions` (0101, + schedule_id/business_date in 0116). Only ever `status = 'open'` -- the view has no "resolved" rows, so a resolved exception simply disappears from a subsequent read. */
 interface ApiOperationsOpenExceptionRow {
   exception_id: string;
   tenant_id: string;
   location_id: string;
-  instance_id: string;
+  instance_id: string | null;
+  schedule_id: string | null;
+  business_date: string | null;
   item_id: string | null;
   severity: OperationsExceptionSeverity;
   source: OperationsExceptionSource;
@@ -35,7 +43,10 @@ export interface OperationsOpenException {
   exceptionId: string;
   tenantId: string;
   locationId: string;
-  instanceId: string;
+  /** NULL for a `critical_missed` exception -- use `scheduleId` + `businessDate` to resolve it to its task. */
+  instanceId: string | null;
+  scheduleId: string | null;
+  businessDate: string | null;
   itemId: string | null;
   severity: OperationsExceptionSeverity;
   source: OperationsExceptionSource;
@@ -49,6 +60,8 @@ function mapOpenExceptionRow(row: ApiOperationsOpenExceptionRow): OperationsOpen
     tenantId: row.tenant_id,
     locationId: row.location_id,
     instanceId: row.instance_id,
+    scheduleId: row.schedule_id,
+    businessDate: row.business_date,
     itemId: row.item_id,
     severity: row.severity,
     source: row.source,
@@ -57,7 +70,8 @@ function mapOpenExceptionRow(row: ApiOperationsOpenExceptionRow): OperationsOpen
   };
 }
 
-const OPEN_EXCEPTION_SELECT = 'exception_id, tenant_id, location_id, instance_id, item_id, severity, source, note, created_at';
+const OPEN_EXCEPTION_SELECT =
+  'exception_id, tenant_id, location_id, instance_id, schedule_id, business_date, item_id, severity, source, note, created_at';
 
 /** Read every currently-open Operations exception the caller may see (RLS-scoped: module ON + `operations.task.read`/`operations.exception.resolve`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listExpectedTasks`. */
 export async function listOpenOperationsExceptions(
@@ -79,6 +93,34 @@ export async function listOpenOperationsExceptions(
     return { status: 'success', data: exceptions };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading open Operations exceptions.' };
+  }
+}
+
+/**
+ * G1 (0116): materialise persistent `critical_missed` exceptions for the
+ * caller's permitted locations via `api.operations_flag_missed_critical`. A
+ * critical scheduled check whose window closed with no completion becomes a
+ * durable `action_required` Attention item.
+ *
+ * "Read-time materialisation" (Founder decision 2026-09-09): this is called
+ * from the Manager Operations server-load, right before
+ * `listOpenOperationsExceptions`, so the feed reflects it on the same load.
+ * Idempotent (a historical unique index prevents duplicates) and safe to call
+ * on every Manager Operations render.
+ *
+ * Best-effort: a failure here MUST NOT break the Manager dashboard -- the
+ * transient `isOverdueCritical` flag from `api.operations_expected_tasks`
+ * still surfaces the state -- so this never throws and returns nothing.
+ *
+ * ACCEPTED MVP IMPLEMENTATION DETAIL: if a Manager never opens Operations
+ * after a miss, the persistent row may not exist yet. A future scheduled
+ * worker can call the same RPC with no schema change.
+ */
+export async function flagMissedCriticalExceptions(supabase: SupabaseClient, tenantId: string): Promise<void> {
+  try {
+    await supabase.schema('api').rpc('operations_flag_missed_critical', { p_tenant_id: tenantId });
+  } catch {
+    // deliberately swallowed -- see the doc comment
   }
 }
 
