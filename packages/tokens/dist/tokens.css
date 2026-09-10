@@ -7,10 +7,11 @@
   --oruwa-color-surface: #FFFFFF;
   --oruwa-color-surface-elevated: #F6EEDF;
   --oruwa-color-surface-sunken: rgba(54, 43, 31, 0.025);
+  --oruwa-color-overlay: rgba(54, 43, 31, 0.45);
   --oruwa-color-border: #E7D9C1;
   --oruwa-color-border-strong: #D8C6A4;
   --oruwa-color-text-primary: #362B1F;
-  --oruwa-color-text-muted: #8B7C64;
+  --oruwa-color-text-muted: #6B5D48;
   --oruwa-color-text-on-accent: #FFFFFF;
   --oruwa-color-accent: #4F7A52;
   --oruwa-color-accent-text: #3B5C3E;
@@ -20,10 +21,14 @@
   --oruwa-color-danger-text: #A6402F;
   --oruwa-color-danger-muted: rgba(193, 80, 63, 0.12);
   --oruwa-color-success: #4F7A52;
+  --oruwa-color-success-text: #3B5C3E;
   --oruwa-color-success-muted: rgba(79, 122, 82, 0.12);
   --oruwa-color-warning: #B8863B;
+  --oruwa-color-warning-text: #8A5A1F;
   --oruwa-color-warning-muted: rgba(184, 134, 59, 0.10);
   --oruwa-color-info: #2F6690;
+  --oruwa-color-info-text: #2F6690;
+  --oruwa-color-info-muted: rgba(47, 102, 144, 0.12);
   --oruwa-color-focus-ring: #4F7A52;
   --oruwa-space-1: 4px;
   --oruwa-space-2: 8px;
@@ -62,6 +67,10 @@
   --oruwa-shadow-sm: 0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05);
   --oruwa-shadow-md: 0 2px 6px rgba(54, 43, 31, 0.12);
   --oruwa-shadow-lg: 0 28px 70px rgba(27, 54, 58, 0.15);
+  --oruwa-elevation-card: 0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05);
+  --oruwa-elevation-raised: 0 2px 6px rgba(54, 43, 31, 0.12);
+  --oruwa-elevation-dropdown: 0 2px 6px rgba(54, 43, 31, 0.12);
+  --oruwa-elevation-overlay: 0 28px 70px rgba(27, 54, 58, 0.15);
   --oruwa-duration-fast: 120ms;
   --oruwa-duration-base: 160ms;
   --oruwa-duration-slow: 240ms;
@@ -78,4 +87,9 @@
   --oruwa-z-modal: 1300;
   --oruwa-z-toast: 1400;
   --oruwa-z-tooltip: 1500;
+  --oruwa-focus-ring-width: 2px;
+  --oruwa-focus-ring-offset: 2px;
+  --oruwa-state-disabled: 0.5;
+  --oruwa-border-width: 1px;
+  --oruwa-border-width-thick: 2px;
 }
