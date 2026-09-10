@@ -6,7 +6,7 @@
 | Date | 2026-09-01 |
 | Repository | `tantik/line-business-os` |
 | Verified baseline (at #1) | `dev` HEAD `ffc4b2e`; `origin/dev` == local `dev`; working tree clean; CI green |
-| Last reconciled | 2026-09-03 — Step 4 Operations Cloud DEV module-ON smoke PASSED (Founder-run) + PR #485 merged; canonical next step = Operations Manager/Staff UI. Prev: 2026-09-01 canonical Cafe v2.2 WP sequence + acceptance model + `cto-context.md` |
+| Last reconciled | 2026-09-10 — **Cafe v2.2 WP1 Operations CLOSED** (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`, applied to Cloud DEV). Next agreed phase = **ORUWA Product Quality Foundation** (§14 step 7b), then WP2. Prev: 2026-09-03 Operations Cloud DEV module-ON smoke; 2026-09-01 canonical Cafe v2.2 WP sequence + acceptance model + `cto-context.md` |
 | Cloud DEV | `line-business-os-dev` / `pehcoenozjtsjdvjietj` |
 | Production | `jsgmmsdkuptdsxtcxhsv` — **separate project, effectively empty, untouched** |
 | Companion | `docs/project/cto-context.md` — the durable *why* behind these decisions |
@@ -301,7 +301,7 @@ begins on its own Founder prompt.
 
 | WP | Name | Bounded direction | Status |
 |---|---|---|---|
-| **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **Backend IMPLEMENTED & merged & on Cloud DEV** (`0099`–`0105`): `operations` schema, checklist templates/items, task schedules/instances/item-responses/exceptions, effective-dated schedule versioning, template-retirement dating, 9 `api.operations_*` config RPCs, three-layer security, pgTAP-covered. Module registered **`beta`**. **Module-ON Cloud DEV smoke PASSED (2026-09-03, Founder-run, `smoke-tenant-b`)** — enable + read/write via `api.*`, disabled-tenant/cross-tenant/role/location boundaries all enforced; the smoke ran in one transaction that ROLLED BACK, so `operations` is still **enabled for NO tenant** and no smoke data persisted. **No Manager/Staff Operations UI. No Cafe HACCP preset content.** |
+| **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **CLOSED 2026-09-10 — ACCEPTED WITH EXPLICIT MVP LIMITATIONS.** Backend `0099`–`0116` on Cloud DEV (`operations` schema, templates/items, schedules/instances/responses/exceptions, effective-dated versioning, retirement dating, config RPCs, three-layer security, pgTAP-covered). Manager + Staff Operations UI shipped (7 PRs, dashboard popup, JA/EN). Cafe HACCP presets applied to `oruwa-cafe` (4 templates / 12 items / 4 daily schedules, NULL thresholds = Manager config). **G1 fixed** — migration `0116` (Founder-approved, applied to Cloud DEV): persistent instance-less `critical_missed` / `action_required` exception when a critical scheduled check's window closes with no completion; read-time materialisation from Manager Operations load; auto-resolve on late completion. Full bounded acceptance + independent re-review = PASS: `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md` §19. **Explicit Founder-accepted MVP limitations (deferred, not defects):** (1) no ad-hoc same-day recheck task; (2) no per-location threshold override on a shared template; (3) `critical_missed` materialised read-time, not by a scheduled worker (writer is worker-ready). Production untouched; `operations` still enabled only for the `oruwa-cafe` reference tenant on Cloud DEV. |
 | **WP2** | **Issues & Handover** | Structured operational issue capture + shift/day handover. Not a generic issue tracker. | **PLANNED** — bounded direction agreed; own implementation prompt required. |
 | **WP3** | **Owner Weekly Review** | Deliberately bounded management workflow: *what happened → what needs attention → what repeats → what action is required*. **Not** a generic dashboard / "Control Center". | **PLANNED** — own implementation prompt required. |
 | **WP4** | **Purchasing v2** | Supplier records, item↔supplier mapping, pack/unit/lead-time, draft→approval flow, ordered/expected/partially-received/received/variance/closed states, inventory-recount linkage. **Not** invoices/payments/accounting/supplier-APIs/WMS/autonomous ordering. Must not be merged with WP1 Operations. | **PLANNED** — own implementation prompt required. (Purchases v1 shipped in v2.1.) |
@@ -350,7 +350,7 @@ never silently overwrite a manual assignment.
 | Inventory | **IMPLEMENTED** (Cafe: Daily Stock Check + photos) | §7 |
 | Purchases | **IMPLEMENTED** (Cafe) | §7 |
 | Recipes / Knowledge | **IMPLEMENTED** (Cafe) | §7 |
-| Operations | **BACKEND ONLY** — no UI, not enabled | §7 |
+| Operations | **WP1 CLOSED 2026-09-10** — backend `0099`–`0116`, Manager/Staff UI, Cafe HACCP presets; enabled for the `oruwa-cafe` reference tenant on Cloud DEV only | §7 |
 | Booking | **SCAFFOLD** | schema + `@line-os/booking` + `/booking` stub + reminder job; salon vertical not started |
 | LINE Messaging API | **PARTIAL** | `@line-os/line` (messaging + webhook signature verify), `core.line_channels`; no deployed webhook consumer; not production-wired |
 | LIFF | **PARTIAL** | code complete, not deployed / not enabled |
@@ -458,9 +458,10 @@ Milestones that materially change future development speed:
   module gate; module registry not driving navigation; notifications outbox
   has no dispatcher; event bus has no consumers. **By decision, closed only
   per-consumer** (§6, §14) — not tracked as one debt item to burn down.
-- Operations module has **no Manager/Staff UI** and **no Cafe HACCP preset
-  content**. → §14 steps 5–6. (The Cloud DEV module-ON smoke is now DONE — see
-  §14 step 4 / §7.)
+- Operations WP1 is **CLOSED** (2026-09-10) — Manager/Staff UI + Cafe HACCP
+  presets shipped, G1 fixed via migration `0116`. Next: ORUWA Product
+  Quality Foundation (§14 step 7b), then WP2. Neither is authorized to
+  start yet.
 - **Deprecated Mame To Cha tooling cleanup** — §14 step 2 (bounded task).
   **Cloud-specific part DONE (Sept 2026):** the 27 `packages/db/scripts/mame-to-cha-cloud-*`
   files + their `package.json` scripts/test-list entries + `MAME_TO_CHA_CLOUD_*`
@@ -597,15 +598,28 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    no tenant). Local mirror: pgTAP `supabase/tests/0055_*` + the `.ps1 -AllowLocal`
    path. Tooling merged via PR #485. Runbook:
    `docs/operations/operations-cloud-dev-module-on-smoke-runbook.md`.
-5. **Operations Manager/Staff UI** — **canonical next implementation step.**
-   Its own Founder prompt. (Operations UI itself is NOT started.)
-6. **Cafe HACCP presets**.
-7. **WP1 bounded acceptance gate**.
-8. **WP2 Issues & Handover** → 9. **WP2 bounded acceptance**.
+5. **Operations Manager/Staff UI** — **DONE** (2026-09-05, 7 PRs, live-QA'd).
+6. **Cafe HACCP presets** — **DONE** (2026-09-08, PR #511/#512, applied to
+   `oruwa-cafe` on Cloud DEV, live-QA'd).
+7. **WP1 bounded acceptance gate** — **DONE, WP1 CLOSED 2026-09-10**
+   (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`,
+   applied to Cloud DEV). Report:
+   `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`.
+7b. **ORUWA Product Quality Foundation** — **agreed platform-level phase,
+   runs AFTER WP1 CLOSE and BEFORE active WP2–WP5 implementation.** NOT yet
+   authorized to start (own Founder prompt). See the "Product Quality
+   Foundation" subsection below.
+8. **WP2 Issues & Handover** → 9. **WP2 bounded acceptance** *(built on the
+   Design System v1 delivered by step 7b).*
 10. **WP3 Owner Weekly Review** → 11. **WP3 bounded acceptance**.
 12. **WP4 Purchasing v2** → 13. **WP4 bounded acceptance**.
 14. **WP5 Recipe Intelligence Lite** → 15. **WP5 bounded acceptance**.
-16. **Full Cafe v2.2 Integrated Acceptance** (master-roadmap Phase 4).
+15b. **Full JA/EN Copy Audit + Founder-facing Russian Feature Map + Demo
+   Readiness check** (part of Product Quality Foundation closure, before
+   the integrated acceptance).
+16. **Full Cafe v2.2 Integrated Acceptance** — the **single** Phase-4
+   integrated acceptance (master-roadmap Phase 4). No extra per-phase
+   acceptance gate is added by Product Quality Foundation.
 
 Then (master-roadmap Phases 5–14, unchanged): SaaS Hardening → Tenant
 Provisioning + Clean Tenant Acceptance → Commercial Infrastructure (Demo,
@@ -622,6 +636,44 @@ real consumer needs it** — Cafe, SaaS Hardening, Billing, provisioning, Produc
 architectural completeness.
 
 Each step above begins only on a distinct Founder go-ahead. **No dates.**
+
+### ORUWA Product Quality Foundation (Founder decision 2026-09-09)
+
+A separate **platform-level** bounded phase — not a Cafe feature — that runs
+**after WP1 CLOSE** and **before active WP2–WP5 implementation**. Goal: a
+single ORUWA design system so WP2–WP5 and every later product are built on
+one consistent, accessible, maintainable UI foundation instead of the
+current ad-hoc `lib/ui/theme.ts` + per-page inline styles.
+
+- **Bounded v1 with an explicit Definition of Done.** Not "redesign
+  everything" — a first version that is complete enough to build WP2 on.
+- **Structure:** `ARTIFACT` (the design system itself — tokens already
+  landed as Phase 0 / `@line-os/tokens`, PR #514; then primitives,
+  components, patterns), `STANDARDS` (a11y, responsive, component states,
+  error recovery, performance — written norms), `AUDITS` (the evidence
+  each area was checked).
+- **Do NOT pre-decide the technology.** The first stage is a combined
+  technical + UX audit comparing three strategies — (a) evolve the current
+  hand-rolled layer, (b) a thin ORUWA component layer, (c) a
+  Radix-primitives-based system — and recommends one. No commitment to
+  Radix / current / bespoke before that audit.
+- **Operations is the first pilot** — migrate the existing Operations
+  Manager/Staff/Attention UI onto the design system. Migrate, not
+  pixel-for-pixel: evidence-based UX improvements are allowed. **No
+  business-logic / DB / RPC / RLS change** without a separate Founder gate.
+- **No extra acceptance gates.** Product Quality Foundation folds into the
+  existing sequence; the only Cafe v2.2 runtime acceptance remains the
+  per-WP gates + the single Phase-4 Integrated Acceptance. Before that
+  final acceptance: a full JA/EN Copy Audit, a Founder-facing Russian
+  Feature Map, and a Demo Readiness check.
+- Folds in the still-open `current-task.md` §2.4 step-1 items (IA/visual
+  polish, native-JA copy review) where they overlap.
+- **Sequence:** WP1 CLOSED → Design System Audit → Design System v1 +
+  Operations pilot → WP2–WP5 on DS v1 → Copy Audit / Feature Map / Demo
+  Readiness → **one** Phase-4 Integrated Acceptance → Cafe v2.2 CLOSED.
+- **NOT authorized to start** by this entry — its own Founder prompt.
+  Product Quality Foundation **implementation** and **WP2** are both not
+  started.
 
 ---
 
@@ -686,7 +738,7 @@ Full rationale for each: `cto-context.md` (the "why" document).
 |---|---|---|---|
 | `main` ↔ `dev` divergence + undefined release path | First production release needs a dedicated reconciliation; `db pull`/`diff` noisy on 5 migration numbers | Documented; `dev` declared authoritative | Before Phase 9 / first sale |
 | Foundation Services "present but not wired" | A 2nd vertical or Billing will hit half-built pieces | Consumer-driven completion (§6, §14); no burn-down project | When a real consumer needs each |
-| Operations has no Manager/Staff UI | Cafe v2.2 not deliverable | Backend pgTAP-covered + Cloud DEV module-ON smoke PASSED (2026-09-03) | §14 steps 5–6 |
+| Operations WP1 | Was: not deliverable. **Now CLOSED (2026-09-10)** — UI + HACCP presets + G1 fix (`0116`) on Cloud DEV, bounded acceptance PASS | Next = Product Quality Foundation (§14 step 7b) then WP2 |
 | No production env / billing / provisioning | Cannot onboard a paying customer | Roadmap Phases 7–9 | Before real commercial validation |
 | Browser-QA tooling varies per session | Final Integrated QA may fall back to Founder-screenshot loop | Screenshot loop proven workable | Check at Phase 1 step 4 / hardening start |
 | `/dashboard/admin` ungated (Defect A) | Defense-in-depth gap if a privileged action is added | Inert today (RLS-scoped, disabled placeholders) | Before wiring any admin action |
