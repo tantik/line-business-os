@@ -277,8 +277,76 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-10 pointer, CAFE v2.2 WP1 OPERATIONS — CLOSED (newest; read this
+one first).** WP1 Operations is **CLOSED** with verdict **"ACCEPTED WITH
+EXPLICIT MVP LIMITATIONS, READY TO CLOSE"**.
+
+- **G1 fixed.** The one substantive acceptance gap (a missed critical
+  scheduled check produced no durable Manager Attention item and no visual
+  escalation in "Today" — `critical_missed` / `verification_required`
+  declared in schema but never written) is fixed by **migration
+  `0116_operations_missed_critical.sql`** (Founder-approved as an
+  unfinished bounded slice of existing WP1; additive; a schema change was
+  permitted via a Founder Gate). Merged via **PR #513** (`536993a`).
+- **`0116` APPLIED TO CLOUD DEV** `pehcoenozjtsjdvjietj` via the standard
+  Supabase migration workflow, Founder-run under an explicit Founder Gate
+  (the RED guardrail blocks the session from running `migration repair` /
+  `db push`). Pre-apply ledger drift on `0115` (schema present since
+  2026-09-05, ledger row missing) was resolved first with
+  `supabase migration repair --status applied 0115` (ledger-only), after a
+  read-only `db dump` proved `0115`'s schema byte-equivalent to its
+  migration contract. Post-apply verification: ledger `0114/0115/0116` all
+  applied; every `0116` object present and matching the merged design;
+  existing Operations / HACCP data intact; ADR 0008 preserved.
+- **Acceptance A–J = PASS** — pgTAP `supabase/tests/0058_operations_missed_critical.sql`
+  (clean run: 0058 ok, exactly the 11 known pre-existing failures, zero
+  new) + live Preview Browser QA (Manager + Staff on `oruwa-cafe`):
+  read-time materialisation, `重要チェック未実施` badge in Manager/Staff
+  "Today", Attention feed with hint line, persistence across reloads, no
+  duplicate on repeated sweep, late-response keeps it open, **late
+  completion auto-resolves it and a re-sweep does not recreate it**,
+  Manager resolve flow. `#514` (Phase 0 design tokens) regression: theme
+  values byte-identical, only JP-first font + a new unused `accentText`
+  token; `turbo` 34/34; no Operations layout regression.
+- **Independent fresh-context re-review = PASS — "WP1 may close"** (no
+  P0/P1; SECURITY DEFINER functions correctly self-authorising per
+  location, no cross-tenant write path, `operations` schema not
+  PostgREST-exposed).
+- **Explicit Founder-accepted MVP limitations (deferred, NOT defects, do
+  NOT build without a fresh prompt):** (1) no ad-hoc same-day recheck task
+  (§7); (2) no true per-location threshold override on a shared template
+  (§12); (3) `critical_missed` materialised at Manager-Operations read
+  time, not by a scheduled worker (writer is worker-ready).
+- Full record: `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`
+  §19 (§1–§18 retained as the historical record that surfaced G1).
+
+**Next agreed phase: ORUWA Product Quality Foundation** (Founder decision
+2026-09-09) — a **platform-level** bounded phase, runs **after WP1 CLOSE**
+and **before active WP2–WP5 implementation**. A single ORUWA design system
+so WP2–WP5 are built on one consistent/accessible/maintainable foundation.
+Bounded v1 with an explicit DoD; `ARTIFACT` / `STANDARDS` / `AUDITS`
+structure (design tokens already landed as Phase 0 / `@line-os/tokens`,
+PR #514); **technology NOT pre-decided** — the first stage is a technical +
+UX audit comparing (a) evolve the current layer, (b) a thin ORUWA
+component layer, (c) a Radix-primitives system, and recommends one;
+**Operations is the first pilot** (migrate, evidence-based UX improvements
+allowed, no business-logic / DB / RPC / RLS change without a separate
+gate); **no extra acceptance gates** (folds into the existing per-WP gates
++ the single Phase-4 Integrated Acceptance); before final acceptance — full
+JA/EN Copy Audit, Founder-facing Russian Feature Map, Demo Readiness check.
+Sequence: WP1 CLOSED → Design System Audit → Design System v1 + Operations
+pilot → WP2–WP5 on DS v1 → Copy Audit / Feature Map / Demo Readiness → one
+Phase-4 Integrated Acceptance → Cafe v2.2 CLOSED. **NOT authorized to start
+— its own Founder prompt. Product Quality Foundation implementation and WP2
+are both not started.** See `docs/project/master-state.md` §14 ("ORUWA
+Product Quality Foundation") and `docs/strategy/oruwa-master-roadmap.md`.
+
+Production remains untouched and separately gated. `main` untouched.
+
+---
+
 **2026-09-08 pointer, CAFE HACCP PRESETS — CLOUD DEV APPLIED, BROWSER QA
-PASS (newest; read this one first, before both pointers below).** Closes
+PASS (superseded by the 2026-09-10 WP1-CLOSED pointer above).** Closes
 the Founder Gate the two pointers below left open. Third and final bounded
 mission on the "Cafe HACCP presets" step.
 

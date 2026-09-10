@@ -15,6 +15,7 @@
 | Status | Founder-approved, current working roadmap |
 | Owner | Founder |
 | Recorded | 2026-08-25, verbatim Founder decision, reconciled against repo state same session |
+| Updated | 2026-09-10 — Cafe v2.2 WP1 Operations CLOSED; **Phase 3.5 ORUWA Product Quality Foundation** inserted (Founder decision 2026-09-09) between WP1 CLOSE and active WP2–WP5 |
 | Supersedes | `docs/ai/current-task.md` §2.4's "Cafe Commercial Launch Readiness" step ordering (Platform Foundation was sequenced before Cafe Product Growth/v2.2 there — this document places Cafe v2.2 before Platform Foundation Reconciliation; see "Reconciliation notes" below) |
 | Does not supersede | `docs/foundation/platform-foundation-roadmap.md` (engineering critical path for Platform Foundation itself, unchanged), `docs/strategy/go-to-market-roadmap.md` (commercial detail behind Phases 9-12 below, unchanged) |
 
@@ -56,12 +57,13 @@ ONE ORUWA SaaS
 
 ## Phase sequence
 
-| # | Phase | Status as of 2026-08-25 |
+| # | Phase | Status as of 2026-09-10 |
 |---|---|---|
-| 1 | Cafe v2.1 Completion | **CURRENT** |
-| 2 | Cafe v2.2 Product Research | Not started |
-| 3 | Cafe v2.2 Implementation | Not started — except **WP1 Operations scope authorized** 2026-08-28 (`docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md`); WP1-A implementation not started, needs its own explicit Founder prompt |
-| 4 | Full Cafe v2.2 Acceptance | Not started |
+| 1 | Cafe v2.1 Completion | Effectively CLOSED (Founder Acceptance PASS 2026-08-26); Cafe Commercial Launch Readiness step-1 items fold into Phase 3.5 |
+| 2 | Cafe v2.2 Product Research | Not started (WP1 was the pre-authorized Phase-3 exception) |
+| 3 | Cafe v2.2 Implementation | In progress — **WP1 Operations CLOSED 2026-09-10** (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`, applied to Cloud DEV; `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`). WP2–WP5 not started, each needs its own Founder prompt |
+| 3.5 | **ORUWA Product Quality Foundation** | Agreed 2026-09-09 — platform-level, runs **after WP1 CLOSE, before active WP2–WP5**. Not started, needs its own Founder prompt. See Phase 3.5 below |
+| 4 | Full Cafe v2.2 Acceptance | Not started — the **single** Cafe v2.2 runtime integrated acceptance (Product Quality Foundation adds no extra gate) |
 | 5 | SaaS Hardening | Not started |
 | 6 | Platform Foundation Reconciliation | Not started (forensic triage exists, see below) |
 | 7 | Tenant Provisioning | Not started |
@@ -150,6 +152,52 @@ priority model (already Founder-decided, holds regardless of Phase 2's
 outcome): **Manual Manager Assignment > Manager-approved/locked preference
 > Employee preference > Algorithmic fallback** — automation must never
 silently overwrite a manual manager assignment.
+
+**WP1 Operations — CLOSED 2026-09-10.** Backend (`0099`–`0116`) + Manager/
+Staff UI + Cafe HACCP presets on Cloud DEV; blocker G1 (missed critical
+check produced no durable Attention item) fixed via migration `0116`
+(Founder-approved bounded slice, applied to Cloud DEV). Bounded acceptance
+A–J + independent re-review = PASS. Explicit Founder-accepted MVP
+limitations, deferred: no ad-hoc same-day recheck task; no per-location
+threshold override on a shared template; read-time (not worker)
+materialisation of `critical_missed`. Record:
+`docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`
+§19.
+
+### Phase 3.5 — ORUWA Product Quality Foundation
+
+**Founder decision 2026-09-09.** A separate **platform-level** bounded
+phase (not a Cafe feature) that runs **after WP1 CLOSE** and **before
+active WP2–WP5 implementation**: one ORUWA design system so WP2–WP5 and
+every later product are built on a single consistent, accessible,
+maintainable UI foundation rather than the current ad-hoc
+`lib/ui/theme.ts` + per-page inline styles.
+
+- **Bounded v1 with an explicit Definition of Done** — complete enough to
+  build WP2 on, not "redesign everything".
+- **Structure:** `ARTIFACT` (the design system — tokens already landed as
+  Phase 0 / `@line-os/tokens`, PR #514; then primitives, components,
+  patterns), `STANDARDS` (a11y, responsive, component states, error
+  recovery, performance), `AUDITS` (evidence each area was checked).
+- **Technology NOT pre-decided.** First stage = a combined technical + UX
+  audit comparing (a) evolve the current hand-rolled layer, (b) a thin
+  ORUWA component layer, (c) a Radix-primitives-based system; it
+  recommends one. No commitment to Radix / current / bespoke before that
+  audit.
+- **Operations is the first pilot** — migrate the existing Operations
+  Manager/Staff/Attention UI onto the design system. Migrate, not
+  pixel-for-pixel: evidence-based UX improvements allowed. **No
+  business-logic / DB / RPC / RLS change** without a separate Founder gate.
+- **No extra acceptance gates.** Folds into the existing per-WP gates + the
+  single Phase-4 Integrated Acceptance. Before the Phase-4 acceptance: a
+  full JA/EN Copy Audit, a Founder-facing Russian Feature Map, a Demo
+  Readiness check.
+- Folds in the still-open Cafe Commercial Launch Readiness step-1 items
+  (IA/visual polish, native-JA copy review) where they overlap.
+- **Sequence:** WP1 CLOSED → Design System Audit → Design System v1 +
+  Operations pilot → WP2–WP5 on DS v1 → Copy Audit / Feature Map / Demo
+  Readiness → **one** Phase-4 Integrated Acceptance → Cafe v2.2 CLOSED.
+- **NOT authorized to start** by this document — its own Founder prompt.
 
 ### Phase 4 — Full Cafe v2.2 Acceptance
 
