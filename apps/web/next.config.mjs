@@ -13,7 +13,7 @@ const nextConfig = {
   // config), so skip Next's built-in build-time lint to avoid requiring the
   // legacy eslint-config-next setup.
   eslint: { ignoreDuringBuilds: true },
-  transpilePackages: ['@line-os/ui', '@line-os/workforce', '@line-os/booking', '@line-os/config'],
+  transpilePackages: ['@line-os/ui', '@line-os/workforce', '@line-os/booking', '@line-os/config', '@line-os/tokens'],
   // Phase 1N-4C Slice B1: host-based routing for the Mame To Cha DB-backed
   // preview shell. `beforeFiles` so this overrides the physical public
   // `/mame-to-cha/*` demo pages conditionally, only on `preview.oruwa.jp` -

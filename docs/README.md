@@ -20,7 +20,8 @@ docs
  ├── ai               AI-agent operating context: project profile, current task, operating model.
  ├── adr              Architecture Decision Records.
  ├── strategy         Longer-range strategic RFCs (e.g. future verticals).
- └── development       Contributor-facing process docs (e.g. acceptance workflow).
+ ├── development       Contributor-facing process docs (e.g. acceptance workflow).
+ └── design           Design-system charter and token reference (source of truth: packages/tokens).
 ```
 
 Folders are added as needed; the list above reflects what exists today plus the `research` folder called out in this README's suggested structure (create it when the first research document is written).
@@ -38,6 +39,7 @@ Folders are added as needed; the list above reflects what exists today plus the 
 - **`adr/`** — Architecture Decision Records, numbered sequentially.
 - **`strategy/`** — Longer-range strategic proposals, such as future vertical RFCs.
 - **`development/`** — Process documents for contributors, such as the product acceptance workflow.
+- **`design/`** — Design-system charter (principles) and token reference. The token *source of truth* is code (`packages/tokens`), not this folder.
 
 ## Priority Rule
 

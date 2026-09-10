@@ -1,4 +1,13 @@
 /*
+ * ORUWA design tokens (Phase 0) — defines the `--oruwa-*` custom properties on
+ * `:root`. Generated from `@line-os/tokens`; values are byte-identical to the
+ * pre-Phase-0 palette in `lib/ui/theme.ts`. `@import` must stay first in the
+ * file (CSS rule). New Tailwind/CSS-Module code reads these; the existing
+ * inline-style call sites keep reading `lib/ui/theme.ts` until Phase 3.
+ */
+@import '@line-os/tokens/tokens.css';
+
+/*
  * App-wide interaction-state safety net (ORUWA design system charter,
  * 2026-08-21: "every button must have hover, nothing should look stuck
  * after a click"). `theme.module.css`'s per-variant hover/focus rules

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { colors } from '@/lib/ui/theme';
+import { fontFamily } from '@line-os/tokens';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="ja">
       <body
         style={{
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: fontFamily.base,
           margin: 0,
           background: colors.bg,
           color: colors.textPrimary,

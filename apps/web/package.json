@@ -15,6 +15,7 @@
     "@line-os/booking": "workspace:*",
     "@line-os/config": "workspace:*",
     "@line-os/db": "workspace:*",
+    "@line-os/tokens": "workspace:*",
     "@line-os/ui": "workspace:*",
     "@line-os/workforce": "workspace:*",
     "@line/liff": "^2.30.0",

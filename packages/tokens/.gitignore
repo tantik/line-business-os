@@ -1,0 +1,6 @@
+# Root .gitignore excludes dist/ everywhere, but dist/tokens.css is a GENERATED
+# artifact that consumers import before this package is built, so it is
+# committed on purpose. Keep it tracked; ignore anything else that lands here.
+!/dist/
+/dist/*
+!/dist/tokens.css
