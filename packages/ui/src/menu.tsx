@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { DropdownMenu } from 'radix-ui';
-import { cn } from './cn.js';
-import { IconButton } from './button.js';
+import { cn } from './cn';
+import { IconButton } from './button';
 
 export interface MenuItem {
   key: string;

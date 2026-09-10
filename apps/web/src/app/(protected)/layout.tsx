@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { requireUser } from '@/lib/auth/require-user';
 import { PendingInvitationBanner } from '@/components/workforce/PendingInvitationBanner';
+import { ToastProvider } from '@/components/shared/design-kit/Toast';
 
 /**
  * Authenticated routes depend on the per-request session cookie and the
@@ -18,9 +19,9 @@ export const dynamic = 'force-dynamic';
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await requireUser();
   return (
-    <>
+    <ToastProvider>
       <PendingInvitationBanner />
       {children}
-    </>
+    </ToastProvider>
   );
 }

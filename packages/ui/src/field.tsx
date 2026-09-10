@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 function useFieldId(explicitId?: string): string {
   const generated = React.useId();

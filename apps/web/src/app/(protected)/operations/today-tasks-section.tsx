@@ -1,8 +1,10 @@
 'use client';
 
 import type { OperationsExpectedTask } from '@/lib/operations/tasks';
-import type { BadgeTone } from '@/lib/ui/theme';
-import { badgeStyle, card, colors, mutedText } from '@/lib/ui/theme';
+import type { Lang } from '@/lib/demo/cafe/i18n';
+import { ListRow, MetadataText, StatusBadge } from '@line-os/ui';
+import type { StatusTone } from '@line-os/ui';
+import { formatTaskDueWindow } from './operations-i18n';
 import type { tOperations } from './operations-i18n';
 
 type TFn = (key: Parameters<typeof tOperations>[1]) => string;
@@ -23,16 +25,16 @@ function statePriority(state: OperationsExpectedTask['state']): number {
   }
 }
 
-function stateBadgeTone(state: OperationsExpectedTask['state']): BadgeTone {
+function stateTone(state: OperationsExpectedTask['state']): StatusTone {
   switch (state) {
     case 'completed':
-      return 'active';
+      return 'success';
     case 'overdue':
-      return 'warning';
+      return 'critical';
     case 'in_progress':
-      return 'neutral';
+      return 'info';
     default:
-      return 'inactive';
+      return 'neutral';
   }
 }
 
@@ -51,6 +53,7 @@ function stateLabel(t: TFn, state: OperationsExpectedTask['state']): string {
 
 export interface TodayTasksSectionProps {
   t: TFn;
+  lang: Lang;
   /** Already filtered to today's business date at the Manager's own location -- see `page.tsx`. */
   tasks: OperationsExpectedTask[] | null;
 }
@@ -60,56 +63,54 @@ export interface TodayTasksSectionProps {
  * own location -- state (not_started/in_progress/overdue/completed) and open
  * exception count per task. The Manager never executes tasks here (that
  * remains Staff-only, `staff-operations-client.tsx`); no click-through, no
- * checklist modal.
+ * checklist modal. `ListRow` (Design System v1) replaces the hand-built
+ * `<li>` — same data, Status/Metadata/Action model applied (state is the
+ * only real status badge; due time/category are plain `MetadataText`).
  */
-export function TodayTasksSection({ t, tasks }: TodayTasksSectionProps) {
+export function TodayTasksSection({ t, lang, tasks }: TodayTasksSectionProps) {
   const sortedTasks = [...(tasks ?? [])].sort(
     (a, b) => statePriority(a.state) - statePriority(b.state) || a.dueTime.localeCompare(b.dueTime) || a.scheduleId.localeCompare(b.scheduleId),
   );
 
   return (
-    <section style={{ ...card, marginTop: 16 }}>
+    <section className="mt-4 rounded-md border border-border bg-surface p-3 shadow-card">
       {tasks === null ? (
-        <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
+        <p className="m-0 p-2 text-sm text-text-muted">{t('unavailable')}</p>
       ) : sortedTasks.length === 0 ? (
-        <p style={{ margin: 0, ...mutedText }}>{t('todayNoTasksToday')}</p>
+        <p className="m-0 p-2 text-sm text-text-muted">{t('todayNoTasksToday')}</p>
       ) : (
-        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+        <div className="flex flex-col gap-1">
           {sortedTasks.map((task) => (
-            <li
+            <ListRow
               key={task.scheduleId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 10px',
-                borderRadius: 8,
-                background: colors.surfaceElevated,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ minWidth: 180, flex: '1 1 220px' }}>
-                <strong style={{ display: 'block' }}>{task.templateName}</strong>
-                {task.category ? <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>{task.category}</div> : null}
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span style={badgeStyle('neutral')}>
-                  {t('taskDueAt')} {task.dueTime.slice(0, 5)}
-                  {task.windowEndTime ? ` ${t('taskWindowUntil')} ${task.windowEndTime.slice(0, 5)}` : ''}
-                </span>
-                <span style={badgeStyle(stateBadgeTone(task.state))}>{stateLabel(t, task.state)}</span>
-                {task.isOverdueCritical ? (
-                  <span style={badgeStyle('warning')}>{t('taskCriticalMissedBadge')}</span>
-                ) : null}
-                {task.openExceptionCount > 0 ? (
-                  <span style={badgeStyle('warning')}>
-                    {task.openExceptionCount} {t('taskOpenExceptions')}
-                  </span>
-                ) : null}
-              </div>
-            </li>
+              title={task.templateName}
+              muted={task.state === 'completed'}
+              subtitle={
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <MetadataText>
+                    {formatTaskDueWindow(lang, task.dueTime, task.windowEndTime)}
+                  </MetadataText>
+                  {task.category ? <MetadataText>{task.category}</MetadataText> : null}
+                </div>
+              }
+              status={
+                <>
+                  <StatusBadge tone={stateTone(task.state)} showIcon={task.state === 'overdue' || task.state === 'completed'}>
+                    {stateLabel(t, task.state)}
+                  </StatusBadge>
+                  {task.isOverdueCritical ? (
+                    <StatusBadge tone="critical">{t('taskCriticalMissedBadge')}</StatusBadge>
+                  ) : null}
+                  {task.openExceptionCount > 0 ? (
+                    <StatusBadge tone="warning">
+                      {task.openExceptionCount} {t('taskOpenExceptions')}
+                    </StatusBadge>
+                  ) : null}
+                </>
+              }
+            />
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );

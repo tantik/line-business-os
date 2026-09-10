@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import type { OperationsExpectedTask, OperationsItemResponse } from '@/lib/operations/tasks';
 import type { OperationsTemplateItem } from '@/lib/operations/templates';
-import { HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
+import { HelpIconButton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { StaffOperationsBody } from '../operations/staff-operations-client';
@@ -46,12 +47,12 @@ export function OperationsStaffPopup({
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
       title={t('staffPageTitle')}
       titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
-      width="min(720px, 96vw)"
+      size="wide"
       closeLabel={t('backToStaff')}
     >
       <StaffOperationsBody
@@ -64,9 +65,9 @@ export function OperationsStaffPopup({
         embedded
       />
 
-      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} width="min(480px, 94vw)">
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} size="form">
         <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
-      </Modal>
-    </Modal>
+      </Dialog>
+    </Dialog>
   );
 }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** `card` (default, resting surface) or `raised` (hover/interactive — e.g. a clickable list item). */

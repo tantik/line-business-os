@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 const controlClasses = cn(
   'w-full rounded-md border border-border bg-surface px-3 text-base text-text-primary placeholder:text-text-muted',

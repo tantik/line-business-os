@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { cn } from './cn.js';
-import type { StatusTone } from './badge.js';
+import { cn } from './cn';
+import type { StatusTone } from './badge';
 
 export interface InlineAlertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   tone: Extract<StatusTone, 'info' | 'success' | 'warning' | 'critical'>;

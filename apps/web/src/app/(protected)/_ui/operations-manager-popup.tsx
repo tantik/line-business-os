@@ -5,7 +5,8 @@ import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operation
 import type { OperationsSchedule } from '@/lib/operations/schedules';
 import type { OperationsExpectedTask } from '@/lib/operations/tasks';
 import type { OperationsOpenException } from '@/lib/operations/exceptions';
-import { HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
+import { HelpIconButton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { OperationsManagerBody } from '../operations/operations-manager-client';
@@ -56,12 +57,12 @@ export function OperationsManagerPopup({
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
       title={t('pageTitle')}
       titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
-      width="min(960px, 96vw)"
+      size="sheet"
       closeLabel={t('backToManager')}
     >
       <OperationsManagerBody
@@ -78,9 +79,9 @@ export function OperationsManagerPopup({
         embedded
       />
 
-      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} width="min(480px, 94vw)">
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} size="form">
         <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
-      </Modal>
-    </Modal>
+      </Dialog>
+    </Dialog>
   );
 }

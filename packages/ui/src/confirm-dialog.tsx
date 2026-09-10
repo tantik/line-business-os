@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { AlertDialog } from 'radix-ui';
-import { Button, type ButtonVariant } from './button.js';
+import { Button, type ButtonVariant } from './button';
 
 export interface ConfirmDialogProps {
   open: boolean;

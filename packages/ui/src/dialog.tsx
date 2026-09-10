@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Dialog as RadixDialog, VisuallyHidden } from 'radix-ui';
-import { IconButton } from './button.js';
+import { IconButton } from './button';
 
 export type DialogSize = 'form' | 'wide' | 'sheet';
 

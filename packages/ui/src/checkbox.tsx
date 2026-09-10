@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Checkbox as RadixCheckbox } from 'radix-ui';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 export interface CheckboxProps {
   id?: string;

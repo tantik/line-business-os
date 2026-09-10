@@ -6,7 +6,8 @@ import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operation
 import { retireTemplate, retireTemplateItem } from '@/lib/operations/templates-actions';
 import type { OperationsSchedule } from '@/lib/operations/schedules';
 import { cancelSchedule, deactivateSchedule } from '@/lib/operations/schedules-actions';
-import { ConfirmDialog, Modal } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
+import { ConfirmDialog } from '@/components/shared/design-kit';
 import { LoadingButton } from '@/components/ui/loading';
 import {
   alertDanger,
@@ -130,6 +131,20 @@ export function TemplateDetailModal({
   // template can legitimately have two active schedules, e.g. an AM and a PM
   // check), so this only asks for confirmation, never blocks it outright.
   const [confirmAddScheduleOpen, setConfirmAddScheduleOpen] = useState(false);
+  // The design-kit `ConfirmDialog`s below aren't migrated to the Radix-based
+  // `Dialog`/`ConfirmDialog` in this pilot (out of the bounded Task
+  // detail/Attention scope, mission §19) -- they still listen for Escape on
+  // `document` directly, unaware of the outer `Dialog`'s Radix layer stack.
+  // Nested inside a Radix `Dialog` (below), one Escape press would otherwise
+  // close BOTH this confirm and the outer template modal at once. Making the
+  // outer `Dialog` non-dismissible while any of these is open routes Escape
+  // to the confirm alone.
+  const anyLegacyConfirmOpen =
+    confirmRetireTemplateOpen ||
+    confirmRetireItemId !== null ||
+    confirmDeactivateScheduleId !== null ||
+    confirmCancelScheduleId !== null ||
+    confirmAddScheduleOpen;
 
   const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.itemId.localeCompare(b.itemId));
   const editingItem = view.kind === 'edit-item' ? sortedItems.find((i) => i.itemId === view.itemId) : undefined;
@@ -236,7 +251,14 @@ export function TemplateDetailModal({
                 : t('reviseScheduleHeading');
 
   return (
-    <Modal open={open} onClose={handleModalClose} title={title} width="min(760px, 96vw)" closeLabel={t('formCancel')}>
+    <Dialog
+      open={open}
+      onClose={handleModalClose}
+      title={title}
+      size="wide"
+      closeLabel={t('formCancel')}
+      dismissible={!anyLegacyConfirmOpen}
+    >
       {view.kind === 'edit-template' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <TemplateForm
@@ -651,6 +673,6 @@ export function TemplateDetailModal({
           </ConfirmDialog>
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 }

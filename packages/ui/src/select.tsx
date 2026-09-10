@@ -1,7 +1,7 @@
 'use client';
 
 import { Select as RadixSelect } from 'radix-ui';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 export interface SelectOption {
   value: string;

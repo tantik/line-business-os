@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Tabs } from 'radix-ui';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 export interface SegmentedControlOption {
   value: string;

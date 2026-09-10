@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
 /**
  * The Status / Metadata / Action model (mission §12, both audits' required
