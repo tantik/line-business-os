@@ -8,6 +8,85 @@
 @import '@line-os/tokens/tokens.css';
 
 /*
+ * Design System v1: Tailwind v4 is the styling mechanism for `@line-os/ui`
+ * and new/touched code (technical audit OPTION C). It coexists with the
+ * existing inline `style={{}}` call sites — no big-bang migration.
+ */
+@import 'tailwindcss';
+
+/* Scan packages/ui for Tailwind class names too — outside apps/web's own
+   automatic content-detection root. */
+@source '../../../../packages/ui/src';
+
+/*
+ * Map Tailwind's generated utilities onto the existing `--oruwa-*` custom
+ * properties (`@theme inline` keeps them as `var()` references instead of
+ * inlining a resolved literal) — `@line-os/tokens` stays the single source
+ * of truth; Tailwind never gets its own duplicate copy of a color/radius/etc
+ * value. Only token groups with an evidence-based v1 consumer are mapped
+ * here (technical audit §10 "MUST in v1").
+ */
+@theme inline {
+  --color-bg: var(--oruwa-color-bg);
+  --color-surface: var(--oruwa-color-surface);
+  --color-surface-elevated: var(--oruwa-color-surface-elevated);
+  --color-surface-sunken: var(--oruwa-color-surface-sunken);
+  --color-overlay: var(--oruwa-color-overlay);
+  --color-border: var(--oruwa-color-border);
+  --color-border-strong: var(--oruwa-color-border-strong);
+  --color-text-primary: var(--oruwa-color-text-primary);
+  --color-text-muted: var(--oruwa-color-text-muted);
+  --color-text-on-accent: var(--oruwa-color-text-on-accent);
+  --color-accent: var(--oruwa-color-accent);
+  --color-accent-text: var(--oruwa-color-accent-text);
+  --color-accent-muted: var(--oruwa-color-accent-muted);
+  --color-accent-subtle: var(--oruwa-color-accent-subtle);
+  --color-danger: var(--oruwa-color-danger);
+  --color-danger-text: var(--oruwa-color-danger-text);
+  --color-danger-muted: var(--oruwa-color-danger-muted);
+  --color-success: var(--oruwa-color-success);
+  --color-success-text: var(--oruwa-color-success-text);
+  --color-success-muted: var(--oruwa-color-success-muted);
+  --color-warning: var(--oruwa-color-warning);
+  --color-warning-text: var(--oruwa-color-warning-text);
+  --color-warning-muted: var(--oruwa-color-warning-muted);
+  --color-info: var(--oruwa-color-info);
+  --color-info-text: var(--oruwa-color-info-text);
+  --color-info-muted: var(--oruwa-color-info-muted);
+  --color-focus-ring: var(--oruwa-color-focus-ring);
+
+  --radius-sm: var(--oruwa-radius-sm);
+  --radius-md: var(--oruwa-radius-md);
+  --radius-lg: var(--oruwa-radius-lg);
+  --radius-pill: var(--oruwa-radius-pill);
+
+  --font-sans: var(--font-noto-sans-jp), var(--oruwa-font-family-base);
+
+  --text-xs: var(--oruwa-font-size-xs);
+  --text-sm: var(--oruwa-font-size-sm);
+  --text-base: var(--oruwa-font-size-base);
+  --text-md: var(--oruwa-font-size-md);
+  --text-lg: var(--oruwa-font-size-lg);
+  --text-xl: var(--oruwa-font-size-xl);
+  --text-2xl: var(--oruwa-font-size-2xl);
+  --text-3xl: var(--oruwa-font-size-3xl);
+  --text-4xl: var(--oruwa-font-size-4xl);
+
+  /* Custom keys (not overriding Tailwind's default shadow scale) so
+     `shadow-card`/`shadow-overlay`/etc read as ORUWA elevation roles. */
+  --shadow-card: var(--oruwa-elevation-card);
+  --shadow-raised: var(--oruwa-elevation-raised);
+  --shadow-dropdown: var(--oruwa-elevation-dropdown);
+  --shadow-overlay: var(--oruwa-elevation-overlay);
+
+  --duration-fast: var(--oruwa-duration-fast);
+  --duration-base: var(--oruwa-duration-base);
+  --duration-slow: var(--oruwa-duration-slow);
+  --ease-standard: var(--oruwa-easing-standard);
+  --ease-decelerate: var(--oruwa-easing-decelerate);
+}
+
+/*
  * App-wide interaction-state safety net (ORUWA design system charter,
  * 2026-08-21: "every button must have hover, nothing should look stuck
  * after a click"). `theme.module.css`'s per-variant hover/focus rules
@@ -44,9 +123,23 @@ button:focus:not(:focus-visible) {
   outline: none;
 }
 
-button:focus-visible {
-  outline: 2px solid #4f7a52;
-  outline-offset: 2px;
+/*
+ * Design System v1 fix (technical audit finding P1-7/P1-8): focus-visible was
+ * only wired for `button`, and its ring color was a hardcoded literal instead
+ * of `--oruwa-color-focus-ring` (silently diverging if the token ever
+ * changes). Extended to every interactive control charter §5 requires it on.
+ */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='menuitem']:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--oruwa-focus-ring-width) solid var(--oruwa-color-focus-ring);
+  outline-offset: var(--oruwa-focus-ring-offset);
 }
 
 @media (prefers-reduced-motion: reduce) {
