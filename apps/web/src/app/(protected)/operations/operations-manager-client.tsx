@@ -119,7 +119,7 @@ export function OperationsManagerBody({
 
       <div style={{ marginTop: embedded ? 0 : 16 }}>
         <SegmentedControl
-          aria-label={t('sectionTemplatesTab')}
+          aria-label={t('sectionSwitcherLabel')}
           value={section}
           onValueChange={(value) => setSection(value as Section)}
           options={[
@@ -176,7 +176,7 @@ export function OperationsManagerBody({
       ) : section === 'templates' ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, alignItems: 'center' }}>
           <SegmentedControl
-            aria-label={t('filterActive')}
+            aria-label={t('templateFilterLabel')}
             value={statusFilter}
             onValueChange={(value) => setStatusFilter(value as StatusFilter)}
             options={[

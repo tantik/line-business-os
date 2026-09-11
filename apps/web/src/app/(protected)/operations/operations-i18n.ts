@@ -213,6 +213,8 @@ interface OperationsDict {
   confirmAddDuplicateScheduleTitle: string;
   confirmAddDuplicateScheduleBody: string;
   errScheduleNotFoundStaffTask: string;
+  sectionSwitcherLabel: string;
+  templateFilterLabel: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -407,6 +409,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     confirmAddDuplicateScheduleTitle: 'Add another schedule?',
     confirmAddDuplicateScheduleBody: 'This template already has an active schedule. Add another one anyway?',
     errScheduleNotFoundStaffTask: "This task's schedule is no longer active. Check with your manager.",
+    sectionSwitcherLabel: 'Operations section',
+    templateFilterLabel: 'Template status filter',
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -597,6 +601,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     confirmAddDuplicateScheduleTitle: 'スケジュールを追加しますか？',
     confirmAddDuplicateScheduleBody: 'このテンプレートにはすでに有効なスケジュールがあります。もう一つ追加しますか？',
     errScheduleNotFoundStaffTask: 'このタスクのスケジュールはすでに無効になっています。マネージャーに確認してください。',
+    sectionSwitcherLabel: 'オペレーションのセクション',
+    templateFilterLabel: 'テンプレートの状態フィルター',
   },
 };
 

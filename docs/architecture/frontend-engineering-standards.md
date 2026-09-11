@@ -126,3 +126,15 @@ ORUWA-owned component layer: `Button`/`IconButton`, `Field`, `Input`/
   `docs/ai/ORUWA_DESIGN_SYSTEM_TECHNICAL_AUDIT_2026-09-10.md` §9–§11.
   Deferred items (dark mode, Storybook, full legacy migration, demo/preview
   tree consolidation) are out of v1 scope by design, not oversight.
+- **Toast**: the audit (§10/P1-5) flagged that `components/shared/design-kit/Toast`'s
+  `ToastProvider` existed and worked but was never mounted anywhere. Fixed by
+  mounting it once in `apps/web/src/app/(protected)/layout.tsx` — the
+  existing design-kit `Toast`/`useToast()` stays canonical; it was NOT
+  rebuilt in `@line-os/ui` (already token-styled, already accessible
+  `aria-live`, no evidence a Radix-based rebuild adds anything). New/touched
+  code should call `useToast()` for success/error feedback rather than an
+  ad-hoc banner.
+- **Radio/RadioGroup, Switch**: not built in v1 — no current Operations-pilot
+  or other touched-surface call site needed them (evidence-based v1 scope,
+  mission §10 "implement the minimum coherent set", not an oversight). Add
+  when a real call site needs one.
