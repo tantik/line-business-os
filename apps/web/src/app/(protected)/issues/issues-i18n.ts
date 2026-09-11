@@ -14,6 +14,7 @@ interface IssuesDict {
   popupHelpTitle: string;
   popupHelpBody: string;
   backToManager: string;
+  backToStaff: string;
   formCancel: string;
   unavailable: string;
 
@@ -47,6 +48,14 @@ interface IssuesDict {
   emptyOpenDescription: string;
   emptyHistoryTitle: string;
   emptyHistoryDescription: string;
+
+  // Staff frontend slice (Cafe v2.2 WP2, Slice C).
+  staffPopupHelpBody: string;
+  staffReportButton: string;
+  staffReportHeading: string;
+  staffSeverityToggleLabel: string;
+  staffEmptyTitle: string;
+  staffEmptyDescription: string;
 
   statusOpen: string;
   statusAcknowledged: string;
@@ -91,6 +100,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     popupHelpBody:
       'Report an operational problem (e.g. broken equipment) or leave a note for the next shift. A reported issue with "Needs action" severity stays visible until a manager acknowledges or resolves it. Resolved items move to History; nothing is ever deleted.',
     backToManager: 'Back',
+    backToStaff: 'Back',
     formCancel: 'Cancel',
     unavailable: 'Issues & Handover is temporarily unavailable.',
 
@@ -124,6 +134,14 @@ const dictionary: Record<Lang, IssuesDict> = {
     emptyOpenDescription: 'Nothing needs attention right now -- every report has been handled.',
     emptyHistoryTitle: 'No history yet',
     emptyHistoryDescription: 'Resolved issues and handover notes will appear here.',
+
+    staffPopupHelpBody:
+      'Report a problem (e.g. broken equipment) or leave a note for the next shift -- it only takes a few seconds. Anything important stays visible here until a manager handles it, so your team always knows what is going on.',
+    staffReportButton: 'Report something',
+    staffReportHeading: 'Report an issue or leave a note',
+    staffSeverityToggleLabel: 'Mark as important (needs prompt attention)',
+    staffEmptyTitle: 'Nothing important right now',
+    staffEmptyDescription: 'No open issues or handover notes for your shift.',
 
     statusOpen: 'Open',
     statusAcknowledged: 'Acknowledged',
@@ -166,6 +184,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     popupHelpBody:
       '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを残せます。「要対応」の問題は、マネージャーが確認または解決するまで表示され続けます。解決済みの項目は履歴に移動し、削除されることはありません。',
     backToManager: '戻る',
+    backToStaff: '戻る',
     formCancel: 'キャンセル',
     unavailable: '申し送り・問題報告は一時的に利用できません。',
 
@@ -199,6 +218,14 @@ const dictionary: Record<Lang, IssuesDict> = {
     emptyOpenDescription: '現在、対応が必要な項目はありません。報告された内容はすべて処理済みです。',
     emptyHistoryTitle: 'まだ履歴はありません',
     emptyHistoryDescription: '解決済みの問題や申し送りメモはここに表示されます。',
+
+    staffPopupHelpBody:
+      '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを数秒で残せます。重要な内容はマネージャーが対応するまでここに表示され続けるので、チーム全員が状況を把握できます。',
+    staffReportButton: '報告する',
+    staffReportHeading: '問題・申し送りを報告',
+    staffSeverityToggleLabel: '重要（すぐの対応が必要）',
+    staffEmptyTitle: '特に申し送り事項はありません',
+    staffEmptyDescription: '現在、共有が必要な問題や申し送りメモはありません。',
 
     statusOpen: '未対応',
     statusAcknowledged: '確認済み',

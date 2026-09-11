@@ -14,6 +14,7 @@ import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { OperationsExpectedTask, OperationsItemResponse } from '@/lib/operations/tasks';
 import type { OperationsTemplateItem } from '@/lib/operations/templates';
+import type { Issue } from '@/lib/issues/issues';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
@@ -59,6 +60,7 @@ import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
 import { OperationsStaffPopup } from '../_ui/operations-staff-popup';
+import { IssuesStaffPopup } from '../_ui/issues-staff-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -164,6 +166,10 @@ export interface StaffDashboardClientProps {
   operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]>;
   /** Today's ISO business date, used as the Operations popup's business-date label. */
   operationsBusinessDate: string;
+  /** Whether the tenant's separate `issues` top-level module (0118) is enabled -- gates only this entry point's visibility, mirroring `manager-dashboard-client.tsx`'s own `issuesEnabled`; RLS on `issues.issues` remains the real authorization boundary regardless of this flag. */
+  issuesEnabled: boolean;
+  /** Open + acknowledged issues/handovers (`api.issues_open`) at this Staff member's own location, already filtered server-side -- see `page.tsx`. Also this entry point's own count-badge source and the exact data `IssuesStaffPopup` renders (no separate fetch). `null` when the module is disabled or the read failed. */
+  issuesOpen: Issue[] | null;
   /**
    * Recipes popup data (Founder direction, 2026-08-24: Staff's Recipes
    * button opens the same popup Manager's does, instead of navigating to
@@ -175,8 +181,8 @@ export interface StaffDashboardClientProps {
   recipeMediaUrlByRecipeId: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether the popup shows Add/Edit/Delete controls. */
   recipeCanManage: boolean;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes`, `/inventory`, or `/operations` visit). */
-  initialPopup: 'recipes' | 'inventory' | 'purchases' | 'operations' | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/recipes`, `/inventory`, `/operations`, or `/issues` visit). */
+  initialPopup: 'recipes' | 'inventory' | 'purchases' | 'operations' | 'issues' | null;
   locationId: string;
 }
 
@@ -232,6 +238,8 @@ function StaffDashboardBody({
   operationsItems,
   operationsResponsesByInstanceId,
   operationsBusinessDate,
+  issuesEnabled,
+  issuesOpen,
   recipeGroups,
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
@@ -252,6 +260,7 @@ function StaffDashboardBody({
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
   const [operationsPopupOpen, setOperationsPopupOpen] = useState(initialPopup === 'operations');
+  const [issuesPopupOpen, setIssuesPopupOpen] = useState(initialPopup === 'issues');
   const [mailPopupOpen, setMailPopupOpen] = useState(false);
   // Full 7-day week always visible, no page-level horizontal scroll, at
   // 375px/390px viewport widths (Staff Shift Schedule v2, 2026-08-25) --
@@ -339,6 +348,16 @@ function StaffDashboardBody({
   const unreadMailCount = useMemo(
     () => (staffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
     [staffMessages],
+  );
+
+  // Issues & Handover (Cafe v2.2 WP2, Slice C): this entry point's OWN count
+  // badge -- same convention as `manager-dashboard-client.tsx`'s
+  // `issuesNeedingActionCount` (`kind='issue' && severity='important' &&
+  // status='open'`), deliberately kept identical across both roles so the
+  // number always means the same thing regardless of who is looking at it.
+  const issuesNeedingActionCount = useMemo(
+    () => (issuesOpen ?? []).filter((issue) => issue.kind === 'issue' && issue.severity === 'important' && issue.status === 'open').length,
+    [issuesOpen],
   );
 
   const shiftTypeById = useMemo(() => new Map((shiftTypes ?? []).map((st) => [st.shiftTypeId, st])), [shiftTypes]);
@@ -597,6 +616,20 @@ function StaffDashboardBody({
                 },
               ]
             : []),
+          ...(issuesEnabled
+            ? [
+                {
+                  key: 'issues',
+                  label: t('navIssues'),
+                  onClick: () => {
+                    markPopupTriggerClick('issues');
+                    setIssuesPopupOpen(true);
+                  },
+                  badgeCount: issuesNeedingActionCount,
+                  badgeTone: 'critical' as const,
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -645,6 +678,14 @@ function StaffDashboardBody({
         items={operationsItems}
         responsesByInstanceId={operationsResponsesByInstanceId}
         businessDate={operationsBusinessDate}
+      />
+
+      <IssuesStaffPopup
+        open={issuesPopupOpen}
+        onClose={() => setIssuesPopupOpen(false)}
+        locationId={locationId}
+        issuesOpen={issuesOpen}
+        onChange={() => router.refresh()}
       />
 
       {banner ? <div style={{ ...alertSuccess, marginTop: 16 }}>{banner}</div> : null}

@@ -17,6 +17,7 @@ import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemSt
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listOperationsTemplateItems } from '@/lib/operations/templates';
 import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
+import { listOpenIssues } from '@/lib/issues/issues';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -114,6 +115,18 @@ export default async function WorkforceStaffPage({
           (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
         );
 
+      // `issues` is a separate top-level module (0118) from `workforce` --
+      // re-uses the already-fetched `modulesResult`, same pattern as
+      // `operationsEnabled` above and `manager/page.tsx`'s own
+      // `issuesEnabled`. Gates only this entry point's visibility; RLS on
+      // `issues.issues` remains the real authorization boundary regardless
+      // of this flag.
+      const issuesEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'issues' && module.isEnabled,
+        );
+
       // Resolved before anything else: a caller with no `workforce.employees`
       // row has nothing else on this page to show, and no location/period is
       // needed to say so.
@@ -193,7 +206,9 @@ export default async function WorkforceStaffPage({
               ? 'purchases'
               : rawPopup === 'operations'
                 ? 'operations'
-                : null;
+                : rawPopup === 'issues'
+                  ? 'issues'
+                  : null;
       // Same-day boundary for the Staff Operations task list -- matches
       // `/operations/page.tsx`'s own Staff branch.
       const operationsToday = new Date().toISOString().slice(0, 10);
@@ -230,6 +245,7 @@ export default async function WorkforceStaffPage({
         recipeTitleTranslationsResult,
         operationsTasksResult,
         operationsItemsResult,
+        issuesOpenResult,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
@@ -285,6 +301,12 @@ export default async function WorkforceStaffPage({
         // below, mirroring `/operations/page.tsx`'s own Staff branch.
         operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, operationsToday) : Promise.resolve(null),
         operationsEnabled ? listOperationsTemplateItems(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        // Issues & Handover popup's read surface (Cafe v2.2 WP2, Slice C) --
+        // also the exact data `IssuesStaffPopup` renders (no separate
+        // fetch), same pattern the Manager dashboard's own Issues popup
+        // uses. Staff has no manage rights in this MVP, so only the open
+        // (`api.issues_open`) feed is fetched here -- no full-history read.
+        issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
       ]);
 
       const staffNameById: Record<string, string> =
@@ -375,6 +397,16 @@ export default async function WorkforceStaffPage({
       );
       const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(operationsResponseEntries);
 
+      // `issues.report` may be tenant-wide for some roles -- narrow to this
+      // Staff member's own location here, same convention as the Operations
+      // reads above and `manager/page.tsx`'s own `issuesOpen` filter. LOC-1:
+      // Staff always has exactly one resolved `location` by this point (see
+      // the fail-closed branch above), never a caller-chosen location.
+      const issuesOpen =
+        issuesOpenResult && issuesOpenResult.status === 'success'
+          ? issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId)
+          : null;
+
       return (
         <main style={pageStyle(1000)}>
           <StaffDashboardClient
@@ -406,6 +438,8 @@ export default async function WorkforceStaffPage({
             operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}
             operationsResponsesByInstanceId={operationsResponsesByInstanceId}
             operationsBusinessDate={operationsToday}
+            issuesEnabled={issuesEnabled}
+            issuesOpen={issuesOpen}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
