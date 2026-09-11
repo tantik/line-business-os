@@ -60,8 +60,11 @@ current implementation.**
 
 ## 3. UX implementation standard
 
-- Modals/dialogs: use the shared `Modal` component; consistent open/close/
-  Escape/backdrop behavior everywhere.
+- Modals/dialogs: use `@line-os/ui`'s `Dialog`/`ConfirmDialog` (Radix-based,
+  §4) for new/touched code; consistent open/close/Escape/backdrop behavior
+  everywhere. `components/shared/design-kit/Modal` is legacy (no focus trap,
+  no scroll lock, `document`-level Escape unaware of nesting) — do not add
+  new call sites; migrate on touch.
 - Focus/keyboard: sensible focus trap and return-focus-on-close; Escape
   closes non-destructive dialogs.
 - Forms: label every field, validate before submit, preserve user input on
@@ -79,3 +82,47 @@ current implementation.**
   does automatically (translation, auto-numbering, background recalculation)
   should be observable only in its effect, never its mechanism, on a screen a
   non-technical operator uses.
+
+## 4. Design System v1 (ORUWA Product Quality Foundation)
+
+Decided by the technical + browser/UX audits of 2026-09-10
+(`docs/ai/ORUWA_DESIGN_SYSTEM_TECHNICAL_AUDIT_2026-09-10.md`,
+`docs/ai/ORUWA_BROWSER_VISUAL_UX_PRODUCT_AUDIT_2026-09-10.md`) and
+implemented the same day (Design System v1 Foundation + Operations pilot).
+
+**Mechanism**: `@line-os/tokens` (primitives → semantic roles → generated
+`--oruwa-*` CSS custom properties, `docs/design/tokens.md`) → Tailwind v4
+(`apps/web/src/app/globals.css`'s `@theme inline` maps Tailwind utilities
+onto the existing `--oruwa-*` variables — no duplicated token source) →
+Radix Primitives (unstyled, the accessibility engine — focus trap, scroll
+lock, keyboard nav, portal, stack-aware dismiss) → `@line-os/ui` (the
+ORUWA-owned component layer: `Button`/`IconButton`, `Field`, `Input`/
+`Textarea`/`NumberInput`, `Select`, `Checkbox`, `StatusBadge`/`CountBadge`/
+`Tag`/`MetadataText`, `InlineAlert`, `Dialog`, `ConfirmDialog`,
+`SegmentedControl`, `Tooltip`, `Menu`, `ListRow`, `FormActions`,
+`EmptyState`, `Skeleton`/`SkeletonLines`) → feature code.
+
+- Tailwind coexists with the ~1,900 existing inline `style={{}}` call sites —
+  no big-bang migration. New/touched code uses `@line-os/ui` + Tailwind
+  classes reading the token-backed utilities (`bg-accent`, `text-text-muted`,
+  `shadow-card`, etc.); legacy inline styles keep working via
+  `apps/web/src/lib/ui/theme.ts` until migrated on touch.
+- **Status/Metadata/Action model** (required going forward on any surface
+  using these primitives): `StatusBadge` is for a real lifecycle/severity
+  state that needs interpretation (tones `neutral/info/success/warning/
+  critical/muted`, with an icon in addition to color on the three alert
+  tones); `MetadataText` is plain text for due time/category/location —
+  never a pill; `CountBadge` is a numeral summary; `Tag` is user
+  classification; an actionable affordance is a `Button`/`IconButton`/`Menu`
+  item, never a badge.
+- `Dialog`/`ConfirmDialog` correctly nest (Radix's layer stack — an inner
+  dialog's Escape/outside-click only dismisses itself). A legacy
+  `design-kit/Modal` or `ConfirmDialog` nested *inside* a new `Dialog` does
+  **not** get this for free (its own `document`-level Escape listener is
+  unaware of Radix's stack) — make the outer `Dialog` non-dismissible
+  (`dismissible={false}`) while the legacy child is open, or migrate the
+  legacy child too. See `template-detail-modal.tsx` for the guard pattern.
+- Component contracts, evidence, and the full v1 component list:
+  `docs/ai/ORUWA_DESIGN_SYSTEM_TECHNICAL_AUDIT_2026-09-10.md` §9–§11.
+  Deferred items (dark mode, Storybook, full legacy migration, demo/preview
+  tree consolidation) are out of v1 scope by design, not oversight.
