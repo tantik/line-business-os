@@ -15,7 +15,7 @@
 | Status | Founder-approved, current working roadmap |
 | Owner | Founder |
 | Recorded | 2026-08-25, verbatim Founder decision, reconciled against repo state same session |
-| Updated | 2026-09-10 — Cafe v2.2 WP1 Operations CLOSED; **Phase 3.5 ORUWA Product Quality Foundation** inserted (Founder decision 2026-09-09) between WP1 CLOSE and active WP2–WP5 |
+| Updated | 2026-09-11 — **Phase 3.5 ORUWA Product Quality Foundation: Design System v1 Foundation + Operations pilot DONE** (PR #516 merged to `dev`). Prev: 2026-09-10 Cafe v2.2 WP1 Operations CLOSED; Phase 3.5 inserted (Founder decision 2026-09-09) between WP1 CLOSE and active WP2–WP5 |
 | Supersedes | `docs/ai/current-task.md` §2.4's "Cafe Commercial Launch Readiness" step ordering (Platform Foundation was sequenced before Cafe Product Growth/v2.2 there — this document places Cafe v2.2 before Platform Foundation Reconciliation; see "Reconciliation notes" below) |
 | Does not supersede | `docs/foundation/platform-foundation-roadmap.md` (engineering critical path for Platform Foundation itself, unchanged), `docs/strategy/go-to-market-roadmap.md` (commercial detail behind Phases 9-12 below, unchanged) |
 
@@ -62,7 +62,7 @@ ONE ORUWA SaaS
 | 1 | Cafe v2.1 Completion | Effectively CLOSED (Founder Acceptance PASS 2026-08-26); Cafe Commercial Launch Readiness step-1 items fold into Phase 3.5 |
 | 2 | Cafe v2.2 Product Research | Not started (WP1 was the pre-authorized Phase-3 exception) |
 | 3 | Cafe v2.2 Implementation | In progress — **WP1 Operations CLOSED 2026-09-10** (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`, applied to Cloud DEV; `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`). WP2–WP5 not started, each needs its own Founder prompt |
-| 3.5 | **ORUWA Product Quality Foundation** | Agreed 2026-09-09 — platform-level, runs **after WP1 CLOSE, before active WP2–WP5**. Not started, needs its own Founder prompt. See Phase 3.5 below |
+| 3.5 | **ORUWA Product Quality Foundation** | Agreed 2026-09-09 — platform-level, runs **after WP1 CLOSE, before active WP2–WP5**. Design System v1 Foundation + Operations pilot **DONE 2026-09-11** (PR #516). See Phase 3.5 below |
 | 4 | Full Cafe v2.2 Acceptance | Not started — the **single** Cafe v2.2 runtime integrated acceptance (Product Quality Foundation adds no extra gate) |
 | 5 | SaaS Hardening | Not started |
 | 6 | Platform Foundation Reconciliation | Not started (forensic triage exists, see below) |
@@ -194,9 +194,33 @@ maintainable UI foundation rather than the current ad-hoc
   Readiness check.
 - Folds in the still-open Cafe Commercial Launch Readiness step-1 items
   (IA/visual polish, native-JA copy review) where they overlap.
-- **Sequence:** WP1 CLOSED → Design System Audit → Design System v1 +
-  Operations pilot → WP2–WP5 on DS v1 → Copy Audit / Feature Map / Demo
+- **Sequence:** WP1 CLOSED → Design System Audit (**DONE 2026-09-10**) →
+  Design System v1 + Operations pilot (**DONE 2026-09-11**, PR #516) →
+  WP2–WP5 on DS v1 (not started) → Copy Audit / Feature Map / Demo
   Readiness → **one** Phase-4 Integrated Acceptance → Cafe v2.2 CLOSED.
+
+**Design System v1 + Operations pilot outcome (2026-09-11):** `@line-os/tokens`
+completed (WCAG-AA fixes, elevation/focus/state semantic layers, real
+contrast-checked drift test); Tailwind v4 + Radix Primitives wired into
+`apps/web`; `@line-os/ui` v1 built (Dialog/ConfirmDialog with a real
+focus-trap/scroll-lock/stack-aware-Escape contract, Button/Field/Input/
+Select/Checkbox, the Status/Metadata/Action badge model, ListRow,
+SegmentedControl, etc.); Operations pilot done on the two required
+surfaces (Staff task detail, Manager Attention — client-side exception
+grouping) plus secondary touched surfaces, presentation-only, no business
+logic/RPC/schema change. Live Preview Browser QA PASS across
+1440/768/375/320 (mutation→persistence and nested-dialog-Escape verified
+live). Independent fresh-context review PASS. Full record:
+`docs/ai/SESSION_HANDOFF_2026-09-11.md`. Schedule-lifecycle Founder
+question (browser audit §22.1) resolved by code inspection: a real
+draft/publish mechanism exists (`published` column, Auto Scheduling
+creates drafts) but a Manager's manual assignment auto-publishes
+immediately (2026-08-25 Founder decision) — "Published schedule" wording
+is accurate and was NOT changed. Not done in this pass (deliberately out
+of the Operations-pilot boundary): Purchasing/Inventory/Staff-management
+copy fixes (仕入れ/購入, `part_time`, 不足→補充目安), the Manager Dashboard
+attention-badge count (9 vs 4+4) inconsistency, and any further screen
+migration — each is a candidate for its own bounded follow-up.
 - **NOT authorized to start** by this document — its own Founder prompt.
 
 ### Phase 4 — Full Cafe v2.2 Acceptance

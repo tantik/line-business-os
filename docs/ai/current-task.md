@@ -277,8 +277,61 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-09-10 pointer, CAFE v2.2 WP1 OPERATIONS — CLOSED (newest; read this
-one first).** WP1 Operations is **CLOSED** with verdict **"ACCEPTED WITH
+**2026-09-11 pointer, ORUWA DESIGN SYSTEM v1 FOUNDATION + OPERATIONS PILOT —
+DONE (newest; read this one first; full detail
+`docs/ai/SESSION_HANDOFF_2026-09-11.md`).** Closes the "ORUWA Product
+Quality Foundation" step 7b named in the 2026-09-10 pointer below.
+
+- Both evidence audits present in repo: `docs/ai/ORUWA_DESIGN_SYSTEM_TECHNICAL_AUDIT_2026-09-10.md`
+  (technical, recommends Tailwind v4 + Radix Primitives) and
+  `docs/ai/ORUWA_BROWSER_VISUAL_UX_PRODUCT_AUDIT_2026-09-10.md`
+  (browser/UX, verdict B "READY WITH REQUIRED PRECONDITIONS", Founder-supplied
+  this session, previously not in repo).
+- **Foundation**: `@line-os/tokens` Phase 0 completed (WCAG-AA fixes incl.
+  `text-muted`, `success` decoupled from `accent`, `elevation`/`focus`/
+  `state`/`border` semantic layers, drift test now computes real contrast
+  ratios); Tailwind v4 + Radix Primitives wired into `apps/web`; real Noto
+  Sans JP loading via `next/font`; `@line-os/ui` v1 built (`Dialog`/
+  `ConfirmDialog` with a real focus-trap/scroll-lock/stack-aware-Escape
+  contract, `Button`/`Field`/`Input`/`Select`/`Checkbox`, the Status/
+  Metadata/Action badge model, `ListRow`/`SegmentedControl`/`Menu`/
+  `Tooltip`/`FormActions`/`EmptyState`/`Skeleton`).
+- **Operations pilot** (presentation-only, zero business-logic/RPC/schema
+  change): Staff task detail and Manager Attention (client-side exception
+  grouping) rebuilt on the new contracts; secondary touched surfaces
+  (Today lists, Templates list, both popup shells) migrated to prove
+  reuse; `template-detail-modal.tsx` shell-only swap with a
+  `dismissible={!anyLegacyConfirmOpen}` guard against its still-legacy
+  nested `ConfirmDialog`s.
+- JA copy fix: task due-time range composition centralized
+  (`formatTaskDueWindow()`), `実施時刻 ... まで ...` → `実施時間
+  07:30〜08:30`.
+- **Schedule lifecycle Founder question resolved by code inspection**: a
+  real draft/publish mechanism exists, but Manager manual assignment
+  auto-publishes immediately (2026-08-25 Founder decision) — Staff only
+  ever sees published rows. **"Published schedule" wording is accurate,
+  NOT changed.**
+- Verified: `packages/tokens` 7/7; `pnpm -w turbo run typecheck lint test
+  build` 34/34; `next build` 19/19 pages; **live Browser QA on a real
+  Vercel Preview deployment** (1440/768/375/320, JA, real mutation→
+  persistence and nested-dialog-Escape-stack verified, not just claimed);
+  independent fresh-context review PASS.
+- **PR #516 merged to `dev`** via `scripts/ai-dev-merge.sh` (squash
+  `79b211b`). `main`/production untouched.
+- **Explicitly deferred, real findings, NOT authorized to build**: Manager
+  Dashboard attention-badge count inconsistient with its own breakdown
+  text (9 vs 4+4, outside Operations); Purchasing `仕入れ`/`購入` term
+  inconsistency; Inventory `不足` copy; Staff-management raw `part_time`;
+  a Demo Data/Reset script (recommended, not built); LIFF real-device
+  CSS-baseline check (no device available); a focus-restore gap after a
+  mutation-triggered `router.refresh()` closes a dialog (pre-existing
+  exposure, not a regression from this migration).
+- **Next: WP2** (own Founder prompt) or a bounded follow-up from the
+  deferred list above — neither selected yet. Do not start WP2 or further
+  Product Quality Foundation work without a fresh prompt.
+
+**2026-09-10 pointer, CAFE v2.2 WP1 OPERATIONS — CLOSED (older — read after
+the pointer above).** WP1 Operations is **CLOSED** with verdict **"ACCEPTED WITH
 EXPLICIT MVP LIMITATIONS, READY TO CLOSE"**.
 
 - **G1 fixed.** The one substantive acceptance gap (a missed critical
