@@ -1,8 +1,25 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Noto_Sans_JP } from 'next/font/google';
 import { colors } from '@/lib/ui/theme';
 import { fontFamily } from '@line-os/tokens';
 import './globals.css';
+
+/**
+ * Design System v1 fix (technical audit finding M): `fontFamily.base` named
+ * "Noto Sans JP" but nothing actually loaded it — no `next/font`, no
+ * `@font-face`, no `<link>`. Most devices silently fell back to `system-ui`.
+ * `next/font/google` self-hosts the font (no runtime request to Google,
+ * no layout shift) and exposes it as a CSS variable, kept first in the
+ * fallback stack below so `fontFamily.base`'s existing fallback chain still
+ * applies if the font somehow fails to load.
+ */
+const notoSansJP = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-noto-sans-jp',
+});
 
 export const metadata: Metadata = {
   title: { default: 'LINE Business OS', template: '%s | LINE Business OS' },
@@ -19,10 +36,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={notoSansJP.variable}>
       <body
         style={{
-          fontFamily: fontFamily.base,
+          fontFamily: `var(--font-noto-sans-jp), ${fontFamily.base}`,
           margin: 0,
           background: colors.bg,
           color: colors.textPrimary,

@@ -22,7 +22,14 @@ export const palette = {
   'warm-ivory-200': '#F6EEDF',
   'warm-sand-300': '#E7D9C1',
   'warm-sand-400': '#D8C6A4',
-  'brown-700': '#8B7C64',
+  /**
+   * Design System v1 fix (audit finding P0-1): the pre-Phase-0 value
+   * `#8B7C64` was ~3.7:1 on ivory / ~4.1:1 on white at the 12-14px sizes it's
+   * used at (`text-muted` everywhere: labels, timestamps, EmptyState) —
+   * below WCAG AA's 4.5:1. This value clears AA on both backgrounds
+   * (~5.8:1 / ~6.4:1) while staying the same muted-brown hue family.
+   */
+  'brown-700': '#6B5D48',
   'brown-900': '#362B1F',
   'green-500': '#4F7A52',
   'green-700': '#3B5C3E',
@@ -38,6 +45,27 @@ export const palette = {
   'red-a12': 'rgba(193, 80, 63, 0.12)',
   'gold-a10': 'rgba(184, 134, 59, 0.10)',
   'brown-a025': 'rgba(54, 43, 31, 0.025)',
+  /** Modal/sheet backdrop scrim — ported 1:1 from the existing inline value in `Modal.tsx`. */
+  'brown-a045': 'rgba(54, 43, 31, 0.45)',
+  /**
+   * `success` gets its own primitive scale, structurally decoupled from
+   * `accent` even though the value is identical today (audit finding K:
+   * `success === accent` as a shared reference meant a future accent change
+   * would silently drag "Saved" toasts with it). Same hex as `green-500`/
+   * `green-700` on purpose — this is a decoupling of the *reference*, not a
+   * visual change.
+   */
+  'success-500': '#4F7A52',
+  'success-700': '#3B5C3E',
+  'success-a12': 'rgba(79, 122, 82, 0.12)',
+  /**
+   * `warning-text` — `gold-500` (#B8863B) on white is ~2.6:1, fails AA for
+   * text (audit P-K). This darker amber clears AA (~5.9:1 on white / ivory)
+   * while staying in the same gold hue family as `gold-500`/`gold-600`.
+   */
+  'gold-700': '#8A5A1F',
+  /** `info-text`/badge fill — `blue-600` already clears AA (~6.1:1 on white) as text, reused directly. */
+  'blue-a12': 'rgba(47, 102, 144, 0.12)',
 } as const;
 
 /** Spacing scale, 4px base. `px2` is the single sub-step (hairline gaps). */
@@ -116,6 +144,23 @@ export const control = {
   'height-md': '40px',
   'height-lg': '44px',
   'tap-target-min': '44px',
+} as const;
+
+/** Focus ring geometry (charter §5: "2px, 2px offset" — was only tokenized as a color before). */
+export const focusRing = {
+  width: '2px',
+  offset: '2px',
+} as const;
+
+/** Disabled-state opacity, applied uniformly instead of ad-hoc per-component values. */
+export const opacity = {
+  disabled: '0.5',
+} as const;
+
+/** Hairline border widths — `1px` was hardcoded at every call site (button, card, input). */
+export const borderWidth = {
+  hairline: '1px',
+  thick: '2px',
 } as const;
 
 export const zIndex = {

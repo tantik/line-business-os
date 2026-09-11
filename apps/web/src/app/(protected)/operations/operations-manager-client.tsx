@@ -11,8 +11,9 @@ import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { LoadingButton } from '@/components/ui/loading';
-import { alertDanger, backLink, badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, card, colors, mutedText, pageStyle } from '@/lib/ui/theme';
+import { alertDanger, backLink, buttonDisabled, buttonPrimary, buttonSecondary, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { Button, ListRow, MetadataText, SegmentedControl, StatusBadge } from '@line-os/ui';
 import { tOperations } from './operations-i18n';
 import { TemplateForm } from './template-form';
 import { TemplateDetailModal } from './template-detail-modal';
@@ -116,38 +117,23 @@ export function OperationsManagerBody({
         </header>
       ) : null}
 
-      <div
-        role="group"
-        aria-label={t('sectionTemplatesTab')}
-        style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden', marginTop: embedded ? 0 : 16 }}
-      >
-        {(['templates', 'today', 'attention'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            aria-pressed={section === tab}
-            onClick={() => setSection(tab)}
-            style={{
-              border: 0,
-              minHeight: 36,
-              padding: '7px 14px',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: section === tab ? colors.accent : 'transparent',
-              color: section === tab ? '#fff' : colors.textMuted,
-            }}
-          >
-            {tab === 'templates'
-              ? t('sectionTemplatesTab')
-              : tab === 'today'
-                ? t('sectionTodayTab')
-                : `${t('sectionAttentionTab')}${openExceptionCount > 0 ? ` (${openExceptionCount})` : ''}`}
-          </button>
-        ))}
+      <div style={{ marginTop: embedded ? 0 : 16 }}>
+        <SegmentedControl
+          aria-label={t('sectionSwitcherLabel')}
+          value={section}
+          onValueChange={(value) => setSection(value as Section)}
+          options={[
+            { value: 'templates', label: t('sectionTemplatesTab') },
+            { value: 'today', label: t('sectionTodayTab') },
+            {
+              value: 'attention',
+              label: `${t('sectionAttentionTab')}${openExceptionCount > 0 ? ` (${openExceptionCount})` : ''}`,
+            },
+          ]}
+        />
       </div>
 
-      {section === 'today' ? <TodayTasksSection t={t} tasks={todayTasks} /> : null}
+      {section === 'today' ? <TodayTasksSection t={t} lang={lang} tasks={todayTasks} /> : null}
 
       {section === 'attention' ? (
         <AttentionSection t={t} lang={lang} exceptions={openExceptions} tasksToday={todayTasks ?? []} items={items ?? []} onChange={refresh} />
@@ -189,79 +175,47 @@ export function OperationsManagerBody({
         </section>
       ) : section === 'templates' ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, alignItems: 'center' }}>
-          <div role="group" aria-label={t('filterActive')} style={{ display: 'inline-flex', border: `1px solid ${colors.border}`, borderRadius: 999, overflow: 'hidden' }}>
-            {(['active', 'retired'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                aria-pressed={statusFilter === tab}
-                onClick={() => setStatusFilter(tab)}
-                style={{
-                  border: 0,
-                  minHeight: 36,
-                  padding: '7px 14px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: statusFilter === tab ? colors.accent : 'transparent',
-                  color: statusFilter === tab ? '#fff' : colors.textMuted,
-                }}
-              >
-                {tab === 'active' ? t('filterActive') : t('filterRetired')}
-              </button>
-            ))}
-          </div>
-          <button type="button" className={hoverStyles.buttonPrimary} style={{ ...buttonPrimary, marginLeft: 'auto' }} onClick={() => setAdding(true)}>
+          <SegmentedControl
+            aria-label={t('templateFilterLabel')}
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+            options={[
+              { value: 'active', label: t('filterActive') },
+              { value: 'retired', label: t('filterRetired') },
+            ]}
+          />
+          <Button variant="primary" size="md" className="ml-auto" onClick={() => setAdding(true)}>
             {t('addTemplateButton')}
-          </button>
+          </Button>
         </div>
       ) : null}
 
       {section === 'templates' && !adding ? (
-        <section style={{ ...card, marginTop: 16 }}>
+        <section className="mt-4 rounded-md border border-border bg-surface p-3 shadow-card">
           {templates === null ? (
             <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
           ) : visibleTemplates.length === 0 ? (
             <p style={{ margin: 0, ...mutedText }}>{statusFilter === 'active' ? t('noTemplatesYet') : t('noRetiredTemplates')}</p>
           ) : (
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+            <div className="flex flex-col gap-1">
               {visibleTemplates.map((template) => (
-                <li
+                <ListRow
                   key={template.templateId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedTemplateId(template.templateId)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSelectedTemplateId(template.templateId);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '9px 10px',
-                    borderRadius: 8,
-                    background: colors.surfaceElevated,
-                    flexWrap: 'wrap',
-                    cursor: 'pointer',
-                    opacity: template.isActive ? 1 : 0.65,
-                  }}
-                >
-                  <div style={{ minWidth: 160, flex: '1 1 200px' }}>
-                    <strong style={{ display: 'block' }}>{template.name}</strong>
-                    {template.category ? <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>{template.category}</div> : null}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={badgeStyle('neutral')}>{template.locationId === null ? t('templateScopeTenantWide') : t('templateScopeLocation')}</span>
-                    <span style={badgeStyle(template.isActive ? 'active' : 'inactive')}>
-                      {template.isActive ? t('templateActiveBadge') : t('templateRetiredBadge')}
-                    </span>
-                  </div>
-                </li>
+                  onOpen={() => setSelectedTemplateId(template.templateId)}
+                  muted={!template.isActive}
+                  title={template.name}
+                  subtitle={template.category ? <MetadataText>{template.category}</MetadataText> : undefined}
+                  status={
+                    <>
+                      <MetadataText>{template.locationId === null ? t('templateScopeTenantWide') : t('templateScopeLocation')}</MetadataText>
+                      <StatusBadge tone={template.isActive ? 'success' : 'muted'} showIcon={false}>
+                        {template.isActive ? t('templateActiveBadge') : t('templateRetiredBadge')}
+                      </StatusBadge>
+                    </>
+                  }
+                />
               ))}
-            </ul>
+            </div>
           )}
         </section>
       ) : null}

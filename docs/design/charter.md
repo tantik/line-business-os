@@ -99,3 +99,11 @@ different design language, that is a signal to escalate, not to branch the CSS.
 - Touch targets ≥ 44px on Staff/mobile.
 - `prefers-reduced-motion` respected everywhere.
 - Japanese-first copy; never machine-translate identifiers or code.
+
+## 9. Implementation mechanism (Design System v1, 2026-09-10)
+
+This charter states principles; the mechanism that enforces them is
+Tailwind v4 (styling, fed by `@line-os/tokens`) + Radix Primitives
+(accessibility engine) + `@line-os/ui` (the ORUWA-owned component layer).
+Full architecture, component contracts, and migration policy:
+`docs/architecture/frontend-engineering-standards.md` §4.

@@ -8,10 +8,10 @@ import type { OperationsTemplateItem } from '@/lib/operations/templates';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { backLink, badgeStyle, card, colors, mutedText, pageStyle } from '@/lib/ui/theme';
-import type { BadgeTone } from '@/lib/ui/theme';
-import hoverStyles from '@/lib/ui/theme.module.css';
-import { tOperations } from './operations-i18n';
+import { backLink, mutedText, pageStyle } from '@/lib/ui/theme';
+import { ListRow, MetadataText, StatusBadge } from '@line-os/ui';
+import type { StatusTone } from '@line-os/ui';
+import { formatTaskDueWindow, tOperations } from './operations-i18n';
 import { TaskDetailModal } from './task-detail-modal';
 
 export interface StaffOperationsClientProps {
@@ -41,16 +41,16 @@ function statePriority(state: OperationsExpectedTask['state']): number {
   }
 }
 
-function stateBadgeTone(state: OperationsExpectedTask['state']): BadgeTone {
+function stateTone(state: OperationsExpectedTask['state']): StatusTone {
   switch (state) {
     case 'completed':
-      return 'active';
+      return 'success';
     case 'overdue':
-      return 'warning';
+      return 'critical';
     case 'in_progress':
-      return 'neutral';
+      return 'info';
     default:
-      return 'inactive';
+      return 'neutral';
   }
 }
 
@@ -139,59 +139,46 @@ export function StaffOperationsBody({
         </header>
       ) : null}
 
-      <section style={{ ...card, marginTop: embedded ? 0 : 16 }}>
+      <section
+        className="rounded-md border border-border bg-surface p-3 shadow-card"
+        style={{ marginTop: embedded ? 0 : 16 }}
+      >
         {tasks === null ? (
           <p style={{ margin: 0, ...mutedText }}>{t('unavailable')}</p>
         ) : sortedTasks.length === 0 ? (
           <p style={{ margin: 0, ...mutedText }}>{t('staffNoTasksToday')}</p>
         ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 8 }}>
+          <div className="flex flex-col gap-1">
             {sortedTasks.map((task) => (
-              <li
+              <ListRow
                 key={task.scheduleId}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedScheduleId(task.scheduleId)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedScheduleId(task.scheduleId);
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '9px 10px',
-                  borderRadius: 8,
-                  background: colors.surfaceElevated,
-                  flexWrap: 'wrap',
-                  cursor: 'pointer',
-                }}
-                className={hoverStyles.buttonSecondary}
-              >
-                <div style={{ minWidth: 180, flex: '1 1 220px' }}>
-                  <strong style={{ display: 'block' }}>{task.templateName}</strong>
-                  {task.category ? <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>{task.category}</div> : null}
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={badgeStyle('neutral')}>
-                    {t('taskDueAt')} {task.dueTime.slice(0, 5)}
-                    {task.windowEndTime ? ` ${t('taskWindowUntil')} ${task.windowEndTime.slice(0, 5)}` : ''}
-                  </span>
-                  <span style={badgeStyle(stateBadgeTone(task.state))}>{stateLabel(t, task.state)}</span>
-                  {task.isOverdueCritical ? (
-                    <span style={badgeStyle('warning')}>{t('taskCriticalMissedBadge')}</span>
-                  ) : null}
-                  {task.openExceptionCount > 0 ? (
-                    <span style={badgeStyle('warning')}>
-                      {task.openExceptionCount} {t('taskOpenExceptions')}
-                    </span>
-                  ) : null}
-                </div>
-              </li>
+                onOpen={() => setSelectedScheduleId(task.scheduleId)}
+                muted={task.state === 'completed'}
+                title={task.templateName}
+                subtitle={
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <MetadataText>{formatTaskDueWindow(lang, task.dueTime, task.windowEndTime)}</MetadataText>
+                    {task.category ? <MetadataText>{task.category}</MetadataText> : null}
+                  </div>
+                }
+                status={
+                  <>
+                    <StatusBadge tone={stateTone(task.state)} showIcon={task.state === 'overdue' || task.state === 'completed'}>
+                      {stateLabel(t, task.state)}
+                    </StatusBadge>
+                    {task.isOverdueCritical ? (
+                      <StatusBadge tone="critical">{t('taskCriticalMissedBadge')}</StatusBadge>
+                    ) : null}
+                    {task.openExceptionCount > 0 ? (
+                      <StatusBadge tone="warning">
+                        {task.openExceptionCount} {t('taskOpenExceptions')}
+                      </StatusBadge>
+                    ) : null}
+                  </>
+                }
+              />
             ))}
-          </ul>
+          </div>
         )}
       </section>
 

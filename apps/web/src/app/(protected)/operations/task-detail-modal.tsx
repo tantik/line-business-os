@@ -5,24 +5,20 @@ import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { OperationsExpectedTask, OperationsExceptionSeverity, OperationsItemResponse } from '@/lib/operations/tasks';
 import type { OperationsTemplateItem } from '@/lib/operations/templates';
 import { completeTask, recordResponse, reportProblem } from '@/lib/operations/tasks-actions';
-import { Modal } from '@/components/shared/design-kit';
-import { LoadingButton } from '@/components/ui/loading';
 import {
-  alertDanger,
-  badgeStyle,
-  buttonDisabled,
-  buttonPrimary,
-  buttonSecondary,
-  checkboxInput,
-  checkboxLabel,
-  colors,
-  input,
-  mutedText,
-} from '@/lib/ui/theme';
-import hoverStyles from '@/lib/ui/theme.module.css';
-import { buttonDanger } from '../_ui/workforce-theme';
+  Button,
+  Checkbox,
+  Dialog,
+  Field,
+  InlineAlert,
+  MetadataText,
+  NumberInput,
+  Select,
+  StatusBadge,
+  Textarea,
+} from '@line-os/ui';
 import { describeOperationsWriteError } from './error-copy';
-import { tOperations } from './operations-i18n';
+import { formatTaskDueWindow, tOperations } from './operations-i18n';
 
 type TFn = (key: Parameters<typeof tOperations>[1]) => string;
 
@@ -41,12 +37,27 @@ export interface TaskDetailModalProps {
 type View = { kind: 'checklist' } | { kind: 'report-problem'; itemId: string | null };
 
 /**
- * One task's checklist: record a response per active item, report a problem
- * (whole task or one item), and complete the task. Mirrors
- * `TemplateDetailModal`'s exact shell shape (one `Modal`, internal view-swap
- * for the report-problem form rather than a nested `Modal`). Read-only once
- * `task.status === 'completed'` -- no more responses/report-problem/complete
- * from this UI, mirroring what the RPCs themselves would reject.
+ * ORUWA Design System v1 pilot — Staff Operations task detail (mission §20).
+ * Redesign priority, top to bottom: WHAT task is this? WHEN is it due? IS
+ * there a problem? HOW MUCH is complete? WHAT do I do next?
+ *
+ * Business logic/RPC wiring is byte-identical to the previous implementation
+ * (`completeTask`/`recordResponse`/`reportProblem`, same FormData shape,
+ * same read-only-once-completed rule) — only presentation changed:
+ * - One compact status row: `StatusBadge` for the real state, `MetadataText`
+ *   (plain, not a pill) for due time/category — Status/Metadata/Action
+ *   model, mission §12 — instead of 3 equally-weighted neutral badges.
+ * - A progress count ("2/4") next to the checklist heading.
+ * - Migrated off the design-kit `Modal` onto `Dialog` (Radix): this exact
+ *   component, opened from inside the Operations popup's own `Modal`, was
+ *   the audit's primary nested-modal/double-scroll/focus-escape example
+ *   (mission §16) — Report-problem used to be a second internal view inside
+ *   the same shell, which stays true here, but the shell itself now has a
+ *   real focus trap + scroll lock + stack-aware Escape.
+ * - Report-problem's Submit/Cancel and the checklist's Report/Complete now
+ *   render in `Dialog`'s `footer` slot — outside the scrolling body, always
+ *   reachable without scrolling the whole checklist first (audit: "main
+ *   actions found only after a long checklist, not sticky").
  */
 export function TaskDetailModal({ open, onClose, task, items, responses, lang, onChange }: TaskDetailModalProps) {
   const t: TFn = (key) => tOperations(lang, key);
@@ -54,12 +65,25 @@ export function TaskDetailModal({ open, onClose, task, items, responses, lang, o
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [isCompletePending, startCompleteTransition] = useTransition();
 
+  const [reportNote, setReportNote] = useState('');
+  const [reportSeverity, setReportSeverity] = useState<OperationsExceptionSeverity>('action_required');
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [isReportPending, startReportTransition] = useTransition();
+
   const readOnly = task.status === 'completed';
   const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.itemId.localeCompare(b.itemId));
   const responseByItemId = new Map(responses.map((r) => [r.itemId, r]));
   const missingRequiredItemIds = new Set(
     sortedItems.filter((item) => item.isRequired && !responseByItemId.has(item.itemId)).map((item) => item.itemId),
   );
+  const answeredCount = sortedItems.filter((item) => responseByItemId.has(item.itemId)).length;
+
+  function openReportProblem(itemId: string | null) {
+    setReportNote('');
+    setReportSeverity('action_required');
+    setReportError(null);
+    setView({ kind: 'report-problem', itemId });
+  }
 
   function backToChecklist() {
     setView({ kind: 'checklist' });
@@ -87,49 +111,102 @@ export function TaskDetailModal({ open, onClose, task, items, responses, lang, o
     });
   }
 
+  function handleReportSubmit() {
+    setReportError(null);
+    const formData = new FormData();
+    formData.set('scheduleId', task.scheduleId);
+    if (view.kind === 'report-problem' && view.itemId) formData.set('itemId', view.itemId);
+    formData.set('note', reportNote);
+    formData.set('severity', reportSeverity);
+    startReportTransition(async () => {
+      const result = await reportProblem(formData);
+      if (result.status === 'success') {
+        backToChecklist();
+        onChange();
+      } else {
+        setReportError(describeOperationsWriteError(result, lang, 'staff'));
+      }
+    });
+  }
+
   const title = view.kind === 'checklist' ? task.templateName : t('reportProblemHeading');
 
+  const footer =
+    view.kind === 'report-problem' ? (
+      <>
+        <Button variant="secondary" size="md" onClick={backToChecklist} disabled={isReportPending}>
+          {t('formCancel')}
+        </Button>
+        <Button variant="destructive" size="md" loading={isReportPending} onClick={handleReportSubmit}>
+          {t('reportProblemSubmit')}
+        </Button>
+      </>
+    ) : !readOnly ? (
+      <>
+        <Button variant="secondary" size="md" onClick={() => openReportProblem(null)}>
+          {t('reportProblemButton')}
+        </Button>
+        <Button variant="primary" size="md" loading={isCompletePending} onClick={handleComplete}>
+          {t('completeTaskButton')}
+        </Button>
+      </>
+    ) : null;
+
   return (
-    <Modal open={open} onClose={handleModalClose} title={title} width="min(640px, 96vw)" closeLabel={t('formCancel')}>
+    <Dialog open={open} onClose={handleModalClose} title={title} size="form" closeLabel={t('formCancel')} footer={footer}>
       {view.kind === 'report-problem' ? (
-        <ReportProblemForm
-          t={t}
-          lang={lang}
-          scheduleId={task.scheduleId}
-          itemId={view.itemId}
-          onCancel={backToChecklist}
-          onSuccess={() => {
-            backToChecklist();
-            onChange();
-          }}
-        />
+        <div className="flex flex-col gap-4">
+          <Field label={t('reportProblemSeverityLabel')}>
+            {(fieldProps) => (
+              <Select
+                {...fieldProps}
+                value={reportSeverity}
+                onValueChange={(value) => setReportSeverity(value as OperationsExceptionSeverity)}
+                options={[
+                  { value: 'action_required', label: t('severityActionRequired') },
+                  { value: 'warning', label: t('severityWarning') },
+                ]}
+              />
+            )}
+          </Field>
+          <Field label={t('reportProblemNoteLabel')}>
+            {(fieldProps) => (
+              <Textarea {...fieldProps} maxLength={2000} value={reportNote} onChange={(event) => setReportNote(event.target.value)} />
+            )}
+          </Field>
+          {reportError ? <InlineAlert tone="critical">{reportError}</InlineAlert> : null}
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={badgeStyle(readOnly ? 'active' : task.state === 'overdue' ? 'warning' : 'neutral')}>
-              {readOnly
-                ? t('taskStateCompleted')
-                : task.state === 'overdue'
-                  ? t('taskStateOverdue')
-                  : task.state === 'in_progress'
-                    ? t('taskStateInProgress')
-                    : t('taskStateNotStarted')}
-            </span>
-            <span style={badgeStyle('neutral')}>
-              {t('taskDueAt')} {task.dueTime.slice(0, 5)}
-              {task.windowEndTime ? ` ${t('taskWindowUntil')} ${task.windowEndTime.slice(0, 5)}` : ''}
-            </span>
-            {task.category ? <span style={badgeStyle('neutral')}>{task.category}</span> : null}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {readOnly ? (
+              <StatusBadge tone="success">{t('taskStateCompleted')}</StatusBadge>
+            ) : task.state === 'overdue' ? (
+              <StatusBadge tone="critical">{t('taskStateOverdue')}</StatusBadge>
+            ) : (
+              <StatusBadge tone="neutral" showIcon={false}>
+                {task.state === 'in_progress' ? t('taskStateInProgress') : t('taskStateNotStarted')}
+              </StatusBadge>
+            )}
+            <MetadataText>
+              {t('taskDueAt')} {formatTaskDueWindow(lang, task.dueTime, task.windowEndTime)}
+            </MetadataText>
+            {task.category ? <MetadataText>{task.category}</MetadataText> : null}
+            {!readOnly && sortedItems.length > 0 ? (
+              <MetadataText className="ml-auto tabular-nums">
+                {answeredCount}/{sortedItems.length}
+              </MetadataText>
+            ) : null}
           </div>
 
-          {readOnly ? <p style={{ margin: 0, ...mutedText }}>{t('taskCompletedNote')}</p> : null}
+          {readOnly ? <p className="m-0 text-sm text-text-muted">{t('taskCompletedNote')}</p> : null}
 
-          <section style={{ paddingTop: 4 }}>
-            <h3 style={{ margin: 0, fontSize: 15 }}>{t('checklistHeading')}</h3>
+          <section>
+            <h3 className="m-0 text-base font-semibold text-text-primary">{t('checklistHeading')}</h3>
             {sortedItems.length === 0 ? (
-              <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noChecklistItems')}</p>
+              <p className="mt-3 text-sm text-text-muted">{t('noChecklistItems')}</p>
             ) : (
-              <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+              <ul className="mt-3 grid list-none gap-2.5 p-0">
                 {sortedItems.map((item) => (
                   <ItemResponseRow
                     key={item.itemId}
@@ -141,41 +218,17 @@ export function TaskDetailModal({ open, onClose, task, items, responses, lang, o
                     missing={missingRequiredItemIds.has(item.itemId)}
                     readOnly={readOnly}
                     onSaved={onChange}
-                    onReportProblem={() => setView({ kind: 'report-problem', itemId: item.itemId })}
+                    onReportProblem={() => openReportProblem(item.itemId)}
                   />
                 ))}
               </ul>
             )}
           </section>
 
-          {completeError ? <div style={alertDanger}>{completeError}</div> : null}
-
-          {!readOnly ? (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: `1px solid ${colors.border}` }}>
-              <LoadingButton
-                type="button"
-                pending={isCompletePending}
-                pendingLabel={t('formSaving')}
-                style={buttonPrimary}
-                pendingStyle={buttonDisabled}
-                className={hoverStyles.buttonPrimary}
-                onClick={handleComplete}
-              >
-                {t('completeTaskButton')}
-              </LoadingButton>
-              <button
-                type="button"
-                className={hoverStyles.buttonSecondary}
-                style={buttonSecondary}
-                onClick={() => setView({ kind: 'report-problem', itemId: null })}
-              >
-                {t('reportProblemButton')}
-              </button>
-            </div>
-          ) : null}
+          {completeError ? <InlineAlert tone="critical">{completeError}</InlineAlert> : null}
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -195,12 +248,14 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [boolValue, setBoolValue] = useState<boolean>(response?.responseBool ?? false);
-  const [numericValue, setNumericValue] = useState<string>(response?.responseNumeric !== null && response?.responseNumeric !== undefined ? String(response.responseNumeric) : '');
+  const [numericValue, setNumericValue] = useState<number | ''>(
+    response?.responseNumeric !== null && response?.responseNumeric !== undefined ? response.responseNumeric : '',
+  );
   const [textValue, setTextValue] = useState<string>(response?.responseText ?? '');
 
   useEffect(() => {
     setBoolValue(response?.responseBool ?? false);
-    setNumericValue(response?.responseNumeric !== null && response?.responseNumeric !== undefined ? String(response.responseNumeric) : '');
+    setNumericValue(response?.responseNumeric !== null && response?.responseNumeric !== undefined ? response.responseNumeric : '');
     setTextValue(response?.responseText ?? '');
   }, [response]);
 
@@ -227,7 +282,7 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
   }
 
   function handleNumericSave() {
-    if (numericValue.trim().length === 0) {
+    if (numericValue === '') {
       setError(t('errResponseRequiresExactlyOneValue'));
       return;
     }
@@ -235,7 +290,7 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
     formData.set('scheduleId', scheduleId);
     formData.set('itemId', item.itemId);
     formData.set('responseType', 'numeric');
-    formData.set('responseNumeric', numericValue);
+    formData.set('responseNumeric', String(numericValue));
     save(formData);
   }
 
@@ -252,72 +307,63 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
     save(formData);
   }
 
+  const rangeHint =
+    item.numericMin !== null || item.numericMax !== null
+      ? `${t('numericRangeHint')}: ${item.numericMin ?? '—'}–${item.numericMax ?? '—'}${item.numericUnit ? ` ${item.numericUnit}` : ''}`
+      : t('thresholdNotConfiguredStaff');
+
   return (
-    <li
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        padding: '10px 12px',
-        borderRadius: 8,
-        background: colors.surfaceElevated,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <strong style={{ flex: '1 1 200px' }}>{item.label}</strong>
-        {item.isCritical ? <span style={badgeStyle('warning')}>{t('criticalBadge')}</span> : null}
-        <span style={badgeStyle(item.isRequired ? 'neutral' : 'inactive')}>{item.isRequired ? t('requiredBadge') : t('optionalBadge')}</span>
-        {missing ? <span style={badgeStyle('warning')}>{t('itemMissingHint')}</span> : null}
+    <li className="flex flex-col gap-2 rounded-md bg-surface-elevated p-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <strong className="min-w-[160px] flex-1 text-base font-medium text-text-primary">{item.label}</strong>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {item.isCritical ? (
+            <StatusBadge tone="warning" size="sm">
+              {t('criticalBadge')}
+            </StatusBadge>
+          ) : null}
+          {!item.isRequired ? (
+            <StatusBadge tone="muted" size="sm" showIcon={false}>
+              {t('optionalBadge')}
+            </StatusBadge>
+          ) : null}
+          {missing ? (
+            <StatusBadge tone="warning" size="sm">
+              {t('itemMissingHint')}
+            </StatusBadge>
+          ) : null}
+        </div>
       </div>
 
       {item.responseType === 'boolean' ? (
-        <label style={checkboxLabel}>
-          <input
-            style={checkboxInput}
-            type="checkbox"
-            checked={boolValue}
-            disabled={readOnly || isPending}
-            onChange={(event) => handleBoolChange(event.target.checked)}
-          />
-          {isPending ? t('responseSaving') : response ? t('responseSaved') : null}
-        </label>
+        <Checkbox
+          checked={boolValue}
+          disabled={readOnly || isPending}
+          onCheckedChange={handleBoolChange}
+          label={isPending ? t('responseSaving') : response ? t('responseSaved') : t('itemMissingHint')}
+        />
       ) : item.responseType === 'numeric' ? (
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-          <label style={{ flex: '1 1 160px' }}>
-            <input
-              style={input}
-              type="number"
-              step="any"
+        <div className="flex flex-col gap-1">
+          <div className="flex items-end gap-2">
+            <NumberInput
               value={numericValue}
+              onValueChange={setNumericValue}
+              unit={item.numericUnit ?? undefined}
               disabled={readOnly}
-              onChange={(event) => setNumericValue(event.target.value)}
+              className="flex-1"
             />
-            {item.numericMin !== null || item.numericMax !== null ? (
-              <span style={{ ...mutedText, fontSize: 12, display: 'block', marginTop: 4 }}>
-                {t('numericRangeHint')}: {item.numericMin ?? '—'}–{item.numericMax ?? '—'} {item.numericUnit ?? ''}
-              </span>
-            ) : (
-              <span style={{ ...mutedText, fontSize: 12, display: 'block', marginTop: 4 }}>{t('thresholdNotConfiguredStaff')}</span>
-            )}
-          </label>
-          {!readOnly ? (
-            <LoadingButton
-              type="button"
-              pending={isPending}
-              pendingLabel={t('responseSaving')}
-              style={buttonSecondary}
-              pendingStyle={buttonDisabled}
-              className={hoverStyles.buttonSecondary}
-              onClick={handleNumericSave}
-            >
-              {t('formSaveItem')}
-            </LoadingButton>
-          ) : null}
+            {!readOnly ? (
+              <Button variant="secondary" size="md" loading={isPending} onClick={handleNumericSave}>
+                {t('formSaveItem')}
+              </Button>
+            ) : null}
+          </div>
+          <MetadataText>{rangeHint}</MetadataText>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+        <div className="flex items-end gap-2">
           <input
-            style={{ ...input, flex: '1 1 220px' }}
+            className="h-11 flex-1 rounded-md border border-border bg-surface px-3 text-base text-text-primary hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-50"
             type="text"
             maxLength={2000}
             value={textValue}
@@ -325,111 +371,24 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
             onChange={(event) => setTextValue(event.target.value)}
           />
           {!readOnly ? (
-            <LoadingButton
-              type="button"
-              pending={isPending}
-              pendingLabel={t('responseSaving')}
-              style={buttonSecondary}
-              pendingStyle={buttonDisabled}
-              className={hoverStyles.buttonSecondary}
-              onClick={handleTextSave}
-            >
+            <Button variant="secondary" size="md" loading={isPending} onClick={handleTextSave}>
               {t('formSaveItem')}
-            </LoadingButton>
+            </Button>
           ) : null}
         </div>
       )}
 
-      {error ? <div style={{ ...alertDanger, fontSize: 12.5, padding: '6px 10px' }}>{error}</div> : null}
+      {error ? <InlineAlert tone="critical">{error}</InlineAlert> : null}
 
       {!readOnly ? (
         <button
           type="button"
-          className={hoverStyles.buttonSecondary}
-          style={{ ...buttonSecondary, alignSelf: 'flex-start', fontSize: 12.5, padding: '6px 10px' }}
+          className="self-start text-sm text-text-muted underline decoration-dotted underline-offset-2 hover:text-text-primary"
           onClick={onReportProblem}
         >
           {t('reportProblemForItemButton')}
         </button>
       ) : null}
     </li>
-  );
-}
-
-interface ReportProblemFormProps {
-  t: TFn;
-  lang: Lang;
-  scheduleId: string;
-  itemId: string | null;
-  onCancel: () => void;
-  onSuccess: () => void;
-}
-
-function ReportProblemForm({ t, lang, scheduleId, itemId, onCancel, onSuccess }: ReportProblemFormProps) {
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const [severity, setSeverity] = useState<OperationsExceptionSeverity>('action_required');
-
-  function handleSubmit() {
-    setError(null);
-    const formData = new FormData();
-    formData.set('scheduleId', scheduleId);
-    if (itemId) formData.set('itemId', itemId);
-    formData.set('note', note);
-    formData.set('severity', severity);
-    startTransition(async () => {
-      const result = await reportProblem(formData);
-      if (result.status === 'success') {
-        onSuccess();
-      } else {
-        setError(describeOperationsWriteError(result, lang, 'staff'));
-      }
-    });
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('reportProblemSeverityLabel')}</span>
-        <select
-          style={input}
-          value={severity}
-          onChange={(event) => setSeverity(event.target.value as OperationsExceptionSeverity)}
-        >
-          <option value="action_required">{t('severityActionRequired')}</option>
-          <option value="warning">{t('severityWarning')}</option>
-        </select>
-      </label>
-
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('reportProblemNoteLabel')}</span>
-        <textarea
-          style={{ ...input, minHeight: 90, resize: 'vertical' }}
-          maxLength={2000}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      </label>
-
-      {error ? <div style={alertDanger}>{error}</div> : null}
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <LoadingButton
-          type="button"
-          pending={isPending}
-          pendingLabel={t('formSaving')}
-          style={buttonDanger}
-          pendingStyle={buttonDisabled}
-          className={hoverStyles.buttonDanger}
-          onClick={handleSubmit}
-        >
-          {t('reportProblemSubmit')}
-        </LoadingButton>
-        <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={onCancel} disabled={isPending}>
-          {t('formCancel')}
-        </button>
-      </div>
-    </div>
   );
 }

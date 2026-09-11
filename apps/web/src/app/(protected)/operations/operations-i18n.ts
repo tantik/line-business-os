@@ -1,6 +1,21 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
 
 /**
+ * Design System v1 fix (browser audit JA copy finding): the old composition
+ * `{taskDueAt} {dueTime} {taskWindowUntil} {windowEndTime}` rendered as
+ * "実施時刻 07:30 まで 08:30" — not natural Japanese time-range notation.
+ * Centralized so every Operations surface (Staff task list, task detail,
+ * Manager Today) renders the same corrected format instead of scattering
+ * the fix across call sites: `07:30〜08:30` (JA) / `07:30–08:30` (EN).
+ */
+export function formatTaskDueWindow(lang: Lang, dueTime: string, windowEndTime: string | null): string {
+  const due = dueTime.slice(0, 5);
+  if (!windowEndTime) return due;
+  const end = windowEndTime.slice(0, 5);
+  return lang === 'ja' ? `${due}〜${end}` : `${due}–${end}`;
+}
+
+/**
  * JA/EN strings for the Operations Configuration slice (Cafe v2.2 WP1
  * Operations, first UI slice -- Manager template/item management only, no
  * scheduling, no task execution). Reuses the existing
@@ -198,6 +213,8 @@ interface OperationsDict {
   confirmAddDuplicateScheduleTitle: string;
   confirmAddDuplicateScheduleBody: string;
   errScheduleNotFoundStaffTask: string;
+  sectionSwitcherLabel: string;
+  templateFilterLabel: string;
 }
 
 const dictionary: Record<Lang, OperationsDict> = {
@@ -392,6 +409,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     confirmAddDuplicateScheduleTitle: 'Add another schedule?',
     confirmAddDuplicateScheduleBody: 'This template already has an active schedule. Add another one anyway?',
     errScheduleNotFoundStaffTask: "This task's schedule is no longer active. Check with your manager.",
+    sectionSwitcherLabel: 'Operations section',
+    templateFilterLabel: 'Template status filter',
   },
   ja: {
     pageTitle: 'オペレーション',
@@ -538,8 +557,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskStateInProgress: '進行中',
     taskStateOverdue: '期限超過',
     taskStateCompleted: '完了',
-    taskDueAt: '実施時刻',
-    taskWindowUntil: 'まで',
+    taskDueAt: '実施時間',
+    taskWindowUntil: '〜',
     taskOpenExceptions: '件の未解決の問題',
     taskCriticalMissedBadge: '重要チェック未実施',
     checklistHeading: 'チェックリスト',
@@ -582,6 +601,8 @@ const dictionary: Record<Lang, OperationsDict> = {
     confirmAddDuplicateScheduleTitle: 'スケジュールを追加しますか？',
     confirmAddDuplicateScheduleBody: 'このテンプレートにはすでに有効なスケジュールがあります。もう一つ追加しますか？',
     errScheduleNotFoundStaffTask: 'このタスクのスケジュールはすでに無効になっています。マネージャーに確認してください。',
+    sectionSwitcherLabel: 'オペレーションのセクション',
+    templateFilterLabel: 'テンプレートの状態フィルター',
   },
 };
 

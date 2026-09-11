@@ -1,18 +1,22 @@
 import * as React from 'react';
-import { color, radius, space, shadow } from '@line-os/tokens';
-import { cn } from './cn.js';
+import { cn } from './cn';
 
-/** Phase 0 interim — see `button.tsx` for the Tailwind-removal note. */
-const cardStyle: React.CSSProperties = {
-  borderRadius: radius.md,
-  border: `1px solid ${color.border}`,
-  background: color.surface,
-  padding: space[5],
-  boxShadow: shadow.sm,
-};
-
-export function Card({ className, style, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('oruwa-card', className)} style={{ ...cardStyle, ...style }} {...props} />
-  );
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** `card` (default, resting surface) or `raised` (hover/interactive — e.g. a clickable list item). */
+  elevation?: 'card' | 'raised';
 }
+
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ elevation = 'card', className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'oruwa-card rounded-md border border-border bg-surface p-5',
+        elevation === 'card' ? 'shadow-card' : 'shadow-raised',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+Card.displayName = 'Card';

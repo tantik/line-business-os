@@ -26,7 +26,7 @@ import {
   space,
   zIndex,
 } from './primitives';
-import { color } from './semantic';
+import { color, elevation, focus, state, border } from './semantic';
 import { CSS_VAR_PREFIX } from './css-var';
 
 export {
@@ -43,8 +43,11 @@ export {
   control,
   zIndex,
   breakpoint,
+  focusRing,
+  opacity,
+  borderWidth,
 } from './primitives';
-export { color } from './semantic';
+export { color, elevation, focus, state, border } from './semantic';
 export { CSS_VAR_PREFIX, varName, cssVar } from './css-var';
 
 /** Every token group that is emitted as `--oruwa-<group>-<key>` CSS variables. */
@@ -57,10 +60,14 @@ export const tokenGroups = {
   'line-height': lineHeight,
   'font-weight': fontWeight,
   shadow,
+  elevation,
   duration,
   easing,
   control,
   z: zIndex,
+  focus,
+  state,
+  border,
 } as const;
 
 /**
