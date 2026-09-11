@@ -18,6 +18,7 @@ import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operation
 import type { OperationsSchedule } from '@/lib/operations/schedules';
 import type { OperationsExpectedTask } from '@/lib/operations/tasks';
 import type { OperationsOpenException } from '@/lib/operations/exceptions';
+import type { Issue } from '@/lib/issues/issues';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/shift-types';
@@ -65,6 +66,7 @@ import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { OperationsManagerPopup } from '../_ui/operations-manager-popup';
+import { IssuesManagerPopup } from '../_ui/issues-manager-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
@@ -243,8 +245,14 @@ export interface ManagerDashboardClientProps {
   operationsTodayTasks: OperationsExpectedTask[] | null;
   /** Currently-open Operations exceptions at this Manager's own location, already filtered server-side -- see `page.tsx`. */
   operationsOpenExceptions: OperationsOpenException[] | null;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, `/purchases`, or `/operations` visit). */
-  initialPopup: 'inventory' | 'recipes' | 'purchases' | 'operations' | null;
+  /** Whether the tenant's separate `issues` top-level module (0118) is enabled -- gates only this entry point's visibility; RLS on `issues.issues` remains the real authorization boundary regardless. */
+  issuesEnabled: boolean;
+  /** Open + acknowledged issues/handovers (`api.issues_open`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Also this entry point's own count-badge source (deliberately NOT folded into `AttentionPanel`'s total -- see the Issues popup import site below). */
+  issuesOpen: Issue[] | null;
+  /** Full issue/handover history incl. resolved (`api.issues`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Feeds the Issues popup's History view. */
+  issuesAll: Issue[] | null;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, `/purchases`, `/operations`, or `/issues` visit). */
+  initialPopup: 'inventory' | 'recipes' | 'purchases' | 'operations' | 'issues' | null;
   /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
   initialFocusCell: { employeeId: string; workDate: string } | null;
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
@@ -331,6 +339,9 @@ function ManagerDashboardBody({
   operationsSchedulesError,
   operationsTodayTasks,
   operationsOpenExceptions,
+  issuesEnabled,
+  issuesOpen,
+  issuesAll,
   initialPopup,
   initialFocusCell,
   recipeGroups,
@@ -353,6 +364,7 @@ function ManagerDashboardBody({
   const [purchasesPopupOpen, setPurchasesPopupOpen] = useState(initialPopup === 'purchases');
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [operationsPopupOpen, setOperationsPopupOpen] = useState(initialPopup === 'operations');
+  const [issuesPopupOpen, setIssuesPopupOpen] = useState(initialPopup === 'issues');
   // Which Inventory tab the popup should open on -- 'all' from every normal
   // entry point, 'shortage' ("Need reorder") when opened from the Needs
   // attention panel's "Inventory shortage" item, so the manager lands
@@ -491,6 +503,20 @@ function ManagerDashboardBody({
   const unreadMailCount = useMemo(
     () => (staffMessages ?? []).filter((m) => m.senderRole === 'staff' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
     [staffMessages],
+  );
+
+  // Issues & Handover (Cafe v2.2 WP2, Slice B): this entry point's OWN count
+  // badge -- the number of open (not-yet-acknowledged) issues needing
+  // action, i.e. `kind='issue' && severity='important' && status='open'`.
+  // Deliberately its own entry-point badge, NOT folded into AttentionPanel's
+  // Level-1 total (mission direction -- avoids repeating the "9 vs 4+4"
+  // count-mismatch bug the Product Quality Foundation deferred list flagged
+  // elsewhere in this dashboard). The badge shows exactly this number and
+  // nothing else is derived from it, so there is no second, differently
+  // computed figure nearby to contradict it.
+  const issuesNeedingActionCount = useMemo(
+    () => (issuesOpen ?? []).filter((issue) => issue.kind === 'issue' && issue.severity === 'important' && issue.status === 'open').length,
+    [issuesOpen],
   );
 
   // 'open' (no candidate yet, or a plain change/cancel request) and
@@ -1107,6 +1133,20 @@ function ManagerDashboardBody({
                 },
               ]
             : []),
+          ...(issuesEnabled
+            ? [
+                {
+                  key: 'issues',
+                  label: t('navIssues'),
+                  onClick: () => {
+                    markPopupTriggerClick('issues');
+                    setIssuesPopupOpen(true);
+                  },
+                  badgeCount: issuesNeedingActionCount,
+                  badgeTone: 'critical' as const,
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -1223,6 +1263,15 @@ function ManagerDashboardBody({
         schedulesError={operationsSchedulesError}
         todayTasks={operationsTodayTasks}
         openExceptions={operationsOpenExceptions}
+      />
+
+      <IssuesManagerPopup
+        open={issuesPopupOpen}
+        onClose={() => setIssuesPopupOpen(false)}
+        locationId={locationId}
+        issuesOpen={issuesOpen}
+        issuesAll={issuesAll}
+        onChange={() => router.refresh()}
       />
 
       <section id="weekly-schedule" style={primaryCard}>

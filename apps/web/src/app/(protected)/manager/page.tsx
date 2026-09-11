@@ -22,6 +22,7 @@ import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/oper
 import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
 import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
+import { listAllIssues, listOpenIssues } from '@/lib/issues/issues';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -133,6 +134,17 @@ export default async function WorkforceManagerPage({
           (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
         );
 
+      // `issues` is a separate top-level module (0118) from `workforce` --
+      // reuses the already-fetched `modulesResult`. Gates only this
+      // dashboard's Issues & Handover entry-point link (Cafe v2.2 WP2,
+      // Manager frontend slice); RLS on `issues.issues` remains the real
+      // authorization boundary regardless of this flag.
+      const issuesEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'issues' && module.isEnabled,
+        );
+
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
@@ -190,7 +202,9 @@ export default async function WorkforceManagerPage({
               ? 'purchases'
               : rawPopup === 'operations'
                 ? 'operations'
-                : null;
+                : rawPopup === 'issues'
+                  ? 'issues'
+                  : null;
       // `?focusCell=employeeId:workDate`, set by Attention's "View shift"
       // action (manager-dashboard-client.tsx's `handleViewShift`) -- both
       // parts are opaque identifiers to this page (a UUID and an ISO date,
@@ -258,6 +272,8 @@ export default async function WorkforceManagerPage({
         operationsSchedulesResult,
         operationsTodayTasksResult,
         operationsOpenExceptionsResult,
+        issuesOpenResult,
+        issuesAllResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -332,6 +348,13 @@ export default async function WorkforceManagerPage({
         operationsEnabled ? listOperationsSchedules(supabase, activeTenant.tenantId) : Promise.resolve(null),
         operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, managerToday) : Promise.resolve(null),
         operationsEnabled ? listOpenOperationsExceptions(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        // Issues & Handover popup's entire read surface (Cafe v2.2 WP2,
+        // Manager frontend slice) -- also the exact data
+        // `IssuesManagerPopup` renders (no separate fetch), same
+        // consolidated-Promise.all pattern every other domain on this page
+        // already follows.
+        issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        issuesEnabled ? listAllIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
       ]);
 
       const recipeGroups =
@@ -382,6 +405,18 @@ export default async function WorkforceManagerPage({
           ? operationsOpenExceptionsResult.data.filter((exception) => exception.locationId === location.locationId)
           : null;
 
+      // `issues.report`/`issues.manage` may be tenant-wide for some roles --
+      // narrow to this Manager's own location here, same convention as the
+      // Operations reads above.
+      const issuesOpen =
+        issuesOpenResult && issuesOpenResult.status === 'success'
+          ? issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId)
+          : null;
+      const issuesAll =
+        issuesAllResult && issuesAllResult.status === 'success'
+          ? issuesAllResult.data.filter((issue) => issue.locationId === location.locationId)
+          : null;
+
       // Header account menu's identity -- `myProfileResult` carries the
       // caller's own `staffId`/`positionLabel` but never a plain-text name
       // (encryption boundary); the decrypted name is looked up from the
@@ -428,6 +463,9 @@ export default async function WorkforceManagerPage({
             operationsSchedulesError={operationsSchedulesResult ? readErrorMessage(operationsSchedulesResult) : null}
             operationsTodayTasks={operationsTodayTasks}
             operationsOpenExceptions={operationsOpenExceptions}
+            issuesEnabled={issuesEnabled}
+            issuesOpen={issuesOpen}
+            issuesAll={issuesAll}
             initialPopup={initialPopup}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}
