@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
+import { CountBadge } from '@line-os/ui';
 import { buttonSecondary, card } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import entryStyles from './entry-points-card.module.css';
@@ -16,6 +17,9 @@ export interface EntryPointsCardButton {
   label: string;
   onClick?: () => void;
   href?: string;
+  /** Optional own count badge (e.g. Issues & Handover's open-issue count) -- rendered next to the label via `CountBadge`. Only shown when > 0. The label/tooltip near it must describe this SAME number, never a differently-derived one (see the Manager Attention "9 vs 4+4" bug this deliberately avoids). */
+  badgeCount?: number;
+  badgeTone?: 'neutral' | 'critical';
 }
 
 export interface EntryPointsCardProps {
@@ -56,6 +60,7 @@ const buttonStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  gap: 6,
   textAlign: 'center',
   textDecoration: 'none',
   fontWeight: 700,
@@ -80,10 +85,15 @@ const buttonStyle: CSSProperties = {
 export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
   return (
     <section style={{ ...card, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {buttons.map((button) =>
-        button.href ? (
+      {buttons.map((button) => {
+        const badge =
+          button.badgeCount && button.badgeCount > 0 ? (
+            <CountBadge count={button.badgeCount} tone={button.badgeTone ?? 'neutral'} />
+          ) : null;
+        return button.href ? (
           <Link key={button.key} href={button.href} className={`${hoverStyles.buttonSecondary} ${entryStyles.entryButton}`} style={buttonStyle}>
             {button.label}
+            {badge}
           </Link>
         ) : (
           <button
@@ -94,9 +104,10 @@ export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
             onClick={button.onClick}
           >
             {button.label}
+            {badge}
           </button>
-        ),
-      )}
+        );
+      })}
     </section>
   );
 }

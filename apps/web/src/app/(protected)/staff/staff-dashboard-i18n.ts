@@ -124,6 +124,7 @@ interface StaffDashboardDict {
   navPurchases: string;
   navMail: string;
   navOperations: string;
+  navIssues: string;
   entryPointsHeading: string;
   // Staff<->Manager Mail module (0090): replaces the deleted DailyMessageForm card
   mailHeading: string;
@@ -273,6 +274,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navPurchases: 'Purchases',
     navMail: 'Mail',
     navOperations: 'Operations',
+    navIssues: 'Issues & Handover',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     mailHeading: 'Mail',
     mailEmpty: 'No messages yet.',
@@ -416,6 +418,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     navPurchases: '仕入れ',
     navMail: 'メール',
     navOperations: 'オペレーション',
+    navIssues: '申し送り・問題報告',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     mailHeading: 'メール',
     mailEmpty: 'まだメッセージはありません。',

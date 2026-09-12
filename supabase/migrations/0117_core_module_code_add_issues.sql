@@ -1,0 +1,33 @@
+-- ============================================================================
+-- 0117  core.module_code += 'issues'  (Cafe v2.2 WP2 Issues & Handover, Slice A)
+-- ----------------------------------------------------------------------------
+-- Adds the 'issues' value to the core.module_code enum so Issues & Handover
+-- can be a full ORUWA module with a backend-enforced ON/OFF boundary via the
+-- existing core.tenant_modules row + core.has_module_access(tenant_id, module)
+-- primitive (0093), exactly like operations (0099) / workforce / inventory /
+-- booking / ai.
+--
+-- WHY THIS IS ITS OWN MIGRATION FILE (nothing else here):
+-- A newly added enum value cannot be *used* in the same transaction that adds
+-- it. Every subsequent object that references 'issues'::core.module_code
+-- (RLS policies calling core.has_module_access(..., 'issues'),
+-- core.permissions rows tagged module = 'issues') therefore lives in 0118+,
+-- which the Supabase migration runner applies as a separate transaction.
+-- `add value if not exists` keeps this migration idempotent under
+-- `supabase db reset` / repeated application. Mirrors 0099 exactly.
+--
+-- GENERIC, REUSABLE CAPABILITY (not Cafe-only): models a structured
+-- operational problem ('issue') and shift/team handover information
+-- ('handover'). Categories/severity are simple closed vocabularies, not
+-- vertical-specific tables — reusable by any future vertical (Salon/Clinic/
+-- Retail/etc), same posture as the generic `operations` module.
+--
+-- Rollback: enum values cannot be dropped in PostgreSQL without recreating
+-- the type. If this must be reverted before anything references it, recreate
+-- core.module_code without 'issues' and re-cast every dependent column
+-- (core.tenant_modules.module, core.permissions.module). No dependent object
+-- exists yet at this migration, so a manual type recreation is the only path
+-- and should be treated as a schema surgery, not a routine rollback.
+-- ============================================================================
+
+alter type core.module_code add value if not exists 'issues';
