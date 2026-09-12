@@ -278,9 +278,10 @@ duplicated here.
 ## 5. Exact next gate
 
 **2026-09-12 pointer, CAFE v2.2 WP2 "ISSUES & HANDOVER" — CLOSED (newest;
-read this one first).** First new functional Work Package built on ORUWA
-Design System v1. Verdict: **CLOSED, ready for the next Founder-selected
-mission.**
+read this one first; full session narrative
+`docs/ai/SESSION_HANDOFF_2026-09-12.md`).** First new functional Work
+Package built on ORUWA Design System v1. Verdict: **CLOSED, ready for the
+next Founder-selected mission.**
 
 - **Product model**: new generic, reusable capability (schema `issues`,
   module code `issues`, own `core.module_registry` row, `beta`, no

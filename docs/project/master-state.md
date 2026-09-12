@@ -6,7 +6,7 @@
 | Date | 2026-09-01 |
 | Repository | `tantik/line-business-os` |
 | Verified baseline (at #1) | `dev` HEAD `ffc4b2e`; `origin/dev` == local `dev`; working tree clean; CI green |
-| Last reconciled | 2026-09-11 — **ORUWA Design System v1 Foundation + Operations pilot DONE** (PR #516 merged, `dev` HEAD `79b211b`). Prev: 2026-09-10 Cafe v2.2 WP1 Operations CLOSED (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`, applied to Cloud DEV); 2026-09-03 Operations Cloud DEV module-ON smoke; 2026-09-01 canonical Cafe v2.2 WP sequence + acceptance model + `cto-context.md`. Next: WP2 (own Founder prompt, not yet started) |
+| Last reconciled | 2026-09-12 — **Cafe v2.2 WP2 Issues & Handover CLOSED** (PR #517 merged, `dev` HEAD `d7c435d`; migrations `0117`/`0118` applied to Cloud DEV, `issues` module enabled for `oruwa-cafe`, live Preview Browser QA PASS, independent review PASS). Prev: 2026-09-11 ORUWA Design System v1 Foundation + Operations pilot DONE (PR #516, `79b211b`); 2026-09-10 Cafe v2.2 WP1 Operations CLOSED (ACCEPTED WITH EXPLICIT MVP LIMITATIONS; G1 fixed via migration `0116`, applied to Cloud DEV); 2026-09-03 Operations Cloud DEV module-ON smoke; 2026-09-01 canonical Cafe v2.2 WP sequence + acceptance model + `cto-context.md`. Next: WP3 or a bounded quality-sweep (own Founder prompt, not yet started) |
 | Cloud DEV | `line-business-os-dev` / `pehcoenozjtsjdvjietj` |
 | Production | `jsgmmsdkuptdsxtcxhsv` — **separate project, effectively empty, untouched** |
 | Companion | `docs/project/cto-context.md` — the durable *why* behind these decisions |
@@ -302,7 +302,7 @@ begins on its own Founder prompt.
 | WP | Name | Bounded direction | Status |
 |---|---|---|---|
 | **WP1** | **Operations + Cafe HACCP** | Reusable generic operational-execution module (checklists, schedules, boolean/numeric/text responses, thresholds, exceptions, verification, history); Cafe HACCP as **presets on top** — no `haccp` module code / capability check. Photo/evidence out of the WP1 MVP. | **CLOSED 2026-09-10 — ACCEPTED WITH EXPLICIT MVP LIMITATIONS.** Backend `0099`–`0116` on Cloud DEV (`operations` schema, templates/items, schedules/instances/responses/exceptions, effective-dated versioning, retirement dating, config RPCs, three-layer security, pgTAP-covered). Manager + Staff Operations UI shipped (7 PRs, dashboard popup, JA/EN). Cafe HACCP presets applied to `oruwa-cafe` (4 templates / 12 items / 4 daily schedules, NULL thresholds = Manager config). **G1 fixed** — migration `0116` (Founder-approved, applied to Cloud DEV): persistent instance-less `critical_missed` / `action_required` exception when a critical scheduled check's window closes with no completion; read-time materialisation from Manager Operations load; auto-resolve on late completion. Full bounded acceptance + independent re-review = PASS: `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md` §19. **Explicit Founder-accepted MVP limitations (deferred, not defects):** (1) no ad-hoc same-day recheck task; (2) no per-location threshold override on a shared template; (3) `critical_missed` materialised read-time, not by a scheduled worker (writer is worker-ready). Production untouched; `operations` still enabled only for the `oruwa-cafe` reference tenant on Cloud DEV. |
-| **WP2** | **Issues & Handover** | Structured operational issue capture + shift/day handover. Not a generic issue tracker. | **PLANNED** — bounded direction agreed; own implementation prompt required. |
+| **WP2** | **Issues & Handover** | Structured operational issue capture + shift/day handover. Not a generic issue tracker. | **CLOSED 2026-09-12.** New generic `issues` schema/module (no `workforce`/`operations` dependency), migrations `0117`/`0118` applied to Cloud DEV, enabled for `oruwa-cafe`. `issues.issues` (kind issue/handover, category, severity, `open→acknowledged→resolved`), RLS with server-side actor-role coherence, 3 RPCs + 2 views. Manager UI (own dashboard entry + badge, deliberately not folded into `AttentionPanel`'s combined total) and mobile-first Staff UI, both pure Design System v1. Live Preview Browser QA PASS (Staff↔Manager cross-role create/acknowledge/resolve/handover, JA/EN, responsive, accessibility); independent review PASS, zero P0/P1/P2. PR #517 merged. Deferred: Operations-exception cross-link (column exists, unused), Manager-Attention-dashboard integration, Staff self-acknowledge. |
 | **WP3** | **Owner Weekly Review** | Deliberately bounded management workflow: *what happened → what needs attention → what repeats → what action is required*. **Not** a generic dashboard / "Control Center". | **PLANNED** — own implementation prompt required. |
 | **WP4** | **Purchasing v2** | Supplier records, item↔supplier mapping, pack/unit/lead-time, draft→approval flow, ordered/expected/partially-received/received/variance/closed states, inventory-recount linkage. **Not** invoices/payments/accounting/supplier-APIs/WMS/autonomous ordering. Must not be merged with WP1 Operations. | **PLANNED** — own implementation prompt required. (Purchases v1 shipped in v2.1.) |
 | **WP5** | **Recipe Intelligence Lite** | Recipe↔Inventory ingredients/BOM, controlled units, allergens, **estimated operational cost** with price precedence `confirmed receiving price → manual default price → unknown`; missing price **never** shows as `0`; estimates never presented as accounting-exact. Operational cost guidance, not accounting. | **PLANNED** — own implementation prompt required. |
@@ -460,10 +460,11 @@ Milestones that materially change future development speed:
   per-consumer** (§6, §14) — not tracked as one debt item to burn down.
 - Operations WP1 is **CLOSED** (2026-09-10) — Manager/Staff UI + Cafe HACCP
   presets shipped, G1 fixed via migration `0116`. ORUWA Product Quality
-  Foundation (§14 step 7b, Design System v1 + Operations pilot) is now
-  **DONE** (2026-09-11, PR #516). Next: WP2. Neither WP2 nor further
-  Product Quality Foundation work (e.g. WP2-WP5's own DS adoption) is
-  started yet.
+  Foundation (§14 step 7b, Design System v1 + Operations pilot) is
+  **DONE** (2026-09-11, PR #516). **WP2 Issues & Handover is now CLOSED**
+  (2026-09-12, PR #517, migrations `0117`/`0118` applied to Cloud DEV,
+  `oruwa-cafe` enabled). Next: WP3, or a bounded quality-sweep, own Founder
+  prompt — neither started yet.
 - **Deprecated Mame To Cha tooling cleanup** — §14 step 2 (bounded task).
   **Cloud-specific part DONE (Sept 2026):** the 27 `packages/db/scripts/mame-to-cha-cloud-*`
   files + their `package.json` scripts/test-list entries + `MAME_TO_CHA_CLOUD_*`
