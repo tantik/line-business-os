@@ -277,8 +277,142 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-12 pointer, CAFE v2.2 WP2 "ISSUES & HANDOVER" — CLOSED (newest;
+read this one first).** First new functional Work Package built on ORUWA
+Design System v1. Verdict: **CLOSED, ready for the next Founder-selected
+mission.**
+
+- **Product model**: new generic, reusable capability (schema `issues`,
+  module code `issues`, own `core.module_registry` row, `beta`, no
+  dependency on `workforce`/`operations`) modelling a structured
+  operational problem (`kind='issue'`, category + normal/important
+  severity) and shift/team handover information (`kind='handover'`, no
+  severity) in ONE flat table (`issues.issues`), lifecycle
+  `open -> acknowledged -> resolved`. Deliberately NOT built by extending
+  `operations.task_exceptions` (semantics differ: Handover is not an
+  "exception") and NOT registered as a Cafe-only table — reusable by any
+  future vertical, Cafe-specific category labels are just data.
+- **Migrations `0117`/`0118`** (additive): `0117` adds the `'issues'`
+  `core.module_code` enum value (own migration, mirrors `0099`'s two-step
+  pattern); `0118` is schema + table + guard trigger (only
+  status/acknowledged_*/resolved_*/resolution_note mutable post-insert) +
+  2 permission keys (`issues.report` Staff+Manager, `issues.manage`
+  Manager-only) + RLS (actor-role-coherence enforced server-side on
+  INSERT, no DELETE policy at all) + 3 `SECURITY INVOKER` RPCs
+  (`api.issues_create`/`issues_acknowledge`/`issues_resolve`) + 2
+  `security_invoker` views (`api.issues_open`, `api.issues`) + module
+  registration (no `core.tenant_modules` row — module NOT enabled for any
+  tenant by the migration itself). pgTAP `0059_issues_foundation.sql`, 41
+  assertions (module-OFF gating, cross-tenant isolation, actor-role-spoof
+  resistance, guard-trigger immutability, status-transition coherence),
+  100% pass; full suite re-verified independently against a clean `dev`
+  baseline — same 7-file/22-subtest pre-existing failure set, zero new.
+- **Manager UI**: own dashboard entry chip (own open-count badge,
+  `kind=issue && severity=important && status=open`) — **deliberately NOT
+  folded into `AttentionPanel`'s combined total**, avoiding the documented
+  "9 vs 4+4" badge-arithmetic mistake (`attention-panel.tsx` untouched by
+  this WP, confirmed by diff and by live QA: the "9" total was unaffected
+  throughout). List (Open/History `SegmentedControl`-style tabs),
+  Acknowledge/Resolve (resolve auto-stamps acknowledge if skipped), and a
+  Manager report form — all pure `@line-os/ui`/Tailwind (DS v1), no legacy
+  `design-kit`/`theme.ts`.
+- **Staff UI**: mobile-first quick-report (severity defaults to normal, a
+  single "mark as important" checkbox rather than the Manager form's
+  upfront `SegmentedControl` — fewer taps for the common case) and a
+  read-only relevant-issues view at the Staff's own location; no
+  acknowledge/resolve controls (RLS blocks it — Manager-only in this MVP,
+  explicit judgement call, not revisited).
+- **Independent fresh-context review: PASS**, zero P0/P1/P2 findings
+  (one P3/D-class note: the shared `HelpIconButton` still routes through
+  legacy `theme.ts`, inherited from the same pattern `operations-manager-
+  popup.tsx` already uses — pre-existing, not introduced by WP2).
+- **PR #517 merged to `dev`** (squash `390b507`) — Founder-merged directly
+  (RED path: touches `supabase/migrations/**`, `ai-dev-merge.sh` correctly
+  refused and required Founder action). CI green, Vercel Preview built.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (local `dev` synced to `390b507`; `SUPABASE_URL` confirmed pinned to
+  Cloud DEV `pehcoenozjtsjdvjietj` via the existing `publishable-key-smoke`
+  tool; `supabase migration list --linked` showed pending = exactly `0117`
+  + `0118`) then Founder ran `supabase db push --linked` themselves (the
+  Lead Agent session cannot run `db push` under any condition — hard
+  `deny` in `.claude/settings.json`, not merely an `ask`). Post-apply
+  `migration list` confirmed ledger `0117`/`0118` applied both sides.
+  Direct PostgREST read-back verification was attempted but blocked by an
+  unrelated, pre-existing `403`/schema-exposure quirk on the
+  `SUPABASE_SECRET_KEY` used (reproduced identically against the untouched,
+  already-shipped `api.operations_open_exceptions` view — not a WP2
+  regression); the successful zero-error `db push` plus the ledger
+  confirmation were treated as sufficient DDL-application evidence, and
+  live Browser QA below independently proved every object (table, RLS,
+  RPCs, views) functions correctly end-to-end.
+- **Module enablement for `oruwa-cafe`**: performed by the Founder directly
+  in Cloud DEV (`core.tenant_modules` write — no `api.*` self-service RPC
+  exists for this by design, and the Lead Agent session had no
+  `DATABASE_URL` to do it itself). Verified live.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real
+  Manager (`manager@oruwa-cafe.test`) and Staff A sign-ins:
+  - **Scenario A (Issue)**: Staff created a critical-equipment issue
+    (mobile 375×667) -> reload persisted -> Manager saw it immediately
+    (desktop 1440×900, correct note/severity/reporter/business-date) ->
+    Manager resolved with a note -> reload persisted -> Staff saw it move
+    out of the active view. Badge counts correct before/after on both
+    dashboards.
+  - **Scenario B (Handover)**: Manager created a handover note -> Staff
+    saw it immediately with reporter "Manager" and the `Handover` tag, no
+    management controls shown (RLS-correct) -> persisted across reload.
+  - **Acknowledge path** tested standalone (not just via Resolve's
+    auto-stamp): item stayed correctly visible in the open feed with an
+    `確認済み` badge, `確認する` button correctly disappeared, `解決する`
+    remained; resolving afterward did not double-stamp
+    `acknowledged_at`.
+  - **Live-refresh timing note**: a create/resolve mutation's list update
+    depends on the same async `router.refresh()` pattern already used by
+    Operations/Mail — an immediate snapshot right after submit can catch
+    the UI mid-refresh (looks like "nothing changed" for well under a
+    second); confirmed via `wait_for` that the refreshed list arrives
+    correctly without a manual page reload. Not a defect, not fixed,
+    documented so a future session doesn't misdiagnose it as one.
+  - **Tenant isolation**: proved via the independently-reviewed pgTAP
+    suite (scenario F), not live (no second tenant credential available
+    to this session) — acceptable per the mission's own "automated
+    security tests" evidence bar.
+  - **Location isolation**: `oruwa-cafe` is single-location (matches the
+    LOC-1 fail-closed pattern used elsewhere); RLS location-scoping
+    verified in code + independent review, not live multi-location (no
+    second location on the reference tenant).
+  - **JA/EN**: full UI chrome (nav label, empty states, form fields,
+    resolve dialog, badges) verified bilingual; user-authored note content
+    correctly left unmachine-translated in both locales, per the DS v1
+    bilingual-content contract.
+  - **Responsive**: Manager 1440×900 and 768×1024 both clean, no overflow;
+    Staff 375×667 and 320×667 both clean, full-width one-tap primary CTA.
+  - **Accessibility**: `Escape` correctly closes the dialog. A focus does
+    NOT return to the trigger button afterward (lands on `<body>`) — but
+    this is **confirmed pre-existing**, reproduced identically on the
+    already-shipped, untouched Operations Staff popup; matches
+    `current-task.md`'s already-documented "focus-restore gap after a
+    mutation-triggered `router.refresh()`" deferred item. Not a WP2
+    regression; not fixed here, per the mission's on-touch policy (§43).
+  - **QA residue**: all test records (`(WP2 QA test...)` suffix) resolved
+    through the normal workflow (not deleted) before closing; both moved
+    to History, confirmed via reload.
+- **Explicitly deferred / NOT built (documented, not silently skipped)**:
+  Operations-exception cross-link (`operations_exception_id` column exists,
+  unused — no RPC writes it yet); any Manager-Attention-dashboard
+  integration beyond the module's own entry chip; Staff self-acknowledge;
+  any attachment/photo/AI/notification feature (explicit mission
+  non-goals).
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items from the 2026-09-11 pointer below (badge 9 vs 4+4 in
+  `AttentionPanel`, raw `part_time`, Purchasing/Inventory copy, the shared
+  focus-restore gap now confirmed to also affect the Issues popups), OR a
+  fresh WP3 scope decision — neither authorized to start by this closure.
+
+---
+
 **2026-09-11 pointer, ORUWA DESIGN SYSTEM v1 FOUNDATION + OPERATIONS PILOT —
-DONE (newest; read this one first; full detail
+DONE (older — read after the pointer above; full detail
 `docs/ai/SESSION_HANDOFF_2026-09-11.md`).** Closes the "ORUWA Product
 Quality Foundation" step 7b named in the 2026-09-10 pointer below.
 
