@@ -23,6 +23,7 @@ import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
 import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
 import { listAllIssues, listOpenIssues } from '@/lib/issues/issues';
+import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
@@ -191,6 +192,11 @@ export default async function WorkforceManagerPage({
       const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
       if (!managerAccess) return <UnauthorizedState />;
 
+      // Owner Weekly Review (Cafe v2.2 WP3, migration 0119) -- gates only
+      // this dashboard's own entry-point card; `api.weekly_review_summary`
+      // re-checks the same `core.weekly_review.view` permission itself.
+      const weeklyReviewEnabled = await hasWeeklyReviewAccess(supabase, activeTenant.tenantId, location.locationId);
+
       const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
       const initialPopup =
@@ -204,7 +210,9 @@ export default async function WorkforceManagerPage({
                 ? 'operations'
                 : rawPopup === 'issues'
                   ? 'issues'
-                  : null;
+                  : rawPopup === 'weekly-review'
+                    ? 'weekly-review'
+                    : null;
       // `?focusCell=employeeId:workDate`, set by Attention's "View shift"
       // action (manager-dashboard-client.tsx's `handleViewShift`) -- both
       // parts are opaque identifiers to this page (a UUID and an ISO date,
@@ -466,6 +474,7 @@ export default async function WorkforceManagerPage({
             issuesEnabled={issuesEnabled}
             issuesOpen={issuesOpen}
             issuesAll={issuesAll}
+            weeklyReviewEnabled={weeklyReviewEnabled}
             initialPopup={initialPopup}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}
