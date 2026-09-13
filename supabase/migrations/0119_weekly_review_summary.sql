@@ -56,7 +56,10 @@
 --
 -- Rollback:
 --   drop function if exists api.weekly_review_summary(uuid, uuid, date, date, timestamptz, timestamptz);
+--   -- filters by permission_key only (no role_id filter), so this single
+--   -- statement removes all 3 role grants seeded below (owner, admin, manager):
 --   delete from core.role_permissions where permission_key = 'core.weekly_review.view';
+--   -- removes the 1 permission-catalog row seeded below:
 --   delete from core.permissions where key = 'core.weekly_review.view';
 -- Purely additive; no existing object is modified; no data is deleted.
 -- ============================================================================
