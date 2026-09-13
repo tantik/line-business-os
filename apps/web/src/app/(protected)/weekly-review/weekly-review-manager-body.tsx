@@ -155,9 +155,20 @@ function SectionCard({
   );
 }
 
-/** One label+count row, optionally clickable through to the owning module's real popup (drill-down). Built on `ListRow`'s real `title`/`status`/`onOpen` contract -- not a generic children container. */
+/**
+ * One label+count row, optionally clickable through to the owning module's
+ * real popup (drill-down). Built on `ListRow`'s real `title`/`status`/
+ * `onOpen` contract -- not a generic children container.
+ *
+ * `title` is passed as a plain string, NOT wrapped in `MetadataText`:
+ * `ListRow` renders `title` inside a `<p className="truncate">`, but
+ * `MetadataText` is an `inline-flex` span -- `text-overflow: ellipsis` does
+ * not apply through an `inline-flex` child, so a long label silently hard-cut
+ * with no "…" at narrow (375px) width instead of truncating cleanly. Plain
+ * text lets the ancestor's `truncate` work as designed.
+ */
 function MetricRow({ label, count, onOpen }: { label: string; count: number; onOpen?: () => void }) {
-  return <ListRow title={<MetadataText>{label}</MetadataText>} status={<strong className="text-base font-medium text-text-primary">{count}</strong>} onOpen={onOpen} />;
+  return <ListRow title={label} status={<strong className="text-base font-medium text-text-primary">{count}</strong>} onOpen={onOpen} />;
 }
 
 function TeamSection({
