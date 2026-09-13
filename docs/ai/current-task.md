@@ -277,8 +277,163 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-09-12 pointer, CAFE v2.2 WP2 "ISSUES & HANDOVER" — CLOSED (newest;
-read this one first; full session narrative
+**2026-09-14 pointer, CAFE v2.2 WP3 "OWNER WEEKLY REVIEW" — CLOSED (newest;
+read this one first).** Third functional Work Package built on ORUWA Design
+System v1. Verdict: **CLOSED, ready for the next Founder-selected mission.**
+
+- **Product model**: a bounded, permission-gated, read-only Manager surface
+  ("週次レビュー" / "Weekly Review") summarizing one Monday-Sunday business
+  week across Team/Workforce, Operations, Issues & Handover, and
+  Inventory/Purchasing — explicitly NOT a Control Center, BI platform, or
+  analytics warehouse. No AI summary, no financial/payroll numbers, no
+  employee performance scoring, no week-over-week percentage math, no new
+  permanent snapshot/analytics table. Deliberately composed over
+  already-enabled modules via a single new permission key rather than a new
+  `core.module_code`/`core.tenant_modules` entitlement.
+- **Migration `0119`** (additive): new permission key
+  `core.weekly_review.view` (module `core`, granted only to
+  `tenant_owner`/`tenant_admin`/`manager` role_keys — never `employee`/
+  `client`) + one `SECURITY INVOKER` RPC `api.weekly_review_summary` (a
+  single JSON payload spanning workforce/operations/issues/inventory,
+  chosen over a set of views because several sections must degrade to an
+  explicit `null` — not `0` — when their owning module is OFF for the
+  tenant, in the same response as the week-scoped/"as of now" counts). The
+  RPC does not implement its own tenant/location authorization boundary —
+  it relies entirely on the same RLS already enforced on the underlying
+  tables/views (`workforce.shifts`/`shift_exchanges`/`shift_requests`,
+  `operations.task_instances`/`task_exceptions`, `issues.issues`,
+  `api.inventory_item_status`/`api.purchases_needed` — the last two reused
+  verbatim, not re-derived, per the repo's "reuse before invent" precedent
+  for the "shortage"/"pending" vocabulary). Week/timezone boundaries are
+  resolved in TypeScript (`getWeekPeriod`/`localDateTimeToUtcIso`,
+  `apps/web/src/lib/workforce/period.ts`) and passed to the RPC already
+  resolved, matching the existing `schedule-actions.ts` convention — no
+  second, potentially-diverging timezone implementation in SQL. pgTAP
+  `0060_weekly_review.sql`, 26 assertions (permission gating, tenant/
+  location isolation, week-boundary correctness, module-off → `null` not
+  `0`, quiet week, problem week), 100% pass; full suite re-verified against
+  a clean local baseline — same pre-existing 7-file/22-subtest failure set,
+  zero new.
+- **Manager UI**: own dashboard entry (`apps/web/src/app/(protected)/_ui/weekly-review-manager-popup.tsx`
+  + `.../weekly-review/weekly-review-manager-body.tsx`), gated by the new
+  permission (confirmed live: Staff never sees the entry). Prev/Next week
+  navigation (capped at the current, still-in-progress week, labelled "In
+  progress — not yet complete", never presented as a closed review),
+  drill-down into the real existing Operations/Issues/Purchases/Inventory/
+  Shift-requests/Shift-exchanges popups (no duplicated UI), a dedicated
+  quiet-week empty state, and a compact "Still open" rollup deliberately
+  separate from `AttentionPanel` (that file is untouched — zero-line diff
+  confirmed — and no new count was folded into its `combinedTotal`, per the
+  already-documented "9 vs 4+4" badge-arithmetic lesson from WP2). Pure
+  `@line-os/ui` (Design System v1), no legacy `theme.ts`/`design-kit`
+  primitive introduced (the shared `HelpIconButton` is the same
+  pre-existing exception every sibling popup already uses).
+- **A real correctness bug was found and fixed during this mission's own
+  review, before Preview QA**: the quiet-week check initially omitted
+  `openExceptionsCount`/`shortageItemsCount` from its "is this week quiet"
+  condition, which could have shown a false all-clear banner while old,
+  still-open Operations exceptions or inventory shortages existed. Fixed
+  before independent review; independent review then separately re-verified
+  the fix was present and complete.
+- **Independent fresh-context review: PASS**, zero P0/P1/P2 findings (two
+  P3 nitpicks: a few unused i18n dictionary keys reserved for future
+  granular error messaging; a degenerate all-modules-off tenant would show
+  the quiet-week state rather than a distinct "no modules enabled" message
+  — both deferred, non-blocking).
+- **PR #518 merged to `dev`** (squash `ef04b69`) — Founder-merged directly
+  (RED path: touches `supabase/migrations/**`). A same-day follow-up PR
+  **#519** (comment-only: clarifies the `0119` rollback section states it
+  removes all 3 role grants + 1 permission row, not "two rows" as an
+  earlier gate-report paraphrase implied — the migration's actual DELETE
+  statements were always correct, only the comment's row-count wording was
+  clarified) was still **open, awaiting Founder merge** (RED path) as of
+  this pointer — check its state before assuming `dev` reflects it. A
+  second follow-up, **PR #520** (a real live-QA-caught bug: `MetricRow`
+  wrapped its `ListRow` title in `MetadataText`, an `inline-flex` span
+  through which `text-overflow: ellipsis` does not apply, causing long
+  labels to hard-cut with no "…" at 375px width instead of truncating
+  cleanly), was merged autonomously via `scripts/ai-dev-merge.sh` (no RED
+  path) and is confirmed live on `dev`/Preview.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project confirmed `pehcoenozjtsjdvjietj`, ledger synced through
+  `0118`, pending set = exactly `0119`) then Founder ran
+  `supabase db push --linked` themselves (same standing hard `deny` on this
+  session running `db push` under any condition). Post-apply
+  `migration list` confirmed ledger `0119` applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real Manager
+  (`manager@oruwa-cafe.test`) and Staff A sign-ins:
+  - **Cross-module trace proven for all three included domains**: Operations
+    (28 critical-missed count in the review matched the real Operations
+    "対応が必要 (28)" tab exactly), Issues & Handover (3 new issues + 1 new
+    handover in the review matched 4 real history-tab records dated inside
+    the reviewed week exactly), Purchasing (1 pending-purchase count matched
+    the real Purchases popup's single "未購入" item exactly). Workforce was
+    exercised via its own "still-unresolved shift requests" and "shift
+    exchanges" counts (no separate drill-down target beyond the existing
+    Shift Requests/Exchanges popups already wired in).
+  - **Week-boundary correctness proven live**, not just in pgTAP: moving
+    between Sep 7–13 (28 critical-missed) and Aug 31–Sep 6 (3
+    critical-missed) showed genuinely different week-scoped counts while
+    the "any date"/"as of now" counts (23 shift requests, 28 open
+    exceptions, 4 shortages, 1 pending purchase) correctly stayed constant
+    across weeks — proving the two predicate families are actually
+    independent, not coincidentally equal.
+  - **Upper bound proven live**: after repeated "Next week" clicks, the
+    button correctly disables exactly at the current week, with an "In
+    progress — not yet complete" badge — never advances into a genuine
+    future week.
+  - **Quiet-week logic proven NOT to false-positive live**: a week 5
+    weeks back (Jul 27–Aug 2) had zero week-scoped events but real nonzero
+    "still open" backlog (28/23/4/1) — the quiet-week banner correctly did
+    NOT appear, confirming the bug fix above holds against real data. A
+    genuinely all-zero quiet week could not be forced live because this
+    reference tenant carries months of accumulated QA residue (28 open
+    Operations exceptions, 23 pending shift requests) — documented as a
+    QA-data limitation, not a product defect; the positive quiet-week
+    empty-state render itself was verified via code review and the
+    independent review, not live pixels.
+  - **JA/EN**: full popup chrome verified bilingual (JA term `週次レビュー`
+    chosen over `今週のまとめ`/`週間レビュー` — reasoning recorded in
+    `weekly-review-i18n.ts`'s header comment — because the feature is
+    explicitly multi-week-navigable, not "this week only"); `Sep 7–13`
+    (en dash) vs `9月7日〜9月13日` range-formatting convention followed
+    correctly.
+  - **Responsive**: 1440×900 and 768×1024 both clean, no overflow. At
+    375×667 a real bug was caught (see PR #520 above: label hard-cut with
+    no ellipsis) and fixed same-session; re-verified clean after the fix
+    shipped and Preview redeployed.
+  - **Accessibility**: `Escape` closes the dialog; Tab-cycling through all
+    16 focusable elements inside the dialog wraps back to the first
+    (`About Weekly Review`) without ever leaking focus to the page behind
+    it — focus trap confirmed live, not just by DS v1 contract inheritance.
+  - **Negative permission check**: signed in as Staff (田中 美咲, an
+    isolated browser context, no shared session with the Manager check) —
+    the Weekly Review entry point is absent from the Staff dashboard
+    entirely, confirming the permission gate is real end-to-end, not just
+    server-side.
+  - **Tenant/location isolation**: proved via the independently-reviewed
+    pgTAP suite (scenarios B/C, including a tenant with an explicit
+    module-OFF row, not just `is_enabled=false`), not live (single-tenant,
+    single-location reference tenant, same evidence-bar precedent as WP2).
+- **Explicitly deferred / NOT built**: any AI-generated summary; any
+  financial/payroll/performance-scoring field; week-over-week percentage
+  comparison (only plain "any date" vs "this week" counts, no delta math);
+  a durable weekly-snapshot table (this is a live, recomputed-every-call
+  read model); a date-range picker (Prev/Next only); multi-location
+  aggregation (single resolved location only, LOC-1 fail-closed).
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: (1) close out PR #519 (trivial rollback-comment
+  clarification, RED path, awaiting Founder merge) if not already done by
+  the time this is read; (2) a bounded quality-sweep pass over the
+  still-open deferred items from the 2026-09-11/2026-09-12 pointers below
+  (badge 9 vs 4+4 in `AttentionPanel`, raw `part_time`, Purchasing/Inventory
+  copy, the shared focus-restore gap), OR a fresh WP4 scope decision —
+  neither authorized to start by this closure.
+
+---
+
+**2026-09-12 pointer, CAFE v2.2 WP2 "ISSUES & HANDOVER" — CLOSED (older —
+read after the pointer above; full session narrative
 `docs/ai/SESSION_HANDOFF_2026-09-12.md`).** First new functional Work
 Package built on ORUWA Design System v1. Verdict: **CLOSED, ready for the
 next Founder-selected mission.**
