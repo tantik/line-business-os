@@ -10,6 +10,8 @@ export const PERMISSIONS = {
     locationManage: 'core.location.manage',
     lineManage: 'core.line.manage',
     auditRead: 'core.audit.read',
+    /** Owner Weekly Review summary (Cafe v2.2 WP3, migration 0119). Owner/Admin/Manager only -- deliberately not tied to a `core.module_code` (it's a permission-gated composition over already-enabled modules, not its own module). */
+    weeklyReviewView: 'core.weekly_review.view',
   },
   workforce: {
     shiftRead: 'workforce.shift.read',

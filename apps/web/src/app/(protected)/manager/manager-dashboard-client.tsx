@@ -67,6 +67,7 @@ import { PurchasesPopup } from '../_ui/purchases-popup';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { OperationsManagerPopup } from '../_ui/operations-manager-popup';
 import { IssuesManagerPopup } from '../_ui/issues-manager-popup';
+import { WeeklyReviewManagerPopup } from '../_ui/weekly-review-manager-popup';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
@@ -251,8 +252,10 @@ export interface ManagerDashboardClientProps {
   issuesOpen: Issue[] | null;
   /** Full issue/handover history incl. resolved (`api.issues`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Feeds the Issues popup's History view. */
   issuesAll: Issue[] | null;
-  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, `/purchases`, `/operations`, or `/issues` visit). */
-  initialPopup: 'inventory' | 'recipes' | 'purchases' | 'operations' | 'issues' | null;
+  /** Whether the caller holds `core.weekly_review.view` (migration 0119) at this location -- gates only this entry point's visibility; the RPC re-checks the same permission regardless. */
+  weeklyReviewEnabled: boolean;
+  /** `?popup=` query param, parsed server-side (page.tsx) -- auto-opens the matching popup on first render (e.g. a bookmarked/redirected `/inventory`, `/recipes`, `/purchases`, `/operations`, `/issues`, or `/weekly-review` visit). */
+  initialPopup: 'inventory' | 'recipes' | 'purchases' | 'operations' | 'issues' | 'weekly-review' | null;
   /** `?focusCell=employeeId:workDate` query param, parsed server-side (page.tsx) -- set by Attention's "View shift" action so a schedule conflict lands the Manager directly on the affected cell instead of making them search the whole displayed week. `null` on a normal visit. */
   initialFocusCell: { employeeId: string; workDate: string } | null;
   /** Recipe list data for the Recipes popup (WP A5b) -- same reads `/recipes/page.tsx` itself makes; recipe detail is fetched lazily, client-side, only once a specific recipe is opened. */
@@ -342,6 +345,7 @@ function ManagerDashboardBody({
   issuesEnabled,
   issuesOpen,
   issuesAll,
+  weeklyReviewEnabled,
   initialPopup,
   initialFocusCell,
   recipeGroups,
@@ -365,6 +369,7 @@ function ManagerDashboardBody({
   const [inventoryPopupOpen, setInventoryPopupOpen] = useState(initialPopup === 'inventory');
   const [operationsPopupOpen, setOperationsPopupOpen] = useState(initialPopup === 'operations');
   const [issuesPopupOpen, setIssuesPopupOpen] = useState(initialPopup === 'issues');
+  const [weeklyReviewPopupOpen, setWeeklyReviewPopupOpen] = useState(initialPopup === 'weekly-review');
   // Which Inventory tab the popup should open on -- 'all' from every normal
   // entry point, 'shortage' ("Need reorder") when opened from the Needs
   // attention panel's "Inventory shortage" item, so the manager lands
@@ -1147,6 +1152,18 @@ function ManagerDashboardBody({
                 },
               ]
             : []),
+          ...(weeklyReviewEnabled
+            ? [
+                {
+                  key: 'weekly-review',
+                  label: t('navWeeklyReview'),
+                  onClick: () => {
+                    markPopupTriggerClick('weekly-review');
+                    setWeeklyReviewPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -1272,6 +1289,36 @@ function ManagerDashboardBody({
         issuesOpen={issuesOpen}
         issuesAll={issuesAll}
         onChange={() => router.refresh()}
+      />
+
+      <WeeklyReviewManagerPopup
+        open={weeklyReviewPopupOpen}
+        onClose={() => setWeeklyReviewPopupOpen(false)}
+        onOpenShiftRequests={() => {
+          setWeeklyReviewPopupOpen(false);
+          setShiftRequestsPopupOpen(true);
+        }}
+        onOpenShiftExchanges={() => {
+          setWeeklyReviewPopupOpen(false);
+          setExchangesPopupOpen(true);
+        }}
+        onOpenOperations={() => {
+          setWeeklyReviewPopupOpen(false);
+          setOperationsPopupOpen(true);
+        }}
+        onOpenIssues={() => {
+          setWeeklyReviewPopupOpen(false);
+          setIssuesPopupOpen(true);
+        }}
+        onOpenPurchases={() => {
+          setWeeklyReviewPopupOpen(false);
+          setPurchasesPopupOpen(true);
+        }}
+        onOpenInventoryShortage={() => {
+          setWeeklyReviewPopupOpen(false);
+          setInventoryPopupInitialFilter('shortage');
+          setInventoryPopupOpen(true);
+        }}
       />
 
       <section id="weekly-schedule" style={primaryCard}>
