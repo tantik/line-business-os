@@ -59,7 +59,7 @@ alter table purchases.purchase_actions
     check (
       (action_type = 'bought' and ordered_quantity is null and received_quantity is null)
       or (action_type = 'ordered' and ordered_quantity is not null and received_quantity is null)
-      or (action_type = 'received' and received_quantity is not null)
+      or (action_type = 'received' and received_quantity is not null and ordered_quantity is null)
     );
 
 alter table purchases.purchase_actions
@@ -188,7 +188,7 @@ comment on view api.purchases_needed is
 -- api.purchase_history -- full append-only log, human-readable (0089 wrote
 -- the log but exposed no history screen; this is purely additive read
 -- access, no new persistent concept).
-create view api.purchase_history
+create or replace view api.purchase_history
   with (security_invoker = true) as
 select
   pa.id as action_id,
@@ -239,7 +239,7 @@ declare
   v_reorder_point     numeric(12, 3);
   v_is_active         boolean;
 begin
-  if p_ordered_quantity is null or p_ordered_quantity <= 0 then
+  if p_ordered_quantity is null or p_ordered_quantity <= 0 or p_ordered_quantity = 'NaN'::numeric then
     raise exception 'purchases_invalid_quantity' using errcode = 'P0006';
   end if;
 
@@ -325,9 +325,18 @@ declare
   v_action_id         uuid;
   v_actioned_at       timestamptz;
 begin
-  if p_received_quantity is null or p_received_quantity <= 0 then
+  if p_received_quantity is null or p_received_quantity <= 0 or p_received_quantity = 'NaN'::numeric then
     raise exception 'purchases_invalid_quantity' using errcode = 'P0006';
   end if;
+
+  -- Serializes concurrent receipts for the SAME item within this transaction
+  -- (released automatically at commit/rollback). Without this, two
+  -- concurrent calls could both read the same "current" actual_quantity,
+  -- both compute v_new_quantity from it, and both insert -- silently
+  -- losing one delivery (the read-then-add-then-write below is not
+  -- otherwise atomic). p_expected_stock_count_id alone does not prevent
+  -- this: two transactions can both pass that check before either commits.
+  perform pg_advisory_xact_lock(hashtextextended(p_item_id::text, 0));
 
   select i.is_active into v_is_active
   from inventory.items i

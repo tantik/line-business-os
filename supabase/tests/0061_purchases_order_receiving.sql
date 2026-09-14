@@ -67,6 +67,26 @@ exception
 end;
 $$;
 
+-- Like as_auth_throws, but asserts the specific SQLSTATE rather than "some
+-- exception happened" -- catches the case where an assertion would falsely
+-- pass because the call failed for an unrelated reason.
+create function pg_temp.as_auth_throws_code(p_sub text, p_sql text, p_expected_code text)
+returns boolean
+language plpgsql
+as $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  set local role authenticated;
+  execute p_sql;
+  return false;
+exception
+  when others then
+    return sqlstate = p_expected_code;
+end;
+$$;
+
 create function pg_temp.as_order(p_sub text, p_item uuid, p_qty numeric)
 returns uuid
 language plpgsql
@@ -186,15 +206,39 @@ select is(
 );
 
 -- Duplicate/stale submit: resubmitting against the SAME stale expected
--- snapshot (the one from before the receipt above) must fail distinctly.
+-- snapshot (the one from before the receipt above) must fail with the
+-- SPECIFIC purchases_stale_snapshot errcode (P0005) -- not merely "some
+-- exception", which would also pass if the call failed for an unrelated
+-- reason.
 select ok(
-  pg_temp.as_auth_throws('9e900000-0000-0000-0000-000000000001',
+  pg_temp.as_auth_throws_code('9e900000-0000-0000-0000-000000000001',
     format($$ select new_actual_quantity from api.record_purchase_receipt(
       '9e000000-0000-0000-0000-00000000000a'::uuid, '9e200000-0000-0000-0000-000000000001'::uuid, %L::uuid, 10, %L::uuid
     ) $$,
     '9e100000-0000-0000-0000-000000000001',
-    (select id from inventory.stock_counts where item_id = '9e100000-0000-0000-0000-000000000001' order by counted_at desc, id desc offset 1 limit 1))),
-  'resubmitting a receipt against a now-stale expected snapshot raises purchases_stale_snapshot (duplicate-submit guard)'
+    (select id from inventory.stock_counts where item_id = '9e100000-0000-0000-0000-000000000001' order by counted_at desc, id desc offset 1 limit 1)),
+    'P0005'),
+  'resubmitting a receipt against a now-stale expected snapshot raises purchases_stale_snapshot (P0005), specifically -- duplicate-submit guard'
+);
+
+-- Non-positive / NaN quantities are rejected with the specific
+-- purchases_invalid_quantity errcode (P0006), including the NaN bypass a
+-- direct PostgREST caller could otherwise attempt.
+select ok(
+  pg_temp.as_auth_throws_code('9e900000-0000-0000-0000-000000000001',
+    format($$ select new_actual_quantity from api.record_purchase_receipt(
+      '9e000000-0000-0000-0000-00000000000a'::uuid, '9e200000-0000-0000-0000-000000000001'::uuid, %L::uuid, 0, null
+    ) $$, '9e100000-0000-0000-0000-000000000001'),
+    'P0006'),
+  'a zero received_quantity raises purchases_invalid_quantity (P0006)'
+);
+select ok(
+  pg_temp.as_auth_throws_code('9e900000-0000-0000-0000-000000000001',
+    format($$ select new_actual_quantity from api.record_purchase_receipt(
+      '9e000000-0000-0000-0000-00000000000a'::uuid, '9e200000-0000-0000-0000-000000000001'::uuid, %L::uuid, 'NaN', null
+    ) $$, '9e100000-0000-0000-0000-000000000001'),
+    'P0006'),
+  'a NaN received_quantity (a bypass a direct PostgREST/RPC caller could otherwise attempt around client-side validation) raises purchases_invalid_quantity (P0006), never silently accepted into Inventory'
 );
 
 -- Second, independent partial delivery (no expected snapshot passed -- the
@@ -302,6 +346,62 @@ select is(
   2,
   'both received deliveries for Coffee Beans are present in history, never overwritten'
 );
+
+-- ============================================================================
+-- Section 7: cross-tenant isolation for the new Order/Receive RPCs
+-- ============================================================================
+
+insert into core.tenants (id, slug, name) values
+  ('9f000000-0000-0000-0000-00000000000b', 'pgtap-purch-v2-tenant-b', 'pgTAP Purchases v2 Tenant B');
+insert into core.users (id, display_name) values
+  ('9f900000-0000-0000-0000-000000000001', 'Tenant B Owner');
+insert into core.role_assignments (tenant_id, user_id, role_id) values
+  ('9f000000-0000-0000-0000-00000000000b', '9f900000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000003'); -- tenant_owner, tenant-wide
+
+-- Tenant B cannot see Tenant A's Coffee Beans item in purchases_needed at all.
+create function pg_temp.as_auth_count_b(p_sub text, p_sql text)
+returns int
+language plpgsql
+as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  set local role authenticated;
+  execute p_sql into n;
+  return n;
+end;
+$$;
+
+select is(
+  pg_temp.as_auth_count_b('9f900000-0000-0000-0000-000000000001',
+    $$ select count(*)::int from api.purchases_needed where tenant_id = '9e000000-0000-0000-0000-00000000000a' $$),
+  0,
+  'Tenant B owner sees zero Tenant A purchases_needed rows, including the new ordered/received statuses (tenant isolation unchanged by 0120)'
+);
+
+-- Tenant B cannot record an Order/Receipt against a Tenant A item, even
+-- when claiming Tenant A's own tenant_id/location_id in the call (RLS, not
+-- the function body, is the real boundary -- core.has_permission fails for
+-- a caller with no role assignment in that tenant).
+select ok(
+  pg_temp.as_auth_throws('9f900000-0000-0000-0000-000000000001',
+    format($$ select action_id from api.record_purchase_order(
+      '9e000000-0000-0000-0000-00000000000a'::uuid, '9e200000-0000-0000-0000-000000000001'::uuid, %L::uuid, 5
+    ) $$, '9e100000-0000-0000-0000-000000000003')),
+  'a Tenant B user cannot record an Order against a Tenant A item (cross-tenant permission check holds for the new RPC)'
+);
+select ok(
+  pg_temp.as_auth_throws('9f900000-0000-0000-0000-000000000001',
+    format($$ select new_actual_quantity from api.record_purchase_receipt(
+      '9e000000-0000-0000-0000-00000000000a'::uuid, '9e200000-0000-0000-0000-000000000001'::uuid, %L::uuid, 5, null
+    ) $$, '9e100000-0000-0000-0000-000000000003')),
+  'a Tenant B user cannot record a Receipt against a Tenant A item (cross-tenant permission check holds for the new RPC -- Inventory is never mutated cross-tenant)'
+);
+
+reset role;
 
 select * from finish();
 rollback;

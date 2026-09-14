@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { PurchaseNeededItem } from '@/lib/purchases/items';
+import { STATUS_RANK, type PurchaseNeededItem } from '@/lib/purchases/items';
 import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
@@ -342,7 +342,7 @@ export function PurchasesDashboardBody({
           .filter((item) => (filter === 'all' ? true : item.purchaseStatus === filter))
           .slice()
           .sort((a, b) => {
-            if (a.purchaseStatus !== b.purchaseStatus) return a.purchaseStatus === 'pending' ? -1 : 1;
+            if (a.purchaseStatus !== b.purchaseStatus) return STATUS_RANK[a.purchaseStatus] - STATUS_RANK[b.purchaseStatus];
             return a.name.localeCompare(b.name);
           });
 

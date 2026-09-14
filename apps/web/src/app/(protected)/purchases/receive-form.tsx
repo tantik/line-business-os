@@ -84,7 +84,7 @@ export function ReceiveForm({ locationId, itemId, itemName, unit, expectedStockC
               background: 'transparent',
             }}
             type="number"
-            min={0}
+            min={0.001}
             step="0.001"
             autoComplete="off"
             aria-label={`${t('receiveQuantityLabel')} — ${itemName}`}

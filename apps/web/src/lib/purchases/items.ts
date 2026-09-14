@@ -66,9 +66,11 @@ function mapRow(row: ApiPurchasesNeededRow): PurchaseNeededItem {
   };
 }
 
+/** Pending items surface first, then ordered/received/bought in that fixed order (all "already acted on"), then alphabetical within a status. Exported for reuse by the client-side filter re-sort in `purchases-dashboard-client.tsx`. */
+export const STATUS_RANK: Record<PurchaseNeededItem['purchaseStatus'], number> = { pending: 0, ordered: 1, received: 2, bought: 3 };
+
 function compareItems(a: PurchaseNeededItem, b: PurchaseNeededItem): number {
-  // Pending items surface above already-bought ones; otherwise alphabetical.
-  if (a.purchaseStatus !== b.purchaseStatus) return a.purchaseStatus === 'pending' ? -1 : 1;
+  if (a.purchaseStatus !== b.purchaseStatus) return STATUS_RANK[a.purchaseStatus] - STATUS_RANK[b.purchaseStatus];
   return a.name.localeCompare(b.name) || a.itemId.localeCompare(b.itemId);
 }
 
