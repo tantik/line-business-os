@@ -341,19 +341,18 @@ System v1. Verdict: **CLOSED, ready for the next Founder-selected mission.**
   the quiet-week state rather than a distinct "no modules enabled" message
   — both deferred, non-blocking).
 - **PR #518 merged to `dev`** (squash `ef04b69`) — Founder-merged directly
-  (RED path: touches `supabase/migrations/**`). A same-day follow-up PR
-  **#519** (comment-only: clarifies the `0119` rollback section states it
-  removes all 3 role grants + 1 permission row, not "two rows" as an
-  earlier gate-report paraphrase implied — the migration's actual DELETE
-  statements were always correct, only the comment's row-count wording was
-  clarified) was still **open, awaiting Founder merge** (RED path) as of
-  this pointer — check its state before assuming `dev` reflects it. A
-  second follow-up, **PR #520** (a real live-QA-caught bug: `MetricRow`
-  wrapped its `ListRow` title in `MetadataText`, an `inline-flex` span
-  through which `text-overflow: ellipsis` does not apply, causing long
-  labels to hard-cut with no "…" at 375px width instead of truncating
-  cleanly), was merged autonomously via `scripts/ai-dev-merge.sh` (no RED
-  path) and is confirmed live on `dev`/Preview.
+  (RED path: touches `supabase/migrations/**`). Two follow-ups also
+  merged: **#519** (comment-only: clarifies the `0119` rollback section
+  states it removes all 3 role grants + 1 permission row, not "two rows"
+  as an earlier gate-report paraphrase implied — the migration's actual
+  DELETE statements were always correct, only the comment's row-count
+  wording was clarified; RED path, Founder-merged directly), and **#520**
+  (a real live-QA-caught bug: `MetricRow` wrapped its `ListRow` title in
+  `MetadataText`, an `inline-flex` span through which `text-overflow:
+  ellipsis` does not apply, causing long labels to hard-cut with no "…" at
+  375px width instead of truncating cleanly; merged autonomously via
+  `scripts/ai-dev-merge.sh`, no RED path). All confirmed live on
+  `dev`/Preview.
 - **Cloud DEV migration Founder Gate**: completed. Read-only preflight
   (linked project confirmed `pehcoenozjtsjdvjietj`, ledger synced through
   `0118`, pending set = exactly `0119`) then Founder ran
@@ -422,13 +421,13 @@ System v1. Verdict: **CLOSED, ready for the next Founder-selected mission.**
   read model); a date-range picker (Prev/Next only); multi-location
   aggregation (single resolved location only, LOC-1 fail-closed).
 - Production remains untouched and separately gated. `main` untouched.
-- **Recommended next**: (1) close out PR #519 (trivial rollback-comment
-  clarification, RED path, awaiting Founder merge) if not already done by
-  the time this is read; (2) a bounded quality-sweep pass over the
-  still-open deferred items from the 2026-09-11/2026-09-12 pointers below
-  (badge 9 vs 4+4 in `AttentionPanel`, raw `part_time`, Purchasing/Inventory
-  copy, the shared focus-restore gap), OR a fresh WP4 scope decision —
-  neither authorized to start by this closure.
+- All five WP3-session PRs (#518-#522, including the rollback-comment
+  clarification #519) are merged — nothing open, nothing pending.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items from the 2026-09-11/2026-09-12 pointers below (badge 9 vs
+  4+4 in `AttentionPanel`, raw `part_time`, Purchasing/Inventory copy, the
+  shared focus-restore gap), OR a fresh WP4 scope decision — neither
+  authorized to start by this closure.
 
 ---
 

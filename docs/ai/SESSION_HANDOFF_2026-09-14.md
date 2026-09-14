@@ -2,18 +2,17 @@
 
 ## TL;DR
 
-**Cafe v2.2 WP3 "Owner Weekly Review" is CLOSED.** PR #518 merged into
-`dev` (squash `ef04b69`), migration `0119` applied to Cloud DEV
-(`pehcoenozjtsjdvjietj`), live Preview Browser QA passed end-to-end
-(including a real bug found and fixed mid-session), independent review
-PASS (zero P0/P1/P2). Two small follow-up PRs also landed this session:
-**#520** (a real mobile-truncation bug caught by live QA, merged
-autonomously) and **#521** (docs pointer, merged autonomously). **One loose
-end remains: PR #519** (comment-only clarification of the `0119` rollback
-section's row count — the migration's actual behavior was always correct,
-only a code comment's wording was ambiguous) is still **open, awaiting
-Founder merge** because it touches `supabase/migrations/**` (RED path).
-**Next step is not yet chosen** — Founder picks WP4, a bounded
+**Cafe v2.2 WP3 "Owner Weekly Review" is CLOSED, fully closed out — no open
+PRs, no loose ends.** PR #518 merged into `dev` (squash `ef04b69`),
+migration `0119` applied to Cloud DEV (`pehcoenozjtsjdvjietj`), live
+Preview Browser QA passed end-to-end (including a real bug found and fixed
+mid-session), independent review PASS (zero P0/P1/P2). Three follow-up PRs
+also landed this session: **#520** (a real mobile-truncation bug caught by
+live QA, merged autonomously), **#521** (docs pointer, merged
+autonomously), and **#519** (comment-only clarification of the `0119`
+rollback section's row count — the migration's actual behavior was always
+correct, only a comment's wording was ambiguous; Founder-merged directly,
+RED path). **Next step is not yet chosen** — Founder picks WP4, a bounded
 quality-sweep follow-up, or something else. Do not start WP4 or any further
 WP3 work without a fresh prompt.
 
@@ -22,12 +21,12 @@ WP3 work without a fresh prompt.
 | | |
 |---|---|
 | Branch | `dev` |
-| HEAD | `f1653f5` = `origin/dev` (docs pointer commit, on top of PR #518/#520/#521's squashes) |
+| HEAD | `95f45ee` = `origin/dev` (docs pointer commit, on top of PR #518/#519/#520/#521/#522's squashes) |
 | Working tree | clean |
 | `main` | untouched |
 | Production | untouched, still separately gated |
 | Cloud DEV migrations | `0119` applied and ledger-verified (`supabase migration list --linked`) |
-| Open PR | **#519** — comment-only, RED path (touches `supabase/migrations/0119_weekly_review_summary.sql`), CI green, awaiting Founder merge via GitHub. Not urgent (cosmetic), but check its state before assuming the migration file's comments read exactly as described below. |
+| Open PRs | none — all five WP3-session PRs (#518-#522) are merged |
 
 ## What happened this session
 
@@ -124,9 +123,9 @@ requested by the Founder.
    in the Lead Agent's own gate-report paraphrase, not the SQL. Clarified
    the comment to state the row counts explicitly. **This fix missed the
    PR #518 merge window** (the Founder merged before the fix commit
-   propagated) — it shipped instead as a separate follow-up, **PR #519**,
-   which is **still open** (RED path, needs Founder merge; low priority,
-   comment-only, no behavior change).
+   propagated) — it shipped instead as a separate follow-up, **PR #519**
+   (RED path, comment-only, no behavior change), which the Founder merged
+   directly on GitHub.
 
 8. **Founder Gate #2 (Cloud DEV migration apply)**: completed the full
    read-only preflight (linked project confirmed `pehcoenozjtsjdvjietj` via
@@ -205,9 +204,6 @@ requested by the Founder.
 - **Multi-location aggregation**: single resolved location only (LOC-1
   fail-closed pattern) — `oruwa-cafe` is single-location, so this wasn't
   exercised against a real multi-location tenant.
-- **PR #519** (rollback-comment wording clarification): open, RED path,
-  awaiting Founder merge. Purely cosmetic — the migration's actual behavior
-  was always correct.
 - The already-known standing debt from prior sessions (badge "9 vs 4+4" in
   `AttentionPanel`, raw `part_time`, Purchasing/Inventory copy
   inconsistencies, the shared focus-restore-after-`router.refresh()` gap)
@@ -244,11 +240,8 @@ requested by the Founder.
 2. `docs/project/master-state.md` §7's WP table + top summary line for the
    updated WP3 row.
 3. This file.
-4. **First action**: check PR #519's state
-   (`gh pr view 519`) — if still open, it's a zero-risk comment-only merge
-   whenever convenient; if merged, no action needed.
-5. `supabase/migrations/0119_weekly_review_summary.sql` for the full
+4. `supabase/migrations/0119_weekly_review_summary.sql` for the full
    Weekly Review read-model contract if extending it.
-6. `apps/web/src/lib/weekly-review/**` and
+5. `apps/web/src/lib/weekly-review/**` and
    `apps/web/src/app/(protected)/weekly-review/**` for the frontend/
    service-layer pattern if building the next UI slice on top.
