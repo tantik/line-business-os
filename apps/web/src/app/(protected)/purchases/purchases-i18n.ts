@@ -16,6 +16,9 @@ interface PurchasesDashboardDict {
   filterAll: string;
   filterPending: string;
   filterBought: string;
+  filterOrdered: string;
+  filterReceived: string;
+  filterHistory: string;
   needToBuyLabel: string;
   reorderAtLabel: string;
   targetLabel: string;
@@ -31,7 +34,23 @@ interface PurchasesDashboardDict {
   popupHelpTitle: string;
   popupHelpBody: string;
   notShortError: string;
+  invalidQuantityError: string;
+  staleSnapshotError: string;
   closeButton: string;
+  orderQuantityLabel: string;
+  orderButton: string;
+  orderingButton: string;
+  orderedAtLabel: string;
+  orderedQuantityLabel: string;
+  receiveQuantityLabel: string;
+  receiveButton: string;
+  receivingButton: string;
+  receivedAtLabel: string;
+  receivedQuantityLabel: string;
+  historyEmpty: string;
+  historyActionBought: string;
+  historyActionOrdered: string;
+  historyActionReceived: string;
 }
 
 const dictionary: Record<Lang, PurchasesDashboardDict> = {
@@ -46,6 +65,9 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     filterAll: 'All',
     filterPending: 'Pending',
     filterBought: 'Bought',
+    filterOrdered: 'Ordered',
+    filterReceived: 'Received',
+    filterHistory: 'History',
     needToBuyLabel: 'Need to buy:',
     reorderAtLabel: 'Reorder at:',
     targetLabel: 'Target:',
@@ -62,7 +84,23 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpBody:
       'Shows items that need restocking and the quantity to buy. Marking an item as Bought records the purchase but does not change its stock count. After the actual quantity is updated in Inventory, items with enough stock disappear and any remaining shortage returns to Pending.',
     notShortError: 'This item no longer needs buying.',
+    invalidQuantityError: 'Enter a quantity greater than 0.',
+    staleSnapshotError: 'Stock levels changed since this was loaded. Please try again.',
     closeButton: 'Close',
+    orderQuantityLabel: 'Quantity ordered',
+    orderButton: 'Order',
+    orderingButton: 'Ordering…',
+    orderedAtLabel: 'Ordered at',
+    orderedQuantityLabel: 'Ordered:',
+    receiveQuantityLabel: 'Quantity received',
+    receiveButton: 'Receive',
+    receivingButton: 'Receiving…',
+    receivedAtLabel: 'Received at',
+    receivedQuantityLabel: 'Received:',
+    historyEmpty: 'No purchase history yet.',
+    historyActionBought: 'Bought',
+    historyActionOrdered: 'Ordered',
+    historyActionReceived: 'Received',
   },
   ja: {
     pageTitle: '購入',
@@ -75,6 +113,9 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     filterAll: 'すべて',
     filterPending: '未購入',
     filterBought: '購入済み',
+    filterOrdered: '発注済み',
+    filterReceived: '入荷済み',
+    filterHistory: '履歴',
     needToBuyLabel: '必要数:',
     reorderAtLabel: '発注点:',
     targetLabel: '目標:',
@@ -91,7 +132,23 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpBody:
       '補充が必要な商品と購入数を表示します。「購入済み」は購入したことを記録するだけで、在庫数は変わりません。在庫画面で実数を更新すると、十分な商品は一覧から消え、不足が残る商品は新しい数量で「未購入」に戻ります。',
     notShortError: 'この商品はもう購入する必要がありません。',
+    invalidQuantityError: '数量は1以上を入力してください。',
+    staleSnapshotError: '在庫状況が更新されました。もう一度お試しください。',
     closeButton: '閉じる',
+    orderQuantityLabel: '発注数量',
+    orderButton: '発注',
+    orderingButton: '発注中…',
+    orderedAtLabel: '発注時刻',
+    orderedQuantityLabel: '発注数:',
+    receiveQuantityLabel: '入荷数量',
+    receiveButton: '入荷',
+    receivingButton: '入荷登録中…',
+    receivedAtLabel: '入荷時刻',
+    receivedQuantityLabel: '入荷数:',
+    historyEmpty: '購入履歴はまだありません。',
+    historyActionBought: '購入済み',
+    historyActionOrdered: '発注済み',
+    historyActionReceived: '入荷済み',
   },
 };
 

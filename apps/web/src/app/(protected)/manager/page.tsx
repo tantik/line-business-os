@@ -18,6 +18,7 @@ import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listStaffMessagesForManager } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
 import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
@@ -269,6 +270,7 @@ export default async function WorkforceManagerPage({
         staffMessagesResult,
         inventoryItemsResult,
         purchasesItemsResult,
+        purchaseHistoryResult,
         recipeCategoriesResult,
         recipesResult,
         recipeCanManage,
@@ -317,6 +319,12 @@ export default async function WorkforceManagerPage({
         // session): Purchases has no data without Inventory enabled.
         inventoryEnabled
           ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
+        // Purchases' History tab read surface (0120) -- same
+        // tenant/location scope as `purchasesItemsResult` above, also the
+        // exact data the Manager's Purchases popup's History tab renders.
+        inventoryEnabled
+          ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
         // `/recipes/page.tsx` itself makes; recipe detail (ingredients/
@@ -464,6 +472,7 @@ export default async function WorkforceManagerPage({
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
+            purchaseHistory={purchaseHistoryResult && purchaseHistoryResult.status === 'success' ? purchaseHistoryResult.data : null}
             operationsTemplates={operationsTemplatesResult && operationsTemplatesResult.status === 'success' ? operationsTemplatesResult.data : null}
             operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}
             operationsItemsError={operationsItemsResult ? readErrorMessage(operationsItemsResult) : null}

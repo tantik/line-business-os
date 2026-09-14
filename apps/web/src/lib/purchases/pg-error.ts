@@ -17,6 +17,16 @@ function isNotShortError(error: PostgrestError): boolean {
   return /purchases_item_not_short/i.test(error.message);
 }
 
+/** `purchases_invalid_quantity` (0120) -- raised by `api.record_purchase_order`/`api.record_purchase_receipt` when the quantity is null or `<= 0`. Client-side validation (`record-purchase-order-input.ts`/`record-purchase-receipt-input.ts`) should normally catch this first; this is the fail-closed server-side backstop. */
+function isInvalidQuantityError(error: PostgrestError): boolean {
+  return /purchases_invalid_quantity/i.test(error.message);
+}
+
+/** `purchases_stale_snapshot` (0120) -- raised by `api.record_purchase_receipt` when the optional `p_expected_stock_count_id` no longer matches the item's true latest stock count (duplicate/concurrent submit racing a newer count). */
+function isStaleSnapshotError(error: PostgrestError): boolean {
+  return /purchases_stale_snapshot/i.test(error.message);
+}
+
 export function mapPurchasesReadError(error: PostgrestError, action: string): TenantAccessResult<never> {
   if (isPermissionError(error)) return { status: 'unauthorized', message: `Not permitted to ${action}.` };
   return { status: 'unexpected_error', message: 'Unable to load purchases data right now.' };
@@ -24,6 +34,8 @@ export function mapPurchasesReadError(error: PostgrestError, action: string): Te
 
 export function mapPurchasesWriteError(error: PostgrestError, action: string): PurchasesWriteResult<never> {
   if (isNotShortError(error)) return { status: 'not_short' };
+  if (isInvalidQuantityError(error)) return { status: 'invalid_quantity' };
+  if (isStaleSnapshotError(error)) return { status: 'stale_snapshot' };
   if (isNotFoundError(error)) return { status: 'not_found' };
   if (isPermissionError(error)) return { status: 'unauthorized', message: `Not permitted to ${action}.` };
   return { status: 'unexpected_error', message: `Unable to ${action} right now.` };

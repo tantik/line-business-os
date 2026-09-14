@@ -15,6 +15,7 @@ import { listMyAttendance } from '@/lib/workforce/attendance';
 import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listOperationsTemplateItems } from '@/lib/operations/templates';
 import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
 import { listOpenIssues } from '@/lib/issues/issues';
@@ -238,6 +239,7 @@ export default async function WorkforceStaffPage({
         inventoryItemsResult,
         inventoryCanManage,
         purchasesItemsResult,
+        purchaseHistoryResult,
         rosterResult,
         recipeCategoriesResult,
         recipesResult,
@@ -280,6 +282,12 @@ export default async function WorkforceStaffPage({
         // Inventory enabled, so no separate module check is needed.
         inventoryEnabled
           ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
+        // Purchases' History tab read surface (0120) -- same
+        // tenant/location scope as `purchasesItemsResult` above, also the
+        // exact data the Staff Purchases popup's History tab renders.
+        inventoryEnabled
+          ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Real display names for the caller's own profile header and the
         // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
@@ -433,6 +441,7 @@ export default async function WorkforceStaffPage({
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
             inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
+            purchaseHistory={purchaseHistoryResult && purchaseHistoryResult.status === 'success' ? purchaseHistoryResult.data : null}
             purchasesStaffNameById={purchasesStaffNameById}
             operationsTasks={operationsTasks}
             operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}

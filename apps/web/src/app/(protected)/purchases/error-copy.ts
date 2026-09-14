@@ -14,6 +14,10 @@ export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult
       return 'You are not a member of this workspace.';
     case 'not_short':
       return t('notShortError');
+    case 'invalid_quantity':
+      return t('invalidQuantityError');
+    case 'stale_snapshot':
+      return t('staleSnapshotError');
     case 'unauthorized':
       return result.message;
     default:

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -91,6 +92,7 @@ export default async function PurchasesPage() {
       if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=purchases');
 
       const itemsResult = await listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId);
+      const historyResult = await listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId);
 
       // "Bought by" only ever resolves to a real display name for managers,
       // reusing the same manager-only decrypted staff directory Inventory's
@@ -113,6 +115,7 @@ export default async function PurchasesPage() {
               locationTimezone={location.timezone}
               items={itemsResult.data}
               staffNameById={Object.fromEntries(staffNameById)}
+              history={historyResult.status === 'success' ? historyResult.data : null}
             />
           ) : (
             <>

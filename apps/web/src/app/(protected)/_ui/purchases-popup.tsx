@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
+import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
@@ -17,6 +18,7 @@ export interface PurchasesPopupProps {
   locationTimezone: string;
   items: PurchaseNeededItem[] | null;
   staffNameById: Record<string, string>;
+  history: PurchaseHistoryEntry[] | null;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface PurchasesPopupProps {
  * `LangProvider` so the popup follows the caller's current language
  * selection instead of resetting to its own default.
  */
-export function PurchasesPopup({ open, onClose, tenantName, locationName, locationId, locationTimezone, items, staffNameById }: PurchasesPopupProps) {
+export function PurchasesPopup({ open, onClose, tenantName, locationName, locationId, locationTimezone, items, staffNameById, history }: PurchasesPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tPurchasesDashboard>[1]) => tPurchasesDashboard(lang, key);
   usePopupOpenTiming(open, 'purchases');
@@ -53,6 +55,7 @@ export function PurchasesPopup({ open, onClose, tenantName, locationName, locati
           locationTimezone={locationTimezone}
           items={items}
           staffNameById={staffNameById}
+          history={history}
           embedded
         />
       )}

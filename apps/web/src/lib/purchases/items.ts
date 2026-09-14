@@ -15,9 +15,13 @@ interface ApiPurchasesNeededRow {
   actual_quantity: string | number;
   shortage_quantity: string | number;
   latest_stock_count_id: string;
-  purchase_status: 'pending' | 'bought';
+  purchase_status: 'pending' | 'bought' | 'ordered' | 'received';
   actioned_at: string | null;
   actioned_by_staff_id: string | null;
+  /** Informational-only quantity from `api.record_purchase_order` (0120); null unless the latest action is 'ordered'. */
+  ordered_quantity: string | number | null;
+  /** Delta actually counted into Inventory by `api.record_purchase_receipt` (0120); null unless the latest action is 'received'. */
+  received_quantity: string | number | null;
 }
 
 export interface PurchaseNeededItem {
@@ -33,9 +37,13 @@ export interface PurchaseNeededItem {
   shortageQuantity: number;
   /** The stock count this row's shortage is pinned to -- required by `markPurchaseBoughtAction`'s optimistic staleness check on the client, mirrors the server-side snapshot check. */
   latestStockCountId: string;
-  purchaseStatus: 'pending' | 'bought';
+  purchaseStatus: 'pending' | 'bought' | 'ordered' | 'received';
   actionedAt: string | null;
   actionedByStaffId: string | null;
+  /** Informational-only quantity from the latest 'ordered' action (0120); null unless `purchaseStatus === 'ordered'`. */
+  orderedQuantity: number | null;
+  /** Delta actually counted into Inventory by the latest 'received' action (0120); null unless `purchaseStatus === 'received'`. */
+  receivedQuantity: number | null;
 }
 
 function mapRow(row: ApiPurchasesNeededRow): PurchaseNeededItem {
@@ -53,6 +61,8 @@ function mapRow(row: ApiPurchasesNeededRow): PurchaseNeededItem {
     purchaseStatus: row.purchase_status,
     actionedAt: row.actioned_at,
     actionedByStaffId: row.actioned_by_staff_id,
+    orderedQuantity: row.ordered_quantity === null ? null : Number(row.ordered_quantity),
+    receivedQuantity: row.received_quantity === null ? null : Number(row.received_quantity),
   };
 }
 
@@ -80,7 +90,7 @@ export async function listPurchasesNeeded(
       .schema('api')
       .from('purchases_needed')
       .select(
-        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, actual_quantity, shortage_quantity, latest_stock_count_id, purchase_status, actioned_at, actioned_by_staff_id',
+        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, actual_quantity, shortage_quantity, latest_stock_count_id, purchase_status, actioned_at, actioned_by_staff_id, ordered_quantity, received_quantity',
       )
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
