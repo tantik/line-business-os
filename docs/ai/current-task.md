@@ -282,6 +282,23 @@ CLOSED (newest; read this one first).** Fourth functional Work Package,
 extending the existing Purchases module. Verdict: **CLOSED, ready for the
 next Founder-selected mission (WP5 NOT authorized by this closure).**
 
+**SCOPE FLAG — read before treating WP4 as fully done:**
+`docs/project/master-state.md` §7's WP4 table row (set 2026-09-01, before
+this session) defines WP4's *original* bounded direction as supplier
+records, item↔supplier mapping, pack/unit/lead-time, a draft→approval flow,
+and `ordered/expected/partially-received/received/variance/closed` states.
+This session's own implementation prompt explicitly listed "suppliers CRM"
+and "approval chains" among WP4's **non-goals** — directly opposite that
+standing row. What actually shipped below is a narrower slice: an
+`ordered`/`received` lifecycle extension on the existing append-only
+Purchases log, no Supplier entity, no approval flow, no
+expected/variance/closed states. **It is not established whether this was
+a deliberate Founder scope-down or an in-session divergence from the
+standing roadmap** — confirm with the Founder before assuming the
+Supplier/approval-flow portion of the original WP4 direction is either
+satisfied or still open. `docs/project/master-state.md`'s WP4 row carries
+the same flag.
+
 - **Product model**: Purchases (0089) is deliberately an append-only
   acknowledgement log over Inventory, never a second source of truth for
   quantity (2026-08-24 Founder decision, restated in 0089's own header).
