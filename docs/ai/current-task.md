@@ -277,9 +277,155 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-09-14 pointer, CAFE v2.2 WP3 "OWNER WEEKLY REVIEW" — CLOSED (newest;
-read this one first).** Third functional Work Package built on ORUWA Design
-System v1. Verdict: **CLOSED, ready for the next Founder-selected mission.**
+**2026-09-15 pointer, CAFE v2.2 WP4 "PURCHASING V2 (ORDERED/RECEIVED)" —
+CLOSED (newest; read this one first).** Fourth functional Work Package,
+extending the existing Purchases module. Verdict: **CLOSED, ready for the
+next Founder-selected mission (WP5 NOT authorized by this closure).**
+
+- **Product model**: Purchases (0089) is deliberately an append-only
+  acknowledgement log over Inventory, never a second source of truth for
+  quantity (2026-08-24 Founder decision, restated in 0089's own header).
+  WP4 extends that log from a binary pending/bought lifecycle to
+  `pending -> ordered -> received`: `ordered` carries an informational-only
+  quantity (never written to Inventory, never a cap on what can later be
+  received); `received` is the ONLY new write path into Inventory, and it
+  writes exclusively by calling the pre-existing, unmodified
+  `api.record_inventory_stock_count` in the same transaction as the log
+  row — Inventory's own quantity storage remains the sole source of truth,
+  matching the 2026-08-24 constraint exactly. The original `bought`
+  single-step acknowledgement (0089) is untouched and still works as
+  before; Ordered/Received is an alternative two-step path for a real
+  delivery, never a required replacement. A read-only "History" tab exposes
+  the full append-only log for the first time (0089 wrote it but never
+  surfaced it in the UI).
+- **Migration `0120_purchases_order_receiving.sql`** (additive): adds
+  `action_type`/`ordered_quantity`/`received_quantity` columns to
+  `purchases.purchase_actions`; `api.record_purchase_order` (informational,
+  no Inventory write); `api.record_purchase_receipt` (writes Inventory via
+  `api.record_inventory_stock_count`, then logs the receipt; takes an
+  optional `p_expected_stock_count_id` optimistic-concurrency guard against
+  a stale/duplicate submit); `api.purchase_history` view. RLS for `purchase_actions`
+  insert is branched by `action_type` — `bought`/`ordered` keep 0089's exact
+  precondition (item currently short at the referenced snapshot);
+  `received` requires the referenced snapshot to be the item's true latest
+  count AND to have been counted by the same caller (prevents fabricating a
+  received log entry against an unrelated stock count). A
+  `pg_advisory_xact_lock` keyed on `item_id` serializes concurrent receipts
+  for the same item inside `api.record_purchase_receipt`, closing a
+  lost-update race an independent review found before Cloud DEV apply (two
+  concurrent receipts could otherwise both read the same "current" quantity
+  and one delivery would be silently lost — the optimistic
+  `p_expected_stock_count_id` guard alone does not prevent this, since both
+  callers can pass the check before either commits). pgTAP
+  `0061_purchases_order_receiving.sql`: Ordered/Received happy paths,
+  partial receiving, over-receive (accepted by design, no hard cap),
+  errcode-specific stale-snapshot/invalid-quantity rejection (not just
+  "some exception"), a NaN-quantity bypass guard, cross-tenant isolation
+  for both new RPCs, and confirmation the original `bought` RPC is
+  unaffected — all green, zero new regressions against the existing
+  baseline (the two 0047/0058 failures that appeared mid-session are a
+  pre-existing day-of-week-dependent Operations test design unrelated to
+  this schema, surfaced only by the session's date rollover to 2026-09-15,
+  not a WP4 regression).
+- **Independent fresh-context review**: found one P1 (the lost-update race
+  above, fixed before Cloud DEV apply) and several P2/P3 (NaN-quantity
+  bypass on both new RPCs, closed; a quantity-shape CHECK asymmetry on the
+  `received` branch, closed; `api.purchase_history` missing `OR REPLACE`,
+  closed; pgTAP coverage gaps for errcode-specific assertions and
+  cross-tenant isolation on the new RPCs, closed by extending
+  `0061`). Confirmed the "no second source of truth" invariant holds by
+  tracing `api.record_purchase_receipt` end to end, and confirmed
+  `api.purchases_needed`'s shortage/status computation still derives
+  entirely from `inventory.items`/`inventory.stock_counts`, unchanged.
+- **PR #524 merged to `dev`** (RED path: touches `supabase/migrations/**`,
+  Founder-merged directly). CI green.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project `pehcoenozjtsjdvjietj`, ledger synced through `0119`,
+  pending set = exactly `0120`) then Founder ran `supabase db push --linked`
+  themselves (same standing hard `deny` on this session running `db push`
+  under any condition). Post-apply `migration list` confirmed ledger `0120`
+  applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real Manager
+  (`manager@oruwa-cafe.test`) session (a prior session's browser profile was
+  already authenticated — no credential re-entry needed or performed this
+  session):
+  - **Full Order -> Receive cycle proven live with real numbers**: item
+    "紙コップ（Mサイズ）", Inventory before = 23 pcs (target 200, reorder
+    50, shown as "need to buy 177") -> Order 100 pcs recorded (status
+    "Ordered", Inventory unchanged at 23, confirmed via the Inventory
+    dashboard) -> Receive 60 pcs -> Inventory after = 83 pcs, confirmed via
+    both the Purchases read projection and, independently, the Inventory
+    dashboard's own "Actual quantity" field (canonical mechanism proof: the
+    same 83 appears wherever Inventory's own truth is read) -> item
+    correctly disappeared from the Purchases shortage list entirely once
+    actual_quantity (83) exceeded reorder_point (50) -> reload: both the
+    disappearance and the History-tab log of the Order/Receive entries
+    persisted -> "Needs attention" inventory-shortage badge count dropped
+    from 4 to 3 in lockstep, live.
+  - **Partial receiving**: item "コーヒー豆" (Bought, actual 1kg) received
+    0.5kg -> Inventory 1.5kg (still short, reorder point 2kg) -> status
+    correctly read "Received" with the delta quantity, item stayed listed.
+  - **Over-receive (no hard cap, by design)**: item "氷（製氷機用）"
+    (actual 5kg, nothing ordered) received 50kg directly -> Inventory
+    55kg, accepted with no error, item correctly dropped out of the
+    shortage list -- confirms Inventory truth is what was actually counted
+    in, never capped by an informational order quantity.
+  - **Duplicate-submit**: a rapid double-click on Receive (same
+    `expectedStockCountId`) produced exactly one History entry, not two --
+    confirmed via the History tab's exact count, not just the absence of a
+    visible error.
+  - **Concurrency (the pgTAP-level race the independent review found)**:
+    not independently re-reproduced live (a single-threaded browser click
+    cannot force two genuinely concurrent server-side transactions) -- the
+    `pg_advisory_xact_lock` fix is verified by code review + the fact that
+    zero double-counting occurred across this session's several receive
+    calls; same evidence-bar precedent as prior WPs' concurrency-adjacent
+    findings.
+  - **Purchasing/Inventory consistency**: cross-checked directly against
+    the Inventory dashboard after every receive call (not just the
+    Purchases popup's own numbers) -- always matched exactly.
+  - **Tenant/location isolation**: proved via the independently-reviewed
+    pgTAP suite (0061 §7, added this session), not live (single-tenant
+    reference tenant, same precedent as every prior WP).
+  - **JA/EN**: full bilingual pass on the Purchases popup including the new
+    filters (未購入/購入済み/発注済み/入荷済み/履歴), the Order/Receive
+    forms, and every History-tab entry (発注済み/入荷済み with correct
+    quantities); nav and surrounding dashboard chrome also confirmed
+    bilingual.
+  - **Responsive**: 1440×900, 768×1024, 375×667, and 320×667 all clean, no
+    horizontal overflow, filter buttons and Order/Receive input+button
+    pairs wrap correctly at narrow widths.
+  - **Accessibility**: `Escape` closes the Purchases dialog. Full
+    focus-trap/tab-cycle audit not performed (this page is still on the
+    pre-DS-v1 legacy `theme.ts` styling, same as before this WP -- migrating
+    it to `@line-os/ui` is a separately tracked, not-yet-authorized deferred
+    item, unchanged by this closure).
+  - **Weekly Review regression**: opened live, "Purchasing" section showed
+    "Items currently in shortage: 2" and "Pending purchases needed: 0" --
+    correct given the session's actions (ordered/received items no longer
+    count as `pending`), no crash, no stale data from the new statuses.
+  - **Inventory regression**: spot-checked the full Inventory dashboard
+    list after each Purchases action -- only the acted-on item's quantity
+    changed each time, no unrelated item affected.
+- **Explicitly deferred / NOT built (mission non-goals)**: no
+  supplier/vendor entity, no price/cost field, no invoices, no approval
+  chain, no automatic ordering, no new permission key (reused
+  `purchases.action.write`/`purchases.item.read`), no migration of this
+  page to `@line-os/ui` Design System v1 (separate, already-tracked deferred
+  item), no change to `apps/web/src/lib/inventory/**`.
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items already tracked in the 2026-09-11/2026-09-12 pointers below
+  (badge 9 vs 4+4 in `AttentionPanel`, raw `part_time`, the shared
+  focus-restore gap, and now also this page's legacy-theme status), OR a
+  fresh WP5 scope decision — neither authorized to start by this closure.
+
+---
+
+**2026-09-14 pointer, CAFE v2.2 WP3 "OWNER WEEKLY REVIEW" — CLOSED (older —
+read after the pointer above).** Third functional Work Package built on
+ORUWA Design System v1. Verdict: **CLOSED, ready for the next
+Founder-selected mission.**
 
 - **Product model**: a bounded, permission-gated, read-only Manager surface
   ("週次レビュー" / "Weekly Review") summarizing one Monday-Sunday business
