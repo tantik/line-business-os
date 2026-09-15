@@ -14,6 +14,7 @@ import type { WorkforceShiftExchange } from '@/lib/workforce/shift-exchanges';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
+import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
 import type { OperationsTemplate, OperationsTemplateItem } from '@/lib/operations/templates';
 import type { OperationsSchedule } from '@/lib/operations/schedules';
 import type { OperationsExpectedTask } from '@/lib/operations/tasks';
@@ -234,6 +235,8 @@ export interface ManagerDashboardClientProps {
   inventoryMediaUrlByItemId: Record<string, string>;
   /** This location's Purchases shopping list, read-only -- also the exact data the Purchases popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
   purchasesItems: PurchaseNeededItem[] | null;
+  /** Full Purchases action history (0120), read-only -- also the exact data the Purchases popup's History tab renders (no separate fetch). `null` when the module is disabled or the read failed. */
+  purchaseHistory: PurchaseHistoryEntry[] | null;
   /** Operations popup's entire read surface (Cafe v2.2 WP1) -- also the exact data `OperationsManagerPopup` renders (no separate fetch). Each `null` when the module is disabled or the read failed. */
   operationsTemplates: OperationsTemplate[] | null;
   operationsItems: OperationsTemplateItem[] | null;
@@ -335,6 +338,7 @@ function ManagerDashboardBody({
   inventoryItems,
   inventoryMediaUrlByItemId,
   purchasesItems,
+  purchaseHistory,
   operationsTemplates,
   operationsItems,
   operationsItemsError,
@@ -1254,6 +1258,7 @@ function ManagerDashboardBody({
         locationTimezone={timeZone}
         items={purchasesItems}
         staffNameById={staffNameById}
+        history={purchaseHistory}
       />
 
       <RecipesPopup
