@@ -277,8 +277,174 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-17 pointer, CAFE v2.2 WP5 "RECIPE INTELLIGENCE LITE" — CLOSED
+(newest; read this one first).** Fifth and explicitly **last planned
+functional Work Package** of Cafe v2.2. Verdict: **CLOSED. Do not start
+WP6, another Cafe feature, or the Quality Sweep without a fresh Founder
+prompt — see Recommended next below.**
+
+- **Product model**: an optional Recipe ingredient → Inventory item mapping
+  (quantity + a controlled unit: `kg`/`g`/`L`/`mL`/`pcs`, same vocabulary
+  Inventory already uses), Manager-maintained allergen data and a reference
+  price on Inventory items, and a deterministic estimated-cost calculation
+  — explicitly not an ERP: no supplier/invoice/margin/nutrition/menu-
+  engineering features. A bare, unmapped ingredient label remains fully
+  valid (the common case, never made mandatory).
+- **Migration `0120` is Purchasing v2 (WP4); this WP5's migration is
+  `0121_recipe_intelligence_lite.sql`** (additive): `workforce.recipe_ingredients`
+  gains an all-or-nothing `{inventory_item_id, quantity, unit}` triple,
+  tenant-safe by a composite FK (not merely RLS-blocked); a trigger enforces
+  the multi-location safety rule — a location-scoped recipe may only map to
+  an Inventory item at that same location, a tenant-wide recipe
+  (`location_id is null`) may map to any item within the tenant, with the
+  resulting cost then specific to whichever item was actually chosen (a
+  deliberate, documented property, not a bug). `inventory.items` gains
+  `reference_unit_price` (a Manager-maintained ESTIMATE — yen per one unit
+  of `items.unit` — never a receiving/accounting price) and `allergen_codes`
+  (`NULL` = not configured/unknown; `'{}'` = Manager explicitly confirmed
+  none known; the two states are never conflated). Both new Inventory
+  columns are deliberately **not** added to `api.inventory_items` or
+  `api.inventory_item_status` — this is the mechanism, not an oversight,
+  that keeps price away from Staff, who already holds `inventory.item.read`
+  and could otherwise see it through any view that selects the column.
+  `workforce.convert_quantity` performs only deterministic `kg↔g`/`L↔mL`
+  conversion (same-unit passthrough); anything else, including any pair
+  touching `pcs`, returns `NULL` — never a guessed number.
+- **`api.upsert_workforce_recipe`** (CREATE OR REPLACE, same signature as
+  before) now accepts either a legacy plain-string ingredient element or a
+  `{label, inventory_item_id, quantity, unit}` object in the same call,
+  verified backward-compatible. New **`api.recipe_ingredient_cost_breakdown`**/
+  **`api.recipe_cost_summary`** are Manager-only via an explicit
+  `workforce.can_manage_recipe` check on top of table RLS (Staff has
+  row-level read access to the underlying tables but must never see cost —
+  RLS is row-level, not column-level, so this is a deliberate additional
+  business-rule check, not a workaround). `estimated_cost` is `NULL` — never
+  `0` — whenever an ingredient is unmapped, its item has no reference price,
+  or the unit is dimensionally incompatible (`not_mapped`/`no_price`/
+  `unit_incompatible`/`ok` status column). New **`api.set_inventory_item_reference_price`**/
+  **`api.set_inventory_item_allergens`**/**`api.get_inventory_item_reference_data`**
+  are Manager-only (`inventory.item.manage`, explicit in-function check).
+  `api.workforce_recipe_ingredients` view extended with the mapping +
+  display fields, deliberately carrying no price. No new permission key, no
+  `SECURITY DEFINER` function (ADR 0008 unaffected), no automatic Inventory
+  stock mutation from Recipe configuration (verified: viewing/saving a
+  recipe never writes `inventory.stock_counts` or any pre-existing
+  `inventory.items` column).
+- **pgTAP `0062_recipe_intelligence_lite.sql`**: 44 assertions — conversion
+  function, the `recipe_ingredients_mapping_shape` CHECK, the location
+  trigger both directions (location-scoped rejected across locations,
+  tenant-wide allowed to any location), cross-tenant `inventory_item_id`
+  rejected by FK, `upsert_workforce_recipe` backward compatibility +
+  invalid-unit/non-positive-quantity rejection, Manager/Staff permission
+  gating (`42501`) on all four new Manager-only RPCs, missing-price and
+  unit-incompatible states (`estimated_cost IS NULL`, asserted explicitly —
+  not just "falsy"), allergen `NULL` vs `'{}'` distinguished by direct
+  query. All 44 pass; full suite re-verified against a clean `dev` baseline
+  (reset + rerun without this migration): identical pre-existing 5-file/
+  11-subtest failure set (`0002`, `0006`, `0008`, `0012`, `0023`), zero new
+  regressions.
+- **Independent fresh-context review: PASS**, zero P0/P1 findings (two P3
+  notes: the location-mismatch trigger is pgTAP-exercised only via direct
+  table insert, not additionally through the `upsert_workforce_recipe` RPC
+  path specifically, though the trigger declaration structurally guarantees
+  RPC coverage too; and the two client-callable cost/reference-data server
+  actions have no independent server-side `canManage` gate of their own —
+  by design, the real boundary is the RPC-level permission check verified
+  above, the UI gate is defense-in-depth only, already documented in-code).
+- **PR #525 merged to `dev`** (RED path: touches `supabase/migrations/**`,
+  Founder-merged directly, commit `f4b0c7a`). CI green both times (feature
+  branch and post-merge).
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project `pehcoenozjtsjdvjietj`, ledger synced through `0120`,
+  pending set = exactly `0121`) then Founder ran `supabase db push --linked`
+  themselves (same standing hard `deny` on this session running `db push`
+  under any condition; one non-fatal NOTICE about a pre-existing trigger not
+  existing yet, expected on first apply, not an error). Post-apply
+  `migration list` confirmed ledger `0121` applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp` (the canonical
+  `dev` deployment, confirmed reflecting the merged PR + applied migration),
+  real Manager (`manager@oruwa-cafe.test`) and Staff (田中美咲) sessions:
+  - **Real cost calculation, independently verified**: recipe「カフェラテ」,
+    エスプレッソ ingredient mapped to Inventory item コーヒー豆 (reference
+    price set to ¥1200/kg live), recipe quantity 18g → converted 0.018kg ×
+    ¥1200 = ¥21.60; スチームミルク mapped to 牛乳 (¥300/L), 200mL → 0.2L ×
+    ¥300 = ¥60.00. Displayed total ¥81.60 matched the independent hand
+    calculation (¥21.60 + ¥60.00) exactly.
+  - **Missing-price acceptance**: before either item had a reference price,
+    the UI read "現時点の概算費用: ¥0（2個中0個が計算済み）。残りは価格未設定
+    または単位換算不可です. " — never a bare misleading "¥0" total.
+  - **Unit-incompatible acceptance**: a third ingredient「蓋」mapped to the
+    `pcs`-unit item 紙コップ（Mサイズ）using `kg` correctly excluded itself
+    from the calculated count (final state: "3個中2個が計算済み", subtotal
+    unchanged at ¥81.60) rather than silently producing a number.
+  - **Allergen acceptance, all three states live**: エスプレッソ → not
+    configured ("アレルゲン未設定"); スチームミルク → 乳 (configured,
+    real code); 蓋 → "アレルゲンなし（確認済み）" (Manager explicitly
+    confirmed none known) — the three states never conflated in the UI.
+  - **Manager management access**: full ingredient-mapping CRUD via the
+    recipe edit form (Inventory item picker showing every active tenant
+    item with its location label, quantity, unit) and the Inventory item
+    edit form's new 参考価格/allergen-checkbox fields — all worked, all
+    persisted across reload.
+  - **Staff read-only visibility, verified both ways**: Staff sees the same
+    structured ingredients (quantity+unit) and allergen tags as Manager,
+    but the entire estimated-cost section and Edit/Delete controls are
+    absent from the DOM (not just visually hidden) — confirmed further by
+    inspecting the actual network requests fired: no cost-fetching request
+    is even attempted for a Staff session (the `canManage` guard short-
+    circuits the effect), consistent with the RPC-level permission check
+    also verified by pgTAP.
+  - **Inventory stock unchanged by recipe configuration**: cross-checked the
+    Inventory dashboard's actual-quantity values before and after every
+    recipe-mapping save this session — unchanged throughout (only the new
+    `reference_unit_price`/`allergen_codes` fields on the touched items
+    changed).
+  - **JA**: extensive — all new copy (材料費目安, 使用量, 単位, アレルゲン,
+    参考価格, and the missing-price/unit-incompatible explanatory sentences)
+    read naturally and consistently with existing Recipe/Inventory
+    terminology.
+  - **Responsive**: 1440×900, 768×1024, 375×667, 320×667 all clean via real
+    screenshots, no horizontal overflow; allergen tags render as pill
+    badges; Staff mobile view fully legible.
+  - **Recipe/Inventory/Purchasing/Weekly Review regression**: existing
+    unmapped recipes (抹茶ラテ, etc.) unaffected; Inventory list/edit forms
+    load and save correctly (the new reference-price/allergen fields
+    degrade gracefully — empty, not broken — for any state predating this
+    WP); Purchasing v2 popup loads with unchanged item data, no price ever
+    appears there; Weekly Review loads without error, unaffected by this WP.
+  - **EN / accessibility**: JA/EN i18n keys exist in `recipes-i18n.ts`
+    following the file's existing dictionary pattern (not independently
+    toggled to EN and re-screenshotted this session — code-verified, not
+    pixel-verified); accessibility inherits the same `@line-os/ui` Dialog/
+    focus-trap contract every other DS v1 popup already has, not
+    independently re-audited beyond that inherited contract this session.
+- **Found and fixed during this session's own Preview QA (before closing)**:
+  the estimated-cost amount rendered as "81,6" instead of a correct yen
+  figure — `knownSubtotal.toLocaleString()` with no locale argument follows
+  the browser/session's own locale, producing a comma decimal separator and
+  dropping a trailing zero under a non-Japanese `Accept-Language`. Fixed
+  with a `formatYen()` helper (round to the nearest whole yen, fixed
+  `ja-JP` locale) — **PR #526**, non-RED path (no migration/schema touched),
+  `typecheck` clean, merged to `dev` same session.
+- **Explicitly deferred / NOT built (mission non-goals)**: no
+  supplier/vendor entity, no invoices, no margin/profit/menu-engineering, no
+  price history/trend UI, no nutrition/medical claims, no automatic
+  Inventory consumption from recipe use, no new permission key, no
+  `SECURITY DEFINER` function.
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: per Mission 7's own explicit instruction, WP5 is the
+  **last planned functional Work Package of Cafe v2.2** — the next phase is
+  a bounded quality sweep over already-tracked deferred items (badge 9 vs
+  4+4 in `AttentionPanel`, raw `part_time`, the shared focus-restore gap,
+  the Purchasing popup's still-legacy `theme.ts` styling, and now also this
+  WP's two P3 notes above), followed by demo readiness and a full integrated
+  Cafe v2.2 Founder Acceptance / CLOSED pass — neither authorized to start
+  by this closure alone; a fresh Founder prompt selects which begins next.
+
+---
+
 **2026-09-15 pointer, CAFE v2.2 WP4 "PURCHASING V2 (ORDERED/RECEIVED)" —
-CLOSED (newest; read this one first).** Fourth functional Work Package,
+CLOSED (older — read after the pointer above).** Fourth functional Work Package,
 extending the existing Purchases module. Verdict: **CLOSED, ready for the
 next Founder-selected mission (WP5 NOT authorized by this closure).**
 
