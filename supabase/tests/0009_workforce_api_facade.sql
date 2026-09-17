@@ -196,7 +196,14 @@ select is(
   (select array_agg(column_name::text order by ordinal_position)
      from information_schema.columns
     where table_schema = 'api' and table_name = 'workforce_recipe_ingredients'),
-  array['ingredient_id', 'tenant_id', 'recipe_id', 'label_ja', 'label_en', 'sort_order']::text[],
+  array[
+    'ingredient_id', 'tenant_id', 'recipe_id', 'label_ja', 'label_en', 'sort_order',
+    'inventory_item_id', 'quantity', 'unit', 'item_name', 'item_unit', 'allergen_codes'
+  ]::text[],
+  -- Extended by 0121 (Cafe v2.2 WP5 Recipe Intelligence Lite): optional
+  -- Inventory mapping + display fields. Deliberately still carries NO
+  -- reference_unit_price -- that stays off every Staff-reachable Inventory
+  -- surface (see 0121's header comment).
   'api.workforce_recipe_ingredients exposes only approved columns'
 );
 select is(

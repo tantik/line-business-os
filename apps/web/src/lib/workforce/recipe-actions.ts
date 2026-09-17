@@ -5,13 +5,17 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import {
   createRecipeMediaUrlMap,
+  getRecipeCostSummary,
   getWorkforceRecipeDetail,
   groupRecipesByCategory,
   hasRecipeManagerAccess,
+  listInventoryItemsForRecipeMapping,
   listWorkforceRecipes,
   permanentlyDeleteRecipe as permanentlyDeleteRecipeWrite,
   setWorkforceRecipeArchived,
   upsertWorkforceRecipe,
+  type RecipeCostSummary,
+  type RecipeIngredientMappingCandidate,
   type WorkforceRecipeDetail,
   type WorkforceRecipeGroup,
   type WorkforceRecipe,
@@ -327,6 +331,62 @@ export async function getRecipeDetailForPopup(recipeId: string): Promise<TenantA
   const translationFields = flattenRecipeTranslationFields(buildRecipeTranslationWorkspace({ recipe, ingredients, steps, notes }, translations));
 
   return { status: 'success', data: { recipe, ingredients, steps, notes, translationFields, canManage, mediaUrl: mediaUrlMap[recipe.recipeId] ?? null } };
+}
+
+export interface RecipeIngredientMappingContext {
+  items: RecipeIngredientMappingCandidate[];
+  /** Location display name by id -- lets the form label a tenant-wide recipe's mapping candidates with which location the item (and therefore the resulting cost) actually belongs to. */
+  locationNameById: Record<string, string>;
+}
+
+/**
+ * Data the recipe form's per-ingredient Inventory mapping picker needs:
+ * every active Inventory item the caller can currently see (RLS-narrowed),
+ * plus a location-name lookup for display. Called client-side (WP5) by
+ * `RecipeForm`, same "client component calls a Server Action for its own
+ * data" pattern as `getRecipeDetailForPopup`/`getRecipesListForPoll` above.
+ */
+export async function getRecipeIngredientMappingContext(): Promise<TenantAccessResult<RecipeIngredientMappingContext>> {
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  const { activeTenant } = tenantContext.data;
+
+  const [itemsResult, locationsResult] = await Promise.all([
+    listInventoryItemsForRecipeMapping(supabase, activeTenant.tenantId),
+    listTenantLocations(supabase),
+  ]);
+  if (itemsResult.status !== 'success') return itemsResult;
+
+  const locationNameById =
+    locationsResult.status === 'success'
+      ? Object.fromEntries(
+          locationsResult.data
+            .filter((location) => location.tenantId === activeTenant.tenantId)
+            .map((location) => [location.locationId, location.locationName]),
+        )
+      : {};
+
+  return { status: 'success', data: { items: itemsResult.data, locationNameById } };
+}
+
+/**
+ * Manager-only estimated ingredient cost summary for the recipe detail view
+ * (WP5). `getRecipeCostSummary` itself surfaces the RPC's `permission_denied`
+ * (42501) as `unauthorized` -- a Staff caller simply gets that status back,
+ * never a thrown error; the detail view only calls this when `canManage` is
+ * already true (same UX-affordance gate the rest of that view uses), so this
+ * is defense in depth, not the primary gate.
+ */
+export async function getRecipeCostSummaryAction(recipeId: string): Promise<TenantAccessResult<RecipeCostSummary>> {
+  if (typeof recipeId !== 'string' || !recipeId.trim()) return { status: 'unexpected_error', message: 'Invalid input.' };
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return getRecipeCostSummary(supabase, tenantContext.data.activeTenant.tenantId, recipeId);
 }
 
 export interface RecipesListForPoll {

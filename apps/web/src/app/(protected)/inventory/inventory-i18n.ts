@@ -94,6 +94,11 @@ interface InventoryDashboardDict {
   footerSufficient: string;
   footerTip: string;
   purchasedBadgeAriaLabel: string;
+  // WP5 (Cafe v2.2 Recipe Intelligence Lite): reference price + allergens
+  referencePriceLabel: string;
+  referencePriceHint: string;
+  allergensLabel: string;
+  allergensConfirmedCheckboxLabel: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -179,6 +184,10 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     footerSufficient: 'Sufficient',
     footerTip: 'Tip: enter the actual quantity and press Enter (or just wait a moment) to save.',
     purchasedBadgeAriaLabel: 'Marked as bought in Purchases — update the actual quantity below to clear this',
+    referencePriceLabel: 'Reference price',
+    referencePriceHint: 'An estimate, in yen per 1 unit — used only for the Recipes estimated-cost feature, never for receiving or accounting.',
+    allergensLabel: 'Allergens',
+    allergensConfirmedCheckboxLabel: 'Allergen information confirmed for this item',
   },
   ja: {
     pageTitle: '在庫',
@@ -262,7 +271,31 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     footerSufficient: '十分',
     footerTip: 'ヒント: 実数を入力してEnterキー(または少し待つだけ)で保存されます。',
     purchasedBadgeAriaLabel: '購入(仕入れ)で購入済みとしてマークされています — 下の実数を更新すると解除されます',
+    referencePriceLabel: '参考価格',
+    referencePriceHint: '1単位あたりの目安価格（円）。レシピの材料費目安にのみ使用され、仕入れや会計には使用されません。',
+    allergensLabel: 'アレルゲン',
+    allergensConfirmedCheckboxLabel: 'この品目のアレルゲン情報を確認済み',
   },
 };
 
 export const tInventoryDashboard = makeTranslator(dictionary);
+
+/** Fixed 10-code allergen vocabulary (migration 0121) -- same list/order as `recipes-i18n.ts`'s copy, kept independent (Inventory does not import from the Workforce/Recipes module, see `validation.ts`'s header note). */
+export const ALLERGEN_CODES = [
+  'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'soy', 'sesame',
+] as const;
+
+const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
+  en: {
+    egg: 'Egg', milk: 'Milk', wheat: 'Wheat', buckwheat: 'Buckwheat', peanut: 'Peanut',
+    shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut', soy: 'Soy', sesame: 'Sesame',
+  },
+  ja: {
+    egg: '卵', milk: '乳', wheat: '小麦', buckwheat: 'そば', peanut: '落花生',
+    shrimp: 'えび', crab: 'かに', walnut: 'くるみ', soy: '大豆', sesame: 'ごま',
+  },
+};
+
+export function allergenLabel(lang: Lang, code: string): string {
+  return ALLERGEN_LABELS[lang][code] ?? code;
+}

@@ -1,14 +1,31 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { upsertRecipe } from '@/lib/workforce/recipe-actions';
+import { getRecipeIngredientMappingContext, upsertRecipe } from '@/lib/workforce/recipe-actions';
+import type { RecipeIngredientMappingContext } from '@/lib/workforce/recipe-actions';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
+import { IconButton, NumberInput, Select } from '@line-os/ui';
 import { describeWriteError } from '../manager/error-copy';
 import { tRecipes } from './recipes-i18n';
+
+const INGREDIENT_UNITS = ['kg', 'g', 'L', 'mL', 'pcs'] as const;
+
+interface IngredientRowState {
+  /** Client-only React list key -- never sent to the server. */
+  key: string;
+  label: string;
+  inventoryItemId: string | null;
+  quantity: number | '';
+  unit: string;
+}
+
+function makeRowKey(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `row-${Math.random().toString(36).slice(2)}`;
+}
 
 export interface RecipeFormProps {
   /** Omit/undefined to create a new recipe; pass an existing recipe's detail to edit it. */
@@ -61,10 +78,43 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
 
   const sourceTitle = recipe ? (isJa ? recipe.titleJa : recipe.titleEn) ?? '' : '';
   const sourceDescription = recipe ? (isJa ? recipe.descriptionJa : recipe.descriptionEn) ?? '' : '';
-  const sourceIngredients = (detail?.ingredients ?? [])
-    .map((i) => (isJa ? i.labelJa : i.labelEn) ?? '')
-    .filter(Boolean)
-    .join('\n');
+
+  const [ingredientRows, setIngredientRows] = useState<IngredientRowState[]>(() => {
+    const initial = (detail?.ingredients ?? [])
+      .map((i) => ({
+        key: i.ingredientId,
+        label: (isJa ? i.labelJa : i.labelEn) ?? '',
+        inventoryItemId: i.inventoryItemId ?? null,
+        quantity: (i.quantity ?? '') as number | '',
+        unit: i.unit ?? INGREDIENT_UNITS[0],
+      }))
+      .filter((row) => row.label);
+    return initial.length > 0 ? initial : [{ key: makeRowKey(), label: '', inventoryItemId: null, quantity: '', unit: INGREDIENT_UNITS[0] }];
+  });
+  const [mappingContext, setMappingContext] = useState<RecipeIngredientMappingContext | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getRecipeIngredientMappingContext().then((result) => {
+      if (!cancelled && result.status === 'success') setMappingContext(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function updateRow(key: string, patch: Partial<IngredientRowState>) {
+    setIngredientRows((rows) => rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  }
+
+  function addIngredientRow() {
+    setIngredientRows((rows) => [...rows, { key: makeRowKey(), label: '', inventoryItemId: null, quantity: '', unit: INGREDIENT_UNITS[0] }]);
+  }
+
+  function removeIngredientRow(key: string) {
+    setIngredientRows((rows) => (rows.length > 1 ? rows.filter((row) => row.key !== key) : rows));
+  }
+
   const sourceSteps = (detail?.steps ?? [])
     .map((s) => (isJa ? s.instructionJa : s.instructionEn) ?? '')
     .filter(Boolean)
@@ -78,6 +128,19 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
     setError(null);
     const formData = new FormData(event.currentTarget);
     if (recipe) formData.set('recipeId', recipe.recipeId);
+    formData.set(
+      'ingredientsJson',
+      JSON.stringify(
+        ingredientRows
+          .filter((row) => row.label.trim())
+          .map((row) => ({
+            label: row.label.trim(),
+            inventoryItemId: row.inventoryItemId,
+            quantity: row.inventoryItemId ? (row.quantity === '' ? null : row.quantity) : null,
+            unit: row.inventoryItemId ? row.unit : null,
+          })),
+      ),
+    );
 
     startTransition(async () => {
       const result = await upsertRecipe(formData);
@@ -190,15 +253,94 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
         {removePhoto ? <input type="hidden" name="removePhoto" value="true" /> : null}
       </div>
 
-      <label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('formIngredientsLabel')}</span>
-        <textarea
-          style={{ ...input, minHeight: 90, resize: 'vertical' }}
-          name="ingredients"
-          defaultValue={sourceIngredients}
-          placeholder={t('formOnePerLineHint')}
-        />
-      </label>
+        {ingredientRows.map((row) => {
+          const mappingCandidates = (mappingContext?.items ?? []).filter(
+            (item) => !recipe?.locationId || item.locationId === recipe.locationId,
+          );
+          const selectedCandidate = mappingCandidates.find((item) => item.itemId === row.inventoryItemId);
+          return (
+            <div key={row.key} style={{ padding: 10, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  style={{ ...input, flex: 1 }}
+                  value={row.label}
+                  maxLength={500}
+                  placeholder={t('formIngredientLabelPlaceholder')}
+                  onChange={(event) => updateRow(row.key, { label: event.target.value })}
+                />
+                <IconButton
+                  aria-label={t('formRemoveIngredient')}
+                  icon={<span aria-hidden>×</span>}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeIngredientRow(row.key)}
+                />
+              </div>
+              {row.inventoryItemId ? (
+                <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '2fr 1fr 1fr', alignItems: 'end' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ ...mutedText, fontSize: 12 }}>{t('formIngredientItemLabel')}</span>
+                    <Select
+                      value={row.inventoryItemId}
+                      onValueChange={(value) => {
+                        const item = mappingCandidates.find((candidate) => candidate.itemId === value);
+                        updateRow(row.key, { inventoryItemId: value, unit: item?.unit ?? row.unit });
+                      }}
+                      options={mappingCandidates.map((item) => ({
+                        value: item.itemId,
+                        label: recipe?.locationId
+                          ? item.name
+                          : `${item.name}${mappingContext?.locationNameById[item.locationId] ? ` (${mappingContext.locationNameById[item.locationId]})` : ''}`,
+                      }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ ...mutedText, fontSize: 12 }}>{t('formIngredientQuantityLabel')}</span>
+                    <NumberInput
+                      value={row.quantity}
+                      min={0}
+                      step="0.001"
+                      onValueChange={(value) => updateRow(row.key, { quantity: value })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ ...mutedText, fontSize: 12 }}>{t('formIngredientUnitLabel')}</span>
+                    <Select
+                      value={row.unit}
+                      onValueChange={(value) => updateRow(row.key, { unit: value })}
+                      options={INGREDIENT_UNITS.map((unit) => ({ value: unit, label: unit }))}
+                    />
+                  </div>
+                  {!selectedCandidate ? (
+                    <span style={{ ...mutedText, fontSize: 11, gridColumn: '1 / -1' }}>{t('formIngredientItemUnavailable')}</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    style={{ ...buttonSecondary, padding: '4px 10px', fontSize: 12, gridColumn: '1 / -1', justifySelf: 'start' }}
+                    onClick={() => updateRow(row.key, { inventoryItemId: null, quantity: '', unit: INGREDIENT_UNITS[0] })}
+                  >
+                    {t('formUnlinkIngredient')}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  style={{ ...buttonSecondary, padding: '4px 10px', fontSize: 12, alignSelf: 'start' }}
+                  onClick={() => updateRow(row.key, { inventoryItemId: mappingCandidates[0]?.itemId ?? null, unit: mappingCandidates[0]?.unit ?? INGREDIENT_UNITS[0] })}
+                  disabled={mappingCandidates.length === 0}
+                >
+                  {t('formLinkIngredientToInventory')}
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <button type="button" style={{ ...buttonSecondary, alignSelf: 'start' }} onClick={addIngredientRow}>
+          {t('formAddIngredient')}
+        </button>
+      </div>
 
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('formStepsLabel')}</span>

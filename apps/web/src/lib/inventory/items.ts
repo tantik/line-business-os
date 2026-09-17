@@ -309,6 +309,110 @@ export async function permanentlyDeleteInventoryItem(
   }
 }
 
+export interface InventoryItemReferenceData {
+  referenceUnitPrice: number | null;
+  allergenCodes: string[] | null;
+}
+
+/** Flat row shape returned by `api.get_inventory_item_reference_data`. */
+interface ApiInventoryItemReferenceDataRow {
+  reference_unit_price: string | number | null;
+  allergen_codes: string[] | null;
+}
+
+/**
+ * Manager-only (WP5) read-back of an item's reference_unit_price/
+ * allergen_codes -- the edit form's only way to see its own previously-saved
+ * values, since neither field is exposed by `api.inventory_items`/
+ * `api.inventory_item_status`. Calls `api.get_inventory_item_reference_data`
+ * (0121), which raises `permission_denied` (42501) for a Staff-only caller;
+ * that surfaces here as `unauthorized`, never thrown.
+ */
+export async function getInventoryItemReferenceData(
+  supabase: SupabaseClient,
+  tenantId: string,
+  itemId: string,
+): Promise<TenantAccessResult<InventoryItemReferenceData>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .rpc('get_inventory_item_reference_data', { p_tenant_id: tenantId, p_item_id: itemId });
+    if (error) return mapInventoryReadError(error, "read this item's reference price/allergens");
+    const row = (Array.isArray(data) ? data[0] : data) as ApiInventoryItemReferenceDataRow | undefined;
+    if (!row) return { status: 'success', data: { referenceUnitPrice: null, allergenCodes: null } };
+    return {
+      status: 'success',
+      data: {
+        referenceUnitPrice: row.reference_unit_price === null ? null : Number(row.reference_unit_price),
+        allergenCodes: row.allergen_codes,
+      },
+    };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : "Unexpected error reading this item's reference price/allergens.",
+    };
+  }
+}
+
+/**
+ * Manager-only (WP5): sets the Manager-maintained ESTIMATE reference unit
+ * price on an Inventory item -- never a receiving/accounting price. Calls
+ * `api.set_inventory_item_reference_price` (0121), which does its own
+ * explicit `inventory.item.manage` check and raises `permission_denied`
+ * (42501) for anyone else; this function never selects/returns
+ * `reference_unit_price` from `inventory.items` at all (it stays off
+ * `api.inventory_items`/`api.inventory_item_status` entirely -- see 0121's
+ * header), so there is nothing for a Staff-permission caller to read back
+ * even if this RPC were somehow reachable.
+ */
+export async function setInventoryItemReferencePrice(
+  supabase: SupabaseClient,
+  tenantId: string,
+  itemId: string,
+  referenceUnitPrice: number | null,
+): Promise<InventoryWriteResult<void>> {
+  try {
+    const { error } = await supabase
+      .schema('api')
+      .rpc('set_inventory_item_reference_price', { p_tenant_id: tenantId, p_item_id: itemId, p_reference_unit_price: referenceUnitPrice });
+    if (error) return mapInventoryWriteError(error, 'set this item\'s reference price');
+    return { status: 'success', data: undefined };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error setting this item\'s reference price.',
+    };
+  }
+}
+
+/**
+ * Manager-only (WP5): sets an Inventory item's allergen codes.
+ * `null` = not configured/unknown; `[]` = Manager explicitly confirmed no
+ * known allergens -- callers control which of the two they send, this
+ * function never conflates them. Calls `api.set_inventory_item_allergens`
+ * (0121), same permission-check pattern as `setInventoryItemReferencePrice`.
+ */
+export async function setInventoryItemAllergens(
+  supabase: SupabaseClient,
+  tenantId: string,
+  itemId: string,
+  allergenCodes: string[] | null,
+): Promise<InventoryWriteResult<void>> {
+  try {
+    const { error } = await supabase
+      .schema('api')
+      .rpc('set_inventory_item_allergens', { p_tenant_id: tenantId, p_item_id: itemId, p_allergen_codes: allergenCodes });
+    if (error) return mapInventoryWriteError(error, 'set this item\'s allergens');
+    return { status: 'success', data: undefined };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error setting this item\'s allergens.',
+    };
+  }
+}
+
 /**
  * Boolean permission check delegating to `api.has_permission` (0019), which
  * forwards to `core.has_permission`. Used to decide whether to render

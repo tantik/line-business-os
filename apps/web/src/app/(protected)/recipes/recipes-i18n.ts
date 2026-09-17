@@ -73,6 +73,22 @@ interface RecipesDict {
   popupHelpAriaLabel: string;
   popupHelpTitle: string;
   popupHelpBody: string;
+  // WP5 (Cafe v2.2 Recipe Intelligence Lite): per-ingredient Inventory mapping form
+  formIngredientLabelPlaceholder: string;
+  formRemoveIngredient: string;
+  formAddIngredient: string;
+  formLinkIngredientToInventory: string;
+  formUnlinkIngredient: string;
+  formIngredientItemLabel: string;
+  formIngredientQuantityLabel: string;
+  formIngredientUnitLabel: string;
+  formIngredientItemUnavailable: string;
+  // WP5: allergen + estimated cost display
+  allergensNotConfigured: string;
+  allergensNoneKnown: string;
+  costSummaryHeading: string;
+  costKnownSubtotalLabel: string;
+  costIncompleteMessage: string;
 }
 
 const dictionary: Record<Lang, RecipesDict> = {
@@ -136,6 +152,20 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpTitle: 'About recipes',
     popupHelpBody:
       'Recipes and work instructions help staff follow the same procedure. Drafts are visible only to managers; publish an item when staff should be able to open it. Archive items you may need later, and use permanent deletion only when the content is no longer required.',
+    formIngredientLabelPlaceholder: 'Ingredient name',
+    formRemoveIngredient: 'Remove ingredient',
+    formAddIngredient: '+ Add ingredient',
+    formLinkIngredientToInventory: 'Link to inventory item',
+    formUnlinkIngredient: 'Unlink from inventory item',
+    formIngredientItemLabel: 'Inventory item',
+    formIngredientQuantityLabel: 'Quantity used',
+    formIngredientUnitLabel: 'Unit',
+    formIngredientItemUnavailable: 'No inventory items available to link at this location.',
+    allergensNotConfigured: 'Allergens not set',
+    allergensNoneKnown: 'No known allergens',
+    costSummaryHeading: 'Estimated ingredient cost',
+    costKnownSubtotalLabel: 'Estimated total',
+    costIncompleteMessage: 'Estimated cost so far: {knownSubtotal} ({pricedCount} of {ingredientCount} ingredients priced). Price not set or unit conversion not supported for the rest.',
   },
   ja: {
     pageTitle: 'レシピ',
@@ -197,7 +227,38 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpTitle: 'レシピについて',
     popupHelpBody:
       'レシピと手順書は、スタッフが同じ手順で作業するための共有資料です。下書きはマネージャーだけに表示され、公開するとスタッフも確認できます。後で使う可能性がある場合はアーカイブし、完全削除は不要になった内容にのみ使用してください。',
+    formIngredientLabelPlaceholder: '材料名',
+    formRemoveIngredient: '材料を削除',
+    formAddIngredient: '+ 材料を追加',
+    formLinkIngredientToInventory: '在庫品目と紐付ける',
+    formUnlinkIngredient: '在庫品目との紐付けを解除',
+    formIngredientItemLabel: '在庫品目',
+    formIngredientQuantityLabel: '使用量',
+    formIngredientUnitLabel: '単位',
+    formIngredientItemUnavailable: 'この拠点で紐付け可能な在庫品目がありません。',
+    allergensNotConfigured: 'アレルゲン未設定',
+    allergensNoneKnown: 'アレルゲンなし（確認済み）',
+    costSummaryHeading: '材料費目安',
+    costKnownSubtotalLabel: '概算合計',
+    costIncompleteMessage: '現時点の概算費用: {knownSubtotal}（{ingredientCount}個中{pricedCount}個が計算済み）。残りは価格未設定または単位換算不可です。',
   },
 };
 
 export const tRecipes = makeTranslator(dictionary);
+
+/** Fixed 10-code allergen vocabulary (migration 0121) -- JA/EN display names. */
+const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
+  en: {
+    egg: 'Egg', milk: 'Milk', wheat: 'Wheat', buckwheat: 'Buckwheat', peanut: 'Peanut',
+    shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut', soy: 'Soy', sesame: 'Sesame',
+  },
+  ja: {
+    egg: '卵', milk: '乳', wheat: '小麦', buckwheat: 'そば', peanut: '落花生',
+    shrimp: 'えび', crab: 'かに', walnut: 'くるみ', soy: '大豆', sesame: 'ごま',
+  },
+};
+
+/** Localized display name for one allergen code; falls back to the raw code for an unrecognized value (should not happen -- the DB CHECK constraint already limits this to the fixed vocabulary). */
+export function allergenLabel(lang: Lang, code: string): string {
+  return ALLERGEN_LABELS[lang][code] ?? code;
+}
