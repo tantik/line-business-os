@@ -1,11 +1,23 @@
 'use server';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from './items-input';
 import { parseUuid } from './validation';
-import { listInventoryItemStatus, permanentlyDeleteInventoryItem, setInventoryItemActive, upsertInventoryItem, type InventoryItem } from './items';
+import {
+  getInventoryItemReferenceData,
+  listInventoryItemStatus,
+  permanentlyDeleteInventoryItem,
+  setInventoryItemActive,
+  setInventoryItemAllergens,
+  setInventoryItemReferencePrice,
+  upsertInventoryItem,
+  type InventoryItem,
+  type InventoryItemReferenceData,
+} from './items';
 import type { InventoryWriteResult } from './result-types';
+import type { TenantAccessResult } from '@/lib/tenant/types';
 import { optimizeImageForWeb } from '@/lib/media/optimize-image';
 
 /**
@@ -22,6 +34,54 @@ const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid inp
 /** Matches the recipe photo action's own limit (`MAX_RECIPE_PHOTO_BYTES` in `recipe-actions.ts`) -- client-side check in `item-form.tsx` is a fast-fail UX nicety, the server re-checks regardless. */
 const MAX_ITEM_PHOTO_BYTES = 2 * 1024 * 1024;
 const ITEM_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/**
+ * WP5 (Recipe Intelligence Lite): applies the optional reference-price /
+ * allergens fields the item form may include, AFTER the main catalog row is
+ * already saved (both are separate RPCs -- `api.inventory_items` never grew
+ * these two columns, see 0121's header). `referenceUnitPrice` is only
+ * touched when the form actually submitted that field (fast-fail invalid
+ * input closes as `INVALID_INPUT_RESULT` before calling anything).
+ * `allergensConfirmed !== 'true'` means the Manager has not touched allergen
+ * configuration in this save -- `null` (not configured/unknown) is left
+ * alone rather than forced, since this form has no explicit "clear" action
+ * for allergens yet. Returns `null` when nothing needed to change.
+ */
+type InventoryWriteError = Exclude<InventoryWriteResult<unknown>, { status: 'success' }>;
+
+async function applyRecipeIntelligenceFields(
+  supabase: SupabaseClient,
+  tenantId: string,
+  itemId: string,
+  formData: FormData,
+): Promise<InventoryWriteError | null> {
+  if (formData.has('referenceUnitPrice')) {
+    const raw = formData.get('referenceUnitPrice');
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
+    const parsed = trimmed === '' ? null : Number(trimmed);
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) return INVALID_INPUT_RESULT;
+    const priceResult = await setInventoryItemReferencePrice(supabase, tenantId, itemId, parsed);
+    if (priceResult.status !== 'success') return priceResult;
+  }
+
+  if (formData.get('allergensConfirmed') === 'true') {
+    const raw = formData.get('allergenCodesJson');
+    let codes: string[] = [];
+    if (typeof raw === 'string' && raw) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.every((code) => typeof code === 'string')) codes = parsed;
+        else return INVALID_INPUT_RESULT;
+      } catch {
+        return INVALID_INPUT_RESULT;
+      }
+    }
+    const allergenResult = await setInventoryItemAllergens(supabase, tenantId, itemId, codes);
+    if (allergenResult.status !== 'success') return allergenResult;
+  }
+
+  return null;
+}
 
 export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {
   const input = parseUpsertInventoryItemInput(formData);
@@ -98,12 +158,30 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
     if (previousMediaPath && previousMediaPath !== nextMediaPath) {
       await supabase.storage.from('inventory-media').remove([previousMediaPath]);
     }
-    return mediaSaved;
+    const wp5Error = await applyRecipeIntelligenceFields(supabase, tenantId, mediaSaved.data.itemId, formData);
+    return wp5Error ?? mediaSaved;
   }
   if (previousMediaPath && previousMediaPath !== nextMediaPath) {
     await supabase.storage.from('inventory-media').remove([previousMediaPath]);
   }
-  return saved;
+  const wp5Error = await applyRecipeIntelligenceFields(supabase, tenantId, saved.data.itemId, formData);
+  return wp5Error ?? saved;
+}
+
+/**
+ * WP5: client-callable read-back of an item's reference price/allergens for
+ * the edit form -- see `getInventoryItemReferenceData`'s own header for why
+ * this exists as a separate call.
+ */
+export async function getInventoryItemReferenceDataAction(itemId: string): Promise<TenantAccessResult<InventoryItemReferenceData>> {
+  const parsedItemId = parseUuid(itemId);
+  if (!parsedItemId) return { status: 'unexpected_error', message: 'Invalid input.' };
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return getInventoryItemReferenceData(supabase, tenantContext.data.activeTenant.tenantId, parsedItemId);
 }
 
 export async function setInventoryItemActiveAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {

@@ -1,16 +1,17 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { InventoryItem } from '@/lib/inventory/items';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { INVENTORY_UNITS } from '@/lib/inventory/validation';
-import { upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
+import { getInventoryItemReferenceDataAction, upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { Checkbox, NumberInput } from '@line-os/ui';
 import { describeInventoryWriteError } from './error-copy';
-import { tInventoryDashboard } from './inventory-i18n';
+import { tInventoryDashboard, ALLERGEN_CODES, allergenLabel } from './inventory-i18n';
 
 export interface ItemFormProps {
   locationId: string;
@@ -39,12 +40,43 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
 
+  // WP5 (Recipe Intelligence Lite): reference price + allergens. Neither
+  // column is exposed by the item list this form's `item` prop comes from
+  // (deliberately -- see 0121's header), so an existing item's current
+  // values are fetched separately, once, on mount.
+  const [referenceUnitPrice, setReferenceUnitPrice] = useState<number | ''>('');
+  const [allergensConfirmed, setAllergensConfirmed] = useState(false);
+  const [allergenCodes, setAllergenCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!item) return;
+    let cancelled = false;
+    getInventoryItemReferenceDataAction(item.itemId).then((result) => {
+      if (cancelled || result.status !== 'success') return;
+      setReferenceUnitPrice(result.data.referenceUnitPrice ?? '');
+      if (result.data.allergenCodes !== null) {
+        setAllergensConfirmed(true);
+        setAllergenCodes(result.data.allergenCodes);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  function toggleAllergenCode(code: string) {
+    setAllergenCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     const formData = new FormData(event.currentTarget);
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', item?.locationId ?? locationId);
+    formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
+    formData.set('allergensConfirmed', allergensConfirmed ? 'true' : 'false');
+    formData.set('allergenCodesJson', JSON.stringify(allergenCodes));
 
     startTransition(async () => {
       const result = await upsertInventoryItemAction(formData);
@@ -174,6 +206,40 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
         <span style={{ ...mutedText, fontSize: 13 }}>{t('sortOrderLabel')}</span>
         <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} />
       </label>
+
+      <div style={{ padding: 12, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 10 }}>
+        <div>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('referencePriceLabel')}</span>
+          <NumberInput
+            value={referenceUnitPrice}
+            min={0}
+            step="0.01"
+            unit={`¥ / ${item?.unit ?? ''}`}
+            onValueChange={setReferenceUnitPrice}
+          />
+          <span style={{ ...mutedText, fontSize: 11 }}>{t('referencePriceHint')}</span>
+        </div>
+        <div>
+          <Checkbox
+            checked={allergensConfirmed}
+            onCheckedChange={setAllergensConfirmed}
+            label={t('allergensConfirmedCheckboxLabel')}
+          />
+          {allergensConfirmed ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              {ALLERGEN_CODES.map((code) => (
+                <Checkbox
+                  key={code}
+                  checked={allergenCodes.includes(code)}
+                  onCheckedChange={() => toggleAllergenCode(code)}
+                  label={allergenLabel(lang, code)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       <div style={{ display: 'flex', gap: 8 }}>
         <LoadingButton
           type="submit"

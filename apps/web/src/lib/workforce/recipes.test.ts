@@ -121,7 +121,8 @@ const baseRecipe: WorkforceRecipe = {
 
 const RECIPE_SELECT =
   'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path, original_language';
-const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
+const INGREDIENT_SELECT =
+  'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order, inventory_item_id, quantity, unit, item_name, item_unit, allergen_codes';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
 

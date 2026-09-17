@@ -9,7 +9,10 @@ function validForm() {
   form.set('title', ' 抹茶ラテ ');
   form.set('description', ' 店の定番 ');
   form.set('status', 'draft');
-  form.set('ingredients', '抹茶\n牛乳\n');
+  form.set('ingredientsJson', JSON.stringify([
+    { label: '抹茶', inventoryItemId: null, quantity: null, unit: null },
+    { label: '牛乳', inventoryItemId: null, quantity: null, unit: null },
+  ]));
   form.set('steps', '混ぜる\n注ぐ');
   form.set('noteTitle', '提供時');
   form.set('noteBody', 'よく混ぜる');
@@ -19,7 +22,12 @@ function validForm() {
 test('parseUpsertRecipeInput normalizes a complete recipe form', () => {
   assert.deepEqual(parseUpsertRecipeInput(validForm()), {
     recipeId: null, contentKind: 'recipe', title: '抹茶ラテ', description: '店の定番',
-    status: 'draft', ingredients: ['抹茶', '牛乳'], steps: ['混ぜる', '注ぐ'],
+    status: 'draft',
+    ingredients: [
+      { label: '抹茶', inventory_item_id: null, quantity: null, unit: null },
+      { label: '牛乳', inventory_item_id: null, quantity: null, unit: null },
+    ],
+    steps: ['混ぜる', '注ぐ'],
     noteTitle: '提供時', noteBody: 'よく混ぜる', mediaPath: null,
     originalLanguage: 'ja', confirmLanguageChange: false,
   });
@@ -55,8 +63,44 @@ test('parseUpsertRecipeInput rejects invalid lifecycle and overlong lines', () =
   // draft/published/archived is rejected.
   const invalidStatus = validForm(); invalidStatus.set('status', 'unknown-status');
   assert.equal(parseUpsertRecipeInput(invalidStatus), null);
-  const longIngredient = validForm(); longIngredient.set('ingredients', 'x'.repeat(501));
+  const longIngredient = validForm();
+  longIngredient.set('ingredientsJson', JSON.stringify([{ label: 'x'.repeat(501), inventoryItemId: null, quantity: null, unit: null }]));
   assert.equal(parseUpsertRecipeInput(longIngredient), null);
+});
+
+test('parseUpsertRecipeInput accepts a mapped ingredient (label + inventory item + quantity + unit)', () => {
+  const form = validForm();
+  form.set('ingredientsJson', JSON.stringify([
+    { label: 'コーヒー豆', inventoryItemId: '11111111-1111-1111-1111-111111111111', quantity: 18, unit: 'g' },
+  ]));
+  const result = parseUpsertRecipeInput(form);
+  assert.deepEqual(result?.ingredients, [
+    { label: 'コーヒー豆', inventory_item_id: '11111111-1111-1111-1111-111111111111', quantity: 18, unit: 'g' },
+  ]);
+});
+
+test('parseUpsertRecipeInput rejects a partial mapping (item without quantity/unit)', () => {
+  const form = validForm();
+  form.set('ingredientsJson', JSON.stringify([
+    { label: 'コーヒー豆', inventoryItemId: '11111111-1111-1111-1111-111111111111', quantity: null, unit: null },
+  ]));
+  assert.equal(parseUpsertRecipeInput(form), null);
+});
+
+test('parseUpsertRecipeInput rejects a non-positive mapped quantity', () => {
+  const form = validForm();
+  form.set('ingredientsJson', JSON.stringify([
+    { label: 'コーヒー豆', inventoryItemId: '11111111-1111-1111-1111-111111111111', quantity: 0, unit: 'g' },
+  ]));
+  assert.equal(parseUpsertRecipeInput(form), null);
+});
+
+test('parseUpsertRecipeInput rejects an invalid unit on a mapped ingredient', () => {
+  const form = validForm();
+  form.set('ingredientsJson', JSON.stringify([
+    { label: 'コーヒー豆', inventoryItemId: '11111111-1111-1111-1111-111111111111', quantity: 1, unit: 'oz' },
+  ]));
+  assert.equal(parseUpsertRecipeInput(form), null);
 });
 
 test('parseUpsertRecipeInput accepts a note title with no note body -- both are independently optional (Founder QA, 2026-08-23: the form labels noteTitle "(optional)" but this used to silently reject the whole save with a generic "Invalid input" whenever noteTitle was set without noteBody)', () => {

@@ -4,9 +4,12 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
+import type { RecipeCostSummary } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
-import { getRecipeDetailForPopup, deleteRecipe } from '@/lib/workforce/recipe-actions';
+import { getRecipeDetailForPopup, deleteRecipe, getRecipeCostSummaryAction } from '@/lib/workforce/recipe-actions';
+import { InlineAlert, Tag } from '@line-os/ui';
+import { allergenLabel } from '../recipes-i18n';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -111,6 +114,26 @@ export function RecipeDetailBody({
   const [notes, setNotes] = useState(initialNotes);
   const [translationFields, setTranslationFields] = useState(initialTranslationFields);
   const [mediaUrl, setMediaUrl] = useState(initialMediaUrl);
+  const [costSummary, setCostSummary] = useState<RecipeCostSummary | null>(null);
+
+  // Manager-only estimated ingredient cost (WP5): `canManage` is a pure UX
+  // affordance (RLS/the RPC's own explicit permission check are the real
+  // boundary regardless), same gate this view already uses for Edit/Delete.
+  // Skipped for `instruction` content (no ingredients at all) and while
+  // editing (would go stale against in-progress, unsaved changes).
+  useEffect(() => {
+    if (!canManage || editing || recipe.contentKind !== 'recipe') {
+      setCostSummary(null);
+      return;
+    }
+    let cancelled = false;
+    getRecipeCostSummaryAction(recipe.recipeId).then((result) => {
+      if (!cancelled && result.status === 'success') setCostSummary(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManage, editing, recipe.contentKind, recipe.recipeId, ingredients]);
 
   useEffect(() => {
     setRecipe(initialRecipe);
@@ -317,7 +340,7 @@ export function RecipeDetailBody({
               ) : (
                 <ul style={{ margin: '12px 0 0', paddingLeft: 20 }}>
                   {ingredients.map((ingredient) => (
-                    <li key={ingredient.ingredientId}>
+                    <li key={ingredient.ingredientId} style={{ marginBottom: 4 }}>
                       {displayText(
                         'workforce_recipe_ingredient',
                         ingredient.ingredientId,
@@ -325,9 +348,46 @@ export function RecipeDetailBody({
                         ingredient.labelJa,
                         ingredient.labelEn,
                       )}
+                      {ingredient.inventoryItemId && ingredient.quantity != null && ingredient.unit ? (
+                        <span style={{ ...mutedText, fontSize: 12, marginLeft: 6 }}>
+                          ({ingredient.quantity}
+                          {ingredient.unit})
+                        </span>
+                      ) : null}
+                      {ingredient.inventoryItemId ? (
+                        <span style={{ display: 'inline-flex', gap: 4, marginLeft: 8, verticalAlign: 'middle' }}>
+                          {ingredient.allergenCodes === null || ingredient.allergenCodes === undefined ? (
+                            <Tag>{t('allergensNotConfigured')}</Tag>
+                          ) : ingredient.allergenCodes.length === 0 ? (
+                            <Tag>{t('allergensNoneKnown')}</Tag>
+                          ) : (
+                            ingredient.allergenCodes.map((code) => <Tag key={code}>{allergenLabel(lang, code)}</Tag>)
+                          )}
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
+              )}
+            </section>
+          ) : null}
+
+          {canManage && recipe.contentKind === 'recipe' && costSummary ? (
+            <section style={card}>
+              <h2 style={{ margin: 0, fontSize: 16 }}>{t('costSummaryHeading')}</h2>
+              {costSummary.ingredientCount === 0 ? (
+                <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noIngredients')}</p>
+              ) : costSummary.pricedCount === costSummary.ingredientCount ? (
+                <p style={{ margin: '12px 0 0' }}>
+                  {t('costKnownSubtotalLabel')}: ¥{costSummary.knownSubtotal.toLocaleString()}
+                </p>
+              ) : (
+                <InlineAlert tone="info" style={{ marginTop: 12 }}>
+                  {t('costIncompleteMessage')
+                    .replace('{knownSubtotal}', `¥${costSummary.knownSubtotal.toLocaleString()}`)
+                    .replace('{pricedCount}', String(costSummary.pricedCount))
+                    .replace('{ingredientCount}', String(costSummary.ingredientCount))}
+                </InlineAlert>
               )}
             </section>
           ) : null}

@@ -43,7 +43,7 @@ export interface WorkforceRecipe {
   originalLanguage: 'ja' | 'en';
 }
 
-/** Flat row shape returned by `api.workforce_recipe_ingredients`. */
+/** Flat row shape returned by `api.workforce_recipe_ingredients` (extended by migration 0121, Cafe v2.2 WP5). */
 interface ApiWorkforceRecipeIngredientRow {
   ingredient_id: string;
   tenant_id: string;
@@ -51,6 +51,12 @@ interface ApiWorkforceRecipeIngredientRow {
   label_ja: string | null;
   label_en: string | null;
   sort_order: number;
+  inventory_item_id: string | null;
+  quantity: string | number | null;
+  unit: string | null;
+  item_name: string | null;
+  item_unit: string | null;
+  allergen_codes: string[] | null;
 }
 
 export interface WorkforceRecipeIngredient {
@@ -60,6 +66,21 @@ export interface WorkforceRecipeIngredient {
   labelJa: string | null;
   labelEn: string | null;
   sortOrder: number;
+  /**
+   * Optional Inventory mapping (WP5) -- null/undefined means this is a bare
+   * label with no mapping. Optional (rather than required) so pre-existing
+   * fixtures/tests built before WP5 keep compiling unchanged; every row
+   * actually read from `api.workforce_recipe_ingredients` always populates
+   * all six of these fields explicitly (see `getWorkforceRecipeDetail`).
+   */
+  inventoryItemId?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  /** Display-only fields joined from the mapped inventory.items row, null when unmapped. */
+  itemName?: string | null;
+  itemUnit?: string | null;
+  /** null = not configured/unknown (never show as "no allergens"); [] = Manager explicitly confirmed none known. Always null when unmapped. */
+  allergenCodes?: string[] | null;
 }
 
 /** Flat row shape returned by `api.workforce_recipe_steps`. */
@@ -116,7 +137,8 @@ export interface WorkforceRecipeGroup {
 
 const RECIPE_SELECT =
   'recipe_id, tenant_id, location_id, recipe_category_id, title_ja, title_en, description_ja, description_en, content_kind, is_popular, status, created_at, updated_at, media_path, original_language';
-const INGREDIENT_SELECT = 'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order';
+const INGREDIENT_SELECT =
+  'ingredient_id, tenant_id, recipe_id, label_ja, label_en, sort_order, inventory_item_id, quantity, unit, item_name, item_unit, allergen_codes';
 const STEP_SELECT = 'step_id, tenant_id, recipe_id, step_number, instruction_ja, instruction_en';
 const NOTE_SELECT = 'note_id, tenant_id, recipe_id, title_ja, title_en, body_ja, body_en';
 
@@ -426,6 +448,12 @@ export async function getWorkforceRecipeDetail(
         labelJa: row.label_ja,
         labelEn: row.label_en,
         sortOrder: row.sort_order,
+        inventoryItemId: row.inventory_item_id,
+        quantity: row.quantity === null ? null : Number(row.quantity),
+        unit: row.unit,
+        itemName: row.item_name,
+        itemUnit: row.item_unit,
+        allergenCodes: row.allergen_codes,
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder || a.ingredientId.localeCompare(b.ingredientId));
 
@@ -520,4 +548,107 @@ export function groupRecipesByCategory(
       return instructionPriority || a.index - b.index;
     })
     .map(({ group }) => group);
+}
+
+/** Flat row shape returned by `api.inventory_items` (WP5 mapping candidates -- no price column exposed). */
+interface ApiInventoryItemForMappingRow {
+  item_id: string;
+  location_id: string;
+  name: string;
+  unit: string;
+  is_active: boolean;
+}
+
+export interface RecipeIngredientMappingCandidate {
+  itemId: string;
+  locationId: string;
+  name: string;
+  unit: string;
+}
+
+/**
+ * Active Inventory items across every location in the tenant, for the
+ * recipe-ingredient mapping picker (WP5). Deliberately reads
+ * `api.inventory_items` (no reference_unit_price column exists on that view
+ * at all -- see 0121's header) rather than `api.inventory_item_status`, since
+ * this picker needs no stock-count state. RLS (`inventory.item.read`/
+ * `.manage`, location-matched) is the real visibility boundary: a caller only
+ * sees items at locations they hold the permission for.
+ */
+export async function listInventoryItemsForRecipeMapping(
+  supabase: SupabaseClient,
+  tenantId: string,
+): Promise<TenantAccessResult<RecipeIngredientMappingCandidate[]>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('inventory_items')
+      .select('item_id, location_id, name, unit, is_active')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+    if (error) return mapPostgrestError(error);
+    const rows = (data ?? []) as ApiInventoryItemForMappingRow[];
+    const items = rows
+      .map((row) => ({ itemId: row.item_id, locationId: row.location_id, name: row.name, unit: row.unit }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.itemId.localeCompare(b.itemId));
+    return { status: 'success', data: items };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading inventory items for recipe mapping.',
+    };
+  }
+}
+
+export interface RecipeCostSummary {
+  knownSubtotal: number;
+  ingredientCount: number;
+  mappedCount: number;
+  pricedCount: number;
+}
+
+/** Flat row shape returned by `api.recipe_cost_summary`. */
+interface ApiRecipeCostSummaryRow {
+  known_subtotal: string | number;
+  ingredient_count: number;
+  mapped_count: number;
+  priced_count: number;
+}
+
+/**
+ * Manager-only estimated ingredient cost summary (WP5). `api.recipe_cost_summary`
+ * itself enforces `workforce.recipe.manage` on the recipe (via
+ * `workforce.can_manage_recipe`) and raises `permission_denied` (42501) for a
+ * Staff-only caller -- this function surfaces that as `unauthorized`, never
+ * throws. `knownSubtotal` only ever sums fully-priced ingredients: callers
+ * MUST check `pricedCount`/`mappedCount`/`ingredientCount` before rendering a
+ * bare total (missing != zero, no false-precision total).
+ */
+export async function getRecipeCostSummary(
+  supabase: SupabaseClient,
+  tenantId: string,
+  recipeId: string,
+): Promise<TenantAccessResult<RecipeCostSummary>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .rpc('recipe_cost_summary', { p_tenant_id: tenantId, p_recipe_id: recipeId });
+    if (error) return mapPostgrestError(error);
+    const row = (Array.isArray(data) ? data[0] : data) as ApiRecipeCostSummaryRow | undefined;
+    if (!row) return { status: 'success', data: { knownSubtotal: 0, ingredientCount: 0, mappedCount: 0, pricedCount: 0 } };
+    return {
+      status: 'success',
+      data: {
+        knownSubtotal: Number(row.known_subtotal),
+        ingredientCount: row.ingredient_count,
+        mappedCount: row.mapped_count,
+        pricedCount: row.priced_count,
+      },
+    };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading recipe cost summary.',
+    };
+  }
 }
