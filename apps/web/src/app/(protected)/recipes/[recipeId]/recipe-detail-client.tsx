@@ -29,6 +29,18 @@ import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
 import { tRecipes } from '../recipes-i18n';
 
+/**
+ * Deterministic display rounding for an estimated ingredient cost (WP5):
+ * round to the nearest whole yen and format with a fixed locale so the
+ * decimal/thousands separators never depend on the viewer's browser locale
+ * (observed rendering as "81,6" instead of "82" under a non-Japanese
+ * Accept-Language). The underlying calculation itself is untouched --
+ * only this display step rounds.
+ */
+function formatYen(amount: number): string {
+  return `¥${Math.round(amount).toLocaleString('ja-JP')}`;
+}
+
 export interface RecipeDetailClientProps {
   recipe: WorkforceRecipeDetail['recipe'];
   ingredients: WorkforceRecipeDetail['ingredients'];
@@ -379,12 +391,12 @@ export function RecipeDetailBody({
                 <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noIngredients')}</p>
               ) : costSummary.pricedCount === costSummary.ingredientCount ? (
                 <p style={{ margin: '12px 0 0' }}>
-                  {t('costKnownSubtotalLabel')}: ¥{costSummary.knownSubtotal.toLocaleString()}
+                  {t('costKnownSubtotalLabel')}: {formatYen(costSummary.knownSubtotal)}
                 </p>
               ) : (
                 <InlineAlert tone="info" style={{ marginTop: 12 }}>
                   {t('costIncompleteMessage')
-                    .replace('{knownSubtotal}', `¥${costSummary.knownSubtotal.toLocaleString()}`)
+                    .replace('{knownSubtotal}', formatYen(costSummary.knownSubtotal))
                     .replace('{pricedCount}', String(costSummary.pricedCount))
                     .replace('{ingredientCount}', String(costSummary.ingredientCount))}
                 </InlineAlert>
