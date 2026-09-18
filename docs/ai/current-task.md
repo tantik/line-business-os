@@ -277,11 +277,68 @@ duplicated here.
 
 ## 5. Exact next gate
 
+**2026-09-18 pointer, MISSION 8 "BOUNDED QUALITY SWEEP" — CLOSED (newest;
+read this one first).** Full detail: `docs/ai/SESSION_HANDOFF_2026-09-18.md`.
+Verdict: **CLOSED. Cafe v2.2 itself is explicitly NOT declared CLOSED — do
+not start Demo Readiness / Full Integrated Acceptance / any new WP without a
+fresh Founder prompt.**
+
+- Ran the full Phase A read-only audit (16 findings, F1-F16, zero P0/P1)
+  over Manager+Staff Recipes/Inventory/Purchasing/Workforce/Staff surfaces,
+  then a bounded repair pass. PR #529 merged to `dev` (squash `95bff6d`),
+  non-RED (no `supabase/migrations/**` touched), autonomous merge via
+  `scripts/ai-dev-merge.sh`.
+- **Recipes performance (Founder's specific complaint), live-measured, not
+  inferred**: opening a recipe fired 3 duplicate `getRecipeDetailForPopup`
+  requests (hover/focus/pointerdown all independently triggering the
+  prefetch with no in-flight guard; 2 of 3 came back `net::ERR_ABORTED`).
+  Fixed with a shared in-flight `Promise` per `recipeId`
+  (`recipes-popup.tsx`). **BEFORE**: 5 requests, ~3.5s to full content.
+  **AFTER**: 2 requests, 0 aborted, ~1.5s — re-measured live on the PR's
+  own preview after the fix.
+- Bounded fixes: raw `employment_type` shown unlabeled (F2); raw employee/
+  shift-type UUID fallback across 8 call sites (F3/F9/F10); inconsistent
+  recipe-title-missing fallback across 4 code paths (F8/F16); Manager
+  Weekly Schedule grid + Shift Requests popup hardcoding English weekday
+  headers under the JA UI, live-confirmed (F11); a live-reproduced
+  focus-restore gap where saving a Recipe edit stranded keyboard focus on
+  `document.body` while the dialog stayed open (F5) — fixed in the shared
+  `components/shared/design-kit/Modal.tsx`.
+- **Independent review (`/code-review --high`) caught 2 real regressions**
+  in the first-draft fixes before merge, both repaired and re-verified
+  live: the F5 fix was initially too broad and intercepted focus from
+  legitimate `createPortal`-based content (Lightbox/ActionsMenu) — narrowed
+  to trigger only on exact `document.body`; the two new `formatWeekday`
+  wrappers built a UTC-anchored Date but the shared `weekdayLabel` helper
+  resolves via local `.getDay()`, silently mislabeling the weekday for any
+  browser session west of UTC — fixed to match `ShiftTable`'s existing
+  local-midnight convention.
+- typecheck/lint clean; full `apps/web` test suite 1334/1334, 0 new
+  regressions, at every commit. Post-merge smoke on the **canonical**
+  `preview.oruwa.jp` (not just the PR's ephemeral preview) confirmed clean.
+- **Explicitly NOT performed this session** (real gaps, not silently
+  assumed clean): tablet (768×1024) and 320×667 viewports, an EN-language
+  pass, a genuine Staff-role Browser QA session (only a Manager-identity
+  "no Staff profile" empty state was checked at 375×667), keyboard
+  Tab-cycle audit beyond the specific F5 repro, and instrumented
+  performance measurement of Operations/Issues/Weekly
+  Review/Inventory/Purchasing/Schedule (only Recipes was measured, per the
+  Founder's specific complaint).
+- Deferred, not fixed (real but out of bounded-fix scope): F7 (Purchasing +
+  ~58 other files still on legacy `theme.ts`, not Design System v1 — a
+  separate rollout mission); F12 (Inventory/Recipe unit `pcs` has no
+  Japanese label); F13 (Purchasing footer omits Ordered/Received counts,
+  still visible via filter tabs). F14/F15 reviewed and found NOT defects.
+- **Recommended next**: Demo Readiness / Full Integrated Cafe v2.2
+  Acceptance (master-roadmap Phase 4) — not authorized to start by this
+  closure alone; needs a fresh Founder prompt, and should explicitly close
+  the QA gaps listed above rather than assume they're covered.
+
+---
+
 **2026-09-17 pointer, CAFE v2.2 WP5 "RECIPE INTELLIGENCE LITE" — CLOSED
-(newest; read this one first).** Fifth and explicitly **last planned
-functional Work Package** of Cafe v2.2. Verdict: **CLOSED. Do not start
-WP6, another Cafe feature, or the Quality Sweep without a fresh Founder
-prompt — see Recommended next below.**
+(older — read after the pointer above).** Fifth and explicitly **last
+planned functional Work Package** of Cafe v2.2. Verdict: **CLOSED.**
 
 - **Product model**: an optional Recipe ingredient → Inventory item mapping
   (quantity + a controlled unit: `kg`/`g`/`L`/`mL`/`pcs`, same vocabulary
