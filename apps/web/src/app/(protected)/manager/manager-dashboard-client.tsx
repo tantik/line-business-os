@@ -920,7 +920,7 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: nextActive ? t('staffActivated') : t('staffDeactivated') });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -949,7 +949,7 @@ function ManagerDashboardBody({
       } else if (result.status === 'invalid_config') {
         setBanner({ tone: 'error', message: autoCreateConfigErrorMessage[lang](result.reason) });
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -965,7 +965,7 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: t('autoCreateUndone') });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setAutoCreateUndoing(false);
     });
@@ -983,7 +983,7 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: decision === 'approved' ? t('correctionApproved') : t('correctionRejected') });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -1001,7 +1001,7 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: decision === 'approved' ? t('exchangeApproved') : t('exchangeRejected') });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -1019,7 +1019,7 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: t('replacementAssigned') });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -1062,7 +1062,7 @@ function ManagerDashboardBody({
       formData.set('body', body);
       const result = await submitManagerMessage(formData);
       if (result.status !== 'success') {
-        setBanner({ tone: 'error', message: describeWriteError(result) });
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       router.refresh();
       setPendingAction(null);

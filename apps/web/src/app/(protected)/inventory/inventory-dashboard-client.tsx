@@ -167,7 +167,7 @@ function ItemThumbnail({ mediaUrl, name, size }: { mediaUrl: string | null; name
   );
 }
 
-function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>) {
+function useRowActions({ item, onChanged, lang }: Pick<RowProps, 'item' | 'onChanged' | 'lang'>) {
   const [isPending, setIsPending] = useState(false);
   const [confirmToggleActive, setConfirmToggleActive] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -195,7 +195,7 @@ function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>
       if (result.status === 'success') {
         onChanged();
       } else {
-        setRowError(describeInventoryWriteError(result));
+        setRowError(describeInventoryWriteError(result, lang));
       }
     });
   }
@@ -214,7 +214,7 @@ function useRowActions({ item, onChanged }: Pick<RowProps, 'item' | 'onChanged'>
 
 function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged, isBought }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
-    useRowActions({ item, onChanged });
+    useRowActions({ item, onChanged, lang });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
   const belowReorder = item.isActive && item.status === 'shortage';
 
@@ -371,7 +371,7 @@ function RowConfirmDialogs({
 
 function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, staffNameById, onEdit, lang, t, onChanged, isBought }: RowProps) {
   const { isPending, confirmToggleActive, setConfirmToggleActive, confirmDeleteOpen, setConfirmDeleteOpen, rowError, setActive, handleDelete } =
-    useRowActions({ item, onChanged });
+    useRowActions({ item, onChanged, lang });
   const lastUpdated = formatLastUpdated(item, lang, locationTimezone);
   const belowReorder = item.isActive && item.status === 'shortage';
 

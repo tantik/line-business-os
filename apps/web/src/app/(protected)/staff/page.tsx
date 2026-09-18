@@ -141,13 +141,17 @@ export default async function WorkforceStaffPage({
           <main style={pageStyle(720)}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
               <div>
-                <h1 style={{ margin: 0 }}>Workforce staff</h1>
+                <h1 style={{ margin: 0 }}>スタッフ</h1>
                 <BackLink />
               </div>
               <SignOutButton />
             </header>
             <section style={card}>
+              {/* Rendered before StaffDashboardClient/LangProvider mounts (no lang context yet); LangProvider's own default is 'ja' (lib/demo/cafe/i18n.tsx), so this shows JA first with EN underneath rather than defaulting to English-only. */}
               <p style={{ margin: 0, ...mutedText }}>
+                このテナントのスタッフプロフィールがまだ登録されていません。マネージャーに追加を依頼してください。
+              </p>
+              <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 13 }}>
                 You do not have a staff profile for this tenant yet. Ask your manager to add you.
               </p>
             </section>
@@ -171,21 +175,27 @@ export default async function WorkforceStaffPage({
       const location = tenantLocations.find((l) => l.locationId === profile.locationId && l.isActive);
 
       if (!location) {
+        const jaMessage =
+          tenantLocations.length === 0
+            ? 'このワークスペースにはまだ店舗が設定されていません。'
+            : '割り当てられた店舗を利用できません。マネージャーにご確認ください。';
+        const enMessage =
+          tenantLocations.length === 0
+            ? 'No location is configured for this workspace yet.'
+            : 'Your assigned location is not available. Ask your manager for help.';
         return (
           <main style={pageStyle(720)}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
               <div>
-                <h1 style={{ margin: 0 }}>Workforce staff</h1>
+                <h1 style={{ margin: 0 }}>スタッフ</h1>
                 <BackLink />
               </div>
               <SignOutButton />
             </header>
             <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>
-                {tenantLocations.length === 0
-                  ? 'No location is configured for this workspace yet.'
-                  : 'Your assigned location is not available. Ask your manager for help.'}
-              </p>
+              {/* See the no-profile branch above for why this is bilingual JA-first, not a lang-context lookup. */}
+              <p style={{ margin: 0, ...mutedText }}>{jaMessage}</p>
+              <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 13 }}>{enMessage}</p>
             </section>
           </main>
         );

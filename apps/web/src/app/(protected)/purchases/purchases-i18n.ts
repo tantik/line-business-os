@@ -36,6 +36,10 @@ interface PurchasesDashboardDict {
   notShortError: string;
   invalidQuantityError: string;
   staleSnapshotError: string;
+  notFoundError: string;
+  pleaseSignInAgainError: string;
+  notMemberOfWorkspaceError: string;
+  somethingWentWrongError: string;
   closeButton: string;
   orderQuantityLabel: string;
   orderButton: string;
@@ -86,6 +90,10 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     notShortError: 'This item no longer needs buying.',
     invalidQuantityError: 'Enter a quantity greater than 0.',
     staleSnapshotError: 'Stock levels changed since this was loaded. Please try again.',
+    notFoundError: 'Not found.',
+    pleaseSignInAgainError: 'Please sign in again.',
+    notMemberOfWorkspaceError: 'You are not a member of this workspace.',
+    somethingWentWrongError: 'Something went wrong. Please try again.',
     closeButton: 'Close',
     orderQuantityLabel: 'Quantity ordered',
     orderButton: 'Order',
@@ -134,6 +142,10 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     notShortError: 'この商品はもう購入する必要がありません。',
     invalidQuantityError: '数量は1以上を入力してください。',
     staleSnapshotError: '在庫状況が更新されました。もう一度お試しください。',
+    notFoundError: '見つかりません。',
+    pleaseSignInAgainError: '再度サインインしてください。',
+    notMemberOfWorkspaceError: 'このワークスペースのメンバーではありません。',
+    somethingWentWrongError: 'エラーが発生しました。もう一度お試しください。',
     closeButton: '閉じる',
     orderQuantityLabel: '発注数量',
     orderButton: '発注',

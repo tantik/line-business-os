@@ -155,7 +155,7 @@ export function ManageStaffPopup({
         onChange();
       } else {
         setConfirmDeleteOpen(false);
-        setDeleteError(result.status === 'blocked_by_history' ? t('staffBlockedByHistory') : localizedFormError(result, t));
+        setDeleteError(result.status === 'blocked_by_history' ? t('staffBlockedByHistory') : localizedFormError(result, t, lang));
       }
     });
   }

@@ -32,6 +32,11 @@ interface InventoryDashboardDict {
   currentLabel: string;
   lastUpdatedLabel: string;
   unknownStaffLabel: string;
+  notFoundError: string;
+  pleaseSignInAgainError: string;
+  notMemberOfWorkspaceError: string;
+  blockedByHistoryError: string;
+  somethingWentWrongError: string;
   editButton: string;
   deactivateButton: string;
   reactivateButton: string;
@@ -123,6 +128,11 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     currentLabel: 'Current:',
     lastUpdatedLabel: 'Last updated',
     unknownStaffLabel: 'Unknown staff',
+    notFoundError: 'Not found.',
+    pleaseSignInAgainError: 'Please sign in again.',
+    notMemberOfWorkspaceError: 'You are not a member of this workspace.',
+    blockedByHistoryError: 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.',
+    somethingWentWrongError: 'Something went wrong. Please try again.',
     editButton: 'Edit',
     deactivateButton: 'Deactivate',
     reactivateButton: 'Reactivate',
@@ -210,6 +220,11 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     currentLabel: '現在:',
     lastUpdatedLabel: '最終更新',
     unknownStaffLabel: '不明なスタッフ',
+    notFoundError: '見つかりません。',
+    pleaseSignInAgainError: '再度サインインしてください。',
+    notMemberOfWorkspaceError: 'このワークスペースのメンバーではありません。',
+    blockedByHistoryError: 'この商品には過去の在庫カウント履歴があるため、完全に削除できません。代わりに無効化を使用してください。',
+    somethingWentWrongError: 'エラーが発生しました。もう一度お試しください。',
     editButton: '編集',
     deactivateButton: '無効化',
     reactivateButton: '再有効化',

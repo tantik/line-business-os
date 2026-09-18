@@ -81,7 +81,7 @@ export function CountForm({ locationId, itemId, itemName, unit, initialValue, la
         savedResetTimerRef.current = setTimeout(() => setStatus('idle'), 2500);
       } else {
         setStatus('error');
-        setError(describeInventoryWriteError(result));
+        setError(describeInventoryWriteError(result, lang));
       }
       if (dirtyWhileSavingRef.current) runAutosave();
     });

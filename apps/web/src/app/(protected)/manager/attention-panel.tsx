@@ -143,7 +143,7 @@ export function AttentionPanel({
   const summary = computeManagerAttentionSummary(items);
 
   function staffName(employeeId: string) {
-    return staffNameById[employeeId] ?? employeeId;
+    return staffNameById[employeeId] ?? t('unknownStaffLabel');
   }
 
   function handleViewShiftAndClose(employeeId: string, workDate: string) {
