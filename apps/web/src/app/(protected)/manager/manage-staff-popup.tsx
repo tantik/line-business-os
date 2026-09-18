@@ -12,7 +12,7 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { deleteEmployee } from '@/lib/workforce/staff-actions';
-import { tManagerDashboard } from './manager-dashboard-i18n';
+import { tManagerDashboard, employmentTypeLabel } from './manager-dashboard-i18n';
 import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
 import { StaffForm, localizedFormError } from './staff-form';
 import { LineLinkForm } from './line-link-form';
@@ -378,7 +378,8 @@ export function ManageStaffPopup({
           ) : (
             <ul style={{ margin: '16px 0 0', padding: 0, listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
               {filteredStaff.map((s) => {
-                const meta = [s.positionLabel, s.employmentType].filter(Boolean).join(' · ');
+                const employmentTypeDisplay = s.employmentType ? (employmentTypeLabel[lang][s.employmentType] ?? s.employmentType) : null;
+                const meta = [s.positionLabel, employmentTypeDisplay].filter(Boolean).join(' · ');
                 const access = accessBadge(s.hasAccountAccess, latestInvitationByEmployeeId.get(s.staffId) ?? null, t);
                 return (
                   <li

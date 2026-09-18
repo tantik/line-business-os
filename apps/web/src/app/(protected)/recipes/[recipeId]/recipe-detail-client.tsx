@@ -229,7 +229,7 @@ export function RecipeDetailBody({
 
   const title =
     displayText('workforce_recipe', recipe.recipeId, 'title', recipe.titleJa, recipe.titleEn) ||
-    recipe.recipeId;
+    t('untitledRecipe');
   const description = displayText(
     'workforce_recipe',
     recipe.recipeId,

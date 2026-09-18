@@ -184,8 +184,8 @@ export function RecipesListBody({
 
   function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
     const field = liveTitleFieldByRecipeId[recipe.recipeId];
-    if (!field) return recipe.titleJa || recipe.titleEn || recipe.recipeId;
-    return resolveFieldDisplay(field, lang).text || recipe.recipeId;
+    if (!field) return recipe.titleJa || recipe.titleEn || t('untitledRecipe');
+    return resolveFieldDisplay(field, lang).text || t('untitledRecipe');
   }
 
   const allRecipes = useMemo(

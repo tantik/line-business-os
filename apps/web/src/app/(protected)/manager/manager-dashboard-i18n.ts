@@ -66,6 +66,9 @@ interface ManagerDashboardDict {
   addStaff: string;
   staffUnavailable: string;
   staffEmpty: string;
+  /** Mission 8 Quality Sweep fix (F9/F10): fallback label when a staff/shift-type id can't be resolved to a name, instead of showing the raw id -- same convention as Inventory/Purchases' existing `unknownStaffLabel`. */
+  unknownStaffLabel: string;
+  unknownShiftTypeLabel: string;
   searchStaffPlaceholder: string;
   filterAll: string;
   noStaffMatch: string;
@@ -421,6 +424,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     addStaff: '+ Add staff',
     staffUnavailable: 'Staff list is temporarily unavailable.',
     staffEmpty: 'No staff added yet.',
+    unknownStaffLabel: 'Unknown staff',
+    unknownShiftTypeLabel: 'Unknown shift type',
     searchStaffPlaceholder: 'Search by name, position, or employment type',
     filterAll: 'All',
     noStaffMatch: 'No staff match your search.',
@@ -731,6 +736,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     addStaff: '+ スタッフを追加',
     staffUnavailable: 'スタッフ一覧は一時的に利用できません。',
     staffEmpty: 'まだスタッフが追加されていません。',
+    unknownStaffLabel: '不明なスタッフ',
+    unknownShiftTypeLabel: '不明なシフト種別',
     searchStaffPlaceholder: '氏名・役職・雇用形態で検索',
     filterAll: 'すべて',
     noStaffMatch: '該当するスタッフが見つかりません。',
@@ -1080,6 +1087,26 @@ export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => 
 export const unavailableConflictBadgeLabel: Record<Lang, string> = {
   en: '⚠ Unavailable',
   ja: '⚠ 不可',
+};
+
+/**
+ * Mission 8 Quality Sweep fix (F2): `workforce.employees.employment_type` is
+ * free text (no DB enum), but every value ever written by the app itself is
+ * one of these two -- the raw-string input was removed from the Add/Edit
+ * Staff form (2026-08-24 Founder direction), so this only surfaces for
+ * legacy rows. A value outside this map (hand-edited data, a future value)
+ * falls back to the raw string rather than hiding it -- never worse than
+ * before this fix, just no longer unlabeled for the common case.
+ */
+export const employmentTypeLabel: Record<Lang, Record<string, string>> = {
+  en: {
+    full_time: 'Full-time',
+    part_time: 'Part-time',
+  },
+  ja: {
+    full_time: '正社員',
+    part_time: 'アルバイト・パート',
+  },
 };
 
 /** Level-1 attention summary subtitle, e.g. "3 require action · 6 warnings" -- omits either half when its count is 0 rather than showing "0 warnings". */

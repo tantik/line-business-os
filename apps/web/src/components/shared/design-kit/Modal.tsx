@@ -51,6 +51,39 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
     panelRef.current?.focus({ preventScroll: true });
   }, [open]);
 
+  // Mission 8 Quality Sweep fix (F5, live-reproduced): a mutation inside the
+  // dialog (e.g. saving a Recipe edit) can unmount the currently-focused
+  // element as part of re-rendering its own content -- the browser then
+  // resets focus to `document.body` per spec, and nothing here or in
+  // `useRestoreFocusOnClose` (which only fires on actual CLOSE) recaptures
+  // it, so a keyboard user silently loses their position while the dialog
+  // is still open. Confirmed live: after Recipe edit-save,
+  // `document.activeElement` was `<body>` with the dialog still open.
+  // Re-anchor focus to the panel itself, but ONLY when focus fell all the
+  // way back to `<body>` -- the exact signature of "the focused element was
+  // unmounted with nothing to receive focus next". Deliberately does NOT
+  // trigger for focus merely outside `panel.contains(...)`: several design-kit
+  // components (`Lightbox`, `ActionsMenu`) render via `createPortal` to
+  // `document.body`, so their content lives outside the panel's DOM subtree
+  // while still being legitimate, currently-open dialog content -- an
+  // independent review caught that the broader check would yank focus back
+  // out of a portaled Lightbox/ActionsMenu mid-interaction.
+  useEffect(() => {
+    if (!open) return;
+    function onFocusOut() {
+      requestAnimationFrame(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+        if (document.activeElement === document.body) {
+          panel.focus({ preventScroll: true });
+        }
+      });
+    }
+    const panel = panelRef.current;
+    panel?.addEventListener('focusout', onFocusOut);
+    return () => panel?.removeEventListener('focusout', onFocusOut);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {

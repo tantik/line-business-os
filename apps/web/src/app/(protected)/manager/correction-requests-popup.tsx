@@ -88,7 +88,7 @@ export function CorrectionRequestsPopup({
               <div key={r.requestId} style={{ border: `1px solid ${colors.border}`, borderRadius: 8, padding: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? r.employeeId}</div>
+                    <div style={{ fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? t('unknownStaffLabel')}</div>
                     <div style={mutedText}>{r.workDate}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -183,7 +183,7 @@ export function CorrectionRequestsPopup({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? r.employeeId} · {r.workDate}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{staffById.get(r.employeeId)?.name ?? t('unknownStaffLabel')} · {r.workDate}</div>
                   <div style={{ ...mutedText, fontSize: 12 }}>{currentRange}</div>
                 </div>
                 <span style={correctionStatusBadgeStyle(r.status)}>{correctionStatusLabel(r.status, lang)}</span>

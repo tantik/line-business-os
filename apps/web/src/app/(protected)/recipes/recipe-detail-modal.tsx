@@ -63,7 +63,7 @@ export function RecipeDetailModal({ recipeId, startEditing = false, onClose, onC
     onChange();
   }
 
-  const title = detail ? detail.recipe.titleJa || detail.recipe.titleEn || '' : t('pageTitle');
+  const title = detail ? detail.recipe.titleJa || detail.recipe.titleEn || t('untitledRecipe') : t('pageTitle');
 
   return (
     <Modal open={recipeId !== null} onClose={onClose} title={title} width="min(1100px, 96vw)" closeLabel={t('backToWorkforce')}>
