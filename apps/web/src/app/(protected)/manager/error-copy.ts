@@ -1,12 +1,17 @@
 import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { tManagerDashboard } from './manager-dashboard-i18n';
 
 /**
  * Shared client-side error copy for every write call on this page -- the
  * single place this text lives. `lang` defaults to `'en'` so existing call
  * sites keep working without a change; pass the page's `lang` (from
  * `useLang()`/props) to get the Japanese copy, same convention as
- * `staff/error-copy.ts`.
+ * `staff/error-copy.ts`. The 3 generic statuses reuse
+ * `manager-dashboard-i18n.ts`'s existing `errorNotFound`/
+ * `errorNotAuthenticated`/`errorNoMembership` keys (already the single
+ * source of truth for this surface) rather than a second, independently
+ * worded copy of the same strings.
  */
 export function describeWriteError(
   result: Exclude<WorkforceWriteResult<unknown>, { status: 'success' }>,
@@ -14,11 +19,11 @@ export function describeWriteError(
 ): string {
   switch (result.status) {
     case 'not_found':
-      return lang === 'ja' ? '見つかりません。' : 'Not found.';
+      return tManagerDashboard(lang, 'errorNotFound');
     case 'not_authenticated':
-      return lang === 'ja' ? '再度サインインしてください。' : 'Please sign in again.';
+      return tManagerDashboard(lang, 'errorNotAuthenticated');
     case 'no_membership':
-      return lang === 'ja' ? 'このワークスペースのメンバーではありません。' : 'You are not a member of this workspace.';
+      return tManagerDashboard(lang, 'errorNoMembership');
     case 'blocked_by_history':
       return lang === 'ja'
         ? '履歴が存在するため、完全に削除できません。'

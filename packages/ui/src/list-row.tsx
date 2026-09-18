@@ -37,7 +37,8 @@ export function ListRow({ title, subtitle, leading, status, actions, onOpen, mut
       {status ? (
         <div className="flex max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-1.5">{status}</div>
       ) : null}
-      {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+      {/* Same structural risk as `status` above (a `shrink-0` group can force the `min-w-0` title to 0) -- `actions` is contractually a single button/menu (see the prop doc) so this is defense-in-depth, not a reproduced failure. */}
+      {actions ? <div className="flex max-w-[30%] shrink-0 items-center gap-1">{actions}</div> : null}
     </>
   );
 
