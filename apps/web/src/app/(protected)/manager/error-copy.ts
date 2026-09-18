@@ -1,22 +1,45 @@
 import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
+import type { Lang } from '@/lib/demo/cafe/i18n';
+import { tManagerDashboard } from './manager-dashboard-i18n';
 
-/** Shared client-side error copy for every write call on this page -- the single place this text lives. */
-export function describeWriteError(result: Exclude<WorkforceWriteResult<unknown>, { status: 'success' }>): string {
+/**
+ * Shared client-side error copy for every write call on this page -- the
+ * single place this text lives. `lang` defaults to `'en'` so existing call
+ * sites keep working without a change; pass the page's `lang` (from
+ * `useLang()`/props) to get the Japanese copy, same convention as
+ * `staff/error-copy.ts`. The 3 generic statuses reuse
+ * `manager-dashboard-i18n.ts`'s existing `errorNotFound`/
+ * `errorNotAuthenticated`/`errorNoMembership` keys (already the single
+ * source of truth for this surface) rather than a second, independently
+ * worded copy of the same strings.
+ */
+export function describeWriteError(
+  result: Exclude<WorkforceWriteResult<unknown>, { status: 'success' }>,
+  lang: Lang = 'en',
+): string {
   switch (result.status) {
     case 'not_found':
-      return 'Not found.';
+      return tManagerDashboard(lang, 'errorNotFound');
     case 'not_authenticated':
-      return 'Please sign in again.';
+      return tManagerDashboard(lang, 'errorNotAuthenticated');
     case 'no_membership':
-      return 'You are not a member of this workspace.';
+      return tManagerDashboard(lang, 'errorNoMembership');
     case 'blocked_by_history':
-      return 'This has historical records and cannot be permanently deleted.';
+      return lang === 'ja'
+        ? '履歴が存在するため、完全に削除できません。'
+        : 'This has historical records and cannot be permanently deleted.';
     case 'blocked_not_archived':
-      return 'Only an archived recipe can be permanently deleted.';
+      return lang === 'ja'
+        ? 'アーカイブ済みのレシピのみ完全に削除できます。'
+        : 'Only an archived recipe can be permanently deleted.';
     case 'stale_reference':
-      return 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.';
+      return lang === 'ja'
+        ? 'このリクエストは最新の状態ではありません。シフトが変更されたか、別のマネージャーがすでに対応した可能性があります。最新の状態を確認してください。'
+        : 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.';
     case 'language_change_requires_confirmation':
-      return 'You are changing this recipe’s original language. Existing content will not be deleted. Please confirm the change and save again.';
+      return lang === 'ja'
+        ? 'このレシピの元の言語を変更しようとしています。既存のコンテンツは削除されません。変更内容を確認のうえ、再度保存してください。'
+        : 'You are changing this recipe’s original language. Existing content will not be deleted. Please confirm the change and save again.';
     default:
       return result.message;
   }

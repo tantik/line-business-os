@@ -41,7 +41,7 @@ export function LineLinkForm({ employeeId, onSuccess, lang }: LineLinkFormProps)
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeWriteError(result));
+        setError(describeWriteError(result, lang));
       }
     });
   }

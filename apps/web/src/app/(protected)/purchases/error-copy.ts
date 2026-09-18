@@ -7,11 +7,11 @@ export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult
   const t = (key: Parameters<typeof tPurchasesDashboard>[1]) => tPurchasesDashboard(lang, key);
   switch (result.status) {
     case 'not_found':
-      return 'Not found.';
+      return t('notFoundError');
     case 'not_authenticated':
-      return 'Please sign in again.';
+      return t('pleaseSignInAgainError');
     case 'no_membership':
-      return 'You are not a member of this workspace.';
+      return t('notMemberOfWorkspaceError');
     case 'not_short':
       return t('notShortError');
     case 'invalid_quantity':
@@ -21,6 +21,6 @@ export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult
     case 'unauthorized':
       return result.message;
     default:
-      return 'Something went wrong. Please try again.';
+      return t('somethingWentWrongError');
   }
 }

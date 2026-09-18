@@ -83,7 +83,7 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeInventoryWriteError(result));
+        setError(describeInventoryWriteError(result, lang));
       }
     });
   }

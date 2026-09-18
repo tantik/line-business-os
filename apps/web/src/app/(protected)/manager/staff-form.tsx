@@ -10,8 +10,12 @@ import { describeWriteError } from './error-copy';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
-/** Localizes the subset of `WorkforceWriteResult` statuses this form can actually receive; falls back to the shared (English) copy for statuses this form's own action never returns. */
-export function localizedFormError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
+/** Localizes the subset of `WorkforceWriteResult` statuses this form can actually receive; falls back to the shared bilingual copy for statuses this form's own action never returns. */
+export function localizedFormError(
+  result: Parameters<typeof describeWriteError>[0],
+  t: (key: Parameters<typeof tManagerDashboard>[1]) => string,
+  lang: Parameters<typeof describeWriteError>[1],
+) {
   switch (result.status) {
     case 'not_found':
       return t('errorNotFound');
@@ -20,7 +24,7 @@ export function localizedFormError(result: Parameters<typeof describeWriteError>
     case 'no_membership':
       return t('errorNoMembership');
     default:
-      return describeWriteError(result);
+      return describeWriteError(result, lang);
   }
 }
 
@@ -78,7 +82,7 @@ export function StaffForm({ locationId, employee, formId, isLineLinked = false, 
     startTransition(async () => {
       const result = await upsertEmployee(formData);
       if (result.status !== 'success') {
-        setError(localizedFormError(result, t));
+        setError(localizedFormError(result, t, lang));
         return;
       }
       if (rawLineUserId) {
@@ -94,7 +98,7 @@ export function StaffForm({ locationId, employee, formId, isLineLinked = false, 
           // form so they can see it and retry the LINE id, rather than
           // silently losing the failure the moment the popup navigates
           // away.
-          setError(describeWriteError(lineResult));
+          setError(describeWriteError(lineResult, lang));
           return;
         }
       }

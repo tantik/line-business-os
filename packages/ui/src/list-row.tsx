@@ -33,8 +33,12 @@ export function ListRow({ title, subtitle, leading, status, actions, onOpen, mut
         </p>
         {subtitle ? <div className="mt-0.5 truncate">{subtitle}</div> : null}
       </div>
-      {status ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">{status}</div> : null}
-      {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+      {/* `max-w-[60%]` is load-bearing (Mission 9 demo-readiness, live-reproduced): without a cap, this `shrink-0` group's unwrapped preferred width is used for flex layout even though `flex-wrap` lets its own children wrap visually -- with several/long status badges (e.g. Operations "overdue"/"critical check missed"/"N unresolved issues") that preferred width can exceed the row, and since the sibling title uses `min-w-0` (which allows shrinking all the way to 0), the title collapses to invisible instead of the badges. */}
+      {status ? (
+        <div className="flex max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-1.5">{status}</div>
+      ) : null}
+      {/* Same structural risk as `status` above (a `shrink-0` group can force the `min-w-0` title to 0) -- `actions` is contractually a single button/menu (see the prop doc) so this is defense-in-depth, not a reproduced failure. */}
+      {actions ? <div className="flex max-w-[30%] shrink-0 items-center gap-1">{actions}</div> : null}
     </>
   );
 

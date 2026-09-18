@@ -222,7 +222,7 @@ export function RecipesListBody({
         if (embedded) onChange?.();
         else router.refresh();
       } else {
-        setDeleteError(describeWriteError(result));
+        setDeleteError(describeWriteError(result, lang));
       }
     });
   }

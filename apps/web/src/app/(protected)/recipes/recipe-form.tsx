@@ -147,7 +147,7 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(describeWriteError(result));
+        setError(describeWriteError(result, lang));
       }
     });
   }

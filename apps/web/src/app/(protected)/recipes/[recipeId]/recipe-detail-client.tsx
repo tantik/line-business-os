@@ -208,7 +208,7 @@ export function RecipeDetailBody({
           router.push('/recipes');
         }
       } else {
-        setError(describeWriteError(result));
+        setError(describeWriteError(result, lang));
       }
     });
   }

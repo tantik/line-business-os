@@ -16,8 +16,12 @@ import { correctionStatusLabel, formatRequestedCorrectionChange } from '../_ui/w
 import { describeWriteError } from './error-copy';
 import { tManagerDashboard } from './manager-dashboard-i18n';
 
-/** Localizes the subset of `WorkforceWriteResult` statuses this editor can actually receive; falls back to the shared (English) copy for statuses its own actions never return. */
-function localizedEditorError(result: Parameters<typeof describeWriteError>[0], t: (key: Parameters<typeof tManagerDashboard>[1]) => string) {
+/** Localizes the subset of `WorkforceWriteResult` statuses this editor can actually receive; falls back to the shared bilingual copy for statuses its own actions never return. */
+function localizedEditorError(
+  result: Parameters<typeof describeWriteError>[0],
+  t: (key: Parameters<typeof tManagerDashboard>[1]) => string,
+  lang: Parameters<typeof describeWriteError>[1],
+) {
   switch (result.status) {
     case 'not_found':
       return t('errorNotFound');
@@ -28,7 +32,7 @@ function localizedEditorError(result: Parameters<typeof describeWriteError>[0], 
     case 'stale_reference':
       return t('errorStaleReference');
     default:
-      return describeWriteError(result);
+      return describeWriteError(result, lang);
   }
 }
 
@@ -140,7 +144,7 @@ export function ShiftCellEditor({
       if (result.status === 'success') {
         onSuccess();
       } else {
-        setError(localizedEditorError(result, t));
+        setError(localizedEditorError(result, t, lang));
       }
     });
   }
@@ -362,7 +366,7 @@ export function ShiftCellEditorModal({
         setCorrectionDecision(decision);
         onCorrectionDecided?.();
       } else {
-        setDecideError(localizedEditorError(result, t));
+        setDecideError(localizedEditorError(result, t, lang));
       }
     });
   }
@@ -388,7 +392,7 @@ export function ShiftCellEditorModal({
         setConfirmRemoveOpen(false);
         onSuccess('removed');
       } else {
-        setRemoveError(localizedEditorError(result, t));
+        setRemoveError(localizedEditorError(result, t, lang));
       }
     });
   }
