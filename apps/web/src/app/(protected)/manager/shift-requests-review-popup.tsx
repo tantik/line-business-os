@@ -9,15 +9,22 @@ import { shiftTypeDisplayLabel, shiftTypesForWeekLegend } from '@/lib/workforce/
 import { addIsoDays } from '@/lib/workforce/timezone';
 import { getWeeksInMonth } from '@/lib/workforce/period';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { weekdayLabel } from '@/lib/demo/cafe/format';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonPrimary, buttonSecondary, colors, minTouchTarget, mutedText, tableHeaderCell } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { CUSTOM_CHIP_TONE, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
 
-/** Same weekday-abbreviation convention as the Weekly Schedule grid's day header (`formatWeekday` in manager-dashboard-client.tsx) -- kept as a small local copy rather than a shared export, since it's a one-line pure function and the two grids are otherwise deliberately not coupled. */
-function formatWeekday(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+/**
+ * Mission 8 Quality Sweep fix (F11): this popup's grid header previously
+ * hardcoded the English `Mon/Tue/Wed...` abbreviation regardless of `lang`
+ * (same bug as the Weekly Schedule grid's own `formatWeekday`,
+ * `manager-dashboard-client.tsx`) -- now routes through the shared
+ * `weekdayLabel` helper instead of a local English-only copy.
+ */
+function formatWeekday(isoDate: string, lang: Lang): string {
+  return weekdayLabel(new Date(`${isoDate}T00:00:00.000Z`), lang);
 }
 import {
   reminderMessageTemplate,
@@ -280,7 +287,7 @@ export function ShiftRequestsReviewPopup({
                       ...(dateIndex === weekDates.length - 1 ? { borderTopRightRadius: 8 } : {}),
                     }}
                   >
-                    {formatWeekday(date)}
+                    {formatWeekday(date, lang)}
                     <br />
                     {date.slice(8)}
                   </th>

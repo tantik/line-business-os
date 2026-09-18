@@ -60,6 +60,17 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   // fetch whenever the cache has no entry yet (touch/keyboard-only use,
   // or a click that beat the hover fetch to the punch).
   const detailCacheRef = useRef(new Map<string, RecipeDetailForPopup>());
+  // In-flight dedup (Mission 8 perf fix): a row's onMouseEnter/onFocus/
+  // onPointerDown all call `prefetchRecipe` for the same interaction (a
+  // mouse click fires all three in quick succession), and the click itself
+  // then calls `openRecipe` -- without this, each of those fired a brand
+  // new `getRecipeDetailForPopup` request because the cache is only
+  // populated once the FIRST one resolves, so up to 3-4 identical requests
+  // raced the same recipe (confirmed live: 2 of 3 came back
+  // `net::ERR_ABORTED`, wasting ~2.5s of serialized round trips before the
+  // real data arrived). Keyed by recipeId, holds the one shared in-flight
+  // promise so every caller for the same recipe awaits the same request.
+  const inFlightRef = useRef(new Map<string, Promise<RecipeDetailForPopup | null>>());
 
   // The list view already holds a signed URL per recipe (`mediaUrlByRecipeId`,
   // fetched once by the page). `getRecipeDetailForPopup` mints its own signed
@@ -73,11 +84,29 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     return known ? { ...detail, mediaUrl: known } : detail;
   }
 
+  function fetchRecipeDetail(recipeId: string): Promise<RecipeDetailForPopup | null> {
+    const cached = detailCacheRef.current.get(recipeId);
+    if (cached) return Promise.resolve(cached);
+    const inFlight = inFlightRef.current.get(recipeId);
+    if (inFlight) return inFlight;
+    const request = getRecipeDetailForPopup(recipeId)
+      .then((result) => {
+        if (result.status === 'success' && result.data) {
+          const withUrl = withKnownMediaUrl(recipeId, result.data);
+          detailCacheRef.current.set(recipeId, withUrl);
+          return withUrl;
+        }
+        return null;
+      })
+      .finally(() => {
+        inFlightRef.current.delete(recipeId);
+      });
+    inFlightRef.current.set(recipeId, request);
+    return request;
+  }
+
   function prefetchRecipe(recipeId: string) {
-    if (detailCacheRef.current.has(recipeId)) return;
-    getRecipeDetailForPopup(recipeId).then((result) => {
-      if (result.status === 'success' && result.data) detailCacheRef.current.set(recipeId, withKnownMediaUrl(recipeId, result.data));
-    });
+    fetchRecipeDetail(recipeId);
   }
 
   function openRecipe(recipeId: string, startEditing = false) {
@@ -90,11 +119,9 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     }
     setDetail(null);
     startTransition(async () => {
-      const result = await getRecipeDetailForPopup(recipeId);
-      if (result.status === 'success' && result.data) {
-        const withUrl = withKnownMediaUrl(recipeId, result.data);
-        detailCacheRef.current.set(recipeId, withUrl);
-        setDetail(withUrl);
+      const result = await fetchRecipeDetail(recipeId);
+      if (result) {
+        setDetail(result);
       } else {
         setDetailError(t('unavailable'));
       }
@@ -131,7 +158,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     onClose();
   }
 
-  const title = view.kind === 'list' ? t('pageTitle') : detail ? detail.recipe.titleJa || detail.recipe.titleEn || '' : t('pageTitle');
+  const title = view.kind === 'list' ? t('pageTitle') : detail ? detail.recipe.titleJa || detail.recipe.titleEn || t('untitledRecipe') : t('pageTitle');
 
   return (
     <Modal

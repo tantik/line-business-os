@@ -19,6 +19,8 @@ interface RecipesDict {
   backToRecipes: string;
   signOut: string;
   unavailable: string;
+  /** Mission 8 Quality Sweep fix (F8/F16): fallback title when a recipe has neither a JA nor EN title -- previously fell back to the raw recipe UUID (list/detail) or an empty title bar (popup Modal), inconsistently, across three code paths. */
+  untitledRecipe: string;
   noRecipesYet: string;
   noRecipesMatchSearch: string;
   searchPlaceholder: string;
@@ -99,6 +101,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     backToRecipes: 'Back to recipes',
     signOut: 'Sign out',
     unavailable: 'Recipes are temporarily unavailable.',
+    untitledRecipe: 'Untitled recipe',
     noRecipesYet: 'No recipes yet.',
     noRecipesMatchSearch: 'No recipes match your search.',
     searchPlaceholder: 'Search by recipe name',
@@ -174,6 +177,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     backToRecipes: 'レシピ一覧に戻る',
     signOut: 'サインアウト',
     unavailable: 'レシピは一時的に利用できません。',
+    untitledRecipe: '無題のレシピ',
     noRecipesYet: 'まだレシピがありません。',
     noRecipesMatchSearch: '検索条件に一致するレシピがありません。',
     searchPlaceholder: 'レシピ名で検索',

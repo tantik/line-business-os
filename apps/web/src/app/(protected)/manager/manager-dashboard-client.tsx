@@ -42,7 +42,8 @@ import {
   computeDailyStaffingCoverage,
 } from '@/lib/workforce/manager-attention';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
-import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { weekdayLabel } from '@/lib/demo/cafe/format';
 import {
   autoCreateAssignedWithoutPreferenceLine,
   autoCreateConfigErrorMessage,
@@ -292,8 +293,15 @@ function weekDates(periodStart: string): string[] {
 const MIN_WEEK_OFFSET = -8;
 const MAX_WEEK_OFFSET = 8;
 
-function formatWeekday(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+/**
+ * Mission 8 Quality Sweep fix (F11): previously always rendered the English
+ * `Mon/Tue/Wed...` abbreviation regardless of `lang` -- live-confirmed on
+ * `preview.oruwa.jp` under the Japanese UI. Now routes through the shared
+ * `weekdayLabel` helper the Staff dashboard's own schedule grid
+ * (`ShiftTable`) already uses correctly.
+ */
+function formatWeekday(isoDate: string, lang: Lang): string {
+  return weekdayLabel(new Date(`${isoDate}T00:00:00.000Z`), lang);
 }
 
 /**
@@ -1434,7 +1442,7 @@ function ManagerDashboardBody({
                             present. */}
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                           <span>
-                            {formatWeekday(date)}
+                            {formatWeekday(date, lang)}
                             <br />
                             {date.slice(8)}
                           </span>
@@ -1641,7 +1649,7 @@ function ManagerDashboardBody({
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
                   {autoCreateResult.shortages.map((s) => {
                     const shiftType = shiftTypeById.get(s.shiftTypeId);
-                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : s.shiftTypeId;
+                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : t('unknownShiftTypeLabel');
                     return (
                       <li key={`${s.workDate}-${s.shiftTypeId}`}>
                         {autoCreateShortageLine[lang](s.workDate, shiftTypeLabel, s.shortage)}
@@ -1659,7 +1667,7 @@ function ManagerDashboardBody({
                   {autoCreateResult.unplaced.map((u, i) => (
                     <li key={`${u.employeeId}-${u.workDate}-${i}`}>
                       {autoCreateUnplacedLine[lang](
-                        staffById.get(u.employeeId)?.name ?? u.employeeId,
+                        staffById.get(u.employeeId)?.name ?? t('unknownStaffLabel'),
                         u.workDate,
                         unplacedReasonLabel[lang](u.reason),
                       )}
@@ -1674,7 +1682,7 @@ function ManagerDashboardBody({
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t('autoCreateNonSubmittersHeading')}</div>
                 <p style={{ margin: 0, fontSize: 13 }}>
                   {autoCreateResult.nonSubmitters
-                    .map((n) => staffById.get(n.employeeId)?.name ?? n.employeeId)
+                    .map((n) => staffById.get(n.employeeId)?.name ?? t('unknownStaffLabel'))
                     .join('、')}
                 </p>
               </div>
@@ -1686,11 +1694,11 @@ function ManagerDashboardBody({
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
                   {autoCreateResult.assignedWithoutPreference.map((a, i) => {
                     const shiftType = shiftTypeById.get(a.shiftTypeId);
-                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : a.shiftTypeId;
+                    const shiftTypeLabel = shiftType ? shiftTypeDisplayLabel(shiftType) : t('unknownShiftTypeLabel');
                     return (
                       <li key={`${a.employeeId}-${a.workDate}-${i}`}>
                         {autoCreateAssignedWithoutPreferenceLine[lang](
-                          staffById.get(a.employeeId)?.name ?? a.employeeId,
+                          staffById.get(a.employeeId)?.name ?? t('unknownStaffLabel'),
                           a.workDate,
                           shiftTypeLabel,
                         )}

@@ -192,7 +192,7 @@ export function StaffMessagesPopup({
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {threads.map((thread) => {
-              const staffName = staffById.get(thread.employeeId)?.name ?? thread.employeeId;
+              const staffName = staffById.get(thread.employeeId)?.name ?? t('unknownStaffLabel');
               const preview = thread.lastMessage.body.length > 80 ? `${thread.lastMessage.body.slice(0, 80)}…` : thread.lastMessage.body;
               const localTime = utcIsoToLocalDateTime(thread.lastMessage.createdAt, timeZone);
               return (
