@@ -301,7 +301,16 @@ const MAX_WEEK_OFFSET = 8;
  * (`ShiftTable`) already uses correctly.
  */
 function formatWeekday(isoDate: string, lang: Lang): string {
-  return weekdayLabel(new Date(`${isoDate}T00:00:00.000Z`), lang);
+  // `weekdayLabel` resolves the weekday via the Date's LOCAL `.getDay()`
+  // (see `weekdayIndexMonFirst`, `@/lib/demo/cafe/format.ts`) -- construct a
+  // local-midnight Date (no `Z` suffix), matching the exact convention the
+  // Staff dashboard's own `ShiftTable` already uses correctly. An
+  // independent review of this fix's first draft caught that the old `Z`
+  // (UTC) suffix carried over from this function's previous
+  // English-only implementation silently mismatched `weekdayLabel`'s local-
+  // time expectation, producing a wrong weekday for any browser session
+  // west of UTC.
+  return weekdayLabel(new Date(`${isoDate}T00:00:00`), lang);
 }
 
 /**

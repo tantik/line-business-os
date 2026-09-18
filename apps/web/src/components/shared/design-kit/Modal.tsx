@@ -59,18 +59,22 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
   // it, so a keyboard user silently loses their position while the dialog
   // is still open. Confirmed live: after Recipe edit-save,
   // `document.activeElement` was `<body>` with the dialog still open.
-  // Re-anchor focus to the panel itself whenever it lands entirely outside
-  // the panel's own DOM subtree (covers body, and any element removed by a
-  // re-render) -- deliberately narrow: a focus move to anywhere still
-  // inside the panel (including a nested dialog, e.g. the Help popup, which
-  // renders as a DOM descendant of this panel) is left alone.
+  // Re-anchor focus to the panel itself, but ONLY when focus fell all the
+  // way back to `<body>` -- the exact signature of "the focused element was
+  // unmounted with nothing to receive focus next". Deliberately does NOT
+  // trigger for focus merely outside `panel.contains(...)`: several design-kit
+  // components (`Lightbox`, `ActionsMenu`) render via `createPortal` to
+  // `document.body`, so their content lives outside the panel's DOM subtree
+  // while still being legitimate, currently-open dialog content -- an
+  // independent review caught that the broader check would yank focus back
+  // out of a portaled Lightbox/ActionsMenu mid-interaction.
   useEffect(() => {
     if (!open) return;
     function onFocusOut() {
       requestAnimationFrame(() => {
         const panel = panelRef.current;
         if (!panel) return;
-        if (!panel.contains(document.activeElement)) {
+        if (document.activeElement === document.body) {
           panel.focus({ preventScroll: true });
         }
       });

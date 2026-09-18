@@ -24,7 +24,12 @@ import { CUSTOM_CHIP_TONE, shiftChipColors, shiftChipStyle } from '../_ui/workfo
  * `weekdayLabel` helper instead of a local English-only copy.
  */
 function formatWeekday(isoDate: string, lang: Lang): string {
-  return weekdayLabel(new Date(`${isoDate}T00:00:00.000Z`), lang);
+  // See the identical comment on `manager-dashboard-client.tsx`'s own
+  // `formatWeekday`: `weekdayLabel` resolves via LOCAL `.getDay()`, so this
+  // must construct a local-midnight Date (no `Z`), matching `ShiftTable`'s
+  // existing convention -- a UTC-anchored Date here would silently mislabel
+  // the weekday for any browser session west of UTC.
+  return weekdayLabel(new Date(`${isoDate}T00:00:00`), lang);
 }
 import {
   reminderMessageTemplate,
