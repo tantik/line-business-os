@@ -277,8 +277,55 @@ duplicated here.
 
 ## 5. Exact next gate
 
-**2026-09-18 pointer, MISSION 8 "BOUNDED QUALITY SWEEP" — CLOSED (newest;
-read this one first).** Full detail: `docs/ai/SESSION_HANDOFF_2026-09-18.md`.
+**2026-09-18 pointer, MISSION 9 "DEMO READINESS" — CLOSED, ACCEPTED WITH
+ONE FOUNDER-DEFERRED EXCEPTION (newest; read this one first).** Full
+detail: `docs/ai/SESSION_HANDOFF_2026-09-18-MISSION9.md`. Verdict:
+**CLOSED. Cafe v2.2 itself is explicitly NOT declared CLOSED — do not
+start Full Integrated Acceptance, or any new WP, without a fresh Founder
+prompt.**
+
+- Phase A read-only demo audit (two background agents, Manager + Staff
+  surfaces) → zero D0 → bounded D1 repair (PR #531, squash `5b2a742`,
+  non-RED, autonomous merge via `scripts/ai-dev-merge.sh`).
+- **First genuine Staff-role live Browser QA this project has ever run**
+  (real session as 田中美咲, 375×667/320×667, JA+EN) — every prior
+  session either skipped it or only checked a Manager identity's "no
+  profile" empty state. Found and fixed a real, live-reproduced,
+  non-obvious CSS layout bug in the shared DS v1 `ListRow` component
+  (`packages/ui/src/list-row.tsx`): unbounded status-badge width could
+  collapse the row title to invisible (`0px` computed width) — verified
+  the fix hypothesis live via a DOM override before touching code, fixed
+  with `max-w-[60%]`, re-verified on the real deployed code both
+  pre-merge and post-merge on canonical `preview.oruwa.jp`.
+- Independent review (`/code-review --high`, 4 fresh-context agents) — 3
+  agents independently caught the same real bug (3 Recipes call sites
+  still calling the now-`lang`-aware `describeWriteError` without `lang`,
+  silently defaulting to English) before merge; fixed and re-verified.
+  Also archived a QA-stub recipe literally titled "New recipe" that was
+  live/published in the Recipes list.
+- typecheck/lint clean, full `apps/web` suite 1334/1334, 0 new
+  regressions, CI+Vercel green, post-merge canonical-Preview smoke clean.
+- **Founder-directed deferral, not silently skipped**: the Staff↔Manager
+  Mail thread on `oruwa-cafe` contains real historical QA chatter **in
+  Russian**, visible to anyone opening "メール" — Founder said leave it
+  ("оставим Mail, продолжай"), so it's documented, not fixed. Also
+  deferred (Founder decision, same session): the 52-item Operations
+  backlog / 23 unaddressed shift requests (accumulated QA residue,
+  identically visible in Attention Panel/Operations/Weekly Review), and
+  two Inventory items literally named "QAフィクスチャー：..." (can't be
+  safely renamed — the name is the dedup key in
+  `packages/db/scripts/oruwa-cafe-fixture.ts`'s idempotency check).
+- **Recommended next**: per the mission's own instruction, Full
+  Integrated Cafe v2.2 Acceptance (master-roadmap Phase 4) — not
+  authorized to start by this closure alone; needs a fresh Founder
+  prompt, and should explicitly decide what to do about the Mail/backlog/
+  fixture-naming deferrals above before any live customer demo.
+
+---
+
+**2026-09-18 pointer, MISSION 8 "BOUNDED QUALITY SWEEP" — CLOSED (older —
+read after the pointer above).** Full detail:
+`docs/ai/SESSION_HANDOFF_2026-09-18.md`.
 Verdict: **CLOSED. Cafe v2.2 itself is explicitly NOT declared CLOSED — do
 not start Demo Readiness / Full Integrated Acceptance / any new WP without a
 fresh Founder prompt.**
