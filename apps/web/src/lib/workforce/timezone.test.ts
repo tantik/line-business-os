@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addIsoDays, localDateTimeToUtcIso, utcIsoToLocalDateTime } from './timezone.js';
+import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone, utcIsoToLocalDateTime } from './timezone.js';
 
 test('localDateTimeToUtcIso converts Asia/Tokyo (UTC+9, no DST) wall-clock to the correct UTC instant', () => {
   assert.equal(localDateTimeToUtcIso('2026-08-03', '09:00', 'Asia/Tokyo'), '2026-08-03T00:00:00.000Z');
@@ -34,4 +34,18 @@ test('addIsoDays adds calendar days, UTC-anchored, including month/year rollover
   assert.equal(addIsoDays('2026-08-31', 1), '2026-09-01');
   assert.equal(addIsoDays('2026-12-31', 1), '2027-01-01');
   assert.equal(addIsoDays('2026-08-03', 0), '2026-08-03');
+});
+
+test('todayIsoInTimeZone returns the location calendar date, not the UTC date, in the 00:00-09:00 JST window', (context) => {
+  // 2026-09-20T17:24Z is 2026-09-21 02:24 in Asia/Tokyo: the UTC date is still the 20th.
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-20T17:24:11.279Z') });
+  assert.equal(todayIsoInTimeZone('Asia/Tokyo'), '2026-09-21');
+  assert.equal(todayIsoInTimeZone('UTC'), '2026-09-20');
+  context.mock.timers.reset();
+});
+
+test('todayIsoInTimeZone agrees with the UTC date once JST and UTC are on the same day', (context) => {
+  context.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-21T03:00:00.000Z') });
+  assert.equal(todayIsoInTimeZone('Asia/Tokyo'), '2026-09-21');
+  context.mock.timers.reset();
 });

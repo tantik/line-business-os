@@ -27,7 +27,7 @@ import { listAllIssues, listOpenIssues } from '@/lib/issues/issues';
 import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
-import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
+import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -240,9 +240,11 @@ export default async function WorkforceManagerPage({
       const exchangeFromIso = localDateTimeToUtcIso(exchangeWindow.periodStart, '00:00', location.timezone);
       const exchangeToIsoExclusive = localDateTimeToUtcIso(addIsoDays(exchangeWindow.periodEnd, 1), '00:00', location.timezone);
 
-      // Same-day boundary for the Operations "Today" overview -- matches
-      // `/operations/page.tsx`'s own `managerToday`.
-      const managerToday = new Date().toISOString().slice(0, 10);
+      // Same-day boundary for the Operations "Today" overview, taken in the
+      // location's own timezone (not UTC): between 00:00 and 09:00 JST the UTC
+      // calendar date is still yesterday, which listed yesterday's tasks as
+      // "today" and flagged every one of them overdue.
+      const managerToday = todayIsoInTimeZone(location.timezone);
 
       // G1 (0116): read-time materialisation of persistent `critical_missed`
       // exceptions. A critical scheduled check whose window closed with no

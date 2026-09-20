@@ -24,7 +24,7 @@ import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
-import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
+import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import {
   ErrorState,
   MissingConfigState,
@@ -220,9 +220,9 @@ export default async function WorkforceStaffPage({
                 : rawPopup === 'issues'
                   ? 'issues'
                   : null;
-      // Same-day boundary for the Staff Operations task list -- matches
-      // `/operations/page.tsx`'s own Staff branch.
-      const operationsToday = new Date().toISOString().slice(0, 10);
+      // Same-day boundary for the Staff Operations task list, taken in the
+      // location's own timezone (not UTC) -- see the Manager page.
+      const operationsToday = todayIsoInTimeZone(location.timezone);
       const { periodStart, periodEnd } = getWeekPeriod(new Date().toISOString(), location.timezone, weekOffset);
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
