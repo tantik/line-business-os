@@ -90,9 +90,10 @@ Design system and reuse
   exists; no per-tenant conditionals (`if tenantSlug === 'X'`).
 
 Tests
-- New `*.test.ts` files are added to the explicit file list in
-  `apps/web/package.json`'s `test` script (a missing entry means the test is
-  silently never run; see DEBT-038).
+- New `*.test.ts(x)` files sit under `apps/web/src` or `apps/web/scripts`, where
+  `scripts/run-tests.mjs` discovers them automatically (the old hand-kept list
+  in `package.json` silently skipped tests). Check the new tests actually ran
+  in the reported count.
 
 ## What to actually do
 

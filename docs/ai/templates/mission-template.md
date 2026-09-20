@@ -81,7 +81,7 @@ not allowed.
 | 12 | Compatibility and rollout (additive, rollback, entitlements, Cloud gate) | |
 | 13 | Extension impact (second vertical/tenant/location/language) | |
 | 14 | Neighbouring regressions | |
-| 15 | Docs and state (handoff, current-task §5, debt register, test list) | |
+| 15 | Docs and state (handoff, current-task §5, debt register, new tests counted in the run) | |
 
 ## Extension impact
 

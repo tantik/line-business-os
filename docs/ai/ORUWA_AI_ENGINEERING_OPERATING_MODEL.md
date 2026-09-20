@@ -846,7 +846,7 @@ the author alone. Dimensions:
 | 12 | Compatibility and rollout | Migrations additive with rollback note; existing data unaffected; entitlements and module flags respected; Cloud apply gate named. |
 | 13 | Extension impact | Reusable across verticals and tenants; no Cafe-specific hard-wiring; second location and second language readiness stated. |
 | 14 | Neighbouring regressions | Adjacent modules that read the same data or share a component exercised (e.g. Attention badge, Weekly Review). |
-| 15 | Docs and state | Handoff written; `current-task.md` §5 replaced; debt register updated; new tests wired into the explicit `apps/web` test list. |
+| 15 | Docs and state | Handoff written; `current-task.md` §5 replaced; debt register updated; new tests placed where `apps/web/scripts/run-tests.mjs` discovers them and counted in the reported total. |
 
 Sizing: a Small task lists only the dimensions it can plausibly affect, in one
 line each. A docs-only mission is mostly N/A with reasons. A mission never
