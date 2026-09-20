@@ -184,24 +184,21 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-09-19** (checked against
-`docs/ai/SESSION_HANDOFF_2026-09-18-MISSION9.md` and git; `dev` HEAD
-`604af04` at the time of writing):
+**As of 2026-09-20** (checked against git; `dev` HEAD `64a374c`, no open PRs):
 
-- Mission 9 (Demo Readiness) is CLOSED. It ran the first genuine Staff-role
-  live Browser QA in this project and fixed a live-reproduced `ListRow`
-  layout bug (`packages/ui/src/list-row.tsx`).
-- **Cafe v2.2 is NOT declared CLOSED.** Do not start Full Integrated
-  Acceptance (master-roadmap Phase 4), any new WP, or any feature work
-  without a fresh Founder prompt.
-- **Recommended next:** Full Integrated Cafe v2.2 Acceptance. Before any live
-  customer demo the Founder must decide the three Mission 9 deferrals
-  (register IDs DEBT-001 Mail thread, DEBT-002 Operations backlog, DEBT-003
-  QA-named Inventory items).
-- Also standing before v2.2 can close (`docs/project/master-state.md`,
-  item 15b): full JA/EN Copy Audit, Founder-facing Russian Feature Map, Demo
-  Readiness. Their completion status was not re-verified when this file was
-  reduced; check `master-state.md` first.
+- Mission 9 (Demo Readiness) is CLOSED (2026-09-18). Governance v1.9.0 (PR #533)
+  and the `apps/web` test-runner fix (PR #534, 1347 tests) are merged.
+- **Cafe v2.2 is NOT declared CLOSED.** **Next gate: Cafe v2.2 Full Integrated
+  Acceptance (master-roadmap Phase 4), authorized by the Founder on 2026-09-20
+  and PREPARED but NOT STARTED.** Mission file:
+  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_MISSION_2026-09-20.md`; start
+  from `docs/ai/SESSION_HANDOFF_2026-09-20.md` (it holds the bootstrap prompt).
+- Founder decisions still owed before any live customer demo: DEBT-001 Mail
+  thread, DEBT-002 Operations backlog, DEBT-003 QA-named Inventory items. The
+  clean-demo-tenant fix (DEBT-004) is a Cloud data write: a Founder gate and a
+  separate mission, not part of the acceptance.
+- The mission's Track A covers the Copy Audit, Russian Feature Map and Demo
+  Readiness (`master-state.md` item 15b, completion status UNVERIFIED, DEBT-047).
 - Production and `main` are untouched and separately gated.
 
 Where everything else lives:

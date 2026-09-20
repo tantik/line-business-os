@@ -310,8 +310,10 @@ begins on its own Founder prompt.
 **Cafe v2.2 WP sequence is now fully CLOSED (WP1-WP5).** Next: Mission 8
 Bounded Quality Sweep (**CLOSED 2026-09-18**, see the top summary line and
 `docs/ai/SESSION_HANDOFF_2026-09-18.md`), then Demo Readiness / Full
-Integrated Cafe v2.2 Acceptance — not yet authorized, own Founder prompt
-required.
+Integrated Cafe v2.2 Acceptance — Founder authorized preparation
+2026-09-20; prepared (mission file
+`docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_MISSION_2026-09-20.md`), not
+started.
 
 Phase 2 Cafe v2.2 Product Research (ChatGPT + Founder-led) may still refine
 scope **within** these WP boundaries; it does not re-open the WP list/order.
@@ -477,8 +479,10 @@ Milestones that materially change future development speed:
   DEV) — the full WP1-WP5 Cafe v2.2 sequence is complete. **Mission 8
   Bounded Quality Sweep is now CLOSED** (2026-09-18, PR #529, non-RED — see
   §7's WP table note and `docs/ai/SESSION_HANDOFF_2026-09-18.md` for full
-  detail). Next: Demo Readiness / Full Integrated Cafe v2.2 Acceptance, own
-  Founder prompt — not started yet.
+  detail). Next: Demo Readiness / Full Integrated Cafe v2.2 Acceptance —
+  Founder authorized preparation 2026-09-20; mission file
+  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_MISSION_2026-09-20.md`;
+  prepared, **not started** (starts in a fresh session).
 - **Deprecated Mame To Cha tooling cleanup** — §14 step 2 (bounded task).
   **Cloud-specific part DONE (Sept 2026):** the 27 `packages/db/scripts/mame-to-cha-cloud-*`
   files + their `package.json` scripts/test-list entries + `MAME_TO_CHA_CLOUD_*`
@@ -644,8 +648,9 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    pointer) → 13. **WP4 bounded acceptance** (folded into this closure, per
    the "no extra per-phase acceptance gates" rule below — not a separate
    step).
-14. **WP5 Recipe Intelligence Lite** → 15. **WP5 bounded acceptance** — not
-   started, own Founder prompt required.
+14. **WP5 Recipe Intelligence Lite** → 15. **WP5 bounded acceptance** —
+   both DONE (WP5 CLOSED 2026-09-17, PR #525/#526; see §7 and
+   `docs/ai/current-task.md` §2).
 15b. **Full JA/EN Copy Audit + Founder-facing Russian Feature Map + Demo
    Readiness check** (part of Product Quality Foundation closure, before
    the integrated acceptance).
