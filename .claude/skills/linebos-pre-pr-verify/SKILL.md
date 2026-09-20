@@ -31,6 +31,7 @@ Produce a report with these fields, per .cursor/rules/03-git-workflow.mdc:
 - Migration impact - new or changed migrations, RLS, rollback considerations.
 - Tenant isolation impact - any change to tenant_id, location_id, or RLS scoping.
 - Rollback note - how to revert this change if needed.
+- Coverage - for a Standard/High-risk mission or any UI/DB change, the coverage matrix from Operating Model section 19: each applicable dimension VERIFIED (evidence), N/A (reason), or NOT TESTED (with a DEBT row in docs/operations/deferred-debt-register.md). A NOT TESTED row means the status is CLOSED WITH GAPS. Also confirm the required reviewers per Operating Model section 12 have run.
 
 ## Hard limits
 

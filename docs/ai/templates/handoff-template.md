@@ -29,7 +29,10 @@ fact, with the evidence that makes it VERIFIED rather than INFERRED.
 ## 4. Known defects / open issues
 
 Recorded but explicitly not to be fixed by the next session unless
-authorized. Severity, reproduction evidence, file/function citation.
+authorized. Severity, reproduction evidence, file/function citation. Each item
+must already have a `DEBT-###` row in
+`docs/operations/deferred-debt-register.md` (Operating Model §19); cite the ID
+here instead of restating the item, and do not keep a second list.
 
 ## 5. Relevant existing documentation
 
