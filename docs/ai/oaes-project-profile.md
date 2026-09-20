@@ -42,6 +42,13 @@ Security and Database / RLS lenses. Customer-facing Cafe UI always requires
 Frontend / UX and QA. `docs/ai/review-checklists.md` has detailed per-lens
 focus areas, reject-criteria, and evidence/severity standards.
 
+Since 2026-09-19 the lenses are backed by named reviewer subagents
+(`oruwa-db-security-reviewer` for Security + Database / RLS,
+`oruwa-ux-i18n-reviewer` for Frontend / UX + QA, `oruwa-reviewer` for the
+Release lens and coverage-matrix honesty), selected per Operating Model §12.
+An external mission brief (for example from ChatGPT) passes Prompt Review
+before implementation (Operating Model §18).
+
 ## Required artifacts
 
 ### Product Review
@@ -66,6 +73,9 @@ focus areas, reject-criteria, and evidence/severity standards.
 - checks actually run and their results;
 - observed browser/Preview evidence when UI changed;
 - security, migration, tenant-isolation, and environment impact;
+- coverage matrix: every applicable dimension VERIFIED, N/A with a reason, or
+  NOT TESTED with a `docs/operations/deferred-debt-register.md` row
+  (Operating Model §19);
 - known gaps and rollback note;
 - exact next human gate.
 
@@ -124,3 +134,8 @@ Project helpers:
 `docs/ai/current-task.md` must describe the verified current stage, baseline,
 next gate, and safety boundaries. Update it when a major stage closes so the
 next session does not reconstruct the project from stale chat history.
+
+Update by **replacing** its "current stage and next gate" section, never by
+appending a dated block; keep the file under about 250 lines. Mission history
+lives in handoffs and `docs/ai/history/`; open deferrals live only in
+`docs/operations/deferred-debt-register.md`.

@@ -1,0 +1,1982 @@
+# current-task.md §5 pointer archive (2026-08-16 to 2026-09-18)
+
+**ARCHIVE. Historical record, NOT current state.** Moved verbatim on
+2026-09-19 out of `docs/ai/current-task.md` §5 ("Exact next gate"), which had
+grown to 2240 lines because every mission appended a dated pointer block
+instead of replacing the previous one. The text below is unmodified.
+
+Read this as history:
+
+- Section references such as "§2.3", "§2.4", "§5" and phrases such as "the
+  pointer above/below" refer to the layout of `current-task.md` before
+  2026-09-19.
+- Every "next gate", "recommended next", "NOT authorized" or "not started"
+  statement below was true only on its own date. The current stage and next
+  gate are in `docs/ai/current-task.md`; open deferrals are in
+  `docs/operations/deferred-debt-register.md`.
+- Pointers are ordered newest first (Mission 9 at the top, 2026-08-19 at the
+  bottom).
+
+---
+
+**2026-09-18 pointer, MISSION 9 "DEMO READINESS" — CLOSED, ACCEPTED WITH
+ONE FOUNDER-DEFERRED EXCEPTION (newest; read this one first).** Full
+detail: `docs/ai/SESSION_HANDOFF_2026-09-18-MISSION9.md`. Verdict:
+**CLOSED. Cafe v2.2 itself is explicitly NOT declared CLOSED — do not
+start Full Integrated Acceptance, or any new WP, without a fresh Founder
+prompt.**
+
+- Phase A read-only demo audit (two background agents, Manager + Staff
+  surfaces) → zero D0 → bounded D1 repair (PR #531, squash `5b2a742`,
+  non-RED, autonomous merge via `scripts/ai-dev-merge.sh`).
+- **First genuine Staff-role live Browser QA this project has ever run**
+  (real session as 田中美咲, 375×667/320×667, JA+EN) — every prior
+  session either skipped it or only checked a Manager identity's "no
+  profile" empty state. Found and fixed a real, live-reproduced,
+  non-obvious CSS layout bug in the shared DS v1 `ListRow` component
+  (`packages/ui/src/list-row.tsx`): unbounded status-badge width could
+  collapse the row title to invisible (`0px` computed width) — verified
+  the fix hypothesis live via a DOM override before touching code, fixed
+  with `max-w-[60%]`, re-verified on the real deployed code both
+  pre-merge and post-merge on canonical `preview.oruwa.jp`.
+- Independent review (`/code-review --high`, 4 fresh-context agents) — 3
+  agents independently caught the same real bug (3 Recipes call sites
+  still calling the now-`lang`-aware `describeWriteError` without `lang`,
+  silently defaulting to English) before merge; fixed and re-verified.
+  Also archived a QA-stub recipe literally titled "New recipe" that was
+  live/published in the Recipes list.
+- typecheck/lint clean, full `apps/web` suite 1334/1334, 0 new
+  regressions, CI+Vercel green, post-merge canonical-Preview smoke clean.
+- **Founder-directed deferral, not silently skipped**: the Staff↔Manager
+  Mail thread on `oruwa-cafe` contains real historical QA chatter **in
+  Russian**, visible to anyone opening "メール" — Founder said leave it
+  ("оставим Mail, продолжай"), so it's documented, not fixed. Also
+  deferred (Founder decision, same session): the 52-item Operations
+  backlog / 23 unaddressed shift requests (accumulated QA residue,
+  identically visible in Attention Panel/Operations/Weekly Review), and
+  two Inventory items literally named "QAフィクスチャー：..." (can't be
+  safely renamed — the name is the dedup key in
+  `packages/db/scripts/oruwa-cafe-fixture.ts`'s idempotency check).
+- **Recommended next**: per the mission's own instruction, Full
+  Integrated Cafe v2.2 Acceptance (master-roadmap Phase 4) — not
+  authorized to start by this closure alone; needs a fresh Founder
+  prompt, and should explicitly decide what to do about the Mail/backlog/
+  fixture-naming deferrals above before any live customer demo.
+
+---
+
+**2026-09-18 pointer, MISSION 8 "BOUNDED QUALITY SWEEP" — CLOSED (older —
+read after the pointer above).** Full detail:
+`docs/ai/SESSION_HANDOFF_2026-09-18.md`.
+Verdict: **CLOSED. Cafe v2.2 itself is explicitly NOT declared CLOSED — do
+not start Demo Readiness / Full Integrated Acceptance / any new WP without a
+fresh Founder prompt.**
+
+- Ran the full Phase A read-only audit (16 findings, F1-F16, zero P0/P1)
+  over Manager+Staff Recipes/Inventory/Purchasing/Workforce/Staff surfaces,
+  then a bounded repair pass. PR #529 merged to `dev` (squash `95bff6d`),
+  non-RED (no `supabase/migrations/**` touched), autonomous merge via
+  `scripts/ai-dev-merge.sh`.
+- **Recipes performance (Founder's specific complaint), live-measured, not
+  inferred**: opening a recipe fired 3 duplicate `getRecipeDetailForPopup`
+  requests (hover/focus/pointerdown all independently triggering the
+  prefetch with no in-flight guard; 2 of 3 came back `net::ERR_ABORTED`).
+  Fixed with a shared in-flight `Promise` per `recipeId`
+  (`recipes-popup.tsx`). **BEFORE**: 5 requests, ~3.5s to full content.
+  **AFTER**: 2 requests, 0 aborted, ~1.5s — re-measured live on the PR's
+  own preview after the fix.
+- Bounded fixes: raw `employment_type` shown unlabeled (F2); raw employee/
+  shift-type UUID fallback across 8 call sites (F3/F9/F10); inconsistent
+  recipe-title-missing fallback across 4 code paths (F8/F16); Manager
+  Weekly Schedule grid + Shift Requests popup hardcoding English weekday
+  headers under the JA UI, live-confirmed (F11); a live-reproduced
+  focus-restore gap where saving a Recipe edit stranded keyboard focus on
+  `document.body` while the dialog stayed open (F5) — fixed in the shared
+  `components/shared/design-kit/Modal.tsx`.
+- **Independent review (`/code-review --high`) caught 2 real regressions**
+  in the first-draft fixes before merge, both repaired and re-verified
+  live: the F5 fix was initially too broad and intercepted focus from
+  legitimate `createPortal`-based content (Lightbox/ActionsMenu) — narrowed
+  to trigger only on exact `document.body`; the two new `formatWeekday`
+  wrappers built a UTC-anchored Date but the shared `weekdayLabel` helper
+  resolves via local `.getDay()`, silently mislabeling the weekday for any
+  browser session west of UTC — fixed to match `ShiftTable`'s existing
+  local-midnight convention.
+- typecheck/lint clean; full `apps/web` test suite 1334/1334, 0 new
+  regressions, at every commit. Post-merge smoke on the **canonical**
+  `preview.oruwa.jp` (not just the PR's ephemeral preview) confirmed clean.
+- **Explicitly NOT performed this session** (real gaps, not silently
+  assumed clean): tablet (768×1024) and 320×667 viewports, an EN-language
+  pass, a genuine Staff-role Browser QA session (only a Manager-identity
+  "no Staff profile" empty state was checked at 375×667), keyboard
+  Tab-cycle audit beyond the specific F5 repro, and instrumented
+  performance measurement of Operations/Issues/Weekly
+  Review/Inventory/Purchasing/Schedule (only Recipes was measured, per the
+  Founder's specific complaint).
+- Deferred, not fixed (real but out of bounded-fix scope): F7 (Purchasing +
+  ~58 other files still on legacy `theme.ts`, not Design System v1 — a
+  separate rollout mission); F12 (Inventory/Recipe unit `pcs` has no
+  Japanese label); F13 (Purchasing footer omits Ordered/Received counts,
+  still visible via filter tabs). F14/F15 reviewed and found NOT defects.
+- **Recommended next**: Demo Readiness / Full Integrated Cafe v2.2
+  Acceptance (master-roadmap Phase 4) — not authorized to start by this
+  closure alone; needs a fresh Founder prompt, and should explicitly close
+  the QA gaps listed above rather than assume they're covered.
+
+---
+
+**2026-09-17 pointer, CAFE v2.2 WP5 "RECIPE INTELLIGENCE LITE" — CLOSED
+(older — read after the pointer above).** Fifth and explicitly **last
+planned functional Work Package** of Cafe v2.2. Verdict: **CLOSED.**
+
+- **Product model**: an optional Recipe ingredient → Inventory item mapping
+  (quantity + a controlled unit: `kg`/`g`/`L`/`mL`/`pcs`, same vocabulary
+  Inventory already uses), Manager-maintained allergen data and a reference
+  price on Inventory items, and a deterministic estimated-cost calculation
+  — explicitly not an ERP: no supplier/invoice/margin/nutrition/menu-
+  engineering features. A bare, unmapped ingredient label remains fully
+  valid (the common case, never made mandatory).
+- **Migration `0120` is Purchasing v2 (WP4); this WP5's migration is
+  `0121_recipe_intelligence_lite.sql`** (additive): `workforce.recipe_ingredients`
+  gains an all-or-nothing `{inventory_item_id, quantity, unit}` triple,
+  tenant-safe by a composite FK (not merely RLS-blocked); a trigger enforces
+  the multi-location safety rule — a location-scoped recipe may only map to
+  an Inventory item at that same location, a tenant-wide recipe
+  (`location_id is null`) may map to any item within the tenant, with the
+  resulting cost then specific to whichever item was actually chosen (a
+  deliberate, documented property, not a bug). `inventory.items` gains
+  `reference_unit_price` (a Manager-maintained ESTIMATE — yen per one unit
+  of `items.unit` — never a receiving/accounting price) and `allergen_codes`
+  (`NULL` = not configured/unknown; `'{}'` = Manager explicitly confirmed
+  none known; the two states are never conflated). Both new Inventory
+  columns are deliberately **not** added to `api.inventory_items` or
+  `api.inventory_item_status` — this is the mechanism, not an oversight,
+  that keeps price away from Staff, who already holds `inventory.item.read`
+  and could otherwise see it through any view that selects the column.
+  `workforce.convert_quantity` performs only deterministic `kg↔g`/`L↔mL`
+  conversion (same-unit passthrough); anything else, including any pair
+  touching `pcs`, returns `NULL` — never a guessed number.
+- **`api.upsert_workforce_recipe`** (CREATE OR REPLACE, same signature as
+  before) now accepts either a legacy plain-string ingredient element or a
+  `{label, inventory_item_id, quantity, unit}` object in the same call,
+  verified backward-compatible. New **`api.recipe_ingredient_cost_breakdown`**/
+  **`api.recipe_cost_summary`** are Manager-only via an explicit
+  `workforce.can_manage_recipe` check on top of table RLS (Staff has
+  row-level read access to the underlying tables but must never see cost —
+  RLS is row-level, not column-level, so this is a deliberate additional
+  business-rule check, not a workaround). `estimated_cost` is `NULL` — never
+  `0` — whenever an ingredient is unmapped, its item has no reference price,
+  or the unit is dimensionally incompatible (`not_mapped`/`no_price`/
+  `unit_incompatible`/`ok` status column). New **`api.set_inventory_item_reference_price`**/
+  **`api.set_inventory_item_allergens`**/**`api.get_inventory_item_reference_data`**
+  are Manager-only (`inventory.item.manage`, explicit in-function check).
+  `api.workforce_recipe_ingredients` view extended with the mapping +
+  display fields, deliberately carrying no price. No new permission key, no
+  `SECURITY DEFINER` function (ADR 0008 unaffected), no automatic Inventory
+  stock mutation from Recipe configuration (verified: viewing/saving a
+  recipe never writes `inventory.stock_counts` or any pre-existing
+  `inventory.items` column).
+- **pgTAP `0062_recipe_intelligence_lite.sql`**: 44 assertions — conversion
+  function, the `recipe_ingredients_mapping_shape` CHECK, the location
+  trigger both directions (location-scoped rejected across locations,
+  tenant-wide allowed to any location), cross-tenant `inventory_item_id`
+  rejected by FK, `upsert_workforce_recipe` backward compatibility +
+  invalid-unit/non-positive-quantity rejection, Manager/Staff permission
+  gating (`42501`) on all four new Manager-only RPCs, missing-price and
+  unit-incompatible states (`estimated_cost IS NULL`, asserted explicitly —
+  not just "falsy"), allergen `NULL` vs `'{}'` distinguished by direct
+  query. All 44 pass; full suite re-verified against a clean `dev` baseline
+  (reset + rerun without this migration): identical pre-existing 5-file/
+  11-subtest failure set (`0002`, `0006`, `0008`, `0012`, `0023`), zero new
+  regressions.
+- **Independent fresh-context review: PASS**, zero P0/P1 findings (two P3
+  notes: the location-mismatch trigger is pgTAP-exercised only via direct
+  table insert, not additionally through the `upsert_workforce_recipe` RPC
+  path specifically, though the trigger declaration structurally guarantees
+  RPC coverage too; and the two client-callable cost/reference-data server
+  actions have no independent server-side `canManage` gate of their own —
+  by design, the real boundary is the RPC-level permission check verified
+  above, the UI gate is defense-in-depth only, already documented in-code).
+- **PR #525 merged to `dev`** (RED path: touches `supabase/migrations/**`,
+  Founder-merged directly, commit `f4b0c7a`). CI green both times (feature
+  branch and post-merge).
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project `pehcoenozjtsjdvjietj`, ledger synced through `0120`,
+  pending set = exactly `0121`) then Founder ran `supabase db push --linked`
+  themselves (same standing hard `deny` on this session running `db push`
+  under any condition; one non-fatal NOTICE about a pre-existing trigger not
+  existing yet, expected on first apply, not an error). Post-apply
+  `migration list` confirmed ledger `0121` applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp` (the canonical
+  `dev` deployment, confirmed reflecting the merged PR + applied migration),
+  real Manager (`manager@oruwa-cafe.test`) and Staff (田中美咲) sessions:
+  - **Real cost calculation, independently verified**: recipe「カフェラテ」,
+    エスプレッソ ingredient mapped to Inventory item コーヒー豆 (reference
+    price set to ¥1200/kg live), recipe quantity 18g → converted 0.018kg ×
+    ¥1200 = ¥21.60; スチームミルク mapped to 牛乳 (¥300/L), 200mL → 0.2L ×
+    ¥300 = ¥60.00. Displayed total ¥81.60 matched the independent hand
+    calculation (¥21.60 + ¥60.00) exactly.
+  - **Missing-price acceptance**: before either item had a reference price,
+    the UI read "現時点の概算費用: ¥0（2個中0個が計算済み）。残りは価格未設定
+    または単位換算不可です. " — never a bare misleading "¥0" total.
+  - **Unit-incompatible acceptance**: a third ingredient「蓋」mapped to the
+    `pcs`-unit item 紙コップ（Mサイズ）using `kg` correctly excluded itself
+    from the calculated count (final state: "3個中2個が計算済み", subtotal
+    unchanged at ¥81.60) rather than silently producing a number.
+  - **Allergen acceptance, all three states live**: エスプレッソ → not
+    configured ("アレルゲン未設定"); スチームミルク → 乳 (configured,
+    real code); 蓋 → "アレルゲンなし（確認済み）" (Manager explicitly
+    confirmed none known) — the three states never conflated in the UI.
+  - **Manager management access**: full ingredient-mapping CRUD via the
+    recipe edit form (Inventory item picker showing every active tenant
+    item with its location label, quantity, unit) and the Inventory item
+    edit form's new 参考価格/allergen-checkbox fields — all worked, all
+    persisted across reload.
+  - **Staff read-only visibility, verified both ways**: Staff sees the same
+    structured ingredients (quantity+unit) and allergen tags as Manager,
+    but the entire estimated-cost section and Edit/Delete controls are
+    absent from the DOM (not just visually hidden) — confirmed further by
+    inspecting the actual network requests fired: no cost-fetching request
+    is even attempted for a Staff session (the `canManage` guard short-
+    circuits the effect), consistent with the RPC-level permission check
+    also verified by pgTAP.
+  - **Inventory stock unchanged by recipe configuration**: cross-checked the
+    Inventory dashboard's actual-quantity values before and after every
+    recipe-mapping save this session — unchanged throughout (only the new
+    `reference_unit_price`/`allergen_codes` fields on the touched items
+    changed).
+  - **JA**: extensive — all new copy (材料費目安, 使用量, 単位, アレルゲン,
+    参考価格, and the missing-price/unit-incompatible explanatory sentences)
+    read naturally and consistently with existing Recipe/Inventory
+    terminology.
+  - **Responsive**: 1440×900, 768×1024, 375×667, 320×667 all clean via real
+    screenshots, no horizontal overflow; allergen tags render as pill
+    badges; Staff mobile view fully legible.
+  - **Recipe/Inventory/Purchasing/Weekly Review regression**: existing
+    unmapped recipes (抹茶ラテ, etc.) unaffected; Inventory list/edit forms
+    load and save correctly (the new reference-price/allergen fields
+    degrade gracefully — empty, not broken — for any state predating this
+    WP); Purchasing v2 popup loads with unchanged item data, no price ever
+    appears there; Weekly Review loads without error, unaffected by this WP.
+  - **EN / accessibility**: JA/EN i18n keys exist in `recipes-i18n.ts`
+    following the file's existing dictionary pattern (not independently
+    toggled to EN and re-screenshotted this session — code-verified, not
+    pixel-verified); accessibility inherits the same `@line-os/ui` Dialog/
+    focus-trap contract every other DS v1 popup already has, not
+    independently re-audited beyond that inherited contract this session.
+- **Found and fixed during this session's own Preview QA (before closing)**:
+  the estimated-cost amount rendered as "81,6" instead of a correct yen
+  figure — `knownSubtotal.toLocaleString()` with no locale argument follows
+  the browser/session's own locale, producing a comma decimal separator and
+  dropping a trailing zero under a non-Japanese `Accept-Language`. Fixed
+  with a `formatYen()` helper (round to the nearest whole yen, fixed
+  `ja-JP` locale) — **PR #526**, non-RED path (no migration/schema touched),
+  `typecheck` clean, merged to `dev` same session.
+- **Explicitly deferred / NOT built (mission non-goals)**: no
+  supplier/vendor entity, no invoices, no margin/profit/menu-engineering, no
+  price history/trend UI, no nutrition/medical claims, no automatic
+  Inventory consumption from recipe use, no new permission key, no
+  `SECURITY DEFINER` function.
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: per Mission 7's own explicit instruction, WP5 is the
+  **last planned functional Work Package of Cafe v2.2** — the next phase is
+  a bounded quality sweep over already-tracked deferred items (badge 9 vs
+  4+4 in `AttentionPanel`, raw `part_time`, the shared focus-restore gap,
+  the Purchasing popup's still-legacy `theme.ts` styling, and now also this
+  WP's two P3 notes above), followed by demo readiness and a full integrated
+  Cafe v2.2 Founder Acceptance / CLOSED pass — neither authorized to start
+  by this closure alone; a fresh Founder prompt selects which begins next.
+
+---
+
+**2026-09-15 pointer, CAFE v2.2 WP4 "PURCHASING V2 (ORDERED/RECEIVED)" —
+CLOSED (older — read after the pointer above).** Fourth functional Work Package,
+extending the existing Purchases module. Verdict: **CLOSED, ready for the
+next Founder-selected mission (WP5 NOT authorized by this closure).**
+
+**SCOPE RECONCILED (2026-09-16, Founder decision) — WP4 is fully CLOSED,
+no open flag.** A prior pointer here noted that WP4's shipped scope
+(Ordered/Received lifecycle only) was narrower than `docs/project/
+master-state.md`'s original 2026-09-01 WP4 row (which named a Supplier
+entity, item↔supplier mapping, and a draft→approval flow), and left open
+whether the narrowing was a deliberate Founder scope-down or an
+unintentional in-session divergence. **The Founder has confirmed the
+narrowing was a deliberate product decision, not an oversight.** Canonical
+WP4 scope for Cafe v2.2 is exactly what shipped: Inventory-derived
+purchase need, Manager review, `pending -> ordered -> received` lifecycle,
+ordered quantity, actual received quantity, partial receiving, over-receive
+per the implemented contract, canonical Inventory update through the
+existing Inventory mechanism, purchase history, tenant/location isolation,
+JA/EN, responsive operational workflow. Supplier entity/management, item↔
+supplier mapping, preferred supplier, supplier catalog/contacts/contracts,
+draft→approval workflow, multi-level approvals, automatic supplier
+ordering, invoices, payments, accounting, OCR, and procurement analytics
+are **DEFERRED / FUTURE PURCHASING ENHANCEMENTS** — explicitly not part of
+Cafe v2.2 WP4 and not blocking its CLOSED status. `docs/project/
+master-state.md`'s WP4 row is reconciled to match.
+
+- **Product model**: Purchases (0089) is deliberately an append-only
+  acknowledgement log over Inventory, never a second source of truth for
+  quantity (2026-08-24 Founder decision, restated in 0089's own header).
+  WP4 extends that log from a binary pending/bought lifecycle to
+  `pending -> ordered -> received`: `ordered` carries an informational-only
+  quantity (never written to Inventory, never a cap on what can later be
+  received); `received` is the ONLY new write path into Inventory, and it
+  writes exclusively by calling the pre-existing, unmodified
+  `api.record_inventory_stock_count` in the same transaction as the log
+  row — Inventory's own quantity storage remains the sole source of truth,
+  matching the 2026-08-24 constraint exactly. The original `bought`
+  single-step acknowledgement (0089) is untouched and still works as
+  before; Ordered/Received is an alternative two-step path for a real
+  delivery, never a required replacement. A read-only "History" tab exposes
+  the full append-only log for the first time (0089 wrote it but never
+  surfaced it in the UI).
+- **Migration `0120_purchases_order_receiving.sql`** (additive): adds
+  `action_type`/`ordered_quantity`/`received_quantity` columns to
+  `purchases.purchase_actions`; `api.record_purchase_order` (informational,
+  no Inventory write); `api.record_purchase_receipt` (writes Inventory via
+  `api.record_inventory_stock_count`, then logs the receipt; takes an
+  optional `p_expected_stock_count_id` optimistic-concurrency guard against
+  a stale/duplicate submit); `api.purchase_history` view. RLS for `purchase_actions`
+  insert is branched by `action_type` — `bought`/`ordered` keep 0089's exact
+  precondition (item currently short at the referenced snapshot);
+  `received` requires the referenced snapshot to be the item's true latest
+  count AND to have been counted by the same caller (prevents fabricating a
+  received log entry against an unrelated stock count). A
+  `pg_advisory_xact_lock` keyed on `item_id` serializes concurrent receipts
+  for the same item inside `api.record_purchase_receipt`, closing a
+  lost-update race an independent review found before Cloud DEV apply (two
+  concurrent receipts could otherwise both read the same "current" quantity
+  and one delivery would be silently lost — the optimistic
+  `p_expected_stock_count_id` guard alone does not prevent this, since both
+  callers can pass the check before either commits). pgTAP
+  `0061_purchases_order_receiving.sql`: Ordered/Received happy paths,
+  partial receiving, over-receive (accepted by design, no hard cap),
+  errcode-specific stale-snapshot/invalid-quantity rejection (not just
+  "some exception"), a NaN-quantity bypass guard, cross-tenant isolation
+  for both new RPCs, and confirmation the original `bought` RPC is
+  unaffected — all green, zero new regressions against the existing
+  baseline (the two 0047/0058 failures that appeared mid-session are a
+  pre-existing day-of-week-dependent Operations test design unrelated to
+  this schema, surfaced only by the session's date rollover to 2026-09-15,
+  not a WP4 regression).
+- **Independent fresh-context review**: found one P1 (the lost-update race
+  above, fixed before Cloud DEV apply) and several P2/P3 (NaN-quantity
+  bypass on both new RPCs, closed; a quantity-shape CHECK asymmetry on the
+  `received` branch, closed; `api.purchase_history` missing `OR REPLACE`,
+  closed; pgTAP coverage gaps for errcode-specific assertions and
+  cross-tenant isolation on the new RPCs, closed by extending
+  `0061`). Confirmed the "no second source of truth" invariant holds by
+  tracing `api.record_purchase_receipt` end to end, and confirmed
+  `api.purchases_needed`'s shortage/status computation still derives
+  entirely from `inventory.items`/`inventory.stock_counts`, unchanged.
+- **PR #524 merged to `dev`** (RED path: touches `supabase/migrations/**`,
+  Founder-merged directly). CI green.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project `pehcoenozjtsjdvjietj`, ledger synced through `0119`,
+  pending set = exactly `0120`) then Founder ran `supabase db push --linked`
+  themselves (same standing hard `deny` on this session running `db push`
+  under any condition). Post-apply `migration list` confirmed ledger `0120`
+  applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real Manager
+  (`manager@oruwa-cafe.test`) session (a prior session's browser profile was
+  already authenticated — no credential re-entry needed or performed this
+  session):
+  - **Full Order -> Receive cycle proven live with real numbers**: item
+    "紙コップ（Mサイズ）", Inventory before = 23 pcs (target 200, reorder
+    50, shown as "need to buy 177") -> Order 100 pcs recorded (status
+    "Ordered", Inventory unchanged at 23, confirmed via the Inventory
+    dashboard) -> Receive 60 pcs -> Inventory after = 83 pcs, confirmed via
+    both the Purchases read projection and, independently, the Inventory
+    dashboard's own "Actual quantity" field (canonical mechanism proof: the
+    same 83 appears wherever Inventory's own truth is read) -> item
+    correctly disappeared from the Purchases shortage list entirely once
+    actual_quantity (83) exceeded reorder_point (50) -> reload: both the
+    disappearance and the History-tab log of the Order/Receive entries
+    persisted -> "Needs attention" inventory-shortage badge count dropped
+    from 4 to 3 in lockstep, live.
+  - **Partial receiving**: item "コーヒー豆" (Bought, actual 1kg) received
+    0.5kg -> Inventory 1.5kg (still short, reorder point 2kg) -> status
+    correctly read "Received" with the delta quantity, item stayed listed.
+  - **Over-receive (no hard cap, by design)**: item "氷（製氷機用）"
+    (actual 5kg, nothing ordered) received 50kg directly -> Inventory
+    55kg, accepted with no error, item correctly dropped out of the
+    shortage list -- confirms Inventory truth is what was actually counted
+    in, never capped by an informational order quantity.
+  - **Duplicate-submit**: a rapid double-click on Receive (same
+    `expectedStockCountId`) produced exactly one History entry, not two --
+    confirmed via the History tab's exact count, not just the absence of a
+    visible error.
+  - **Concurrency (the pgTAP-level race the independent review found)**:
+    not independently re-reproduced live (a single-threaded browser click
+    cannot force two genuinely concurrent server-side transactions) -- the
+    `pg_advisory_xact_lock` fix is verified by code review + the fact that
+    zero double-counting occurred across this session's several receive
+    calls; same evidence-bar precedent as prior WPs' concurrency-adjacent
+    findings.
+  - **Purchasing/Inventory consistency**: cross-checked directly against
+    the Inventory dashboard after every receive call (not just the
+    Purchases popup's own numbers) -- always matched exactly.
+  - **Tenant/location isolation**: proved via the independently-reviewed
+    pgTAP suite (0061 §7, added this session), not live (single-tenant
+    reference tenant, same precedent as every prior WP).
+  - **JA/EN**: full bilingual pass on the Purchases popup including the new
+    filters (未購入/購入済み/発注済み/入荷済み/履歴), the Order/Receive
+    forms, and every History-tab entry (発注済み/入荷済み with correct
+    quantities); nav and surrounding dashboard chrome also confirmed
+    bilingual.
+  - **Responsive**: 1440×900, 768×1024, 375×667, and 320×667 all clean, no
+    horizontal overflow, filter buttons and Order/Receive input+button
+    pairs wrap correctly at narrow widths.
+  - **Accessibility**: `Escape` closes the Purchases dialog. Full
+    focus-trap/tab-cycle audit not performed (this page is still on the
+    pre-DS-v1 legacy `theme.ts` styling, same as before this WP -- migrating
+    it to `@line-os/ui` is a separately tracked, not-yet-authorized deferred
+    item, unchanged by this closure).
+  - **Weekly Review regression**: opened live, "Purchasing" section showed
+    "Items currently in shortage: 2" and "Pending purchases needed: 0" --
+    correct given the session's actions (ordered/received items no longer
+    count as `pending`), no crash, no stale data from the new statuses.
+  - **Inventory regression**: spot-checked the full Inventory dashboard
+    list after each Purchases action -- only the acted-on item's quantity
+    changed each time, no unrelated item affected.
+- **Explicitly deferred / NOT built (mission non-goals)**: no
+  supplier/vendor entity, no price/cost field, no invoices, no approval
+  chain, no automatic ordering, no new permission key (reused
+  `purchases.action.write`/`purchases.item.read`), no migration of this
+  page to `@line-os/ui` Design System v1 (separate, already-tracked deferred
+  item), no change to `apps/web/src/lib/inventory/**`.
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items already tracked in the 2026-09-11/2026-09-12 pointers below
+  (badge 9 vs 4+4 in `AttentionPanel`, raw `part_time`, the shared
+  focus-restore gap, and now also this page's legacy-theme status), OR a
+  fresh WP5 scope decision — neither authorized to start by this closure.
+
+---
+
+**2026-09-14 pointer, CAFE v2.2 WP3 "OWNER WEEKLY REVIEW" — CLOSED (older —
+read after the pointer above).** Third functional Work Package built on
+ORUWA Design System v1. Verdict: **CLOSED, ready for the next
+Founder-selected mission.**
+
+- **Product model**: a bounded, permission-gated, read-only Manager surface
+  ("週次レビュー" / "Weekly Review") summarizing one Monday-Sunday business
+  week across Team/Workforce, Operations, Issues & Handover, and
+  Inventory/Purchasing — explicitly NOT a Control Center, BI platform, or
+  analytics warehouse. No AI summary, no financial/payroll numbers, no
+  employee performance scoring, no week-over-week percentage math, no new
+  permanent snapshot/analytics table. Deliberately composed over
+  already-enabled modules via a single new permission key rather than a new
+  `core.module_code`/`core.tenant_modules` entitlement.
+- **Migration `0119`** (additive): new permission key
+  `core.weekly_review.view` (module `core`, granted only to
+  `tenant_owner`/`tenant_admin`/`manager` role_keys — never `employee`/
+  `client`) + one `SECURITY INVOKER` RPC `api.weekly_review_summary` (a
+  single JSON payload spanning workforce/operations/issues/inventory,
+  chosen over a set of views because several sections must degrade to an
+  explicit `null` — not `0` — when their owning module is OFF for the
+  tenant, in the same response as the week-scoped/"as of now" counts). The
+  RPC does not implement its own tenant/location authorization boundary —
+  it relies entirely on the same RLS already enforced on the underlying
+  tables/views (`workforce.shifts`/`shift_exchanges`/`shift_requests`,
+  `operations.task_instances`/`task_exceptions`, `issues.issues`,
+  `api.inventory_item_status`/`api.purchases_needed` — the last two reused
+  verbatim, not re-derived, per the repo's "reuse before invent" precedent
+  for the "shortage"/"pending" vocabulary). Week/timezone boundaries are
+  resolved in TypeScript (`getWeekPeriod`/`localDateTimeToUtcIso`,
+  `apps/web/src/lib/workforce/period.ts`) and passed to the RPC already
+  resolved, matching the existing `schedule-actions.ts` convention — no
+  second, potentially-diverging timezone implementation in SQL. pgTAP
+  `0060_weekly_review.sql`, 26 assertions (permission gating, tenant/
+  location isolation, week-boundary correctness, module-off → `null` not
+  `0`, quiet week, problem week), 100% pass; full suite re-verified against
+  a clean local baseline — same pre-existing 7-file/22-subtest failure set,
+  zero new.
+- **Manager UI**: own dashboard entry (`apps/web/src/app/(protected)/_ui/weekly-review-manager-popup.tsx`
+  + `.../weekly-review/weekly-review-manager-body.tsx`), gated by the new
+  permission (confirmed live: Staff never sees the entry). Prev/Next week
+  navigation (capped at the current, still-in-progress week, labelled "In
+  progress — not yet complete", never presented as a closed review),
+  drill-down into the real existing Operations/Issues/Purchases/Inventory/
+  Shift-requests/Shift-exchanges popups (no duplicated UI), a dedicated
+  quiet-week empty state, and a compact "Still open" rollup deliberately
+  separate from `AttentionPanel` (that file is untouched — zero-line diff
+  confirmed — and no new count was folded into its `combinedTotal`, per the
+  already-documented "9 vs 4+4" badge-arithmetic lesson from WP2). Pure
+  `@line-os/ui` (Design System v1), no legacy `theme.ts`/`design-kit`
+  primitive introduced (the shared `HelpIconButton` is the same
+  pre-existing exception every sibling popup already uses).
+- **A real correctness bug was found and fixed during this mission's own
+  review, before Preview QA**: the quiet-week check initially omitted
+  `openExceptionsCount`/`shortageItemsCount` from its "is this week quiet"
+  condition, which could have shown a false all-clear banner while old,
+  still-open Operations exceptions or inventory shortages existed. Fixed
+  before independent review; independent review then separately re-verified
+  the fix was present and complete.
+- **Independent fresh-context review: PASS**, zero P0/P1/P2 findings (two
+  P3 nitpicks: a few unused i18n dictionary keys reserved for future
+  granular error messaging; a degenerate all-modules-off tenant would show
+  the quiet-week state rather than a distinct "no modules enabled" message
+  — both deferred, non-blocking).
+- **PR #518 merged to `dev`** (squash `ef04b69`) — Founder-merged directly
+  (RED path: touches `supabase/migrations/**`). Two follow-ups also
+  merged: **#519** (comment-only: clarifies the `0119` rollback section
+  states it removes all 3 role grants + 1 permission row, not "two rows"
+  as an earlier gate-report paraphrase implied — the migration's actual
+  DELETE statements were always correct, only the comment's row-count
+  wording was clarified; RED path, Founder-merged directly), and **#520**
+  (a real live-QA-caught bug: `MetricRow` wrapped its `ListRow` title in
+  `MetadataText`, an `inline-flex` span through which `text-overflow:
+  ellipsis` does not apply, causing long labels to hard-cut with no "…" at
+  375px width instead of truncating cleanly; merged autonomously via
+  `scripts/ai-dev-merge.sh`, no RED path). All confirmed live on
+  `dev`/Preview.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (linked project confirmed `pehcoenozjtsjdvjietj`, ledger synced through
+  `0118`, pending set = exactly `0119`) then Founder ran
+  `supabase db push --linked` themselves (same standing hard `deny` on this
+  session running `db push` under any condition). Post-apply
+  `migration list` confirmed ledger `0119` applied both sides.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real Manager
+  (`manager@oruwa-cafe.test`) and Staff A sign-ins:
+  - **Cross-module trace proven for all three included domains**: Operations
+    (28 critical-missed count in the review matched the real Operations
+    "対応が必要 (28)" tab exactly), Issues & Handover (3 new issues + 1 new
+    handover in the review matched 4 real history-tab records dated inside
+    the reviewed week exactly), Purchasing (1 pending-purchase count matched
+    the real Purchases popup's single "未購入" item exactly). Workforce was
+    exercised via its own "still-unresolved shift requests" and "shift
+    exchanges" counts (no separate drill-down target beyond the existing
+    Shift Requests/Exchanges popups already wired in).
+  - **Week-boundary correctness proven live**, not just in pgTAP: moving
+    between Sep 7–13 (28 critical-missed) and Aug 31–Sep 6 (3
+    critical-missed) showed genuinely different week-scoped counts while
+    the "any date"/"as of now" counts (23 shift requests, 28 open
+    exceptions, 4 shortages, 1 pending purchase) correctly stayed constant
+    across weeks — proving the two predicate families are actually
+    independent, not coincidentally equal.
+  - **Upper bound proven live**: after repeated "Next week" clicks, the
+    button correctly disables exactly at the current week, with an "In
+    progress — not yet complete" badge — never advances into a genuine
+    future week.
+  - **Quiet-week logic proven NOT to false-positive live**: a week 5
+    weeks back (Jul 27–Aug 2) had zero week-scoped events but real nonzero
+    "still open" backlog (28/23/4/1) — the quiet-week banner correctly did
+    NOT appear, confirming the bug fix above holds against real data. A
+    genuinely all-zero quiet week could not be forced live because this
+    reference tenant carries months of accumulated QA residue (28 open
+    Operations exceptions, 23 pending shift requests) — documented as a
+    QA-data limitation, not a product defect; the positive quiet-week
+    empty-state render itself was verified via code review and the
+    independent review, not live pixels.
+  - **JA/EN**: full popup chrome verified bilingual (JA term `週次レビュー`
+    chosen over `今週のまとめ`/`週間レビュー` — reasoning recorded in
+    `weekly-review-i18n.ts`'s header comment — because the feature is
+    explicitly multi-week-navigable, not "this week only"); `Sep 7–13`
+    (en dash) vs `9月7日〜9月13日` range-formatting convention followed
+    correctly.
+  - **Responsive**: 1440×900 and 768×1024 both clean, no overflow. At
+    375×667 a real bug was caught (see PR #520 above: label hard-cut with
+    no ellipsis) and fixed same-session; re-verified clean after the fix
+    shipped and Preview redeployed.
+  - **Accessibility**: `Escape` closes the dialog; Tab-cycling through all
+    16 focusable elements inside the dialog wraps back to the first
+    (`About Weekly Review`) without ever leaking focus to the page behind
+    it — focus trap confirmed live, not just by DS v1 contract inheritance.
+  - **Negative permission check**: signed in as Staff (田中 美咲, an
+    isolated browser context, no shared session with the Manager check) —
+    the Weekly Review entry point is absent from the Staff dashboard
+    entirely, confirming the permission gate is real end-to-end, not just
+    server-side.
+  - **Tenant/location isolation**: proved via the independently-reviewed
+    pgTAP suite (scenarios B/C, including a tenant with an explicit
+    module-OFF row, not just `is_enabled=false`), not live (single-tenant,
+    single-location reference tenant, same evidence-bar precedent as WP2).
+- **Explicitly deferred / NOT built**: any AI-generated summary; any
+  financial/payroll/performance-scoring field; week-over-week percentage
+  comparison (only plain "any date" vs "this week" counts, no delta math);
+  a durable weekly-snapshot table (this is a live, recomputed-every-call
+  read model); a date-range picker (Prev/Next only); multi-location
+  aggregation (single resolved location only, LOC-1 fail-closed).
+- Production remains untouched and separately gated. `main` untouched.
+- All five WP3-session PRs (#518-#522, including the rollback-comment
+  clarification #519) are merged — nothing open, nothing pending.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items from the 2026-09-11/2026-09-12 pointers below (badge 9 vs
+  4+4 in `AttentionPanel`, raw `part_time`, Purchasing/Inventory copy, the
+  shared focus-restore gap), OR a fresh WP4 scope decision — neither
+  authorized to start by this closure.
+
+---
+
+**2026-09-12 pointer, CAFE v2.2 WP2 "ISSUES & HANDOVER" — CLOSED (older —
+read after the pointer above; full session narrative
+`docs/ai/SESSION_HANDOFF_2026-09-12.md`).** First new functional Work
+Package built on ORUWA Design System v1. Verdict: **CLOSED, ready for the
+next Founder-selected mission.**
+
+- **Product model**: new generic, reusable capability (schema `issues`,
+  module code `issues`, own `core.module_registry` row, `beta`, no
+  dependency on `workforce`/`operations`) modelling a structured
+  operational problem (`kind='issue'`, category + normal/important
+  severity) and shift/team handover information (`kind='handover'`, no
+  severity) in ONE flat table (`issues.issues`), lifecycle
+  `open -> acknowledged -> resolved`. Deliberately NOT built by extending
+  `operations.task_exceptions` (semantics differ: Handover is not an
+  "exception") and NOT registered as a Cafe-only table — reusable by any
+  future vertical, Cafe-specific category labels are just data.
+- **Migrations `0117`/`0118`** (additive): `0117` adds the `'issues'`
+  `core.module_code` enum value (own migration, mirrors `0099`'s two-step
+  pattern); `0118` is schema + table + guard trigger (only
+  status/acknowledged_*/resolved_*/resolution_note mutable post-insert) +
+  2 permission keys (`issues.report` Staff+Manager, `issues.manage`
+  Manager-only) + RLS (actor-role-coherence enforced server-side on
+  INSERT, no DELETE policy at all) + 3 `SECURITY INVOKER` RPCs
+  (`api.issues_create`/`issues_acknowledge`/`issues_resolve`) + 2
+  `security_invoker` views (`api.issues_open`, `api.issues`) + module
+  registration (no `core.tenant_modules` row — module NOT enabled for any
+  tenant by the migration itself). pgTAP `0059_issues_foundation.sql`, 41
+  assertions (module-OFF gating, cross-tenant isolation, actor-role-spoof
+  resistance, guard-trigger immutability, status-transition coherence),
+  100% pass; full suite re-verified independently against a clean `dev`
+  baseline — same 7-file/22-subtest pre-existing failure set, zero new.
+- **Manager UI**: own dashboard entry chip (own open-count badge,
+  `kind=issue && severity=important && status=open`) — **deliberately NOT
+  folded into `AttentionPanel`'s combined total**, avoiding the documented
+  "9 vs 4+4" badge-arithmetic mistake (`attention-panel.tsx` untouched by
+  this WP, confirmed by diff and by live QA: the "9" total was unaffected
+  throughout). List (Open/History `SegmentedControl`-style tabs),
+  Acknowledge/Resolve (resolve auto-stamps acknowledge if skipped), and a
+  Manager report form — all pure `@line-os/ui`/Tailwind (DS v1), no legacy
+  `design-kit`/`theme.ts`.
+- **Staff UI**: mobile-first quick-report (severity defaults to normal, a
+  single "mark as important" checkbox rather than the Manager form's
+  upfront `SegmentedControl` — fewer taps for the common case) and a
+  read-only relevant-issues view at the Staff's own location; no
+  acknowledge/resolve controls (RLS blocks it — Manager-only in this MVP,
+  explicit judgement call, not revisited).
+- **Independent fresh-context review: PASS**, zero P0/P1/P2 findings
+  (one P3/D-class note: the shared `HelpIconButton` still routes through
+  legacy `theme.ts`, inherited from the same pattern `operations-manager-
+  popup.tsx` already uses — pre-existing, not introduced by WP2).
+- **PR #517 merged to `dev`** (squash `390b507`) — Founder-merged directly
+  (RED path: touches `supabase/migrations/**`, `ai-dev-merge.sh` correctly
+  refused and required Founder action). CI green, Vercel Preview built.
+- **Cloud DEV migration Founder Gate**: completed. Read-only preflight
+  (local `dev` synced to `390b507`; `SUPABASE_URL` confirmed pinned to
+  Cloud DEV `pehcoenozjtsjdvjietj` via the existing `publishable-key-smoke`
+  tool; `supabase migration list --linked` showed pending = exactly `0117`
+  + `0118`) then Founder ran `supabase db push --linked` themselves (the
+  Lead Agent session cannot run `db push` under any condition — hard
+  `deny` in `.claude/settings.json`, not merely an `ask`). Post-apply
+  `migration list` confirmed ledger `0117`/`0118` applied both sides.
+  Direct PostgREST read-back verification was attempted but blocked by an
+  unrelated, pre-existing `403`/schema-exposure quirk on the
+  `SUPABASE_SECRET_KEY` used (reproduced identically against the untouched,
+  already-shipped `api.operations_open_exceptions` view — not a WP2
+  regression); the successful zero-error `db push` plus the ledger
+  confirmation were treated as sufficient DDL-application evidence, and
+  live Browser QA below independently proved every object (table, RLS,
+  RPCs, views) functions correctly end-to-end.
+- **Module enablement for `oruwa-cafe`**: performed by the Founder directly
+  in Cloud DEV (`core.tenant_modules` write — no `api.*` self-service RPC
+  exists for this by design, and the Lead Agent session had no
+  `DATABASE_URL` to do it itself). Verified live.
+- **Live Preview Browser QA — full pass**, `preview.oruwa.jp`, real
+  Manager (`manager@oruwa-cafe.test`) and Staff A sign-ins:
+  - **Scenario A (Issue)**: Staff created a critical-equipment issue
+    (mobile 375×667) -> reload persisted -> Manager saw it immediately
+    (desktop 1440×900, correct note/severity/reporter/business-date) ->
+    Manager resolved with a note -> reload persisted -> Staff saw it move
+    out of the active view. Badge counts correct before/after on both
+    dashboards.
+  - **Scenario B (Handover)**: Manager created a handover note -> Staff
+    saw it immediately with reporter "Manager" and the `Handover` tag, no
+    management controls shown (RLS-correct) -> persisted across reload.
+  - **Acknowledge path** tested standalone (not just via Resolve's
+    auto-stamp): item stayed correctly visible in the open feed with an
+    `確認済み` badge, `確認する` button correctly disappeared, `解決する`
+    remained; resolving afterward did not double-stamp
+    `acknowledged_at`.
+  - **Live-refresh timing note**: a create/resolve mutation's list update
+    depends on the same async `router.refresh()` pattern already used by
+    Operations/Mail — an immediate snapshot right after submit can catch
+    the UI mid-refresh (looks like "nothing changed" for well under a
+    second); confirmed via `wait_for` that the refreshed list arrives
+    correctly without a manual page reload. Not a defect, not fixed,
+    documented so a future session doesn't misdiagnose it as one.
+  - **Tenant isolation**: proved via the independently-reviewed pgTAP
+    suite (scenario F), not live (no second tenant credential available
+    to this session) — acceptable per the mission's own "automated
+    security tests" evidence bar.
+  - **Location isolation**: `oruwa-cafe` is single-location (matches the
+    LOC-1 fail-closed pattern used elsewhere); RLS location-scoping
+    verified in code + independent review, not live multi-location (no
+    second location on the reference tenant).
+  - **JA/EN**: full UI chrome (nav label, empty states, form fields,
+    resolve dialog, badges) verified bilingual; user-authored note content
+    correctly left unmachine-translated in both locales, per the DS v1
+    bilingual-content contract.
+  - **Responsive**: Manager 1440×900 and 768×1024 both clean, no overflow;
+    Staff 375×667 and 320×667 both clean, full-width one-tap primary CTA.
+  - **Accessibility**: `Escape` correctly closes the dialog. A focus does
+    NOT return to the trigger button afterward (lands on `<body>`) — but
+    this is **confirmed pre-existing**, reproduced identically on the
+    already-shipped, untouched Operations Staff popup; matches
+    `current-task.md`'s already-documented "focus-restore gap after a
+    mutation-triggered `router.refresh()`" deferred item. Not a WP2
+    regression; not fixed here, per the mission's on-touch policy (§43).
+  - **QA residue**: all test records (`(WP2 QA test...)` suffix) resolved
+    through the normal workflow (not deleted) before closing; both moved
+    to History, confirmed via reload.
+- **Explicitly deferred / NOT built (documented, not silently skipped)**:
+  Operations-exception cross-link (`operations_exception_id` column exists,
+  unused — no RPC writes it yet); any Manager-Attention-dashboard
+  integration beyond the module's own entry chip; Staff self-acknowledge;
+  any attachment/photo/AI/notification feature (explicit mission
+  non-goals).
+- Production remains untouched and separately gated. `main` untouched.
+- **Recommended next**: a bounded quality-sweep pass over the still-open
+  deferred items from the 2026-09-11 pointer below (badge 9 vs 4+4 in
+  `AttentionPanel`, raw `part_time`, Purchasing/Inventory copy, the shared
+  focus-restore gap now confirmed to also affect the Issues popups), OR a
+  fresh WP3 scope decision — neither authorized to start by this closure.
+
+---
+
+**2026-09-11 pointer, ORUWA DESIGN SYSTEM v1 FOUNDATION + OPERATIONS PILOT —
+DONE (older — read after the pointer above; full detail
+`docs/ai/SESSION_HANDOFF_2026-09-11.md`).** Closes the "ORUWA Product
+Quality Foundation" step 7b named in the 2026-09-10 pointer below.
+
+- Both evidence audits present in repo: `docs/ai/ORUWA_DESIGN_SYSTEM_TECHNICAL_AUDIT_2026-09-10.md`
+  (technical, recommends Tailwind v4 + Radix Primitives) and
+  `docs/ai/ORUWA_BROWSER_VISUAL_UX_PRODUCT_AUDIT_2026-09-10.md`
+  (browser/UX, verdict B "READY WITH REQUIRED PRECONDITIONS", Founder-supplied
+  this session, previously not in repo).
+- **Foundation**: `@line-os/tokens` Phase 0 completed (WCAG-AA fixes incl.
+  `text-muted`, `success` decoupled from `accent`, `elevation`/`focus`/
+  `state`/`border` semantic layers, drift test now computes real contrast
+  ratios); Tailwind v4 + Radix Primitives wired into `apps/web`; real Noto
+  Sans JP loading via `next/font`; `@line-os/ui` v1 built (`Dialog`/
+  `ConfirmDialog` with a real focus-trap/scroll-lock/stack-aware-Escape
+  contract, `Button`/`Field`/`Input`/`Select`/`Checkbox`, the Status/
+  Metadata/Action badge model, `ListRow`/`SegmentedControl`/`Menu`/
+  `Tooltip`/`FormActions`/`EmptyState`/`Skeleton`).
+- **Operations pilot** (presentation-only, zero business-logic/RPC/schema
+  change): Staff task detail and Manager Attention (client-side exception
+  grouping) rebuilt on the new contracts; secondary touched surfaces
+  (Today lists, Templates list, both popup shells) migrated to prove
+  reuse; `template-detail-modal.tsx` shell-only swap with a
+  `dismissible={!anyLegacyConfirmOpen}` guard against its still-legacy
+  nested `ConfirmDialog`s.
+- JA copy fix: task due-time range composition centralized
+  (`formatTaskDueWindow()`), `実施時刻 ... まで ...` → `実施時間
+  07:30〜08:30`.
+- **Schedule lifecycle Founder question resolved by code inspection**: a
+  real draft/publish mechanism exists, but Manager manual assignment
+  auto-publishes immediately (2026-08-25 Founder decision) — Staff only
+  ever sees published rows. **"Published schedule" wording is accurate,
+  NOT changed.**
+- Verified: `packages/tokens` 7/7; `pnpm -w turbo run typecheck lint test
+  build` 34/34; `next build` 19/19 pages; **live Browser QA on a real
+  Vercel Preview deployment** (1440/768/375/320, JA, real mutation→
+  persistence and nested-dialog-Escape-stack verified, not just claimed);
+  independent fresh-context review PASS.
+- **PR #516 merged to `dev`** via `scripts/ai-dev-merge.sh` (squash
+  `79b211b`). `main`/production untouched.
+- **Explicitly deferred, real findings, NOT authorized to build**: Manager
+  Dashboard attention-badge count inconsistient with its own breakdown
+  text (9 vs 4+4, outside Operations); Purchasing `仕入れ`/`購入` term
+  inconsistency; Inventory `不足` copy; Staff-management raw `part_time`;
+  a Demo Data/Reset script (recommended, not built); LIFF real-device
+  CSS-baseline check (no device available); a focus-restore gap after a
+  mutation-triggered `router.refresh()` closes a dialog (pre-existing
+  exposure, not a regression from this migration).
+- **Next: WP2** (own Founder prompt) or a bounded follow-up from the
+  deferred list above — neither selected yet. Do not start WP2 or further
+  Product Quality Foundation work without a fresh prompt.
+
+**2026-09-10 pointer, CAFE v2.2 WP1 OPERATIONS — CLOSED (older — read after
+the pointer above).** WP1 Operations is **CLOSED** with verdict **"ACCEPTED WITH
+EXPLICIT MVP LIMITATIONS, READY TO CLOSE"**.
+
+- **G1 fixed.** The one substantive acceptance gap (a missed critical
+  scheduled check produced no durable Manager Attention item and no visual
+  escalation in "Today" — `critical_missed` / `verification_required`
+  declared in schema but never written) is fixed by **migration
+  `0116_operations_missed_critical.sql`** (Founder-approved as an
+  unfinished bounded slice of existing WP1; additive; a schema change was
+  permitted via a Founder Gate). Merged via **PR #513** (`536993a`).
+- **`0116` APPLIED TO CLOUD DEV** `pehcoenozjtsjdvjietj` via the standard
+  Supabase migration workflow, Founder-run under an explicit Founder Gate
+  (the RED guardrail blocks the session from running `migration repair` /
+  `db push`). Pre-apply ledger drift on `0115` (schema present since
+  2026-09-05, ledger row missing) was resolved first with
+  `supabase migration repair --status applied 0115` (ledger-only), after a
+  read-only `db dump` proved `0115`'s schema byte-equivalent to its
+  migration contract. Post-apply verification: ledger `0114/0115/0116` all
+  applied; every `0116` object present and matching the merged design;
+  existing Operations / HACCP data intact; ADR 0008 preserved.
+- **Acceptance A–J = PASS** — pgTAP `supabase/tests/0058_operations_missed_critical.sql`
+  (clean run: 0058 ok, exactly the 11 known pre-existing failures, zero
+  new) + live Preview Browser QA (Manager + Staff on `oruwa-cafe`):
+  read-time materialisation, `重要チェック未実施` badge in Manager/Staff
+  "Today", Attention feed with hint line, persistence across reloads, no
+  duplicate on repeated sweep, late-response keeps it open, **late
+  completion auto-resolves it and a re-sweep does not recreate it**,
+  Manager resolve flow. `#514` (Phase 0 design tokens) regression: theme
+  values byte-identical, only JP-first font + a new unused `accentText`
+  token; `turbo` 34/34; no Operations layout regression.
+- **Independent fresh-context re-review = PASS — "WP1 may close"** (no
+  P0/P1; SECURITY DEFINER functions correctly self-authorising per
+  location, no cross-tenant write path, `operations` schema not
+  PostgREST-exposed).
+- **Explicit Founder-accepted MVP limitations (deferred, NOT defects, do
+  NOT build without a fresh prompt):** (1) no ad-hoc same-day recheck task
+  (§7); (2) no true per-location threshold override on a shared template
+  (§12); (3) `critical_missed` materialised at Manager-Operations read
+  time, not by a scheduled worker (writer is worker-ready).
+- Full record: `docs/ai/CAFE_V2_2_WP1_OPERATIONS_FINAL_BOUNDED_ACCEPTANCE_2026-09-08.md`
+  §19 (§1–§18 retained as the historical record that surfaced G1).
+
+**Next agreed phase: ORUWA Product Quality Foundation** (Founder decision
+2026-09-09) — a **platform-level** bounded phase, runs **after WP1 CLOSE**
+and **before active WP2–WP5 implementation**. A single ORUWA design system
+so WP2–WP5 are built on one consistent/accessible/maintainable foundation.
+Bounded v1 with an explicit DoD; `ARTIFACT` / `STANDARDS` / `AUDITS`
+structure (design tokens already landed as Phase 0 / `@line-os/tokens`,
+PR #514); **technology NOT pre-decided** — the first stage is a technical +
+UX audit comparing (a) evolve the current layer, (b) a thin ORUWA
+component layer, (c) a Radix-primitives system, and recommends one;
+**Operations is the first pilot** (migrate, evidence-based UX improvements
+allowed, no business-logic / DB / RPC / RLS change without a separate
+gate); **no extra acceptance gates** (folds into the existing per-WP gates
++ the single Phase-4 Integrated Acceptance); before final acceptance — full
+JA/EN Copy Audit, Founder-facing Russian Feature Map, Demo Readiness check.
+Sequence: WP1 CLOSED → Design System Audit → Design System v1 + Operations
+pilot → WP2–WP5 on DS v1 → Copy Audit / Feature Map / Demo Readiness → one
+Phase-4 Integrated Acceptance → Cafe v2.2 CLOSED. **NOT authorized to start
+— its own Founder prompt. Product Quality Foundation implementation and WP2
+are both not started.** See `docs/project/master-state.md` §14 ("ORUWA
+Product Quality Foundation") and `docs/strategy/oruwa-master-roadmap.md`.
+
+Production remains untouched and separately gated. `main` untouched.
+
+---
+
+**2026-09-08 pointer, CAFE HACCP PRESETS — CLOUD DEV APPLIED, BROWSER QA
+PASS (superseded by the 2026-09-10 WP1-CLOSED pointer above).** Closes
+the Founder Gate the two pointers below left open. Third and final bounded
+mission on the "Cafe HACCP presets" step.
+
+- **QA credentials mechanism established** (Founder decision, disposable
+  DEV/Preview accounts, not production secrets): repo-root `.env`
+  (gitignored, already the documented home for `packages/db` operator
+  secrets — see `docs/operations/env-inventory.md`) now also holds
+  `ORUWA_CAFE_MANAGER_EMAIL` / `ORUWA_CAFE_MANAGER_PASSWORD` and
+  `ORUWA_CAFE_STAFF_A_EMAIL` / `ORUWA_CAFE_STAFF_A_PASSWORD` — real
+  disposable Manager/Staff sign-in credentials for `oruwa-cafe` on Cloud
+  DEV/Preview, Founder-populated once. Explicitly classified as **PUBLIC
+  DEMO/QA accounts** — exposure in a tool-call transcript when used for
+  automated sign-in is accepted by Founder decision for this specific
+  category and does not require rotation; this classification does **not**
+  extend to any Production credential, Supabase secret/service_role key,
+  API key, real customer credential/PII, or admin/platform key, which keep
+  full standing secrecy rules. `ORUWA_CAFE_STAFF_A_EMAIL` currently points
+  at the Founder's own real email (temporary, Founder-acknowledged; a
+  dedicated public demo address is a future, not-yet-authorized swap — do
+  not do this proactively). A future session can source this `.env` (e.g.
+  `set -a; source .env; set +a` before a `pnpm --filter @line-os/db ...`
+  command) to run Cloud DEV Manager-authenticated operations and Preview
+  Manager/Staff Browser QA autonomously, without asking the Founder to
+  paste a secret into chat. `serverEnv()` also requires `DATABASE_URL`,
+  `PII_ENCRYPTION_KEY`, `PII_HASH_PEPPER`, `LINE_CHANNEL_SECRET`,
+  `LINE_CHANNEL_ACCESS_TOKEN` to be non-empty even for scripts that never
+  use them (Zod schema validates the whole server env at once) — harmless
+  inline placeholder values for the ones truly unused by a given script are
+  fine to export for one process invocation only, never written to any
+  file.
+- **Cloud DEV apply — DONE.** Target proven via the existing
+  `publishable-key-smoke` tool (checks `SUPABASE_URL` against the
+  non-secret reviewed Cloud DEV project ref, never prints the key) before
+  any write. `pnpm --filter @line-os/db cafe-haccp-presets -- --confirm-apply`
+  created exactly 4 templates / 12 items / 4 schedules on the `oruwa-cafe`
+  reference tenant, verified by direct read-back from
+  `api.operations_templates`/`_template_items`/`_schedules`: correct
+  tenant/location, JA/EN content matches the manifest, all 5 numeric items
+  carry `numeric_unit='°C'` with `numeric_min`/`numeric_max` both `NULL`,
+  critical/required flags match, no logical duplicates, pre-existing QA
+  residue (`Opening checklist`) untouched. A post-apply dry-run showed
+  0 templates / 0 items / 0 schedules to create — idempotency proven live
+  against a real database, not just unit tests.
+- **Browser QA — PASS**, live on `preview.oruwa.jp` via chrome-devtools
+  MCP, using the QA credentials above. Manager: all 4 templates visible,
+  numeric temperature items showed "しきい値未設定"; set a *test-only*
+  0–5°C threshold on one item via the existing `ItemForm` edit path,
+  confirmed it persisted after reload. Staff (the `oruwa-cafe` employee
+  identity behind `ORUWA_CAFE_STAFF_A_EMAIL`): saw the configured range on
+  that item and "管理者による基準値の設定が必要です" on the other two
+  (no threshold yet); entered 12°C (outside the test range) — response
+  saved, task moved to 進行中 with 1 open exception; completed the task
+  (form went read-only). Manager: the exception appeared in Attention with
+  severity 要対応 (`action_required`, correct — the item is `is_critical`,
+  D4 unchanged), resolved it with a note, confirmed after reload it did not
+  reappear. **The test threshold was reverted to NULL afterward** via the
+  same Manager UI (confirmed "しきい値未設定" again on reload) — reference
+  tenant configuration left exactly as the canonical install produced it,
+  no destructive cleanup performed. A final post-QA dry-run reconfirmed
+  0/0/0 to create.
+- **Verdict: CAFE HACCP PRESETS — CLOUD DEV APPLIED, BROWSER QA PASS.**
+  Production untouched throughout (every operation structurally pinned to
+  the Cloud DEV project ref and the `oruwa-cafe` tenant id).
+
+**Next gate: none opened by this mission.** WP1 bounded Acceptance and WP2
+Issues & Handover remain explicitly **not started, not authorized** by this
+closure — same standing rule as every prior pointer in this file. The
+per-location threshold override question (flagged during the verification
+mission below) and the same-day ad-hoc recheck product gap (flagged during
+implementation) both remain open, un-actioned WP1-acceptance-time questions
+for the Founder — do not build either without a fresh explicit prompt.
+
+**2026-09-05 pointer, CAFE HACCP THRESHOLD CONFIG FIX — merged, corrects the
+pointer immediately below (newest; read this one first).** Second bounded
+mission on the same "Cafe HACCP presets" step. Founder decision: ORUWA
+presets define WHAT to check, response type, unit, and critical/required
+semantics — the actual acceptable numeric range is Manager/Owner
+configuration for their specific business/location, never an
+ORUWA-imposed default, even one explicitly flagged as unverified (as the
+pointer below originally shipped). Result:
+
+- All 5 numeric HACCP items (fridge × 3 occurrences across
+  opening/closing/temperature-midday templates, freezer, hot-holding) now
+  ship with `numericMin: null, numericMax: null` — no substituted "more
+  correct" number, `numericUnit: '°C'` and `isCritical`/`isRequired`
+  semantics unchanged from before. The 0–10°C / -30–-15°C / 60–90°C figures
+  named in the pointer below are **no longer in the codebase** — that
+  paragraph is factual history of what shipped first, not current state.
+- Verified safe against the unmodified generic Operations schema/RPCs: the
+  two CHECK constraints on `checklist_items` (`0100`) permit a numeric item
+  with NULL min/max and a real unit; `api.operations_record_response`
+  (`0101`) only opens a threshold exception when a bound is NOT NULL, so a
+  NULL threshold can never produce a false exception, and the measured
+  value is still recorded either way.
+- Minimal UX added, reusing existing Operations i18n/visual patterns (no
+  new component/module): Manager (`template-detail-modal.tsx`) shows a
+  warning badge "しきい値未設定 / Threshold not configured"; Staff
+  (`task-detail-modal.tsx`) shows muted text "管理者による基準値の設定が
+  必要です / Threshold requires manager configuration" — worded so Staff
+  never reads this as their own responsibility.
+- **Current threshold-configuration model, recorded explicitly** (not a new
+  decision, a fact about the existing architecture): a threshold lives on
+  `checklist_items`, which belongs to exactly one `checklist_template`; a
+  template is tenant-wide (`location_id IS NULL`, shared verbatim by every
+  location) OR scoped to exactly one location — never both, never
+  per-location overrides on one shared template. Achieving different
+  thresholds per location today requires separate, location-scoped
+  template copies. **True per-location threshold overrides are a separate
+  architecture decision and remain explicitly NOT authorized.**
+- Recheck gap (no ad-hoc same-day recheck task) — unchanged, still a
+  separate, un-actioned WP1 acceptance question, not touched by this fix.
+- Zero migration, zero RLS change, zero new schema/module/capability. Local
+  validation: `pnpm --filter @line-os/db` and `--filter @line-os/web`
+  typecheck/lint/test all green (500/500 and 1322/1322), `pnpm -w`
+  typecheck/lint/build all green (11/11, 19/19, 14/14). Independent
+  fresh-context review: **PASS**, no required fixes, against a 13-point
+  checklist (thresholds actually removed, no substituted guess,
+  critical/required preserved, schema-legality and no-false-exception both
+  re-derived from source rather than trusted, UX reuse, Manager-vs-Staff
+  copy intent, JA/EN test coverage, idempotency unaffected, scope
+  discipline, product-boundary note accuracy).
+- **PR #512 merged into `dev`** (squash commit `cf3c3e8`, via
+  `scripts/ai-dev-merge.sh`, all mechanical gates green). Working tree
+  clean after merge.
+- **Cloud DEV / reference-tenant status unchanged**: presets were never
+  applied to Cloud DEV under either version of this content (confirmed —
+  no apply has happened at any point in either mission), so there is no
+  stale-threshold cleanup concern. The same Founder Gate as before still
+  applies: applying to `oruwa-cafe` needs `ORUWA_CAFE_MANAGER_PASSWORD`,
+  not available to this session.
+
+**Verdict: HACCP THRESHOLD CONFIG FIX — PASS, READY FOR CLOUD DEV APPLY**
+(code-wise; the apply itself and the resulting live Browser QA remain at
+the Founder Gate, unchanged from the pointer below).
+
+**2026-09-05 pointer, CAFE HACCP PRESETS — code CLOSED, Cloud DEV apply +
+Browser QA PENDING Founder action (older — read the pointer above first;
+its numeric-threshold content below is SUPERSEDED, see above — everything
+else in this entry, incl. mechanism/location/idempotency, remains
+accurate).** Implements the "Cafe
+HACCP presets" step named as canonical-next by the pointer immediately
+below, per Founder decision: reusable **product data + idempotent
+provisioning**, not a one-off Manager-UI hand-entry, and not a new
+module/schema/capability (D3/D5 held throughout).
+
+- **Exact presets implemented** — 4 checklist templates, 12 items, JA/EN
+  bilingual names/categories/labels in one string each (schema has no
+  per-locale column): `オープニング衛生チェック（Opening Hygiene Check）`
+  (category `opening`, 3 items incl. a critical 0–10°C fridge check),
+  `クロージング衛生チェック（Closing Hygiene Check）` (`closing`, 3 items),
+  `日次清掃チェック（Daily Cleaning Check）` (`cleaning`, 3 items),
+  `温度管理チェック（Temperature Monitoring Check）` (`temperature`, 3
+  items: fridge 0–10°C, freezer -30–-15°C, hot-holding 60–90°C
+  optional/`is_required=false`). All four numeric ranges are explicitly
+  flagged in-code as **unverified operational defaults** (not sourced from
+  any approved document in this repo, not confirmed against Japanese
+  food-sanitation law) pending food-safety/Founder confirmation — never
+  presented as compliance/certification, per the scope doc §7's explicit
+  boundary. "Corrective-action record"/"recheck" (also named in §7) are
+  **not** new content/schema — mapped onto the existing
+  `operations_report_problem` → `operations_resolve_exception` lifecycle
+  (CONTENT REPRESENTABLE); an ad-hoc same-day recheck (reopening a
+  completed task mid-day) is flagged as a genuine **PRODUCT GAP**, not
+  worked around.
+- **Canonical data location**: `packages/db/scripts/cafe-haccp-presets.ts`
+  (pure manifest + pure `buildCafeHaccpPresetsPlan`, no I/O — mirrors the
+  existing `oruwa-cafe-fixture.ts` convention).
+- **Installation mechanism**: `packages/db/scripts/cafe-haccp-presets-write.ts`
+  (`pnpm --filter @line-os/db cafe-haccp-presets`), dry-run by default,
+  `--confirm-apply` to write for real. Every write/read goes through the
+  **existing sanctioned RPC boundary** — `api.operations_create_template` /
+  `operations_add_template_item` / `operations_create_schedule` /
+  `api.operations_templates` / `_template_items` / `_schedules` — via a
+  real authenticated Manager-session sign-in (`manager@oruwa-cafe.test` +
+  `ORUWA_CAFE_MANAGER_PASSWORD`), **never** a raw `operations.*` table
+  write, **never** a service-role RLS bypass (every `operations_*` write
+  RPC is `SECURITY INVOKER` and resolves the acting user from the JWT, so
+  service-role has no acting user to satisfy it). Zero changes to
+  `supabase/migrations/**` or `apps/web/src/lib/operations/**` — confirmed
+  by diff, not just by design intent.
+- **Idempotency evidence**: proven at the plan-builder unit-test level
+  (`cafe-haccp-presets.test.ts`, part of `packages/db`'s test suite,
+  499/499 passing) — a context reflecting everything a first run created
+  produces a plan with **zero** creates in every category (templates,
+  items, schedules) on a second run; a partial-context case proves only
+  the genuinely missing piece gets planned. A true double-`--confirm-apply`
+  run against a real database was **not** executed (no `ORUWA_CAFE_MANAGER_PASSWORD`
+  available to this session — see Founder Gate below).
+- **Independent fresh-context review**: ran against a 12-point checklist
+  (D3, no new schema/RPC, RPC-only writes, no RLS bypass, real idempotency,
+  no duplicate-schedule risk, §7 content fit, JA/EN parity, no compliance
+  claims, evidence-flagged thresholds, no invented severity, general
+  judgment). First pass: **REQUIRED FIXES** — one real finding (template
+  `category` was English-only while rendered as user-visible text in the
+  Manager UI, breaking the file's own stated JA/EN parity contract). Fixed
+  (all 4 categories made bilingual, regression test added) and
+  re-verified — all 12 points **PASS**.
+- **PR #511 merged into `dev`** (squash commit `e812440`, via
+  `scripts/ai-dev-merge.sh` — all mechanical gates green: CI 4/4 pass,
+  no RED-operation path touched, no migration in this PR). Working tree
+  clean after merge.
+- **Founder Gate — NOT started, explicit single blocker**: applying this to
+  the live `oruwa-cafe` reference tenant on Cloud DEV requires running
+  `pnpm --filter @line-os/db cafe-haccp-presets -- --confirm-apply` with
+  `ORUWA_CAFE_MANAGER_PASSWORD` set — this session does not have that
+  credential (confirmed: it exists only as a placeholder key name in
+  `.env.example`, no real value available). This is not a schema/migration
+  write and does not need a `db push`-style approval, but it is a real data
+  write against the live Cloud DEV reference tenant, so it is left for the
+  Founder to run (or to explicitly hand the credential/authorization to a
+  future session) rather than assumed. **Until this runs, live Browser
+  Manager/Staff QA on Preview cannot be performed** (there is nothing to
+  see yet) — not claimed, not attempted.
+- **WP1 acceptance readiness**: code-complete and independently reviewed,
+  but **not yet ready for bounded WP1 Acceptance** — pending the Cloud DEV
+  apply + live Browser QA above. No `main`/production touch at any point.
+
+**Verdict: CAFE HACCP PRESETS — PASS, BROWSER QA PENDING.**
+
+**2026-09-05 pointer, OPERATIONS MANAGER/STAFF UI — CLOSED, live-QA'd on
+Preview (newest; full detail:
+`docs/ai/OPERATIONS_MANAGER_STAFF_UI_HANDOFF_2026-09-05.md`).** Closes the
+canonical next step named below (`master-state.md` §14 step 5). 7 PRs
+merged to `dev` (#500, #502, #505–#509): Manager Templates/Items config,
+Manager Scheduling (+ migration `0115`, additive read view), Staff task
+execution, Manager Attention/exceptions feed, live-QA polish fixes, a perf
+fix, and a refactor from a standalone `/operations` page into a
+Manager/Staff dashboard popup (matching Recipes/Inventory/Purchases/Mail).
+Full end-to-end live QA done on `preview.oruwa.jp` under real Manager and
+Staff logins (template → item → schedule → Staff completion incl. a
+threshold exception → Manager resolve), both JA/EN. Also this session:
+`scripts/ai-hooks/guard-git-push.mjs` now auto-allows non-force push to
+`dev` (not just `feature/*`); `scripts/ai-dev-merge.sh` now auto-merges
+additive migrations (destructive-SQL-pattern scan blocks the rest) —
+Founder-granted standing authority, `main` unaffected by either change.
+**Canonical next step: Cafe HACCP presets** (product content/config on the
+generic Operations module just built — see the scope doc §7 boundary list;
+no new schema/RPC expected, D3 still holds). Production remains untouched
+and separately gated.
+
+**2026-09-04 pointer, AUTO SCHEDULING — CLOSED, DEV/Preview accepted (older —
+read after the one above; canonical state now lives in
+`docs/project/master-state.md` §7 "Auto Scheduling", this is a pointer).**
+Out-of-band bounded mission, independent
+of the Cafe v2.2 WP sequence below — does **not** change the canonical next
+implementation step (still Operations Manager/Staff UI, unchanged). Closed:
+root-caused/fixed the CUSTOM-shift-type "no active shift types" bug,
+calendar-month 160h cap, past-date immutability, no-preference fallback +
+reporting, and the scheduled-monthly trigger (`apps/worker`, same engine as
+manual, idempotent, ON/OFF+day, draft-only/no auto-publish/no LINE). PRs
+#490/#491/#492 merged to `dev`. Migration `0114` (additive: schedule_settings
+`auto_create_enabled` + `auto_create_last_generated_month`) **APPLIED +
+VERIFIED on Cloud DEV** (Founder-run per the standing no-autonomous-write
+rule). Authenticated Preview Browser Acceptance PASS (Manager + Staff A);
+evidence boundaries honestly recorded, not false-PASS'd: monthly-160h-cap and
+manual-assignment-preservation are automated-test-only (not separately forced
+in this Browser QA run), real scheduled-cron firing is not yet observed.
+**Preview routing correction recorded this session:** canonical Browser QA
+entry is `https://preview.oruwa.jp/sign-in` → `/manager` or `/staff`, not a
+raw per-deployment Vercel URL (§7 of master-state.md now states this
+explicitly; this mission's own QA used a raw Vercel preview URL before the
+correction was given). A legacy generic-landing root surface observed on that
+raw URL is queued for the upcoming Cafe Functional Reality Audit
+(Routing/Entry Points/Legacy Surfaces) — no disposition decided.
+
+**2026-09-03 pointer, STEP 4 OPERATIONS CLOUD DEV MODULE-ON SMOKE — DONE
+(canonical state now lives in `docs/project/master-state.md` §7/§14/§18,
+this is a pointer).** The Founder ran the module-ON smoke against Cloud DEV for
+`smoke-tenant-b` via `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1`:
+`CLOUD_TARGET`, `OPERATIONS_MODULE_ON`, `ENABLED_TENANT`, `DISABLED_TENANT`,
+`CROSS_TENANT_ISOLATION`, `ROLE_BOUNDARY`, `LOCATION_BOUNDARY` **all PASS**. The
+smoke runs in one transaction that **ROLLS BACK** — nothing persisted,
+`operations` is still enabled for **no tenant**, no migration / schema / RLS /
+application-behaviour change. Tooling merged via **PR #485** (`dev` HEAD
+`8b7026c`): pgTAP `supabase/tests/0055_operations_module_on_smoke.sql`, the
+standalone psql smoke, a PowerShell LAYER-1 wrapper (client-side Cloud-DEV /
+Production target guard + `uselibpqcompat` libpq-URI fix), and
+`docs/operations/operations-cloud-dev-module-on-smoke-runbook.md`. **Canonical
+next implementation step = Operations Manager/Staff UI** (its own Founder
+prompt; NOT started). Production untouched and still **NOT READY** (separate
+Founder-approved Production ENV/API-key gate; deploy BLOCKED). Cafe HACCP
+presets and WP2–WP5 remain not authorized.
+
+**2026-08-29 pointer, SESSION HANDOFF — read
+`docs/ai/SESSION_HANDOFF_2026-08-29.md` first (newest).** One long session
+closed out Operations WP1 (`0099`–`0105`, PRs #462–#465, all merged),
+reconciled the Platform Foundation into `dev` (`0106`–`0113`, PR #466/#467
+merged), and the **Founder applied `0099`–`0113` to Cloud DEV** —
+post-apply verification PASSED, Operations registered `beta` but **enabled
+for no tenant**, `core.has_module_access` unchanged, Foundation data
+untouched. In flight: **PR #468** (Supabase legacy `service_role` → current
+Secret API Key, Phase 1 dual-support code — independent review PASS, OPEN,
+awaiting Founder merge; Cloud steps A–E are Founder-run, not started).
+Not started: Operations module-ON Cloud smoke (`smoke-tenant-b`); Cafe HACCP
+presets; Manager/Staff Operations UI. Full detail + immediate next steps +
+hard rules: `docs/ai/SESSION_HANDOFF_2026-08-29.md`.
+
+**2026-08-29 pointer, PLATFORM FOUNDATION ↔ dev RECONCILIATION (Option A) —
+MERGED (PR #466 `ae515fd` / #467 `7fda53f`); `0099`–`0113` applied to Cloud
+DEV by the Founder, post-apply verification PASSED.** Forensic
+finding (full record:
+`docs/ai/PLATFORM_FOUNDATION_RECONCILIATION_HANDOFF_2026-08-29.md`, supersedes
+the 2026-08-23 triage): the Platform Foundation critical path
+(Entitlements → Module Registry → Nav/Settings → Notifications → Event Bus,
+`main`'s historical `0069`–`0073`) was merged to `main` and pushed to
+Supabase Cloud dev on 2026-08-16, then `main`/`dev` diverged; on 2026-08-20
+`supabase migration repair --status reverted 0060 0070 0071 0072 0073`
+hid it in Cloud dev's LEDGER while every schema object stayed physically
+present (verified byte-exact, 2026-08-29). Side effect: `dev`'s own `0069`
+(a workforce identity-leak fix — different migration) never reached Cloud
+dev. **Founder decision 2026-08-29: Option A** — `dev` is authoritative;
+re-express the retained Foundation as NEW forward-only migrations; NO
+`migration repair`; NO restoring old files under historical numbers; NO
+edits to applied historical migrations; `main` reconciliation is a separate
+future task; Cloud dev read-only. **8 new migrations `0106`–`0113`:**
+`0106` entitlements (**`core.has_module_access` deliberately NOT changed** —
+`dev`'s `0093` simple form stays canonical; plan-lifecycle wiring is a
+deferred decision), `0107` module registry (+ nav cols folded in),
+`0108` `tenant_settings` + `core.settings.manage`, `0109` notifications
+outbox, `0110` event bus, `0111` register `operations` in `module_registry`
+(lifecycle `beta`, no deps, nav NULL — does NOT enable it for any tenant),
+`0112` re-home `dev` `0069`'s `my_pending_employee_invitations` RPCs,
+`0113` current-`dev`-`0081`-body `upsert_workforce_recipe` + the one-line
+tenant-wide fix. All migrations dual-target (fresh local reset creates;
+Cloud dev converges — explicit idempotency, no `EXCEPTION WHEN others`,
+verified by re-apply: zero errors, zero data duplication). Eventual Cloud
+`db push` order = `0099`–`0105` then `0106`–`0113` (designed safe for that
+order). Tests `0052`–`0054` (Foundation security + Operations registration +
+both re-homed fixes, incl. reproductions). `supabase test db`: `0046`–`0054`
+green, full suite = the 11 known pre-existing failures, zero new. `turbo` —
+30/30. Fresh Cloud dev logical backup at
+`D:\Dev\oruwa-backups\2026-08-29-pre-platform-reconciliation\` (not Storage
+bytes). RED path → left for Founder merge, no Cloud apply, `main` untouched.
+Branch `feat/platform-foundation-reconciliation`.
+
+**2026-08-29 pointer, WP1-A OPERATIONS CONFIGURATION API — MERGED (PR #465 =
+`d9907ea`; read after the one above).** Builds the tenant-facing
+controlled write boundary for Manager configuration (templates → items →
+schedules) so a future Manager UI never writes the internal `operations`
+tables directly. Migration `0105`, additive. **9 new `api.*` RPCs** (all
+`SECURITY INVOKER`, `operations.template.manage` + module gated, actor
+server-side): `operations_create_template` / `operations_update_template`
+(metadata only) / `operations_retire_template` (atomic is_active+retired_on);
+`operations_add_template_item` / `operations_update_template_item` (no
+response_type param) / `operations_retire_template_item` /
+`operations_replace_template_item` (the sanctioned response_type-change path);
+`operations_create_schedule` (fresh schedule_group) /
+`operations_cancel_scheduled_revision` (delete a not-yet-effective version +
+reopen predecessor). `operations_revise_schedule` / `operations_deactivate_schedule`
+(0102) reused unchanged. **Closes 3 mandatory invariants**, all reproduced
+against merged `dev` first: (a) **F2** — an authenticated Manager could
+raw-INSERT a backdated non-overlapping schedule version / raw-UPDATE a future
+version's effective_from into the past → RLS write policies split +
+`effective_from >= current_date` INSERT check + guard extended; (b)
+**effective_to elapsed forward-advance** (PR #464 review P3) → schedule
+history guard now freezes an elapsed `effective_to` entirely (mirrors 0104);
+(c) **template is_active/retired_on coherence** → `operations_retire_template`
+is the only atomic path. **response_type**: immutable once "operationalized"
+(= has responses OR its template has a schedule), enforced by
+`operations.checklist_items_definition_guard` (also freezes `is_critical`);
+change = replace item. **is_overdue_critical** documented as an intentional
+live signal, not frozen history. ADR 0008 preserved (only new SECURITY
+DEFINER is `operations.item_is_operationalized`, a factual check in the
+operations schema). Test `0051` (45 assertions, mission A–O). `supabase test
+db`: `0046`–`0051` pass, full suite = the 11 known pre-existing failures,
+zero new. `turbo` — 30/30. Additive, `0099`–`0104` untouched. **Merged into
+`dev` by the Founder (`d9907ea`, PR #465).** No Cloud apply, `main` untouched.
+Handoff:
+`docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_CONFIGURATION_API_HANDOFF_2026-08-29.md`.
+Next after the Platform Foundation reconciliation PR (pointer above): Cafe
+HACCP preset content and/or Manager/Staff Operations UI slices (each its own
+Founder prompt).
+
+**2026-08-29 pointer, WP1-A OPERATIONS TEMPLATE HISTORICAL INTEGRITY —
+MERGED (PR #464 = `d619c48`; read after the one above).** Closes the
+sibling defect 0102 explicitly left open: deactivating a `checklist_template`
+today (`is_active = false`) retroactively hid a PAST non-materialised expected
+obligation, because `api.operations_expected_tasks` gated the `expected`
+projection on `checklist_templates.is_active` (a mutable boolean evaluated
+against every historical date). **CONFIRMED** by reproduction against `dev`
+(0102/0103 applied): Day 1 one `state='overdue'` row → Day 2 `is_active=false`
+→ 0 rows. **Fix — retirement dating (`0104`, additive), the direct analogue of
+0102's schedule effective-dating:** `checklist_templates.retired_on date`
+(the last business date a template may generate expected tasks; NULL = not
+retired), `CHECK (is_active or retired_on is not null)`, a `BEFORE UPDATE`
+guard `operations.checklist_templates_history_guard()` (retired_on set/advanced
+only, never retroactive, no un-retire once elapsed — mirrors
+`task_schedules_history_guard()`), and `api.operations_expected_tasks`
+(create-or-replace, SAME signature) no longer consulting `is_active` — a
+template applies to a date iff `retired_on is null or d <= retired_on`. No
+write RPC added (there is still no tenant-facing write path to
+`checklist_templates`); setting `retired_on` is the future Operations config
+slice's job, which the CHECK + guard now constrain. Item-level surfaces
+(`response_type` etc.) NOT touched — classified in the handoff; `response_type`
+freeze is deferred to the config slice; schedule raw-INSERT F2 still TRACKED.
+Test `0050` (defect reproduction + A–H + the retirement boundary); `0047`
+fixture adjusted (its `is_active=false` template now carries a past
+`retired_on`, same assertion). `supabase test db`: `0046`–`0050` pass, full
+suite = the 11 known pre-existing failures, zero new. `turbo` — 30/30.
+Additive, `0099`–`0103` untouched. **Merged into `dev` by the Founder
+(`d619c48`, PR #464).** No Cloud apply, `main` untouched. Handoff:
+`docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TEMPLATE_HISTORICAL_INTEGRITY_HANDOFF_2026-08-29.md`.
+The Operations Configuration API slice (the pointer above) is its follow-up.
+
+**2026-08-28 pointer, WP1-A OPERATIONS SCHEDULE-GUARD FLOOR (review F1) —
+PR #463 MERGED into `dev` (`fa1cbb1`).** The
+independent review of PR #462 (below, now MERGED as `36af7f3`) found one P2:
+`operations.task_schedules_history_guard()`'s `current_date - 1` floor still
+let a privileged raw `UPDATE` pull `effective_to` back to `current_date - 1`
+and drop *today's* not-yet-elapsed occurrence, bypassing
+`api.operations_deactivate_schedule`. **Migration `0103`** tightens the floor
+to `current_date` (sanctioned RPCs unaffected — both write
+`effective_to >= current_date`). Test `0049`. Review F2 (broad grant lets a
+Manager raw-`INSERT` a backdated non-overlapping version — fabricate
+forward, not destroy) and F4 (cosmetic comment) tracked for the future
+Operations config slice, not fixed. `supabase test db`: `0047`/`0048`/`0049`
+pass, full suite = the 11 known pre-existing failures, zero new. `turbo` —
+30/30. Additive, `0099`–`0102` untouched, RED path → left for Founder merge,
+no Cloud apply, `main` untouched. **PR #463** on branch
+`fix/operations-schedule-guard-floor`.
+
+**2026-08-28 pointer, WP1-A OPERATIONS HISTORICAL-EXPECTATION INTEGRITY —
+MERGED (PR #462 = `36af7f3`; read after the one above).** A
+follow-up to PR #460: the Founder flagged the slice-2 "нематериализованное
+прошлое следует текущему расписанию" note as an architectural integrity
+defect for Operations / future Cafe HACCP records.
+
+- **Defect CONFIRMED by reproduction** against merged `dev`: a Manager
+  changing a schedule's recurrence today, via a raw UPDATE, retroactively
+  erased a past operational obligation for a business date with no
+  materialised `task_instance` (`api.operations_expected_tasks` evaluated
+  every date against the schedule's *current* columns).
+- **Fix — effective-dated schedule versioning** (migration `0102`,
+  additive; **`0099`/`0100`/`0101` untouched**): `task_schedules.schedule_group_id`
+  (stable logical identity across versions, backfilled `= id`);
+  `CHECK (is_active or effective_to is not null)`; an `EXCLUDE`/`btree_gist`
+  constraint forbidding overlapping versions of one logical schedule; a
+  `BEFORE UPDATE` guard trigger making a *started* version immutable in
+  recurrence/timing/identity (its `effective_to` may only move forward);
+  `api.operations_expected_tasks` rebuilt to pick the version whose
+  `[effective_from, effective_to]` range contains the business date and to
+  stop consulting `task_schedules.is_active`; two `SECURITY INVOKER` write
+  RPCs — `api.operations_revise_schedule` (atomic close-current + new
+  version, default effective from next business date) and
+  `api.operations_deactivate_schedule` (retire at a boundary, retroactive
+  rejected).
+- **Edit semantics**: a revision's earliest effect is the next business
+  date (same-day/in-window changes cannot rewrite today's occurrence —
+  trade-off documented). **Deactivation**: `effective_to` boundary, past
+  preserved, future stops.
+- **Template/item classification** (scope §11) in the migration header:
+  name/label edits SAFE; `is_active`/`is_required`/`numeric_min/max` changes
+  ALREADY PRESERVED (threshold violation is a persisted `task_exceptions`
+  row — regression-tested); `response_type` change and
+  `checklist_templates.is_active` retroactivity = same defect class,
+  **tracked follow-ups** (no tenant-facing write path exists yet).
+- **Tests**: new `supabase/tests/0048_operations_schedule_versioning.sql`
+  (defect reproduction + the mandated matrix: past obligation survives
+  recurrence change / deactivation; future uses new recurrence; no
+  duplicate occurrence across versions; materialised instance stays
+  associated; module OFF/ON; cross-tenant + cross-location revise/deactivate
+  rejected; `EXCLUDE` rejects overlap; threshold history). `0047` adjusted
+  (2 changes — fixture for the new CHECK; "history after edit" test now
+  drives the revise RPC since raw recurrence UPDATE is blocked).
+- Verification (local): `supabase db reset` + `supabase test db` —
+  `0046`/`0047`/`0048` pass; full suite = **exactly the 11 known
+  pre-existing failures**, zero new. `turbo run typecheck lint build test` —
+  30/30. Independent fresh-context review with a reproduction requirement:
+  recorded in the PR / handoff.
+- **PR #462 merged into `dev` by the Founder** (`36af7f3`). Independent
+  review (with a reproduction requirement) returned **PASS, no P0/P1**; one
+  P2 (F1) fixed in follow-up PR #463 (see the pointer above), two P3 notes
+  tracked.
+- **No `supabase db push`, no Cloud write, no `tenant_modules`/Preview
+  change, no production. `main` untouched.** `0102` on the feature branch
+  only.
+- Full handoff:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_HISTORICAL_EXPECTATION_HANDOFF_2026-08-28.md`.
+
+**2026-08-28 pointer, WP1-A OPERATIONS SLICE 2 (scheduling & execution) —
+MERGED (PR #460, read after the one above).** Founder merged PR #460
+into `dev` (`origin/dev` = `f18b884`); `main` untouched, no Cloud apply.
+Slice 2 continued the WP1-A implementation mission, inside the fixed WP1
+product scope, as its own bounded PR:
+
+- **Design reconciliation done first** — verified the slice-2 design in
+  `CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md` (§B3–B6, §E–J,
+  §L–O, §Q row `0101`) against merged `0099`/`0100`: **no material
+  contradiction** with the approved product scope. Timezone: reuses the
+  existing canonical `core.locations.timezone` (no architecture gap, no
+  hardcode).
+- **Migration `0101_operations_scheduling_execution.sql`**:
+  `operations.task_schedules` (template → location → simple recurrence
+  `daily`/`weekdays` + `due_time`/`window_end_time`; typed columns, no
+  RRULE/cron), `operations.task_instances` (one occurrence per
+  `(schedule, business_date)`, **materialised lazily** by an RPC, idempotent
+  via a unique occurrence key), `operations.item_responses`
+  (`boolean`/`numeric`/`text` + parent-consistency & post-completion
+  immutability trigger), `operations.task_exceptions` (`open → resolved`
+  lifecycle **distinct** from task state; `threshold` + `reported` sources
+  this slice; D4 severity). `api.operations_expected_tasks(p_start, p_end)`
+  — deterministic expected-task projection, pure function of
+  `task_schedules` × calendar; **no stored row needed for a task to be
+  "expected"** (scope §11); missed/overdue = derived `state='overdue'`, not
+  persisted; horizon clamped `[current_date-31, current_date+62]` **inside
+  the function body** (design P1-3). `api.operations_task_instances` /
+  `_item_responses` / `_open_exceptions` `security_invoker` read views.
+  `api.operations_record_response` / `_complete_task` / `_report_problem` /
+  `_resolve_exception` `SECURITY INVOKER` write RPCs (early module /
+  permission / lifecycle / response-type raises; RLS is the real boundary).
+  Every history FK `ON DELETE RESTRICT`; module OFF hides all, deletes
+  nothing.
+- **pgTAP `supabase/tests/0047`** — 53 assertions: recurrence matrix
+  (daily / weekday match+miss / effective range / before-vs-after window /
+  missed-without-instance / schedule+template disabled / horizon clamp /
+  historical expectation after a schedule edit / cross-midnight timezone),
+  execution/lifecycle, numeric threshold → exception + severity, exception
+  lifecycle independent of completion, completed-response immutability,
+  module ON→OFF→ON with data preservation, missing-`tenant_modules`
+  fail-closed, cross-tenant + cross-location rejection, employee-cannot-
+  resolve, anon denial.
+- Verification (local): `supabase db reset` + `supabase test db` — `0047`
+  all 53 pass; full suite = **exactly the 11 known pre-existing failures**
+  (`0002`×3, `0006`×1, `0008`×1, `0012`×2, `0023`×4), **zero new**.
+  `turbo run typecheck lint build test` — 30/30 tasks pass (SQL-only
+  change). Independent fresh-context review: recorded in the PR / handoff.
+- Independent fresh-context review: **PASS, no P0/P1/P2**; 3 P3 fixes
+  applied before merge (F1 INSERT-immutability backstop, F2
+  `task_exceptions` location guard, F3 dead-code removal).
+- **PR #460 merged into `dev` by the Founder** (`f18b884`). `main`
+  untouched.
+- **No `supabase db push`, no Supabase Cloud write, no production.**
+  `0099`–`0101` exist on `dev` only; Cloud/remote apply of the whole
+  Operations stack is a separate explicit Founder-approved mission later.
+- Full handoff:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_SLICE2_HANDOFF_2026-08-28.md`.
+
+Next after Founder merges PR #460: the Cafe HACCP preset content and/or the
+Manager/Staff Operations UI slices — each its own bounded PR, still inside
+the fixed WP1 product scope; none is authorized to start by this entry.
+
+**2026-08-28 pointer, WP1-A OPERATIONS FOUNDATION — MERGED (PR #459).** The separate WP1-A
+implementation mission (authorized by D1 of the scope doc, on its own
+explicit Founder prompt) has run its design + review + first-slice phases:
+
+- **Technical design** produced and independently reviewed (fresh-context
+  reviewer, 14 mandated challenge points): verdict **PASS WITH REQUIRED
+  FIXES, zero P0**. Fixes folded in. Full design + review outcome:
+  `docs/ai/CAFE_V2_2_WP1_A_OPERATIONS_TECHNICAL_DESIGN_2026-08-28.md`.
+- **First implementation slice (foundation only)**: migration `0099`
+  (`core.module_code += 'operations'`, dedicated file) + `0100`
+  (`operations` schema, 4 enums, `checklist_templates` + `checklist_items`
+  only, module-gated RLS via `core.has_module_access(tenant_id,
+  'operations') AND core.has_permission[_in_tenant](...)`, 4 generic
+  permission keys + owner/admin/manager/employee role seed, 2 `api.*`
+  `security_invoker` read views, SELECT-only grants, anon revokes) + pgTAP
+  `supabase/tests/0046` (tenant isolation incl. cross-tenant parent
+  forgery, location isolation, permission enforcement, anon-deny, module
+  ON→OFF→ON with historical-data preservation, fail-closed with no
+  `tenant_modules` row).
+- **No** `task_schedules`/`task_instances`/`item_responses`/
+  `task_exceptions`, **no** recurrence view, **no** write RPCs, **no** UI,
+  **no** Cafe HACCP presets — all designed on paper, deferred to later
+  bounded slices (design §T).
+- Verification (local): `supabase db reset` + `supabase test db` — `0046`
+  passes; the only failures are the **11 known pre-existing** ones
+  (`0002`×3, `0006`×1, `0008`×1, `0012`×2, `0023`×4) documented in the
+  Module Access Security Remediation report §6 — **zero new failures**.
+  `pnpm -w typecheck` / `lint` / `test` (1267 pass) / `build` all green
+  (SQL-only change, no `apps/*`).
+- **PR #459 opened against `dev`** (branch
+  `feature/operations-foundation-wp1a`). **RED path** (`supabase/
+  migrations/**`) → autonomous `dev` merge is structurally forbidden;
+  **the PR is left for Founder merge.**
+- **No `supabase db push`, no Supabase Cloud write, no production, `main`
+  untouched.** Migrations `0099`/`0100` exist only on the feature branch.
+  Cloud/remote apply is a separate explicit Founder approval later, with
+  the evidence package the mission prompt §9 requires.
+
+Next after Founder merges the PR: slice 2 (`0101` — scheduling/execution
+model + recurrence-derivation view + write RPCs), still inside the fixed
+WP1 product scope, its own bounded PR.
+
+**2026-08-28 pointer, CAFE v2.2 WP1 OPERATIONS SCOPE AUTHORIZED (read after
+the one above).** A docs-only product/governance mission recorded the
+Founder-approved product scope for **Cafe v2.2 WP1 Operations** at
+`docs/product/cafe-package-v2-2-wp1-operations-scope-2026-08-28.md` — now the
+source of truth for WP1 product scope. This **resolves the prior governance
+contradiction**: the 2026-08-26 Founder Acceptance Closure and the pointers
+below correctly said *"no Cafe v2.2 work authorized in this repo; v2.2
+Product Research runs externally with ChatGPT"* — that remains true for
+**everything except WP1 Operations**, for which the Founder has now
+explicitly provided the gate. Those older pointers and
+`docs/ai/CAFE_V2_1_FOUNDER_ACCEPTANCE_CLOSURE_2026-08-26.md` §3 are **not
+deleted or rewritten** — they are true history; this entry is the explicit
+later Founder decision that supersedes them for WP1 Operations only.
+
+Founder decisions recorded (full text in the scope doc):
+- **D1** — WP1 Operations authorized as the next product work package. A
+  **separate WP1-A implementation mission** may then begin, but **only on a
+  separate explicit Founder prompt** — this scope doc does NOT authorize
+  writing code/SQL/migrations/RLS/tests.
+- **D2** — photo/evidence NOT in the initial WP1 MVP (checkbox / numeric /
+  text only); architecture must not block adding it later; no Storage/media
+  infra built now.
+- **D3** — HACCP is NOT a separate module/capability; Operations = generic
+  reusable module, Cafe HACCP = presets/config on top. No `haccp` module
+  code, no `has_capability('haccp')`.
+- **D4** — normal overdue task → `warning`; critical operational condition →
+  `action_required`. Exact derivation is an implementation decision.
+- **D5** — Operations designed reusable from day one; no Cafe/HACCP hardcode
+  in the generic domain.
+
+Also fixed by the scope doc (product boundaries, not re-litigated elsewhere):
+Operations must be a full backend-enforced ON/OFF module using the existing
+`core.has_module_access` pattern (no frontend-only gating); NO capability
+framework built in WP1; recurrence is "simple" (daily / weekdays / time
+window) but the instance-generation mechanism is an un-fixed implementation
+decision; a task must be considered expected in its period regardless of
+whether Staff opened the app. Technical hypotheses from the prior
+`CAFE_V2_2_WP1_OPERATIONS_RECOVERY_REPORT` (table count/names, jsonb shapes,
+enums, RPC names, migration count, lazy generation) are explicitly **NOT**
+promoted to Founder-approved decisions — they belong to WP1-A technical
+design.
+
+**Implementation authorization state: AUTHORIZED for a separate WP1-A
+mission on its own explicit Founder prompt. WP1 implementation has NOT
+started.** This docs-only PR changed no application code, SQL, migration, or
+RLS; `main` untouched; no Cloud/DB write; production not applicable.
+
+**2026-08-26 pointer, MODULE ACCESS SECURITY CLOUD/PREVIEW ROLLOUT COMPLETE
+(read after the one above).** After the Module Access Security
+Remediation mission closed on `dev` (see the pointer directly below), the
+Founder manually applied migrations `0093`-`0098` to the linked Supabase
+Cloud dev project (`pnpm exec supabase db push`, ledger verified
+Local = Remote through `0098`) and live-verified the ON → OFF → ON module
+lifecycle on Preview for Workforce and Inventory/Purchases (data preserved,
+no browser console errors; Purchases confirmed to ride Inventory's own
+module flag as designed). Booking and AI were not live-tested this rollout
+(no reachable tenant-facing surface for either yet, per the REMEDIATION
+report). Full facts, exact preflight state, and what is/isn't claimed as
+verified are in
+`docs/ai/MODULE_ACCESS_SECURITY_CLOUD_PREVIEW_ROLLOUT_COMPLETION_2026-08-26.md`
+— read that file first if anything about the Cloud dev rollout, `db push`,
+or live module-toggle verification comes up. One small UX-only follow-up
+was spun out (Purchases' entry-point button stays visible on Staff's
+dashboard when Inventory is OFF, even though opening it is correctly
+blocked) — tracked separately in
+`docs/ai/PURCHASES_VISIBILITY_INVENTORY_OFF_FOLLOWUP_2026-08-26.md`, not
+fixed by this entry and not auto-authorized to start. No migration, RLS, or
+`tenant_modules` change was made by this docs-only PR; `main` was not
+touched; production remains not applicable (none exists). This entry does
+not authorize any new product mission.
+
+**2026-08-26 pointer, MODULE ACCESS SECURITY REMEDIATION CLOSED (older —
+read after the one above).** A separate, security-focused mission (started
+2026-08-26, run across this file's own governance model, not part of Cafe
+product work) closed all six Work Packages of **Module Access Security
+Remediation**: `core.has_module_access(tenant_id, module)` now gates every
+tenant-facing RLS policy/RPC/view/SECURITY DEFINER function across
+Purchases, Inventory, Booking, Workforce, and AI (plus the primitive itself,
+WP-S1) — turning a module OFF now actually blocks tenant-facing access to
+that domain's data, ANDed alongside existing permission checks (never
+replacing them), with existing data preserved and access restored unchanged
+when the module is turned back ON. **6 PRs merged to `dev`** (#448–#451,
+#453, #454); `main` untouched; **no Supabase Cloud/remote DB write or
+production deploy at any point** — every migration (`0093`–`0098`) exists
+only on `dev` today. Full status matrix, deliberate exceptions needing
+Founder awareness (a product-policy split on Workforce employee-invitation
+gating; two pre-existing, out-of-scope permanent-delete quirks found but not
+fixed in Inventory and Workforce), and what remains explicitly open (remote
+apply, live verification) are in
+`docs/ai/MODULE_ACCESS_SECURITY_REMEDIATION_COMPLETION_REPORT_2026-08-26.md`
+— read that file first if anything about module gating, `tenant_modules`,
+or `core.has_module_access` comes up. **This mission is CLOSED pending
+Founder acceptance of that report; no further work under its name is
+authorized, and this closure does not itself authorize Cafe v2.2 WP1
+Foundation Prerequisite or any other next mission** — the next piece of work
+is a separate Founder decision, same as every prior closure in this file.
+
+**2026-08-26 pointer, FOUNDER ACCEPTANCE CLOSURE (older — read after the one
+above).** **Founder Acceptance: Cafe v2.1 = PASS.** The Founder closed the
+whole Cafe v2.1 product-development phase (not just the bounded F1/F2 code
+closure from 2026-08-16, §2.3) — full detail, scope, and what carries
+forward unchanged in
+`docs/ai/CAFE_V2_1_FOUNDER_ACCEPTANCE_CLOSURE_2026-08-26.md`. **No new Cafe
+features are authorized to start** against this phase. The next product
+phase is **Cafe v2.2 Product Research**, currently being run separately,
+outside this repo/session, with ChatGPT — not this session's job to start,
+continue, or second-guess. A fresh session should not begin any v2.2 work
+(implementation or research) until the Founder brings a concrete, scoped
+v2.2 mission back into this repo. Production remains untouched and
+separately gated, unaffected by this entry.
+
+**2026-08-26 pointer (older — read after the one above).** A same-day session
+(started as a "continue Manager+Staff combined QA pass" follow-on to the
+2026-08-25 Staff Shift Schedule v2 entry below, using this project's first
+working chrome-devtools MCP browser tool) found that Staff's "今日の
+メッセージ" card was a dead end — a Manager could only ever see it by
+accident — and the Founder expanded the fix into a full **Staff↔Manager
+Mail module** (two-way messaging, per-employee threads, Manager sees all
+staff via a persistent chip in "要確認", Staff gets a 4th entry-point
+button replacing the deleted Daily-message card). **Merged to `dev`,
+PR #444, commit `af5193f`.** 3 migrations (0090/0091/0092) pushed to
+Supabase Cloud dev with Founder approval — 0092 fixed a real bug
+(`sender_user_id` never stamped on INSERT) found only via live
+chrome-devtools MCP QA against the real Cloud DB, not caught by pgTAP or
+mocked unit tests. Live QA passed both directions (Staff send → Manager
+reads/replies → Staff sees the reply) on the PR's own Vercel Preview.
+Archive-only, no per-message Delete (Founder correction mid-build). A real
+privacy-purge cascade for `permanently_delete_employee` (keep the
+employee's name for historical records, strip everything else including
+Mail, on a genuine offboarding) was surfaced as a separate, deferred,
+not-yet-scoped future item with real Japan APPI/labor-record-retention
+legal weight — do not improvise it, see the
+`project_permanent_delete_privacy_purge_future` memory. Full state, the
+exact 4-migration list, and the live-QA evidence are in
+`docs/ai/CAFE_STAFF_MANAGER_MAIL_MODULE_HANDOFF_2026-08-26.md` — read that
+file first if anything about the Mail module, `workforce.staff_messages`,
+the "要確認" mail chip, or the deleted Daily-message card comes up. Not
+independently re-verified on `preview.oruwa.jp` after the merge — a fresh
+session should do a quick sanity check there before assuming it deployed
+cleanly.
+
+**2026-08-25 pointer, ROADMAP_SYNC (older — read after the one above).** The
+Founder recorded a full **Master Roadmap** (Phases 1-14, Cafe v2.1
+completion through Product #2 development) as the current Founder-approved
+sequencing for the whole project, now at
+`docs/strategy/oruwa-master-roadmap.md`. Reconciled against this
+repository's authoritative docs same session:
+
+- `docs/foundation/platform-foundation-roadmap.md` (Accepted, higher in the
+  decision hierarchy) and `docs/strategy/go-to-market-roadmap.md` do
+  **not** contradict the new roadmap — both were read in full; the
+  Platform Foundation critical path's own gate ("close it before opening a
+  *second* vertical") and the go-to-market doc's M1-M5 milestones map
+  cleanly onto the new Phases 1-14 without needing edits.
+- The one real, material contradiction found: **this file's own §2.4
+  "Sequence (recommended)" step 2** placed "Platform Foundation critical
+  path" immediately after step 1 (Cafe IA/visual reconciliation), i.e.
+  before any Cafe v2.2 work — the new master roadmap places Cafe v2.2
+  (Phases 2-4) and SaaS Hardening (Phase 5) *before* Platform Foundation
+  Reconciliation (Phase 6). §2.4 now carries a superseded-ordering notice
+  pointing here rather than being silently rewritten (its step-1 content
+  stays factually accurate history).
+- A minor terminology nuance (not edited): `CLAUDE.md`'s "Every product
+  runs as a module inside one shared Core" phrasing could be misread as
+  "Cafe = one domain module," which the master roadmap explicitly
+  corrects (Cafe is a *vertical product/package* composed of several
+  domain capabilities — Workforce, Inventory, Purchases, Recipes,
+  Notifications, etc. — matching `platform-foundation-roadmap.md` §4.3's
+  existing Vertical-Products tier exactly). `CLAUDE.md` is a pointer file
+  whose rule changes belong in `AGENTS.md`/`.cursor/rules/*` first per its
+  own text — flagged here, not silently edited.
+- **Practical gap surfaced this session, load-bearing for Phase 1 step 4**
+  ("AI CTO executes Final Integrated QA, Founder is not the QA engineer"):
+  this session had **no browser-automation tool available** — the entire
+  Staff Shift Schedule v2 QA loop (previous entry below) was
+  Founder-screenshot-driven, not independent Claude browser verification.
+  Whether a given future session can actually execute Phase 1 step 4 as
+  specified depends on that session's actual tooling — check this before
+  assuming it, don't assume either way from this note alone.
+- No `main` touched, no migration, no Cloud write, no production activity.
+
+Production remains untouched. The Master Roadmap document is the current
+plan of record; treat `current-task.md`'s own §2.4/§5 as the tactical
+execution log underneath it, not a competing plan. **Current authorized
+work remains only Cafe v2.1 completion (Phase 1)** — nothing in Phases 2-14
+is authorized to start by this entry.
+
+**2026-08-25 pointer (older — read after the one above).** A full,
+same-day session rebuilt the real (protected) Staff page's **Shift
+Schedule module** (Staff Shift Schedule v2 mission): compact Mon–Sun
+weekly grid at every viewport, real names (never "Me"), Planned-vs-Actual
+attendance strictly separated in a new Shift Details view, the existing
+but previously-unwired Correction Request and Shift Exchange/Change/Cancel
+workflows wired into the real page, worked-hours/earnings summary, plus
+four rounds of Founder live-Preview-QA fixes (button sizing/full-width
+layout, client-side week navigation matching Manager's own earlier fix,
+swipe-to-change-week, custom-shift display, the "!" attention indicator).
+**2 PRs merged to `dev` (#438, #439)**, no DB migration/RLS/schema change
+(explicitly out of scope per Founder decision), 1245 tests passing. An
+independent fresh-context review ran before #438 merged and found real
+issues (an accessibility regression, a locale bug) that were fixed before
+merge. Full state, the exact fix-by-fix QA history, and explicitly
+deferred items (header Manager-decision unread badge — needs new
+persisted read-state with no column to reuse; Transport intentionally
+excluded from the Correction workflow) are in
+`docs/ai/CAFE_STAFF_SHIFT_SCHEDULE_V2_HANDOFF_2026-08-25.md` — read that
+file first if anything about the Staff Shift Schedule, week-navigation, or
+the shared `ShiftTable`/`ShiftLegend`/`CorrectionRequestForm`/
+`ShiftExchangeRequestForm` components comes up. **The Founder is doing
+further live click-through QA of this module himself as of this entry —
+do not assume that thread is closed.** Founder-stated next step after
+Staff QA concludes: a short, bounded combined Manager+Staff pass
+(cross-module navigation, real workday scenarios, mobile, error/loading
+states, JA copy, no obvious UX gaps) with the explicit goal of a finished
+Cafe, not open-ended new features — see the handoff §3 for the exact
+wording and a constraint note (this pass fundamentally needs live browser
+QA; no browser-automation tool was available this session, so the workflow
+was Founder-screenshot-driven throughout).
+
+**2026-08-24 pointer #5 (read after the one above).** A full,
+same-day, single-session build of the **Purchases module** (INSPECT+PLAN,
+Founder approval, then DB-schema-through-UI implementation) closed the
+placeholder button the pointer #4 session below had left in place. Purchases
+is now a real projection/workflow layer over Inventory: staff/manager see a
+shopping list of items at/below their reorder point ("Need to buy: N unit"),
+mark them "Bought" (a lightweight, append-only acknowledgement that never
+mutates Inventory quantities), and — the central design requirement — that
+acknowledgement automatically goes stale the moment Inventory's own count
+changes, reverting to Pending (if still short) or dropping the item from the
+list entirely (if now sufficient). **5 PRs merged to `dev` (#432-#436)**:
+#432 (schema: `purchases.purchase_actions`, `api.purchases_needed`,
+`api.record_purchase_action`, new pgTAP suite) and #433 (Staff+Manager popup
+UI, following the `InventoryPopup`/`RecipesPopup` `_ui/` pattern) were
+merged **directly by the Founder** (RED path — `supabase/migrations/**` —
+`scripts/ai-dev-merge.sh` structurally refuses these, no override exists);
+#434-#436 (Inventory mobile-card polish: a shortage-amount line, and a 🛒
+"purchased, needs recount" reminder icon whose position iterated across 3
+PRs to its final Founder-accepted `top:1px/right:1px` corner placement) were
+merged autonomously. Migration `0089` was applied to **both** local Supabase
+and the linked Cloud dev project (`pehcoenozjtsjdvjietj`) — the Cloud push
+was the fix for a real mid-session gap (Preview showed "Purchases is
+temporarily unavailable" until the schema existed there too; a merged `dev`
+PR does not by itself put a migration on Preview). Full state, exact file
+list, the staleness-mechanism design rationale, and known unverified
+surfaces (Manager's Purchases popup and desktop-width Purchases were never
+independently browser-QA'd, only Staff's mobile view via the Founder's own
+screenshots) are in `docs/ai/CAFE_PURCHASES_MODULE_HANDOFF_2026-08-24.md` —
+read that file first if anything about Purchases, the Inventory
+purchased-icon, or the `purchases.*` schema comes up. **The Founder closed
+this thread explicitly** ("отлично" + asked for a new-chat handoff) — ask
+what's next rather than assuming continuation.
+
+**2026-08-24 pointer #4 (older — read after the one above).** A follow-on,
+same-day session built the **Staff Inventory popup**: Staff's Inventory
+entry point moved from a full-page `/inventory` link to a popup, matching
+the pattern Manager's Inventory and Staff's own Recipes popup already used
+(`InventoryPopup` moved from `manager/` to the shared `_ui/` and is now
+reused by both dashboards). Also: the "Deactivated" filter tab is now
+correctly gated by `canManage` (was unconditionally visible to everyone
+before — a real gap this closed), filter buttons and the item card got a
+compact-layout redesign, and a Founder live-QA follow-up polished mobile
+spacing (footer summary hidden on mobile, its tip text moved into the "?"
+help dialog, count-input status text moved inline, and the shared `Modal`
+component's mobile bottom-sheet gained a 2px bottom gap — that last change
+applies to every popup in the app, not just Inventory). **2 PRs merged to
+`dev` (#429, #430)** — a first attempt (#428) was closed unmerged after
+`dev` moved out from under it mid-session (a real conflict, not a false
+one) and rebuilt fresh as #429; see the handoff for why that's the right
+pattern to repeat if it happens again. No DB migrations this session.
+**Founder confirmed the result live on `preview.oruwa.jp/staff` and closed
+this thread** ("отлично молодец" after the final polish round) — full
+state, the exact PR list, and one open TO VERIFY item (Manager's own
+Inventory popup was not independently re-checked live, only Staff's) are
+in `docs/ai/CAFE_STAFF_INVENTORY_POPUP_HANDOFF_2026-08-24.md` — read that
+file first if anything about the Inventory popup, the shared `Modal`
+component, or `InventoryPopup`/`RecipesPopup`'s `_ui/` location comes up.
+**This thread is Founder-closed; ask what's next rather than continuing
+it.**
+
+**2026-08-24 pointer #3 (older — read after the one above).** A follow-on,
+same-day Founder-directed live iteration session on `https://preview.oruwa.jp/staff`
+(triggered by the pointer #2 entry below reaching a natural pause point)
+did a full layout/UX redesign of the canonical Staff page: third
+"Purchases" entry-point button (placeholder page, no module built), removed
+the "My staff profile"/shift-preferences/work-reports/correction-request
+sections (deferred to a later "the table" redesign, not deleted from the
+codebase), added a compact autosave Transportation-cost module + a
+compose-and-send Daily-message module, built a real "Submit next month's
+shift preference" calendar modal wired to the production backend, and gave
+Staff's Recipes button the same popup Manager's already had (plus made the
+standalone `/recipes` list open a recipe in a `Modal` overlay instead of
+navigating away). **8 PRs merged to `dev` (#419-#426)** — one (#420)
+superseded before merge due to a stale-base false-conflict, not a real
+defect; see the handoff's §5 process note before repeating that mistake.
+No DB migrations this session. Two real bugs found and fixed via the
+Founder's own live QA (a work-report field-clobber bug, and a
+`box-sizing`/`height` bug that made a button-shrink change silently do
+almost nothing) — both are general-purpose findings worth knowing even
+outside the Staff page, see the handoff's §3. Full state, the exact 8-PR
+list, decisions made (Purchases scope, Off/Unavailable removal,
+`RecipesPopup` relocated to `_ui/`), and open items are in
+`docs/ai/CAFE_STAFF_PAGE_REDESIGN_HANDOFF_2026-08-24.md` — read that file
+first if anything about the Staff page's layout, Transport/Message,
+monthly shift preference, or the Recipes popup comes up. **This thread is
+paused for a context handoff, not confirmed closed by the Founder** — it
+is a live iterative review loop (screenshot → fix → merge → re-check) with
+no explicit "done" statement; ask what's next rather than assuming either
+way.
+
+**2026-08-24 pointer #2 (older — read after the one above).** The Staff-page
+review session flagged by the pointer below as "not yet started" ran this
+session: Staff header full redesign (mirrored to Manager too — tenant/
+location left, account-menu right, matching a Founder mockup), the
+previously-missing Work status (live Clock in/out) card built and verified
+end-to-end against both the Staff and Manager tables, and a new Inventory
+item-photo feature (matching Recipes' existing photo). **7 PRs merged to
+`dev` (#411-#417)**, including 4 new DB migrations (0085-0088, already
+applied to the linked Cloud project) and a real RLS bug found and fixed
+live (0088). Full state, verification evidence, migration/tooling notes,
+and open items are in
+`docs/ai/CAFE_STAFF_HEADER_WORKSTATUS_INVENTORY_PHOTOS_HANDOFF_2026-08-24.md`
+— read that file first if anything about the Staff or Manager header,
+account menu, Work status/Clock in-out, or Inventory item photos comes up.
+**This thread is paused for a context handoff, not confirmed closed by the
+Founder** (unlike the Manager-polish session below, which the Founder
+explicitly ended) — ask what's next rather than assuming either way.
+
+**2026-08-24 pointer #1 (older — read after the one above).** A
+Founder-directed live iteration session on `https://preview.oruwa.jp/manager` (Settings
+visual parity with Weekly Schedule, shift-type Delete, mobile header/table
+polish, two real bugs found from Founder screenshots and fixed) is
+**CLOSED by the Founder** ("пока с менеджером закончили" — done with
+Manager for now, 2026-08-24). Six PRs merged to `dev` (#404-#409); full
+detail, verification evidence, and the process note about using
+`scripts/ai-dev-merge.sh` for autonomous `dev` merges is in
+`docs/ai/CAFE_MANAGER_MOBILE_SETTINGS_POLISH_HANDOFF_2026-08-24.md` — read
+that file first if anything about Manager Settings, the Shift preferences
+popup, shift-type Delete, or the `dev`/`main` merge-authority rules comes
+up. **Next: the Founder is starting a Staff-page review session** (not yet
+started as of this entry) — do not assume further Manager work is
+authorized, and do not assume Staff-page findings without actually running
+that review.
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Manager Final Completion Phase B (full Manager CRUD/workflow QA) is **CLOSED**:
+**`MANAGER_PHASE_B = PASS`, `MANAGER_V2_1_READY_FOR_FOUNDER_ACCEPTANCE = YES`.**
+Final session closed §18 (visual/UX consistency audit — clean at desktop,
+found+fixed 2 real mobile-layout bugs), §19-20 (all remaining modals at
+390px — Shift Exchange popup, Recipe edit, plus a real grid-overflow bug in
+the Recipes list and Manage Staff list that hid Edit/Delete buttons
+entirely at 390px, fixed in PR #396), §21 (loading/error UX — double-submit
+guards confirmed codebase-wide, native validation + server-rejection paths
+exercised live), and §24 (dedicated fresh-context adversarial review via an
+independent subagent — zero new findings). Staff Deactivate/Reactivate was
+also verified live and reversible, closing the last CRUD gap. Three real
+bugs found and fixed this whole Phase B mission: PR #386 (P0, Staff
+`CUSTOM_*` code leak), PR #393 (JA/EN, correction break-text untranslated),
+PR #396 (mobile, Recipe/Staff list overflow). Full final Acceptance Matrix,
+evidence, and known non-blocking issues are in
+`docs/ai/CAFE_MANAGER_FINAL_COMPLETION_PHASE_B_HANDOFF_2026-08-23.md`
+(final-closure content; git history has the two earlier checkpoints) — read
+that file first. Do not re-run Phase B QA without a specific reason to
+distrust this closure. Separately, a Founder design mockup for a later,
+explicitly deferred mission (Shift Requests popup redesign + hand-icon
+hover on staff-name buttons) remains saved and NOT started — see the
+`project_shift_requests_popup_redesign_hand_icon_queued` memory file; not
+authorized to start without a fresh Founder go-ahead. Next step after this
+closure is a Founder decision, not an automatic continuation.
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Manager Final Completion mission (Shift Preferences UI + full Manager QA).
+**Phase A (Shift Preferences popup UX polish) is DONE, merged (PR #384,
+`dev` commit `db17927`), and live-verified on `preview.oruwa.jp/manager`**
+(header/day-format, colors, i18n JA/EN, mobile — all confirmed via
+chrome-devtools MCP, not just code review). Full original Phase A state is
+in `docs/ai/CAFE_MANAGER_FINAL_COMPLETION_HANDOFF_2026-08-23.md`. Do not
+start Staff Completion QA or Manager↔Staff e2e QA yet; those are separate
+later missions per the Founder's own sequencing.
+
+**2026-08-23 pointer (older, still current — read after the one above).**
+Founder-revised priority order (superseded only in its "next" pointer by
+the Manager Final Completion mission above; the sequence itself still
+governs what comes after Manager/Staff completion closes):
+
+1. **Platform Foundation Reconciliation/Triage — DONE (read-only, this
+   entry).** A suspected migration/schema drift turned out to be a bigger
+   finding than expected: `main` and `dev` have silently diverged since
+   2026-08-16 (`main` got the full Platform Foundation critical path,
+   `dev` got 131 commits of Cafe product work, neither branch knows about
+   the other's history). No current drift between `dev`'s migration files
+   and Supabase Cloud dev's ledger — that part of prior project memory was
+   stale and is now corrected. Full findings, evidence, and the still-open
+   questions (which branch is authoritative, is `main`'s Foundation code
+   reusable, is `main`'s Surface-A-retirement decision the real one, is
+   Cloud dev's schema fully clean) are in
+   `docs/ai/PLATFORM_FOUNDATION_MAIN_DEV_RECONCILIATION_TRIAGE_2026-08-23.md`
+   — read that file before touching Platform Foundation again. No Cloud DB
+   write, no migration, no Foundation implementation happened.
+2. **Next: Current Product Completion Audit**, Manager first
+   (`https://preview.oruwa.jp/manager`), then Staff, then Manager↔Staff
+   workflows, then remaining unfinished product parts. Verify against
+   canonical docs, actual `dev`, real code, and — where possible — live
+   Preview behavior; do not assume Manager/Staff are complete from old
+   docs/PRs/commit messages alone. Deliverable: a Completion Roadmap
+   (done / partial / broken / needs Browser QA / Manager-required /
+   Staff-required / Manager↔Staff e2e scenarios / polish-deferrable).
+3. **Then, in order:** Manager completion → Manager QA → Staff completion
+   → Staff QA → Manager/Staff e2e QA → a general product completion gate.
+4. **Only after that gate closes** does Platform Foundation implementation
+   resume, using the triage doc above as the starting context (not a fresh
+   investigation).
+
+Platform Foundation is explicitly **not** the next implementation mission
+— do not start it, and do not treat this entry as authorizing it.
+
+**2026-08-23 pointer (older, superseded by the priority order above but
+still factually current):** a separate, Founder-directed feature thread
+built the **Shift requests review popup** (Settings-launched, month-scoped,
+week-paginated view of staff shift-preference submissions) as **v2.1 UI
+ONLY** — no backend persistence, no `auto-distribute.ts` priority logic, no
+real notification delivery; that is explicit v2.2 scope per the Founder's
+full roadmap. **Merged** — PR #377, merged into `dev` 2026-08-23 (commit
+`d1c3c25`) by the Founder directly. Full state, file list, and what is/
+isn't authorized to start next are in
+`docs/ai/CAFE_MANAGER_SHIFT_REQUESTS_REVIEW_POPUP_V21_HANDOFF_2026-08-23.md`
+-- read that file first if anything about this popup, Settings, or the
+Cafe v2.1→v2.2 roadmap comes up. Note: a dead/duplicate inline "Submitted
+shift preferences" table on the Manager dashboard (superseded by this
+popup) was removed the same day, Founder-approved, PR #382.
+
+**2026-08-23 pointer (older, still useful context):** the same Founder-directed **Weekly Schedule
+Founder Review** thread continued into a **Round 3** (8 PRs, #368-#375, all
+merged to `dev`) — visual/UX fixes, Automatic-schedule cleanup, a
+week-navigation performance fix, and several fast Founder-driven polish
+iterations (grid lines, labour-cost box, in-cell correction Approve/Reject,
+an editable auto-create-day setting requiring migration `0080` -- applied
+to Supabase Cloud dev with Founder approval). Full state, the 8-PR list,
+verification evidence (including a self-corrected mid-session mistake and
+an explicit note that live browser QA was skipped this round), and known
+limitations are in
+`docs/ai/CAFE_MANAGER_WEEKLY_SCHEDULE_FOUNDER_REVIEW_ROUND3_HANDOFF_2026-08-23.md`
+-- read that file first if anything Weekly-Schedule/Shift-Editor/Manager-
+dashboard-styling related comes up. Schedule-change history
+(`SCHEDULE_CHANGE_HISTORY_GAP`) is explicitly queued as the next Weekly
+Schedule work item, but is NOT pre-authorized to start -- a fresh session
+should ask the Founder what's next.
+
+**2026-08-22 pointer (older, still useful context):** a separate Founder-directed thread, **Weekly
+Schedule Founder Review** (two rounds, PRs #365-#366, both merged to `dev`
+and live-verified on `preview.oruwa.jp`), ran and closed after the entry
+below. Full state, what changed, verification evidence, and known
+limitations (a schedule-change audit-history gap, no employee-notification
+mechanism, scheduled-automation is visual-only/not built) are in
+`docs/ai/CAFE_MANAGER_WEEKLY_SCHEDULE_FOUNDER_REVIEW_HANDOFF_2026-08-22.md`
+-- read that file first if anything Weekly-Schedule/Shift-Editor/shift-color-
+palette related comes up. Nothing in that thread is pre-authorized to
+continue; a fresh session should ask the Founder what's next.
+
+**2026-08-22 pointer (older, still useful context):** a separate Founder-directed thread, **Manager
+Attention UX** (four PRs: #357-#360, all merged to `dev`), ran and closed
+in the session after the entry below. Full state, DB-migration note
+(0079, already applied to Cloud dev), and known limitations are in
+`docs/ai/CAFE_MANAGER_ATTENTION_UX_HANDOFF_2026-08-22.md` -- read that
+file first if anything Attention/Shift-Exchange/Staff-LINE/recipe-latency
+related comes up. Nothing in that thread is pre-authorized to continue;
+a fresh session should ask the Founder what's next.
+
+**2026-08-21 pointer (older, still useful context):** the Cafe Manager UI/UX Parity mission's post-
+acceptance module-by-module redesign (Entry-points, Recipes, Inventory,
+Manage Staff — 8 PRs, #346–#350 and #352–#355) is done and **Founder-
+accepted "for now, for v2.1"** ("пока это принимаем для 2.1") as of
+2026-08-21. See
+`docs/ai/CAFE_MANAGER_UIUX_PARITY_MISSION_2026-08-19.md` §9.6 for the full
+close-out note — in short: nothing further in that mission is pre-
+authorized to start (not WP-13, not the Staff-surface follow-up, not
+Platform Foundation) until the Founder directs the next piece of work in a
+fresh session. Do not assume this acceptance by itself means "Cafe v2.1 is
+formally closed" (§2.3/§2.4 below track that larger, separate claim) or
+that Platform Foundation is now authorized to start — ask, don't guess.
+
+**2026-08-19 pointer (older, still useful context):** immediately after the Cafe Manager Parity mission
+below closed, Founder live-QA'd its result against the legacy Mame To Cha
+reference and opened a new, larger **Cafe Manager UI/UX Parity mission**
+(13 Work Packages, Manager surface first, Staff surface as a later follow-
+up, then Cafe v2.1 formally closes, then Platform Foundation per the
+already-agreed sequencing below) — see
+`docs/ai/CAFE_MANAGER_UIUX_PARITY_MISSION_2026-08-19.md` for full state,
+roles, the approved plan file location, and exactly which Work Package is
+next. Read that handoff first; it supersedes this section's "what's next"
+until it says otherwise.
+
+**2026-08-19 pointer (older, still useful context):** the Founder-directed
+**Cafe Manager Parity + Design-Kit mission** (started 2026-08-18, not
+described anywhere in this file) ran to full completion across all three of
+its tracks (A: visual/UX parity + design-kit, B: LINE LIFF login
+architecture, C: live-sync + notification stub) — see
+`docs/ai/CAFE_MANAGER_PARITY_MISSION_COMPLETE_HANDOFF_2026-08-19.md` for the
+full, current state, what was deferred and why, and the genuinely open
+"what's next" question this file's own §5 text below does not yet reflect.
+A fresh session should read that handoff before treating the rest of this
+section as the current plan of record.
+
+**Cafe v2.1 (bounded, §2.3) is closed.** Preview QA, independent review, and
+Final Founder Acceptance for F1/F2 all complete as of 2026-08-16. **Cafe
+Commercial Launch Readiness (§2.4) step 1 is complete as of 2026-08-16**:
+every mechanical item (IA reconciliation, ORPHAN-1, STAFF-I18N-1, F3,
+I18N-DOC-1, F5, MOB-1) and every decision-dependent item the Founder chose
+to resolve now (visual/brand reconciliation, LOC-1, Defect C) is done,
+merged, and — for Defect C's Edge Function — deployed. Only two step-1
+items remain genuinely open, and neither blocks moving on: `I18N-JA-1`
+(needs a native Japanese speaker, not an engineering task) and Surface A
+retain-vs-retire timing (a product decision with no forcing function yet).
+
+1. **Founder direction 2026-08-16: proceed to step 2, Platform Foundation
+   critical path, once step 1 is confirmed complete** (this entry). Do not
+   also silently start Cafe Hardening / Deferred Debt, Cafe Product Growth,
+   or Cafe v2.2 as a side effect — those remain separate, not yet
+   requested.
+2. Platform Foundation critical path (already-accepted sequencing,
+   `docs/foundation/platform-foundation-roadmap.md` §7/§10): Entitlements
+   engine → Module Registry → Shared Navigation/Settings → Notifications →
+   Event Bus. Not started. The next session should open by re-verifying
+   this file and `docs/foundation/platform-foundation-roadmap.md` against
+   the actual repo state (per that document's own hardening-only status
+   for Core Platform) before beginning implementation, not assume this
+   summary is still current without checking.
+3. New-Tenant / One-Hour Provisioning Test and step 4 (combined final QA)
+   remain correctly sequenced after Platform Foundation, per §2.4's
+   original ordering — not started, not to be pulled forward.

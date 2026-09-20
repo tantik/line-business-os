@@ -76,6 +76,11 @@ following related vocabulary remains useful and is not redundant with §6:
 `LIVE VERIFIED`, `STATIC VERIFIED`, `MEASURED`, `HYPOTHESIS`, `NOT VERIFIED`.
 Never present static evidence as live acceptance.
 
+Coverage: the per-mission 15-dimension coverage matrix (Operating Model §19)
+is what makes "did we test the Staff role, EN, 320px, module-off, ..." a
+planned, reported fact instead of a reviewer's afterthought. A NOT TESTED
+dimension is registered in `docs/operations/deferred-debt-register.md`.
+
 Defect severity:
 - **P0** — security boundary, tenant leak, auth bypass, serious data
   corruption/loss, secret exposure.

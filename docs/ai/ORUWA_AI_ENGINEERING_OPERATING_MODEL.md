@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.8.0 |
+| Version | 1.9.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-09-04 (v1.8.0: **Claude Autonomous DEV Permissions v2** — a bounded governance mission audited the real permission friction in ordinary DEV missions and rewrote §9's "Machine-enforced layer" paragraph plus the GREEN-tier row to match a widened, still-least-privilege `.claude/settings.json`. Added as GREEN: read-only shell (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls`), a larger read-only Git diagnostic set (`ls-files`/`cat-file`/`for-each-ref`/`describe`/`blame`/`shortlog`/`reflog show`/`config --get`/`remote -v`/`remote show`/ scoped `branch` read variants/`tag -l`/`pull`), feature-branch workflow (`git switch`/`checkout -b`/`restore --staged`/ scoped `stash`), non-force push made autonomous **only through the new `scripts/ai-hooks/guard-git-push.mjs` `PreToolUse` hook** — every `git push` stays in `ask`, and the hook returns `allow` solely for a simple non-force/non-mirror/non-prune/non-delete push to `origin` whose every refspec target resolves to a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`·`perf/`·`refactor/` branch (this replaced an earlier draft's glob allow rules, which an Independent Reviewer showed a trailing `*` could turn into `git push origin feature/x dev`, bypassing the DEV MERGE gate); read-only `gh` inspection (`pr diff|list|status`, `run|workflow|issue|search|label|repo|auth` viewers), local validation (`pnpm --filter … <verb>`, `pnpm -w …`, `pnpm exec tsc|eslint|vitest|playwright test|supabase test db`, `node --test`), local Supabase stack control and **local-only** Postgres (`psql -h 127.0.0.1`/`localhost -p 54322`). Newly hard-denied (defense in depth, none was previously autonomous): `vercel env rm|add|pull`/`promote`/`rollback`/`alias` (the 2026-09 shared-ENV-deletion incident), `git push -f`/`--delete`/`… :main`/`… :dev`, `git switch --discard-changes|-f|-C`, `git checkout -f`, `git restore --worktree`, `git branch -d|-D`, `git filter-branch|filter-repo`, `git update-ref`, `git reflog delete|expire`, `git clean -f|-d|-x`, `gh release|secret|variable`, **all** `gh api`, `rg --pre`, `supabase secrets`/`projects delete`/`branches delete`/`functions deploy`/`migration up --linked|--db-url`, and a single substring deny on `supabase db push`/`db pull`/`migration repair` covering every `pnpm exec`/`pnpm --filter … exec`/`pnpm dlx`/`npx` wrapper (replaced the earlier per-wrapper rules). `psql` allow-list constrained to `PGPASSWORD=postgres psql -h 127.0.0.1|localhost -p 54322` with an extra deny on any `psql` text containing a `postgres(ql)://` URI or `*.supabase.co`/`.com`/`pooler.supabase` host (libpq-conninfo override). New `ask`: local `supabase migration up`, `git rebase|merge|cherry-pick`, `gh workflow run`, state-changing `gh pr` verbs, `curl`/`wget`, `Write(supabase/migrations/**)`. **Unchanged and unweakened:** every prior RED boundary — `supabase db push` (and `pnpm exec` wrapper), `db pull`, `migration repair`, `vercel --prod`, `git push --force`, `git push origin main`, `git reset --hard`, raw `gh pr merge`, `--amend`/`--no-verify`, the DEV-MERGE-only merge path via `scripts/ai-dev-merge.sh`, and the `guard-no-verify` hook. No broad shell prefix (`Bash(git *)`, `Bash(pnpm *)`, `Bash(pnpm exec *)`, `Bash(gh *)`, `Bash(supabase *)`) is allow-listed. Cloud DB writes and `main`/Production remain separate, human-only Founder Gates. Independently reviewed before merge. Previously 2026-08-23, v1.7.0: **Permission gap audit, Browser QA follow-up** — a fresh audit of Founder permission prompts (separate session, same day) found the v1.6.0 allow-list only covered two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`), leaving genuinely read-only Preview-QA inspection tools — `resize_page`, `wait_for`, `take_snapshot`, `take_screenshot`, `list_pages`, `list_console_messages`, `get_console_message`, `list_network_requests`, `get_network_request` — still ask-gated for no RED-relevant reason: none of them can navigate, click, fill, submit, or execute script against a page. `.claude/settings.json`'s allow-list and this section's "Machine-enforced layer" paragraph were updated to add exactly those nine tools (bringing the Chrome DevTools allow-list to eleven total). Interactive/mutating tools (`click`, `fill`, `navigate_page` — whose `initScript` parameter can run arbitrary script on next page load —, `evaluate_script`, `new_page`, `close_page`, etc.) remain ask-gated, unchanged. No RED-tier, DEV-MERGE-gate, git/DB/deploy/secrets authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.6.0: **Permission gap cleanup mission** — this session's Cafe Manager Phase B QA hit repeated unnecessary Founder confirmation prompts for actions already within the Lead Agent's existing GREEN-tier/bounded-delivery-lifecycle authority (§9). `.claude/settings.json`'s "Machine-enforced layer" paragraph in this section now documents the resulting allow-list additions — `git add`, `git commit` (with new deny guards on any command containing `--amend` or `--no-verify`, so the broader `git commit*` allow cannot be used to amend a commit or skip hooks), `gh pr create`/`checks`/`view`, local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`, and two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`) used during Preview browser QA — plus a new **Command discipline** paragraph explaining why wrapping an already-allowed command in `cd ... &&` or a pipe caused avoidable prompts and should be avoided. A fresh-context Independent Reviewer pass on the first draft of this change found one real bypass: the `--no-verify` substring deny cannot catch git's short-flag form (`-n`, or a combined short-flag cluster like `-an`/`-na`), which a glob pattern cannot express. Fixed with a new `PreToolUse` hook (`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes any `git commit` command and asks for confirmation if a short-flag token containing `n` is present, rather than relying on glob matching alone. No RED-tier, DEV-MERGE-gate, or interactive/mutating-browser-tool authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`) |
+| Last Updated | 2026-09-19 (v1.9.0: role model with the ChatGPT brief author and specialized reviewers, brief intake / Prompt Review §18, coverage matrix and deferral discipline §19; earlier entries moved verbatim to "Version history" at the end of this file) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -109,9 +109,24 @@ The AI engineering system in this repository optimizes for, in order:
 | Role | Authority | Typical acts |
 |---|---|---|
 | **Founder** | Final authority. Business/product goals, priorities, budget, high-impact approvals, Foundation changes (Evolution Rules, Core Laws §19). | Approves production deploys, destructive operations, RLS/Auth/billing/LINE-broadcast changes, mission scope, and Foundation edits. |
-| **Strategic CTO / Product / Independent Gate** (currently ChatGPT) | Product strategy, market/competitor research, high-level architecture, independent review of important mission results, recommendation to Founder. | Reviews a Lead Agent's completed mission before Founder sign-off on substantial missions (§12). |
-| **Claude Lead Execution Agent** | Repository-grounded technical analysis, planning, implementation, tests, QA, security review, git/PR/CI/Preview workflow, evidence collection, context management, Mission Completion Report. | Runs the autonomous execution loop (§4) inside a mission's boundaries (§3), escalating only at approval boundaries (§9). |
-| **Temporary subagents** | Parallel investigation, fresh-context review, specialized checking — not a standing team. | Spawned only when they add something the Lead Agent doing it directly would not (§13). |
+| **Strategic CTO / Product / Independent Gate** (currently ChatGPT, "GPT") | Upstream: product strategy, market/competitor research, scope options, mission-brief authoring, first-pass Japanese copy review, legal/regulatory research. Downstream: independent review of important mission results, recommendation to Founder. **No repository access** — every repository fact it states is a claim, not evidence. Advisory: its brief is an input to the Lead Agent and never bypasses §18. | Writes a mission brief the Founder relays (§18); reviews a Lead Agent's completed mission before Founder sign-off on substantial missions (§12). |
+| **Claude Lead Execution Agent** | **Sole technical architect and delivery manager.** Repository-grounded analysis, architecture decisions, mission decomposition, delegation to executor subagents, verification, acceptance (evidence §6 and coverage matrix §19), git/PR/CI/Preview workflow, context management, Mission Completion Report. Runs Prompt Review (§18) on every external brief. On product/business questions it recommends with trade-offs; the Founder decides. | Runs the autonomous execution loop (§4) inside a mission's boundaries (§3), escalating only at approval boundaries (§9). Delivers to the Founder the **post-review, post-fix** result, naming in one line each any review finding that changed the outcome. |
+| **Engineer subagent** (`oruwa-engineer`) | Executor: implements one already-scoped, bounded task in an isolated context. Makes no architecture, security, or tenant-boundary decision and never talks to the Founder. | Inspect-implement-test-report; returns to the Lead Agent (§13). |
+| **Reviewer subagents** (`oruwa-reviewer`, `oruwa-db-security-reviewer`, `oruwa-ux-i18n-reviewer`) | Independent, fresh-context, read-only acceptance by lens (§12). They report; they do not fix. | Spawned per §12's reviewer-selection table; the Lead Agent verifies findings before relying on them. |
+
+Flow for a substantial mission: Founder → (optionally) GPT brief → Lead
+Agent Prompt Review (§18) → plan with planned coverage matrix (§19) → Engineer
+subagent or Lead implementation → Lead verification and live QA → independent
+reviewers (§12) → fixes and re-verification → (substantial missions) GPT
+independent gate → Founder receives the corrected result. The Lead Agent may
+also write a task **for** GPT when GPT is better placed (market research,
+Japanese copy, brief drafting, regulatory research): the Founder relays it,
+and GPT's answer comes back as an input under §18, never as an accepted fact.
+
+Independence caveat: the Lead Agent both orchestrates and accepts, so its own
+PASS is not independent. Independence comes only from the fresh-context
+reviewers and, where used, GPT. A Standard or High-risk mission never skips
+them (§12).
 
 **`docs/ai/agent-roles.md` retired (ORUWA AI Governance Consolidation, Phase
 2C, 2026-08-15)**: that file described ChatGPT/Cursor/Codex as the primary
@@ -147,6 +162,10 @@ Every substantial mission is bounded by:
   top, never fewer.
 - **Verification requirements** — which gates from §11 apply, sized by risk
   (§17).
+- **Coverage matrix (planned)** — every applicable dimension of §19 stated up
+  front as VERIFIED-by-plan, N/A with a reason, or a named deferral, so gaps
+  are found before implementation, not after (Standard/High-risk missions and
+  any mission touching UI or DB).
 - **Escalation boundaries** — which of the boundaries in §9 this mission is
   likely to hit.
 - **Stop condition** — what "this mission is complete" means, concretely.
@@ -594,6 +613,26 @@ record its actual PASS/FAIL finding, not merely note that review was
 "recommended." The Lead Agent never presents its own PASS as if it were that
 independent review.
 
+**Reviewer selection (added 2026-09-19).** The named reviewer subagents are
+specialized by lens; a general reviewer does not stand in for a specialist
+where one is required. Run every reviewer that applies, in parallel:
+
+| The change touches | Required reviewer |
+|---|---|
+| Migrations, RLS, RPCs, grants, permissions, auth, PII, secrets, `service_role`, Edge Functions, tenant/location boundary — regardless of mission size | `oruwa-db-security-reviewer` |
+| Customer-facing UI, copy, i18n, responsive layout, accessibility, Design System usage | `oruwa-ux-i18n-reviewer` — mandatory in a Standard or High-risk mission; for a Low-risk Small task it stays at the Lead Agent's discretion, consistent with the policy table above |
+| Any Standard or High-risk mission; also docs/governance changes | `oruwa-reviewer` (scope, diff integrity, coverage-matrix honesty, release readiness) in addition to the specialists |
+
+The DB/security row is the only one that ignores mission size, because a
+tenant-boundary defect is not made smaller by a small diff (§17).
+
+`/code-review` may supplement these but does not replace a required
+specialist. Every reviewer verifies the coverage matrix (§19): it must flag a
+row claimed N/A that is in fact applicable, and independently spot-check the
+highest-risk VERIFIED claims against evidence. Independent Reviewer findings
+are integrated by the Lead Agent (§2) and re-verified after fixes before the
+Founder sees a result.
+
 ## 13. Subagent policy
 
 Use a subagent only when it provides something the Lead Agent doing the work
@@ -606,11 +645,15 @@ Agent always verifies and integrates subagent output before relying on it
 (§2) — a subagent's confident report is a claim, not a fact, until checked
 against the repository.
 
-Two named, repository-defined subagents exist for this purpose:
+Four named, repository-defined subagents exist for this purpose:
 `.claude/agents/oruwa-engineer.md` (isolated-context implementation of an
-already-bounded task) and `.claude/agents/oruwa-reviewer.md` (independent,
-read-only review against `docs/ai/review-checklists.md`, governed by §12's
-Independent Reviewer policy). Both inherit `.claude/settings.json`'s
+already-bounded task) and three read-only reviewers governed by §12's
+Independent Reviewer policy and reviewer-selection table —
+`.claude/agents/oruwa-reviewer.md` (general: scope, diff integrity, coverage
+matrix, release readiness), `.claude/agents/oruwa-db-security-reviewer.md`
+(Security and Database/RLS lenses) and
+`.claude/agents/oruwa-ux-i18n-reviewer.md` (Frontend/UX, i18n, accessibility
+and QA lenses), all against `docs/ai/review-checklists.md`. All four inherit `.claude/settings.json`'s
 machine-enforced permission layer
 unchanged — delegating to them does not widen what either is allowed to do.
 Their existence does not change this section's threshold for when to
@@ -678,17 +721,21 @@ Standard fields, using template
 [`docs/ai/templates/completion-report-template.md`](templates/completion-report-template.md):
 executive result; objective; scope completed; files changed;
 architecture/data-flow impact; security impact; tests/checks with exact
-results; browser/Preview evidence; known limitations; unresolved issues; git
-branch/HEAD/status; PR/CI/deployment state; Definition of Done matrix; final
-mission status.
+results; browser/Preview evidence; **coverage matrix — actual (§19)**; known
+limitations; unresolved issues, each with its `DEBT-###` ID in
+`docs/operations/deferred-debt-register.md`; git branch/HEAD/status; PR/CI/
+deployment state; Definition of Done matrix; final mission status. The
+opening paragraph of the report states any NOT TESTED dimension and any
+deferral outright; they are never left for the reader to find in a table.
 
 ## 16. Stop discipline
 
 When a mission is complete: **stop.** Do not automatically begin unrelated
 cleanup, a next phase, refactoring, new product work, or newly discovered
-non-blocking improvements — record them (in the completion report, and in
-`docs/ai/current-task.md` if they affect the next gate) for a future mission
-instead of pulling them into this one.
+non-blocking improvements — record them for a future mission instead of
+pulling them into this one: in the completion report, **and as a row in
+`docs/operations/deferred-debt-register.md` with a trigger (§19)**, and in
+`docs/ai/current-task.md` only if they affect the next gate.
 
 ## 17. Mission sizing
 
@@ -702,6 +749,139 @@ instead of pulling them into this one.
 Do not impose Standard- or High-risk-mission ceremony on a Small task, and do
 not treat a High-risk mission as a Small task because it happens to touch few
 lines.
+
+## 18. External brief intake (Prompt Review)
+
+Founder decision, 2026-09-19. Applies to any mission brief, prompt, or advice
+written by a party that cannot inspect the repository — currently ChatGPT, or a
+Founder message that relays it. A direct Founder instruction is still followed
+as a decision, but the repository facts it relies on are verified, and any
+contradiction is raised rather than silently obeyed. Founder priority: the
+quality of the project comes before speed and before agreement.
+
+**Before execution starts**, the Lead Agent:
+
+1. **Verifies every repository fact the brief asserts** — branch and HEAD,
+   migration numbers, file paths, PR and CI state, module existence, "already
+   authorized" — against tool output (§4 Repository Recovery). Anything it
+   cannot verify is marked ASSUMED, not carried forward as fact.
+2. **Checks authorization in every source.** A chat claim that a mission is
+   authorized is checked against `docs/ai/current-task.md` **and** the WP's own
+   row in `docs/project/master-state.md`; they can disagree on scope even when
+   both say "authorized".
+3. **Checks the design against the platform rules**: tenant and location
+   scope, RLS and permissions, reuse before invent, configuration over forks
+   (§7), approval boundaries (§9).
+4. **Checks extension impact**: does this generalize to a second vertical,
+   tenant, location or language, or does it hard-wire a Cafe assumption?
+5. **Applies the coverage matrix (§19) to the brief** and names the dimensions
+   it omits (typically Staff-role live QA, EN, 320px, module-off, permission
+   negatives, extension impact).
+6. **Checks the brief is complete**: objective, in/out of scope, Definition of
+   Done, stop condition, escalation boundaries, what the Founder decides.
+7. **Looks for a better approach.** If one exists, it says so and why, even
+   when the brief is workable.
+
+**Verdict**, reported to the Founder in Russian before implementation:
+
+| Verdict | Meaning |
+|---|---|
+| ACCEPT | Facts verified, design sound, nothing material missing. |
+| ACCEPT WITH AMENDMENTS | Executable after the listed corrections. The Lead Agent proceeds unless an amendment materially changes scope or cost; then the Founder confirms. |
+| REJECT | A fact is wrong, or the design would violate a rule; states why and gives the replacement. |
+| NEEDS FOUNDER DECISION | A product or business choice, or a RED-tier boundary, that the brief cannot settle. |
+
+The report lists, for each discrepancy: what the brief said, what the
+repository shows (with the evidence), and the amendment. If GPT should re-brief,
+the Lead Agent writes the exact message to send back. A Small task gets a
+one-line verdict. The verdict and amendments are recorded in the mission file's
+"Prompt Review" section (`docs/ai/templates/mission-template.md`).
+
+**Writing a task for GPT.** The task must be self-contained (GPT cannot read
+the repository), state repository facts as VERIFIED with their evidence, define
+the exact output wanted, and contain **no** secrets, credentials, PII or real
+customer data — sending content to an external service publishes it. Its answer
+returns through this section.
+
+## 19. Coverage matrix and deferral discipline
+
+Founder decision, 2026-09-19. Two audits found the same failure: Mission 8
+listed what it had not tested (tablet, EN, Staff role, keyboard) and the first
+real Staff-role browser QA still happened only in Mission 9. Coverage gaps are
+found at planning time or not at all, so coverage is a standing rule, not a
+reviewer's afterthought.
+
+### The matrix
+
+Every Standard or High-risk mission, and every mission touching UI or DB,
+carries a coverage matrix: **planned** in the mission file (§3) and **actual**
+in the completion report (§15). Each applicable dimension gets exactly one
+status:
+
+- **VERIFIED** — with the evidence (tool output, screenshot, test name);
+- **N/A** — with a one-clause reason (never blank, never "n/a");
+- **NOT TESTED** — allowed only with a `DEBT-###` row in
+  `docs/operations/deferred-debt-register.md` and a trigger.
+
+Silence is not a status. **This rule applies to missions started on or after
+2026-09-19.** Earlier missions (through Mission 9) keep their recorded status;
+their known gaps are registered (DEBT-006 to DEBT-009, DEBT-042) instead of
+being re-labelled retroactively. Whether a dimension is "applicable" is judged
+by the Lead Agent first and re-checked by the reviewers (§12), never left to
+the author alone. Dimensions:
+
+| # | Dimension | What "covered" means |
+|---|---|---|
+| 1 | Tenant and location isolation | Cross-tenant and cross-location negatives (pgTAP or live); the module-OFF state for the tenant. |
+| 2 | Roles and permissions | Manager, Staff, and no-role each checked, including what they must NOT see or do; permission denials, not only grants. |
+| 3 | Live role QA | Every role that can reach the surface exercised in a **real authenticated session**, not code-read, including one real mutation per role where the surface writes. |
+| 4 | JA and EN | Both languages toggled and looked at, including empty, error and validation text; dates, weekdays and numbers formatted with a fixed locale; user-authored content not translated. |
+| 5 | Viewports | 320, 375, 768 and 1440 px: no horizontal overflow; long labels truncate with an ellipsis; many-badge and long-text stress. |
+| 6 | States | Loading, empty, error, degraded, permission-denied, module-off, double-submit or stale-submit. |
+| 7 | Data realism | 0, 1 and many rows; long values; timezone boundaries (Asia/Tokyo versus browser-local and UTC); QA test data cleaned up or registered. |
+| 8 | Accessibility and keyboard | Tab order, focus trap, focus restore after close or refresh, Escape, labels. |
+| 9 | Performance | Instrumented (request count and time) for any list or popup the Founder will feel; no duplicate requests. |
+| 10 | Design system | `@line-os/ui` (DS v1) primitives reused; no new legacy `theme.ts`/design-kit usage; no duplicated component. |
+| 11 | Security and privacy | Per §8: no `service_role` in `apps/web`, no PII in logs or UI, audit written for mutations. |
+| 12 | Compatibility and rollout | Migrations additive with rollback note; existing data unaffected; entitlements and module flags respected; Cloud apply gate named. |
+| 13 | Extension impact | Reusable across verticals and tenants; no Cafe-specific hard-wiring; second location and second language readiness stated. |
+| 14 | Neighbouring regressions | Adjacent modules that read the same data or share a component exercised (e.g. Attention badge, Weekly Review). |
+| 15 | Docs and state | Handoff written; `current-task.md` §5 replaced; debt register updated; new tests wired into the explicit `apps/web` test list. |
+
+Sizing: a Small task lists only the dimensions it can plausibly affect, in one
+line each. A docs-only mission is mostly N/A with reasons. A mission never
+gets to omit a dimension by not mentioning it.
+
+### Closure rule
+
+A mission may be reported **CLOSED** only when every applicable dimension is
+VERIFIED. If any is NOT TESTED, the status is **CLOSED WITH GAPS**, the gap is
+named in the first paragraph of the report, and each gap has a register row.
+Dimension 3 (live role QA) and any real-mutation check on a Staff-visible
+surface may not be silently deferred: leaving one NOT TESTED requires the
+Founder's explicit acknowledgement in the report. Missing credentials for a
+role are a reason to ask the Founder for them (the `oruwa-cafe` QA accounts
+are Founder-classified public demo credentials; the sandbox will not let an
+agent read `.env`, so the Founder pastes what is needed), never a reason to
+mark the row N/A.
+
+**One vocabulary.** The status word is CLOSED, CLOSED WITH GAPS, PARTIAL or
+BLOCKED, in the completion report, the handoff, and `current-task.md` alike.
+"Complete" is not used as a status.
+
+### Deferral discipline
+
+- Any finding not fixed in the mission becomes a register row (ID, class per
+  `docs/ai/review-checklists.md`, source, trigger, owner) **before** the
+  mission is reported complete.
+- A Founder-directed deferral is recorded with its date and the Founder's
+  words, and is not re-raised as a new finding without cause.
+- The Lead Agent reads the register at every mission close and before every
+  acceptance, demo or release gate, and reports triggered rows to the
+  Founder.
+- Fixing an item deletes its row in the same PR and names the ID in the commit.
+- Discoveries outside the mission's scope go to the register, not into the
+  diff (§16).
 
 ---
 
@@ -753,3 +933,15 @@ directly), then follow §4's execution loop inside the mission's boundaries.
 For a fresh mission prompt, the recommended shape is: *"Read the ORUWA AI
 Engineering Operating Model. Mission: `<mission file or inline objective>`.
 Execute autonomously within the mission's boundaries."*
+
+---
+
+## Version history
+
+Moved verbatim on 2026-09-19 from the "Last Updated" metadata cell, which had
+become a single multi-thousand-word line. Newest entry first; the entry text
+below is unmodified.
+
+**v1.8.0 and earlier (as recorded in the metadata cell until 2026-09-18):**
+
+2026-09-04 (v1.8.0: **Claude Autonomous DEV Permissions v2** — a bounded governance mission audited the real permission friction in ordinary DEV missions and rewrote §9's "Machine-enforced layer" paragraph plus the GREEN-tier row to match a widened, still-least-privilege `.claude/settings.json`. Added as GREEN: read-only shell (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls`), a larger read-only Git diagnostic set (`ls-files`/`cat-file`/`for-each-ref`/`describe`/`blame`/`shortlog`/`reflog show`/`config --get`/`remote -v`/`remote show`/ scoped `branch` read variants/`tag -l`/`pull`), feature-branch workflow (`git switch`/`checkout -b`/`restore --staged`/ scoped `stash`), non-force push made autonomous **only through the new `scripts/ai-hooks/guard-git-push.mjs` `PreToolUse` hook** — every `git push` stays in `ask`, and the hook returns `allow` solely for a simple non-force/non-mirror/non-prune/non-delete push to `origin` whose every refspec target resolves to a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`·`perf/`·`refactor/` branch (this replaced an earlier draft's glob allow rules, which an Independent Reviewer showed a trailing `*` could turn into `git push origin feature/x dev`, bypassing the DEV MERGE gate); read-only `gh` inspection (`pr diff|list|status`, `run|workflow|issue|search|label|repo|auth` viewers), local validation (`pnpm --filter … <verb>`, `pnpm -w …`, `pnpm exec tsc|eslint|vitest|playwright test|supabase test db`, `node --test`), local Supabase stack control and **local-only** Postgres (`psql -h 127.0.0.1`/`localhost -p 54322`). Newly hard-denied (defense in depth, none was previously autonomous): `vercel env rm|add|pull`/`promote`/`rollback`/`alias` (the 2026-09 shared-ENV-deletion incident), `git push -f`/`--delete`/`… :main`/`… :dev`, `git switch --discard-changes|-f|-C`, `git checkout -f`, `git restore --worktree`, `git branch -d|-D`, `git filter-branch|filter-repo`, `git update-ref`, `git reflog delete|expire`, `git clean -f|-d|-x`, `gh release|secret|variable`, **all** `gh api`, `rg --pre`, `supabase secrets`/`projects delete`/`branches delete`/`functions deploy`/`migration up --linked|--db-url`, and a single substring deny on `supabase db push`/`db pull`/`migration repair` covering every `pnpm exec`/`pnpm --filter … exec`/`pnpm dlx`/`npx` wrapper (replaced the earlier per-wrapper rules). `psql` allow-list constrained to `PGPASSWORD=postgres psql -h 127.0.0.1|localhost -p 54322` with an extra deny on any `psql` text containing a `postgres(ql)://` URI or `*.supabase.co`/`.com`/`pooler.supabase` host (libpq-conninfo override). New `ask`: local `supabase migration up`, `git rebase|merge|cherry-pick`, `gh workflow run`, state-changing `gh pr` verbs, `curl`/`wget`, `Write(supabase/migrations/**)`. **Unchanged and unweakened:** every prior RED boundary — `supabase db push` (and `pnpm exec` wrapper), `db pull`, `migration repair`, `vercel --prod`, `git push --force`, `git push origin main`, `git reset --hard`, raw `gh pr merge`, `--amend`/`--no-verify`, the DEV-MERGE-only merge path via `scripts/ai-dev-merge.sh`, and the `guard-no-verify` hook. No broad shell prefix (`Bash(git *)`, `Bash(pnpm *)`, `Bash(pnpm exec *)`, `Bash(gh *)`, `Bash(supabase *)`) is allow-listed. Cloud DB writes and `main`/Production remain separate, human-only Founder Gates. Independently reviewed before merge. Previously 2026-08-23, v1.7.0: **Permission gap audit, Browser QA follow-up** — a fresh audit of Founder permission prompts (separate session, same day) found the v1.6.0 allow-list only covered two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`), leaving genuinely read-only Preview-QA inspection tools — `resize_page`, `wait_for`, `take_snapshot`, `take_screenshot`, `list_pages`, `list_console_messages`, `get_console_message`, `list_network_requests`, `get_network_request` — still ask-gated for no RED-relevant reason: none of them can navigate, click, fill, submit, or execute script against a page. `.claude/settings.json`'s allow-list and this section's "Machine-enforced layer" paragraph were updated to add exactly those nine tools (bringing the Chrome DevTools allow-list to eleven total). Interactive/mutating tools (`click`, `fill`, `navigate_page` — whose `initScript` parameter can run arbitrary script on next page load —, `evaluate_script`, `new_page`, `close_page`, etc.) remain ask-gated, unchanged. No RED-tier, DEV-MERGE-gate, git/DB/deploy/secrets authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.6.0: **Permission gap cleanup mission** — this session's Cafe Manager Phase B QA hit repeated unnecessary Founder confirmation prompts for actions already within the Lead Agent's existing GREEN-tier/bounded-delivery-lifecycle authority (§9). `.claude/settings.json`'s "Machine-enforced layer" paragraph in this section now documents the resulting allow-list additions — `git add`, `git commit` (with new deny guards on any command containing `--amend` or `--no-verify`, so the broader `git commit*` allow cannot be used to amend a commit or skip hooks), `gh pr create`/`checks`/`view`, local `pnpm test`/`lint`/`typecheck`/`build`/`install`/`exec turbo run`, and two non-mutating Chrome DevTools MCP tools (`select_page`, `emulate`) used during Preview browser QA — plus a new **Command discipline** paragraph explaining why wrapping an already-allowed command in `cd ... &&` or a pipe caused avoidable prompts and should be avoided. A fresh-context Independent Reviewer pass on the first draft of this change found one real bypass: the `--no-verify` substring deny cannot catch git's short-flag form (`-n`, or a combined short-flag cluster like `-an`/`-na`), which a glob pattern cannot express. Fixed with a new `PreToolUse` hook (`scripts/ai-hooks/guard-no-verify.mjs`) that tokenizes any `git commit` command and asks for confirmation if a short-flag token containing `n` is present, rather than relying on glob matching alone. No RED-tier, DEV-MERGE-gate, or interactive/mutating-browser-tool authority was touched or widened; verified by a fresh-context Independent Reviewer pass before merge. Previously same day, v1.5.0: GREEN tier's example list in §9 "Authority tiers" now enumerates the read-only Git diagnostic commands (`merge-base`, `rev-list`, `ls-tree`, `show`, `ls-remote`, `merge-tree`, `rev-parse`, scoped `branch --show-current`/`-a`/`--contains`, plus `status`/`diff`/`log`) added to `.claude/settings.json`'s allow-list the same day, after this session's actual permission prompts showed they were needed for autonomous CTO diagnostic work (`git merge-base`, divergence/ancestry checks, etc.) and were verified read-only before being allow-listed; no write/destructive/push/merge/reset/DB/production/secret permission was touched. Independently reviewed before commit. Previously same day, v1.4.0: new **DEV MERGE** authority tier (Founder decision, 2026-08-23) — the Lead Agent may merge a reviewed PR into `dev` autonomously once all mechanical and judgment gates in §9 "DEV MERGE" pass, enforced by `scripts/ai-dev-merge.sh` plus a `.claude/settings.json` deny on raw `gh pr merge*`. `main`/production merge remains an unconditional human gate — unchanged. §9's "remains a human gate in every case" bullet list is narrowed accordingly; §10's workflow diagram updated to match. Previously same day, v1.3.0: §12 now states one canonical Independent Reviewer policy by mission risk tier — Low-risk optional/CTO discretion, Standard and High-risk mandatory — Founder decision 2026-08-23; §13 references §12 instead of restating a slightly different threshold. Previously same day, v1.2.0: §13 now points to `.claude/agents/oruwa-engineer.md` and `.claude/agents/oruwa-reviewer.md`, the first repository-defined Claude Code subagents, making the Engineer/Reviewer roles this document already described technically invocable; no change to authority/autonomy rules. Previously 2026-08-15, v1.1.0: Phase 2A approval-authority reconciliation — see `docs/ai/ORUWA_AI_GOVERNANCE_CONSOLIDATION_AUDIT.md`)

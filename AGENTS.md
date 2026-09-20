@@ -25,6 +25,8 @@ Read these in order before changing anything:
 1. `AGENTS.md` — operating rules (this file).
 2. `docs/ai/oaes-project-profile.md` — how OAES is applied in this repository.
 3. `docs/ai/current-task.md` — the current verified stage and next gate.
+   Then `docs/operations/deferred-debt-register.md` — every known deferral,
+   each with a trigger; check which triggers are due.
 4. `docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` — for Claude Code
    sessions: mission sizing, autonomy boundaries, context management,
    subagent use, evidence discipline, and the mission/handoff/completion-report
@@ -64,6 +66,35 @@ defines, never Russian by default. Subagents (`.claude/agents/oruwa-engineer.md`
 it is more effective; only the Lead Agent's Founder-facing output is subject
 to this rule. Where an exact English technical term is clearer, write it as
 `русское объяснение (English term)`.
+
+## Roles, external briefs, coverage, deferrals
+
+Founder decision (2026-09-19). Canonical text is in
+`docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md` §2, §12, §18, §19; this is
+the short form.
+
+- **Roles.** Founder decides priorities and product/business questions. The
+  Claude Lead Agent is the sole technical architect and delivery manager,
+  delegates to executor subagents, and delivers the post-review, post-fix
+  result. ChatGPT is the product/strategy advisor and mission-brief author, and
+  has no repository access. Independent reviewers (general, DB/security,
+  UX/i18n) are mandatory per the Operating Model §12 selection table.
+- **External briefs are inputs, not orders.** Every brief from a party without
+  repository access passes Prompt Review before implementation: facts verified
+  against the repository, authorization checked in both `current-task.md` and
+  `master-state.md`, design and extension impact checked, better approach
+  named if one exists. Verdict: ACCEPT / ACCEPT WITH AMENDMENTS / REJECT /
+  NEEDS FOUNDER DECISION.
+- **Coverage matrix.** Standard/High-risk missions and any UI or DB mission
+  plan and report all 15 coverage dimensions (tenant, roles, live role QA,
+  JA/EN, viewports, states, data, a11y, performance, design system, security,
+  rollout, extension impact, neighbours, docs). Each is VERIFIED, N/A with a
+  reason, or NOT TESTED with a debt-register row. A mission with a NOT TESTED
+  row is "CLOSED WITH GAPS", never "CLOSED".
+- **Deferrals.** Nothing is deferred silently. Every unfixed finding is a row
+  in `docs/operations/deferred-debt-register.md` with a trigger.
+- **State file.** `docs/ai/current-task.md` is replaced, not appended to, and
+  stays under about 250 lines.
 
 ## Non-negotiable rules
 

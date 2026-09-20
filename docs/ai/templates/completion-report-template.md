@@ -38,6 +38,15 @@ summary. Mark anything NOT TESTED explicitly (Operating Model §6).
 Only if actually observed this session, with what was seen. Do not claim
 this section's content without tool output backing it.
 
+## Coverage matrix (actual)
+
+Operating Model §19. Same 15 rows as the mission file's planned matrix, now
+with the outcome: VERIFIED (evidence), N/A (reason), or NOT TESTED (with its
+`DEBT-###` ID). If any row is NOT TESTED the final status below is **CLOSED
+WITH GAPS**, and the gap is also named in the Executive result paragraph.
+Independent reviewer findings and what changed after them are listed here in
+one line each.
+
 ## Known limitations
 
 What this mission did not address, on purpose or by scope boundary.
@@ -46,7 +55,8 @@ What this mission did not address, on purpose or by scope boundary.
 
 Anything discovered but deliberately deferred, per Operating Model §16
 (Stop discipline) — record for a future mission, do not pull it into this
-report's scope.
+report's scope. Every item has a row in
+`docs/operations/deferred-debt-register.md`; list the `DEBT-###` IDs here.
 
 ## Git branch / HEAD / status
 
@@ -63,5 +73,5 @@ Each DoD criterion (Operating Model §3, `oruwa-engineering-principles-and-gover
 
 ## Final mission status
 
-Complete / Blocked / Partial, and the exact next human gate if not fully
-complete.
+CLOSED / CLOSED WITH GAPS / PARTIAL / BLOCKED (Operating Model §19 "One
+vocabulary"), and the exact next human gate if not fully closed.

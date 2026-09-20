@@ -21,6 +21,11 @@ AGENTS.md "What this is".
 6. docs/architecture/* - architecture detail.
 7. docs/security/* - security requirements.
 8. docs/operations/deployment-checklist.md - deployment and release safety.
+9. docs/operations/deferred-debt-register.md - every known, deliberately deferred item, each with a trigger. Nothing is deferred silently.
+
+Roles, external-brief Prompt Review, the 15-dimension coverage matrix, and
+reviewer selection are summarized in AGENTS.md "Roles, external briefs,
+coverage, deferrals" (canonical: Operating Model §2, §12, §18, §19).
 
 If anything here ever conflicts with those sources, the sources above win.
 

@@ -3,6 +3,8 @@
 Current, actionable risks only. A resolved or superseded risk is removed,
 not kept for history — git history preserves the record. Each entry:
 risk, impact, current status, mitigation, owner/gate, last verified date.
+Known gaps and deliberate deferrals (each with a trigger) are tracked in
+[`deferred-debt-register.md`](deferred-debt-register.md), not here.
 
 | Risk | Impact | Status | Mitigation | Owner / gate | Last verified |
 |---|---|---|---|---|---|
