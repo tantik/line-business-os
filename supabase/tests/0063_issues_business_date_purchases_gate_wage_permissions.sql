@@ -174,11 +174,45 @@ reset role;
 
 -- The timezone helper works for a caller with NO core.locations RLS visibility
 -- (role assignment but no active membership), so issue creation does not depend on it.
-select ok(
-  pg_temp.as_auth_rowcount('a2900000-0000-0000-0000-000000000001',
-    $$select issues.location_timezone('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001')$$) = 1,
-  'issues.location_timezone resolves for an ordinary Staff caller'
+-- A caller with a role assignment but NO tenant membership cannot read core.locations
+-- through RLS; the SECURITY DEFINER helper must still return the timezone.
+insert into core.users (id, display_name) values ('a2900000-0000-0000-0000-000000000004', 'Role-only user (no membership)');
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  ('a2000000-0000-0000-0000-00000000000a', 'a2900000-0000-0000-0000-000000000004',
+   '00000000-0000-0000-0000-000000000006', 'a2200000-0000-0000-0000-000000000001');
+
+create function pg_temp.as_auth_text(p_sub text, p_sql text)
+returns text
+language plpgsql
+as $$
+declare v_out text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  set local role authenticated;
+  execute p_sql into v_out;
+  return v_out;
+exception
+  when others then
+    return 'ERROR ' || sqlstate;
+end;
+$$;
+
+select is(
+  pg_temp.as_auth_rowcount('a2900000-0000-0000-0000-000000000004',
+    $$select id from core.locations where id = 'a2200000-0000-0000-0000-000000000001'$$),
+  0,
+  'precondition: the role-only user cannot read core.locations through RLS'
 );
+reset role;
+select is(
+  pg_temp.as_auth_text('a2900000-0000-0000-0000-000000000004',
+    $$select issues.location_timezone('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001')$$),
+  'Pacific/Kiritimati',
+  'issues.location_timezone still returns the timezone for a caller with no core.locations visibility (independent of RLS)'
+);
+reset role;
 reset role;
 
 -- ============================================================================
@@ -229,7 +263,7 @@ select ok(
        values ('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', %L, 'a2900000-0000-0000-0000-000000000002', 'ordered', 5)$f$,
     (select id from inventory.stock_counts where item_id = 'a2100000-0000-0000-0000-000000000001' order by counted_at desc, id desc limit 1)
   ), '42501'),
-  'the identical direct INSERT is refused by RLS (42501) while Inventory is OFF: the policy gate is restored'
+  'the identical direct INSERT is refused by RLS (42501) while Inventory is OFF (the has_module_access conjunct itself is asserted by the pg_policy check below and by the P0004 RPC checks)'
 );
 reset role;
 
@@ -255,9 +289,9 @@ reset role;
 -- ============================================================================
 select is(
   pg_temp.as_auth_rowcount('a2900000-0000-0000-0000-000000000001',
-    $$update api.workforce_staff_manage set hourly_wage_yen = 1 where staff_id = 'a2300000-0000-0000-0000-000000000001'$$) <= 0,
+    $$update api.workforce_staff_manage set hourly_wage_yen = 1 where staff_id = 'a2300000-0000-0000-0000-000000000001'$$) = 0,
   true,
-  'Staff cannot change an employee''s hourly wage through api.workforce_staff_manage'
+  'Staff cannot change an employee''s hourly wage through api.workforce_staff_manage (0 rows match: the view no longer shows Staff any row)'
 );
 reset role;
 select is(
@@ -338,12 +372,11 @@ select is(
 );
 reset role;
 
-select is(
-  pg_temp.as_auth_rowcount('a2900000-0000-0000-0000-000000000001',
+select ok(
+  pg_temp.as_auth_throws_code('a2900000-0000-0000-0000-000000000001',
     $$insert into api.workforce_staff_manage (tenant_id, location_id, name_encrypted, hourly_wage_yen)
-      values ('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', '\x00', 1)$$) <= 0,
-  true,
-  'a Staff caller cannot create an employee through the view'
+      values ('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', '\x00', 1)$$, '42501'),
+  'a Staff caller cannot create an employee through the view (RLS 42501)'
 );
 reset role;
 
