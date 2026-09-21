@@ -348,10 +348,13 @@ export async function upsertWorkforceEmployee(
           given_name_encrypted: givenNameEncrypted,
           email_encrypted: emailEncrypted,
           email_hash: emailHash,
-          notes_encrypted: notesEncrypted,
-          position_label: input.positionLabel ?? null,
-          employment_type: input.employmentType ?? null,
-          hourly_wage_yen: input.hourlyWageYen ?? null,
+          // Partial-update semantics (DEBT-052): a field the caller did not send (`undefined`)
+          // is left as stored. Only an explicit `null` clears it. The canonical Manager form
+          // has no notes editor, so an unrelated edit must never erase notes or the wage.
+          ...(input.notes !== undefined ? { notes_encrypted: notesEncrypted } : {}),
+          ...(input.positionLabel !== undefined ? { position_label: input.positionLabel } : {}),
+          ...(input.employmentType !== undefined ? { employment_type: input.employmentType } : {}),
+          ...(input.hourlyWageYen !== undefined ? { hourly_wage_yen: input.hourlyWageYen } : {}),
           ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
         })
         .eq('tenant_id', tenantId)

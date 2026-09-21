@@ -64,3 +64,17 @@ test('StaffForm keeps user-entered business fields bound directly to the employe
     );
   }
 });
+
+test('StaffForm has an individual hourly-rate field (whole yen, 0..max, blank = not set) loaded from the employee record', () => {
+  assert.match(SOURCE, /name="hourlyWageYen"/);
+  assert.match(SOURCE, /type="number"/);
+  assert.match(SOURCE, /min=\{0\}/);
+  assert.match(SOURCE, /max=\{HOURLY_WAGE_YEN_MAX\}/);
+  assert.match(SOURCE, /step=\{1\}/);
+  assert.match(SOURCE, /defaultValue=\{employee\?\.hourlyWageYen \?\? ''\}/);
+  assert.match(SOURCE, /t\('fieldHourlyWage'\)/);
+});
+
+test('StaffForm does not send a notes field (the canonical form has no notes editor), so an edit leaves stored notes alone (DEBT-052)', () => {
+  assert.doesNotMatch(SOURCE, /name="notes"/);
+});

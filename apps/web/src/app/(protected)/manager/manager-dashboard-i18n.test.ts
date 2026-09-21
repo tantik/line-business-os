@@ -13,6 +13,7 @@ import {
   autoCreateShortageLine,
   autoCreateUnplacedLine,
   breakMinutesValue,
+  estimatedLabourCostMissingRate,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -42,7 +43,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'inviteButton', 'resendButton', 'sendingStatus', 'recoverAccessButton', 'revokeInvitationButton', 'recoveryEmailSentMessage',
   'confirmRecoverAccessTitle', 'confirmRecoverAccessBody', 'confirmSendButton', 'confirmRevokeInvitationTitle', 'confirmRevokeInvitationBody',
   'inviteErrorNotFound', 'inviteErrorDuplicate', 'inviteErrorGeneric', 'revokeErrorNotFound', 'revokeErrorGeneric', 'recoverErrorGeneric', 'errorUnauthorizedAction',
-  'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldLineUserId', 'fieldPosition', 'fieldEmploymentType',
+  'fieldName', 'fieldFamilyName', 'fieldGivenName', 'fieldEmail', 'fieldLineUserId', 'fieldPosition', 'fieldHourlyWage', 'hourlyWageHint', 'fieldEmploymentType',
   'addStaffSubmit', 'saveChanges', 'cancel',
   'errorNotFound', 'errorNotAuthenticated', 'errorNoMembership', 'errorStaleReference',
   'prevWeek', 'thisWeek', 'nextWeek', 'addStaffToSeeSchedule', 'colStaff', 'assign', 'unassign', 'unassigning',
@@ -171,6 +172,12 @@ test('the Level-1 Attention subtitle passes the unread mail count that the total
   const source = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
   assert.match(source, /const combinedTotal = summary\.total \+ unreadMailCount;/);
   assert.match(source, /attentionSummarySubtitle\[lang\]\(summary\.actionRequiredCount, summary\.warningCount, unreadMailCount\)/);
+});
+
+test('estimatedLabourCostMissingRate interpolates the count and differs by language', () => {
+  assert.match(estimatedLabourCostMissingRate.en(3), /3/);
+  assert.match(estimatedLabourCostMissingRate.ja(3), /3/);
+  assert.notEqual(estimatedLabourCostMissingRate.en(3), estimatedLabourCostMissingRate.ja(3));
 });
 
 test('attentionInventoryShortageSummary interpolates the count and differs by language', () => {

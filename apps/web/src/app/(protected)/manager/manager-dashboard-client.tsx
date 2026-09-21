@@ -32,7 +32,7 @@ import {
   submitManagerMessage,
 } from '@/lib/workforce/staff-messages-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
-import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
+import { monthlyLabourCostSummary } from '@/lib/workforce/labour-cost';
 import {
   buildManagerAttentionQueue,
   computeManagerAttention,
@@ -52,6 +52,7 @@ import {
   autoCreateShortageLine,
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
+  estimatedLabourCostMissingRate,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -672,17 +673,10 @@ function ManagerDashboardBody({
   // current-month worked hours (from `attendance`, not the displayed week's
   // scheduled shifts) times each staff member's hourly wage, summed. An
   // operational estimate for the Manager, not a payroll run.
-  const estimatedLabourCost = useMemo(() => {
-    const monthPrefix = todayIso.slice(0, 7);
-    return (staff ?? []).reduce((sum, s) => {
-      const summary = estimatedEarningsSummary(
-        (attendance ?? []).filter((row) => row.employeeId === s.staffId),
-        monthPrefix,
-        s.hourlyWageYen,
-      );
-      return sum + (summary.estimatedEarningsYen ?? 0);
-    }, 0);
-  }, [staff, attendance, todayIso]);
+  const estimatedLabourCost = useMemo(
+    () => monthlyLabourCostSummary(staff ?? [], attendance ?? [], todayIso.slice(0, 7)),
+    [staff, attendance, todayIso],
+  );
 
   // WP-8: understaffed-day "!" marker (column header) -- dates in the
   // displayed week whose assigned headcount is below the Settings-configured
@@ -1526,11 +1520,16 @@ function ManagerDashboardBody({
             </div>
           ) : null}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 12px', borderRadius: 9, background: colors.surfaceElevated }}>
               <span style={{ fontSize: 12.5, ...mutedText }}>{t('estimatedLabourCostLabel')}</span>
-              <strong style={{ fontSize: 18 }}>¥{estimatedLabourCost.toLocaleString('ja-JP')}</strong>
+              <strong style={{ fontSize: 18 }}>
+                {estimatedLabourCost.totalYen === null ? '—' : `¥${estimatedLabourCost.totalYen.toLocaleString('ja-JP')}`}
+              </strong>
             </div>
+            {estimatedLabourCost.missingRateCount > 0 ? (
+              <span style={{ fontSize: 12, textAlign: 'right', ...mutedText }}>{estimatedLabourCostMissingRate[lang](estimatedLabourCost.missingRateCount)}</span>
+            ) : null}
           </div>
           </>
         )}
