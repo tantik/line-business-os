@@ -31,11 +31,11 @@ test('parseUpsertEmployeeInput: create (no id) with required fields only', () =>
     familyName: 'Tanaka',
     givenName: 'Aiko',
     email: 'aiko@example.com',
-    notes: null,
+    notes: undefined,
     positionLabel: null,
     employmentType: null,
     isActive: undefined,
-    hourlyWageYen: null,
+    hourlyWageYen: undefined,
   });
 });
 
@@ -64,8 +64,32 @@ test('parseUpsertEmployeeInput: edit (with id) and all optional fields', () => {
     positionLabel: 'Barista',
     employmentType: 'part_time',
     isActive: true,
-    hourlyWageYen: null,
+    hourlyWageYen: undefined,
   });
+});
+
+const BASE_FIELDS = { locationId: LOCATION_ID, name: 'Aiko Tanaka', familyName: 'Tanaka', givenName: 'Aiko', email: 'aiko@example.com' };
+
+test('parseUpsertEmployeeInput: hourly wage is tri-state -- absent = leave unchanged, blank = clear, number = set', () => {
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS }))!.hourlyWageYen, undefined);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '' }))!.hourlyWageYen, null);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '   ' }))!.hourlyWageYen, null);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '1200' }))!.hourlyWageYen, 1200);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: ' 1350 ' }))!.hourlyWageYen, 1350);
+});
+
+test('parseUpsertEmployeeInput: hourly wage 0 and the 1,000,000 ceiling are valid; negatives, decimals, text and > 1,000,000 are rejected', () => {
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '0' }))!.hourlyWageYen, 0);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '1000000' }))!.hourlyWageYen, 1_000_000);
+  for (const bad of ['-1', '1000001', '12.5', '1e3x', 'abc', 'NaN']) {
+    assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: bad })), null, `hourlyWageYen "${bad}" must be rejected`);
+  }
+});
+
+test('parseUpsertEmployeeInput: notes are tri-state too -- an edit that does not send notes must not clear them (DEBT-052)', () => {
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS }))!.notes, undefined);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, notes: '' }))!.notes, null);
+  assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, notes: 'Weekends only' }))!.notes, 'Weekends only');
 });
 
 test('parseUpsertEmployeeInput rejects missing name/locationId and a malformed non-blank id', () => {

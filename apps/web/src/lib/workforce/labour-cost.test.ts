@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimatedLabourCostSoFar } from './labour-cost.js';
+import { estimatedLabourCostSoFar, monthlyLabourCostSummary } from './labour-cost.js';
 import type { LabourCostStaffEntry } from './labour-cost.js';
 import type { WorkforceAttendance } from './attendance.js';
 
@@ -78,4 +78,65 @@ test('estimatedLabourCostSoFar: excludes inactive staff, null hourlyWageYen yiel
   assert.equal(result.perStaff[0]!.estimatedCostYen, 1000);
   assert.equal(result.perStaff[1]!.estimatedCostYen, null);
   assert.equal(result.totalCostYen, 1000);
+});
+
+// ---------------------------------------------------------------------------
+// monthlyLabourCostSummary: the Manager dashboard's "Estimated labour cost" box.
+// Hours = completed clock-in/clock-out pairs in the month, rate = each
+// employee's OWN hourly wage. A missing rate is never priced at 0 yen.
+// ---------------------------------------------------------------------------
+function shift(employeeId: string, workDate: string, inIso: string, outIso: string, breakMinutes = 0): WorkforceAttendance {
+  return makeAttendance({ attendanceId: `${employeeId}-${workDate}`, employeeId, workDate, clockIn: inIso, clockOut: outIso, actualBreakMinutes: breakMinutes });
+}
+
+test('monthlyLabourCostSummary prices each employee at their OWN rate (two different rates)', () => {
+  const staff = [makeStaff({ staffId: 'a', hourlyWageYen: 1000 }), makeStaff({ staffId: 'b', hourlyWageYen: 1500 })];
+  const attendance = [
+    shift('a', '2026-09-03', '2026-09-03T00:00:00.000Z', '2026-09-03T04:00:00.000Z'), // 4 h at 1000
+    shift('b', '2026-09-04', '2026-09-04T00:00:00.000Z', '2026-09-04T02:00:00.000Z'), // 2 h at 1500
+  ];
+  const result = monthlyLabourCostSummary(staff, attendance, '2026-09');
+  assert.equal(result.totalYen, 4 * 1000 + 2 * 1500);
+  assert.equal(result.ratedCount, 2);
+  assert.equal(result.missingRateCount, 0);
+});
+
+test('monthlyLabourCostSummary nets out break time and ignores other months and open shifts', () => {
+  const staff = [makeStaff({ staffId: 'a', hourlyWageYen: 1000 })];
+  const attendance = [
+    shift('a', '2026-09-03', '2026-09-03T00:00:00.000Z', '2026-09-03T05:00:00.000Z', 60), // 4 h net
+    shift('a', '2026-08-30', '2026-08-30T00:00:00.000Z', '2026-08-30T08:00:00.000Z'), // other month
+    makeAttendance({ employeeId: 'a', workDate: '2026-09-05', clockIn: '2026-09-05T00:00:00.000Z', clockOut: null }), // still open
+  ];
+  assert.equal(monthlyLabourCostSummary(staff, attendance, '2026-09').totalYen, 4000);
+});
+
+test('monthlyLabourCostSummary: an employee with no rate is NOT priced at 0 yen, it is counted as missing', () => {
+  const staff = [makeStaff({ staffId: 'a', hourlyWageYen: 1000 }), makeStaff({ staffId: 'b', hourlyWageYen: null })];
+  const attendance = [
+    shift('a', '2026-09-03', '2026-09-03T00:00:00.000Z', '2026-09-03T02:00:00.000Z'),
+    shift('b', '2026-09-03', '2026-09-03T00:00:00.000Z', '2026-09-03T08:00:00.000Z'),
+  ];
+  const result = monthlyLabourCostSummary(staff, attendance, '2026-09');
+  assert.equal(result.totalYen, 2000, 'only the rated employee contributes');
+  assert.equal(result.missingRateCount, 1, 'the unrated active employee is reported so the UI can say the total is incomplete');
+});
+
+test('monthlyLabourCostSummary: nobody rated -> totalYen is null (never a real-looking 0 yen)', () => {
+  const staff = [makeStaff({ staffId: 'a', hourlyWageYen: null }), makeStaff({ staffId: 'b', hourlyWageYen: null })];
+  const result = monthlyLabourCostSummary(staff, [], '2026-09');
+  assert.equal(result.totalYen, null);
+  assert.equal(result.ratedCount, 0);
+  assert.equal(result.missingRateCount, 2);
+});
+
+test('monthlyLabourCostSummary: a rate of 0 is a real value (priced at 0), distinct from not set; inactive unrated staff are not counted as missing', () => {
+  const staff = [
+    makeStaff({ staffId: 'a', hourlyWageYen: 0 }),
+    makeStaff({ staffId: 'b', hourlyWageYen: null, isActive: false }),
+  ];
+  const result = monthlyLabourCostSummary(staff, [shift('a', '2026-09-03', '2026-09-03T00:00:00.000Z', '2026-09-03T02:00:00.000Z')], '2026-09');
+  assert.equal(result.totalYen, 0);
+  assert.equal(result.ratedCount, 1);
+  assert.equal(result.missingRateCount, 0);
 });

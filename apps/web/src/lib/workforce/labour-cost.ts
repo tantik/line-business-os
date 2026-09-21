@@ -1,5 +1,5 @@
 import type { WorkforceAttendance } from './attendance';
-import { elapsedWorkedMinutes } from './estimated-earnings';
+import { elapsedWorkedMinutes, estimatedEarningsSummary } from './estimated-earnings';
 
 export interface LabourCostStaffEntry {
   staffId: string;
@@ -19,6 +19,42 @@ export interface EstimatedLabourCostEntry {
 export interface EstimatedLabourCostSummary {
   perStaff: EstimatedLabourCostEntry[];
   totalCostYen: number | null;
+}
+
+export interface MonthlyLabourCostSummary {
+  /** Sum of each employee's own hours x own hourly rate; `null` when nobody has a rate (there is no honest number to show, and it must not read as a real ¥0). */
+  totalYen: number | null;
+  /** Employees (any status) whose rate is set and who therefore contribute. */
+  ratedCount: number;
+  /** Active employees with no rate set: their hours are NOT priced, so `totalYen` is a lower bound while this is > 0. */
+  missingRateCount: number;
+}
+
+/**
+ * The Manager dashboard's "Estimated labour cost" box: current-calendar-month
+ * worked hours (completed `clockIn`/`clockOut` attendance pairs, net of break)
+ * times EACH employee's own `hourly_wage_yen`, summed. An operational estimate,
+ * not payroll. An employee without a rate is never priced at ¥0: they are
+ * counted in `missingRateCount` so the UI can say the total is incomplete.
+ */
+export function monthlyLabourCostSummary(
+  staffList: LabourCostStaffEntry[],
+  attendance: WorkforceAttendance[],
+  monthPrefix: string,
+): MonthlyLabourCostSummary {
+  let total = 0;
+  let ratedCount = 0;
+  for (const s of staffList) {
+    if (s.hourlyWageYen === null) continue;
+    ratedCount += 1;
+    total += estimatedEarningsSummary(
+      attendance.filter((row) => row.employeeId === s.staffId),
+      monthPrefix,
+      s.hourlyWageYen,
+    ).estimatedEarningsYen ?? 0;
+  }
+  const missingRateCount = staffList.filter((s) => s.isActive && s.hourlyWageYen === null).length;
+  return { totalYen: ratedCount > 0 ? total : null, ratedCount, missingRateCount };
 }
 
 /**

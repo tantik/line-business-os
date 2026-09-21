@@ -161,6 +161,65 @@ test('upsertWorkforceEmployee (edit, with id) updates and filters by staff_id', 
   assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'staff_id' && c.args[1] === 's2'));
 });
 
+const EDIT_ROW = {
+  staff_id: 's2', tenant_id: TENANT_ID, location_id: 'loc-1',
+  name_encrypted: bufferToBytea(encryptPII('Kenji Sato', ENCRYPTION_KEY)), name_hash: blindIndex('Kenji Sato', HASH_PEPPER),
+  family_name_encrypted: bufferToBytea(encryptPII('Sato', ENCRYPTION_KEY)), given_name_encrypted: bufferToBytea(encryptPII('Kenji', ENCRYPTION_KEY)),
+  email_encrypted: bufferToBytea(encryptPII('kenji@example.com', ENCRYPTION_KEY)), email_hash: blindIndex('kenji@example.com', HASH_PEPPER),
+  notes_encrypted: null, position_label: null, employment_type: null, is_active: true,
+  created_at: '2026-01-01', updated_at: '2026-01-02', hourly_wage_yen: 1300, has_account_access: true,
+};
+
+function updatePayload(calls: { method: string; args: unknown[] }[]): Record<string, unknown> {
+  const call = calls.find((c) => c.method === 'update');
+  assert.ok(call, 'an update call was made');
+  return call.args[0] as Record<string, unknown>;
+}
+
+test('DEBT-052: an edit that does not send hourly wage / notes / position / employment type leaves those columns out of the UPDATE (never overwrites with null)', async () => {
+  const { client, calls } = recordingClient({ data: EDIT_ROW, error: null });
+  const result = await upsertWorkforceEmployee(client, TENANT_ID, {
+    id: 's2', locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.equal(result.status, 'success');
+  const payload = updatePayload(calls);
+  for (const column of ['hourly_wage_yen', 'notes_encrypted', 'position_label', 'employment_type', 'is_active']) {
+    assert.ok(!(column in payload), `${column} must not be in the UPDATE when the caller did not send it`);
+  }
+  assert.ok('name_encrypted' in payload && 'email_encrypted' in payload, 'the identity fields that were sent are still updated');
+});
+
+test('an edit that explicitly sends a wage sets it; an explicit null clears it; 0 is a real value', async () => {
+  for (const [sent, expected] of [[1450, 1450], [null, null], [0, 0]] as const) {
+    const { client, calls } = recordingClient({ data: EDIT_ROW, error: null });
+    await upsertWorkforceEmployee(client, TENANT_ID, {
+      id: 's2', locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+      hourlyWageYen: sent,
+    });
+    const payload = updatePayload(calls);
+    assert.ok('hourly_wage_yen' in payload);
+    assert.equal(payload.hourly_wage_yen, expected);
+  }
+});
+
+test('an edit that sends notes as null clears them, and only then (encrypted notes are otherwise untouched)', async () => {
+  const { client, calls } = recordingClient({ data: EDIT_ROW, error: null });
+  await upsertWorkforceEmployee(client, TENANT_ID, {
+    id: 's2', locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com', notes: null,
+  });
+  assert.equal(updatePayload(calls).notes_encrypted, null);
+});
+
+test('create (no id) still stores a missing wage as null', async () => {
+  const { client, calls } = recordingClient({ data: EDIT_ROW, error: null });
+  await upsertWorkforceEmployee(client, TENANT_ID, {
+    locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  const insert = calls.find((c) => c.method === 'insert');
+  assert.ok(insert);
+  assert.equal((insert.args[0] as Record<string, unknown>).hourly_wage_yen, null);
+});
+
 test('upsertWorkforceEmployee edit returns not_found when RLS/filter matches zero rows', async () => {
   const { client } = recordingClient({ data: null, error: null });
   const result = await upsertWorkforceEmployee(client, TENANT_ID, {

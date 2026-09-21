@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import { bindEmployeeLineUser, upsertEmployee } from '@/lib/workforce/staff-actions';
+import { HOURLY_WAGE_YEN_MAX } from '@/lib/workforce/employees-input';
 import { PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, input, mutedText } from '@/lib/ui/theme';
 import { describeWriteError } from './error-copy';
@@ -144,6 +145,21 @@ export function StaffForm({ locationId, employee, formId, isLineLinked = false, 
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldPosition')}</span>
         <input style={input} name="positionLabel" defaultValue={employee?.positionLabel ?? ''} maxLength={60} />
+      </label>
+      {/* Individual hourly rate (`workforce.employees.hourly_wage_yen`, whole yen or blank = not set). Feeds the Manager's estimated labour cost only; it is not payroll. Blank is sent as an explicit clear; a form that omits the field leaves the stored value alone (see `parseUpsertEmployeeInput`). */}
+      <label>
+        <span style={{ ...mutedText, fontSize: 13 }}>{t('fieldHourlyWage')}</span>
+        <input
+          style={input}
+          type="number"
+          name="hourlyWageYen"
+          inputMode="numeric"
+          min={0}
+          max={HOURLY_WAGE_YEN_MAX}
+          step={1}
+          defaultValue={employee?.hourlyWageYen ?? ''}
+        />
+        <span style={{ ...mutedText, fontSize: 12 }}>{t('hourlyWageHint')}</span>
       </label>
       {/* Employment type: temporarily removed from the visible form (Founder direction); hidden so editing/saving other fields never wipes an existing value. */}
       <input type="hidden" name="employmentType" defaultValue={employee?.employmentType ?? ''} />

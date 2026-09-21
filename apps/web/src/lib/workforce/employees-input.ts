@@ -16,13 +16,22 @@ export interface UpsertEmployeeFormInput {
   familyName: string;
   givenName: string;
   email: string;
-  notes: string | null;
+  /**
+   * Tri-state, same for `hourlyWageYen`: `undefined` = the form did not send the
+   * field (an edit leaves the stored value untouched -- the canonical form has no
+   * notes editor, so an unrelated edit must never erase them); `null` = the field
+   * was sent blank (clear it); a value = set it.
+   */
+  notes: string | null | undefined;
   positionLabel: string | null;
   employmentType: string | null;
   /** `undefined` on create (defaults to active at the DB layer); on edit, `undefined` means "leave unchanged". */
   isActive: boolean | undefined;
-  hourlyWageYen: number | null;
+  hourlyWageYen: number | null | undefined;
 }
+
+/** Inclusive upper bound of `workforce.employees.hourly_wage_yen` (CHECK in 0048, integer yen per hour; NULL = not set). */
+export const HOURLY_WAGE_YEN_MAX = 1_000_000;
 
 /** `id` field absent/blank -> create; present -> edit that employee. */
 export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeFormInput | null {
@@ -41,6 +50,7 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
   if (!familyName || !givenName || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   const notes = parseOptionalTrimmedString(formData.get('notes'), NOTES_MAX_LENGTH);
   if (!notes.ok) return null;
+  const notesValue = formData.has('notes') ? notes.value : undefined;
 
   const positionLabel = parseOptionalTrimmedString(formData.get('positionLabel'), POSITION_MAX_LENGTH);
   if (!positionLabel.ok) return null;
@@ -50,8 +60,11 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
 
   const hasActiveField = formData.has('isActive');
   const rawHourlyWage = formData.get('hourlyWageYen');
-  const hourlyWageYen = rawHourlyWage === null || rawHourlyWage === '' ? null : Number(rawHourlyWage);
-  if (hourlyWageYen !== null && (!Number.isInteger(hourlyWageYen) || hourlyWageYen < 0 || hourlyWageYen > 1_000_000)) return null;
+  const hasWageField = formData.has('hourlyWageYen');
+  const trimmedWage = typeof rawHourlyWage === 'string' ? rawHourlyWage.trim() : '';
+  // Absent -> undefined (leave unchanged); present but blank -> null (not set); else a whole non-negative yen amount.
+  const hourlyWageYen: number | null | undefined = !hasWageField ? undefined : trimmedWage === '' ? null : Number(trimmedWage);
+  if (typeof hourlyWageYen === 'number' && (!Number.isInteger(hourlyWageYen) || hourlyWageYen < 0 || hourlyWageYen > HOURLY_WAGE_YEN_MAX)) return null;
 
   return {
     id,
@@ -60,7 +73,7 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
     familyName,
     givenName,
     email,
-    notes: notes.value,
+    notes: notesValue,
     positionLabel: positionLabel.value,
     employmentType: employmentType.value,
     isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,

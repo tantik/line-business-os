@@ -131,6 +131,8 @@ interface ManagerDashboardDict {
   fieldEmail: string;
   fieldLineUserId: string;
   fieldPosition: string;
+  fieldHourlyWage: string;
+  hourlyWageHint: string;
   fieldEmploymentType: string;
   addStaffSubmit: string;
   saveChanges: string;
@@ -480,6 +482,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEmail: 'Email',
     fieldLineUserId: 'LINE user id (optional)',
     fieldPosition: 'Position',
+    fieldHourlyWage: 'Hourly rate (JPY per hour)',
+    hourlyWageHint: 'Whole yen, 0 to 1,000,000. Leave blank if not set: the estimated labour cost then leaves this person out.',
     fieldEmploymentType: 'Employment type',
     addStaffSubmit: 'Add staff',
     saveChanges: 'Save changes',
@@ -792,6 +796,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     fieldEmail: 'メールアドレス',
     fieldLineUserId: 'LINEユーザーID（任意）',
     fieldPosition: '役職',
+    fieldHourlyWage: '時給（円）',
+    hourlyWageHint: '0〜1,000,000の整数（円）。未設定の場合は空欄のままにしてください。概算人件費には含まれません。',
     fieldEmploymentType: '雇用形態',
     addStaffSubmit: 'スタッフを追加',
     saveChanges: '変更を保存',
@@ -1128,6 +1134,15 @@ export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number
     if (unreadMailCount > 0) parts.push(`未読メール ${unreadMailCount}件`);
     return parts.join(' · ');
   },
+};
+
+/**
+ * Shown next to the estimated labour cost when some active staff have no hourly rate
+ * set: their hours are not priced, so the figure is a lower bound, not the true total.
+ */
+export const estimatedLabourCostMissingRate: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} staff without an hourly rate are not included`,
+  ja: (count) => `時給が未設定の${count}名は含まれていません`,
 };
 
 /** "N items require restocking" for the single collapsed Inventory queue item. */
