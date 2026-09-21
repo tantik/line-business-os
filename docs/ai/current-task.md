@@ -77,16 +77,18 @@ NOT declared CLOSED.** Nothing below authorizes new work by itself.
 | WP3 Owner Weekly Review | CLOSED 2026-09-14 | #518–#522, `0119` | `SESSION_HANDOFF_2026-09-14.md` |
 | WP4 Purchasing v2 | CLOSED 2026-09-15 | #524, `0120` | `SESSION_HANDOFF_2026-09-15.md` |
 | WP5 Recipe Intelligence Lite | CLOSED 2026-09-17 | #525/#526, `0121` | `CAFE_V2_2_WP5_RECIPE_INTELLIGENCE_HANDOFF_2026-09-17.md` |
-| Mission 8 Bounded Quality Sweep | CLOSED 2026-09-18 (predates the coverage rule; its untested dimensions are registered as DEBT-006 to DEBT-009, DEBT-042) | #529 | `SESSION_HANDOFF_2026-09-18.md` |
-| Mission 9 Demo Readiness | CLOSED 2026-09-18, one Founder-deferred exception (predates the coverage rule; gaps registered as DEBT-001 to DEBT-009, DEBT-042) | #531, #532 | `SESSION_HANDOFF_2026-09-18-MISSION9.md` |
+| Mission 8 Bounded Quality Sweep | CLOSED 2026-09-18 (predates the coverage rule; its untested dimensions were registered as DEBT-006 to DEBT-009, DEBT-042; DEBT-006 to DEBT-008 were closed by the 2026-09-21 acceptance, the rest stay open) | #529 | `SESSION_HANDOFF_2026-09-18.md` |
+| Mission 9 Demo Readiness | CLOSED 2026-09-18, one Founder-deferred exception (predates the coverage rule; gaps registered as DEBT-001 to DEBT-005, DEBT-009, DEBT-042) | #531, #532 | `SESSION_HANDOFF_2026-09-18-MISSION9.md` |
+| Full Integrated Acceptance (Phase 4) | CLOSED WITH GAPS 2026-09-21 (NOT TESTED: DEBT-049, DEBT-042, DEBT-009, DEBT-057, DEBT-060; Definition of Done item 4 not met: open class A findings DEBT-050 to DEBT-053, DEBT-061) | #536, #537 | `CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`, `SESSION_HANDOFF_2026-09-21.md` |
 
-Verified baseline (directory listing and git on 2026-09-19; test counts NOT
-re-run this session):
+Verified baseline (directory listing, git, test runs and a read-only
+`supabase migration list` on 2026-09-21):
 
 - Base branch: `dev`. Local migrations extend through `0121`; pgTAP test files
-  through `0062`. Last recorded `apps/web` suite result: 1334/1334 (Mission 9,
-  2026-09-18). Migrations `0099`–`0121` are applied to Cloud DEV (per the
-  closure records above); Cloud state was not re-queried this session.
+  through `0062`. Last recorded `apps/web` suite result: 1354/1354 (Full Integrated
+  Acceptance, 2026-09-21; local pgTAP 60 files / 1475 tests, failing set =
+  DEBT-037 baseline only). Migrations `0000`–`0121` are applied to Cloud DEV (VERIFIED
+  2026-09-21, read-only `supabase migration list`, Remote column).
 - v2.0 authenticated acceptance: `docs/product/cafe-package-v2-acceptance-report.md`.
   v2.1 evidence of record: `docs/product/cafe-package-v2-1-acceptance-report.md`,
   `docs/product/cafe-package-v2-1-founder-acceptance-audit.md`,
@@ -184,21 +186,23 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-09-20** (checked against git; `dev` HEAD `64a374c`, no open PRs):
+**As of 2026-09-21** (checked against git; `dev` includes PR #536 and PR #537):
 
-- Mission 9 (Demo Readiness) is CLOSED (2026-09-18). Governance v1.9.0 (PR #533)
-  and the `apps/web` test-runner fix (PR #534, 1347 tests) are merged.
-- **Cafe v2.2 is NOT declared CLOSED.** **Next gate: Cafe v2.2 Full Integrated
-  Acceptance (master-roadmap Phase 4), authorized by the Founder on 2026-09-20
-  and PREPARED but NOT STARTED.** Mission file:
-  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_MISSION_2026-09-20.md`; start
-  from `docs/ai/SESSION_HANDOFF_2026-09-20.md` (it holds the bootstrap prompt).
-- Founder decisions still owed before any live customer demo: DEBT-001 Mail
-  thread, DEBT-002 Operations backlog, DEBT-003 QA-named Inventory items. The
-  clean-demo-tenant fix (DEBT-004) is a Cloud data write: a Founder gate and a
-  separate mission, not part of the acceptance.
-- The mission's Track A covers the Copy Audit, Russian Feature Map and Demo
-  Readiness (`master-state.md` item 15b, completion status UNVERIFIED, DEBT-047).
+- **Full Integrated Acceptance (Phase 4) is CLOSED WITH GAPS.** Report:
+  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`; handoff:
+  `docs/ai/SESSION_HANDOFF_2026-09-21.md`. Engineering PASS with stated gaps
+  (A0 = 0; two A1 found and fixed: #536 Operations "today" in UTC, #537 Attention
+  subtitle). Track A produced `docs/ai/CAFE_V2_2_COPY_AUDIT_2026-09-21.md` and
+  `docs/product/cafe-v2-2-feature-map-ru.md`.
+- **Cafe v2.2 is NOT declared CLOSED.** Founder Technical Freeze and Commercial
+  Release are separate Founder decisions; the report §9 lists what each lacks.
+- **Next gate: a Founder decision.** Open items that need one: migration `0122`
+  (DEBT-050 Issues `business_date` in UTC, DEBT-051 module-OFF gate dropped by
+  `0120`; RED: Founder merges and applies), DEBT-052 (staff edit erases wage and
+  notes), DEBT-053 (Copy Audit class A incl. allergen wording), and the demo
+  data decisions DEBT-001 to DEBT-004 (Operations backlog is now 63 and grows
+  daily). NOT TESTED live: cross-tenant, cross-location, no-role user, module-OFF
+  (DEBT-049).
 - Production and `main` are untouched and separately gated.
 
 Where everything else lives:
