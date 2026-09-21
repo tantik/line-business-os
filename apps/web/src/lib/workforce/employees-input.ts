@@ -23,8 +23,9 @@ export interface UpsertEmployeeFormInput {
    * was sent blank (clear it); a value = set it.
    */
   notes: string | null | undefined;
-  positionLabel: string | null;
-  employmentType: string | null;
+  /** Tri-state like `notes`: a form that does not send the field leaves the stored value alone. */
+  positionLabel: string | null | undefined;
+  employmentType: string | null | undefined;
   /** `undefined` on create (defaults to active at the DB layer); on edit, `undefined` means "leave unchanged". */
   isActive: boolean | undefined;
   hourlyWageYen: number | null | undefined;
@@ -63,8 +64,10 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
   const hasWageField = formData.has('hourlyWageYen');
   const trimmedWage = typeof rawHourlyWage === 'string' ? rawHourlyWage.trim() : '';
   // Absent -> undefined (leave unchanged); present but blank -> null (not set); else a whole non-negative yen amount.
+  // Plain digits only: no sign, decimal point, exponent or hex ("1e3", "0x10" would otherwise pass Number()).
+  if (hasWageField && trimmedWage !== '' && !/^\d{1,7}$/.test(trimmedWage)) return null;
   const hourlyWageYen: number | null | undefined = !hasWageField ? undefined : trimmedWage === '' ? null : Number(trimmedWage);
-  if (typeof hourlyWageYen === 'number' && (!Number.isInteger(hourlyWageYen) || hourlyWageYen < 0 || hourlyWageYen > HOURLY_WAGE_YEN_MAX)) return null;
+  if (typeof hourlyWageYen === 'number' && hourlyWageYen > HOURLY_WAGE_YEN_MAX) return null;
 
   return {
     id,
@@ -74,8 +77,8 @@ export function parseUpsertEmployeeInput(formData: FormData): UpsertEmployeeForm
     givenName,
     email,
     notes: notesValue,
-    positionLabel: positionLabel.value,
-    employmentType: employmentType.value,
+    positionLabel: formData.has('positionLabel') ? positionLabel.value : undefined,
+    employmentType: formData.has('employmentType') ? employmentType.value : undefined,
     isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,
     hourlyWageYen,
   };

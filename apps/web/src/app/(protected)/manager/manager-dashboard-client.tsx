@@ -1528,7 +1528,7 @@ function ManagerDashboardBody({
               </strong>
             </div>
             {estimatedLabourCost.missingRateCount > 0 ? (
-              <span style={{ fontSize: 12, ...mutedText }}>{estimatedLabourCostMissingRate[lang](estimatedLabourCost.missingRateCount)}</span>
+              <span style={{ fontSize: 12, textAlign: 'right', ...mutedText }}>{estimatedLabourCostMissingRate[lang](estimatedLabourCost.missingRateCount)}</span>
             ) : null}
           </div>
           </>

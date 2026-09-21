@@ -9,6 +9,7 @@ import {
 
 const LOCATION_ID = '11111111-1111-1111-1111-111111111111';
 const STAFF_ID = '22222222-2222-2222-2222-222222222222';
+const BASE_FIELDS_EARLY = { locationId: LOCATION_ID, name: 'Aiko Tanaka', familyName: 'Tanaka', givenName: 'Aiko', email: 'aiko@example.com' };
 
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -32,11 +33,20 @@ test('parseUpsertEmployeeInput: create (no id) with required fields only', () =>
     givenName: 'Aiko',
     email: 'aiko@example.com',
     notes: undefined,
-    positionLabel: null,
-    employmentType: null,
+    positionLabel: undefined,
+    employmentType: undefined,
     isActive: undefined,
     hourlyWageYen: undefined,
   });
+});
+
+test('parseUpsertEmployeeInput: position and employment type are tri-state too (absent leaves stored value, blank clears)', () => {
+  const absent = parseUpsertEmployeeInput(formData({ ...BASE_FIELDS_EARLY }))!;
+  assert.equal(absent.positionLabel, undefined);
+  assert.equal(absent.employmentType, undefined);
+  const blank = parseUpsertEmployeeInput(formData({ ...BASE_FIELDS_EARLY, positionLabel: '', employmentType: '' }))!;
+  assert.equal(blank.positionLabel, null);
+  assert.equal(blank.employmentType, null);
 });
 
 test('parseUpsertEmployeeInput: edit (with id) and all optional fields', () => {
@@ -81,7 +91,7 @@ test('parseUpsertEmployeeInput: hourly wage is tri-state -- absent = leave uncha
 test('parseUpsertEmployeeInput: hourly wage 0 and the 1,000,000 ceiling are valid; negatives, decimals, text and > 1,000,000 are rejected', () => {
   assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '0' }))!.hourlyWageYen, 0);
   assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: '1000000' }))!.hourlyWageYen, 1_000_000);
-  for (const bad of ['-1', '1000001', '12.5', '1e3x', 'abc', 'NaN']) {
+  for (const bad of ['-1', '1000001', '12.5', '1e3x', '1e3', '0x10', '+5', 'abc', 'NaN', '99999999']) {
     assert.equal(parseUpsertEmployeeInput(formData({ ...BASE_FIELDS, hourlyWageYen: bad })), null, `hourlyWageYen "${bad}" must be rejected`);
   }
 });
