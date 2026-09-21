@@ -200,9 +200,9 @@ duplicated here.
   migration `0122` to Cloud DEV (Issues `business_date` in the location
   timezone, Inventory module gate restored on Purchases writes, and DEBT-062:
   `api.workforce_staff_manage` was readable by Staff, exposing coworkers' wage);
-  (2) DEBT-061: Cloud Data API exposed-schemas check needs the public URL and
-  publishable key (or the Founder runs the probe in the report §7). Do not enter
-  real wages before `0122` is applied.
+  (2) DEBT-061 for Cloud DEV is VERIFIED PASS (2026-09-21: only `public`,
+  `graphql_public`, `api` exposed); the Production project is still to be
+  probed (T-PROD). Do not enter real wages before `0122` is applied.
 - **Cafe v2.2 is NOT declared CLOSED.** Founder Technical Freeze readiness becomes
   PASS after those two steps; Commercial Release remains a separate Founder
   decision (DEBT-053 copy/allergen wording, DEBT-001 to DEBT-004 demo data,
