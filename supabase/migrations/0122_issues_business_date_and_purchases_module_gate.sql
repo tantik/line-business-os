@@ -1,7 +1,8 @@
 -- ============================================================================
--- 0122: two correctness fixes found by the Cafe v2.2 Full Integrated
--- Acceptance (2026-09-21). Both replace function/policy bodies only: no table
--- or column is added or dropped, no data is touched, no grant is widened.
+-- 0122: three correctness/security fixes found by the Cafe v2.2 Full Integrated
+-- Acceptance (2026-09-21). They replace function, policy and view bodies (plus
+-- one small SECURITY DEFINER helper) only: no table or column is added or
+-- dropped, no data is touched, no grant is widened.
 --
 -- A. Issues business_date is the location-local date (DEBT-050).
 --    issues.issues.business_date defaults to current_date, which is the DB
@@ -9,8 +10,9 @@
 --    An issue reported 00:00-09:00 JST therefore got yesterday's business
 --    date, and api.weekly_review_summary (0119) put a Monday-morning issue
 --    into the previous week. api.issues_create now sets it from the
---    location's own timezone (core.locations.timezone), the same rule
---    Operations already uses (operations.schedule_business_date, 0101).
+--    location's own timezone (core.locations.timezone, read through the new
+--    SECURITY DEFINER helper issues.location_timezone, the same pattern as
+--    operations.location_timezone / schedule_business_date, 0101).
 --    Only the INSERT value changes: the 0118 guard trigger forbids UPDATEs of
 --    business_date and is untouched; existing rows keep their stored date
 --    (correcting history is a separate Founder decision).
@@ -23,11 +25,42 @@
 --    without either, so the gate was only indirect (through inventory RLS).
 --    This restores both, changing nothing else in those bodies.
 --
+-- C. api.workforce_staff_manage is Manager-only for real (DEBT-062).
+--    The view is security_invoker and had no predicate, so it returned every
+--    row the caller's RLS lets them SELECT. 0061's coworker-roster policy
+--    (wf_employees_coworker_roster_read) lets a plain Staff caller SELECT
+--    active coworker rows, so a Staff caller could read this view and get a
+--    coworker's hourly_wage_yen plus the encrypted contact/notes columns
+--    (reproduced on a local DB before this fix: Staff A saw both rows and the
+--    other employee's wage). The view now requires workforce.staff.manage at
+--    the row's location, the same kind of predicate 0023 uses for the staff
+--    directory. Column list and order are unchanged; the Staff-facing roster
+--    (api.workforce_staff_roster: id and name only), directory and own-profile
+--    views and the wf_employees_* RLS policies are untouched.
+--
 -- Rollback: re-apply api.issues_create from 0118 (drop the v_tz lookup and the
--- business_date column from the insert); re-apply purchases_actions_insert and
--- the two RPC bodies from 0120. Purely function/policy bodies: no data change
--- in either direction.
+-- business_date column from the insert) and drop issues.location_timezone;
+-- re-apply purchases_actions_insert and the two RPC bodies from 0120;
+-- re-apply api.workforce_staff_manage from 0067 (no WHERE). Function, policy
+-- and view bodies only: no data change in either direction.
 -- ============================================================================
+
+-- --- A. issues.location_timezone ---------------------------------------------
+-- Wall-clock timezone of a location. SECURITY DEFINER: a location's timezone is
+-- not sensitive, and it must resolve for any caller api.issues_create has
+-- already authorised (issues.report at that location), independent of the
+-- caller's core.locations RLS view. Mirrors operations.location_timezone (0101).
+create or replace function issues.location_timezone(p_tenant_id uuid, p_location_id uuid)
+returns text
+language sql stable security definer set search_path = core, public as $$
+  select l.timezone from core.locations l
+  where l.tenant_id = p_tenant_id and l.id = p_location_id;
+$$;
+comment on function issues.location_timezone(uuid, uuid) is
+  'Wall-clock timezone for a location. SECURITY DEFINER -- timezone is non-sensitive config; keeps api.issues_create off the membership-gated core.locations RLS join (0122).';
+
+revoke all on function issues.location_timezone(uuid, uuid) from public;
+grant execute on function issues.location_timezone(uuid, uuid) to authenticated;
 
 -- --- A. api.issues_create ----------------------------------------------------
 create or replace function api.issues_create(
@@ -85,12 +118,12 @@ begin
   end;
 
   -- Location-local business date. core.locations.timezone is NOT NULL (default
-  -- 'Asia/Tokyo'). Readable under SECURITY INVOKER because locations_select
-  -- lets any active tenant member read core.locations. Fail closed: if the
-  -- location is not visible we refuse rather than silently store a UTC date.
-  select l.timezone into v_tz
-  from core.locations l
-  where l.tenant_id = p_tenant_id and l.id = p_location_id;
+  -- 'Asia/Tokyo'). Read through a SECURITY DEFINER helper (same reason as
+  -- operations.location_timezone, 0101): the timezone is non-sensitive config
+  -- and this path must not depend on the membership-gated core.locations RLS
+  -- join. Fail closed: a location that does not exist in the tenant is refused
+  -- rather than silently stored with a UTC date.
+  v_tz := issues.location_timezone(p_tenant_id, p_location_id);
 
   if v_tz is null then
     raise exception 'issues_location_not_found' using errcode = 'P0002';
@@ -328,3 +361,35 @@ comment on function api.record_purchase_receipt(uuid, uuid, uuid, numeric, uuid)
 
 revoke all on function api.record_purchase_receipt(uuid, uuid, uuid, numeric, uuid) from public;
 grant execute on function api.record_purchase_receipt(uuid, uuid, uuid, numeric, uuid) to authenticated;
+
+-- --- C. api.workforce_staff_manage: require workforce.staff.manage ----------
+-- Same columns, same order as 0067 (CREATE OR REPLACE VIEW may only append);
+-- only the WHERE is new.
+create or replace view api.workforce_staff_manage
+  with (security_invoker = true) as
+select
+  e.id as staff_id,
+  e.tenant_id,
+  e.location_id,
+  e.name_encrypted,
+  e.name_hash,
+  e.position_label,
+  e.employment_type,
+  e.is_active,
+  e.created_at,
+  e.updated_at,
+  e.hourly_wage_yen,
+  e.family_name_encrypted,
+  e.given_name_encrypted,
+  e.email_encrypted,
+  e.email_hash,
+  e.notes_encrypted,
+  (e.user_id is not null) as has_account_access
+from workforce.employees e
+where core.has_permission(e.tenant_id, 'workforce.staff.manage', e.location_id);
+
+comment on view api.workforce_staff_manage is
+  'Manager-only staff read/write facade. Includes advisory hourly wage, contact PII (encrypted), and has_account_access (derived boolean, never the raw user_id itself). security_invoker/RLS, and since 0122 the view itself only returns rows where the caller holds workforce.staff.manage at the row''s location (a plain Staff caller can no longer read coworkers'' wage or encrypted contact columns through it).';
+
+grant select, insert, update on api.workforce_staff_manage to authenticated;
+revoke all on api.workforce_staff_manage from anon, public;
