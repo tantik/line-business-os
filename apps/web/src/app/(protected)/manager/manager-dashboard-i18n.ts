@@ -1109,18 +1109,23 @@ export const employmentTypeLabel: Record<Lang, Record<string, string>> = {
   },
 };
 
-/** Level-1 attention summary subtitle, e.g. "3 require action · 6 warnings" -- omits either half when its count is 0 rather than showing "0 warnings". */
-export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number, warningCount: number) => string> = {
-  en: (actionRequiredCount, warningCount) => {
+/**
+ * Level-1 attention summary subtitle, e.g. "3 require action · 6 warnings · 2 unread mail" -- omits a part when its count is 0 rather than showing "0 warnings".
+ * Unread mail is folded into the Level-1 total at the render site (see `attention-panel.tsx`), so it is named here too: otherwise the total exceeds the sum of the parts shown.
+ */
+export const attentionSummarySubtitle: Record<Lang, (actionRequiredCount: number, warningCount: number, unreadMailCount?: number) => string> = {
+  en: (actionRequiredCount, warningCount, unreadMailCount = 0) => {
     const parts: string[] = [];
     if (actionRequiredCount > 0) parts.push(`${actionRequiredCount} require action`);
     if (warningCount > 0) parts.push(`${warningCount} warning(s)`);
+    if (unreadMailCount > 0) parts.push(`${unreadMailCount} unread mail`);
     return parts.join(' · ');
   },
-  ja: (actionRequiredCount, warningCount) => {
+  ja: (actionRequiredCount, warningCount, unreadMailCount = 0) => {
     const parts: string[] = [];
     if (actionRequiredCount > 0) parts.push(`対応が必要 ${actionRequiredCount}件`);
     if (warningCount > 0) parts.push(`注意事項 ${warningCount}件`);
+    if (unreadMailCount > 0) parts.push(`未読メール ${unreadMailCount}件`);
     return parts.join(' · ');
   },
 };
