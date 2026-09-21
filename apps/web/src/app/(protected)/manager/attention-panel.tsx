@@ -291,7 +291,7 @@ export function AttentionPanel({
         </>
       ) : (
         <>
-          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount)}</p>
+          <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 13 }}>{attentionSummarySubtitle[lang](summary.actionRequiredCount, summary.warningCount, unreadMailCount)}</p>
 
           <div style={chipRowStyle}>
             {items.map((item) => {

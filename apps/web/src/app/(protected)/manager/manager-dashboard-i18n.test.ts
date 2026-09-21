@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   attentionCorrectionLabel,
   attentionExchangeLabel,
@@ -150,6 +151,26 @@ test('attentionSummarySubtitle shows both halves when both counts are positive, 
 test('attentionSummarySubtitle omits a zero half instead of claiming "0 warnings"', () => {
   assert.doesNotMatch(attentionSummarySubtitle.en(3, 0), /warning/);
   assert.doesNotMatch(attentionSummarySubtitle.en(0, 5), /action/);
+});
+
+test('attentionSummarySubtitle names unread mail, so the Level-1 total equals the sum of the parts shown (was "9" vs "4+4")', () => {
+  assert.match(attentionSummarySubtitle.en(4, 2, 2), /2 unread mail/);
+  assert.match(attentionSummarySubtitle.ja(4, 2, 2), /未読メール 2件/);
+  assert.equal(attentionSummarySubtitle.en(4, 2, 2), '4 require action · 2 warning(s) · 2 unread mail');
+  assert.equal(attentionSummarySubtitle.ja(4, 2, 2), '対応が必要 4件 · 注意事項 2件 · 未読メール 2件');
+  assert.equal(attentionSummarySubtitle.en(0, 0, 1), '1 unread mail');
+});
+
+test('attentionSummarySubtitle without a mail count is unchanged (default 0), so other callers are unaffected', () => {
+  assert.equal(attentionSummarySubtitle.en(3, 6), '3 require action · 6 warning(s)');
+  assert.equal(attentionSummarySubtitle.ja(3, 6), '対応が必要 3件 · 注意事項 6件');
+  assert.doesNotMatch(attentionSummarySubtitle.en(3, 6, 0), /mail/);
+});
+
+test('the Level-1 Attention subtitle passes the unread mail count that the total already includes', () => {
+  const source = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const combinedTotal = summary\.total \+ unreadMailCount;/);
+  assert.match(source, /attentionSummarySubtitle\[lang\]\(summary\.actionRequiredCount, summary\.warningCount, unreadMailCount\)/);
 });
 
 test('attentionInventoryShortageSummary interpolates the count and differs by language', () => {
