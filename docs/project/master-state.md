@@ -652,10 +652,16 @@ v2.2). Phase 6 (Platform Foundation Reconciliation) is **substantially done**.
    both DONE (WP5 CLOSED 2026-09-17, PR #525/#526; see §7 and
    `docs/ai/current-task.md` §2).
 15b. **Full JA/EN Copy Audit + Founder-facing Russian Feature Map + Demo
-   Readiness check** (part of Product Quality Foundation closure, before
-   the integrated acceptance).
+   Readiness check** — DONE 2026-09-21 as Track A of the integrated
+   acceptance: `docs/ai/CAFE_V2_2_COPY_AUDIT_2026-09-21.md`,
+   `docs/product/cafe-v2-2-feature-map-ru.md`; Demo Readiness open items are
+   DEBT-001 to DEBT-005 and DEBT-059.
 16. **Full Cafe v2.2 Integrated Acceptance** — the **single** Phase-4
-   integrated acceptance (master-roadmap Phase 4). No extra per-phase
+   integrated acceptance (master-roadmap Phase 4). **CLOSED WITH GAPS
+   2026-09-21** (PR #536, #537; report
+   `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`).
+   Cafe v2.2 itself is NOT declared CLOSED: Founder Technical Freeze and
+   Commercial Release are separate Founder decisions. No extra per-phase
    acceptance gate is added by Product Quality Foundation.
 
 Then (master-roadmap Phases 5–14, unchanged): SaaS Hardening → Tenant
