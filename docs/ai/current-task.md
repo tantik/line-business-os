@@ -186,23 +186,28 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-09-21** (checked against git; `dev` includes PR #536 and PR #537):
+**As of 2026-09-21** (checked against git; `dev` includes PR #536, #537, #539):
 
 - **Full Integrated Acceptance (Phase 4) is CLOSED WITH GAPS.** Report:
-  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`; handoff:
-  `docs/ai/SESSION_HANDOFF_2026-09-21.md`. Engineering PASS with stated gaps
-  (A0 = 0; two A1 found and fixed: #536 Operations "today" in UTC, #537 Attention
-  subtitle). Track A produced `docs/ai/CAFE_V2_2_COPY_AUDIT_2026-09-21.md` and
-  `docs/product/cafe-v2-2-feature-map-ru.md`.
-- **Cafe v2.2 is NOT declared CLOSED.** Founder Technical Freeze and Commercial
-  Release are separate Founder decisions; the report §9 lists what each lacks.
-- **Next gate: a Founder decision.** Open items that need one: migration `0122`
-  (DEBT-050 Issues `business_date` in UTC, DEBT-051 module-OFF gate dropped by
-  `0120`; RED: Founder merges and applies), DEBT-052 (staff edit erases wage and
-  notes), DEBT-053 (Copy Audit class A incl. allergen wording), and the demo
-  data decisions DEBT-001 to DEBT-004 (Operations backlog is now 63 and grows
-  daily). NOT TESTED live: cross-tenant, cross-location, no-role user, module-OFF
-  (DEBT-049).
+  `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`.
+- **Mission 10.5 Technical Freeze Closure is PARTIAL, blocked by a Founder gate.**
+  Report: `docs/ai/CAFE_V2_2_TECHNICAL_FREEZE_CLOSURE_REPORT_2026-09-21.md`;
+  handoff: `docs/ai/SESSION_HANDOFF_2026-09-21-MISSION10-5.md`. Done and merged:
+  PR #539 (individual hourly rate in the Manager staff form on the existing
+  `hourly_wage_yen`, DEBT-052 wage/notes erase fixed, estimated labour cost never
+  counts a missing rate as 0 yen; live-verified with two different rates).
+- **Two Founder steps remain (RED / input):** (1) merge PR #541 and apply
+  migration `0122` to Cloud DEV (Issues `business_date` in the location
+  timezone, Inventory module gate restored on Purchases writes, and DEBT-062:
+  `api.workforce_staff_manage` was readable by Staff, exposing coworkers' wage);
+  (2) DEBT-061: Cloud Data API exposed-schemas check needs the public URL and
+  publishable key (or the Founder runs the probe in the report §7). Do not enter
+  real wages before `0122` is applied.
+- **Cafe v2.2 is NOT declared CLOSED.** Founder Technical Freeze readiness becomes
+  PASS after those two steps; Commercial Release remains a separate Founder
+  decision (DEBT-053 copy/allergen wording, DEBT-001 to DEBT-004 demo data,
+  DEBT-035/036/043 production path, DEBT-049 second tenant). Next and final
+  Cafe v2.2 mission: Founder Acceptance (not started).
 - Production and `main` are untouched and separately gated.
 
 Where everything else lives:
