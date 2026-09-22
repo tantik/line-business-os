@@ -190,7 +190,14 @@ duplicated here.
 
 - **Full Integrated Acceptance (Phase 4) is CLOSED WITH GAPS.** Report:
   `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`.
-- **Mission 10.5 Technical Freeze Closure is PARTIAL, blocked by a Founder gate.**
+- **UPDATE 2026-09-22: Mission 10.5 is CLOSED. Founder Technical Freeze readiness:
+  PASS.** The Founder merged PR #541 and applied `0122` to Cloud DEV; verified
+  live (Staff reads 0 rows from `api.workforce_staff_manage`, Manager
+  read/write ok, a new Issue at 03:04 JST got 営業日 2026-09-22, Data API exposes
+  only `public`, `graphql_public`, `api`). The next and final Cafe v2.2 mission is
+  Founder Acceptance (not started); the Technical Freeze itself is the
+  Founder's decision. The two-step text below is historical for this mission.
+- **Mission 10.5 Technical Freeze Closure was PARTIAL, blocked by a Founder gate (2026-09-21).**
   Report: `docs/ai/CAFE_V2_2_TECHNICAL_FREEZE_CLOSURE_REPORT_2026-09-21.md`;
   handoff: `docs/ai/SESSION_HANDOFF_2026-09-21-MISSION10-5.md`. Done and merged:
   PR #539 (individual hourly rate in the Manager staff form on the existing
