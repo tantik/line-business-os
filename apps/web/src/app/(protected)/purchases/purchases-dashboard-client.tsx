@@ -149,7 +149,7 @@ function ActionControls({ item, locationId, lang, onChanged }: Omit<RowProps, 'l
 function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
   return (
-    <tr style={{ opacity: settled ? 0.85 : 1 }}>
+    <tr>
       <td style={{ ...tableCell, borderLeft: settled ? '3px solid transparent' : `3px solid ${colors.danger}` }}>
         <div style={{ fontWeight: 600 }}>{item.name}</div>
       </td>
@@ -173,8 +173,13 @@ function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, 
 
 function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
+  // Founder Acceptance QA1 2026-09-22 (Staff, 375px): a settled card used to also
+  // get `opacity: 0.85` on top of `colors.textMuted` text -- stacking the two
+  // pushed "Need to buy"/"Reorder at" below WCAG AA contrast (~4.15:1 measured,
+  // need 4.5:1). The muted text color alone already signals "resolved" without
+  // dimming the whole card.
   return (
-    <div style={{ ...card, marginTop: 0, opacity: settled ? 0.85 : 1, borderLeft: settled ? card.border : `3px solid ${colors.danger}` }}>
+    <div style={{ ...card, marginTop: 0, borderLeft: settled ? card.border : `3px solid ${colors.danger}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <h3 style={{ margin: 0, fontSize: 16, overflowWrap: 'anywhere' }}>{item.name}</h3>

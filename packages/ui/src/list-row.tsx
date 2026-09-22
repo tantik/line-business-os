@@ -27,15 +27,15 @@ export function ListRow({ title, subtitle, leading, status, actions, onOpen, mut
   const content = (
     <>
       {leading ? <div className="flex h-10 w-10 shrink-0 items-center justify-center">{leading}</div> : null}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <p className={cn('truncate text-base font-medium', muted ? 'text-text-muted' : 'text-text-primary')}>
           {title}
         </p>
         {subtitle ? <div className="mt-0.5 truncate">{subtitle}</div> : null}
       </div>
-      {/* `max-w-[60%]` is load-bearing (Mission 9 demo-readiness, live-reproduced): without a cap, this `shrink-0` group's unwrapped preferred width is used for flex layout even though `flex-wrap` lets its own children wrap visually -- with several/long status badges (e.g. Operations "overdue"/"critical check missed"/"N unresolved issues") that preferred width can exceed the row, and since the sibling title uses `min-w-0` (which allows shrinking all the way to 0), the title collapses to invisible instead of the badges. */}
+      {/* Founder Acceptance QA1 2026-09-22 (Staff Today's tasks, 375px): the Mission-9 `max-w-[60%]` cap stopped the title collapsing to 0px, but with 2-3 status badges it still claimed ~60% of the row across several stacked lines, squeezing the title into a narrow column and truncating it mid-word. Fixed by giving the title a real `min-w-[9rem]` floor (so it can no longer shrink below a readable width) and letting the *row* wrap (`flex-wrap` below) -- when status badges don't fit beside a title that size, they now drop to their own full-width line under the title/subtitle instead of squeezing it. */}
       {status ? (
-        <div className="flex max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-1.5">{status}</div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">{status}</div>
       ) : null}
       {/* Same structural risk as `status` above (a `shrink-0` group can force the `min-w-0` title to 0) -- `actions` is contractually a single button/menu (see the prop doc) so this is defense-in-depth, not a reproduced failure. */}
       {actions ? <div className="flex max-w-[30%] shrink-0 items-center gap-1">{actions}</div> : null}
@@ -43,7 +43,7 @@ export function ListRow({ title, subtitle, leading, status, actions, onOpen, mut
   );
 
   const rowClasses = cn(
-    'flex w-full min-h-14 items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left',
+    'flex w-full min-h-14 flex-wrap items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left',
     muted && 'opacity-65',
     onOpen && 'hover:border-border hover:bg-surface-elevated',
     className,
