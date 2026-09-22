@@ -190,6 +190,8 @@ duplicated here.
 
 - **Full Integrated Acceptance (Phase 4) is CLOSED WITH GAPS.** Report:
   `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-09-21.md`.
+- **Start a new session from `docs/ai/SESSION_HANDOFF_2026-09-22.md`** (consolidated
+  state, plan, tooling notes, bootstrap prompt).
 - **UPDATE 2026-09-22: Mission 10.5 is CLOSED. Founder Technical Freeze readiness:
   PASS.** The Founder merged PR #541 and applied `0122` to Cloud DEV; verified
   live (Staff reads 0 rows from `api.workforce_staff_manage`, Manager
