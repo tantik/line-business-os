@@ -3,7 +3,8 @@
 import { useRef, useState, useTransition } from 'react';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
-import { HelpIconButton, Modal, Skeleton } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
+import { HelpIconButton, Skeleton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { mutedText } from '@/lib/ui/theme';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
@@ -30,10 +31,13 @@ type View = { kind: 'list' } | { kind: 'detail'; recipeId: string; startEditing:
  * Manage-recipes popup (WP A5b, Cafe Manager parity mission): wraps the
  * existing Recipes list AND the recipe detail view -- previously two
  * separate pages (`/recipes`, `/recipes/[recipeId]`) -- as two views of the
- * SAME design-kit `Modal`, per the Founder's explicit direction that every
+ * SAME `@line-os/ui` `Dialog` (moved off the legacy design-kit `Modal`
+ * during Founder Acceptance QA1 2026-09-22 -- that `Modal` has no
+ * scroll-lock, so the page behind it kept scrolling with the mouse wheel;
+ * Founder-reported), per the Founder's explicit direction that every
  * popup should look like one component, not a page navigation dressed up
- * as one. Clicking a recipe swaps the Modal's content to its detail;
- * closing the Modal (× or Escape) from detail view goes back to the list
+ * as one. Clicking a recipe swaps the Dialog's content to its detail;
+ * closing the Dialog (× or Escape) from detail view goes back to the list
  * instead of actually closing the popup -- see `handleClose` -- so there is
  * no separate in-body "back" control to duplicate that.
  *
@@ -145,7 +149,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     setDetailError(null);
   }
 
-  // The Modal's × (and Escape) now means "back" while viewing a recipe's
+  // The Dialog's × (and Escape) now means "back" while viewing a recipe's
   // detail -- same destination the old in-body "Back to recipes" link used
   // to reach, now removed as a redundant second control -- and only
   // actually closes the whole popup from the list view. Reset to the list
@@ -161,12 +165,12 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
   const title = view.kind === 'list' ? t('pageTitle') : detail ? detail.recipe.titleJa || detail.recipe.titleEn || t('untitledRecipe') : t('pageTitle');
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={handleClose}
       title={title}
       titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
-      width="min(1100px, 96vw)"
+      size="sheet"
       closeLabel={t('backToWorkforce')}
     >
       {view.kind === 'list' ? (
@@ -212,9 +216,9 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
         />
       ) : null}
 
-      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} width="min(480px, 94vw)">
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('formCancel')} size="form">
         <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
-      </Modal>
-    </Modal>
+      </Dialog>
+    </Dialog>
   );
 }

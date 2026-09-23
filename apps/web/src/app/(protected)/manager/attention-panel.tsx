@@ -280,7 +280,7 @@ export function AttentionPanel({
   return (
     <section style={{ ...card, borderLeft: `3px solid ${combinedTotal > 0 ? colors.warning : colors.success}` }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{t('attentionHeading')}</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('attentionHeading')}</h2>
         <span style={{ fontSize: 22, fontWeight: 700, color: combinedTotal > 0 ? colors.warning : colors.success }}>{combinedTotal}</span>
       </div>
 

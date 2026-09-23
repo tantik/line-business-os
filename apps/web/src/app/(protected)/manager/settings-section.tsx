@@ -574,7 +574,7 @@ export function SettingsSection({
             ) : null}
             <button
               type="button"
-              className={`${hoverStyles.buttonSecondary} ${hoverStyles.actionReveal}`}
+              className={hoverStyles.buttonSecondary}
               style={buttonSecondary}
               onClick={onOpenShiftRequests}
             >

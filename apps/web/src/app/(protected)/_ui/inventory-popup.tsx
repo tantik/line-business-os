@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
-import { HelpIconButton, Modal } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
+import { HelpIconButton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { InventoryDashboardBody } from '../inventory/inventory-dashboard-client';
@@ -32,7 +33,11 @@ export interface InventoryPopupProps {
  * dashboard's own Inventory entry point): wraps the existing `/inventory`
  * dashboard body (unchanged data layer -- `items` is the exact same
  * `listInventoryItemStatus` read both dashboards' Attention/entry-point
- * layers already fetch) in a design-kit `Modal`. `InventoryDashboardBody`'s
+ * layers already fetch) in the `@line-os/ui` `Dialog` (moved off the
+ * legacy design-kit `Modal` during Founder Acceptance QA1 2026-09-22: that
+ * `Modal` has no scroll-lock, so the page behind it kept scrolling with the
+ * mouse wheel -- Founder-reported, matches Issues/Operations/Weekly Review,
+ * which had already migrated). `InventoryDashboardBody`'s
  * own `embedded` prop skips its page-level header (title/language-toggle/
  * sign-out/back-link), and this component renders it directly inside the
  * caller's own `LangProvider` rather than the standalone page's own
@@ -41,7 +46,7 @@ export interface InventoryPopupProps {
  *
  * Known scoping simplification: `InventoryDashboardBody` has its own
  * internal Escape-key handler for its inline Add/Edit-item form (unrelated
- * to this Modal's). Unlike the Manage-staff popup, this one does not layer
+ * to this Dialog's). Unlike the Manage-staff popup, this one does not layer
  * the two -- pressing Escape while an item form is open closes both the
  * form and the whole popup in one step, rather than backing out one level
  * at a time. Acceptable: not incorrect, just less refined, and re-plumbing
@@ -68,12 +73,12 @@ export function InventoryPopup({
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
       title={t('pageTitle')}
       titleAdornment={<HelpIconButton ariaLabel={t('popupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
-      width="min(1100px, 96vw)"
+      size="sheet"
       closeLabel={t('backToDashboard')}
     >
       {items === null ? (
@@ -94,9 +99,9 @@ export function InventoryPopup({
         />
       )}
 
-      <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('cancelButton')} width="min(480px, 94vw)">
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t('popupHelpTitle')} closeLabel={t('cancelButton')} size="form">
         <div style={{ whiteSpace: 'pre-line' }}>{t('popupHelpBody')}</div>
-      </Modal>
-    </Modal>
+      </Dialog>
+    </Dialog>
   );
 }
