@@ -25,6 +25,12 @@
 -- identical in shape to task_exceptions' own (0101/0100), so this adds no
 -- new access boundary — any caller who could already see an exception could
 -- already read its instance/schedule and template.
+--
+-- Rollback: re-create the view exactly as 0116 left it (drop the two LEFT
+-- JOINs and the `template_name` column, keep every other column, same
+-- `security_invoker = true` / grant / revoke). Pure `create or replace view`,
+-- no data written, nothing else depends on the new column yet in this
+-- migration's own tree.
 -- ============================================================================
 
 create or replace view api.operations_open_exceptions
