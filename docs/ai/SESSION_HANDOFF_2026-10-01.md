@@ -9,15 +9,17 @@ UNKNOWN or NOT TESTED (Operating Model §6). This file continues the
 
 ## 1. Repository / git state (VERIFIED)
 
-- Branch `dev`, HEAD `eaec525` ("docs(ops): register DEBT-066/067/068 from
-  QA2 2026-10-01 (#550)"). Working tree clean. `main` and Production:
-  untouched.
-- **One open PR, RED, unmerged:** #549 `[RED: migration] fix(ops): resolve
-  exception template_name in the view (QA2-02)`
-  (`fix/founder-acceptance-qa2-exception-names` → `dev`). Independent
-  DB/security review already PASSED (no P0/P1/P2 findings). **Needs Founder
-  migration-apply to Cloud DEV at/before merge** — same shape as PR
-  #541/migration 0122. See §6 of this file for the exact steps.
+- Branch `dev`, HEAD `061f89c` ("docs(ai): session handoff 2026-10-01 for
+  Founder Acceptance QA3 round (#551)"). Working tree clean. `main` and
+  Production: untouched.
+- **No open PRs.** #549 (migration `0123`) was merged by the Founder
+  directly, and the Founder then ran `npx supabase db push` themselves
+  (2026-10-01) — `supabase migration list` confirms `0123` in the Remote
+  column, and it was live-verified in this session: Manager → オペレーション
+  → 対応が必要 now shows 5 real checklist groups (オープニング衛生チェック,
+  Opening checklist, 温度管理チェック, 日次清掃チェック, クロージング衛生チェック)
+  instead of one generic "タスク" bucket. §6 below is historical — do not
+  re-apply or re-verify unless new evidence suggests regression.
 - Local branches from this chat
   (`fix/founder-acceptance-qa1-2026-09-22`,
   `fix/founder-acceptance-qa2-2026-10-01`,
@@ -64,8 +66,8 @@ UNKNOWN or NOT TESTED (Operating Model §6). This file continues the
   `api.operations_open_exceptions` (via the exception's instance or
   schedule, both `ON DELETE RESTRICT` to the template — never null), so a
   historical Operations exception outside "today" gets its real checklist
-  name instead of a generic "タスク" placeholder. **PR #549, RED, NOT
-  merged — see §6.**
+  name instead of a generic "タスク" placeholder. **PR #549, merged; migration
+  applied to Cloud DEV by the Founder and live-verified — CLOSED.**
 - Weekly Review's real server time measured via the Network panel (not
   client-to-paint): **1117ms** for the whole server action. The SQL itself
   (9 plain `count(*)`, no joins) isn't expensive on this dataset — reads as
@@ -87,9 +89,9 @@ UNKNOWN or NOT TESTED (Operating Model §6). This file continues the
 - Founder Technical Freeze: **APPROVED** (Founder decision, stands).
 - Founder Acceptance (Mission 11) is **IN PROGRESS, not closed.** Two
   bounded QA rounds (QA1 quick pass, QA2 GPT-authored deep pass) found and
-  fixed 5 real defects, found 1 defect needing a RED migration-apply
-  (§6), and flagged 2 content-only items + 1 QA-residue item as separate
-  debt. Neither QA round claimed 100% coverage.
+  fixed 6 real defects total (all merged and live, including the migration),
+  and flagged 2 content-only items + 1 QA-residue item as separate debt.
+  Neither QA round claimed 100% coverage.
 - **The Founder is now running QA3 personally** — a checklist artifact was
   published covering: (a) quick re-verification of every QA1/QA2 fix, and
   (b) every item GPT's own QA2 report and the acceptance's DEBT-060 row
@@ -107,7 +109,9 @@ restated list here to still be current. At minimum: DEBT-053 (Copy Audit
 class A, native JA pass), DEBT-059/066/067 (QA residue + content typos,
 clean together with DEBT-004), DEBT-060 (surfaces never tested live before
 QA3 — QA3 may close some of these), DEBT-061 (Production Data API probe,
-still needs the Founder's Prod ref+key), DEBT-068 (PR #549 above).
+still needs the Founder's Prod ref+key). DEBT-068 (tracked PR #549) is
+CLOSED — mark it so in the register on your first touch of that file if it
+still shows OPEN.
 
 ## 5. Relevant existing documentation
 
@@ -118,17 +122,20 @@ useful for the original Mission 11 brief and its own earlier findings) →
 `docs/product/cafe-v2-2-feature-map-ru.md` (what the product actually does,
 by code, useful context for judging a QA3 finding's severity).
 
-## 6. PR #549 — apply steps (Founder RED gate)
+## 6. PR #549 — apply steps (HISTORICAL — already done, 2026-10-01)
 
-Same shape as PR #541/migration 0122:
-1. Merge PR #549 into `dev` (or apply the migration first — either order is
-   fine, the old code path still works without the new column, but don't
-   leave the new client code live without the migration applied for long).
-2. Apply `supabase/migrations/0123_operations_exception_template_name.sql`
-   to Cloud DEV (your usual `supabase db push` / apply step) — **Founder
-   action, the session cannot do this itself.**
-3. Verify live: Manager → オペレーション → 対応が必要 — exceptions should show
-   their real checklist names instead of "タスク".
+Kept for reference only; nothing to act on. The Founder merged PR #549 and
+ran `npx supabase db push` themselves in this session (their PowerShell
+had no global `supabase` on PATH, so used the repo-local
+`npx supabase db push`); the Lead then confirmed `0123` in
+`supabase migration list`'s Remote column and live-verified the Attention
+feed. Original steps, for the shape of any future RED migration PR:
+1. Merge the migration PR into `dev`.
+2. Apply the `.sql` file to Cloud DEV (`npx supabase db push` from the repo
+   root, or `pnpm db:migrate`) — **Founder action, the session cannot do
+   this itself** (the `Bash` tool's permission layer blocks it outright,
+   confirmed in this session).
+3. Verify live.
 
 ## 7. Architecture / security constraints (binding)
 
@@ -146,8 +153,6 @@ Founder approval.
 - Do not start WP6, Cafe v2.3, SaaS Hardening, the clean demo tenant, or
   Production work without a fresh, explicit Founder prompt (Operating Model
   §16 / the original Mission 11 brief §3).
-- Do not merge PR #549 without the Founder's explicit migration-apply
-  confirmation.
 
 ## 9. New workstream — full objective
 
@@ -175,12 +180,13 @@ CLOSED" decision — per the original Mission 11 brief §18-19. Not there yet.
 
 ## 11. Mission-specific approval boundaries / deviations
 
-None beyond the Operating Model defaults. The two PRs in this chat
-(#546, #548) were merged autonomously via `scripts/ai-dev-merge.sh`
-(routine commit/push/PR/dev-merge authority, standing Founder grant); #549
-was correctly held back as RED because it depends on a migration apply —
-do not treat that split as a tightened rule, it is the existing migration
-gate working as designed.
+None beyond the Operating Model defaults. PRs #546 and #548 were merged
+autonomously via `scripts/ai-dev-merge.sh` (routine commit/push/PR/dev-merge
+authority, standing Founder grant); #549 was correctly held back as RED
+(split out of #548 specifically because it depended on a migration apply)
+until the Founder merged it and ran the migration apply themselves — do not
+treat that split as a tightened rule, it is the existing migration gate
+working as designed, and it resolved the same session it was raised.
 
 ## 12. What must NOT be accidentally modified
 
@@ -204,10 +210,11 @@ docs/ai/SESSION_HANDOFF_2026-10-01.md (этот файл) и
 docs/ai/SESSION_HANDOFF_2026-09-22.md (исходный бриф Mission 11).
 
 Состояние: Founder Technical Freeze одобрен. Founder Acceptance (Mission 11)
-в процессе. QA1 и QA2 закрыты, 5 дефектов исправлено и слито в dev (PR #546,
-#548), один дефект ждёт миграции (PR #549, RED, независимое ревью уже PASS).
-Два находки по контенту и один остаток QA-данных записаны как
-DEBT-066/067/068, не трогать без отдельного решения.
+в процессе. QA1 и QA2 закрыты, все 6 найденных дефектов исправлены и живут
+в dev, включая миграцию 0123 (PR #549 смержен, применена к Cloud DEV мной
+лично, живьём проверена). Открытых PR нет. Два находки по контенту и один
+остаток QA-данных записаны как DEBT-066/067, не трогать без отдельного
+решения.
 
 Я (Founder) сейчас прохожу чек-лист QA3 лично:
 https://claude.ai/artifact/5QMbWvsLDV9r3EK7rndity
@@ -217,8 +224,7 @@ https://claude.ai/artifact/5QMbWvsLDV9r3EK7rndity
 нужно → PR → ai-dev-merge.sh), возвращай меня к проверенному пункту.
 Рутинных вопросов не задавай. За мной только RED: main, прод, запись в
 реальную БД и применение миграций к Cloud, секреты, биллинг, LINE-рассылки,
-слияние PR с миграциями (включая PR #549 выше — спрошу отдельно, когда
-применю 0123).
+слияние PR с миграциями.
 Если нужен QA-пароль, скажу, вставлю в чат.
 
 Начни с Repository Recovery (ветка, HEAD, дерево, открытые PR) и жди мои

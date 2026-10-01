@@ -186,7 +186,7 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-01** (checked against git; `dev` HEAD `eaec525`, PR #550):
+**As of 2026-10-01** (checked against git; `dev` HEAD `061f89c`, PR #551):
 
 - **Founder Technical Freeze: APPROVED** (Founder decision, 2026-09-23).
 - **Founder Acceptance (Mission 11) is IN PROGRESS, not closed.** Full
@@ -197,15 +197,18 @@ duplicated here.
     tasks" title truncation at 375px, Purchases contrast, a stray hover
     icon, Attention heading weight).
   - **QA2** (GPT-authored deep browser pass, 2026-10-01): 3 more defects
-    found; 2 fixed and merged via PR #548 (Operations "Today's tasks" title
-    truncation at 768px — same component, different breakpoint than QA1;
-    Inventory OK-count silently included never-counted items); 1 needs a
-    migration apply and is held as **RED PR #549** (Attention exceptions
-    show a generic "タスク" label for historical items — independent review
-    already PASSED, blocked only on the Founder applying migration `0123`
-    to Cloud DEV). 2 content-only findings (not code) and 1 new QA-residue
-    item recorded as DEBT-066/067, not fixed.
+    found, all 3 fixed and live. 2 via PR #548 (Operations "Today's tasks"
+    title truncation at 768px — same component, different breakpoint than
+    QA1; Inventory OK-count silently included never-counted items). 1 via
+    PR #549 + migration `0123` (Attention exceptions showed a generic
+    "タスク" label for historical items) — **the Founder merged the PR and
+    applied the migration to Cloud DEV themselves** (`npx supabase db push`,
+    2026-10-01), live-verified: 5 real checklist names now shown. 2
+    content-only findings (not code) and 1 new QA-residue item recorded as
+    DEBT-066/067, not fixed (live tenant data, Founder/native-review
+    territory).
   - Full detail, evidence and exact fixes: `docs/ai/SESSION_HANDOFF_2026-10-01.md`.
+- **No open PRs.**
 - **Founder is now running QA3 personally** (a checklist artifact,
   link in `SESSION_HANDOFF_2026-10-01.md` §3) — covering re-verification of
   every QA1/QA2 fix plus everything DEBT-060 and GPT's own QA2 report
@@ -213,8 +216,7 @@ duplicated here.
   two-way exchange, correction-request submit+approve, invitations/LINE
   linking, Settings edits, module-OFF degradation, JA/EN parity sweep).
   **Start a new session from `docs/ai/SESSION_HANDOFF_2026-10-01.md`** to
-  continue this round — it has the bootstrap prompt and the exact PR #549
-  apply steps.
+  continue this round — it has the bootstrap prompt.
 - **Cafe v2.2 is NOT declared CLOSED.** Commercial Release remains a
   separate Founder decision (DEBT-053 copy/allergen wording, DEBT-001 to
   DEBT-004/059/066/067 demo data, DEBT-035/036/043 production path,
