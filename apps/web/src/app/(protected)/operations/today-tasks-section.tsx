@@ -85,6 +85,7 @@ export function TodayTasksSection({ t, lang, tasks }: TodayTasksSectionProps) {
               key={task.scheduleId}
               title={task.templateName}
               muted={task.state === 'completed'}
+              stackStatus
               subtitle={
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   <MetadataText>

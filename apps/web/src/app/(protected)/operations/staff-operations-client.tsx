@@ -155,6 +155,7 @@ export function StaffOperationsBody({
                 onOpen={() => setSelectedScheduleId(task.scheduleId)}
                 muted={task.state === 'completed'}
                 title={task.templateName}
+                stackStatus
                 subtitle={
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <MetadataText>{formatTaskDueWindow(lang, task.dueTime, task.windowEndTime)}</MetadataText>
