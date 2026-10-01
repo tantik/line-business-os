@@ -58,11 +58,6 @@ export function AttentionSection({ t, lang, exceptions, tasksToday, items, onCha
   const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
 
   function resolveTaskName(exception: OperationsOpenException): string {
-    // 0123 resolves `templateName` in the view itself (via the exception's
-    // instance or schedule), so this works for a historical exception outside
-    // "today" too -- the `tasksToday` Maps below are now only a fallback for
-    // the rare case the view's join came back null (e.g. mid-migration skew).
-    if (exception.templateName) return exception.templateName;
     const task =
       (exception.instanceId ? taskByInstanceId.get(exception.instanceId) : null) ??
       (exception.scheduleId && exception.businessDate
