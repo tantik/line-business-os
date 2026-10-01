@@ -523,7 +523,13 @@ export function InventoryDashboardBody({
 
   const activeItems = items.filter((i) => i.isActive);
   const shortageCount = activeItems.filter((i) => i.status === 'shortage').length;
-  const okCount = activeItems.filter((i) => i.status !== 'shortage').length;
+  // Founder Acceptance QA2 2026-09-30: `!== 'shortage'` silently folded a
+  // never-counted item (status 'unknown', row shows "未カウント") into "OK" --
+  // a brand-new item with no count yet bumped both the OK tab's count and the
+  // footer "十分" total before anyone had actually confirmed it had stock.
+  // "OK" now means the DB view's own 'sufficient', not merely "not a
+  // shortage"; an uncounted item stays visible only under "すべて".
+  const okCount = activeItems.filter((i) => i.status === 'sufficient').length;
   const inactiveCount = items.length - activeItems.length;
   const normalizedSearch = search.trim().toLowerCase();
   const searchFiltered = items.filter((item) => normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch));
@@ -533,7 +539,7 @@ export function InventoryDashboardBody({
         case 'shortage':
           return item.isActive && item.status === 'shortage';
         case 'ok':
-          return item.isActive && item.status !== 'shortage';
+          return item.isActive && item.status === 'sufficient';
         case 'inactive':
           return !item.isActive;
         default:

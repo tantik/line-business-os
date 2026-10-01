@@ -37,6 +37,7 @@ interface ApiOperationsOpenExceptionRow {
   source: OperationsExceptionSource;
   note: string | null;
   created_at: string;
+  template_name: string | null;
 }
 
 export interface OperationsOpenException {
@@ -52,6 +53,8 @@ export interface OperationsOpenException {
   source: OperationsExceptionSource;
   note: string | null;
   createdAt: string;
+  /** Resolved in the view (0123) from the exception's instance or schedule -- never null for a row this view can return (both paths are ON DELETE RESTRICT to the template). Covers historical exceptions outside "today", which a `tasksToday`-only lookup cannot name. */
+  templateName: string | null;
 }
 
 function mapOpenExceptionRow(row: ApiOperationsOpenExceptionRow): OperationsOpenException {
@@ -67,11 +70,12 @@ function mapOpenExceptionRow(row: ApiOperationsOpenExceptionRow): OperationsOpen
     source: row.source,
     note: row.note,
     createdAt: row.created_at,
+    templateName: row.template_name,
   };
 }
 
 const OPEN_EXCEPTION_SELECT =
-  'exception_id, tenant_id, location_id, instance_id, schedule_id, business_date, item_id, severity, source, note, created_at';
+  'exception_id, tenant_id, location_id, instance_id, schedule_id, business_date, item_id, severity, source, note, created_at, template_name';
 
 /** Read every currently-open Operations exception the caller may see (RLS-scoped: module ON + `operations.task.read`/`operations.exception.resolve`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listExpectedTasks`. */
 export async function listOpenOperationsExceptions(
