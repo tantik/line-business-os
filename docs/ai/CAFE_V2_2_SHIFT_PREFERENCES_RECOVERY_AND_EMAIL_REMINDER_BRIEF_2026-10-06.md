@@ -44,13 +44,20 @@ Binding consequence:
 - **Email provider: Resend** (Founder-selected, 2026-10-06 — recommended by
   the Lead Agent as the standard choice for a Next.js/Vercel stack: simple
   REST API, official Vercel integration, strong deliverability, free tier
-  sufficient for this volume). Founder must create the Resend account,
-  verify a sending (sub)domain via DNS under `oruwa.jp` (e.g.
-  `mail.oruwa.jp` or `notifications.oruwa.jp` — pick one during
-  implementation), and provide the API key **pasted in chat, never
-  committed to a file** — same handling as every other secret in this
-  project. This is a RED-adjacent external-account step only the Founder
-  can do; the new session should ask for it early if not already provided.
+  sufficient for this volume). **Setup already DONE by the Founder, same
+  day**: sending domain `notifications.oruwa.jp` created and DNS-verified
+  (DKIM/SPF/DMARC added at XServer, deliberately separate from the
+  pre-existing `auth.oruwa.jp` domain Supabase Auth uses for its own
+  emails); a **Sending access**-only API key issued and stored as
+  `RESEND_API_KEY` in Vercel across Production/Preview/Development; project
+  redeployed. The key was never pasted into chat and is not in this repo —
+  read it from `process.env.RESEND_API_KEY` server-side only. **Do not ask
+  the Founder for this key**, it is already live in the environment.
+  (Side note, not this mission's problem to fix: the Founder observed the
+  older `auth.oruwa.jp` Resend key shows 0 uses in 2 months, suggesting
+  Supabase Auth's own emails may not actually be relayed through it — worth
+  a quick sanity check if there's spare attention, otherwise leave it and
+  register as deferred debt if confirmed to be a real gap.)
 
 ## 0.3 Lead Agent pre-verification (2026-10-06, read this before re-auditing)
 
@@ -271,13 +278,11 @@ claim on partial or missing data.
 
 **Scope for this mission** (per Founder decision, email only — no LINE):
 
-- Resend account setup is a Founder action (§0.2) — the new session should
-  request the API key early if not already provided, and never commit it;
-  store it as a Vercel/Preview environment variable the same way every
-  other secret in this project is handled (ask how existing env vars are
-  managed in this repo before inventing a new convention — there is almost
-  certainly an established pattern worth matching, e.g. how the Supabase
-  keys are configured for Preview/Production).
+- Resend account setup is **already done** (§0.2): domain
+  `notifications.oruwa.jp` verified, `RESEND_API_KEY` live in Vercel
+  (Production/Preview/Development), project redeployed. Read it via
+  `process.env.RESEND_API_KEY` server-side only — do not ask the Founder
+  for it, do not commit it, do not print it.
 - Message content: employee display name, target month, no sensitive staff
   data, no internal IDs (per GPT's original §24, still valid for email
   text).
