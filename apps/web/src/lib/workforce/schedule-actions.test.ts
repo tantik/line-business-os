@@ -104,3 +104,17 @@ test('generated assignments are written with the resolved locationId, never a cl
   const body = runAutoDistributionBody();
   assert.match(body, /mapDraftAssignmentToInsertRow\(draft, tenantId, locationId, timeZone\)/);
 });
+
+// 2026-10-06 recovery regression guard: a Manager "reviewed" mark is stored
+// as `status = 'approved'` on the preference row. Auto-schedule must keep
+// treating every submitted preference the same regardless of that mark, and
+// must keep passing `isUnavailable` through (the engine's hard exclusion).
+test('runAutoDistribution maps preferences without reading their review status, and passes isUnavailable through', () => {
+  const body = runAutoDistributionBody();
+  const start = body.indexOf('const preferences: AutoDistributePreference[]');
+  assert.ok(start >= 0);
+  const mapping = body.slice(start, body.indexOf('}));', start));
+  assert.match(mapping, /isUnavailable: r\.isUnavailable/);
+  assert.doesNotMatch(mapping, /status/);
+  assert.doesNotMatch(body, /kind: 'preference', status|status: 'approved'|\.status === 'approved'/);
+});

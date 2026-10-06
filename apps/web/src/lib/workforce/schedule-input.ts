@@ -76,8 +76,11 @@ function parseMonthlyShiftPreferenceSelection(raw: unknown): MonthlyShiftPrefere
     if (!shiftTypeId) return null;
   }
 
+  // Exactly one of the two submitted states: a preferred shift type
+  // (`isUnavailable: false`) or "cannot work" (`isUnavailable: true`,
+  // no shift type). "No preference" is a day with no row at all.
   const isUnavailable = obj.isUnavailable === true;
-  if (!isUnavailable && !shiftTypeId) return null;
+  if (isUnavailable === Boolean(shiftTypeId)) return null;
 
   return { workDate, shiftTypeId, isUnavailable };
 }

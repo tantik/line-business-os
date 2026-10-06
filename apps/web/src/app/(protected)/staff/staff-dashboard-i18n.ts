@@ -210,7 +210,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     preferenceHelpAriaLabel: 'About shift preferences',
     preferenceHelpTitle: 'About shift preferences',
     preferenceHelpBody:
-      'Tap each day to choose a shift, or leave it blank for a day off, then submit. This is a request, not a confirmed shift -- your manager builds the actual schedule using manual assignments first, then submitted staff preferences, filling any remaining gaps automatically where needed. Once a day is submitted here it is locked and can no longer be changed by you; ask your manager to update it if your plans change.',
+      'This is a request, not a confirmed shift. Each day can be in one of three states:\n• A shift (e.g. Early): you would like to work that shift.\n• Off: you cannot work that day. Automatic scheduling will not place you on it.\n• — (no preference): nothing is sent for that day, and your manager may still schedule you on it if needed.\n\nTap a day to cycle: — → Off → each shift → back to —. Then press Submit.\n\nYour manager builds the actual schedule: shifts set by hand come first, then submitted preferences, and any remaining gaps are filled automatically. Once a day is submitted it is locked and you can no longer change it here; ask your manager if your plans change.',
     preferenceColumnLabel: 'Preference',
     preferenceUnavailableValue: 'Unavailable',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable, so preferences cannot be submitted right now.',
@@ -352,7 +352,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     preferenceHelpAriaLabel: 'シフト希望について',
     preferenceHelpTitle: 'シフト希望について',
     preferenceHelpBody:
-      '各日をタップして希望のシフトを選ぶか、休みたい日は空欄のまま提出してください。これは希望であり、確定したシフトではありません。実際のスケジュールは、店長が手動で割り当てた分を優先し、次にスタッフが提出した希望、最後に必要な場合のみ自動で埋める、という順番で作成されます。提出した日はその場で確定して自分では変更できなくなるため、予定が変わった場合は店長に伝えてください。',
+      'これは希望の提出であり、確定したシフトではありません。各日は次の3つのいずれかになります。\n• シフト（例: 早番）: そのシフトで働きたい日です。\n• 休み: 勤務できない日です。自動作成ではこの日にシフトは入りません。\n• —（希望なし）: その日は何も送信されません。必要に応じて店長がシフトを入れることがあります。\n\n日付をタップするたびに「— → 休み → 各シフト → —」の順に切り替わります。選び終えたら「提出する」を押してください。\n\n実際のスケジュールは店長が作成します。手動で割り当てたシフトが優先され、次に提出された希望、残りは必要に応じて自動で埋められます。提出した日は確定し、ここでは変更できなくなります。予定が変わった場合は店長に伝えてください。',
     shiftPreferencesHeading: '自分が提出したシフト希望',
     shiftPreferencesUnavailable: 'シフト希望は一時的に利用できません。',
     shiftPreferencesEmpty: '今週はまだシフト希望が提出されていません。',

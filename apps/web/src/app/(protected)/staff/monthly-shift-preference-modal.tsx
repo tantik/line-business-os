@@ -9,7 +9,7 @@ import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import { submitMonthlyShiftPreferences } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input as inputStyle, mutedText } from '@/lib/ui/theme';
-import { shiftChipColors } from '../_ui/workforce-theme';
+import { shiftChipColors, UNAVAILABLE_CHIP_TONE } from '../_ui/workforce-theme';
 import { describeWriteError } from './error-copy';
 import { tStaffDashboard } from './staff-dashboard-i18n';
 
@@ -31,6 +31,15 @@ function nextMonthDates(today: Date): string[] {
   return Array.from({ length: daysInMonth }, (_, i) => toISODate(addDays(first, i)));
 }
 
+/**
+ * Cycle value for a day marked "cannot work" (State B: `is_unavailable =
+ * true`, no shift type). Not a uuid, so it can never collide with a real
+ * `shiftTypeId`. `null` is State C, "no preference" -- that day is simply not
+ * submitted (no row). Any other string is State A, a preferred shift type.
+ */
+const UNAVAILABLE = 'unavailable';
+type DayChoice = string | null;
+
 const cellBase: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -50,6 +59,11 @@ const cellBase: CSSProperties = {
  * `ShiftPreferenceModal` (same interaction) onto the real backend --
  * `submitMonthlyShiftPreferences` inserts one `workforce_shift_requests` row
  * per selected day via the existing single-day write path, no schema change.
+ * Each day cycles through three states (2026-10-06 recovery, replacing the
+ * 2026-08-24 "blank = day off" simplification, which silently submitted
+ * nothing for a day off, so auto-schedule could still fill it): no preference
+ * (not submitted) -> 休み / Off (`isUnavailable: true`) -> each active shift
+ * type -> back to no preference.
  * A day that already has a submitted preference is shown locked (read-only):
  * preference rows are INSERT-only, so changing an already-submitted day
  * requires a manager to edit it directly (same rule the single-day form
@@ -58,7 +72,7 @@ const cellBase: CSSProperties = {
 export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, requests, lang, onSuccess }: MonthlyShiftPreferenceModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [selections, setSelections] = useState<Record<string, string | null>>({});
+  const [selections, setSelections] = useState<Record<string, DayChoice>>({});
   const [note, setNote] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
@@ -70,7 +84,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
   const activeShiftTypes = useMemo(() => shiftTypes.filter((st) => st.isActive), [shiftTypes]);
   const activeIds = useMemo(() => activeShiftTypes.map((st) => st.shiftTypeId), [activeShiftTypes]);
-  const cycleOptions = useMemo<Array<string | null>>(() => [null, ...activeShiftTypes.map((st) => st.shiftTypeId)], [activeShiftTypes]);
+  const cycleOptions = useMemo<DayChoice[]>(() => [null, UNAVAILABLE, ...activeShiftTypes.map((st) => st.shiftTypeId)], [activeShiftTypes]);
 
   const lockedByDate = useMemo(() => {
     const map = new Map<string, WorkforceShiftRequest>();
@@ -80,21 +94,24 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
     return map;
   }, [requests, dates]);
 
-  function optionLabel(value: string | null): string {
-    if (value === null) return '-';
-    const st = activeShiftTypes.find((s) => s.shiftTypeId === value);
-    return st ? shiftTypeDisplayLabel(st) : '-';
+  function optionLabel(value: DayChoice): string {
+    if (value === null) return '—';
+    if (value === UNAVAILABLE) return lang === 'ja' ? '休み' : 'Off';
+    const st = activeShiftTypes.find((s) => s.shiftTypeId === value) ?? shiftTypes.find((s) => s.shiftTypeId === value);
+    return st ? shiftTypeDisplayLabel(st) : '—';
   }
 
-  /** Time-range caption under a legend chip, same convention as `ShiftLegend` under the main schedule table. A blank day already means "not working" -- no separate "unavailable" state to explain. */
-  function optionTimeCaption(value: string | null): string {
-    if (value === null) return lang === 'ja' ? '勤務なし' : 'Not working';
+  /** Caption next to a legend chip: the shift's time range (same convention as `ShiftLegend` under the main schedule table), or what the two non-shift states mean. */
+  function optionTimeCaption(value: DayChoice): string {
+    if (value === null) return lang === 'ja' ? '希望なし（未提出）' : 'No preference (not sent)';
+    if (value === UNAVAILABLE) return lang === 'ja' ? '勤務できない日' : "Can't work";
     const st = activeShiftTypes.find((s) => s.shiftTypeId === value);
     return st ? `${st.startsAtLocal}-${st.endsAtLocal}` : '';
   }
 
-  function cellTone(value: string | null): { background: string; color: string } {
+  function cellTone(value: DayChoice): { background: string; color: string } {
     if (value === null) return { background: colors.surfaceElevated, color: colors.textMuted };
+    if (value === UNAVAILABLE) return UNAVAILABLE_CHIP_TONE;
     return shiftChipColors(value, activeIds);
   }
 
@@ -113,14 +130,18 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
   function handleSubmit() {
     setError(null);
-    const chosen = Object.entries(selections).filter(([, value]) => value !== null);
+    // "No preference" days (`null`) are deliberately not submitted -- that
+    // absence IS State C. Only shift-type and 休み days become rows.
+    const chosen = Object.entries(selections).filter((entry): entry is [string, string] => entry[1] !== null && !lockedByDate.has(entry[0]));
     if (chosen.length === 0) {
-      setError(lang === 'ja' ? '少なくとも1日を選択してください。' : 'Choose at least one day.');
+      setError(lang === 'ja' ? '少なくとも1日、シフトか「休み」を選択してください。' : 'Choose a shift or "Off" for at least one day.');
       return;
     }
     startTransition(async () => {
       const result = await submitMonthlyShiftPreferences({
-        selections: chosen.map(([workDate, value]) => ({ workDate, shiftTypeId: value, isUnavailable: false })),
+        selections: chosen.map(([workDate, value]) =>
+          value === UNAVAILABLE ? { workDate, shiftTypeId: null, isUnavailable: true } : { workDate, shiftTypeId: value, isUnavailable: false },
+        ),
         note: note.trim() || null,
       });
       if (result.status === 'success') {
@@ -196,20 +217,28 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
         ))}
         {dates.map((date) => {
           const locked = lockedByDate.get(date);
-          // A locked row's own `isUnavailable` (from the retired single-day
-          // "unavailable" checkbox) displays the same as no shift set --
-          // both mean "not working that day" (Founder simplification,
-          // 2026-08-24), so there is no separate visual state for it.
-          const value = locked ? (locked.isUnavailable ? null : locked.shiftTypeId) : (selections[date] ?? null);
+          // A submitted row is either 休み (`isUnavailable`) or a shift type;
+          // a submitted row with neither (a manager-entered custom time) shows
+          // as the plain "—" chip, still locked.
+          const value: DayChoice = locked ? (locked.isUnavailable ? UNAVAILABLE : locked.shiftTypeId) : (selections[date] ?? null);
           const tone = cellTone(value);
           const dayNumber = Number(date.slice(-2));
+          const stateText = value === null ? optionTimeCaption(null) : optionLabel(value);
           return (
             <button
               key={date}
               type="button"
               onClick={() => cyclePreference(date)}
               disabled={Boolean(locked)}
-              style={{ ...cellBase, background: tone.background, color: tone.color, cursor: locked ? 'default' : 'pointer', opacity: locked ? 0.85 : 1 }}
+              aria-label={`${dayNumber}${lang === 'ja' ? '日' : ''}: ${stateText}${locked ? (lang === 'ja' ? '（提出済み）' : ' (submitted)') : ''}`}
+              style={{
+                ...cellBase,
+                background: tone.background,
+                color: tone.color,
+                cursor: locked ? 'default' : 'pointer',
+                opacity: locked ? 0.85 : 1,
+                ...(value === UNAVAILABLE ? { borderStyle: 'dashed', borderColor: colors.dangerText } : {}),
+              }}
             >
               <span style={{ fontWeight: 600 }}>{dayNumber}</span>
               <span style={{ fontSize: 11, fontWeight: 700 }}>{optionLabel(value)}</span>
@@ -219,12 +248,14 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
       </div>
 
       <p style={{ margin: '10px 0 0', fontSize: 12, color: colors.textMuted }}>
-        {lang === 'ja' ? '日付をタップして希望するシフトを選択してください。' : 'Tap a date to choose your preferred shift.'}
+        {lang === 'ja'
+          ? '日付をタップするたびに「—（希望なし）→ 休み → シフト」の順に切り替わります。勤務できない日は「休み」にしてください。「—」の日は送信されません。'
+          : 'Each tap on a date cycles "— (no preference) → Off → shifts". Mark days you cannot work as "Off". Days left at "—" are not sent.'}
       </p>
       <p style={{ margin: '4px 0 0', fontSize: 11.5, color: colors.textMuted }}>
         {lang === 'ja'
-          ? '色の付いた日はすでに提出済みで変更できません。'
-          : 'Colored, non-tappable days already have a submitted preference and can no longer be changed here.'}
+          ? '薄く表示されたタップできない日はすでに提出済みで、ここでは変更できません。'
+          : 'Faded, non-tappable days already have a submitted preference and can no longer be changed here.'}
       </p>
 
       <div style={{ marginTop: 14 }}>
@@ -234,7 +265,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
-            placeholder={lang === 'ja' ? '例: 10日は終日休み希望です。' : 'e.g. I would like the 10th off all day.'}
+            placeholder={lang === 'ja' ? '例: 15日は午前中だけ勤務できます。' : 'e.g. On the 15th I can only work in the morning.'}
             style={{ ...inputStyle, resize: 'vertical' }}
           />
         </label>

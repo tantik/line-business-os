@@ -267,15 +267,38 @@ test('Manager help copy describes user outcomes without internal implementation 
  * matching `shiftRequestsPopupHelpBody`'s own honest wording ("does not
  * change the schedule").
  */
-test('Manager priority/approved-preference help never claims that marking a preference "approved" changes scheduling priority', () => {
+test('Manager priority/reviewed-preference help never claims that marking a preference reviewed changes scheduling priority', () => {
   for (const lang of LANGS) {
     const priority = tManagerDashboard(lang, 'priorityExplainerBody');
-    const approvedBody = tManagerDashboard(lang, 'approvedPreferenceBody');
+    const reviewedBody = tManagerDashboard(lang, 'reviewedPreferenceBody');
     assert.doesNotMatch(priority, /unapproved/i);
-    assert.doesNotMatch(approvedBody, /priorit/i);
-    assert.doesNotMatch(approvedBody, /優先/);
+    assert.doesNotMatch(reviewedBody, /priorit/i);
+    assert.doesNotMatch(reviewedBody, /優先/);
   }
-  assert.match(tManagerDashboard('en', 'approvedPreferenceBody'), /does not change/i);
-  assert.match(tManagerDashboard('ja', 'approvedPreferenceBody'), /影響しません/);
+  assert.match(tManagerDashboard('en', 'reviewedPreferenceBody'), /does not change/i);
+  assert.match(tManagerDashboard('ja', 'reviewedPreferenceBody'), /影響しません/);
+});
+
+/**
+ * 2026-10-06 recovery: the persisted preference mark is a REVIEW note
+ * (stored as `status = 'approved'`), never approval of a schedule. Its copy
+ * must say 確認済み / Reviewed, never 承認 / Approve(d).
+ */
+test('Shift preference review copy says reviewed (確認), never approved (承認)', () => {
+  const keys = [
+    'reviewPreferenceTitle',
+    'markReviewedButton',
+    'reviewedPreferenceTitle',
+    'reviewedPreferenceBody',
+    'unmarkReviewedButton',
+    'priorityExplainerBody',
+    'shiftRequestsPopupHelpBody',
+  ] as const;
+  for (const key of keys) {
+    assert.doesNotMatch(tManagerDashboard('ja', key), /承認/, `ja ${key}`);
+    assert.doesNotMatch(tManagerDashboard('en', key), /approv/i, `en ${key}`);
+  }
+  assert.match(tManagerDashboard('ja', 'markReviewedButton'), /確認済み/);
+  assert.match(tManagerDashboard('en', 'markReviewedButton'), /reviewed/i);
 });
 
