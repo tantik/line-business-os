@@ -80,15 +80,37 @@ never being able to set that flag, not in the scheduling engine. Don't
 re-audit the engine's exclusion logic; the brief explains exactly where the
 gap is.
 
-## 5. Required first step before implementation
+## 5. Resend setup — DONE, do not re-ask for a key
 
-**Ask the Founder for the Resend API key** if it hasn't already been shared
-in the new chat — this is an external account/secret only the Founder can
-create (sign up, verify a sending subdomain under `oruwa.jp` via DNS, get
-the key). Paste-in-chat only, never commit it to a file; store as an
-environment variable following whatever convention this repo already uses
-for secrets (check how the existing Supabase keys are configured for
-Preview/Production before inventing a new pattern).
+The Founder completed this 2026-10-06, before the new session starts:
+
+- Sending domain `notifications.oruwa.jp` created in Resend (deliberately
+  separate from `auth.oruwa.jp`, which Supabase Auth uses for its own
+  transactional emails — do not conflate the two).
+- DNS records added at XServer (DKIM TXT, SPF via two CNAMEs to `mta.net`,
+  DMARC TXT `v=DMARC1; p=none`). Domain status: **Verified** in Resend.
+- A **Sending access**-only API key (not Full access) created for this
+  domain, added to Vercel as `RESEND_API_KEY` across **Production,
+  Preview, and Development** environments, project redeployed.
+- The key was never pasted into any chat and is not in this repo — read it
+  from `process.env.RESEND_API_KEY` server-side only, same as every other
+  secret here. **Do not ask the Founder for it again.**
+
+**Sender address**: use the `notifications.oruwa.jp` domain (e.g.
+`reminders@notifications.oruwa.jp` or similar — pick the local part during
+implementation, nothing is fixed yet).
+
+**Side finding worth a quick look, not a blocker**: the Founder noticed the
+older "RUWA Supabase Auth" Resend key (`auth.oruwa.jp` domain) shows 0
+uses in 2 months. This suggests Supabase Auth's own emails (invite, etc.)
+may not actually be relayed through Resend/SMTP and are instead going out
+via Supabase's own default email sending — which is a separate, likely
+pre-existing and likely-fine configuration question, unrelated to this
+mission's reminder feature. Worth a 10-minute sanity check once the new
+session has spare attention (confirm whether `auth.oruwa.jp` is even wired
+as Supabase's custom SMTP, or just provisioned and unused) — register as a
+DEBT-### note if it turns out to be a real gap, don't silently reconfigure
+Supabase Auth email delivery as a side effect of this mission.
 
 ## 6. Relevant existing documentation
 
@@ -157,8 +179,11 @@ email-напоминания делаем СЕЙЧАС по-настоящему
 переиспользовать без миграции) — не передумывай их заново, читай §0.3
 брифа.
 
-Если я ещё не прислал API-ключ Resend в этом чате — спроси его в начале,
-прежде чем писать код отправки.
+Resend уже настроен (домен notifications.oruwa.jp подтверждён, API-ключ с
+правом Sending access лежит в переменной RESEND_API_KEY на Vercel для
+Production/Preview/Development, проект передеплоен) — ключ мне присылать
+не нужно, читай его из process.env.RESEND_API_KEY на сервере. Детали в §5
+этого файла.
 
 Действуй автономно в границах брифа (ветка -> фикс -> тесты -> typecheck ->
 lint -> живая проверка на Preview PR -> независимое ревью (обязательно,
