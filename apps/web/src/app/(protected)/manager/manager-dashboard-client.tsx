@@ -32,6 +32,7 @@ import {
   submitManagerMessage,
 } from '@/lib/workforce/staff-messages-actions';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
+import { nextMonthPrefix } from '@/lib/workforce/shift-preference-reminder-email';
 import { monthlyLabourCostSummary } from '@/lib/workforce/labour-cost';
 import {
   buildManagerAttentionQueue,
@@ -645,20 +646,12 @@ function ManagerDashboardBody({
     return Array.from(seen.values()).sort((x, y) => x.startsAtLocal.localeCompare(y.startsAtLocal));
   }, [localAssignments, dates]);
 
-  // Shift-requests review popup (v2.1 UI-only): month scope + Settings-card
-  // summary, both derived from data already loaded (requests/staff) -- no
-  // new fetch. `monthPrefix`/`monthLabel` reuse the same `todayIso.slice(0,7)`
-  // idiom as `estimatedLabourCost` below, not `getMonthPeriod` (that needs a
-  // raw UTC instant this component doesn't have; `todayIso` is already the
-  // local calendar date).
-  const shiftRequestsMonthPrefix = todayIso.slice(0, 7);
-  const shiftRequestsMonthLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(
-        new Date(`${shiftRequestsMonthPrefix}-01T00:00:00Z`),
-      ),
-    [shiftRequestsMonthPrefix, lang],
-  );
+  // Shift preferences Settings-card summary, derived from data already loaded
+  // (requests/staff) -- no new fetch. Counts NEXT month: that is the month
+  // the Staff "submit next month's shift preference" modal submits for
+  // (2026-10-06 recovery -- this used to count the current month, so the
+  // card and popup never showed what staff were actually submitting).
+  const shiftRequestsMonthPrefix = nextMonthPrefix(todayIso);
   const shiftRequestsSummary = useMemo(() => {
     if (staff === null || requests === null) return null;
     const activeStaffIds = staff.filter((s) => s.isActive).map((s) => s.staffId);
@@ -1744,8 +1737,6 @@ function ManagerDashboardBody({
         staff={staff ?? []}
         shiftTypes={shiftTypes}
         activeShiftTypeIds={activeShiftTypeIds}
-        monthPrefix={shiftRequestsMonthPrefix}
-        monthLabel={shiftRequestsMonthLabel}
         todayIso={todayIso}
         lang={lang}
       />

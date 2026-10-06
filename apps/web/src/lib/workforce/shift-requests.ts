@@ -91,12 +91,15 @@ export async function listMyShiftRequests(
 export async function listShiftRequestsForManager(
   supabase: SupabaseClient,
   tenantId: string,
-  opts: { kind?: string; status?: string } = {},
+  /** `fromDate`/`toDate` (inclusive `YYYY-MM-DD` on `work_date`) bound the read: preference rows accumulate forever, and an unbounded read would eventually hit PostgREST's `max_rows` cap and be silently truncated. */
+  opts: { kind?: string; status?: string; fromDate?: string; toDate?: string } = {},
 ): Promise<TenantAccessResult<WorkforceShiftRequest[]>> {
   try {
     let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
     if (opts.kind) query = query.eq('kind', opts.kind);
     if (opts.status) query = query.eq('status', opts.status);
+    if (opts.fromDate) query = query.gte('work_date', opts.fromDate);
+    if (opts.toDate) query = query.lte('work_date', opts.toDate);
 
     const { data, error } = await query;
     if (error) return mapWorkforceReadError(error, 'read shift requests');
@@ -162,6 +165,85 @@ export async function submitShiftPreference(
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error submitting this shift preference.',
+    };
+  }
+}
+
+/** Read one RLS-visible request by id (Manager: any row under `wf_shift_requests_write`; Staff: only their own). `null` = missing or not visible. */
+export async function getShiftRequestById(
+  supabase: SupabaseClient,
+  tenantId: string,
+  requestId: string,
+): Promise<TenantAccessResult<WorkforceShiftRequest | null>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_requests')
+      .select(REQUEST_SELECT)
+      .eq('tenant_id', tenantId)
+      .eq('request_id', requestId)
+      .maybeSingle();
+    if (error) return mapWorkforceReadError(error, 'read this shift request');
+    return { status: 'success', data: data ? mapRequestRow(data as ApiWorkforceShiftRequestRow) : null };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading this shift request.',
+    };
+  }
+}
+
+/**
+ * Manager marks a `kind: 'preference'` row as reviewed (`status = 'approved'`)
+ * or un-marks it (`status = 'pending'`). "Reviewed" is a review note only:
+ * nothing in schedule generation reads `status` on a preference row
+ * (`runAutoDistribution` consumes every submitted preference regardless), so
+ * this never changes auto-schedule priority and never creates a shift. It
+ * does clear the row from Weekly Review's "unresolved shift requests" count
+ * (0119 counts `status = 'pending'` rows of every kind), which is the
+ * intended meaning of "the Manager has looked at it".
+ *
+ * Reuses the existing columns (no migration): `decided_by`/`decided_at` are
+ * stamped server-side by the `stamp_shift_request_decision` trigger (0031) on
+ * pending -> approved. RLS: `wf_shift_requests_write`
+ * (`workforce.request.manage`); Staff has no UPDATE policy at all.
+ *
+ * Idempotent: the update is guarded by the opposite status, and a zero-row
+ * result whose row is already in the target state (a double click, or a
+ * second Manager doing the same thing) is reported as success, not an error.
+ */
+export async function setShiftPreferenceReviewed(
+  supabase: SupabaseClient,
+  tenantId: string,
+  requestId: string,
+  reviewed: boolean,
+): Promise<WorkforceWriteResult<WorkforceShiftRequest>> {
+  const target = reviewed ? 'approved' : 'pending';
+  const from = reviewed ? 'pending' : 'approved';
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('workforce_shift_requests')
+      .update({ status: target })
+      .eq('tenant_id', tenantId)
+      .eq('request_id', requestId)
+      .eq('kind', 'preference')
+      .eq('status', from)
+      .select(REQUEST_SELECT)
+      .maybeSingle();
+
+    if (error) return mapWorkforceWriteError(error, 'update this shift preference');
+    if (data) return { status: 'success', data: mapRequestRow(data as ApiWorkforceShiftRequestRow) };
+
+    const existing = await getShiftRequestById(supabase, tenantId, requestId);
+    if (existing.status !== 'success') return existing;
+    if (!existing.data || existing.data.kind !== 'preference') return { status: 'not_found' };
+    if (existing.data.status === target) return { status: 'success', data: existing.data };
+    return { status: 'stale_reference' };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error updating this shift preference.',
     };
   }
 }

@@ -269,10 +269,10 @@ interface ManagerDashboardDict {
   assignCellAriaLabelPrefix: string;
   editCellAriaLabelPrefix: string;
   correctPastScheduleAriaLabelPrefix: string;
-  // Shift requests review popup (v2.1 UI-only -- Settings entry point;
-  // "Approve"/"Remove approval" toggle local component state, no
-  // `workforce.shift_requests.status` write yet, see project memory /
-  // plan file for the v2.2 follow-up that wires real persistence).
+  // Shift preferences review popup (Settings entry point). "Reviewed" is
+  // persisted as `workforce.shift_requests.status = 'approved'` on the
+  // preference row (2026-10-06 recovery) -- a review note only, never
+  // "approval" of a schedule, so the copy says 確認済み / Reviewed.
   shiftRequestsCardTitle: string;
   viewRequestsButton: string;
   shiftRequestsPopupHelpAriaLabel: string;
@@ -281,16 +281,26 @@ interface ManagerDashboardDict {
   submittedPreferencesEmpty: string;
   noPreferenceSubmittedHint: string;
   markedUnavailableHint: string;
-  approvePreferenceTitle: string;
+  preferenceUnavailableChip: string;
+  preferenceMonthCurrent: string;
+  preferenceMonthNext: string;
+  reviewPreferenceTitle: string;
   priorityExplainerBody: string;
-  approvedPreferenceTitle: string;
-  approvedPreferenceBody: string;
-  removeApprovalButton: string;
+  markReviewedButton: string;
+  reviewedPreferenceTitle: string;
+  reviewedPreferenceBody: string;
+  unmarkReviewedButton: string;
+  reviewSaveFailed: string;
   close: string;
   sendReminderTitle: string;
   sendReminderBody: string;
-  copyReminderButton: string;
-  reminderCopiedNotice: string;
+  reminderPreviewLabel: string;
+  sendReminderButton: string;
+  sendingReminder: string;
+  reminderSentNotice: string;
+  reminderNoEmailNotice: string;
+  reminderFailedNotice: string;
+  reminderNotConfiguredNotice: string;
   // Correction requests
   correctionsHeading: string;
   correctionsUnavailable: string;
@@ -600,21 +610,31 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'About shift requests',
     shiftRequestsPopupHelpTitle: 'About shift requests',
     shiftRequestsPopupHelpBody:
-      'Check who has submitted next month\'s availability and review each person\'s preferred shifts. A red name means the request is still missing; open it to copy a reminder. Marking a request as approved records your review but does not change the schedule. "+" means no preference was entered for that day, and "—" means unavailable.',
+      'See the shift preferences your staff sent for a month. Staff send preferences for next month, so "Next month" is shown first.\n\nEach day shows one of:\n• A shift name: the shift they would like to work.\n• "Off": they cannot work that day. Automatic scheduling will not place them on it (you can still assign a shift by hand).\n• "—": no preference for that day. Automatic scheduling may still place them if needed.\n\nA name with a red "!" has not sent anything for that month yet ("submitted" means at least one day was sent). In the "Next month" view, tap the name to email them a reminder.\n\nTap a shift or "Off" to mark it as reviewed (✓). This is saved, but it is only a note for you: it does not change the schedule. Staff cannot change a day after sending it; if they need a change, edit the schedule directly.',
     submittedPreferencesEmpty: 'No active staff to show.',
-    noPreferenceSubmittedHint: 'No preference submitted for this day',
-    markedUnavailableHint: 'Marked unavailable this day',
-    approvePreferenceTitle: 'Approve preference',
+    noPreferenceSubmittedHint: 'No preference for this day',
+    markedUnavailableHint: 'Cannot work this day',
+    preferenceUnavailableChip: 'Off',
+    preferenceMonthCurrent: 'This month',
+    preferenceMonthNext: 'Next month',
+    reviewPreferenceTitle: 'Review preference',
     priorityExplainerBody:
-      'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. A submitted staff preference (approved or not -- marking approval here is a review note only and does not change this)\n3. Automatic fallback assignment',
-    approvedPreferenceTitle: 'Approved preference',
-    approvedPreferenceBody: 'This marks that you have reviewed this preference. It is a note for your own tracking and does not change how the schedule is generated.',
-    removeApprovalButton: 'Remove approval',
+      'Priority when building the schedule:\n1. A shift set by hand in Weekly Schedule\n2. A submitted staff preference ("Off" days are never filled automatically). Marking it reviewed does not change this.\n3. Automatic fallback assignment',
+    markReviewedButton: 'Mark as reviewed',
+    reviewedPreferenceTitle: 'Reviewed preference',
+    reviewedPreferenceBody: 'You marked this preference as reviewed. It is a note for your own tracking and does not change how the schedule is generated.',
+    unmarkReviewedButton: 'Mark as not reviewed',
+    reviewSaveFailed: 'Could not save. Please try again.',
     close: 'Close',
-    sendReminderTitle: 'Remind employee',
-    sendReminderBody: 'This employee hasn\'t submitted shift preferences yet. Copy this message and send it yourself for now.',
-    copyReminderButton: 'Copy',
-    reminderCopiedNotice: 'Copied',
+    sendReminderTitle: 'Send reminder',
+    sendReminderBody: 'This employee has not sent shift preferences for next month yet. The email below goes to the address in their staff profile.',
+    reminderPreviewLabel: 'Email to be sent',
+    sendReminderButton: 'Send reminder',
+    sendingReminder: 'Sending…',
+    reminderSentNotice: 'Reminder email sent.',
+    reminderNoEmailNotice: 'No email address is registered for this employee. Add one in Manage staff, then try again.',
+    reminderFailedNotice: 'The email could not be sent. Please try again later.',
+    reminderNotConfiguredNotice: 'Email sending is not set up yet. Please contact support.',
     correctionsHeading: 'Correction requests',
     correctionsUnavailable: 'Correction requests are temporarily unavailable.',
     needsActionEyebrow: 'Needs action',
@@ -913,21 +933,31 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
     shiftRequestsPopupHelpTitle: 'シフト希望について',
     shiftRequestsPopupHelpBody:
-      '来月のシフト希望を提出したスタッフと、未提出のスタッフを確認できます。赤色の名前を開くと、送信用のリマインダー文をコピーできます。「承認済み」は店長が確認した記録で、スケジュールは変更しません。「+」は希望未入力、「—」は勤務不可を表します。',
+      'スタッフが提出した月ごとのシフト希望を確認できます。スタッフは来月分を提出するため、最初は「来月」を表示します。\n\n各日の表示:\n• シフト名: その日に働きたいシフトです。\n• 「休み」: 勤務できない日です。自動作成ではこの日にシフトは入りません（手動では割り当てできます）。\n• 「—」: その日の希望はありません。必要に応じて自動作成でシフトが入ることがあります。\n\n赤い「!」が付いた名前は、その月の希望をまだ1日も提出していないスタッフです（1日以上提出していれば「提出済み」と数えます）。「来月」表示で名前をタップすると、リマインダーメールを送れます。\n\nシフトまたは「休み」をタップすると「確認済み（✓）」にできます。記録は保存されますが、店長用のメモであり、スケジュールは変わりません。スタッフは提出後に自分で変更できないため、変更が必要な場合はスケジュールを直接編集してください。',
     submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
-    noPreferenceSubmittedHint: 'この日は希望が提出されていません',
-    markedUnavailableHint: 'この日は勤務不可としています',
-    approvePreferenceTitle: '希望を承認',
+    noPreferenceSubmittedHint: 'この日の希望はありません',
+    markedUnavailableHint: 'この日は勤務できません',
+    preferenceUnavailableChip: '休み',
+    preferenceMonthCurrent: '今月',
+    preferenceMonthNext: '来月',
+    reviewPreferenceTitle: '希望を確認',
     priorityExplainerBody:
-      'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. スタッフが提出した希望（承認の有無に関わらず同じ扱いです。ここでの承認は確認済みという記録にすぎません）\n3. 自動割り当て',
-    approvedPreferenceTitle: '承認済みの希望',
-    approvedPreferenceBody: 'この希望を確認済みとして記録するものです。ご自身の確認用のメモであり、スケジュールの自動作成には影響しません。',
-    removeApprovalButton: '承認を取り消す',
+      'スケジュール作成時の優先順位:\n1. 週間スケジュールで手動設定したシフト\n2. スタッフが提出した希望（「休み」の日は自動で埋められません）。確認済みにしても、この順番は変わりません。\n3. 自動割り当て',
+    markReviewedButton: '確認済みにする',
+    reviewedPreferenceTitle: '確認済みの希望',
+    reviewedPreferenceBody: 'この希望を確認済みとして記録しました。ご自身の確認用のメモであり、スケジュールの自動作成には影響しません。',
+    unmarkReviewedButton: '確認済みを取り消す',
+    reviewSaveFailed: '保存できませんでした。もう一度お試しください。',
     close: '閉じる',
-    sendReminderTitle: 'スタッフに知らせる',
-    sendReminderBody: 'このスタッフはまだシフト希望を提出していません。このメッセージをコピーして、ご自身で送ってください。',
-    copyReminderButton: 'コピー',
-    reminderCopiedNotice: 'コピーしました',
+    sendReminderTitle: 'リマインダーを送信',
+    sendReminderBody: 'このスタッフは来月のシフト希望をまだ提出していません。スタッフ情報に登録されたメールアドレスに、下記のメールを送信します。',
+    reminderPreviewLabel: '送信されるメール',
+    sendReminderButton: 'リマインダーを送信',
+    sendingReminder: '送信中…',
+    reminderSentNotice: 'リマインダーメールを送信しました。',
+    reminderNoEmailNotice: 'このスタッフにはメールアドレスが登録されていません。スタッフ管理で登録してから、もう一度お試しください。',
+    reminderFailedNotice: 'メールを送信できませんでした。しばらくしてからもう一度お試しください。',
+    reminderNotConfiguredNotice: 'メール送信がまだ設定されていません。サポートにお問い合わせください。',
     correctionsHeading: '修正依頼',
     correctionsUnavailable: '修正依頼は一時的に利用できません。',
     needsActionEyebrow: '対応が必要',
@@ -1039,8 +1069,8 @@ export const shiftRequestsSummaryLabel: Record<Lang, (submittedCount: number, to
 
 /** Settings card summary, split into two independently-styled pieces (submitted in success tone always, missing in warning tone only when > 0) so "2 missing" can draw a Manager's eye without a full warning block. */
 export const shiftRequestsSubmittedLabel: Record<Lang, (submittedCount: number, totalCount: number) => string> = {
-  en: (submittedCount, totalCount) => `${submittedCount}/${totalCount} submitted`,
-  ja: (submittedCount, totalCount) => `${submittedCount}/${totalCount}名提出済み`,
+  en: (submittedCount, totalCount) => `Next month: ${submittedCount}/${totalCount} submitted`,
+  ja: (submittedCount, totalCount) => `来月分 ${submittedCount}/${totalCount}名提出済み`,
 };
 export const shiftRequestsMissingLabel: Record<Lang, (missingCount: number) => string> = {
   en: (missingCount) => `${missingCount} missing`,
@@ -1051,12 +1081,6 @@ export const shiftRequestsMissingLabel: Record<Lang, (missingCount: number) => s
 export const weekRangeLabel: Record<Lang, (weekStart: string, weekEnd: string) => string> = {
   en: (weekStart, weekEnd) => `${weekStart} – ${weekEnd}`,
   ja: (weekStart, weekEnd) => `${weekStart} 〜 ${weekEnd}`,
-};
-
-/** Pre-filled copy-to-clipboard reminder text (v2.1 stub -- no real send). */
-export const reminderMessageTemplate: Record<Lang, (staffName: string, monthLabel: string) => string> = {
-  en: (staffName, monthLabel) => `Hi ${staffName}, please submit your shift preferences for ${monthLabel} when you get a chance. Thank you!`,
-  ja: (staffName, monthLabel) => `${staffName}さん、${monthLabel}のシフト希望をまだ提出いただいていないようです。お手すきの際にご提出をお願いします。`,
 };
 
 export const breakMinutesValue: Record<Lang, (minutes: number) => string> = {

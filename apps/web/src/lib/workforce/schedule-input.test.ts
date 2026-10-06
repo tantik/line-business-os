@@ -4,6 +4,7 @@ import {
   parseCreateShiftAssignmentInput,
   parsePublishScheduleInput,
   parseRunAutoDistributionInput,
+  parseSubmitMonthlyShiftPreferencesInput,
   parseSubmitShiftPreferenceInput,
   parseUpdateShiftAssignmentInput,
 } from './schedule-input.js';
@@ -235,4 +236,40 @@ test('parseRunAutoDistributionInput rejects non-array staffingRequirements and a
   );
   assert.equal(parseRunAutoDistributionInput('nope'), null);
   assert.equal(parseRunAutoDistributionInput(null), null);
+});
+
+// 2026-10-06 recovery: the monthly modal now submits State B ("cannot work",
+// `isUnavailable: true`, no shift type) as well as State A (a shift type).
+// State C ("no preference") is never submitted -- it is the absence of a row.
+test('parseSubmitMonthlyShiftPreferencesInput accepts preferred-shift and unavailable days in one batch', () => {
+  assert.deepEqual(
+    parseSubmitMonthlyShiftPreferencesInput({
+      selections: [
+        { workDate: '2026-11-03', shiftTypeId: SHIFT_TYPE_ID, isUnavailable: false },
+        { workDate: '2026-11-04', shiftTypeId: null, isUnavailable: true },
+      ],
+      note: '  ',
+    }),
+    {
+      selections: [
+        { workDate: '2026-11-03', shiftTypeId: SHIFT_TYPE_ID, isUnavailable: false },
+        { workDate: '2026-11-04', shiftTypeId: null, isUnavailable: true },
+      ],
+      note: null,
+    },
+  );
+});
+
+test('parseSubmitMonthlyShiftPreferencesInput rejects a day that is neither a shift nor unavailable (no-preference is never a row)', () => {
+  assert.equal(
+    parseSubmitMonthlyShiftPreferencesInput({ selections: [{ workDate: '2026-11-03', shiftTypeId: null, isUnavailable: false }] }),
+    null,
+  );
+});
+
+test('parseSubmitMonthlyShiftPreferencesInput rejects a day that is both unavailable and a shift type', () => {
+  assert.equal(
+    parseSubmitMonthlyShiftPreferencesInput({ selections: [{ workDate: '2026-11-03', shiftTypeId: SHIFT_TYPE_ID, isUnavailable: true }] }),
+    null,
+  );
 });

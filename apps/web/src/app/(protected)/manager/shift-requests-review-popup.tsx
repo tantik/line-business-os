@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -12,9 +12,12 @@ import type { Lang } from '@/lib/demo/cafe/i18n';
 import { weekdayLabel } from '@/lib/demo/cafe/format';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
-import { buttonPrimary, buttonSecondary, colors, minTouchTarget, mutedText, tableHeaderCell } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, minTouchTarget, mutedText, tableHeaderCell } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
-import { CUSTOM_CHIP_TONE, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
+import { markShiftPreferenceReviewed, sendShiftPreferenceReminderEmail } from '@/lib/workforce/shift-preference-actions';
+import { buildShiftPreferenceReminderEmail, nextMonthPrefix } from '@/lib/workforce/shift-preference-reminder-email';
+import type { ReminderDelivery } from '@/lib/workforce/shift-preference-reminder';
+import { CUSTOM_CHIP_TONE, shiftChipColors, shiftChipStyle, UNAVAILABLE_CHIP_TONE } from '../_ui/workforce-theme';
 
 /**
  * Mission 8 Quality Sweep fix (F11): this popup's grid header previously
@@ -32,19 +35,11 @@ function formatWeekday(isoDate: string, lang: Lang): string {
   return weekdayLabel(new Date(`${isoDate}T00:00:00`), lang);
 }
 import {
-  reminderMessageTemplate,
   shiftRequestsHeadingValue,
   shiftRequestsSummaryLabel,
   tManagerDashboard,
   weekRangeLabel,
 } from './manager-dashboard-i18n';
-
-/** Best-effort clipboard write for the reminder-stub popup -- silently a no-op if the Clipboard API is unavailable (older browser, non-HTTPS, or permission denied); the message stays visible in the read-only box either way, so nothing is lost, just not auto-copied. */
-function copyReminderMessage(text: string) {
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).catch(() => {});
-  }
-}
 
 export interface ShiftRequestsReviewPopupProps {
   open: boolean;
@@ -53,10 +48,24 @@ export interface ShiftRequestsReviewPopupProps {
   staff: WorkforceStaffManageEntry[];
   shiftTypes: WorkforceShiftType[] | null;
   activeShiftTypeIds: string[];
-  monthPrefix: string;
-  monthLabel: string;
   todayIso: string;
   lang: Lang;
+}
+
+type MonthChoice = 'next' | 'current';
+type ReminderState = 'idle' | 'sending' | ReminderDelivery | 'error';
+
+function monthLabelFor(monthPrefix: string, lang: Lang): string {
+  return new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-US', { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${monthPrefix}-01T00:00:00Z`),
+  );
+}
+
+/** Fresh per-dialog idempotency nonce for the reminder send (Resend `Idempotency-Key`): a double click or retry inside one open dialog never sends twice. */
+function newReminderNonce(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : '00000000-0000-4000-8000-000000000000'.replace(/0/g, () => Math.floor(Math.random() * 16).toString(16));
 }
 
 const gridHeaderCellStyle: CSSProperties = {
@@ -111,14 +120,21 @@ function cellButtonStyle(tone: { background: string; color: string } | null, cli
 }
 
 /**
- * v2.1 Shift-requests review popup: a compact, month-scoped, week-paginated
+ * Shift preferences review popup: a compact, month-scoped, week-paginated
  * view of submitted shift preferences (entry point: Settings > "Shift
- * requests"). UI ONLY -- "Approve"/"Remove approval" toggle a local
- * `approvedRequestIds` Set, never a `workforce.shift_requests.status` write,
- * and the reminder action is a copy-to-clipboard stub. Real persistence,
- * auto-distribute priority, and real reminder delivery are v2.2 scope (see
- * the plan file / project memory) -- deliberately deferred so this UI is not
- * built on top of architecture that doesn't exist yet.
+ * requests"). Opens on NEXT month -- the month the Staff monthly modal
+ * submits for -- with a toggle back to the current month.
+ *
+ * 2026-10-06 recovery (was UI-only in v2.1):
+ *   - "Reviewed" is persisted (`markShiftPreferenceReviewed` ->
+ *     `status = 'approved'` on the preference row). `statusOverrides` only
+ *     mirrors a server-confirmed write until the page's own data reloads; it
+ *     is never set optimistically. Reviewed never changes auto-schedule
+ *     priority (nothing in scheduling reads `status` on a preference row).
+ *   - The reminder really emails the employee (`sendShiftPreferenceReminderEmail`,
+ *     Resend); the address is resolved and decrypted server-side only.
+ *   - Cells show three distinct states: a shift chip, a 休み/Off chip
+ *     (`is_unavailable`), or "–" (no row = no preference).
  */
 export function ShiftRequestsReviewPopup({
   open,
@@ -127,8 +143,6 @@ export function ShiftRequestsReviewPopup({
   staff,
   shiftTypes,
   activeShiftTypeIds,
-  monthPrefix,
-  monthLabel,
   todayIso,
   lang,
 }: ShiftRequestsReviewPopupProps) {
@@ -136,18 +150,35 @@ export function ShiftRequestsReviewPopup({
   usePopupOpenTiming(open, 'shift-requests-review');
 
   const [helpOpen, setHelpOpen] = useState(false);
-  const [approvedRequestIds, setApprovedRequestIds] = useState<Set<string>>(new Set());
-  const [approveTarget, setApproveTarget] = useState<{ staffId: string; date: string; request: WorkforceShiftRequest } | null>(null);
-  const [approvedInfoTarget, setApprovedInfoTarget] = useState<{ staffId: string; date: string; request: WorkforceShiftRequest } | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map());
+  const [reviewTarget, setReviewTarget] = useState<{ staffId: string; date: string; request: WorkforceShiftRequest } | null>(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState(false);
   const [reminderStaffId, setReminderStaffId] = useState<string | null>(null);
-  const [reminderCopied, setReminderCopied] = useState(false);
+  const [reminderNonce, setReminderNonce] = useState('');
+  const [reminderState, setReminderState] = useState<ReminderState>('idle');
+
+  // Once the page's own data reloads, the server rows are authoritative again
+  // (e.g. another Manager un-marked a row meanwhile).
+  useEffect(() => {
+    setStatusOverrides(new Map());
+  }, [requests]);
+
+  const [monthChoice, setMonthChoice] = useState<MonthChoice>('next');
+  const monthPrefix = monthChoice === 'next' ? nextMonthPrefix(todayIso) : todayIso.slice(0, 7);
+  const monthLabel = monthLabelFor(monthPrefix, lang);
 
   const weeks = useMemo(() => getWeeksInMonth(monthPrefix), [monthPrefix]);
-  const todayWeekIndex = useMemo(() => {
-    const index = weeks.findIndex((w) => todayIso >= w.weekStart && todayIso <= w.weekEnd);
-    return index >= 0 ? index : 0;
-  }, [weeks, todayIso]);
-  const [weekIndex, setWeekIndex] = useState(todayWeekIndex);
+  const [weekIndex, setWeekIndex] = useState(0);
+
+  function selectMonth(choice: MonthChoice) {
+    if (choice === monthChoice) return;
+    setMonthChoice(choice);
+    // Next month has no "today" in it, so it starts on its first week; the
+    // current month starts on today's week, as before.
+    const todayWeek = getWeeksInMonth(todayIso.slice(0, 7)).findIndex((w) => todayIso >= w.weekStart && todayIso <= w.weekEnd);
+    setWeekIndex(choice === 'current' ? Math.max(0, todayWeek) : 0);
+  }
   const clampedWeekIndex = Math.min(weekIndex, weeks.length - 1);
   const activeWeek = weeks[clampedWeekIndex];
   const weekDates = useMemo(
@@ -164,11 +195,15 @@ export function ShiftRequestsReviewPopup({
     () => (requests ?? []).filter((r) => r.workDate.startsWith(monthPrefix)),
     [requests, monthPrefix],
   );
+  // Keyed over ALL loaded preferences, not just this month's: a week row
+  // spans a month boundary, and an adjacent-month day must show its real
+  // state, not "–" (which means "no preference"). Counts below stay
+  // month-scoped via `requestsThisMonth`.
   const requestsByEmployeeAndDate = useMemo(() => {
     const map = new Map<string, WorkforceShiftRequest>();
-    for (const r of requestsThisMonth) map.set(`${r.employeeId}:${r.workDate}`, r);
+    for (const r of requests ?? []) map.set(`${r.employeeId}:${r.workDate}`, r);
     return map;
-  }, [requestsThisMonth]);
+  }, [requests]);
   const submittedEmployeeIds = useMemo(
     () => new Set(requestsThisMonth.map((r) => r.employeeId)),
     [requestsThisMonth],
@@ -201,46 +236,150 @@ export function ShiftRequestsReviewPopup({
       ),
     [weekDates, activeStaff, requestsByEmployeeAndDate],
   );
+  const weekHasUnavailable = useMemo(
+    () => weekDates.some((date) => activeStaff.some((s) => requestsByEmployeeAndDate.get(`${s.staffId}:${date}`)?.isUnavailable === true)),
+    [weekDates, activeStaff, requestsByEmployeeAndDate],
+  );
+
+  function isReviewed(request: WorkforceShiftRequest): boolean {
+    return (statusOverrides.get(request.requestId) ?? request.status) === 'approved';
+  }
 
   function renderCell(staffId: string, date: string) {
     const request = requestsByEmployeeAndDate.get(`${staffId}:${date}`);
-    if (!request) return <span title={t('noPreferenceSubmittedHint')} style={{ ...mutedText, fontSize: 13 }}>+</span>;
-    if (request.isUnavailable) return <span title={t('markedUnavailableHint')} style={{ ...mutedText, fontSize: 13 }}>—</span>;
+    if (!request) {
+      return (
+        <span title={t('noPreferenceSubmittedHint')} aria-label={t('noPreferenceSubmittedHint')} style={{ ...mutedText, fontSize: 13 }}>
+          —
+        </span>
+      );
+    }
 
     const shiftType = request.shiftTypeId ? shiftTypeById.get(request.shiftTypeId) : undefined;
-    const label = shiftType ? shiftTypeDisplayLabel(shiftType) : t('shiftTypeCustom');
-    const tone = request.shiftTypeId ? shiftChipColors(request.shiftTypeId, activeShiftTypeIds) : CUSTOM_CHIP_TONE;
-    const isApproved = approvedRequestIds.has(request.requestId);
+    const label = request.isUnavailable ? t('preferenceUnavailableChip') : shiftType ? shiftTypeDisplayLabel(shiftType) : t('shiftTypeCustom');
+    const tone = request.isUnavailable
+      ? UNAVAILABLE_CHIP_TONE
+      : request.shiftTypeId
+        ? shiftChipColors(request.shiftTypeId, activeShiftTypeIds)
+        : CUSTOM_CHIP_TONE;
+    const reviewed = isReviewed(request);
+    const title = request.isUnavailable ? t('markedUnavailableHint') : label;
 
     return (
       <button
         type="button"
         className={hoverStyles.scheduleCellButton}
         style={cellButtonStyle(tone, true)}
-        title={label}
-        onClick={() =>
-          isApproved
-            ? setApprovedInfoTarget({ staffId, date, request })
-            : setApproveTarget({ staffId, date, request })
-        }
+        title={title}
+        aria-label={`${title}${reviewed ? ` (${t('reviewedPreferenceTitle')})` : ''}`}
+        onClick={() => {
+          setReviewError(false);
+          setReviewTarget({ staffId, date, request });
+        }}
       >
-        {isApproved ? `✓ ${label}` : label}
+        {reviewed ? `✓ ${label}` : label}
       </button>
     );
   }
 
+  async function saveReview(request: WorkforceShiftRequest, reviewed: boolean) {
+    setReviewSaving(true);
+    setReviewError(false);
+    try {
+      const result = await markShiftPreferenceReviewed({ requestId: request.requestId, reviewed });
+      if (result.status === 'success') {
+        setStatusOverrides((current) => new Map(current).set(request.requestId, result.data.status));
+        setReviewTarget(null);
+      } else {
+        setReviewError(true);
+      }
+    } catch {
+      setReviewError(true);
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  /**
+   * The legacy design-kit Modal closes on a window-level Escape, so Escape
+   * inside a nested dialog also reaches this outer popup. Refuse to close
+   * while a write is in flight, and reset the nested dialogs on close so a
+   * reopen never shows a stale "sent" reminder or review dialog.
+   */
+  function handleClose() {
+    if (reviewSaving || reminderState === 'sending') return;
+    setReviewTarget(null);
+    setReviewError(false);
+    setReminderStaffId(null);
+    setReminderState('idle');
+    setHelpOpen(false);
+    onClose();
+  }
+
+  function openReminder(staffId: string) {
+    setReminderStaffId(staffId);
+    setReminderNonce(newReminderNonce());
+    setReminderState('idle');
+  }
+
+  function closeReminder() {
+    if (reminderState === 'sending') return;
+    setReminderStaffId(null);
+    setReminderState('idle');
+  }
+
+  async function sendReminder() {
+    if (!reminderStaffId || reminderState === 'sending' || reminderState === 'sent') return;
+    setReminderState('sending');
+    try {
+      const result = await sendShiftPreferenceReminderEmail({ employeeId: reminderStaffId, nonce: reminderNonce });
+      setReminderState(result.status === 'success' ? result.data.delivery : 'error');
+    } catch {
+      setReminderState('error');
+    }
+  }
+
   const reminderStaffName = reminderStaffId ? staff.find((s) => s.staffId === reminderStaffId)?.name ?? '' : '';
-  const reminderText = reminderStaffId ? reminderMessageTemplate[lang](reminderStaffName, monthLabel) : '';
+  const reminderEmail = reminderStaffId ? buildShiftPreferenceReminderEmail(reminderStaffName, nextMonthPrefix(todayIso)) : null;
+  const reminderNotice: { text: string; tone: 'success' | 'danger' } | null =
+    reminderState === 'sent'
+      ? { text: t('reminderSentNotice'), tone: 'success' }
+      : reminderState === 'no_email'
+        ? { text: t('reminderNoEmailNotice'), tone: 'danger' }
+        : reminderState === 'not_configured'
+          ? { text: t('reminderNotConfiguredNotice'), tone: 'danger' }
+          : reminderState === 'send_failed' || reminderState === 'error'
+            ? { text: t('reminderFailedNotice'), tone: 'danger' }
+            : null;
+  const reviewTargetReviewed = reviewTarget ? isReviewed(reviewTarget.request) : false;
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title={shiftRequestsHeadingValue[lang](monthLabel)}
       titleAdornment={<HelpIconButton ariaLabel={t('shiftRequestsPopupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
       width="min(900px, 96vw)"
       closeLabel={t('cancel')}
     >
+      <div role="group" aria-label={shiftRequestsHeadingValue[lang](monthLabel)} style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
+        {(['next', 'current'] as const).map((choice) => {
+          const active = monthChoice === choice;
+          return (
+            <button
+              key={choice}
+              type="button"
+              aria-pressed={active}
+              className={active ? undefined : hoverStyles.buttonSecondary}
+              style={active ? { ...buttonPrimary, padding: '6px 14px' } : { ...buttonSecondary, padding: '6px 14px' }}
+              onClick={() => selectMonth(choice)}
+            >
+              {t(choice === 'next' ? 'preferenceMonthNext' : 'preferenceMonthCurrent')}
+            </button>
+          );
+        })}
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
         <button
           type="button"
@@ -306,42 +445,46 @@ export function ShiftRequestsReviewPopup({
                 return (
                   <tr key={s.staffId}>
                     <td style={{ ...gridCellStyle, ...(isLastRow ? { borderBottomLeftRadius: 8 } : {}) }}>
-                      {submitted ? (
-                        <span
-                          className={hoverStyles.staffNameCell}
-                          style={{
-                            width: '100%',
-                            minHeight: minTouchTarget,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                            padding: '6px 4px',
-                            fontWeight: 600,
-                            fontSize: 12.5,
-                            borderRadius: 6,
-                            boxSizing: 'border-box',
-                            cursor: 'default',
-                          }}
-                        >
-                          {s.name}
-                        </span>
-                      ) : (
-                        <span style={{ position: 'relative', display: 'block' }}>
+                      <span style={{ position: 'relative', display: 'block' }}>
+                        {/* Reminders only ask for NEXT month's preferences (the only month Staff can still submit), so the name is a reminder button only in that view. */}
+                        {!submitted && monthChoice === 'next' ? (
                           <button
                             type="button"
                             className={hoverStyles.staffNameCell}
                             style={{ width: '100%', minHeight: minTouchTarget, border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', fontWeight: 600, fontSize: 12.5, borderRadius: 6, boxSizing: 'border-box' }}
                             title={s.name}
-                            onClick={() => setReminderStaffId(s.staffId)}
+                            aria-label={`${s.name}: ${t('sendReminderTitle')}`}
+                            onClick={() => openReminder(s.staffId)}
                           >
                             {s.name}
                           </button>
+                        ) : (
+                          <span
+                            className={hoverStyles.staffNameCell}
+                            style={{
+                              width: '100%',
+                              minHeight: minTouchTarget,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: 'center',
+                              padding: '6px 4px',
+                              fontWeight: 600,
+                              fontSize: 12.5,
+                              borderRadius: 6,
+                              boxSizing: 'border-box',
+                              cursor: 'default',
+                            }}
+                          >
+                            {s.name}
+                          </span>
+                        )}
+                        {!submitted ? (
                           <span aria-hidden="true" style={missingCornerStyle}>
                             !
                           </span>
-                        </span>
-                      )}
+                        ) : null}
+                      </span>
                     </td>
                     {weekDates.map((date, dateIndex) => (
                       <td
@@ -362,7 +505,7 @@ export function ShiftRequestsReviewPopup({
         </div>
       )}
 
-      {weekLegendTypes.length > 0 || weekHasCustom ? (
+      {weekLegendTypes.length > 0 || weekHasCustom || weekHasUnavailable ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
           {weekLegendTypes.map((st) => (
             <span key={st.shiftTypeId} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -371,6 +514,12 @@ export function ShiftRequestsReviewPopup({
             </span>
           ))}
           {weekHasCustom ? <span style={shiftChipStyle(CUSTOM_CHIP_TONE)}>{t('shiftTypeCustom')}</span> : null}
+          {weekHasUnavailable ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={shiftChipStyle(UNAVAILABLE_CHIP_TONE)}>{t('preferenceUnavailableChip')}</span>
+              <span style={{ ...mutedText, fontSize: 12 }}>{t('markedUnavailableHint')}</span>
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -383,109 +532,115 @@ export function ShiftRequestsReviewPopup({
       </Modal>
 
       <Modal
-        open={approveTarget !== null}
-        onClose={() => setApproveTarget(null)}
-        title={t('approvePreferenceTitle')}
+        open={reviewTarget !== null}
+        onClose={() => {
+          if (!reviewSaving) setReviewTarget(null);
+        }}
+        title={t(reviewTargetReviewed ? 'reviewedPreferenceTitle' : 'reviewPreferenceTitle')}
         closeLabel={t('cancel')}
         width="min(420px, 94vw)"
       >
-        {approveTarget ? (
+        {reviewTarget ? (
           <div>
-            <p style={{ margin: 0, fontWeight: 600 }}>{staff.find((s) => s.staffId === approveTarget.staffId)?.name ?? ''}</p>
-            <p style={{ margin: '4px 0 0', ...mutedText }}>{approveTarget.date}</p>
-            <p style={{ margin: '12px 0 0', whiteSpace: 'pre-line', fontSize: 13, ...mutedText }}>{t('priorityExplainerBody')}</p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{staff.find((s) => s.staffId === reviewTarget.staffId)?.name ?? ''}</p>
+            <p style={{ margin: '4px 0 0', ...mutedText }}>
+              {reviewTarget.date} ·{' '}
+              {reviewTarget.request.isUnavailable
+                ? t('markedUnavailableHint')
+                : reviewTarget.request.shiftTypeId && shiftTypeById.get(reviewTarget.request.shiftTypeId)
+                  ? shiftTypeDisplayLabel(shiftTypeById.get(reviewTarget.request.shiftTypeId)!)
+                  : t('shiftTypeCustom')}
+            </p>
+            <p style={{ margin: '12px 0 0', whiteSpace: 'pre-line', fontSize: 13, ...mutedText }}>
+              {t(reviewTargetReviewed ? 'reviewedPreferenceBody' : 'priorityExplainerBody')}
+            </p>
+            {reviewError ? (
+              <p role="alert" style={{ ...alertDanger, margin: '12px 0 0' }}>
+                {t('reviewSaveFailed')}
+              </p>
+            ) : null}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className={hoverStyles.buttonPrimary}
-                style={buttonPrimary}
-                onClick={() => {
-                  setApprovedRequestIds((current) => new Set(current).add(approveTarget.request.requestId));
-                  setApproveTarget(null);
-                }}
+                className={reviewSaving ? undefined : reviewTargetReviewed ? hoverStyles.buttonSecondary : hoverStyles.buttonPrimary}
+                style={reviewSaving ? buttonDisabled : reviewTargetReviewed ? buttonSecondary : buttonPrimary}
+                disabled={reviewSaving}
+                onClick={() => void saveReview(reviewTarget.request, !reviewTargetReviewed)}
               >
-                {t('approve')}
+                {reviewSaving ? t('saving') : t(reviewTargetReviewed ? 'unmarkReviewedButton' : 'markReviewedButton')}
               </button>
-              <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setApproveTarget(null)}>
-                {t('cancel')}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
-
-      <Modal
-        open={approvedInfoTarget !== null}
-        onClose={() => setApprovedInfoTarget(null)}
-        title={t('approvedPreferenceTitle')}
-        closeLabel={t('cancel')}
-        width="min(420px, 94vw)"
-      >
-        {approvedInfoTarget ? (
-          <div>
-            <p style={{ margin: 0 }}>{t('approvedPreferenceBody')}</p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button
                 type="button"
                 className={hoverStyles.buttonSecondary}
                 style={buttonSecondary}
-                onClick={() => {
-                  setApprovedRequestIds((current) => {
-                    const next = new Set(current);
-                    next.delete(approvedInfoTarget.request.requestId);
-                    return next;
-                  });
-                  setApprovedInfoTarget(null);
-                }}
+                disabled={reviewSaving}
+                onClick={() => setReviewTarget(null)}
               >
-                {t('removeApprovalButton')}
-              </button>
-              <button type="button" className={hoverStyles.buttonSecondary} style={buttonSecondary} onClick={() => setApprovedInfoTarget(null)}>
-                {t('close')}
+                {t(reviewTargetReviewed ? 'close' : 'cancel')}
               </button>
             </div>
           </div>
         ) : null}
       </Modal>
 
-      <Modal
-        open={reminderStaffId !== null}
-        onClose={() => {
-          setReminderStaffId(null);
-          setReminderCopied(false);
-        }}
-        title={t('sendReminderTitle')}
-        closeLabel={t('cancel')}
-        width="min(420px, 94vw)"
-      >
-        <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{t('sendReminderBody')}</p>
-        <p style={{ margin: '10px 0 0', padding: '10px 12px', borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surfaceElevated, fontSize: 13, whiteSpace: 'pre-line' }}>
-          {reminderText}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-          <button
-            type="button"
-            className={hoverStyles.buttonPrimary}
-            style={buttonPrimary}
-            onClick={() => {
-              copyReminderMessage(reminderText);
-              setReminderCopied(true);
-            }}
+      <Modal open={reminderStaffId !== null} onClose={closeReminder} title={t('sendReminderTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
+        <p style={{ margin: 0, fontWeight: 600 }}>{reminderStaffName}</p>
+        <p style={{ margin: '6px 0 0', fontSize: 13, ...mutedText }}>{t('sendReminderBody')}</p>
+        {reminderEmail ? (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, ...mutedText }}>{t('reminderPreviewLabel')}</div>
+            <div
+              style={{
+                margin: '4px 0 0',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${colors.border}`,
+                background: colors.surfaceElevated,
+                fontSize: 12.5,
+                whiteSpace: 'pre-line',
+                maxHeight: 220,
+                overflowY: 'auto',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>{reminderEmail.subject}</div>
+              {reminderEmail.text}
+            </div>
+          </div>
+        ) : null}
+        {reminderNotice ? (
+          <p
+            role={reminderNotice.tone === 'danger' ? 'alert' : 'status'}
+            style={
+              reminderNotice.tone === 'danger'
+                ? { ...alertDanger, margin: '12px 0 0' }
+                : { margin: '12px 0 0', fontSize: 13, fontWeight: 600, color: colors.success }
+            }
           >
-            {t('copyReminderButton')}
-          </button>
+            {reminderNotice.text}
+          </p>
+        ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+          {reminderState === 'sent' ? null : (
+            <button
+              type="button"
+              className={reminderState === 'sending' ? undefined : hoverStyles.buttonPrimary}
+              style={reminderState === 'sending' ? buttonDisabled : buttonPrimary}
+              disabled={reminderState === 'sending'}
+              onClick={() => void sendReminder()}
+            >
+              {reminderState === 'sending' ? t('sendingReminder') : t('sendReminderButton')}
+            </button>
+          )}
           <button
             type="button"
             className={hoverStyles.buttonSecondary}
             style={buttonSecondary}
-            onClick={() => {
-              setReminderStaffId(null);
-              setReminderCopied(false);
-            }}
+            disabled={reminderState === 'sending'}
+            onClick={closeReminder}
           >
-            {t('cancel')}
+            {t(reminderState === 'sent' ? 'close' : 'cancel')}
           </button>
-          {reminderCopied ? <span style={{ fontSize: 12, color: colors.success }}>{t('reminderCopiedNotice')}</span> : null}
         </div>
       </Modal>
     </Modal>

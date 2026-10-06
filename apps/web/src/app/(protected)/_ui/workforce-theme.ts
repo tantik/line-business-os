@@ -108,6 +108,14 @@ const UNSET_CHIP_TONE = { background: colors.surfaceElevated, color: colors.text
  */
 export const CUSTOM_CHIP_TONE = { background: 'rgba(199, 115, 39, 0.16)', color: '#C77327' };
 
+/**
+ * A submitted "cannot work this day" shift preference (`is_unavailable`).
+ * Shared by the Staff monthly preference modal and the Manager Shift
+ * preferences grid so both read the same. Never the only cue: every place
+ * that uses it also renders a text label (休み / Off).
+ */
+export const UNAVAILABLE_CHIP_TONE = { background: colors.dangerMuted, color: colors.dangerText };
+
 function hashToIndex(id: string, mod: number): number {
   let hash = 0;
   for (let i = 0; i < id.length; i += 1) {

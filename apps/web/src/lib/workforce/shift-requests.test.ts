@@ -4,6 +4,7 @@ import {
   decideCorrectionRequest,
   listMyShiftRequests,
   listShiftRequestsForManager,
+  setShiftPreferenceReviewed,
   submitCorrectionRequest,
   submitShiftPreference,
 } from './shift-requests.js';
@@ -241,4 +242,61 @@ test('decideCorrectionRequest returns stale_reference when the request exists bu
     calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'),
     'decision update must be guarded by .eq("status", "pending") to prevent a double-decide race',
   );
+});
+
+// 2026-10-06 recovery: Manager "reviewed" mark on a preference row, persisted
+// in the existing `status` column (no migration).
+test('setShiftPreferenceReviewed sets status=approved, guarded by kind=preference and status=pending', async () => {
+  const { client, calls } = recordingClient({ data: { ...requestRow, status: 'approved' }, error: null });
+  const result = await setShiftPreferenceReviewed(client, TENANT_ID, 'r1', true);
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data.status, 'approved');
+  assert.deepEqual(calls.find((c) => c.method === 'update')!.args[0], { status: 'approved' });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'kind' && c.args[1] === 'preference'));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'pending'));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'tenant_id' && c.args[1] === TENANT_ID));
+});
+
+test('setShiftPreferenceReviewed(false) moves approved back to pending', async () => {
+  const { client, calls } = recordingClient({ data: requestRow, error: null });
+  const result = await setShiftPreferenceReviewed(client, TENANT_ID, 'r1', false);
+  assert.equal(result.status, 'success');
+  assert.deepEqual(calls.find((c) => c.method === 'update')!.args[0], { status: 'pending' });
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'status' && c.args[1] === 'approved'));
+});
+
+test('setShiftPreferenceReviewed is idempotent: a row already in the target state is success, not an error', async () => {
+  const { client } = recordingClient([
+    { data: null, error: null },
+    { data: { ...requestRow, status: 'approved' }, error: null },
+  ]);
+  const result = await setShiftPreferenceReviewed(client, TENANT_ID, 'r1', true);
+  assert.equal(result.status, 'success');
+});
+
+test('setShiftPreferenceReviewed never touches a non-preference request (correction/swap rows are not_found here)', async () => {
+  const { client } = recordingClient([
+    { data: null, error: null },
+    { data: { ...requestRow, kind: 'correction', status: 'pending' }, error: null },
+  ]);
+  const result = await setShiftPreferenceReviewed(client, TENANT_ID, 'r1', true);
+  assert.equal(result.status, 'not_found');
+});
+
+test('setShiftPreferenceReviewed maps an RLS denial to unauthorized and a missing row to not_found', async () => {
+  const { client: denied } = recordingClient({ data: null, error: { code: '42501', message: 'permission denied' } });
+  assert.equal((await setShiftPreferenceReviewed(denied, TENANT_ID, 'r1', true)).status, 'unauthorized');
+
+  const { client: missing } = recordingClient([
+    { data: null, error: null },
+    { data: null, error: null },
+  ]);
+  assert.equal((await setShiftPreferenceReviewed(missing, TENANT_ID, 'r1', true)).status, 'not_found');
+});
+
+test('listShiftRequestsForManager bounds the read by work_date when fromDate/toDate are given (no silent max_rows truncation)', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  await listShiftRequestsForManager(client, TENANT_ID, { kind: 'preference', fromDate: '2026-11-01', toDate: '2026-11-30' });
+  assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'work_date' && c.args[1] === '2026-11-01'));
+  assert.ok(calls.some((c) => c.method === 'lte' && c.args[0] === 'work_date' && c.args[1] === '2026-11-30'));
 });
