@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import type { ReactNode } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { getWeeklyReviewAction } from '@/lib/weekly-review/weekly-review-actions';
+import { consumeWeeklyReviewPrefetch } from '@/lib/weekly-review/prefetch-cache';
 import type { WeeklyReviewWeek } from '@/lib/weekly-review/weekly-review-actions';
 import type { WeeklyReviewRecurringCategory, WeeklyReviewSummary } from '@/lib/weekly-review/weekly-review';
 import { formatWeekRangeLabel } from '@/lib/weekly-review/week-label';
@@ -38,7 +39,8 @@ export interface WeeklyReviewManagerBodyProps extends WeeklyReviewDrillDownHandl
   open: boolean;
 }
 
-const DEFAULT_WEEK_OFFSET = -1;
+/** Also used by the entry button's hover-prefetch (`prefetchWeeklyReview`) so it warms the exact week offset this popup opens to. */
+export const DEFAULT_WEEK_OFFSET = -1;
 
 /**
  * Owner Weekly Review Manager body (Cafe v2.2 WP3). Fetches its own data via
@@ -68,7 +70,10 @@ export function WeeklyReviewManagerBody({
     if (!open) return;
     setError(null);
     startTransition(async () => {
-      const result = await getWeeklyReviewAction(weekOffset);
+      // Reuses a hover-started request from the entry button (see
+      // `prefetchWeeklyReview`) when one is still in flight; otherwise a
+      // plain fresh fetch, same as before.
+      const result = await (consumeWeeklyReviewPrefetch(weekOffset) ?? getWeeklyReviewAction(weekOffset));
       if (result.status === 'success') {
         setWeek(result.data);
       } else {

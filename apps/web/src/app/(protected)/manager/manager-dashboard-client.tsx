@@ -71,6 +71,8 @@ import { RecipesPopup } from '../_ui/recipes-popup';
 import { OperationsManagerPopup } from '../_ui/operations-manager-popup';
 import { IssuesManagerPopup } from '../_ui/issues-manager-popup';
 import { WeeklyReviewManagerPopup } from '../_ui/weekly-review-manager-popup';
+import { DEFAULT_WEEK_OFFSET } from '../weekly-review/weekly-review-manager-body';
+import { prefetchWeeklyReview } from '@/lib/weekly-review/prefetch-cache';
 import { ShiftCellEditorModal } from './shift-cell-editor';
 import { StaffNameDetailPopup } from './staff-name-detail-popup';
 import { CorrectionRequestsPopup } from './correction-requests-popup';
@@ -1176,6 +1178,7 @@ function ManagerDashboardBody({
                     markPopupTriggerClick('weekly-review');
                     setWeeklyReviewPopupOpen(true);
                   },
+                  onHover: () => prefetchWeeklyReview(DEFAULT_WEEK_OFFSET),
                 },
               ]
             : []),

@@ -17,6 +17,8 @@ export interface EntryPointsCardButton {
   label: string;
   onClick?: () => void;
   href?: string;
+  /** Fires on hover/focus/pointerdown, before the click that actually opens the popup -- e.g. starting a slow popup's data fetch early (see the Weekly Review entry's `prefetchWeeklyReview`). Optional: most entries have nothing worth prefetching. */
+  onHover?: () => void;
   /** Optional own count badge (e.g. Issues & Handover's open-issue count) -- rendered next to the label via `CountBadge`. Only shown when > 0. The label/tooltip near it must describe this SAME number, never a differently-derived one (see the Manager Attention "9 vs 4+4" bug this deliberately avoids). */
   badgeCount?: number;
   badgeTone?: 'neutral' | 'critical';
@@ -102,6 +104,9 @@ export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
             className={`${hoverStyles.buttonSecondary} ${entryStyles.entryButton}`}
             style={buttonStyle}
             onClick={button.onClick}
+            onMouseEnter={button.onHover}
+            onFocus={button.onHover}
+            onPointerDown={button.onHover}
           >
             {button.label}
             {badge}
