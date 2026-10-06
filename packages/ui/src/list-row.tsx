@@ -76,7 +76,9 @@ export function ListRow({ title, subtitle, leading, status, actions, onOpen, mut
   const rowClasses = cn(
     'flex w-full min-h-14 flex-wrap items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left',
     muted && 'opacity-65',
-    onOpen && 'hover:border-border hover:bg-surface-elevated',
+    /* Founder Acceptance QA3 2026-10-06: a plain <button> has no built-in
+       pointer cursor -- same root cause as Button's own fix. */
+    onOpen && 'cursor-pointer hover:border-border hover:bg-surface-elevated',
     className,
   );
 
