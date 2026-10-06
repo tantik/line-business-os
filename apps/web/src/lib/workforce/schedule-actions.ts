@@ -290,7 +290,7 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   const [staffResult, shiftTypesResult, preferencesResult, existingMonthResult, scheduleSettingsResult] = await Promise.all([
     listWorkforceStaffDirectory(supabase, tenantId),
     listWorkforceShiftTypes(supabase, tenantId),
-    listShiftRequestsForManager(supabase, tenantId, { kind: 'preference' }),
+    listShiftRequestsForManager(supabase, tenantId, { kind: 'preference', fromDate: outerMonthStart, toDate: outerMonthEnd }),
     listShiftAssignments(supabase, tenantId, { fromIso: monthFromIso, toIsoExclusive: monthToIsoExclusive }),
     getWorkforceScheduleSettings(supabase, tenantId, locationId),
   ]);

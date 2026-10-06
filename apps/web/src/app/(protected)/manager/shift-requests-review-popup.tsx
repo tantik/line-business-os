@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
@@ -158,6 +158,12 @@ export function ShiftRequestsReviewPopup({
   const [reminderNonce, setReminderNonce] = useState('');
   const [reminderState, setReminderState] = useState<ReminderState>('idle');
 
+  // Once the page's own data reloads, the server rows are authoritative again
+  // (e.g. another Manager un-marked a row meanwhile).
+  useEffect(() => {
+    setStatusOverrides(new Map());
+  }, [requests]);
+
   const [monthChoice, setMonthChoice] = useState<MonthChoice>('next');
   const monthPrefix = monthChoice === 'next' ? nextMonthPrefix(todayIso) : todayIso.slice(0, 7);
   const monthLabel = monthLabelFor(monthPrefix, lang);
@@ -189,11 +195,15 @@ export function ShiftRequestsReviewPopup({
     () => (requests ?? []).filter((r) => r.workDate.startsWith(monthPrefix)),
     [requests, monthPrefix],
   );
+  // Keyed over ALL loaded preferences, not just this month's: a week row
+  // spans a month boundary, and an adjacent-month day must show its real
+  // state, not "–" (which means "no preference"). Counts below stay
+  // month-scoped via `requestsThisMonth`.
   const requestsByEmployeeAndDate = useMemo(() => {
     const map = new Map<string, WorkforceShiftRequest>();
-    for (const r of requestsThisMonth) map.set(`${r.employeeId}:${r.workDate}`, r);
+    for (const r of requests ?? []) map.set(`${r.employeeId}:${r.workDate}`, r);
     return map;
-  }, [requestsThisMonth]);
+  }, [requests]);
   const submittedEmployeeIds = useMemo(
     () => new Set(requestsThisMonth.map((r) => r.employeeId)),
     [requestsThisMonth],
@@ -240,7 +250,7 @@ export function ShiftRequestsReviewPopup({
     if (!request) {
       return (
         <span title={t('noPreferenceSubmittedHint')} aria-label={t('noPreferenceSubmittedHint')} style={{ ...mutedText, fontSize: 13 }}>
-          –
+          —
         </span>
       );
     }
@@ -290,6 +300,22 @@ export function ShiftRequestsReviewPopup({
     }
   }
 
+  /**
+   * The legacy design-kit Modal closes on a window-level Escape, so Escape
+   * inside a nested dialog also reaches this outer popup. Refuse to close
+   * while a write is in flight, and reset the nested dialogs on close so a
+   * reopen never shows a stale "sent" reminder or review dialog.
+   */
+  function handleClose() {
+    if (reviewSaving || reminderState === 'sending') return;
+    setReviewTarget(null);
+    setReviewError(false);
+    setReminderStaffId(null);
+    setReminderState('idle');
+    setHelpOpen(false);
+    onClose();
+  }
+
   function openReminder(staffId: string) {
     setReminderStaffId(staffId);
     setReminderNonce(newReminderNonce());
@@ -330,7 +356,7 @@ export function ShiftRequestsReviewPopup({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title={shiftRequestsHeadingValue[lang](monthLabel)}
       titleAdornment={<HelpIconButton ariaLabel={t('shiftRequestsPopupHelpAriaLabel')} onClick={() => setHelpOpen(true)} />}
       width="min(900px, 96vw)"

@@ -118,3 +118,7 @@ test('runAutoDistribution maps preferences without reading their review status, 
   assert.doesNotMatch(mapping, /status/);
   assert.doesNotMatch(body, /kind: 'preference', status|status: 'approved'|\.status === 'approved'/);
 });
+
+test('runAutoDistribution reads preferences bounded to the scheduled months, never the whole history', () => {
+  assert.match(runAutoDistributionBody(), /listShiftRequestsForManager\(supabase, tenantId, \{ kind: 'preference', fromDate: outerMonthStart, toDate: outerMonthEnd \}\)/);
+});

@@ -91,12 +91,15 @@ export async function listMyShiftRequests(
 export async function listShiftRequestsForManager(
   supabase: SupabaseClient,
   tenantId: string,
-  opts: { kind?: string; status?: string } = {},
+  /** `fromDate`/`toDate` (inclusive `YYYY-MM-DD` on `work_date`) bound the read: preference rows accumulate forever, and an unbounded read would eventually hit PostgREST's `max_rows` cap and be silently truncated. */
+  opts: { kind?: string; status?: string; fromDate?: string; toDate?: string } = {},
 ): Promise<TenantAccessResult<WorkforceShiftRequest[]>> {
   try {
     let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
     if (opts.kind) query = query.eq('kind', opts.kind);
     if (opts.status) query = query.eq('status', opts.status);
+    if (opts.fromDate) query = query.gte('work_date', opts.fromDate);
+    if (opts.toDate) query = query.lte('work_date', opts.toDate);
 
     const { data, error } = await query;
     if (error) return mapWorkforceReadError(error, 'read shift requests');

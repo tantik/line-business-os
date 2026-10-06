@@ -610,7 +610,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'About shift requests',
     shiftRequestsPopupHelpTitle: 'About shift requests',
     shiftRequestsPopupHelpBody:
-      'See the shift preferences your staff sent for a month. Staff send preferences for next month, so "Next month" is shown first.\n\nEach day shows one of:\n• A shift name: the shift they would like to work.\n• "Off": they cannot work that day. Automatic scheduling will not place them on it.\n• "–": no preference for that day. Automatic scheduling may still place them if needed.\n\nA name with a red "!" has not sent anything for that month yet ("submitted" means at least one day was sent). Tap the name to email them a reminder.\n\nTap a shift or "Off" to mark it as reviewed (✓). This is saved, but it is only a note for you: it does not change the schedule. Staff cannot change a day after sending it; if they need a change, edit the schedule directly.',
+      'See the shift preferences your staff sent for a month. Staff send preferences for next month, so "Next month" is shown first.\n\nEach day shows one of:\n• A shift name: the shift they would like to work.\n• "Off": they cannot work that day. Automatic scheduling will not place them on it (you can still assign a shift by hand).\n• "—": no preference for that day. Automatic scheduling may still place them if needed.\n\nA name with a red "!" has not sent anything for that month yet ("submitted" means at least one day was sent). In the "Next month" view, tap the name to email them a reminder.\n\nTap a shift or "Off" to mark it as reviewed (✓). This is saved, but it is only a note for you: it does not change the schedule. Staff cannot change a day after sending it; if they need a change, edit the schedule directly.',
     submittedPreferencesEmpty: 'No active staff to show.',
     noPreferenceSubmittedHint: 'No preference for this day',
     markedUnavailableHint: 'Cannot work this day',
@@ -933,7 +933,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
     shiftRequestsPopupHelpTitle: 'シフト希望について',
     shiftRequestsPopupHelpBody:
-      'スタッフが提出した月ごとのシフト希望を確認できます。スタッフは来月分を提出するため、最初は「来月」を表示します。\n\n各日の表示:\n• シフト名: その日に働きたいシフトです。\n• 「休み」: 勤務できない日です。自動作成ではこの日にシフトは入りません。\n• 「–」: その日の希望はありません。必要に応じて自動作成でシフトが入ることがあります。\n\n赤い「!」が付いた名前は、その月の希望をまだ1日も提出していないスタッフです（1日以上提出していれば「提出済み」と数えます）。名前をタップするとリマインダーメールを送れます。\n\nシフトまたは「休み」をタップすると「確認済み（✓）」にできます。記録は保存されますが、店長用のメモであり、スケジュールは変わりません。スタッフは提出後に自分で変更できないため、変更が必要な場合はスケジュールを直接編集してください。',
+      'スタッフが提出した月ごとのシフト希望を確認できます。スタッフは来月分を提出するため、最初は「来月」を表示します。\n\n各日の表示:\n• シフト名: その日に働きたいシフトです。\n• 「休み」: 勤務できない日です。自動作成ではこの日にシフトは入りません（手動では割り当てできます）。\n• 「—」: その日の希望はありません。必要に応じて自動作成でシフトが入ることがあります。\n\n赤い「!」が付いた名前は、その月の希望をまだ1日も提出していないスタッフです（1日以上提出していれば「提出済み」と数えます）。「来月」表示で名前をタップすると、リマインダーメールを送れます。\n\nシフトまたは「休み」をタップすると「確認済み（✓）」にできます。記録は保存されますが、店長用のメモであり、スケジュールは変わりません。スタッフは提出後に自分で変更できないため、変更が必要な場合はスケジュールを直接編集してください。',
     submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
     noPreferenceSubmittedHint: 'この日の希望はありません',
     markedUnavailableHint: 'この日は勤務できません',
@@ -942,7 +942,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     preferenceMonthNext: '来月',
     reviewPreferenceTitle: '希望を確認',
     priorityExplainerBody:
-      'スケジュール作成時の優先順位:\n1. Weekly Scheduleで手動設定したシフト\n2. スタッフが提出した希望（「休み」の日は自動で埋められません）。確認済みにしても、この順番は変わりません。\n3. 自動割り当て',
+      'スケジュール作成時の優先順位:\n1. 週間スケジュールで手動設定したシフト\n2. スタッフが提出した希望（「休み」の日は自動で埋められません）。確認済みにしても、この順番は変わりません。\n3. 自動割り当て',
     markReviewedButton: '確認済みにする',
     reviewedPreferenceTitle: '確認済みの希望',
     reviewedPreferenceBody: 'この希望を確認済みとして記録しました。ご自身の確認用のメモであり、スケジュールの自動作成には影響しません。',

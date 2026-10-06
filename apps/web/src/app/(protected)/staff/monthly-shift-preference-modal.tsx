@@ -223,7 +223,8 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
           const value: DayChoice = locked ? (locked.isUnavailable ? UNAVAILABLE : locked.shiftTypeId) : (selections[date] ?? null);
           const tone = cellTone(value);
           const dayNumber = Number(date.slice(-2));
-          const stateText = value === null ? optionTimeCaption(null) : optionLabel(value);
+          // A locked row with no shift type and not 休み is a manager-entered custom time -- never "not sent".
+          const stateText = value === null ? (locked ? optionLabel(null) : optionTimeCaption(null)) : optionLabel(value);
           return (
             <button
               key={date}

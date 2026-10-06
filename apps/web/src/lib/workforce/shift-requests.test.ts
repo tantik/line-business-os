@@ -293,3 +293,10 @@ test('setShiftPreferenceReviewed maps an RLS denial to unauthorized and a missin
   ]);
   assert.equal((await setShiftPreferenceReviewed(missing, TENANT_ID, 'r1', true)).status, 'not_found');
 });
+
+test('listShiftRequestsForManager bounds the read by work_date when fromDate/toDate are given (no silent max_rows truncation)', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  await listShiftRequestsForManager(client, TENANT_ID, { kind: 'preference', fromDate: '2026-11-01', toDate: '2026-11-30' });
+  assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'work_date' && c.args[1] === '2026-11-01'));
+  assert.ok(calls.some((c) => c.method === 'lte' && c.args[0] === 'work_date' && c.args[1] === '2026-11-30'));
+});

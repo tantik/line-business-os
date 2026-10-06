@@ -290,7 +290,7 @@ export default async function WorkforceManagerPage({
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-        listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference' }),
+        listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference', fromDate: exchangeWindow.periodStart }),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
         listAttendanceForManager(supabase, activeTenant.tenantId),
