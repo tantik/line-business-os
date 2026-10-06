@@ -737,7 +737,12 @@ export function InventoryDashboardBody({
         open={editing !== null}
         onClose={closeEditor}
         title={editing === 'new' ? t('newItemHeading') : `${t('editItemHeading')} — ${editingItem?.name ?? ''}`}
-        width="min(480px, 94vw)"
+        /* Founder Acceptance QA3 2026-10-06: 480px (a plain confirm-dialog
+           width) was cramped for this form (photo, qty/reorder/unit, price,
+           10 allergen chips) -- widened to match other dense add/edit forms'
+           comfort, short of the 1100px Recipes/Staff pattern since this stays
+           a nested Modal rather than swapping the parent popup's view. */
+        width="min(720px, 94vw)"
         closeLabel={t('cancelButton')}
       >
         {editing ? (

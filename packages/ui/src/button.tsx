@@ -45,6 +45,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       className={cn(
         'oruwa-button inline-flex items-center justify-center gap-2 rounded-md font-semibold leading-tight whitespace-nowrap',
         'transition-[filter,background-color,box-shadow] duration-base ease-standard',
+        /* Founder Acceptance QA3 2026-10-06: a native <button> has no built-in
+           pointer cursor (unlike <a>), and this project's Tailwind preflight
+           doesn't add one -- every DS v1 button showed the default arrow on
+           hover. */
+        'cursor-pointer',
         /* Tailwind's default opacity-50 utility matches state.disabled (0.5) exactly. */
         'disabled:cursor-not-allowed disabled:opacity-50',
         sizeClasses[size],
