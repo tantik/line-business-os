@@ -186,32 +186,29 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-06** (checked against git; `dev` HEAD `b329240`):
+**As of 2026-10-07** (checked against git; `dev` HEAD `ff1a9ce` + this docs PR):
 
 - **Founder Technical Freeze: APPROVED** (Founder decision, 2026-09-23).
 - **Founder Acceptance (Mission 11) is IN PROGRESS, not closed.** QA1/QA2
-  rounds closed (5 + 3 defects found and fixed, detail in
-  `docs/ai/SESSION_HANDOFF_2026-10-01.md`). QA3 (Founder running the
-  checklist personally) found three more small UI fixes (shipped, PRs
-  #553/#554) plus **one real product gap**: Manager → Settings → Shift
-  requests → Shift preferences looked finished but isn't — see next line.
-- **Next mission (not started): Shift Preferences / Shift Requests contract
-  recovery + real email reminder delivery.** Full spec:
-  `docs/ai/CAFE_V2_2_SHIFT_PREFERENCES_RECOVERY_AND_EMAIL_REMINDER_BRIEF_2026-10-06.md`
-  (read in full, it is the actual technical spec, not just a pointer).
-  Summary: (1) a Staff member marking a day "not working" in the monthly
-  preference UI currently produces **no database row at all**, not an
-  `is_unavailable = true` row — confirmed by reading the code, this is a
-  real defect, not hypothetical; (2) Manager's "review" of a preference is
-  local React state only, never persisted; (3) **Founder decision
-  2026-10-06**: real email reminder delivery (via Resend) is built now, in
-  this same mission — LINE delivery stays deferred to a separate v2.3
-  mission. **Start a new session from `docs/ai/SESSION_HANDOFF_2026-10-06.md`**
-  — it has the bootstrap prompt and the exact ask for the Resend API key.
-- **No open PRs.**
+  closed (`SESSION_HANDOFF_2026-10-01.md`); QA3 is with the Founder.
+- **Shift Preferences recovery + email reminder: CLOSED WITH GAPS**
+  (#557, #558): three-state Staff preferences, persisted Manager 確認済み,
+  next-month counting, real Resend send path. Gap: a real email was not
+  delivered because `RESEND_API_KEY` is not in the Preview runtime
+  (DEBT-073, Founder Vercel action).
+- **Full functional QA of every block except LINE (Founder request
+  2026-10-07): done**, 18 blocks exercised live as Manager and Staff; fixes
+  in #559 (publish-week action that had been lost, exact earnings, Operations
+  exception detail + Staff warning, live Staff Mail, expired exchange
+  requests). Detail, coverage matrix, open items:
+  `docs/ai/SESSION_HANDOFF_2026-10-07.md`.
+- **Founder actions open**: DEBT-073 (Vercel env), invite-email inbox check
+  (DEBT-072), Staff B password (DEBT-079), QA residue / demo tenant
+  (DEBT-080 with DEBT-004), monthly worker hosting (DEBT-074).
+- **No open PRs** after this docs PR.
 - **Cafe v2.2 is NOT declared CLOSED.** Commercial Release remains a
   separate Founder decision (DEBT-053 copy/allergen wording, DEBT-001 to
-  DEBT-004/059/066/067 demo data, DEBT-035/036/043 production path,
+  DEBT-004/059/066/067/080 demo data, DEBT-035/036/043 production path,
   DEBT-049 second tenant, DEBT-061 Production Data API probe).
 - Production and `main` are untouched and separately gated.
 
