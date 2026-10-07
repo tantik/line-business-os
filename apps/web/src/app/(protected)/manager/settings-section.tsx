@@ -16,6 +16,7 @@ import {
   shiftRequestsMissingLabel,
   shiftRequestsSubmittedLabel,
   tManagerDashboard,
+  unpublishedShiftsLabel,
 } from './manager-dashboard-i18n';
 
 export interface SettingsSectionProps {
@@ -50,6 +51,10 @@ export interface SettingsSectionProps {
   /** True when the displayed week is entirely in the past (before "today" in the location's own timezone) -- past shifts are immutable, so regeneration would have nothing left to do; the button is disabled rather than letting the Manager hit a guaranteed period_in_past error. */
   autoCreateUnavailable: boolean;
   lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
+  /** Drafts (not yet visible to staff) in the week being viewed; the Publish action shows only when > 0. The parent owns the confirm dialog and the write. */
+  unpublishedThisWeekCount: number;
+  onPublishWeek: () => void;
+  publishWeekPending: boolean;
   lang: Lang;
 }
 
@@ -80,6 +85,9 @@ export function SettingsSection({
   autoCreatePending,
   autoCreateUnavailable,
   lastAutoCreateResult,
+  unpublishedThisWeekCount,
+  onPublishWeek,
+  publishWeekPending,
   lang,
 }: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -499,7 +507,21 @@ export function SettingsSection({
             >
               {autoCreatePending ? t('automationManualCreateRunning') : t('automationManualCreateButton')}
             </button>
+            {unpublishedThisWeekCount > 0 ? (
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={publishWeekPending ? buttonDisabled : buttonSecondary}
+                disabled={publishWeekPending}
+                onClick={onPublishWeek}
+              >
+                {publishWeekPending ? t('publishingWeek') : t('publishWeekButton')}
+              </button>
+            ) : null}
           </div>
+          {unpublishedThisWeekCount > 0 ? (
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: colors.warning, fontWeight: 600 }}>{unpublishedShiftsLabel[lang](unpublishedThisWeekCount)}</p>
+          ) : null}
           {autoCreateUnavailable ? (
             <p style={{ margin: '8px 0 0', fontSize: 13, ...mutedText }}>{t('autoCreateWeekFullyPastNote')}</p>
           ) : null}

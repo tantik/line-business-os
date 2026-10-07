@@ -107,6 +107,7 @@ export function TransportForm({ workDate, defaultTransportationCost, lang, onSuc
         style={input}
         type="number"
         min={0}
+        aria-label={t('transportationCostLabel')}
         value={value}
         onChange={(event) => handleChange(event.target.value)}
         onKeyDown={handleKeyDown}

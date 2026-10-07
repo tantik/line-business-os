@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { OperationsOpenException } from '@/lib/operations/exceptions';
 import type { OperationsExpectedTask } from '@/lib/operations/tasks';
 import type { OperationsTemplateItem } from '@/lib/operations/templates';
 import { resolveException } from '@/lib/operations/exceptions-actions';
+import { getRecordedNumericValue } from '@/lib/operations/tasks-actions';
 import { Button, Field, InlineAlert, MetadataText, StatusBadge, Textarea } from '@line-os/ui';
 import { describeOperationsWriteError } from './error-copy';
 import type { tOperations } from './operations-i18n';
@@ -198,6 +199,24 @@ interface ExceptionRowProps {
 function ExceptionRow({ t, lang, exception, itemById, onChange }: ExceptionRowProps) {
   const [resolving, setResolving] = useState(false);
   const item = exception.itemId ? (itemById.get(exception.itemId) ?? null) : null;
+  const isThreshold = exception.source === 'threshold';
+  // A threshold exception's `note` is a fixed English system string written by
+  // the DB (0101); show a localized hint plus the recorded value and the
+  // configured range instead, so the Manager sees what was actually measured.
+  const [recordedValue, setRecordedValue] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isThreshold || !exception.instanceId || !exception.itemId) return;
+    let cancelled = false;
+    void getRecordedNumericValue({ instanceId: exception.instanceId, itemId: exception.itemId }).then((result) => {
+      if (!cancelled && result.status === 'success') setRecordedValue(result.data.responseNumeric);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isThreshold, exception.instanceId, exception.itemId]);
+  const unit = item?.numericUnit ? ` ${item.numericUnit}` : '';
+  const range =
+    item && (item.numericMin !== null || item.numericMax !== null) ? `${item.numericMin ?? ''}–${item.numericMax ?? ''}${unit}` : null;
 
   return (
     <div className="flex flex-col gap-1.5 rounded-sm bg-surface-elevated p-2.5">
@@ -206,7 +225,15 @@ function ExceptionRow({ t, lang, exception, itemById, onChange }: ExceptionRowPr
           {t('attentionItemLabel')}: {item.label}
         </MetadataText>
       ) : null}
-      {exception.note ? <p className="m-0 text-sm text-text-primary">{exception.note}</p> : null}
+      {isThreshold ? (
+        <p className="m-0 text-sm text-text-primary">
+          {t('attentionThresholdHint')}
+          {recordedValue !== null ? ` ${t('attentionMeasuredValueLabel')}: ${recordedValue}${unit}` : ''}
+          {range ? ` (${t('attentionRangeLabel')}: ${range})` : ''}
+        </p>
+      ) : exception.note ? (
+        <p className="m-0 text-sm text-text-primary">{exception.note}</p>
+      ) : null}
       {exception.source === 'critical_missed' ? (
         <p className="m-0 text-sm text-text-primary">
           {t('attentionCriticalMissedHint')}

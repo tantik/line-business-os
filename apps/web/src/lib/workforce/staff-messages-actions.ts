@@ -6,6 +6,7 @@ import { getMyWorkforceStaffProfile } from './staff-profile';
 import { getWorkforceStaffDirectoryEntryById } from './employees';
 import {
   archiveStaffMessage as archiveStaffMessageWrite,
+  listMyStaffMessages,
   markStaffMessageRead as markStaffMessageReadWrite,
   sendManagerMessage as sendManagerMessageWrite,
   sendStaffMessage as sendStaffMessageWrite,
@@ -131,4 +132,17 @@ export async function archiveStaffMessageAction(formData: FormData): Promise<Wor
 
   const supabase = await createClient();
   return archiveStaffMessageWrite(supabase, tenantContext.data.activeTenant.tenantId, input.messageId);
+}
+
+/**
+ * Staff: re-read the caller's own thread (RLS `wf_staff_messages_self_select`)
+ * for the dashboard's background poll, so a Manager reply shows up on the
+ * Mail button without a page reload (2026-10-07 full QA: it did not).
+ */
+export async function getMyStaffMessages(): Promise<WorkforceWriteResult<WorkforceStaffMessage[]>> {
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return listMyStaffMessages(supabase, tenantContext.data.activeTenant.tenantId);
 }

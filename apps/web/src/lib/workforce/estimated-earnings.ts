@@ -21,23 +21,32 @@ export function elapsedWorkedMinutes(clockInIso: string, endIso: string, actualB
   return Math.max(elapsedMinutes - Math.max(actualBreakMinutes, 0), 0);
 }
 
-export function workedHoursForMonth(attendance: WorkforceAttendance[], monthPrefix: string): number {
-  const minutes = attendance.reduce((total, row) => {
+function workedMinutesForMonth(attendance: WorkforceAttendance[], monthPrefix: string): number {
+  return attendance.reduce((total, row) => {
     if (!row.workDate.startsWith(monthPrefix) || !row.clockIn || !row.clockOut) return total;
     return total + elapsedWorkedMinutes(row.clockIn, row.clockOut, row.actualBreakMinutes);
   }, 0);
-  return Math.round((minutes / 60) * 10) / 10;
 }
 
+/** Display hours, rounded to 0.1h. Never multiply this by a wage -- see `estimatedEarningsSummary`. */
+export function workedHoursForMonth(attendance: WorkforceAttendance[], monthPrefix: string): number {
+  return Math.round((workedMinutesForMonth(attendance, monthPrefix) / 60) * 10) / 10;
+}
+
+/**
+ * Yen is computed from exact worked minutes, not from the 0.1h-rounded
+ * display hours (2026-10-07 full QA: 4h50m at ¥1,200 showed ¥5,760 -- 4.8h x
+ * 1,200 -- instead of ¥5,800; the error reaches 0.05h x wage per month).
+ */
 export function estimatedEarningsSummary(
   attendance: WorkforceAttendance[],
   monthPrefix: string,
   hourlyWageYen: number | null,
 ): EstimatedEarningsSummary {
-  const workedHours = workedHoursForMonth(attendance, monthPrefix);
+  const minutes = workedMinutesForMonth(attendance, monthPrefix);
   return {
-    workedHours,
+    workedHours: Math.round((minutes / 60) * 10) / 10,
     hourlyWageYen,
-    estimatedEarningsYen: hourlyWageYen === null ? null : Math.round(workedHours * hourlyWageYen),
+    estimatedEarningsYen: hourlyWageYen === null ? null : Math.round((minutes / 60) * hourlyWageYen),
   };
 }

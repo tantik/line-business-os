@@ -236,6 +236,10 @@ interface ManagerDashboardDict {
   autoCreateUndoButton: string;
   autoCreateUndoing: string;
   autoCreateUndone: string;
+  // Publishing a week's drafts (auto-created shifts are drafts; staff see only published shifts).
+  publishWeekButton: string;
+  publishingWeek: string;
+  publishWeekConfirmTitle: string;
   // "Estimated labour cost" box below the schedule grid (Round 3, 2026-08-22)
   estimatedLabourCostLabel: string;
   // Shift types section
@@ -344,6 +348,7 @@ interface ManagerDashboardDict {
   exchangeReplacementLabel: string;
   exchangeReplacementNotAssigned: string;
   exchangeWaitingForCandidate: string;
+  exchangeExpiredNote: string;
   assignReplacementButton: string;
   changeReplacementButton: string;
   selectReplacementTitle: string;
@@ -585,6 +590,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     autoCreateUndoButton: 'Undo automatic creation',
     autoCreateUndoing: 'Undoing...',
     autoCreateUndone: 'Automatic creation undone -- the shifts it created were removed.',
+    publishWeekButton: 'Publish this week',
+    publishingWeek: 'Publishing…',
+    publishWeekConfirmTitle: "Publish this week's shifts?",
     estimatedLabourCostLabel: 'Estimated labour cost',
     shiftTypesHeading: 'Shift types',
     shiftTypesUnavailable: 'Shift types are temporarily unavailable.',
@@ -676,6 +684,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangeReplacementLabel: 'Replacement',
     exchangeReplacementNotAssigned: 'Not assigned',
     exchangeWaitingForCandidate: 'Waiting for candidate',
+    exchangeExpiredNote: 'Expired: this shift has already started, so it can no longer be approved. Reject it to clear it from the list.',
     assignReplacementButton: 'Assign replacement',
     changeReplacementButton: 'Change',
     selectReplacementTitle: 'Select replacement',
@@ -909,6 +918,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     autoCreateUndoButton: '自動作成を取り消す',
     autoCreateUndoing: '取り消し中...',
     autoCreateUndone: '自動作成を取り消しました -- 作成されたシフトは削除されました。',
+    publishWeekButton: 'この週のシフトを公開',
+    publishingWeek: '公開中…',
+    publishWeekConfirmTitle: 'この週のシフトを公開しますか？',
     estimatedLabourCostLabel: '概算人件費',
     shiftTypesHeading: 'シフト種別',
     shiftTypesUnavailable: 'シフト種別は一時的に利用できません。',
@@ -1000,6 +1012,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     exchangeReplacementLabel: '交換相手',
     exchangeReplacementNotAssigned: '未指定',
     exchangeWaitingForCandidate: '交換相手を待っています',
+    exchangeExpiredNote: '期限切れ：シフトの開始時刻を過ぎているため承認できません。「却下」で一覧から消せます。',
     assignReplacementButton: '交換相手を指名',
     changeReplacementButton: '変更',
     selectReplacementTitle: '交換相手を選択',
@@ -1296,4 +1309,20 @@ export const autoCreateLastResultSummary: Record<
     if (missingPreferences > 0) parts.push(`希望未提出${missingPreferences}`);
     return parts.join('・');
   },
+};
+
+/** Settings/auto-create result: how many shifts in the displayed week are still drafts (auto-created, not yet visible to staff). */
+export const unpublishedShiftsLabel: Record<Lang, (count: number) => string> = {
+  en: (count) => `Unpublished shifts this week: ${count} (staff cannot see them yet)`,
+  ja: (count) => `この週の未公開シフト: ${count}件（スタッフにはまだ表示されていません）`,
+};
+
+export const publishWeekConfirmBody: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} draft shift(s) in this week will become visible to staff. You can still edit any shift afterwards.`,
+  ja: (count) => `この週の下書きシフト${count}件がスタッフに表示されます。公開後も各シフトは編集できます。`,
+};
+
+export const publishWeekDoneMessage: Record<Lang, (count: number) => string> = {
+  en: (count) => `Published ${count} shift(s). Staff can now see them.`,
+  ja: (count) => `${count}件のシフトを公開しました。スタッフに表示されます。`,
 };

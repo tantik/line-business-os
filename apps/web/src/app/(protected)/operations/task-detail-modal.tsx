@@ -312,6 +312,17 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
       ? `${t('numericRangeHint')}: ${item.numericMin ?? '—'}–${item.numericMax ?? '—'}${item.numericUnit ? ` ${item.numericUnit}` : ''}`
       : t('thresholdNotConfiguredStaff');
 
+  // Same rule as the server's threshold check (0101): the SAVED value (not the
+  // unsaved input) outside the configured range opened an exception for the
+  // Manager. Before this, Staff got no signal at all that 8 °C in a 0-5 °C
+  // fridge check was a problem (2026-10-07 full QA).
+  const saved = response?.responseNumeric;
+  const savedOutOfRange =
+    item.responseType === 'numeric' &&
+    saved !== null &&
+    saved !== undefined &&
+    ((item.numericMin !== null && saved < item.numericMin) || (item.numericMax !== null && saved > item.numericMax));
+
   return (
     <li className="flex flex-col gap-2 rounded-md bg-surface-elevated p-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
@@ -359,6 +370,7 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
             ) : null}
           </div>
           <MetadataText>{rangeHint}</MetadataText>
+          {savedOutOfRange ? <InlineAlert tone="warning">{t('outOfRangeStaffWarning')}</InlineAlert> : null}
         </div>
       ) : (
         <div className="flex items-end gap-2">

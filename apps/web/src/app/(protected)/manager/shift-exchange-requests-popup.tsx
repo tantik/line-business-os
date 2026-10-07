@@ -157,7 +157,12 @@ export function ShiftExchangeRequestsPopup({
             // a replacement (either a colleague accepted it themselves, or a
             // Manager assigned one via this popup) -- the RPC itself also
             // rejects an approve without one.
-            const canApprove = e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId);
+            // The decide RPC (0050) only accepts a request whose shift still
+            // starts in the future; past ones used to offer Approve and then
+            // fail with "not up to date" forever (2026-10-07 full QA). Mark
+            // them expired and offer only Reject, which clears them.
+            const expired = !shift || new Date(shift.startsAt).getTime() <= Date.now();
+            const canApprove = !expired && (e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId));
             const isSelecting = selectingFor === e.exchangeId;
 
             const candidates =
@@ -178,6 +183,7 @@ export function ShiftExchangeRequestsPopup({
                   <div>
                     <div style={{ fontWeight: 600 }}>{requesterName}</div>
                     <div style={mutedText}>{shiftLocal ? `${shiftLocal.workDate} · ${shiftLocal.localTime}` : '-'}</div>
+                    {expired ? <div style={{ fontSize: 13, fontWeight: 600, color: colors.warning }}>{t('exchangeExpiredNote')}</div> : null}
                     {/* Two pending requests can otherwise look identical (same requester, shift date/time, reason) when they reference different underlying shifts -- shows each request's own submission time so a Manager can tell them apart without guessing. */}
                     <div style={{ ...mutedText, fontSize: 12 }}>
                       {t('attentionSubmittedAtPrefix')} {utcIsoToLocalDateTime(e.createdAt, timeZone).workDate} {utcIsoToLocalDateTime(e.createdAt, timeZone).localTime}
@@ -196,7 +202,7 @@ export function ShiftExchangeRequestsPopup({
                           {deciding ? t('saving') : t('approve')}
                         </button>
                       ) : null}
-                      {e.requestKind === 'exchange' ? (
+                      {e.requestKind === 'exchange' && !expired ? (
                         <button
                           type="button"
                           className={hoverStyles.buttonSecondary}
@@ -232,7 +238,7 @@ export function ShiftExchangeRequestsPopup({
                   <div style={{ marginTop: 8 }}>
                     <div style={{ ...mutedText, fontSize: 12 }}>{t('exchangeReplacementLabel')}</div>
                     <div style={{ fontSize: 14 }}>{replacementName ?? t('exchangeReplacementNotAssigned')}</div>
-                    {!e.replacementEmployeeId ? <div style={{ fontSize: 13, color: colors.warning }}>{t('exchangeWaitingForCandidate')}</div> : null}
+                    {!e.replacementEmployeeId && !expired ? <div style={{ fontSize: 13, color: colors.warning }}>{t('exchangeWaitingForCandidate')}</div> : null}
                   </div>
                 ) : null}
                 {e.reason ? (

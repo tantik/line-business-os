@@ -54,12 +54,15 @@ import {
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
   estimatedLabourCostMissingRate,
+  publishWeekConfirmBody,
+  publishWeekDoneMessage,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
   unplacedReasonLabel,
+  unpublishedShiftsLabel,
 } from './manager-dashboard-i18n';
-import { runAutoDistribution, undoAutoDistribution } from '@/lib/workforce/schedule-actions';
+import { publishSchedule, runAutoDistribution, undoAutoDistribution } from '@/lib/workforce/schedule-actions';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { AttentionPanel } from './attention-panel';
 import { EntryPointsCard } from '../_ui/entry-points-card';
@@ -89,6 +92,7 @@ import dashboardStyles from './manager-dashboard.module.css';
 import {
   alertDanger,
   buttonDisabled,
+  buttonPrimary,
   buttonSecondary,
   colors,
   mutedText,
@@ -427,6 +431,7 @@ function ManagerDashboardBody({
   // only { locationId, periodStart, periodEnd } for the week being viewed;
   // the server owns the staffing windows / headcount / hours cap.
   const [autoCreateConfirmOpen, setAutoCreateConfirmOpen] = useState(false);
+  const [publishWeekConfirmOpen, setPublishWeekConfirmOpen] = useState(false);
   const [autoCreateResult, setAutoCreateResult] = useState<RunAutoDistributionActionResult | null>(null);
   const [lastAutoCreateResult, setLastAutoCreateResult] = useState<
     { created: number; shortages: number; unplaced: number; missingPreferences: number } | null
@@ -604,6 +609,15 @@ function ManagerDashboardBody({
         })
         .filter((a) => dates.includes(a.workDate)),
     [scheduleWindowAssignments, dates, timeZone],
+  );
+
+  // Drafts (auto-created, `published = false`) in the displayed week. The grid
+  // deliberately draws drafts and published shifts the same (Founder Review
+  // Round 2), so this count is the Manager's only signal that staff cannot
+  // see part of the week yet -- shown next to the Publish action.
+  const unpublishedThisWeekCount = useMemo(
+    () => localAssignments.filter((a) => !a.assignment.published && a.assignment.locationId === locationId).length,
+    [localAssignments, locationId],
   );
 
   // Cafe v2.1 QA audit P2-10: employee/date pairs with both a submitted
@@ -937,6 +951,34 @@ function ManagerDashboardBody({
         router.refresh();
       } else if (result.status === 'invalid_config') {
         setBanner({ tone: 'error', message: autoCreateConfigErrorMessage[lang](result.reason) });
+      } else {
+        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
+      }
+      setPendingAction(null);
+    });
+  }
+
+  /**
+   * Publish every draft in the displayed week (2026-10-07 Founder Acceptance
+   * full QA: the Publish action promised by the automation help text had been
+   * lost when it moved out of the grid header, so auto-created drafts could
+   * only reach staff one cell-save at a time). Uses the existing
+   * `publishSchedule` action: location- and period-scoped server-side, RLS
+   * `wf_shifts_manage` (`workforce.shift.write`).
+   */
+  function handlePublishWeek() {
+    setBanner(null);
+    setPendingAction('publish-week');
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set('locationId', locationId);
+      formData.set('periodStart', activePeriodStart);
+      formData.set('periodEnd', activePeriodEnd);
+      const result = await publishSchedule(formData);
+      if (result.status === 'success') {
+        setAutoCreateResult(null);
+        setBanner({ tone: 'success', message: publishWeekDoneMessage[lang](result.data.published) });
+        router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
@@ -1597,8 +1639,27 @@ function ManagerDashboardBody({
         autoCreatePending={isPending && pendingAction === 'auto-create'}
         autoCreateUnavailable={activePeriodEnd < todayIso}
         lastAutoCreateResult={lastAutoCreateResult}
+        unpublishedThisWeekCount={unpublishedThisWeekCount}
+        onPublishWeek={() => setPublishWeekConfirmOpen(true)}
+        publishWeekPending={isPending && pendingAction === 'publish-week'}
         lang={lang}
       />
+
+      <ConfirmDialog
+        open={publishWeekConfirmOpen}
+        title={t('publishWeekConfirmTitle')}
+        confirmLabel={t('publishWeekButton')}
+        cancelLabel={t('cancel')}
+        pending={isPending && pendingAction === 'publish-week'}
+        onCancel={() => setPublishWeekConfirmOpen(false)}
+        onConfirm={() => {
+          setPublishWeekConfirmOpen(false);
+          handlePublishWeek();
+        }}
+      >
+        <p style={{ margin: 0 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</p>
+        <p style={{ margin: '8px 0 0' }}>{publishWeekConfirmBody[lang](unpublishedThisWeekCount)}</p>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={autoCreateConfirmOpen}
@@ -1714,6 +1775,21 @@ function ManagerDashboardBody({
             ) : null}
 
             <p style={{ margin: 0, fontSize: 13, ...mutedText }}>{autoCreatePreservedNote[lang](autoCreateResult.preservedCount)}</p>
+
+            {unpublishedThisWeekCount > 0 ? (
+              <div>
+                <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>{unpublishedShiftsLabel[lang](unpublishedThisWeekCount)}</p>
+                <button
+                  type="button"
+                  className={hoverStyles.buttonPrimary}
+                  style={isPending ? buttonDisabled : buttonPrimary}
+                  disabled={isPending}
+                  onClick={() => setPublishWeekConfirmOpen(true)}
+                >
+                  {t('publishWeekButton')}
+                </button>
+              </div>
+            ) : null}
 
             {autoCreateResult.createdAssignmentIds.length > 0 ? (
               <button
