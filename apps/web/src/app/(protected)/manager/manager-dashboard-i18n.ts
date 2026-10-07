@@ -282,6 +282,8 @@ interface ManagerDashboardDict {
   noPreferenceSubmittedHint: string;
   markedUnavailableHint: string;
   preferenceUnavailableChip: string;
+  // One-glyph cell form of preferenceUnavailableChip: a day column is ~20px wide at a 320px viewport.
+  preferenceUnavailableCellShort: string;
   preferenceMonthCurrent: string;
   preferenceMonthNext: string;
   reviewPreferenceTitle: string;
@@ -615,6 +617,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     noPreferenceSubmittedHint: 'No preference for this day',
     markedUnavailableHint: 'Cannot work this day',
     preferenceUnavailableChip: 'Off',
+    preferenceUnavailableCellShort: 'Off',
     preferenceMonthCurrent: 'This month',
     preferenceMonthNext: 'Next month',
     reviewPreferenceTitle: 'Review preference',
@@ -933,11 +936,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     shiftRequestsPopupHelpAriaLabel: 'シフト希望について',
     shiftRequestsPopupHelpTitle: 'シフト希望について',
     shiftRequestsPopupHelpBody:
-      'スタッフが提出した月ごとのシフト希望を確認できます。スタッフは来月分を提出するため、最初は「来月」を表示します。\n\n各日の表示:\n• シフト名: その日に働きたいシフトです。\n• 「休み」: 勤務できない日です。自動作成ではこの日にシフトは入りません（手動では割り当てできます）。\n• 「—」: その日の希望はありません。必要に応じて自動作成でシフトが入ることがあります。\n\n赤い「!」が付いた名前は、その月の希望をまだ1日も提出していないスタッフです（1日以上提出していれば「提出済み」と数えます）。「来月」表示で名前をタップすると、リマインダーメールを送れます。\n\nシフトまたは「休み」をタップすると「確認済み（✓）」にできます。記録は保存されますが、店長用のメモであり、スケジュールは変わりません。スタッフは提出後に自分で変更できないため、変更が必要な場合はスケジュールを直接編集してください。',
+      'スタッフが提出した月ごとのシフト希望を確認できます。スタッフは来月分を提出するため、最初は「来月」を表示します。\n\n各日の表示:\n• シフト名: その日に働きたいシフトです。\n• 「休」（休み）: 勤務できない日です。自動作成ではこの日にシフトは入りません（手動では割り当てできます）。\n• 「—」: その日の希望はありません。必要に応じて自動作成でシフトが入ることがあります。\n\n赤い「!」が付いた名前は、その月の希望をまだ1日も提出していないスタッフです（1日以上提出していれば「提出済み」と数えます）。「来月」表示で名前をタップすると、リマインダーメールを送れます。\n\nシフトまたは「休」をタップすると「確認済み（✓）」にできます。記録は保存されますが、店長用のメモであり、スケジュールは変わりません。スタッフは提出後に自分で変更できないため、変更が必要な場合はスケジュールを直接編集してください。',
     submittedPreferencesEmpty: '表示できる有効なスタッフがいません。',
     noPreferenceSubmittedHint: 'この日の希望はありません',
     markedUnavailableHint: 'この日は勤務できません',
     preferenceUnavailableChip: '休み',
+    preferenceUnavailableCellShort: '休',
     preferenceMonthCurrent: '今月',
     preferenceMonthNext: '来月',
     reviewPreferenceTitle: '希望を確認',
