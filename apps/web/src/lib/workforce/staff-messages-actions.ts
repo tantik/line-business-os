@@ -144,5 +144,9 @@ export async function getMyStaffMessages(): Promise<WorkforceWriteResult<Workfor
   if (tenantContext.status !== 'success') return tenantContext;
 
   const supabase = await createClient();
-  return listMyStaffMessages(supabase, tenantContext.data.activeTenant.tenantId);
+  const tenantId = tenantContext.data.activeTenant.tenantId;
+  const myProfile = await getMyWorkforceStaffProfile(supabase, tenantId);
+  if (myProfile.status !== 'success') return myProfile;
+  if (!myProfile.data) return NO_STAFF_PROFILE_RESULT;
+  return listMyStaffMessages(supabase, tenantId, myProfile.data.staffId);
 }

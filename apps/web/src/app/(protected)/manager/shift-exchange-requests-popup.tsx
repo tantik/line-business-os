@@ -161,7 +161,9 @@ export function ShiftExchangeRequestsPopup({
             // starts in the future; past ones used to offer Approve and then
             // fail with "not up to date" forever (2026-10-07 full QA). Mark
             // them expired and offer only Reject, which clears them.
-            const expired = !shift || new Date(shift.startsAt).getTime() <= Date.now();
+            // A shift outside the loaded ±8-week window is unknown, not
+            // expired -- leave it decidable; the server stays authoritative.
+            const expired = shift ? new Date(shift.startsAt).getTime() <= Date.now() : false;
             const canApprove = !expired && (e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId));
             const isSelecting = selectingFor === e.exchangeId;
 

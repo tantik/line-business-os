@@ -271,7 +271,7 @@ export default async function WorkforceStaffPage({
         // Staff<->Manager Mail (0090) -- the caller's own single thread
         // (self-scoped by RLS `wf_staff_messages_self_select`). Also the
         // exact data `StaffMailPopup` renders (no separate fetch).
-        listMyStaffMessages(supabase, activeTenant.tenantId),
+        listMyStaffMessages(supabase, activeTenant.tenantId, profile.staffId),
         // Also the exact data the Inventory popup below renders -- no
         // separate fetch, same pattern the Manager dashboard's own
         // `InventoryPopup` uses.

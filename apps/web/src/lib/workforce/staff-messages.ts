@@ -74,13 +74,16 @@ function mapMessageRow(row: ApiWorkforceStaffMessageRow): WorkforceStaffMessage 
 export async function listMyStaffMessages(
   supabase: SupabaseClient,
   tenantId: string,
+  /** The caller's own employee id. RLS alone is not enough: a Manager opening /staff also matches `wf_staff_messages_manage_select` and would get every thread at the location. */
+  employeeId: string,
 ): Promise<TenantAccessResult<WorkforceStaffMessage[]>> {
   try {
     const { data, error } = await supabase
       .schema('api')
       .from('workforce_staff_messages')
       .select(MESSAGE_SELECT)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('employee_id', employeeId);
 
     if (error) return mapWorkforceReadError(error, 'read your messages');
 
