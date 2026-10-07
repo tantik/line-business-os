@@ -266,6 +266,10 @@ test('publishShiftAssignments reports the published count and filters published=
   const result = await publishShiftAssignments(client, TENANT_ID, 'loc-1', '2026-08-01T00:00:00.000Z', '2026-08-08T00:00:00.000Z');
   assert.deepEqual(result, { status: 'success', data: { published: 1 } });
   assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'published' && c.args[1] === false));
+  assert.ok(
+    calls.some((c) => c.method === 'not' && c.args[0] === 'employee_id' && c.args[1] === 'is' && c.args[2] === null),
+    'only assigned drafts are published (orphaned unassigned rows from undo/replace are skipped)',
+  );
 });
 
 test('clearUnconfirmedDraftAssignmentsInPeriod nulls employee_id, scoped to tenant + location + published=false within the period bounds', async () => {
