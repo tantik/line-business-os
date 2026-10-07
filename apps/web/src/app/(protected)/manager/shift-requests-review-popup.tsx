@@ -95,12 +95,15 @@ const missingCornerStyle: CSSProperties = {
   textAlign: 'center',
 };
 
+/** "Reviewed" check as a corner badge (same shape as `missingCornerStyle`) rather than a "✓ " text prefix, so it never eats the label's width in a ~33px-wide 320px-viewport cell. */
+const reviewedCornerStyle: CSSProperties = { ...missingCornerStyle, background: colors.success };
+
 function cellButtonStyle(tone: { background: string; color: string } | null, clickable: boolean): CSSProperties {
   return {
     position: 'relative',
     width: '100%',
     height: minTouchTarget,
-    padding: '6px 8px',
+    padding: '6px 2px',
     borderRadius: 8,
     border: tone ? '1px solid transparent' : `1px dashed ${colors.border}`,
     background: tone ? tone.background : 'transparent',
@@ -277,7 +280,12 @@ export function ShiftRequestsReviewPopup({
           setReviewTarget({ staffId, date, request });
         }}
       >
-        {reviewed ? `✓ ${label}` : label}
+        {label}
+        {reviewed ? (
+          <span aria-hidden="true" style={reviewedCornerStyle}>
+            ✓
+          </span>
+        ) : null}
       </button>
     );
   }

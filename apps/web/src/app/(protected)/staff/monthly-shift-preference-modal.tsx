@@ -117,6 +117,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
   function cyclePreference(date: string) {
     if (lockedByDate.has(date)) return;
+    setError(null);
     const current = selections[date] ?? null;
     const idx = cycleOptions.indexOf(current);
     const next = cycleOptions[(idx + 1) % cycleOptions.length] ?? null;
