@@ -77,7 +77,7 @@ const gridHeaderCellStyle: CSSProperties = {
   background: colors.surfaceElevated,
 };
 
-const gridCellStyle: CSSProperties = { border: `1px solid ${colors.border}`, padding: '3px', textAlign: 'center' };
+const gridCellStyle: CSSProperties = { border: `1px solid ${colors.border}`, padding: '1px', textAlign: 'center' };
 
 /** Small corner badge marking a staff row that hasn't submitted preferences yet -- same absolute-corner-circle shape as the Weekly Schedule grid's own alert marker, kept local here rather than importing that file's private constant. */
 const missingCornerStyle: CSSProperties = {
@@ -259,7 +259,7 @@ export function ShiftRequestsReviewPopup({
     }
 
     const shiftType = request.shiftTypeId ? shiftTypeById.get(request.shiftTypeId) : undefined;
-    const label = request.isUnavailable ? t('preferenceUnavailableChip') : shiftType ? shiftTypeDisplayLabel(shiftType) : t('shiftTypeCustom');
+    const label = request.isUnavailable ? t('preferenceUnavailableCellShort') : shiftType ? shiftTypeDisplayLabel(shiftType) : t('shiftTypeCustom');
     const tone = request.isUnavailable
       ? UNAVAILABLE_CHIP_TONE
       : request.shiftTypeId
@@ -524,7 +524,7 @@ export function ShiftRequestsReviewPopup({
           {weekHasCustom ? <span style={shiftChipStyle(CUSTOM_CHIP_TONE)}>{t('shiftTypeCustom')}</span> : null}
           {weekHasUnavailable ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={shiftChipStyle(UNAVAILABLE_CHIP_TONE)}>{t('preferenceUnavailableChip')}</span>
+              <span style={shiftChipStyle(UNAVAILABLE_CHIP_TONE)}>{t('preferenceUnavailableCellShort')}</span>
               <span style={{ ...mutedText, fontSize: 12 }}>{t('markedUnavailableHint')}</span>
             </span>
           ) : null}
