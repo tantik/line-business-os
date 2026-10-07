@@ -1318,8 +1318,8 @@ export const unpublishedShiftsLabel: Record<Lang, (count: number) => string> = {
 };
 
 export const publishWeekConfirmBody: Record<Lang, (count: number) => string> = {
-  en: (count) => `${count} draft shift(s) in this week will become visible to staff. You can still edit any shift afterwards.`,
-  ja: (count) => `この週の下書きシフト${count}件がスタッフに表示されます。公開後も各シフトは編集できます。`,
+  en: (count) => `${count} draft shift(s) in this week will become visible to staff. You can still edit any shift afterwards, but running "Create schedule automatically" again will no longer replace them.`,
+  ja: (count) => `この週の下書きシフト${count}件がスタッフに表示されます。公開後も各シフトは編集できますが、もう一度「自動でシフトを作成」を実行しても置き換えられません。`,
 };
 
 export const publishWeekDoneMessage: Record<Lang, (count: number) => string> = {

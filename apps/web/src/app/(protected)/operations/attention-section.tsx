@@ -216,7 +216,9 @@ function ExceptionRow({ t, lang, exception, itemById, onChange }: ExceptionRowPr
   }, [isThreshold, exception.instanceId, exception.itemId]);
   const unit = item?.numericUnit ? ` ${item.numericUnit}` : '';
   const range =
-    item && (item.numericMin !== null || item.numericMax !== null) ? `${item.numericMin ?? ''}–${item.numericMax ?? ''}${unit}` : null;
+    // Same "—" for a missing bound as the Staff task modal: an empty min next to
+    // "–5" read as minus five (2026-10-07 review).
+    item && (item.numericMin !== null || item.numericMax !== null) ? `${item.numericMin ?? '—'}–${item.numericMax ?? '—'}${unit}` : null;
 
   return (
     <div className="flex flex-col gap-1.5 rounded-sm bg-surface-elevated p-2.5">

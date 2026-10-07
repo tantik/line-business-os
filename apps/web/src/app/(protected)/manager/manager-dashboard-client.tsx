@@ -432,6 +432,7 @@ function ManagerDashboardBody({
   // the server owns the staffing windows / headcount / hours cap.
   const [autoCreateConfirmOpen, setAutoCreateConfirmOpen] = useState(false);
   const [publishWeekConfirmOpen, setPublishWeekConfirmOpen] = useState(false);
+  const [publishWeekError, setPublishWeekError] = useState<string | null>(null);
   const [autoCreateResult, setAutoCreateResult] = useState<RunAutoDistributionActionResult | null>(null);
   const [lastAutoCreateResult, setLastAutoCreateResult] = useState<
     { created: number; shortages: number; unplaced: number; missingPreferences: number } | null
@@ -968,6 +969,7 @@ function ManagerDashboardBody({
    */
   function handlePublishWeek() {
     setBanner(null);
+    setPublishWeekError(null);
     setPendingAction('publish-week');
     startTransition(async () => {
       const formData = new FormData();
@@ -980,7 +982,10 @@ function ManagerDashboardBody({
         setBanner({ tone: 'success', message: publishWeekDoneMessage[lang](result.data.published) });
         router.refresh();
       } else {
-        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
+        // Shown next to the Publish button (Settings and the auto-create
+        // result modal): the page banner sits under the result modal and off
+        // screen on a phone, so a failure there looked like nothing happened.
+        setPublishWeekError(describeWriteError(result, lang));
       }
       setPendingAction(null);
     });
@@ -1642,6 +1647,7 @@ function ManagerDashboardBody({
         unpublishedThisWeekCount={unpublishedThisWeekCount}
         onPublishWeek={() => setPublishWeekConfirmOpen(true)}
         publishWeekPending={isPending && pendingAction === 'publish-week'}
+        publishWeekError={publishWeekError}
         lang={lang}
       />
 
@@ -1786,8 +1792,13 @@ function ManagerDashboardBody({
                   disabled={isPending}
                   onClick={() => setPublishWeekConfirmOpen(true)}
                 >
-                  {t('publishWeekButton')}
+                  {isPending && pendingAction === 'publish-week' ? t('publishingWeek') : t('publishWeekButton')}
                 </button>
+                {publishWeekError ? (
+                  <p role="alert" style={{ ...alertDanger, margin: '8px 0 0' }}>
+                    {publishWeekError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

@@ -185,7 +185,7 @@ export function ShiftExchangeRequestsPopup({
                   <div>
                     <div style={{ fontWeight: 600 }}>{requesterName}</div>
                     <div style={mutedText}>{shiftLocal ? `${shiftLocal.workDate} · ${shiftLocal.localTime}` : '-'}</div>
-                    {expired ? <div style={{ fontSize: 13, fontWeight: 600, color: colors.warning }}>{t('exchangeExpiredNote')}</div> : null}
+                    {expired ? <div style={{ fontSize: 13, fontWeight: 600, color: colors.warningText }}>{t('exchangeExpiredNote')}</div> : null}
                     {/* Two pending requests can otherwise look identical (same requester, shift date/time, reason) when they reference different underlying shifts -- shows each request's own submission time so a Manager can tell them apart without guessing. */}
                     <div style={{ ...mutedText, fontSize: 12 }}>
                       {t('attentionSubmittedAtPrefix')} {utcIsoToLocalDateTime(e.createdAt, timeZone).workDate} {utcIsoToLocalDateTime(e.createdAt, timeZone).localTime}

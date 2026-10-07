@@ -370,7 +370,7 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
             ) : null}
           </div>
           <MetadataText>{rangeHint}</MetadataText>
-          {savedOutOfRange ? <InlineAlert tone="warning">{t('outOfRangeStaffWarning')}</InlineAlert> : null}
+          {savedOutOfRange && !readOnly ? <InlineAlert tone="warning">{t('outOfRangeStaffWarning')}</InlineAlert> : null}
         </div>
       ) : (
         <div className="flex items-end gap-2">
