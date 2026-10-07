@@ -91,3 +91,46 @@ Review status does not affect scheduling (source-guard test).
 
 Return the Founder to the QA3 checkpoint. Do not start v2.3 LINE, SaaS
 Hardening or the demo tenant without a fresh Founder prompt.
+
+## 7. Open items a new session must know (not in git)
+
+- Founder-run steps pending (see §5): Vercel `RESEND_API_KEY` for Preview,
+  invite inbox check, Staff B password, QA-residue decision.
+- When the Founder reports §5.1 done, the first task is: sign in as Manager
+  on `preview.oruwa.jp`, Settings → シフト希望 → 希望を見る → 来月, send a
+  reminder to an employee whose address is a Founder inbox (e.g. create a
+  temporary employee with `konstantin.a.chvykov+qaNNNN@gmail.com`, then
+  permanently delete it), confirm "リマインダーメールを送信しました", ask the
+  Founder to confirm receipt, then close DEBT-073 in the register and mark
+  the Shift Preferences mission CLOSED.
+- QA accounts: Manager `manager@oruwa-cafe.test`, Staff A
+  `konstantin.a.chvykov@gmail.com`, Staff C `konstantin.a.chvykov+staffc@gmail.com`.
+  Passwords are never written to files; the Founder pastes them in chat.
+- The Founder sometimes merges PRs directly. Before pushing a follow-up
+  commit, check `gh pr view <n> --json state`; a merged PR stops taking
+  commits silently.
+
+## 8. Bootstrap prompt (paste into the new chat)
+
+```
+Прочитай AGENTS.md, затем docs/ai/ORUWA_AI_ENGINEERING_OPERATING_MODEL.md,
+docs/ai/current-task.md, docs/operations/deferred-debt-register.md и
+docs/ai/SESSION_HANDOFF_2026-10-07.md (последний handoff, это источник
+правды о состоянии).
+
+Состояние: Founder Acceptance (Mission 11) идёт. Shift Preferences recovery
+(#557/#558) — CLOSED WITH GAPS (DEBT-073: RESEND_API_KEY не был виден
+Preview-окружению Vercel). Полная функциональная проверка всех блоков кроме
+LINE сделана, исправления в #559, отчёт в handoff §3.
+
+[Впиши, что сделано из моих шагов: например «Vercel ключ исправлен и
+передеплоено», «приглашение на +qa1007 пришло / не пришло», «пароль Staff B:
+...», «QA-данные: решение ...»]
+
+Начни с Repository Recovery (ветка, HEAD, дерево, открытые PR). Затем:
+если ключ Resend исправлен — выполни шаг из handoff §7 (реальная отправка
+напоминания, подтверждение доставки, закрытие DEBT-073). Действуй автономно
+в обычных границах (RED: main, прод, миграции на Cloud, секреты, биллинг,
+LINE-рассылки). Новые миссии (LINE v2.3, демо-тенант, SaaS Hardening) не
+начинай без моего отдельного решения.
+```
