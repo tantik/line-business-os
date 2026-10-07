@@ -163,6 +163,8 @@ Source for every row: `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-
 | DEBT-078 | Add/Edit staff form requires 氏名 AND 姓 AND 名 (the full name duplicates the two parts). | C | 2026-10-07 live QA | T-DECISION | Founder | OPEN |
 | DEBT-079 | Staff B account (`+staffb`) could not sign in with either password the Founder gave on 2026-10-07; Staff A (田中) and Staff C (鈴木) worked. | C | 2026-10-07 live QA | T-ACCEPT | Founder | OPEN |
 | DEBT-080 | QA data created on `oruwa-cafe` by the 2026-10-07 run and not removable from the UI: 田中 美咲's three November preferences (insert-only), shifts 10/6, 10/7, 10/9 (田中) and 10/8 (佐藤, after the exchange) with their attendance/correction/exchange history, Mail messages (archive only), one resolved issue, one Operations threshold exception (resolved) and the fridge threshold now set to 0-5 °C, 牛乳 count/order/receive history. Belongs with DEBT-004/059/067 (seeded demo tenant). | C | 2026-10-07 live QA | T-DEMO | Founder | OPEN |
+| DEBT-081 | Staff Mail: a Manager reply that arrives through the 30s poll while the Mail popup is open is not marked read until the popup is reopened (read-marking runs on open only), so the button can show "Mail 1" for a message already on screen. | C | #559 review | T-TOUCH | Lead | OPEN |
+| DEBT-082 | One concept, two vocabularies: the automation help and auto-create copy say 確定済み/未確定 (confirmed/unconfirmed) while the Publish action says 公開/下書き (publish/draft), for the same `published` flag. Unify in the native JA copy pass (DEBT-018). | C | #559 review | T-DEMO | GPT, Native | OPEN |
 
 ## Accepted, will not fix
 
