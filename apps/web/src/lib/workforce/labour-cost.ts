@@ -83,7 +83,8 @@ export function estimatedLabourCostSoFar(
         .filter((a) => a.employeeId === s.staffId && a.workDate >= periodStart && a.workDate <= periodEnd && a.clockIn)
         .reduce((total, a) => total + elapsedWorkedMinutes(a.clockIn as string, a.clockOut ?? asOfIso, a.actualBreakMinutes), 0);
       const workedHours = Math.round((minutes / 60) * 10) / 10;
-      const estimatedCostYen = s.hourlyWageYen === null ? null : Math.round(workedHours * s.hourlyWageYen);
+      // Exact minutes, never the 0.1h-rounded display hours (see estimatedEarningsSummary).
+      const estimatedCostYen = s.hourlyWageYen === null ? null : Math.round((minutes / 60) * s.hourlyWageYen);
       return { staffId: s.staffId, name: s.name, workedHours, hourlyWageYen: s.hourlyWageYen, estimatedCostYen };
     });
 

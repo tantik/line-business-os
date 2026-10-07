@@ -20,6 +20,7 @@ import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { addIsoDays, utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import { getMyScheduleWeek } from '@/lib/workforce/schedule-actions';
+import { getMyStaffMessages } from '@/lib/workforce/staff-messages-actions';
 import {
   buildStaffScheduleRoster,
   computeStaffAttentionCellKeys,
@@ -68,6 +69,8 @@ import hoverStyles from '@/lib/ui/theme.module.css';
 
 /** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
 const SCHEDULE_POLL_INTERVAL_MS = 2500;
+/** Mail is not time-critical like the schedule; a slow poll keeps the unread count honest without a request every few seconds. */
+const MAIL_POLL_INTERVAL_MS = 30000;
 
 /**
  * Founder Preview QA (2026-08-25, Staff Shift Schedule v2 fix-up): matches
@@ -349,9 +352,37 @@ function StaffDashboardBody({
   // label text on the Mail entry-point button (Founder's own devtools
   // mockup rendered the count that way, e.g. "Mail 1" -- `EntryPointsCardButton`
   // has no separate badge prop today, see that button's own `label` below).
+  // Seeded from the page load, then refreshed by a slow background poll so a
+  // Manager reply reaches the Mail button (and the open popup) without a
+  // reload. Same visibility guard as the schedule poll below.
+  const [liveStaffMessages, setLiveStaffMessages] = useState<WorkforceStaffMessage[] | null>(staffMessages);
+  useEffect(() => {
+    setLiveStaffMessages(staffMessages);
+  }, [staffMessages]);
+  useEffect(() => {
+    if (staffMessages === null) return;
+    let cancelled = false;
+    let inFlight = false;
+    const poll = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const result = await getMyStaffMessages();
+        if (!cancelled && result.status === 'success') setLiveStaffMessages(result.data);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const id = setInterval(poll, MAIL_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [staffMessages]);
+
   const unreadMailCount = useMemo(
-    () => (staffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
-    [staffMessages],
+    () => (liveStaffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
+    [liveStaffMessages],
   );
 
   // Issues & Handover (Cafe v2.2 WP2, Slice C): this entry point's OWN count
@@ -928,7 +959,7 @@ function StaffDashboardBody({
       <StaffMailPopup
         open={mailPopupOpen}
         onClose={() => setMailPopupOpen(false)}
-        messages={staffMessages}
+        messages={liveStaffMessages}
         timeZone={timeZone}
         lang={lang}
         onChange={() => router.refresh()}

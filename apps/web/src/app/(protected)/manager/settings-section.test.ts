@@ -19,7 +19,8 @@ test('exposes the manual auto-create props the parent owns', () => {
 
 test('the "create schedule automatically" button calls onAutoCreate, reflects the pending state, and is disabled when the whole displayed week is already past (past shifts are immutable)', () => {
   assert.match(SOURCE, /onClick=\{onAutoCreate\}/);
-  assert.match(SOURCE, /disabled=\{autoCreatePending \|\| autoCreateUnavailable\}/);
+  // Also disabled while "Publish this week" is running, so a publish can't race a regeneration of the same week.
+  assert.match(SOURCE, /disabled=\{autoCreatePending \|\| publishWeekPending \|\| autoCreateUnavailable\}/);
   assert.match(SOURCE, /autoCreatePending \? t\('automationManualCreateRunning'\) : t\('automationManualCreateButton'\)/);
   assert.match(SOURCE, /autoCreateUnavailable \?[\s\S]{0,120}autoCreateWeekFullyPastNote/);
 });

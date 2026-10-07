@@ -12,7 +12,7 @@ export interface RecordedCall {
   args: unknown[];
 }
 
-const CHAINABLE_METHODS = ['schema', 'from', 'select', 'eq', 'gte', 'lt', 'lte', 'in', 'insert', 'update', 'maybeSingle', 'single', 'rpc', 'order'];
+const CHAINABLE_METHODS = ['schema', 'from', 'select', 'eq', 'gte', 'lt', 'lte', 'in', 'not', 'insert', 'update', 'maybeSingle', 'single', 'rpc', 'order'];
 
 export function recordingClient(
   results: { data: unknown; error: unknown } | Array<{ data: unknown; error: unknown }>,

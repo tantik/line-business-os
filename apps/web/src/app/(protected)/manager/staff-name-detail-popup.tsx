@@ -38,15 +38,20 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
 
   const ownAttendance = staffEntry ? attendance.filter((a) => a.employeeId === staffEntry.staffId) : [];
   const summary = estimatedEarningsSummary(ownAttendance, monthPrefix, staffEntry?.hourlyWageYen ?? null);
+  // Units on every value (2026-10-07 full QA: the card showed bare "4.8 / 1200 / 5760").
+  const yen = (value: number | null) => (value === null ? '-' : `¥${value.toLocaleString('ja-JP')}`);
+  const hoursText = `${summary.workedHours}h`;
+  const wageText = yen(summary.hourlyWageYen);
+  const earnedText = yen(summary.estimatedEarningsYen);
 
   function handleCopy() {
     if (!staffEntry) return;
     const lines = [
       `${t('staffNamePopupTitlePrefix')}: ${staffEntry.name}`,
       `${t('staffNamePopupMonth')}: ${monthPrefix}`,
-      `${t('staffNamePopupWorkedHours')}: ${summary.workedHours}`,
-      `${t('staffNamePopupHourlyWage')}: ${summary.hourlyWageYen ?? '-'}`,
-      `${t('staffNamePopupEarnedSoFar')}: ${summary.estimatedEarningsYen ?? '-'}`,
+      `${t('staffNamePopupWorkedHours')}: ${hoursText}`,
+      `${t('staffNamePopupHourlyWage')}: ${wageText}`,
+      `${t('staffNamePopupEarnedSoFar')}: ${earnedText}`,
     ];
     const text = lines.join('\n');
 
@@ -82,11 +87,11 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
 
           <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 12, fontSize: 14 }}>
             <dt style={mutedText}>{t('staffNamePopupWorkedHours')}</dt>
-            <dd style={{ margin: 0 }}>{summary.workedHours}</dd>
+            <dd style={{ margin: 0 }}>{hoursText}</dd>
             <dt style={mutedText}>{t('staffNamePopupHourlyWage')}</dt>
-            <dd style={{ margin: 0 }}>{summary.hourlyWageYen ?? '-'}</dd>
+            <dd style={{ margin: 0 }}>{wageText}</dd>
             <dt style={mutedText}>{t('staffNamePopupEarnedSoFar')}</dt>
-            <dd style={{ margin: 0 }}>{summary.estimatedEarningsYen ?? '-'}</dd>
+            <dd style={{ margin: 0 }}>{earnedText}</dd>
           </dl>
 
           <div>

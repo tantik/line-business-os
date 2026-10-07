@@ -301,6 +301,11 @@ export async function publishShiftAssignments(
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId)
       .eq('published', false)
+      // Only real (assigned) drafts. Undo/replace null `employee_id` instead
+      // of deleting rows, so a week can hold orphaned unassigned drafts;
+      // publishing those made the returned count wrong (2026-10-07 live QA:
+      // 39 drafts on screen, "73 published") and served no purpose.
+      .not('employee_id', 'is', null)
       .gte('starts_at', fromIso)
       .lt('starts_at', toIsoExclusive)
       .select('assignment_id');

@@ -192,6 +192,7 @@ interface OperationsDict {
   thresholdNotConfiguredManager: string;
   /** Shown instead of `numericRangeHint` when a numeric item has no `numericMin`/`numericMax` set yet -- Staff task-execution view, where Staff cannot configure it themselves. */
   thresholdNotConfiguredStaff: string;
+  outOfRangeStaffWarning: string;
   backToTaskList: string;
   sectionTemplatesTab: string;
   sectionTodayTab: string;
@@ -202,6 +203,9 @@ interface OperationsDict {
   attentionSourceReported: string;
   attentionSourceCriticalMissed: string;
   attentionCriticalMissedHint: string;
+  attentionThresholdHint: string;
+  attentionMeasuredValueLabel: string;
+  attentionRangeLabel: string;
   attentionItemLabel: string;
   attentionUnknownTask: string;
   attentionOpenedAtLabel: string;
@@ -388,6 +392,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     numericRangeHint: 'Expected range',
     thresholdNotConfiguredManager: 'Threshold not configured',
     thresholdNotConfiguredStaff: 'Threshold requires manager configuration',
+    outOfRangeStaffWarning: 'This value is outside the expected range. Your manager has been notified. If something is wrong, use "Report a problem with this item" to add details.',
     backToTaskList: 'Back to task list',
     sectionTemplatesTab: 'Templates',
     sectionTodayTab: 'Today',
@@ -398,6 +403,9 @@ const dictionary: Record<Lang, OperationsDict> = {
     attentionSourceReported: 'Reported',
     attentionSourceCriticalMissed: 'Critical check missed',
     attentionCriticalMissedHint: 'A critical scheduled check was not completed before its window closed.',
+    attentionThresholdHint: 'An out-of-range value was recorded for this item.',
+    attentionMeasuredValueLabel: 'Current value',
+    attentionRangeLabel: 'Range',
     attentionItemLabel: 'Item',
     attentionUnknownTask: 'Task',
     attentionOpenedAtLabel: 'Opened',
@@ -580,6 +588,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     numericRangeHint: '目安の範囲',
     thresholdNotConfiguredManager: 'しきい値未設定',
     thresholdNotConfiguredStaff: '管理者による基準値の設定が必要です',
+    outOfRangeStaffWarning: '目安の範囲外の値です。店長に通知されました。異常がある場合は「この項目の問題を報告」から詳しく伝えてください。',
     backToTaskList: 'タスク一覧へ戻る',
     sectionTemplatesTab: 'テンプレート',
     sectionTodayTab: '本日',
@@ -590,6 +599,9 @@ const dictionary: Record<Lang, OperationsDict> = {
     attentionSourceReported: '報告された問題',
     attentionSourceCriticalMissed: '重要チェック未実施',
     attentionCriticalMissedHint: '重要な定期チェックが実施期限までに完了されませんでした。',
+    attentionThresholdHint: 'この項目で設定範囲外の値が記録されました。',
+    attentionMeasuredValueLabel: '現在の記録値',
+    attentionRangeLabel: '基準',
     attentionItemLabel: '項目',
     attentionUnknownTask: 'タスク',
     attentionOpenedAtLabel: '発生日時',

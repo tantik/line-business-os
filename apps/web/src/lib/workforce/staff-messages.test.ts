@@ -34,7 +34,7 @@ const messageRow = {
 test('listMyStaffMessages maps rows and sorts oldest-first', async () => {
   const older = { ...messageRow, message_id: 'msg-older', created_at: '2026-08-24T00:00:00.000Z' };
   const { client, calls } = recordingClient({ data: [messageRow, older], error: null });
-  const result = await listMyStaffMessages(client, TENANT_ID);
+  const result = await listMyStaffMessages(client, TENANT_ID, 'emp-1');
   assert.equal(result.status, 'success');
   if (result.status === 'success') {
     assert.deepEqual(result.data.map((m) => m.messageId), ['msg-older', 'msg-1']);
@@ -59,7 +59,7 @@ test('listStaffMessagesForManager maps senderRole and every status field', async
 
 test('an unrecognized sender_role value falls back to "staff", never crashes', async () => {
   const { client } = recordingClient({ data: [{ ...messageRow, sender_role: 'something-unexpected' }], error: null });
-  const result = await listMyStaffMessages(client, TENANT_ID);
+  const result = await listMyStaffMessages(client, TENANT_ID, 'emp-1');
   assert.equal(result.status, 'success');
   if (result.status === 'success') assert.equal(result.data[0]!.senderRole, 'staff');
 });
@@ -109,4 +109,10 @@ test('markStaffMessageRead returns not_found when RLS/the row hides the update f
   const { client } = recordingClient({ data: null, error: null });
   const result = await markStaffMessageRead(client, TENANT_ID, 'someone-elses-thread-message');
   assert.equal(result.status, 'not_found');
+});
+
+test('listMyStaffMessages scopes to the caller\'s own employee id, not just RLS (a Manager on /staff would otherwise get every thread)', async () => {
+  const { client, calls } = recordingClient({ data: [], error: null });
+  await listMyStaffMessages(client, TENANT_ID, 'emp-1');
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'employee_id' && c.args[1] === 'emp-1'));
 });

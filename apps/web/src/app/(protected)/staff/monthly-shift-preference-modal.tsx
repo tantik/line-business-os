@@ -203,7 +203,7 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
 
       {monthLabel ? (
         <div style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, marginBottom: 6 }}>
-          {lang === 'ja' ? `${monthLabel}月` : `Month ${monthLabel}`}
+          {lang === 'ja' ? `${monthLabel}月` : new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long' }).format(new Date(`${dates[0]}T00:00:00`))}
         </div>
       ) : null}
 

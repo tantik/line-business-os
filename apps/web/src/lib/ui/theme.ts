@@ -43,6 +43,8 @@ export const colors = {
   success: token.success,
   successMuted: token['success-muted'],
   warning: token.warning,
+  // Text-safe warning colour (gold-700): `warning` (gold-500) on white is ~2.6:1, fails AA for text.
+  warningText: token['warning-text'],
 } as const;
 
 /**

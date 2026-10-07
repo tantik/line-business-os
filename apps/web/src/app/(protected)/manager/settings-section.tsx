@@ -5,7 +5,7 @@ import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/
 import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { deleteShiftType, saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
-import { buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import styles from './settings-section.module.css';
 import { buttonDanger, shiftChipColors, shiftChipStyle } from '../_ui/workforce-theme';
@@ -16,6 +16,7 @@ import {
   shiftRequestsMissingLabel,
   shiftRequestsSubmittedLabel,
   tManagerDashboard,
+  unpublishedShiftsLabel,
 } from './manager-dashboard-i18n';
 
 export interface SettingsSectionProps {
@@ -50,6 +51,12 @@ export interface SettingsSectionProps {
   /** True when the displayed week is entirely in the past (before "today" in the location's own timezone) -- past shifts are immutable, so regeneration would have nothing left to do; the button is disabled rather than letting the Manager hit a guaranteed period_in_past error. */
   autoCreateUnavailable: boolean;
   lastAutoCreateResult: { created: number; shortages: number; unplaced: number; missingPreferences: number } | null;
+  /** Drafts (not yet visible to staff) in the week being viewed; the Publish action shows only when > 0. The parent owns the confirm dialog and the write. */
+  unpublishedThisWeekCount: number;
+  onPublishWeek: () => void;
+  publishWeekPending: boolean;
+  /** Last Publish failure, shown next to the button (the page banner is off screen on a phone). */
+  publishWeekError: string | null;
   lang: Lang;
 }
 
@@ -80,6 +87,10 @@ export function SettingsSection({
   autoCreatePending,
   autoCreateUnavailable,
   lastAutoCreateResult,
+  unpublishedThisWeekCount,
+  onPublishWeek,
+  publishWeekPending,
+  publishWeekError,
   lang,
 }: SettingsSectionProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -493,13 +504,32 @@ export function SettingsSection({
             <button
               type="button"
               className={hoverStyles.buttonPrimary}
-              style={autoCreatePending || autoCreateUnavailable ? buttonDisabled : buttonPrimary}
-              disabled={autoCreatePending || autoCreateUnavailable}
+              style={autoCreatePending || publishWeekPending || autoCreateUnavailable ? buttonDisabled : buttonPrimary}
+              disabled={autoCreatePending || publishWeekPending || autoCreateUnavailable}
               onClick={onAutoCreate}
             >
               {autoCreatePending ? t('automationManualCreateRunning') : t('automationManualCreateButton')}
             </button>
+            {unpublishedThisWeekCount > 0 ? (
+              <button
+                type="button"
+                className={hoverStyles.buttonSecondary}
+                style={publishWeekPending || autoCreatePending ? buttonDisabled : buttonSecondary}
+                disabled={publishWeekPending || autoCreatePending}
+                onClick={onPublishWeek}
+              >
+                {publishWeekPending ? t('publishingWeek') : t('publishWeekButton')}
+              </button>
+            ) : null}
           </div>
+          {unpublishedThisWeekCount > 0 ? (
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: colors.warningText, fontWeight: 600 }}>{unpublishedShiftsLabel[lang](unpublishedThisWeekCount)}</p>
+          ) : null}
+          {publishWeekError ? (
+            <p role="alert" style={{ ...alertDanger, margin: '8px 0 0' }}>
+              {publishWeekError}
+            </p>
+          ) : null}
           {autoCreateUnavailable ? (
             <p style={{ margin: '8px 0 0', fontSize: 13, ...mutedText }}>{t('autoCreateWeekFullyPastNote')}</p>
           ) : null}
