@@ -49,9 +49,9 @@ per-block results and §4 for the coverage matrix).
 
 ## 4. Founder actions pending
 
-1. Run QA3; send findings as "block → action → expected → seen". First known finding: DEBT-084 (invite link UX) -- fix it first.
+1. Run QA3; send findings as "block → action → expected → seen". Known QA3 findings already registered: DEBT-084 (invite link UX), DEBT-085 (recovery template), DEBT-086 (missing standard screens -- Founder picks which go into QA4 scope).
 2. Set 佐藤 陽介's password from the `+staffb` inbox (password-setup email sent 20:11 JST via アクセスを回復, not the invite).
-3. Optional now: paste the JA invite template (DEBT-083).
+3. **Required**: paste BOTH Supabase templates (Invite user + Reset password) from `docs/operations/supabase-invite-email-template-ja.md` (DEBT-083, DEBT-085 -- the Reset password link is broken until then), then test both links in an incognito window. Then set 佐藤 陽介's password via a fresh アクセスを回復 email.
 4. For Stage 2: choose worker hosting (1 / 2 / 3 in the roadmap).
 5. For QA4: create 2–4 more Founder-owned mailbox aliases for extra Staff
    (`+staffd`, `+staffe`, ...) — the Lead invites them; decide whether a
