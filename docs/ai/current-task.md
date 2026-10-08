@@ -186,31 +186,28 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-07** (checked against git; `dev` HEAD `ff1a9ce` + this docs PR):
+**As of 2026-10-08** (checked against git; see `git log -1` on `dev`):
 
-- **Founder Technical Freeze: APPROVED** (Founder decision, 2026-09-23).
-- **Founder Acceptance (Mission 11) is IN PROGRESS, not closed.** QA1/QA2
-  closed (`SESSION_HANDOFF_2026-10-01.md`); QA3 is with the Founder.
-- **Shift Preferences recovery + email reminder: CLOSED WITH GAPS**
-  (#557, #558): three-state Staff preferences, persisted Manager 確認済み,
-  next-month counting, real Resend send path. Gap: a real email was not
-  delivered because `RESEND_API_KEY` is not in the Preview runtime
-  (DEBT-073, Founder Vercel action).
-- **Full functional QA of every block except LINE (Founder request
-  2026-10-07): done**, 18 blocks exercised live as Manager and Staff; fixes
-  in #559 (publish-week action that had been lost, exact earnings, Operations
-  exception detail + Staff warning, live Staff Mail, expired exchange
-  requests). Detail, coverage matrix, open items:
-  `docs/ai/SESSION_HANDOFF_2026-10-07.md`.
-- **Founder actions open**: DEBT-073 (Vercel env), invite-email inbox check
-  (DEBT-072), Staff B password (DEBT-079), QA residue / demo tenant
-  (DEBT-080 with DEBT-004), monthly worker hosting (DEBT-074).
-- **No open PRs** after this docs PR.
-- **Cafe v2.2 is NOT declared CLOSED.** Commercial Release remains a
-  separate Founder decision (DEBT-053 copy/allergen wording, DEBT-001 to
-  DEBT-004/059/066/067/080 demo data, DEBT-035/036/043 production path,
-  DEBT-049 second tenant, DEBT-061 Production Data API probe).
-- Production and `main` are untouched and separately gated.
+- **Founder Technical Freeze: APPROVED** (2026-09-23).
+- **Founder Acceptance (Mission 11) is IN PROGRESS.** QA1/QA2 closed;
+  full functional QA of every block except LINE done by the Lead on
+  2026-10-07 (`docs/ai/SESSION_HANDOFF_2026-10-07.md`); the Founder now runs
+  QA3 from `docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-08.md`.
+- **Shift Preferences recovery + real email reminder: CLOSED** (#557–#559;
+  real Resend delivery verified 2026-10-08, DEBT-073 closed).
+- **Next gate:** Founder QA3 findings → Lead triage and fixes. Then, each on
+  a separate Founder go-ahead, the order in
+  `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
+  DEBT-074 worker hosting → QA4 Final Operational Simulation → Cafe v2.2
+  close (exit criteria in that document) → LINE + email notifications →
+  tenant provisioning → 6-tenant test → demo tenant → JA copy → SaaS
+  hardening → production.
+- **Founder actions open**: QA3; accept the 佐藤 陽介 (`+staffb`) invite
+  (DEBT-079); optional JA invite template (DEBT-083); worker hosting choice
+  (DEBT-074); QA4 mailbox aliases and seed-script decision.
+- **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
+  and separately gated.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-08.md`.
 
 Where everything else lives:
 
