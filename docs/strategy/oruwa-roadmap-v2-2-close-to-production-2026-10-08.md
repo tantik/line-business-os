@@ -126,3 +126,26 @@ pgTAP, CI, post-merge Preview smoke, Founder final review →
   channel and an incident process.
 
 Then: first real Cafe customers → feedback/analytics → next vertical.
+
+## Appendix — standard app screens that do not exist yet (Founder ask, 2026-10-08)
+
+Checked against `apps/web/src/app/**/page.tsx` on `dev`. Grouped by when
+they are needed. "QA4" = before Cafe v2.2 closes; "Provisioning" = with
+tenant onboarding; "Release" = before the first paying customer.
+
+| Screen | Why it matters | When |
+|---|---|---|
+| Invalid / expired invite-link page (JA/EN) | today a bad link shows "Invalid email or password" or silently opens the signed-in user's dashboard (DEBT-084) | QA4 |
+| Self-service "forgot password" on the sign-in page | sign-in says "password reset ... not available yet"; today only a Manager can trigger recovery (and DEBT-085 must be fixed first) | QA4 |
+| Japanese sign-in and error pages: 404 (`not-found`), unexpected error (`error`/`global-error`), access denied, with a link back to the user's own screen | there is no root `not-found`/`error` page; access denied is English (DEBT-053) | QA4 |
+| My account (Staff and Manager): name, language, change password, sign out of other devices | there is no profile screen; language lives only in the header menu | QA4 |
+| Store settings (Owner/Manager): business name, location name, address, timezone, business hours, logo | none exists (`core.settings.manage` has no screen); needed so a new tenant can fix its own data | Provisioning |
+| Monthly attendance / payroll export (CSV or PDF per employee and month) | a real cafe pays wages from it; today only "copy monthly report" to the clipboard | QA4 (decide) |
+| Owner onboarding wizard after provisioning (store → shift types → staff invites → modules) | "new client in 3–5 minutes" needs a guided first run | Provisioning |
+| Admin console (ORUWA staff): tenants list, create/suspend tenant, provisioning status, retry | provisioning operations need a UI, not SQL | Provisioning |
+| Notification settings (per user: email / LINE, which events) | needed once LINE + email notifications exist | LINE stage |
+| Activity / audit log view (who changed what) | audit rows are missing today (DEBT-056/071); a view follows the data | Hardening |
+| Billing / subscription (plan, trial, invoices, payment method) | collecting money | Release |
+| Legal pages: プライバシーポリシー (APPI), 利用規約, 特定商取引法に基づく表記; consent on first sign-in | legal requirement in Japan for a paid service | Release |
+| Help / contact support page and in-app link | customers need a way to reach support | Release |
+| Account deletion / data export request (APPI requests) | privacy obligations; ties to DEBT-033 | Release |
