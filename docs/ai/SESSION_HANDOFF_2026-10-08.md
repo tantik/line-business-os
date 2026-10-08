@@ -49,8 +49,8 @@ per-block results and §4 for the coverage matrix).
 
 ## 4. Founder actions pending
 
-1. Run QA3; send findings as "block → action → expected → seen".
-2. Accept the 佐藤 陽介 invite from the `+staffb` inbox and set a password.
+1. Run QA3; send findings as "block → action → expected → seen". First known finding: DEBT-084 (invite link UX) -- fix it first.
+2. Set 佐藤 陽介's password from the `+staffb` inbox (password-setup email sent 20:11 JST via アクセスを回復, not the invite).
 3. Optional now: paste the JA invite template (DEBT-083).
 4. For Stage 2: choose worker hosting (1 / 2 / 3 in the roadmap).
 5. For QA4: create 2–4 more Founder-owned mailbox aliases for extra Staff
