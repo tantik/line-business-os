@@ -67,7 +67,12 @@ test("db push: target overrides ask; linked-ref decides the rest", () => {
   const linked = existsSync(refFile) ? readFileSync(refFile, "utf8").trim() : "";
   const expected = linked === DEV ? "allow" : linked === PROD ? "deny" : "ask";
   assert.equal(run("pnpm exec supabase db push --dry-run"), expected);
-  assert.equal(run("pnpm db:migrate"), expected);
+  assert.equal(run("pnpm db:migrate"), "ask"); // script body is not visible to the hook
+});
+
+test("glob characters in the function name ask", () => {
+  assert.equal(run(`pnpm exec ${deploy} liff-entr? --project-ref ${DEV}`), "ask");
+  assert.equal(run(`pnpm exec ${deploy} liff-* --project-ref ${DEV}`), "ask");
 });
 
 test("unrelated commands are untouched", () => {

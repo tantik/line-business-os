@@ -438,8 +438,8 @@ authority, without a per-action Founder prompt:
 
 - deploy an Edge Function to Cloud DEV (one named function, explicit
   `--project-ref pehcoenozjtsjdvjietj`, never `liff-entry`);
-- apply merged migrations to Cloud DEV (`supabase db push` /
-  `pnpm db:migrate` while the local link points at Cloud DEV);
+- apply merged migrations to Cloud DEV (`pnpm exec supabase db push` while
+  the local link points at Cloud DEV; `pnpm db:migrate` still asks);
 - write and edit migration files (still reviewed per §12 — the DB/security
   reviewer stays mandatory for migrations, RLS, grants, auth);
 - merge into `dev` and confirm results on `preview.oruwa.jp`.

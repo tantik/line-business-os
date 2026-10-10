@@ -15,8 +15,11 @@
 //   - `[pnpm exec] supabase functions deploy <name> --project-ref <DEV_REF>`
 //     (one named function, never a deploy-everything, never `liff-entry`);
 //   - `[pnpm exec] supabase db push [--dry-run] [--include-all] [--linked]
-//     [--yes]` or `pnpm db:migrate [same flags]`, when the repo's local link
-//     (supabase/.temp/project-ref) is DEV_REF.
+//     [--yes]`, when the repo's local link (supabase/.temp/project-ref) is
+//     DEV_REF and pooler-url does not name production (`pnpm db:migrate`
+//     always asks — the hook cannot see the script body).
+//   - never when SUPABASE_PROJECT_ID / _WORKDIR / _DB_URL / _PROFILE is set in
+//     the session environment.
 //
 // Allowed forms must be a single plain invocation from the session cwd: no
 // `cd` prefix, env-var assignment, quotes, `$`, chaining or redirection
@@ -43,17 +46,18 @@ const decide = (permissionDecision, permissionDecisionReason) =>
     }),
   );
 
-const linkedRef = () => {
+const tempFile = (name) => {
   try {
     const root = execSync("git rev-parse --show-toplevel", {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    return readFileSync(join(root, "supabase", ".temp", "project-ref"), "utf8").trim();
+    return readFileSync(join(root, "supabase", ".temp", name), "utf8").trim();
   } catch {
     return "";
   }
 };
+const linkedRef = () => (tempFile("pooler-url").includes(PROD_REF) ? PROD_REF : tempFile("project-ref"));
 
 let data = "";
 process.stdin.on("data", (c) => (data += c));
@@ -98,6 +102,15 @@ process.stdin.on("end", () => {
     return;
   }
 
+  // Session-level retargeting the command string cannot show.
+  const envOverride = ["SUPABASE_PROJECT_ID", "SUPABASE_WORKDIR", "SUPABASE_DB_URL", "SUPABASE_PROFILE"].find(
+    (k) => process.env[k],
+  );
+  if (envOverride) {
+    decide("ask", `${envOverride} is set in the session environment and may retarget the CLI — confirm manually.`);
+    return;
+  }
+
   let i = 0;
   if (tokens[0] === "pnpm" && tokens[1] === "exec") i = 2;
 
@@ -125,7 +138,7 @@ process.stdin.on("end", () => {
       decide("ask", `functions deploy must name --project-ref ${DEV_REF} (Cloud DEV) explicitly — confirm manually.`);
       return;
     }
-    if (names.length !== 1 || NEVER_DEPLOY.has(names[0])) {
+    if (names.length !== 1 || !/^[a-z0-9][a-z0-9_-]*$/.test(names[0]) || NEVER_DEPLOY.has(names[0])) {
       decide("ask", "Deploy exactly one named function (never all, never liff-entry) — confirm manually.");
       return;
     }
@@ -135,8 +148,9 @@ process.stdin.on("end", () => {
 
   // db push / db:migrate — exact shapes only.
   let rest;
+  // `pnpm db:migrate` is not auto-allowed: the hook cannot see what the
+  // package.json script currently contains.
   if (tokens[i] === "supabase" && tokens[i + 1] === "db" && tokens[i + 2] === "push") rest = tokens.slice(i + 3);
-  else if (i === 0 && tokens[0] === "pnpm" && tokens[1] === "db:migrate") rest = tokens.slice(2);
   else {
     decide("ask", "Unrecognised db push form — confirm manually.");
     return;
