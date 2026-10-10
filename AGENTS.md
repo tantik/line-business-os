@@ -136,8 +136,11 @@ The Supabase scaffold already exists under `supabase/migrations` and applies
 cleanly to a **local** database. Migrations `0009_workforce.sql`,
 `0010_booking.sql`, and `0011_ai.sql` are **real schema migrations but
 scaffold-only** — the tables/RLS exist; the product features do not. Do not
-delete or renumber existing migrations. During Phase 1 the DB is **local-first**:
-do not link Supabase Cloud and do not run `supabase db push` (`db:migrate`).
+delete or renumber existing migrations. Never link Supabase Cloud. Until the
+first production release the Lead Agent applies merged migrations and
+deploys Edge Functions to **Cloud DEV only**, with before/after verification
+(Founder decision 2026-10-10 — Operating Model §9 "Pre-release Cloud DEV
+authority"); anything touching production stays a Founder gate.
 Full detail and command risk table: `docs/phase-1-core-db.md`.
 
 ## Git rules

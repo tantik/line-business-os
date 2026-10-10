@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.9.0 |
+| Version | 1.10.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-09-19 (v1.9.0: role model with the ChatGPT brief author and specialized reviewers, brief intake / Prompt Review §18, coverage matrix and deferral discipline §19; earlier entries moved verbatim to "Version history" at the end of this file) |
+| Last Updated | 2026-10-10 (v1.10.0: §9 Pre-release Cloud DEV authority — see "Version history"). 2026-09-19 (v1.9.0: role model with the ChatGPT brief author and specialized reviewers, brief intake / Prompt Review §18, coverage matrix and deferral discipline §19; earlier entries moved verbatim to "Version history" at the end of this file) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -426,6 +426,46 @@ Approval is narrow beyond the bounded delivery lifecycle above: approval for
 one action does not authorize the next gate. When in doubt whether an action
 needs approval, it does.
 
+### Pre-release Cloud DEV authority
+
+Founder decision, 2026-10-10. **Valid until the first production release
+goes live**; at that point it lapses back to a Founder gate unless the
+Founder renews it.
+
+Until release, the Lead Agent decides development-stage questions itself
+and runs these Cloud DEV (`pehcoenozjtsjdvjietj`) operations on its own
+authority, without a per-action Founder prompt:
+
+- deploy an Edge Function to Cloud DEV (one named function, explicit
+  `--project-ref pehcoenozjtsjdvjietj`, never `liff-entry`);
+- apply merged migrations to Cloud DEV (`supabase db push` /
+  `pnpm db:migrate` while the local link points at Cloud DEV);
+- write and edit migration files (still reviewed per §12 — the DB/security
+  reviewer stays mandatory for migrations, RLS, grants, auth);
+- merge into `dev` and confirm results on `preview.oruwa.jp`.
+
+Mandatory verification, every time, reported to the Founder afterwards:
+
+- **Before**: the change is merged into `dev` and the deploy/apply runs from
+  `dev` HEAD; CI green; for migrations, local `supabase test db` PASS and a
+  `db push --dry-run` showing exactly the expected files.
+- **After**: deploy — `functions list` shows the new version `ACTIVE`, plus a
+  live smoke of the changed path; migration — `migration list` shows it
+  applied on the remote, plus a live check of the affected feature. A failed
+  post-check is fixed forward or reported immediately, never left silent.
+
+Still a Founder gate regardless of this authority: anything touching the
+production project (`jsgmmsdkuptdsxtcxhsv`) or `main`; destructive
+migrations (the `ai-dev-merge.sh` destructive-SQL scan still blocks them);
+`supabase secrets` / Vercel env changes; `supabase link`, `db pull`,
+`migration repair`; deleting real data; real customer LINE/mass messaging.
+
+Machine enforcement: `.claude/settings.json` hard-denies any command naming
+the production ref and keeps `functions deploy` / `db push` /
+`db:migrate` in `ask`; `scripts/ai-hooks/guard-supabase-cloud.mjs` upgrades
+to "allow" only the Cloud DEV forms above (tests:
+`node --test scripts/ai-hooks/guard-supabase-cloud.test.mjs`).
+
 **Machine-enforced layer**: `.claude/settings.json` is the single place in
 the repository where these boundaries are enforced by tooling rather than
 only stated in prose. Design rule: a command is allow-listed only in a
@@ -438,11 +478,14 @@ each would also permit a dangerous variant. `sed`, `awk`, `find`, `xargs`,
 `curl`, `wget` are intentionally left prompting (in-place edit, `-exec`,
 arbitrary code, network writes).
 
-*Hard-blocked (`deny`):* `supabase link`; **any** command whose text
-contains `supabase db push`, `supabase db pull`, or `supabase migration
-repair` (a single substring rule — covers `pnpm exec`, `pnpm --filter …
-exec`, `pnpm dlx`, `npx` wrappers alike), `supabase functions deploy` and
-`supabase migration up --linked|--db-url` (Cloud-only, no local use),
+*Hard-blocked (`deny`):* `supabase link`; **any** command naming the
+production project ref; **any** command whose text contains `supabase db
+pull` or `supabase migration repair` (a single substring rule — covers
+`pnpm exec`, `pnpm --filter … exec`, `pnpm dlx`, `npx` wrappers alike),
+`supabase migration up --linked|--db-url` (Cloud-only, no local use);
+`supabase functions deploy` / `supabase db push` / `pnpm db:migrate` are
+`ask`, made autonomous for Cloud DEV only by `guard-supabase-cloud.mjs`
+(see "Pre-release Cloud DEV authority" above);
 `supabase secrets`, `supabase projects delete`, `supabase branches
 delete`, `pnpm dlx supabase`; `vercel --prod` / `vercel deploy --prod` /
 `vercel env rm|add|pull` / `vercel promote` / `rollback` / `alias` (the
@@ -941,6 +984,12 @@ Execute autonomously within the mission's boundaries."*
 Moved verbatim on 2026-09-19 from the "Last Updated" metadata cell, which had
 become a single multi-thousand-word line. Newest entry first; the entry text
 below is unmodified.
+
+**v1.10.0 (2026-10-10):** §9 "Pre-release Cloud DEV authority" — Founder
+grant, until the first production release: the Lead Agent deploys Edge
+Functions and applies migrations to Cloud DEV itself, with mandatory
+before/after verification; production ref hard-denied; enforced by
+`scripts/ai-hooks/guard-supabase-cloud.mjs`.
 
 **v1.8.0 and earlier (as recorded in the metadata cell until 2026-09-18):**
 
