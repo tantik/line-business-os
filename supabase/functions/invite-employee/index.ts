@@ -344,7 +344,24 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(500, { error: 'email_decrypt_failed' });
   }
 
-  const invitationId = crypto.randomUUID();
+  // The emailed link must carry the id of the invitation row that will
+  // actually exist after the upsert below. `upsert_employee_invitation`
+  // (0065) KEEPS an already-pending row's id on a resend and only refreshes
+  // it, so a fresh random id here produced a link to a non-existent
+  // invitation on every resend and every "recover" (2026-10-10, Founder:
+  // the recovery link for 佐藤 陽介 landed on /sign-in?error=1). Reuse the
+  // pending row's id when there is one; read with the CALLER'S OWN JWT
+  // (same RLS a Manager already has on this view).
+  const { data: pendingInvitation, error: pendingErr } = await userClient
+    .schema('api')
+    .from('workforce_employee_invitations')
+    .select('invitation_id')
+    .eq('tenant_id', tenantId)
+    .eq('employee_id', employeeId)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (pendingErr) return jsonResponse(500, { error: 'invitation_read_failed' });
+  const invitationId = (pendingInvitation as { invitation_id: string } | null)?.invitation_id ?? crypto.randomUUID();
   const redirectTo = `${siteUrl.replace(/\/$/, '')}/auth/accept-invite?invitation_id=${invitationId}`;
 
   // The ONLY use of the privileged key in this entire function: the Supabase
@@ -403,6 +420,12 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(500, { error: 'invitation_write_failed' });
   }
   if (!upserted) return jsonResponse(500, { error: 'invitation_write_failed' });
+  // Never report success for an email whose link points at a different row
+  // (e.g. a pending invitation created concurrently between the read above
+  // and the upsert): the link would be dead.
+  if ((upserted as { out_invitation_id: string }).out_invitation_id !== invitationId) {
+    return jsonResponse(409, { error: 'invitation_changed_concurrently' });
+  }
 
   const wasResend = Boolean((upserted as { out_was_resend: boolean }).out_was_resend);
   const outcome = recoveryEmailSent
