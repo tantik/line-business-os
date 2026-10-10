@@ -19,12 +19,11 @@
       "Read(./**/*.key)",
 
       "Bash(supabase link*)",
-      "Bash(*supabase db push*)",
+      "Bash(*jsgmmsdkuptdsxtcxhsv*)",
       "Bash(*supabase db pull*)",
       "Bash(*supabase migration repair*)",
       "Bash(*supabase migration up*--linked*)",
       "Bash(*supabase migration up*--db-url*)",
-      "Bash(*supabase functions deploy*)",
       "Bash(supabase secrets*)",
       "Bash(supabase projects delete*)",
       "Bash(supabase branches delete*)",
@@ -93,6 +92,9 @@
       "Bash(pnpm db:seed*)",
       "Bash(supabase migration up*)",
       "Bash(pnpm exec supabase migration up*)",
+      "Bash(*supabase functions deploy*)",
+      "Bash(*supabase db push*)",
+      "Bash(pnpm db:migrate*)",
       "Bash(git push*)",
       "Bash(git rebase*)",
       "Bash(git merge*)",
@@ -108,9 +110,7 @@
       "Bash(gh issue edit*)",
       "Bash(gh issue create*)",
       "Bash(curl*)",
-      "Bash(wget*)",
-      "Edit(supabase/migrations/**)",
-      "Write(supabase/migrations/**)"
+      "Bash(wget*)"
     ],
     "allow": [
       "Bash(bash scripts/ai-dev-merge.sh *)",
@@ -232,6 +232,7 @@
       "Bash(pnpm exec supabase test db*)",
       "Bash(pnpm exec supabase status*)",
       "Bash(pnpm exec supabase migration list*)",
+      "Bash(pnpm exec supabase functions list --project-ref pehcoenozjtsjdvjietj)",
       "Bash(docker ps*)",
       "Bash(docker --version)",
       "Bash(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 *)",
@@ -319,6 +320,12 @@
             "type": "command",
             "shell": "bash",
             "command": "node scripts/ai-hooks/guard-git-push.mjs",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "node scripts/ai-hooks/guard-supabase-cloud.mjs",
             "timeout": 5
           }
         ]
