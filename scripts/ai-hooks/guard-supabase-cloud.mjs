@@ -14,13 +14,15 @@
 //
 //   - `[pnpm exec] supabase functions deploy <name> --project-ref <DEV_REF>`
 //     (one named function, never a deploy-everything, never `liff-entry`);
-//   - `[pnpm exec] supabase db push [--dry-run] [--include-all]` or
-//     `pnpm db:migrate [...]`, when the local link (supabase/.temp/project-ref)
-//     is DEV_REF and no `--db-url` / `--local` target override is present.
+//   - `[pnpm exec] supabase db push [--dry-run] [--include-all] [--linked]
+//     [--yes]` or `pnpm db:migrate [same flags]`, when the repo's local link
+//     (supabase/.temp/project-ref) is DEV_REF.
 //
-// Production ref anywhere in the command → "deny". Anything else matching the
-// commands above falls through to "ask" (a Founder prompt), never silently
-// allowed.
+// Allowed forms must be a single plain invocation from the session cwd: no
+// `cd` prefix, env-var assignment, quotes, `$`, chaining or redirection
+// (independent review 2026-10-10 showed each could retarget the CLI).
+// Production ref anywhere in the command (also after stripping quotes) →
+// "deny". Anything else mentioning these commands → "ask" (a Founder prompt).
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -65,29 +67,39 @@ process.stdin.on("end", () => {
   }
   const command = input?.tool_input?.command ?? "";
 
-  if (command.includes(PROD_REF)) {
+  // Shell quoting/escaping can split the ref (`jsgm""mds…`), so also compare
+  // with quotes and backslashes stripped.
+  if (command.includes(PROD_REF) || command.replace(/['"\\`^]/g, "").includes(PROD_REF)) {
     decide("deny", "Command names the PRODUCTION Supabase project — production is a Founder-only gate.");
     return;
   }
 
-  const isDeploy = /\bsupabase\s+functions\s+deploy\b/.test(command);
-  const isPush = /\bsupabase\s+db\s+push\b/.test(command) || /\bpnpm\s+(run\s+)?db:migrate\b/.test(command);
+  // Broad detection: any mention, including global flags before the
+  // subcommand (`supabase --workdir x db push`), must at least reach "ask".
+  const isDeploy = /\bsupabase\b[\s\S]*\bfunctions\b[\s\S]*\bdeploy\b/.test(command);
+  const isPush =
+    /\bsupabase\b[\s\S]*\bdb\b[\s\S]*\bpush\b/.test(command) || /\bdb:migrate\b/.test(command);
   if (!isDeploy && !isPush) {
     process.stdout.write("{}");
     return;
   }
 
-  // Only a single, simple invocation (optionally prefixed by `cd <dir> &&`).
-  const body = command.trim().replace(/^cd\s+\S+\s+&&\s+/, "");
-  if (/[;&|]|\$\(|`|>|<|\n/.test(body)) {
-    decide("ask", "Chained or redirected Supabase Cloud command — confirm manually.");
+  // Allow-listed forms are a single plain invocation from the session's cwd:
+  // no `cd` prefix (the CLI would read a different project link), no env-var
+  // assignments, quoting, expansion, chaining or redirection.
+  const body = command.trim();
+  if (/[;&|<>`$'"\\%^\r\n(){}]/.test(body)) {
+    decide("ask", "Supabase Cloud command with shell metacharacters, quoting or chaining — confirm manually.");
+    return;
+  }
+  const tokens = body.split(/\s+/);
+  if (tokens.some((t) => t.includes("=") && !t.startsWith("--"))) {
+    decide("ask", "Supabase Cloud command with an environment/assignment token — confirm manually.");
     return;
   }
 
-  const tokens = body.split(/\s+/);
   let i = 0;
   if (tokens[0] === "pnpm" && tokens[1] === "exec") i = 2;
-  else if (tokens[0] === "npx") i = 1;
 
   if (isDeploy) {
     if (tokens[i] !== "supabase" || tokens[i + 1] !== "functions" || tokens[i + 2] !== "deploy") {
@@ -121,8 +133,19 @@ process.stdin.on("end", () => {
     return;
   }
 
-  // db push / db:migrate
-  const flags = tokens.filter((t) => t.startsWith("-"));
+  // db push / db:migrate — exact shapes only.
+  let rest;
+  if (tokens[i] === "supabase" && tokens[i + 1] === "db" && tokens[i + 2] === "push") rest = tokens.slice(i + 3);
+  else if (i === 0 && tokens[0] === "pnpm" && tokens[1] === "db:migrate") rest = tokens.slice(2);
+  else {
+    decide("ask", "Unrecognised db push form — confirm manually.");
+    return;
+  }
+  if (rest.some((t) => !t.startsWith("-"))) {
+    decide("ask", "db push with positional arguments — confirm manually.");
+    return;
+  }
+  const flags = rest;
   const okFlag = (t) => t === "--dry-run" || t === "--include-all" || t === "--linked" || t === "--yes";
   const bad = flags.find((t) => !okFlag(t));
   if (bad) {

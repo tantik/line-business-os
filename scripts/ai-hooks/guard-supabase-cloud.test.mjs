@@ -25,12 +25,29 @@ const deploy = "supabase functions deploy";
 test("DEV deploy of one named function is allowed", () => {
   assert.equal(run(`pnpm exec ${deploy} invite-employee --project-ref ${DEV}`), "allow");
   assert.equal(run(`${deploy} invite-employee --project-ref=${DEV}`), "allow");
-  assert.equal(run(`cd D:/Dev/line-business-os && pnpm exec ${deploy} invite-employee --project-ref ${DEV}`), "allow");
 });
 
-test("production ref is denied anywhere", () => {
+test("production ref is denied anywhere, also when split by quoting", () => {
   assert.equal(run(`pnpm exec ${deploy} invite-employee --project-ref ${PROD}`), "deny");
   assert.equal(run(`pnpm exec supabase db push --db-url postgres://x@db.${PROD}.supabase.co`), "deny");
+  const split = `${PROD.slice(0, 10)}""${PROD.slice(10)}`;
+  assert.equal(run(`SUPABASE_PROJECT_ID=${split} supabase db push`), "deny");
+  assert.equal(run(`SUPABASE_PROJECT_ID=${PROD.slice(0, 10)}\\${PROD.slice(10)} supabase db push`), "deny");
+});
+
+test("retargeting tricks never get allow (review 2026-10-10)", () => {
+  assert.equal(run("SUPABASE_WORKDIR=/tmp/x supabase db push"), "ask");
+  assert.equal(run("SUPABASE_PROJECT_ID=other supabase db push"), "ask");
+  assert.equal(run("X=$P pnpm db:migrate"), "ask");
+  assert.equal(run("cd ../other && supabase db push"), "ask");
+  assert.equal(run(`cd D:/Dev/line-business-os && pnpm exec ${deploy} invite-employee --project-ref ${DEV}`), "ask");
+  assert.equal(run(`${deploy} 'liff-entry' --project-ref ${DEV}`), "ask");
+  assert.equal(run("supabase --workdir /tmp/x db push"), "ask");
+  assert.equal(run(`supabase --workdir /tmp/x functions deploy invite-employee --project-ref ${DEV}`), "ask");
+  assert.equal(run(`npx supabase@2 ${deploy.slice(9)} invite-employee --project-ref ${DEV}`), "ask");
+  assert.equal(run("pnpm db:migrate -- --db-url postgres://x"), "ask");
+  assert.equal(run("pnpm exec supabase db push --include-roles"), "ask");
+  assert.equal(run("pnpm exec supabase db push extra"), "ask");
 });
 
 test("non-DEV-scoped or risky deploy forms fall back to ask", () => {
