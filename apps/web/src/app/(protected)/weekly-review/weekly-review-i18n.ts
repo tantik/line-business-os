@@ -217,11 +217,11 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     viewPurchases: '仕入れを見る',
     viewInventory: '在庫を見る',
 
-    errNoAuthContext: 'もう一度サインインしてください。',
+    errNoAuthContext: 'もう一度ログインしてください。',
     errInvalidWeek: '対象の週が正しくありません。',
     errPermissionDenied: 'この操作を行う権限がありません。',
     errorGeneric: 'エラーが発生しました。もう一度お試しください。',
-    errorNotAuthenticated: 'もう一度サインインしてください。',
+    errorNotAuthenticated: 'もう一度ログインしてください。',
     errorNoMembership: 'このワークスペースのメンバーではありません。',
   },
 };

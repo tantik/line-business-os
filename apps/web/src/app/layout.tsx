@@ -22,8 +22,8 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'LINE Business OS', template: '%s | LINE Business OS' },
-  description: 'Multi-tenant SaaS platform for Japanese SMBs',
+  title: { default: 'ORUWA', template: '%s | ORUWA' },
+  description: 'ORUWA — 店舗運営をひとつに',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },

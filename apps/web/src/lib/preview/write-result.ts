@@ -36,7 +36,7 @@ export type PreviewWriteResult<T> =
   | { status: PreviewWriteFailureStatus };
 
 const PREVIEW_WRITE_MESSAGES_JA: Record<PreviewWriteFailureStatus, string> = {
-  not_authenticated: 'サインインが必要です。',
+  not_authenticated: 'ログインが必要です。',
   no_access: 'この操作を行う権限がありません。',
   module_disabled: 'ワークフォース機能はこのワークスペースで有効になっていません。',
   location_blocked: '店舗の設定を確認できません。担当者にお問い合わせください。',

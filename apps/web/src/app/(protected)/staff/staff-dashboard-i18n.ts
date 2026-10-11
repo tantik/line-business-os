@@ -445,7 +445,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     savedStatus: '保存しました',
     saveErrorStatus: '保存できませんでした',
     backToWorkforce: 'プラットフォームダッシュボード',
-    signOut: 'サインアウト',
+    signOut: 'ログアウト',
     profileHeading: '自分のプロフィール',
     nameLabel: '氏名',
     positionLabel: '役職',
@@ -526,7 +526,7 @@ export function describeExchangeError(lang: Lang, status: string): string {
     },
     ja: {
       not_found: '見つかりません。',
-      not_authenticated: '再度サインインしてください。',
+      not_authenticated: 'もう一度ログインしてください。',
       no_membership: 'このワークスペースのメンバーではありません。',
       stale_reference: 'このリクエストは現在のスケジュールと一致しません。最新の状態を確認してください。',
       duplicate: 'このリクエストはすでに存在します。',

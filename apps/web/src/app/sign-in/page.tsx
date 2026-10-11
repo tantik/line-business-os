@@ -5,11 +5,11 @@ import { DASHBOARD_PATH, resolvePostLoginPath } from '@/lib/auth/post-login-redi
 import { getActiveTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizePreviewReturnTo } from '@/lib/preview/return-to';
-import { alertDanger, mutedText, pageStyle } from '@/lib/ui/theme';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { SignInForm } from './SignInForm';
 
 /**
- * Minimal email/password sign-in page.
+ * ORUWA email/password sign-in page (JA default, EN toggle).
  *
  * Server component: the form (`SignInForm`) still posts directly to the
  * `signIn` Server Action via the native `action` prop - no client-side fetch,
@@ -22,12 +22,12 @@ import { SignInForm } from './SignInForm';
  * present (set by the action on bad input or failed auth) - we never reveal
  * which field was wrong or echo the auth error.
  *
- * Sign-up, password reset, OAuth/social, and LINE login are intentionally NOT
- * implemented in this phase (foundation only).
+ * Self-service password reset starts at `/forgot-password`. Sign-up is by
+ * manager invitation only; OAuth/social and LINE login are not implemented.
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'ログイン', robots: { index: false, follow: false } };
 
 export default async function SignInPage({
   searchParams,
@@ -49,26 +49,9 @@ export default async function SignInPage({
     redirect(destination);
   }
 
-  const hasError = Boolean(params?.error);
-
   return (
-    <main style={pageStyle(420)}>
-      <h1>Sign in</h1>
-      <p style={{ ...mutedText, marginTop: 0 }}>
-        Sign in to LINE Business OS with your email and password.
-      </p>
-
-      {hasError ? (
-        <p role="alert" style={alertDanger}>
-          Invalid email or password. Please try again.
-        </p>
-      ) : null}
-
-      <SignInForm returnTo={safeReturnTo} />
-
-      <p style={{ ...mutedText, fontSize: 13, marginTop: 16 }}>
-        Sign-up, password reset, and social login are not available yet.
-      </p>
-    </main>
+    <AuthShell title="signInTitle" lead="signInLead">
+      <SignInForm returnTo={safeReturnTo} hasError={Boolean(params?.error)} />
+    </AuthShell>
   );
 }

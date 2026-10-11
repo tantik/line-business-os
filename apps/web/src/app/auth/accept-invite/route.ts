@@ -2,8 +2,17 @@ import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getWorkforceEmployeeInvitationById } from '@/lib/workforce/invitations';
+import {
+  buildResetMarker,
+  LINK_INVALID_PATH,
+  RESET_MARKER_COOKIE,
+  RESET_MARKER_COOKIE_OPTIONS,
+  RESET_PASSWORD_PATH,
+} from '@/lib/auth/password-reset';
 
-const SIGN_IN_ERROR_URL = '/sign-in?error=1';
+// DEBT-084: a dead link used to land on `/sign-in?error=1`, which told the
+// user their password was wrong. It now explains the link itself is invalid.
+const LINK_ERROR_URL = LINK_INVALID_PATH;
 
 /**
  * Only these OTP types are ever legitimate for this callback -- never trust
@@ -25,8 +34,38 @@ const SIGN_IN_ERROR_URL = '/sign-in?error=1';
  */
 const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite', 'recovery']);
 
-function errorRedirect(origin: string): NextResponse {
-  return NextResponse.redirect(new URL(SIGN_IN_ERROR_URL, origin));
+/** `reason` only picks the help text on the invalid-link page; it grants nothing. */
+function errorRedirect(origin: string, reason?: 'invite' | 'reset'): NextResponse {
+  const target = new URL(LINK_ERROR_URL, origin);
+  if (reason) target.searchParams.set('reason', reason);
+  return NextResponse.redirect(target);
+}
+
+/**
+ * Self-service "forgot password" link (`?flow=reset`, no invitation_id;
+ * see lib/auth/password-reset.ts). Accepts ONLY `type=recovery` with a
+ * `token_hash`, verified server-side; the resulting session may only set a
+ * new password (the reset page re-checks the recovery sign-in is recent).
+ */
+async function passwordResetCallback(url: URL): Promise<NextResponse> {
+  const tokenHash = url.searchParams.get('token_hash');
+  if (!tokenHash || url.searchParams.get('type') !== 'recovery') {
+    return errorRedirect(url.origin, 'reset');
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  if (error || !data.user || !data.session) {
+    return errorRedirect(url.origin, 'reset');
+  }
+  const marker = buildResetMarker(data.user.id, data.session.access_token);
+  if (!marker) {
+    // Fail closed: never leave a recovery session that cannot be used safely.
+    await supabase.auth.signOut();
+    return errorRedirect(url.origin, 'reset');
+  }
+  const response = NextResponse.redirect(new URL(RESET_PASSWORD_PATH, url.origin));
+  response.cookies.set(RESET_MARKER_COOKIE, marker, RESET_MARKER_COOKIE_OPTIONS);
+  return response;
 }
 
 /**
@@ -84,6 +123,9 @@ export async function GET(request: Request) {
   const type = url.searchParams.get('type');
 
   if (!invitationId) {
+    if (url.searchParams.get('flow') === 'reset') {
+      return passwordResetCallback(url);
+    }
     return errorRedirect(url.origin);
   }
 
@@ -91,19 +133,19 @@ export async function GET(request: Request) {
 
   if (tokenHash) {
     if (!type || !ALLOWED_TOKEN_HASH_TYPES.has(type)) {
-      return errorRedirect(url.origin);
+      return errorRedirect(url.origin, 'invite');
     }
     const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType });
     if (error) {
-      return errorRedirect(url.origin);
+      return errorRedirect(url.origin, 'invite');
     }
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      return errorRedirect(url.origin);
+      return errorRedirect(url.origin, 'invite');
     }
   } else {
-    return errorRedirect(url.origin);
+    return errorRedirect(url.origin, 'invite');
   }
 
   // Session is now established (Auth-confirmed). Confirm this specific
@@ -113,7 +155,7 @@ export async function GET(request: Request) {
   const invitation = invitationResult.status === 'success' ? invitationResult.data : null;
   if (!invitation || invitation.status !== 'pending' || invitation.isExpired) {
     await supabase.auth.signOut();
-    return errorRedirect(url.origin);
+    return errorRedirect(url.origin, 'invite');
   }
 
   return NextResponse.redirect(

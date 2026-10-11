@@ -8,6 +8,13 @@ import { SIGN_IN_PATH } from './require-user';
 import { parseCredentials } from './credentials';
 import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { DASHBOARD_PATH, resolvePostLoginPath } from './post-login-redirect';
+import {
+  MIN_PASSWORD_LENGTH,
+  clearResetMarker,
+  hasRecentRecoverySession,
+  looksLikeEmail,
+  passwordResetRedirectUrl,
+} from './password-reset';
 
 /**
  * Server Actions for the minimal email/password auth flow.
@@ -70,6 +77,67 @@ export async function signIn(formData: FormData): Promise<void> {
   redirect(destination);
 }
 
+export type PasswordResetRequestResult = { status: 'sent' | 'invalid_email' | 'retry_later' };
+
+/**
+ * "パスワードをお忘れですか？" request. Always answers `sent` for a
+ * well-formed address -- registered or not, rate-limited or not -- so the
+ * response never reveals whether an account exists. Only an Auth outage
+ * (5xx / network) asks the user to retry.
+ */
+export async function requestPasswordReset(formData: FormData): Promise<PasswordResetRequestResult> {
+  const email = String(formData.get('email') ?? '').trim();
+  if (!looksLikeEmail(email)) return { status: 'invalid_email' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: await passwordResetRedirectUrl(),
+  });
+  if (error && (error.status === undefined || error.status >= 500)) {
+    return { status: 'retry_later' };
+  }
+  return { status: 'sent' };
+}
+
+export type PasswordResetCompleteResult =
+  | { status: 'success'; destination: string }
+  | { status: 'link_invalid' | 'too_short' | 'same_password' | 'weak_password' | 'error' };
+
+/**
+ * Sets a new password for a session that was opened by a recovery link in
+ * the last 15 minutes (re-checked here, not only on page render). Never
+ * echoes the Auth error text.
+ */
+export async function completePasswordReset(formData: FormData): Promise<PasswordResetCompleteResult> {
+  const password = String(formData.get('password') ?? '');
+  const supabase = await createClient();
+  if (!(await hasRecentRecoverySession(supabase))) return { status: 'link_invalid' };
+  if (password.length < MIN_PASSWORD_LENGTH) return { status: 'too_short' };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    if (error.code === 'same_password') return { status: 'same_password' };
+    if (error.code === 'weak_password') return { status: 'weak_password' };
+    return { status: 'error' };
+  }
+  await clearResetMarker();
+  // Whoever else was signed in to this account (e.g. the reason for the
+  // reset) is signed out; this browser keeps its session. Best effort.
+  try {
+    await supabase.auth.signOut({ scope: 'others' });
+  } catch {
+    // The password is already changed; do not fail the reset over this.
+  }
+
+  revalidatePath('/', 'layout');
+  let destination: string = DASHBOARD_PATH;
+  const tenantContext = await getActiveTenantContext();
+  if (tenantContext.status === 'success') {
+    destination = await resolvePostLoginPath(supabase, tenantContext.data.activeTenant.tenantId);
+  }
+  return { status: 'success', destination };
+}
+
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   // See previewSignOut's comment (lib/preview/actions/session-actions.ts):
@@ -79,6 +147,7 @@ export async function signOut(): Promise<void> {
   } catch {
     // Fall through to redirect regardless of the remote revoke outcome.
   }
+  await clearResetMarker();
   revalidatePath('/', 'layout');
   redirect(SIGN_IN_PATH);
 }

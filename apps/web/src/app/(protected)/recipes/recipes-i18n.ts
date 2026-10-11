@@ -175,7 +175,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     pageDescription: '公開中のレシピ -',
     backToWorkforce: '戻る',
     backToRecipes: 'レシピ一覧に戻る',
-    signOut: 'サインアウト',
+    signOut: 'ログアウト',
     unavailable: 'レシピは一時的に利用できません。',
     untitledRecipe: '無題のレシピ',
     noRecipesYet: 'まだレシピがありません。',
