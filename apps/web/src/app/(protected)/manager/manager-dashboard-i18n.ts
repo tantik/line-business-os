@@ -112,6 +112,8 @@ interface ManagerDashboardDict {
   recoverAccessButton: string;
   revokeInvitationButton: string;
   recoveryEmailSentMessage: string;
+  inviteEmailSentMessage: string;
+  inviteNoEmailExistingAccountMessage: string;
   confirmRecoverAccessTitle: string;
   confirmRecoverAccessBody: string;
   confirmSendButton: string;
@@ -481,6 +483,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     recoverAccessButton: 'Recover access',
     revokeInvitationButton: 'Revoke',
     recoveryEmailSentMessage: 'Recovery email sent.',
+    inviteEmailSentMessage: 'Invitation email sent.',
+    inviteNoEmailExistingAccountMessage: 'No email was sent: this person already has an account. If they have not set a password yet, use "Recover access".',
     confirmRecoverAccessTitle: 'Send this staff member a password-reset email?',
     confirmRecoverAccessBody: 'They can reset their password using the link in the email.',
     confirmSendButton: 'Send',
@@ -810,6 +814,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     recoverAccessButton: 'アクセスを回復',
     revokeInvitationButton: '取り消す',
     recoveryEmailSentMessage: '復旧メールを送信しました。',
+    inviteEmailSentMessage: '招待メールを送信しました。',
+    inviteNoEmailExistingAccountMessage: 'このスタッフにはすでにアカウントがあるため、メールは送信されていません。まだパスワードを設定していない場合は「アクセスを回復」を使ってください。',
     confirmRecoverAccessTitle: 'このスタッフにパスワード再設定メールを送信しますか？',
     confirmRecoverAccessBody: 'スタッフはメールに記載されたリンクからパスワードを再設定できます。',
     confirmSendButton: '送信する',
