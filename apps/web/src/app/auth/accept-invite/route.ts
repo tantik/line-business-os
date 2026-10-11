@@ -3,6 +3,7 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getWorkforceEmployeeInvitationById } from '@/lib/workforce/invitations';
 import {
+  buildResetMarker,
   LINK_INVALID_PATH,
   RESET_MARKER_COOKIE,
   RESET_MARKER_COOKIE_OPTIONS,
@@ -53,11 +54,17 @@ async function passwordResetCallback(url: URL): Promise<NextResponse> {
   }
   const supabase = await createClient();
   const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
-  if (error || !data.user) {
+  if (error || !data.user || !data.session) {
+    return errorRedirect(url.origin, 'reset');
+  }
+  const marker = buildResetMarker(data.user.id, data.session.access_token);
+  if (!marker) {
+    // Fail closed: never leave a recovery session that cannot be used safely.
+    await supabase.auth.signOut();
     return errorRedirect(url.origin, 'reset');
   }
   const response = NextResponse.redirect(new URL(RESET_PASSWORD_PATH, url.origin));
-  response.cookies.set(RESET_MARKER_COOKIE, data.user.id, RESET_MARKER_COOKIE_OPTIONS);
+  response.cookies.set(RESET_MARKER_COOKIE, marker, RESET_MARKER_COOKIE_OPTIONS);
   return response;
 }
 

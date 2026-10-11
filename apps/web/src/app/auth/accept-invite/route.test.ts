@@ -107,13 +107,16 @@ test('self-service reset branch accepts only a recovery token_hash, verified ser
   const typeGuardIdx = RESET_FN.indexOf("url.searchParams.get('type') !== 'recovery'");
   const verifyIdx = RESET_FN.indexOf("supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })");
   assert.ok(typeGuardIdx >= 0 && verifyIdx > typeGuardIdx, 'type must be checked as recovery before verifyOtp');
-  assert.ok(!/exchangeCodeForSession|access_token|refresh_token|setSession\(/.test(RESET_FN));
+  assert.ok(
+    !/exchangeCodeForSession|refresh_token|setSession\(|searchParams\.get\('access_token'\)/.test(RESET_FN),
+    'never a code exchange or a token taken from the URL',
+  );
 });
 
 test('self-service reset branch sets the reset marker only after a successful verifyOtp, bound to that user', () => {
   const verifyIdx = RESET_FN.indexOf('supabase.auth.verifyOtp(');
-  const errorIdx = RESET_FN.indexOf('if (error || !data.user)');
-  const markerIdx = RESET_FN.indexOf('response.cookies.set(RESET_MARKER_COOKIE, data.user.id, RESET_MARKER_COOKIE_OPTIONS)');
+  const errorIdx = RESET_FN.indexOf('if (error || !data.user || !data.session)');
+  const markerIdx = RESET_FN.indexOf('response.cookies.set(RESET_MARKER_COOKIE, marker, RESET_MARKER_COOKIE_OPTIONS)');
   assert.ok(verifyIdx >= 0 && errorIdx > verifyIdx && markerIdx > errorIdx);
 });
 
@@ -123,7 +126,7 @@ test('the invitation path never sets the reset marker', () => {
 
 test('hasRecentRecoverySession requires the marker for the validated user, and options are httpOnly + 15 min', () => {
   const lib = readFileSync(new URL('../../../lib/auth/password-reset.ts', import.meta.url), 'utf8');
-  assert.ok(/if \(!marker \|\| marker !== data\.user\.id\) return false;/.test(lib));
+  assert.ok(lib.includes('verifyResetMarker(secret, marker, { userId: data.user.id, sessionId,'), 'marker must be verified against the validated user + session');
   assert.ok(/httpOnly: true/.test(lib) && /maxAge: RECOVERY_WINDOW_SECONDS/.test(lib));
   const actions = readFileSync(new URL('../../../lib/auth/actions.ts', import.meta.url), 'utf8');
   const fn = actions.slice(actions.indexOf('export async function completePasswordReset'));

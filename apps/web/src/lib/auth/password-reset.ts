@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createResetMarker, verifyResetMarker } from './reset-marker';
 
 /**
  * Self-service password reset (DEBT-088).
@@ -20,12 +21,27 @@ export { MIN_PASSWORD_LENGTH } from './password-rules';
 const RECOVERY_WINDOW_SECONDS = 15 * 60;
 
 /**
- * Set ONLY by the self-service reset callback after `verifyOtp(recovery)`,
- * holding that user's id. The `amr` claim alone cannot tell a recovery link
- * from the LINE (LIFF) magic-link sign-in -- both may report `otp` -- so the
- * new-password screen requires this marker too (security review 2026-10-11).
+ * Set ONLY by the self-service reset callback after `verifyOtp(recovery)`:
+ * an HMAC-signed user id + session id + expiry (lib/auth/reset-marker.ts).
+ * Supabase reports a recovery sign-in as `amr: otp`, exactly like the LINE
+ * (LIFF) magic-link sign-in, so the session alone cannot authorize a
+ * password change (security review 2026-10-11).
  */
 export const RESET_MARKER_COOKIE = 'oruwa_pw_reset';
+
+/** Server-only secret the marker key is derived from; absent → reset fails closed. */
+function markerSecret(): string | null {
+  const value = process.env.PII_HASH_PEPPER;
+  return value && value.length >= 16 ? value : null;
+}
+
+/** Marker for the session `verifyOtp` just opened, or null (fail closed) when it cannot be built. */
+export function buildResetMarker(userId: string, accessToken: string): string | null {
+  const secret = markerSecret();
+  const sessionId = decodeJwtPayload(accessToken)?.session_id;
+  if (!secret || typeof sessionId !== 'string') return null;
+  return createResetMarker(secret, userId, sessionId, Math.floor(Date.now() / 1000) + RECOVERY_WINDOW_SECONDS);
+}
 export const RESET_MARKER_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -87,18 +103,27 @@ export async function hasRecentRecoverySession(supabase: SupabaseClient): Promis
   const { data, error } = await supabase.auth.getUser(session.access_token);
   if (error || !data.user) return false;
 
-  const marker = (await cookies()).get(RESET_MARKER_COOKIE)?.value;
-  if (!marker || marker !== data.user.id) return false;
-
   const payload = decodeJwtPayload(session.access_token);
+  const marker = (await cookies()).get(RESET_MARKER_COOKIE)?.value;
+  const secret = markerSecret();
+  const sessionId = payload?.session_id;
+  if (
+    !marker ||
+    !secret ||
+    typeof sessionId !== 'string' ||
+    !verifyResetMarker(secret, marker, { userId: data.user.id, sessionId, now: Math.floor(Date.now() / 1000) })
+  ) {
+    return false;
+  }
+
   const amr = Array.isArray(payload?.amr) ? (payload.amr as Array<{ method?: unknown; timestamp?: unknown }>) : [];
   const now = Math.floor(Date.now() / 1000);
   return amr.some(
     (entry) =>
+      // Cloud DEV reports a recovery-link sign-in as `otp` (2026-10-11).
       (entry.method === 'recovery' || entry.method === 'otp') &&
       typeof entry.timestamp === 'number' &&
       now - entry.timestamp >= -60 && // tolerate small clock skew with the Auth server
-
       now - entry.timestamp <= RECOVERY_WINDOW_SECONDS,
   );
 }

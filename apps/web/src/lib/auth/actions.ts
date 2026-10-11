@@ -147,6 +147,7 @@ export async function signOut(): Promise<void> {
   } catch {
     // Fall through to redirect regardless of the remote revoke outcome.
   }
+  await clearResetMarker();
   revalidatePath('/', 'layout');
   redirect(SIGN_IN_PATH);
 }
