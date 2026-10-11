@@ -75,17 +75,23 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
   const t: T = (key) => tManagerDashboard(lang, key);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [recoverySent, setRecoverySent] = useState(false);
+  // Outcome of the last send, shown next to the buttons (DEBT-084 (2): a
+  // re-send to someone who already has an Auth account sends NO email, and
+  // the manager must be told so and pointed at アクセスを回復).
+  const [notice, setNotice] = useState<{ key: Parameters<typeof tManagerDashboard>[1]; tone: 'success' | 'warning' } | null>(null);
   const [confirmAction, setConfirmAction] = useState<'recover' | 'revoke' | null>(null);
 
   function handleInviteOrResend() {
     setError(null);
-    setRecoverySent(false);
+    setNotice(null);
     const formData = new FormData();
     formData.set('employeeId', employeeId);
     startTransition(async () => {
       const result = await inviteOrResendEmployee(formData);
       if (result.status === 'success') {
+        const noEmail =
+          result.data.outcome === 'invited_existing_user_no_email' || result.data.outcome === 'resent_existing_user_no_email';
+        setNotice(noEmail ? { key: 'inviteNoEmailExistingAccountMessage', tone: 'warning' } : { key: 'inviteEmailSentMessage', tone: 'success' });
         onChange();
       } else {
         setError(describeInviteError(result, t));
@@ -95,13 +101,13 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
 
   function handleRecover() {
     setError(null);
-    setRecoverySent(false);
+    setNotice(null);
     const formData = new FormData();
     formData.set('employeeId', employeeId);
     startTransition(async () => {
       const result = await recoverEmployeeAccess(formData);
       if (result.status === 'success') {
-        setRecoverySent(true);
+        setNotice({ key: 'recoveryEmailSentMessage', tone: 'success' });
       } else {
         setError(describeRecoverError(result, t));
       }
@@ -111,7 +117,7 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
   function handleRevoke() {
     if (!invitation) return;
     setError(null);
-    setRecoverySent(false);
+    setNotice(null);
     const formData = new FormData();
     formData.set('invitationId', invitation.invitationId);
     startTransition(async () => {
@@ -157,7 +163,11 @@ export function InvitationCell({ hasAccountAccess, employeeId, invitation, onCha
           {t('revokeInvitationButton')}
         </button>
       ) : null}
-      {recoverySent ? <span style={{ ...mutedText, color: colors.success, fontSize: 12 }}>{t('recoveryEmailSentMessage')}</span> : null}
+      {notice ? (
+        <span role="status" style={{ ...mutedText, color: notice.tone === 'success' ? colors.success : colors.warningText, fontSize: 12 }}>
+          {t(notice.key)}
+        </span>
+      ) : null}
       {error ? <span style={{ ...mutedText, color: colors.dangerText, fontSize: 12 }}>{error}</span> : null}
 
       <ConfirmDialog
