@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { WorkforceRecipeGroup } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
+import { tRecipeTranslation } from '@/lib/demo/cafe/i18n.recipe-translation';
 import { deleteRecipe, getRecipesListForPoll } from '@/lib/workforce/recipe-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
@@ -186,6 +187,12 @@ export function RecipesListBody({
     const field = liveTitleFieldByRecipeId[recipe.recipeId];
     if (!field) return recipe.titleJa || recipe.titleEn || t('untitledRecipe');
     return resolveFieldDisplay(field, lang).text || t('untitledRecipe');
+  }
+
+  /** Copy Audit A-08: an unreviewed machine-translated title must not read as reviewed. */
+  function titleMarker(recipe: WorkforceRecipeGroup['recipes'][number]) {
+    const field = liveTitleFieldByRecipeId[recipe.recipeId];
+    return field ? resolveFieldDisplay(field, lang).marker : null;
   }
 
   const allRecipes = useMemo(
@@ -412,6 +419,9 @@ export function RecipesListBody({
                           </span>
                           {recipe.contentKind === 'instruction' ? (
                             <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span>
+                          ) : null}
+                          {titleMarker(recipe) === 'machine' ? (
+                            <span style={badgeStyle('warning')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
                           ) : null}
                         </div>
                       </div>

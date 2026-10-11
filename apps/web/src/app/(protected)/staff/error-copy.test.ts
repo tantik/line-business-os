@@ -25,6 +25,14 @@ test('describeWriteError defaults to English when no lang is passed (existing ca
   assert.equal(describeWriteError({ status: 'not_found' }), 'Not found.');
 });
 
-test('describeWriteError falls back to the result message for a status with no dedicated copy', () => {
-  assert.equal(describeWriteError({ status: 'unauthorized', message: 'custom message' }, 'ja'), 'custom message');
+test('describeWriteError never shows an unknown server message (Copy Audit A-03): generic per-status copy instead', () => {
+  assert.equal(describeWriteError({ status: 'unauthorized', message: 'custom message' }, 'ja'), 'この操作を行う権限がありません。');
+  assert.equal(
+    describeWriteError({ status: 'unexpected_error', message: 'raw postgres error: relation X violates constraint Y' }, 'en'),
+    'Something went wrong. Please try again.',
+  );
+});
+
+test('describeWriteError translates a known server sentence (the repeat clock-in case)', () => {
+  assert.equal(describeWriteError({ status: 'duplicate', message: 'You have already clocked in today.' }, 'ja'), '本日はすでに出勤済みです。');
 });

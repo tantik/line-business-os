@@ -1,6 +1,7 @@
 import type { PurchasesWriteResult } from '@/lib/purchases/result-types';
 import { tPurchasesDashboard } from './purchases-i18n';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 /** Shared client-side error copy for every Purchases write call on this page -- the single place this text lives. Never surfaces a raw Postgres/internal message. */
 export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult<unknown>, { status: 'success' }>, lang: Lang): string {
@@ -19,7 +20,7 @@ export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult
     case 'stale_snapshot':
       return t('staleSnapshotError');
     case 'unauthorized':
-      return result.message;
+      return localizeServerMessage(result.status, result.message, lang);
     default:
       return t('somethingWentWrongError');
   }

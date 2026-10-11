@@ -1,6 +1,7 @@
 import type { InventoryWriteResult } from '@/lib/inventory/result-types';
 import { tInventoryDashboard } from './inventory-i18n';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 /**
  * Shared client-side error copy for every Inventory write call on this page
@@ -24,7 +25,7 @@ export function describeInventoryWriteError(
     case 'blocked_by_history':
       return t('blockedByHistoryError');
     case 'unauthorized':
-      return result.message;
+      return localizeServerMessage(result.status, result.message, lang);
     default:
       return t('somethingWentWrongError');
   }

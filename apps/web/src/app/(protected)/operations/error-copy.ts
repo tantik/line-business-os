@@ -1,6 +1,7 @@
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { OperationsWriteResult } from '@/lib/operations/result-types';
 import { tOperations, type OperationsDictKey } from './operations-i18n';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 /** Every `api.operations_*` (0105) exception message this slice's forms can realistically trigger, mapped to its own bilingual copy key. A code not in this map (e.g. a future RPC exception) still renders `errorGeneric`, never the raw machine identifier. */
 const KNOWN_OPERATIONS_ERROR_KEYS: Record<string, OperationsDictKey> = {
@@ -78,7 +79,7 @@ export function describeOperationsWriteError(
     case 'unauthorized':
     case 'config_error':
     case 'unexpected_error':
-      return result.message || t('errorGeneric');
+      return localizeServerMessage(result.status, result.message, lang);
     default:
       return t('errorGeneric');
   }

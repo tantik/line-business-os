@@ -39,7 +39,10 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
   const ownAttendance = staffEntry ? attendance.filter((a) => a.employeeId === staffEntry.staffId) : [];
   const summary = estimatedEarningsSummary(ownAttendance, monthPrefix, staffEntry?.hourlyWageYen ?? null);
   // Units on every value (2026-10-07 full QA: the card showed bare "4.8 / 1200 / 5760").
-  const yen = (value: number | null) => (value === null ? '-' : `¥${value.toLocaleString('ja-JP')}`);
+  const yen = (value: number | null) => (value === null ? '—' : `¥${value.toLocaleString('ja-JP')}`);
+  // Copy Audit A-05: the copied report showed the raw YYYY-MM month key.
+  const [reportYear, reportMonth] = monthPrefix.split('-');
+  const monthText = lang === 'ja' ? `${reportYear}年${Number(reportMonth)}月` : new Date(`${monthPrefix}-01T00:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   const hoursText = `${summary.workedHours}h`;
   const wageText = yen(summary.hourlyWageYen);
   const earnedText = yen(summary.estimatedEarningsYen);
@@ -48,7 +51,7 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
     if (!staffEntry) return;
     const lines = [
       `${t('staffNamePopupTitlePrefix')}: ${staffEntry.name}`,
-      `${t('staffNamePopupMonth')}: ${monthPrefix}`,
+      `${t('staffNamePopupMonth')}: ${monthText}`,
       `${t('staffNamePopupWorkedHours')}: ${hoursText}`,
       `${t('staffNamePopupHourlyWage')}: ${wageText}`,
       `${t('staffNamePopupEarnedSoFar')}: ${earnedText}`,
@@ -73,7 +76,7 @@ export function StaffNameDetailPopup({ open, onClose, staffEntry, attendance, mo
         onClose();
       }}
       title={staffEntry?.name ?? ''}
-      closeLabel={t('cancel')}
+      closeLabel={t('close')}
       width="min(480px, 94vw)"
     >
       {staffEntry ? (
