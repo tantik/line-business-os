@@ -103,5 +103,5 @@ export function AuthLink({ href, k, asButton = false }: { href: string; k: AuthC
 /** A single translated paragraph, for server pages that only need static copy inside `AuthShell`. */
 export function AuthText({ k, muted = true }: { k: AuthCopyKey; muted?: boolean }) {
   const t = useAuthT();
-  return <p style={muted ? mutedText : undefined}>{t(k)}</p>;
+  return <p style={{ ...(muted ? mutedText : null), marginTop: 0, marginBottom: 20 }}>{t(k)}</p>;
 }
