@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { signIn } from '@/lib/auth/actions';
-import { buttonDisabled, buttonPrimary, input as inputStyle } from '@/lib/ui/theme';
+import { AuthLink, useAuthT } from '@/components/auth/AuthShell';
+import { alertDanger, buttonDisabled, buttonPrimary, input as inputStyle, mutedText } from '@/lib/ui/theme';
 
 const labelStyle = { display: 'block', marginBottom: 12 } as const;
 
@@ -15,39 +16,51 @@ const labelStyle = { display: 'block', marginBottom: 12 } as const;
  * this component); a failed one re-renders `/sign-in?error=1` fresh from the
  * server, which naturally resets this state — no manual reset needed.
  */
-export function SignInForm({ returnTo }: { returnTo: string | null }) {
+export function SignInForm({ returnTo, hasError }: { returnTo: string | null; hasError: boolean }) {
+  const t = useAuthT();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   return (
-    <form action={signIn} onSubmit={() => setIsSubmitting(true)}>
-      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-      <label style={labelStyle}>
-        Email
-        <input
-          type="email"
-          name="email"
-          required
-          autoComplete="email"
-          autoCapitalize="none"
-          spellCheck={false}
-          disabled={isSubmitting}
-          style={inputStyle}
-        />
-      </label>
-      <label style={labelStyle}>
-        Password
-        <input
-          type="password"
-          name="password"
-          required
-          autoComplete="current-password"
-          disabled={isSubmitting}
-          style={inputStyle}
-        />
-      </label>
-      <button type="submit" disabled={isSubmitting} style={{ ...(isSubmitting ? buttonDisabled : buttonPrimary), width: '100%' }}>
-        {isSubmitting ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
+    <>
+      {hasError ? (
+        <p role="alert" style={alertDanger}>
+          {t('signInError')}
+        </p>
+      ) : null}
+      <form action={signIn} onSubmit={() => setIsSubmitting(true)}>
+        {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+        <label style={labelStyle}>
+          {t('email')}
+          <input
+            type="email"
+            name="email"
+            required
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            disabled={isSubmitting}
+            style={inputStyle}
+          />
+        </label>
+        <label style={labelStyle}>
+          {t('password')}
+          <input
+            type="password"
+            name="password"
+            required
+            autoComplete="current-password"
+            disabled={isSubmitting}
+            style={inputStyle}
+          />
+        </label>
+        <button type="submit" disabled={isSubmitting} style={{ ...(isSubmitting ? buttonDisabled : buttonPrimary), width: '100%' }}>
+          {isSubmitting ? t('signingIn') : t('signInButton')}
+        </button>
+      </form>
+      <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <AuthLink href="/forgot-password" k="forgotLink" />
+      </div>
+      <p style={{ ...mutedText, fontSize: 13, marginBottom: 0 }}>{t('noAccountHint')}</p>
+    </>
   );
 }

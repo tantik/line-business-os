@@ -73,8 +73,8 @@ test('GET never calls acceptWorkforceEmployeeInvitation or the accept_employee_i
   assert.ok(!/\.rpc\(\s*'accept_employee_invitation'/.test(BODY), 'no direct RPC call in the executable code');
 });
 
-test('GET never redirects to /dashboard or any other authenticated page -- only /sign-in (error) or the password-setup screen', () => {
-  assert.ok(/const SIGN_IN_ERROR_URL = '\/sign-in\?error=1';/.test(SOURCE), 'expected the sign-in error target to be a literal, checkable constant');
+test('GET never redirects to /dashboard or any other authenticated page -- only the invalid-link page (error) or a password screen', () => {
+  assert.ok(/const LINK_ERROR_URL = LINK_INVALID_PATH;/.test(SOURCE), 'expected the error target to be a single checkable constant (DEBT-084)');
   // Scans the whole file (not just BODY) because the actual NextResponse.redirect(...)
   // call sites live in the errorRedirect() helper, defined above `GET` --
   // safe here since, unlike the ordering assertions above, no prose in this
@@ -84,8 +84,29 @@ test('GET never redirects to /dashboard or any other authenticated page -- only 
   for (const call of redirectCalls) {
     assert.ok(!call.includes('/dashboard'), `redirect call must not target /dashboard: ${call}`);
   }
-  assert.ok(redirectCalls.some((c) => c.includes('SIGN_IN_ERROR_URL')), 'expected an error redirect using the sign-in error constant');
+  assert.ok(redirectCalls.some((c) => c.includes('LINK_ERROR_URL')), 'expected an error redirect using the invalid-link constant');
   assert.ok(redirectCalls.some((c) => c.includes('/auth/accept-invite/set-password')), 'expected the success redirect to password setup');
+  assert.ok(redirectCalls.some((c) => c.includes('RESET_PASSWORD_PATH')), 'expected the self-service reset redirect to the new-password screen');
+});
+
+// Function body only (up to its closing brace) -- GET's doc comment that
+// follows mentions access_token/setSession in prose.
+const RESET_FN_START = SOURCE.indexOf('async function passwordResetCallback');
+const RESET_FN_REST = SOURCE.slice(RESET_FN_START);
+const RESET_FN = RESET_FN_REST.slice(0, RESET_FN_REST.search(/\r?\n\}\r?\n/) + 3);
+
+test('self-service reset branch: only reached without invitation_id and with flow=reset', () => {
+  const guardIdx = BODY.indexOf('if (!invitationId)');
+  const flowIdx = BODY.indexOf("url.searchParams.get('flow') === 'reset'");
+  assert.ok(guardIdx >= 0 && flowIdx > guardIdx, 'flow=reset dispatch must sit inside the missing-invitation_id branch');
+});
+
+test('self-service reset branch accepts only a recovery token_hash, verified server-side, never a code or raw token', () => {
+  assert.ok(RESET_FN.length > 0, 'expected to find passwordResetCallback');
+  const typeGuardIdx = RESET_FN.indexOf("url.searchParams.get('type') !== 'recovery'");
+  const verifyIdx = RESET_FN.indexOf("supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })");
+  assert.ok(typeGuardIdx >= 0 && verifyIdx > typeGuardIdx, 'type must be checked as recovery before verifyOtp');
+  assert.ok(!/exchangeCodeForSession|access_token|refresh_token|setSession\(/.test(RESET_FN));
 });
 
 test('ALLOWED_TOKEN_HASH_TYPES admits exactly `invite` and `recovery` -- Defect C\'s Manager-triggered recovery action is the only producer of a `recovery` token here, and this callback still independently re-validates the invitation before granting anything', () => {

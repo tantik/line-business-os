@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getWorkforceEmployeeInvitationById } from '@/lib/workforce/invitations';
+import { LINK_INVALID_PATH, RESET_PASSWORD_PATH } from '@/lib/auth/password-reset';
 
-const SIGN_IN_ERROR_URL = '/sign-in?error=1';
+// DEBT-084: a dead link used to land on `/sign-in?error=1`, which told the
+// user their password was wrong. It now explains the link itself is invalid.
+const LINK_ERROR_URL = LINK_INVALID_PATH;
 
 /**
  * Only these OTP types are ever legitimate for this callback -- never trust
@@ -26,7 +29,26 @@ const SIGN_IN_ERROR_URL = '/sign-in?error=1';
 const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite', 'recovery']);
 
 function errorRedirect(origin: string): NextResponse {
-  return NextResponse.redirect(new URL(SIGN_IN_ERROR_URL, origin));
+  return NextResponse.redirect(new URL(LINK_ERROR_URL, origin));
+}
+
+/**
+ * Self-service "forgot password" link (`?flow=reset`, no invitation_id;
+ * see lib/auth/password-reset.ts). Accepts ONLY `type=recovery` with a
+ * `token_hash`, verified server-side; the resulting session may only set a
+ * new password (the reset page re-checks the recovery sign-in is recent).
+ */
+async function passwordResetCallback(url: URL): Promise<NextResponse> {
+  const tokenHash = url.searchParams.get('token_hash');
+  if (!tokenHash || url.searchParams.get('type') !== 'recovery') {
+    return errorRedirect(url.origin);
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  if (error) {
+    return errorRedirect(url.origin);
+  }
+  return NextResponse.redirect(new URL(RESET_PASSWORD_PATH, url.origin));
 }
 
 /**
@@ -84,6 +106,9 @@ export async function GET(request: Request) {
   const type = url.searchParams.get('type');
 
   if (!invitationId) {
+    if (url.searchParams.get('flow') === 'reset') {
+      return passwordResetCallback(url);
+    }
     return errorRedirect(url.origin);
   }
 
