@@ -49,7 +49,7 @@ const KNOWN: Record<string, { ja: string; en: string }> = {
   'Could not upload the photo.': { ja: '写真をアップロードできませんでした。', en: 'Could not upload the photo.' },
   'Could not process the photo.': { ja: '写真を処理できませんでした。', en: 'Could not process the photo.' },
   'Weekly Review requires exactly one active location for this workspace.': {
-    ja: '週次レビューを表示するには、有効な店舗が1つだけ必要です。',
+    ja: '週次レビューは、有効な店舗が1つの場合のみ表示できます。',
     en: 'Weekly Review needs exactly one active store.',
   },
   'Invalid input.': { ja: '入力内容を確認してください。', en: 'Please check what you entered.' },

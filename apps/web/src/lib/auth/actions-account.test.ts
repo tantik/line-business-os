@@ -13,7 +13,7 @@ test('changePassword re-checks the current password for the signed-in user befor
   const body = fn('changePassword');
   const userIdx = body.indexOf('supabase.auth.getUser()');
   const reauthIdx = body.indexOf('supabase.auth.signInWithPassword({ email, password: current })');
-  const wrongIdx = body.indexOf("if (reauthError) return { status: 'wrong_current' };");
+  const wrongIdx = body.indexOf('if (reauthError) return');
   const updateIdx = body.indexOf('supabase.auth.updateUser({ password: next })');
   assert.ok(userIdx >= 0 && reauthIdx > userIdx && wrongIdx > reauthIdx && updateIdx > wrongIdx);
   assert.ok(body.indexOf("signOut({ scope: 'others' })") > updateIdx, 'other sessions signed out after the change');

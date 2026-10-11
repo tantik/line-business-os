@@ -84,7 +84,9 @@ function MyStaffProfileCard({
           <div>
             <dt style={{ ...mutedText, fontSize: 13 }}>{t('employmentType')}</dt>
             <dd style={{ margin: 0 }}>
-              {(profileResult.data.employmentType && employmentTypeLabel[lang][profileResult.data.employmentType]) ?? t('notSet')}
+              {profileResult.data.employmentType
+                ? (employmentTypeLabel[lang][profileResult.data.employmentType] ?? profileResult.data.employmentType)
+                : t('notSet')}
             </dd>
           </div>
           <div>

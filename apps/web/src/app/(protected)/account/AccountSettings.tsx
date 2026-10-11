@@ -11,6 +11,7 @@ import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, mu
 
 const ERROR_COPY: Record<string, AuthCopyKey> = {
   wrong_current: 'wrongCurrentPassword',
+  rate_limited: 'tooManyAttempts',
   too_short: 'passwordTooShort',
   same_password: 'passwordSameAsOld',
   weak_password: 'passwordWeak',
@@ -35,7 +36,7 @@ export function AccountSettings({ email, backHref }: { email: string; backHref: 
     const form = event.currentTarget;
     const formData = new FormData(form);
     if (!String(formData.get('currentPassword') ?? '')) {
-      setPwError('wrongCurrentPassword');
+      setPwError('currentPasswordRequired');
       return;
     }
     const problem = validateNewPassword(String(formData.get('password') ?? ''), String(formData.get('confirmPassword') ?? ''));

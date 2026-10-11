@@ -288,7 +288,7 @@ export function RecipeDetailBody({
                 <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span>
               ) : null}
               {contentMarkers.has('machine') ? (
-                <span style={badgeStyle('warning')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
+                <span style={badgeStyle('neutral')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
               ) : null}
               {contentMarkers.has('original') ? (
                 <span style={badgeStyle('neutral')}>{tRecipeTranslation(lang, 'staffOriginalMarker')}</span>

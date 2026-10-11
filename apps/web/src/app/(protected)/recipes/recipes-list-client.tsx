@@ -402,7 +402,7 @@ export function RecipesListBody({
                           {recipeTitle(recipe)}
                         </strong>
                         <div
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, rowGap: 4, flexWrap: 'wrap', minWidth: 0, marginTop: 3 }}
                         >
                           <span
                             style={
@@ -421,7 +421,7 @@ export function RecipesListBody({
                             <span style={badgeStyle('neutral')}>{t('instructionBadge')}</span>
                           ) : null}
                           {titleMarker(recipe) === 'machine' ? (
-                            <span style={badgeStyle('warning')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
+                            <span style={badgeStyle('neutral')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
                           ) : null}
                         </div>
                       </div>

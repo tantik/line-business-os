@@ -150,7 +150,6 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
                 <PreviewLanguageToggle fullWidth />
                 <Link
                   href="/account"
-                  role="menuitem"
                   className={hoverStyles.buttonSecondary}
                   style={{ ...buttonSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
                   onClick={() => setOpen(false)}

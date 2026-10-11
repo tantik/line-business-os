@@ -157,7 +157,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     receivingButton: '入荷登録中…',
     receivedAtLabel: '入荷時刻',
     receivedQuantityLabel: '入荷数:',
-    historyEmpty: '購入履歴はまだありません。',
+    historyEmpty: '仕入れ履歴はまだありません。',
     historyActionBought: '購入済み',
     historyActionOrdered: '発注済み',
     historyActionReceived: '入荷済み',

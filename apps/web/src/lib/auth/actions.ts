@@ -139,7 +139,7 @@ export async function completePasswordReset(formData: FormData): Promise<Passwor
 }
 
 export type ChangePasswordResult = {
-  status: 'success' | 'wrong_current' | 'too_short' | 'same_password' | 'weak_password' | 'not_authenticated' | 'error';
+  status: 'success' | 'wrong_current' | 'rate_limited' | 'too_short' | 'same_password' | 'weak_password' | 'not_authenticated' | 'error';
 };
 
 /**
@@ -159,7 +159,7 @@ export async function changePassword(formData: FormData): Promise<ChangePassword
   if (!email) return { status: 'not_authenticated' };
 
   const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: current });
-  if (reauthError) return { status: 'wrong_current' };
+  if (reauthError) return { status: reauthError.status === 429 ? 'rate_limited' : 'wrong_current' };
 
   const { error } = await supabase.auth.updateUser({ password: next });
   if (error) {
