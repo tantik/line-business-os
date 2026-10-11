@@ -21,7 +21,7 @@ const ERROR_COPY: Record<string, AuthCopyKey> = {
 const successText = { color: colors.success, fontSize: 14, margin: 0 } as const;
 const sectionStyle = { borderTop: `1px solid ${colors.border}`, paddingTop: 16, marginTop: 16 } as const;
 
-export function AccountSettings({ email }: { email: string }) {
+export function AccountSettings({ email, backHref }: { email: string; backHref: string }) {
   const t = useAuthT();
   const [isPending, startTransition] = useTransition();
   const [pwError, setPwError] = useState<AuthCopyKey | null>(null);
@@ -116,7 +116,7 @@ export function AccountSettings({ email }: { email: string }) {
       </section>
 
       <div style={{ ...sectionStyle, textAlign: 'center' }}>
-        <AuthLink href="/" k="backToApp" />
+        <AuthLink href={backHref} k="backToApp" />
       </div>
     </>
   );

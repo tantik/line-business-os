@@ -167,11 +167,10 @@ export async function changePassword(formData: FormData): Promise<ChangePassword
     if (error.code === 'weak_password') return { status: 'weak_password' };
     return { status: 'error' };
   }
-  try {
-    await supabase.auth.signOut({ scope: 'others' });
-  } catch {
-    // The password is already changed; other sessions expire on refresh anyway.
-  }
+  // Best effort: the password is already changed. signOut returns (does not
+  // throw) its error; a failure here is not reported as a failed change.
+  const { error: othersError } = await supabase.auth.signOut({ scope: 'others' });
+  if (othersError) console.warn('[account] sign out of other sessions failed after a password change');
   return { status: 'success' };
 }
 
