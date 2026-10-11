@@ -1,16 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { ErrorState } from '@/components/states';
-
 /**
- * Error boundary for the protected route group. Logs the real error for
- * developers but shows users a generic, safe message (no internal details).
+ * Error boundary for the protected route group: the same JA/EN screen as the
+ * app-wide boundary (retry + back to the start page, which routes a signed-in
+ * user to their workspace), so a failure is never a dead end. Logs the real
+ * error for developers; users only see the generic message.
  */
-export default function ProtectedError({ error }: { error: Error & { digest?: string } }) {
-  useEffect(() => {
-    console.error('[protected] route error', error);
-  }, [error]);
-
-  return <ErrorState />;
-}
+export { default } from '../error';

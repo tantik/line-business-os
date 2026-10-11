@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { requestPasswordReset } from '@/lib/auth/actions';
-import { AuthLink, useAuthT } from '@/components/auth/AuthShell';
-import { alertDanger, buttonDisabled, buttonPrimary, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { AuthLink, authInput, useAuthT } from '@/components/auth/AuthShell';
+import { alertDanger, buttonDisabled, buttonPrimary, mutedText } from '@/lib/ui/theme';
 
 export function ForgotPasswordForm() {
   const t = useAuthT();
@@ -52,7 +52,7 @@ export function ForgotPasswordForm() {
             autoCapitalize="none"
             spellCheck={false}
             disabled={isPending}
-            style={inputStyle}
+            style={authInput}
           />
         </label>
         <button type="submit" disabled={isPending} style={{ ...(isPending ? buttonDisabled : buttonPrimary), width: '100%' }}>

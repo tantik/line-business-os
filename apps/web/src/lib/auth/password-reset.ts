@@ -1,5 +1,5 @@
 import 'server-only';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -18,6 +18,27 @@ export { MIN_PASSWORD_LENGTH } from './password-rules';
 
 /** A recovery sign-in only authorizes a password change for this long. */
 const RECOVERY_WINDOW_SECONDS = 15 * 60;
+
+/**
+ * Set ONLY by the self-service reset callback after `verifyOtp(recovery)`,
+ * holding that user's id. The `amr` claim alone cannot tell a recovery link
+ * from the LINE (LIFF) magic-link sign-in -- both may report `otp` -- so the
+ * new-password screen requires this marker too (security review 2026-10-11).
+ */
+export const RESET_MARKER_COOKIE = 'oruwa_pw_reset';
+export const RESET_MARKER_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: RECOVERY_WINDOW_SECONDS,
+};
+
+/** Called after a successful reset so the marker cannot be reused. */
+export async function clearResetMarker(): Promise<void> {
+  const store = await cookies();
+  store.delete(RESET_MARKER_COOKIE);
+}
 
 /**
  * Absolute callback URL for the reset email, built from the request host.
@@ -49,9 +70,11 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 /**
  * True only when the caller's CURRENT session was created by a password-
- * recovery link within the last 15 minutes. An ordinary password sign-in
- * (or a stolen long-lived session) cannot reach the "set a new password
- * without the old one" screen.
+ * recovery link within the last 15 minutes AND this browser went through the
+ * self-service reset callback for the same user (RESET_MARKER_COOKIE). An
+ * ordinary password sign-in, a LINE magic-link sign-in, or a stolen
+ * long-lived session cannot reach the "set a new password without the old
+ * one" screen.
  *
  * The access token is first validated with the Auth server (`getUser(jwt)`),
  * so reading its `amr` claim afterwards is trustworthy.
@@ -63,6 +86,9 @@ export async function hasRecentRecoverySession(supabase: SupabaseClient): Promis
   if (!session?.access_token) return false;
   const { data, error } = await supabase.auth.getUser(session.access_token);
   if (error || !data.user) return false;
+
+  const marker = (await cookies()).get(RESET_MARKER_COOKIE)?.value;
+  if (!marker || marker !== data.user.id) return false;
 
   const payload = decodeJwtPayload(session.access_token);
   const amr = Array.isArray(payload?.amr) ? (payload.amr as Array<{ method?: unknown; timestamp?: unknown }>) : [];

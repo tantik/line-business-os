@@ -8,7 +8,13 @@ import { SIGN_IN_PATH } from './require-user';
 import { parseCredentials } from './credentials';
 import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { DASHBOARD_PATH, resolvePostLoginPath } from './post-login-redirect';
-import { MIN_PASSWORD_LENGTH, hasRecentRecoverySession, looksLikeEmail, passwordResetRedirectUrl } from './password-reset';
+import {
+  MIN_PASSWORD_LENGTH,
+  clearResetMarker,
+  hasRecentRecoverySession,
+  looksLikeEmail,
+  passwordResetRedirectUrl,
+} from './password-reset';
 
 /**
  * Server Actions for the minimal email/password auth flow.
@@ -113,6 +119,14 @@ export async function completePasswordReset(formData: FormData): Promise<Passwor
     if (error.code === 'same_password') return { status: 'same_password' };
     if (error.code === 'weak_password') return { status: 'weak_password' };
     return { status: 'error' };
+  }
+  await clearResetMarker();
+  // Whoever else was signed in to this account (e.g. the reason for the
+  // reset) is signed out; this browser keeps its session. Best effort.
+  try {
+    await supabase.auth.signOut({ scope: 'others' });
+  } catch {
+    // The password is already changed; do not fail the reset over this.
   }
 
   revalidatePath('/', 'layout');

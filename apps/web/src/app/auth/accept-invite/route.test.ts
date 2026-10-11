@@ -84,7 +84,8 @@ test('GET never redirects to /dashboard or any other authenticated page -- only 
   for (const call of redirectCalls) {
     assert.ok(!call.includes('/dashboard'), `redirect call must not target /dashboard: ${call}`);
   }
-  assert.ok(redirectCalls.some((c) => c.includes('LINK_ERROR_URL')), 'expected an error redirect using the invalid-link constant');
+  assert.ok(/const target = new URL\(LINK_ERROR_URL, origin\);/.test(SOURCE), 'expected the error redirect to be built from the invalid-link constant');
+  assert.ok(redirectCalls.some((c) => c === 'target'), 'expected errorRedirect to redirect to that target');
   assert.ok(redirectCalls.some((c) => c.includes('/auth/accept-invite/set-password')), 'expected the success redirect to password setup');
   assert.ok(redirectCalls.some((c) => c.includes('RESET_PASSWORD_PATH')), 'expected the self-service reset redirect to the new-password screen');
 });
@@ -107,6 +108,27 @@ test('self-service reset branch accepts only a recovery token_hash, verified ser
   const verifyIdx = RESET_FN.indexOf("supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })");
   assert.ok(typeGuardIdx >= 0 && verifyIdx > typeGuardIdx, 'type must be checked as recovery before verifyOtp');
   assert.ok(!/exchangeCodeForSession|access_token|refresh_token|setSession\(/.test(RESET_FN));
+});
+
+test('self-service reset branch sets the reset marker only after a successful verifyOtp, bound to that user', () => {
+  const verifyIdx = RESET_FN.indexOf('supabase.auth.verifyOtp(');
+  const errorIdx = RESET_FN.indexOf('if (error || !data.user)');
+  const markerIdx = RESET_FN.indexOf('response.cookies.set(RESET_MARKER_COOKIE, data.user.id, RESET_MARKER_COOKIE_OPTIONS)');
+  assert.ok(verifyIdx >= 0 && errorIdx > verifyIdx && markerIdx > errorIdx);
+});
+
+test('the invitation path never sets the reset marker', () => {
+  assert.ok(!BODY.includes('RESET_MARKER_COOKIE'));
+});
+
+test('hasRecentRecoverySession requires the marker for the validated user, and options are httpOnly + 15 min', () => {
+  const lib = readFileSync(new URL('../../../lib/auth/password-reset.ts', import.meta.url), 'utf8');
+  assert.ok(/if \(!marker \|\| marker !== data\.user\.id\) return false;/.test(lib));
+  assert.ok(/httpOnly: true/.test(lib) && /maxAge: RECOVERY_WINDOW_SECONDS/.test(lib));
+  const actions = readFileSync(new URL('../../../lib/auth/actions.ts', import.meta.url), 'utf8');
+  const fn = actions.slice(actions.indexOf('export async function completePasswordReset'));
+  assert.ok(fn.indexOf('hasRecentRecoverySession(supabase)') < fn.indexOf('supabase.auth.updateUser('), 're-check before updateUser');
+  assert.ok(fn.indexOf('clearResetMarker()') > fn.indexOf('supabase.auth.updateUser('), 'marker cleared after a successful change');
 });
 
 test('ALLOWED_TOKEN_HASH_TYPES admits exactly `invite` and `recovery` -- Defect C\'s Manager-triggered recovery action is the only producer of a `recovery` token here, and this callback still independently re-validates the invitation before granting anything', () => {

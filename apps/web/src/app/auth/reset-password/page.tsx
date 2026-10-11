@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: '新しいパスワードの設定', 
  */
 export default async function ResetPasswordPage() {
   const supabase = await createClient();
-  if (!(await hasRecentRecoverySession(supabase))) redirect(LINK_INVALID_PATH);
+  if (!(await hasRecentRecoverySession(supabase))) redirect(`${LINK_INVALID_PATH}?reason=reset`);
 
   return (
     <AuthShell title="resetTitle" lead="resetLead">

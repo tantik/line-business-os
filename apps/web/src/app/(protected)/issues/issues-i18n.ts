@@ -246,7 +246,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     resolveNoteLabel: '解決メモ（任意）',
     resolveSubmit: '解決済みにする',
 
-    errNoAuthContext: 'もう一度サインインしてください。',
+    errNoAuthContext: 'もう一度ログインしてください。',
     errModuleDisabled: 'このワークスペースでは申し送り・問題報告が有効になっていません。',
     errInvalidKind: '有効な種類を選択してください。',
     errInvalidCategory: '有効なカテゴリーを選択してください。',
@@ -258,7 +258,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     errNotOpen: 'この項目はすでに対応中ではありません。',
     errAlreadyResolved: 'この項目はすでに解決済みです。',
     errorGeneric: 'エラーが発生しました。もう一度お試しください。',
-    errorNotAuthenticated: 'もう一度サインインしてください。',
+    errorNotAuthenticated: 'もう一度ログインしてください。',
     errorNoMembership: 'このワークスペースのメンバーではありません。',
   },
 };

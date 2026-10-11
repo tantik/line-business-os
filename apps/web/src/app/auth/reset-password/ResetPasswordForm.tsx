@@ -8,7 +8,16 @@ import { useAuthT } from '@/components/auth/AuthShell';
 import { NewPasswordFields } from '@/components/auth/NewPasswordFields';
 import { validateNewPassword } from '@/lib/auth/password-rules';
 import type { AuthCopyKey } from '@/lib/auth/auth-copy';
-import { alertDanger, buttonDisabled, buttonPrimary } from '@/lib/ui/theme';
+import { alertDanger, buttonDisabled, buttonPrimary, colors } from '@/lib/ui/theme';
+
+const successBox = {
+  border: `1px solid ${colors.success}`,
+  background: colors.successMuted,
+  color: colors.textPrimary,
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 14,
+} as const;
 
 const ERROR_COPY: Record<string, AuthCopyKey> = {
   too_short: 'passwordTooShort',
@@ -22,6 +31,7 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<AuthCopyKey | null>(null);
+  const [done, setDone] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,10 +44,22 @@ export function ResetPasswordForm() {
     }
     startTransition(async () => {
       const result = await completePasswordReset(formData);
-      if (result.status === 'success') router.replace(result.destination);
-      else if (result.status === 'link_invalid') router.replace('/auth/link-invalid');
+      if (result.status === 'success') {
+        // Say it worked before moving on, so the change is not silent.
+        setDone(true);
+        const destination = result.destination;
+        window.setTimeout(() => router.replace(destination), 1500);
+      } else if (result.status === 'link_invalid') router.replace('/auth/link-invalid?reason=reset');
       else setError(ERROR_COPY[result.status] ?? 'genericError');
     });
+  }
+
+  if (done) {
+    return (
+      <p role="status" style={successBox}>
+        {t('passwordChanged')}
+      </p>
+    );
   }
 
   return (

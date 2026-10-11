@@ -18,7 +18,7 @@ export default async function SetPasswordPage({
   searchParams: Promise<{ invitation_id?: string }>;
 }) {
   const { invitation_id: invitationId } = await searchParams;
-  if (!invitationId) redirect(LINK_INVALID_PATH);
+  if (!invitationId) redirect(`${LINK_INVALID_PATH}?reason=invite`);
 
   return (
     <AuthShell title="inviteTitle" lead="inviteLead">

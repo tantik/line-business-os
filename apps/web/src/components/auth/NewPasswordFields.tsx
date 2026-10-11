@@ -1,7 +1,7 @@
 'use client';
 
-import { useAuthT } from './AuthShell';
-import { input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { authInput, useAuthT } from './AuthShell';
+import { mutedText } from '@/lib/ui/theme';
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password-rules';
 import type { AuthCopyKey } from '@/lib/auth/auth-copy';
 
@@ -26,7 +26,7 @@ export function NewPasswordFields({ disabled, passwordLabel }: { disabled: boole
           autoComplete="new-password"
           aria-describedby="new-password-hint"
           disabled={disabled}
-          style={inputStyle}
+          style={authInput}
         />
         <span id="new-password-hint" style={{ ...mutedText, fontSize: 12, display: 'block', marginTop: 4 }}>
           {t('passwordHint')}
@@ -41,7 +41,7 @@ export function NewPasswordFields({ disabled, passwordLabel }: { disabled: boole
           minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
           disabled={disabled}
-          style={inputStyle}
+          style={authInput}
         />
       </label>
     </>

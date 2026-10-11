@@ -15,7 +15,7 @@ export function describeWriteError(
     case 'not_found':
       return lang === 'ja' ? '見つかりません。' : 'Not found.';
     case 'not_authenticated':
-      return lang === 'ja' ? '再度サインインしてください。' : 'Please sign in again.';
+      return lang === 'ja' ? 'もう一度ログインしてください。' : 'Please sign in again.';
     case 'no_membership':
       return lang === 'ja' ? 'このワークスペースのメンバーではありません。' : 'You are not a member of this workspace.';
     case 'blocked_by_history':

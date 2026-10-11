@@ -1,33 +1,50 @@
 'use client';
 
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { signIn } from '@/lib/auth/actions';
-import { AuthLink, useAuthT } from '@/components/auth/AuthShell';
-import { alertDanger, buttonDisabled, buttonPrimary, input as inputStyle, mutedText } from '@/lib/ui/theme';
+import { AuthLink, authInput, useAuthT } from '@/components/auth/AuthShell';
+import type { AuthCopyKey } from '@/lib/auth/auth-copy';
+import { alertDanger, buttonDisabled, buttonPrimary, mutedText } from '@/lib/ui/theme';
 
 const labelStyle = { display: 'block', marginBottom: 12 } as const;
+const ERROR_ID = 'sign-in-error';
 
 /**
  * Client wrapper around the `signIn` Server Action form. Submission itself
  * still goes through the native `<form action={signIn}>` mechanism (no
- * client-side fetch, no manual redirect handling) — `onSubmit` only flips a
- * local `isSubmitting` flag for the pending/disabled UI before letting the
- * action proceed normally. A successful sign-in navigates away (unmounting
- * this component); a failed one re-renders `/sign-in?error=1` fresh from the
- * server, which naturally resets this state — no manual reset needed.
+ * client-side fetch, no manual redirect handling) — `onSubmit` only blocks an
+ * empty submit (page-language message instead of the browser bubble, hence
+ * `noValidate`) and flips a local `isSubmitting` flag. A failed sign-in
+ * re-renders `/sign-in?error=1` fresh from the server, resetting this state.
  */
 export function SignInForm({ returnTo, hasError }: { returnTo: string | null; hasError: boolean }) {
   const t = useAuthT();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<AuthCopyKey | null>(null);
+  const error: AuthCopyKey | null = localError ?? (hasError ? 'signInError' : null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const data = new FormData(event.currentTarget);
+    if (!String(data.get('email') ?? '').trim() || !String(data.get('password') ?? '')) {
+      event.preventDefault();
+      setLocalError('signInMissing');
+      return;
+    }
+    setLocalError(null);
+    setIsSubmitting(true);
+  }
+
+  const describedBy = error ? ERROR_ID : undefined;
 
   return (
     <>
-      {hasError ? (
-        <p role="alert" style={alertDanger}>
-          {t('signInError')}
+      {error ? (
+        <p id={ERROR_ID} role="alert" style={alertDanger}>
+          {t(error)}
         </p>
       ) : null}
-      <form action={signIn} onSubmit={() => setIsSubmitting(true)}>
+      <form action={signIn} onSubmit={handleSubmit} noValidate>
         {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
         <label style={labelStyle}>
           {t('email')}
@@ -39,7 +56,9 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
             autoCapitalize="none"
             spellCheck={false}
             disabled={isSubmitting}
-            style={inputStyle}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            style={authInput}
           />
         </label>
         <label style={labelStyle}>
@@ -50,7 +69,9 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
             required
             autoComplete="current-password"
             disabled={isSubmitting}
-            style={inputStyle}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            style={authInput}
           />
         </label>
         <button type="submit" disabled={isSubmitting} style={{ ...(isSubmitting ? buttonDisabled : buttonPrimary), width: '100%' }}>
