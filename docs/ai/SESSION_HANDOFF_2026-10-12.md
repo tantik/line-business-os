@@ -106,6 +106,28 @@ See the table in `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-0
 4. Then Stage 4 in roadmap order; prepare DEBT-043 (`dev → main →
    production` path) early — production itself stays a Founder gate.
 
+## 7. Later on 2026-10-12 (second session) — what changed
+
+| PR | What |
+|---|---|
+| #576 | A-09 allergens: 29-item vocabulary (CAA revision effective 2026-04-01: カシューナッツ mandatory, ピスタチオ added), grouped form, recipe-level 「アレルゲン情報」 + disclaimer, stale `'{}'` reset, revocable confirmation. 0124 applied to Cloud DEV, verified live. |
+| #577 | Stage 2 / DEBT-074: pg_cron → pg_net → Edge Function `auto-schedule-monthly` (0125, deployed). Live run on oruwa-cafe created 87 November drafts (unpublished); rerun idempotent; run log visible in Manager Settings. Day restored to 15. |
+| this PR | DEBT-074 closed, DEBT-091 (multi-manager), new QA3 checklist, `oruwa-engineer` command discipline. |
+
+Facts worth knowing:
+- `.claude/settings.local.json` (Founder's, gitignored) had an old hard
+  `deny` on `supabase db push`; removed with the Founder's OK. Cloud DEV
+  push now goes through `guard-supabase-cloud.mjs` as designed.
+- `supabase db query --linked "<sql>"` reaches Cloud DEV through the
+  Management API (CLI already logged in) — use it for read checks and the
+  one-off vault secret; no separate access token is needed.
+- The agent's Chrome (chrome-devtools MCP) is a separate browser; it cannot
+  see the Founder's Gmail tabs. QA mail access = a dedicated QA Gmail.
+- Subagents hitting a session rate limit stop mid-task; check their
+  worktree (`git status`) and finish/commit by hand.
+- oruwa-cafe now has 87 unpublished November drafts from the live run —
+  intentional QA data (checklist §3a).
+
 ## 6. Bootstrap prompt (paste into the new chat)
 
 ```

@@ -15,11 +15,11 @@ inside it.
 | Input | Needed for | Status |
 |---|---|---|
 | QA3 run by the Founder (`docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-08.md`) | Stage 1 | open |
-| QA account passwords in `.claude/qa-accounts.local.md` (gitignored) | CTO live QA without the Founder | open |
-| A way for the CTO to read QA emails (dedicated QA inbox it can query, or forwarding) | invite / reset / reminder tests without copy-paste | open — CTO proposes options |
-| Supabase access token (Cloud DEV only) or keep doing Dashboard edits by hand | email templates, auth settings via API | open |
+| QA account passwords in `.claude/qa-accounts.local.md` (gitignored) | CTO live QA without the Founder | done 2026-10-12 (all four sign-ins verified live) |
+| A way for the CTO to read QA emails: a dedicated QA Gmail account (not the Founder's personal one), signed in once in the agent's Chrome window | invite / reset / reminder tests without copy-paste | open — Founder creates the account |
+| Supabase access token (Cloud DEV only) | email templates, auth settings via API | not needed — the CLI is already logged in; DB checks via `supabase db query --linked` |
 | 2–3 more Founder mailbox aliases (`+staffd`, `+staffe`) | QA4 | open |
-| Allergen list + wording decision, native/legal check (DEBT-053 A-09) | release | open — brief in the 2026-10-12 handoff |
+| Allergen list + wording decision, native/legal check (DEBT-053 A-09) | release | decision done 2026-10-12 (29 items, wording live); native/legal review of the strings open |
 | LINE Official Account + Messaging API channel | Stage 4A | later |
 | Stripe (or other) account, legal texts (プライバシーポリシー, 利用規約, 特商法) | Stage 4H | later |
 | Production: deploy, DB, env, `main` | Stage 4G | Founder gate |
