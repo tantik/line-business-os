@@ -193,8 +193,12 @@ duplicated here.
   reset password, invalid-link, 404/error pages (#570, DEBT-088 closed);
   resend-no-email notice (#572, DEBT-084 closed); Copy Audit A-01..A-08
   (DEBT-053, A-09 allergen wording left to native + legal); `/account`
-  (change password, sign out other devices). Pre-release Cloud DEV
-  authority for deploys/migrations (Operating Model §9, #569).
+  (change password, sign out other devices).
+- **Operating model (Founder, 2026-10-12): CTO authority** (Operating Model
+  §9, v1.11.0). The Lead Agent plans, delegates, verifies and decides all
+  development work incl. `dev` merges and Cloud DEV deploys/migrations, and
+  moves between roadmap stages without a Founder prompt. Founder gates:
+  production (deploy/DB/env/`main`) and real-customer messages only.
 
 - **Founder Technical Freeze: APPROVED** (2026-09-23).
 - **Founder Acceptance (Mission 11) is IN PROGRESS.** QA1/QA2 closed;
@@ -203,20 +207,23 @@ duplicated here.
   QA3 from `docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-08.md`.
 - **Shift Preferences recovery + real email reminder: CLOSED** (#557–#559;
   real Resend delivery verified 2026-10-08, DEBT-073 closed).
-- **Next gate:** Founder QA3 findings → Lead triage and fixes. Then, each on
-  a separate Founder go-ahead, the order in
+- **Next:** triage Founder QA3 findings as they arrive; meanwhile Stage 2
+  (DEBT-074 auto-schedule via Supabase pg_cron + Edge Function). Then the
+  order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   DEBT-074 worker hosting → QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
   tenant provisioning → 6-tenant test → demo tenant → JA copy → SaaS
   hardening → production.
-- **Founder actions open**: QA3 (checklist updated 2026-10-12; 佐藤 陽介
-  is active, password `52723101`); worker hosting choice (DEBT-074, Lead
-  recommends Supabase pg_cron + Edge Function); QA4 mailbox aliases and
-  seed-script decision; A-09 allergen wording (native + legal).
+- **Founder inputs open** (bundle; table in the roadmap doc): QA3
+  (checklist updated 2026-10-12; 佐藤 陽介 active, password `52723101`);
+  QA passwords in `.claude/qa-accounts.local.md`; QA email access; Supabase
+  access token (Cloud DEV); QA4 mailbox aliases; A-09 allergen list +
+  wording (brief in the 2026-10-12 handoff §3). Worker hosting is now the
+  CTO's call.
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-08.md`.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-12.md`.
 
 Where everything else lives:
 

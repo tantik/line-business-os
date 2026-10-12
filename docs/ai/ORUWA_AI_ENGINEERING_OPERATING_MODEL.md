@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| Version | 1.10.0 |
+| Version | 1.11.0 |
 | Status | Living |
 | Level | Repository operating instructions (`docs/foundation/documentation-and-decision-hierarchy.md` §3 — same level as `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/*`) |
 | Owner | Founder |
-| Last Updated | 2026-10-10 (v1.10.0: §9 Pre-release Cloud DEV authority — see "Version history"). 2026-09-19 (v1.9.0: role model with the ChatGPT brief author and specialized reviewers, brief intake / Prompt Review §18, coverage matrix and deferral discipline §19; earlier entries moved verbatim to "Version history" at the end of this file) |
+| Last Updated | 2026-10-12 (v1.11.0: §9 CTO authority — Founder gives goals, checks results; only production and real-customer messages are Founder gates). 2026-10-10 (v1.10.0: §9 Pre-release Cloud DEV authority — see "Version history"). 2026-09-19 (v1.9.0: role model with the ChatGPT brief author and specialized reviewers, brief intake / Prompt Review §18, coverage matrix and deferral discipline §19; earlier entries moved verbatim to "Version history" at the end of this file) |
 | Supersedes | None |
 | Cannot override | Foundation (`docs/foundation/*`), ADRs (`docs/adr/*`), `docs/security/security-requirements.md` |
 
@@ -351,7 +351,7 @@ restate it elsewhere:
 | **GREEN** | Routine development, autonomous by default. | Read, local edit, local test run, read-only shell inspection (`rg`/`grep`/`cat`/`head`/`tail`/`wc`/`ls`), read-only Git diagnostics (`status`/`diff`/`log`/`show`/`fetch`/`rev-parse`/`rev-list`/`merge-base`/`merge-tree`/`ls-tree`/`ls-files`/`ls-remote`/`cat-file`/`for-each-ref`/`describe`/`blame`/`shortlog`/`reflog show`/`config --get`/`remote -v`/`remote show`/ scoped `branch` read variants/ scoped `tag -l` — see `.claude/settings.json` for the exact allow-listed set; none of these can write, delete, or rewrite anything), `git fetch`/`git pull` (fast-forward integration onto a feature branch), create/switch a feature branch (`git switch`, `git checkout -b`), `git add`/`git commit` (non-amend, hooks not skipped), push a `feature/`·`feat/`·`fix/`·`chore/`·`docs/`·`harden/`·`test/`·`perf/`·`refactor/` branch to `origin` (via the `guard-git-push.mjs` hook; every other push still prompts), open/update a PR and observe CI, local validation (`pnpm test`/`lint`/`typecheck`/`build`, `pnpm --filter … <verb>`, `pnpm exec turbo run`/`tsc`/`eslint`/`vitest`/`playwright test`, `node --test`), local Supabase stack control (`supabase start`/`stop`/`status`/`test db`) and local-only Postgres (`psql -h 127.0.0.1`/`localhost -p 54322`). |
 | **YELLOW** | Development actions that require review before proceeding, but not a Founder approval boundary by themselves. | Self-review/QA (§4), Independent Reviewer per §12's risk-tier policy, resolving review findings. |
 | **DEV MERGE** | AI CTO (Lead Agent) may merge autonomously, but only once every gate below has actually passed — not merely "probably fine." | A reviewed, green-CI PR merging into `dev`. See below. |
-| **RED** | Founder-controlled. No mission authorization, review pass, or CI green state grants this autonomously, ever. | `main` merge, production deploy/DB migration, destructive prod SQL/data changes, secrets/credential changes, billing/payment operations, real customer LINE broadcast, security-boundary changes, force-push/history rewrite. |
+| **RED** | Founder-controlled. No mission authorization, review pass, or CI green state grants this autonomously, ever. Since 2026-10-12 (see "CTO authority") this is production + real customers only. | `main` merge, production deploy/DB migration/data write/env, real customer LINE broadcast or email, force-push/history rewrite of `main`. |
 
 ### DEV MERGE — autonomous merge into `dev`
 
@@ -371,13 +371,12 @@ following hold:
 7. No unresolved blocking review finding remains open.
 8. The merge itself requires no force operation and has no conflicts
    (`mergeable: MERGEABLE`).
-9. The PR does not touch a RED-operation path (`supabase/migrations/**`,
-   `.env*`, `*.pem`/`*.key`, `backups/**`, or any other secret/credential
-   path) — if it does, the code may still be reviewed and merged if the
-   diff itself is safe and policy allows, but that determination and the
-   merge both require Founder approval; the corresponding RED *execution*
-   (e.g. actually applying a migration to Supabase Cloud) is never
-   authorized by a `dev` merge regardless.
+9. The PR does not touch a secret/credential path (`.env*`,
+   `*.pem`/`*.key`, `backups/**`). Migrations (`supabase/migrations/**`)
+   merge on the CTO's authority after the DB/security reviewer's PASS; a
+   migration with a destructive SQL pattern merges only with
+   `ai-dev-merge.sh --db-review-pass` (see "CTO authority" below). Applying
+   it to **production** is never authorized by a `dev` merge.
 10. The working repository state and the PR's scope are actually understood
     (Repository Recovery, §4) — not inferred from a stale handoff.
 
@@ -426,45 +425,69 @@ Approval is narrow beyond the bounded delivery lifecycle above: approval for
 one action does not authorize the next gate. When in doubt whether an action
 needs approval, it does.
 
-### Pre-release Cloud DEV authority
+### CTO authority — the Founder gives goals and checks results
 
-Founder decision, 2026-10-10. **Valid until the first production release
-goes live**; at that point it lapses back to a Founder gate unless the
-Founder renews it.
+Founder decision, 2026-10-12 (supersedes the 2026-10-10 "pre-release Cloud
+DEV authority", which had an expiry). **No expiry.** Overrides, for this
+repository, the per-action approval list in the Founder's global
+`~/.claude/CLAUDE.md`.
 
-Until release, the Lead Agent decides development-stage questions itself
-and runs these Cloud DEV (`pehcoenozjtsjdvjietj`) operations on its own
-authority, without a per-action Founder prompt:
+**Roles.** The Lead Agent is the **CTO / architect**: it takes the Founder's
+goal, plans it, splits it into bounded tasks, delegates them (§13:
+`oruwa-engineer` for implementation, the reviewers of §12 for independent
+review), verifies every result itself (tests, CI, live QA on Preview), and
+makes every intermediate decision. The Founder states goals, supplies the
+inputs only the Founder can supply (below), and checks finished results.
+The Founder is **not** asked to confirm intermediate steps.
 
-- deploy an Edge Function to Cloud DEV (one named function, explicit
-  `--project-ref pehcoenozjtsjdvjietj`, never `liff-entry`);
-- apply merged migrations to Cloud DEV (`pnpm exec supabase db push` while
-  the local link points at Cloud DEV; `pnpm db:migrate` still asks);
-- write and edit migration files (still reviewed per §12 — the DB/security
-  reviewer stays mandatory for migrations, RLS, grants, auth);
-- merge into `dev` and confirm results on `preview.oruwa.jp`.
+**Decided by the CTO alone, no Founder prompt** (each still under the
+review and verification rules of §11/§12):
 
-Mandatory verification, every time, reported to the Founder afterwards:
+- architecture, product details, UX and copy (except legal text), task
+  order inside the approved roadmap, moving from one roadmap stage to the
+  next;
+- branches, commits, pushes, PRs, merges into `dev` (`scripts/ai-dev-merge.sh`);
+- Cloud DEV (`pehcoenozjtsjdvjietj`): Edge Function deploys, applying
+  migrations — including destructive ones once the DB/security reviewer
+  passed them (`ai-dev-merge.sh --db-review-pass`) — and test-data writes on
+  test tenants (seed, clean-up, QA fixtures); Vercel Preview;
+- dependency changes, local DB resets/seeds, CI configuration.
 
-- **Before**: the change is merged into `dev` and the deploy/apply runs from
-  `dev` HEAD; CI green; for migrations, local `supabase test db` PASS and a
-  `db push --dry-run` showing exactly the expected files.
-- **After**: deploy — `functions list` shows the new version `ACTIVE`, plus a
-  live smoke of the changed path; migration — `migration list` shows it
-  applied on the remote, plus a live check of the affected feature. A failed
-  post-check is fixed forward or reported immediately, never left silent.
+Verification for every Cloud DEV deploy/apply: **before** — merged to
+`dev`, run from `dev` HEAD, CI green; for migrations local `supabase test db`
+PASS and `db push --dry-run` showing exactly the expected files; **after** —
+`functions list` shows the version `ACTIVE` / `migration list` shows it
+applied, plus a live check of the affected feature. A failed post-check is
+fixed forward or reported at once.
 
-Still a Founder gate regardless of this authority: anything touching the
-production project (`jsgmmsdkuptdsxtcxhsv`) or `main`; destructive
-migrations (the `ai-dev-merge.sh` destructive-SQL scan still blocks them);
-`supabase secrets` / Vercel env changes; `supabase link`, `db pull`,
-`migration repair`; deleting real data; real customer LINE/mass messaging.
+**Founder-only gates (the only approvals the Founder gives):**
+
+1. **Production**: any deploy, migration, data write or configuration
+   change on the production project (`jsgmmsdkuptdsxtcxhsv`) or the Vercel
+   production environment; merge or push to `main`. The CTO prepares the
+   release (PR, checklist, rollback plan); the Founder executes or approves.
+2. **Real customers**: messages to real people outside the team (LINE
+   broadcasts, customer email) — exists only once production has users.
+
+**Inputs only the Founder can supply** (asked for once, as one bundled
+request, never as step-by-step confirmations): accounts and credentials in
+the Founder's name (LINE Official Account, Stripe, domains, Supabase
+Dashboard / access token, mailboxes), money and contracts, legal sign-off
+(privacy policy, 利用規約, 特商法, allergen wording), business choices
+(pricing, which customers). Everything that can be decided technically is
+decided by the CTO and reported.
+
+**Reporting.** At the end of each mission the CTO gives the Founder a short
+Russian report: what changed, how it was verified, the exact things worth
+checking by hand (with links), and any input still needed from the list
+above. The report is notification, not a request for approval.
 
 Machine enforcement: `.claude/settings.json` hard-denies any command naming
-the production ref and keeps `functions deploy` / `db push` /
-`db:migrate` in `ask`; `scripts/ai-hooks/guard-supabase-cloud.mjs` upgrades
-to "allow" only the Cloud DEV forms above (tests:
-`node --test scripts/ai-hooks/guard-supabase-cloud.test.mjs`).
+the production ref; `scripts/ai-hooks/guard-supabase-cloud.mjs` turns Cloud
+DEV `functions deploy` / `db push` into "allow" and everything else into a
+prompt (tests: `node --test scripts/ai-hooks/guard-supabase-cloud.test.mjs`);
+`guard-git-push.mjs` and the deny list keep `main` out of reach; routine
+development commands (merge/rebase, PR housekeeping, local DB) are allow-listed.
 
 **Machine-enforced layer**: `.claude/settings.json` is the single place in
 the repository where these boundaries are enforced by tooling rather than
@@ -485,7 +508,7 @@ pull` or `supabase migration repair` (a single substring rule — covers
 `supabase migration up --linked|--db-url` (Cloud-only, no local use);
 `supabase functions deploy` / `supabase db push` / `pnpm db:migrate` are
 `ask`, made autonomous for Cloud DEV only by `guard-supabase-cloud.mjs`
-(see "Pre-release Cloud DEV authority" above);
+(see "CTO authority" above);
 `supabase secrets`, `supabase projects delete`, `supabase branches
 delete`, `pnpm dlx supabase`; `vercel --prod` / `vercel deploy --prod` /
 `vercel env rm|add|pull` / `vercel promote` / `rollback` / `alias` (the
@@ -984,6 +1007,8 @@ Execute autonomously within the mission's boundaries."*
 Moved verbatim on 2026-09-19 from the "Last Updated" metadata cell, which had
 become a single multi-thousand-word line. Newest entry first; the entry text
 below is unmodified.
+
+**v1.11.0 (2026-10-12):** §9 "CTO authority" replaces the time-limited pre-release Cloud DEV authority: the Lead Agent (CTO/architect) plans, delegates, verifies and decides everything except production (deploy, DB, env, `main`) and messages to real customers; Founder supplies only accounts/money/legal inputs and checks results. Destructive Cloud DEV migrations merge after a DB/security review PASS (`ai-dev-merge.sh --db-review-pass`).
 
 **v1.10.0 (2026-10-10):** §9 "Pre-release Cloud DEV authority" — Founder
 grant, until the first production release: the Lead Agent deploys Edge
