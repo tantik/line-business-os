@@ -422,17 +422,16 @@ export function RecipeDetailBody({
                           {ingredient.unit})
                         </span>
                       ) : null}
-                      {ingredient.inventoryItemId ? (
-                        <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginLeft: 8, verticalAlign: 'middle' }}>
-                          {ingredient.allergenCodes === null || ingredient.allergenCodes === undefined ? (
-                            <Tag>{t('ingredientAllergensNotRecorded')}</Tag>
-                          ) : ingredient.allergenCodes.length === 0 ? (
-                            <Tag>{t('ingredientAllergensNoneChecked')}</Tag>
-                          ) : (
-                            ingredient.allergenCodes.map((code) => <Tag key={code}>{allergenLabel(lang, code)}</Tag>)
-                          )}
-                        </span>
-                      ) : null}
+                      {/* Unmapped ingredients count as "not recorded" in the recipe-level summary, so they get the same tag here. */}
+                      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginLeft: 8, verticalAlign: 'middle' }}>
+                        {!ingredient.inventoryItemId || ingredient.allergenCodes === null || ingredient.allergenCodes === undefined ? (
+                          <Tag>{t('ingredientAllergensNotRecorded')}</Tag>
+                        ) : ingredient.allergenCodes.length === 0 ? (
+                          <Tag>{t('ingredientAllergensNoneChecked')}</Tag>
+                        ) : (
+                          ingredient.allergenCodes.map((code) => <Tag key={code}>{allergenLabel(lang, code)}</Tag>)
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
