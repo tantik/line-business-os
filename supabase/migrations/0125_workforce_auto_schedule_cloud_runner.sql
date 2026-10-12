@@ -39,9 +39,9 @@
 --     row are ONE transaction. A lost race returns false and writes nothing.
 --   * Run log holds ids, counts and a short machine `error_code` only (CHECK
 --     enforced) -- never raw error text, never PII. RLS: readable by
---     holders of workforce.shift.read at the location with the Workforce
---     module ON (same predicate as wf_schedule_settings_read, 0097); no
---     insert/update/delete for any app role.
+--     Managers only -- workforce.shift.write at the location with the
+--     Workforce module ON (Staff hold shift.read but never see the log);
+--     no insert/update/delete for any app role.
 --   * Cron auth: `workforce.invoke_auto_schedule_runner()` sends
 --     `Authorization: Bearer <vault secret auto_schedule_cron_token>`; the
 --     Edge Function (verify_jwt = false) checks it via
@@ -123,7 +123,7 @@ create policy wf_auto_schedule_runs_read on workforce.auto_schedule_runs
   for select
   using (
     core.has_module_access(tenant_id, 'workforce')
-    and core.has_permission(tenant_id, 'workforce.shift.read', location_id)
+    and core.has_permission(tenant_id, 'workforce.shift.write', location_id)
   );
 
 revoke all on workforce.auto_schedule_runs from public, anon, authenticated;
@@ -148,7 +148,7 @@ select
 from workforce.auto_schedule_runs r;
 
 comment on view api.workforce_auto_schedule_runs is
-  'Scheduled monthly auto-create run log (0125), relying entirely on wf_auto_schedule_runs_read RLS (workforce module ON + workforce.shift.read at the location). security_invoker view; read-only.';
+  'Scheduled monthly auto-create run log (0125), relying entirely on wf_auto_schedule_runs_read RLS (workforce module ON + workforce.shift.write at the location -- Managers only). security_invoker view; read-only.';
 
 revoke all on api.workforce_auto_schedule_runs from public, anon, authenticated;
 grant select on api.workforce_auto_schedule_runs to authenticated;

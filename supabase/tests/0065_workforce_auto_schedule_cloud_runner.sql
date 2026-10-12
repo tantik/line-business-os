@@ -16,8 +16,8 @@
 --     drafts are published = false; run log + audit row written;
 --   * record_issue: upsert increments attempt_count; raw text rejected;
 --   * RLS on the run log: location-scoped Manager sees only own location,
---     other tenant sees nothing of it, a member without workforce.shift.read
---     sees nothing; anon has no grant;
+--     other tenant sees nothing of it, Staff (shift.read only) and a member
+--     without workforce.shift.read see nothing (Manager only); anon has no grant;
 --   * token verify true/false; cron job exists with the expected schedule;
 --     the runner is a no-op without vault secret project_url.
 -- ============================================================================
@@ -112,7 +112,8 @@ insert into workforce.schedule_settings (tenant_id, location_id, auto_create_ena
 insert into core.users (id, display_name) values
   ('c1259000-0000-0000-0000-000000000001', 'Manager A (L1 only)'),
   ('c1259000-0000-0000-0000-000000000002', 'Manager B'),
-  ('c1259000-0000-0000-0000-000000000003', 'Client-role member A');
+  ('c1259000-0000-0000-0000-000000000003', 'Client-role member A'),
+  ('c1259000-0000-0000-0000-000000000004', 'Staff A (L1)');
 
 insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
   ('c1250000-0000-0000-0000-00000000000a', 'c1259000-0000-0000-0000-000000000001',
@@ -120,7 +121,9 @@ insert into core.role_assignments (tenant_id, user_id, role_id, location_id) val
   ('c1250000-0000-0000-0000-00000000000b', 'c1259000-0000-0000-0000-000000000002',
    '00000000-0000-0000-0000-000000000005', null),                                   -- manager, tenant B
   ('c1250000-0000-0000-0000-00000000000a', 'c1259000-0000-0000-0000-000000000003',
-   '00000000-0000-0000-0000-000000000007', null);                                   -- client role (no workforce.shift.read)
+   '00000000-0000-0000-0000-000000000007', null),                                   -- client role (no workforce.shift.read)
+  ('c1250000-0000-0000-0000-00000000000a', 'c1259000-0000-0000-0000-000000000004',
+   '00000000-0000-0000-0000-000000000006', 'c1251000-0000-0000-0000-000000000001'); -- Staff (employee role: shift.read, no shift.write) @ A/L1
 
 insert into workforce.employees (id, tenant_id, location_id, name_encrypted, is_active) values
   ('c1253000-0000-0000-0000-000000000001', 'c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '\x00', true),  -- EA1 active @ A/L1
@@ -398,6 +401,19 @@ select is(
   pg_temp.as_auth_count('c1259000-0000-0000-0000-000000000003',
     $q$select count(*)::int from api.workforce_auto_schedule_runs where tenant_id = 'c1250000-0000-0000-0000-00000000000a'$q$),
   0, 'a member without workforce.shift.read sees nothing');
+select is(
+  pg_temp.as_auth_count('c1259000-0000-0000-0000-000000000004',
+    $q$select (core.has_permission('c1250000-0000-0000-0000-00000000000a', 'workforce.shift.read', 'c1251000-0000-0000-0000-000000000001')
+          and not core.has_permission('c1250000-0000-0000-0000-00000000000a', 'workforce.shift.write', 'c1251000-0000-0000-0000-000000000001'))::int$q$),
+  1, 'fixture sanity: Staff A holds workforce.shift.read but not workforce.shift.write at A/L1');
+select is(
+  pg_temp.as_auth_count('c1259000-0000-0000-0000-000000000004',
+    $q$select count(*)::int from api.workforce_auto_schedule_runs where location_id = 'c1251000-0000-0000-0000-000000000001'$q$),
+  0, 'Staff (employee role, shift.read only) at the same location sees no run-log rows -- Manager only');
+select is(
+  (select count(*)::int from pg_policies where schemaname = 'workforce' and tablename = 'auto_schedule_runs'
+    and qual like '%workforce.shift.write%' and qual like '%has_module_access%'),
+  1, 'run-log policy requires workforce.shift.write and the Workforce module');
 
 -- ============================================================================
 -- 7. Token verification

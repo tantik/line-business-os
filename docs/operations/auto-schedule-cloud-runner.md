@@ -112,7 +112,8 @@ of the migration is described in its header comment.
   target month) and rejects the whole call otherwise.
 - The run log stores ids, counts and a short machine code (CHECK enforced) —
   no raw error text, no PII. RLS: Workforce module ON +
-  `workforce.shift.read` at the location.
+  `workforce.shift.write` at the location (Managers only; Staff, who hold
+  only `workforce.shift.read`, see no rows).
 - Rotating the cron token: update the vault secret
   `auto_schedule_cron_token` (`vault.update_secret`); the runner and the
   function read it on every call, no redeploy needed.

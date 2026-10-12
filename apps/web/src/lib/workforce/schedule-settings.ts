@@ -70,7 +70,7 @@ export interface AutoScheduleRun {
 
 /**
  * Latest scheduled-auto-create run-log rows for one location (newest first).
- * RLS (`wf_auto_schedule_runs_read`): workforce.shift.read at the location
+ * RLS (`wf_auto_schedule_runs_read`): workforce.shift.write at the location
  * with the Workforce module ON -- the Manager page is the only caller.
  */
 export async function listRecentAutoScheduleRuns(

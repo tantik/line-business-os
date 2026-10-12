@@ -1362,19 +1362,39 @@ export const autoScheduleRunMissedLine: Record<Lang, (dayOfMonth: number) => str
 export function autoScheduleTargetMonthLabel(lang: Lang, targetMonth: string): string {
   const [year, month] = targetMonth.split('-').map(Number) as [number, number];
   if (lang === 'ja') return `${year}年${month}月`;
-  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
+  return `${AUTO_SCHEDULE_EN_MONTHS_LONG[month - 1] ?? ''} ${year}`;
 }
 
-/** A run-log instant in the location's own timezone (never the browser's). */
+const AUTO_SCHEDULE_EN_MONTHS_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+
+const AUTO_SCHEDULE_EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+/**
+ * A run-log instant in the location's own timezone (never the browser's):
+ * JA `10月20日 9:07`, EN `Oct 20, 9:07`. Hydration-safe: only the NUMERIC
+ * parts come from `Intl` (explicit `timeZone`, 24h); the string itself is
+ * built here, so Node (SSR) and the browser cannot differ in locale-specific
+ * punctuation/spacing.
+ */
 export function autoScheduleRunDateTimeLabel(lang: Lang, isoInstant: string, timeZone: string): string {
-  return new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-US', {
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
-    year: 'numeric',
+    hourCycle: 'h23',
     month: 'numeric',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(isoInstant));
+    hour: 'numeric',
+    minute: 'numeric',
+  }).formatToParts(new Date(isoInstant));
+  const num = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  const month = num('month');
+  const day = num('day');
+  const hour = num('hour') % 24;
+  const minute = String(num('minute')).padStart(2, '0');
+  if (lang === 'ja') return `${month}月${day}日 ${hour}:${minute}`;
+  return `${AUTO_SCHEDULE_EN_MONTHS[month - 1] ?? ''} ${day}, ${hour}:${minute}`;
 }
 
 /** Settings/auto-create result: how many shifts in the displayed week are still drafts (auto-created, not yet visible to staff). */

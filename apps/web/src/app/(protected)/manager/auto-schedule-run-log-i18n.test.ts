@@ -18,23 +18,27 @@ test('target month label: JA YYYY年M月, EN Month YYYY', () => {
   assert.equal(autoScheduleTargetMonthLabel('ja', '2027-01-01'), '2027年1月');
 });
 
-test('run datetime is rendered in the location timezone, not UTC', () => {
-  // 2026-10-19T15:07Z is 2026-10-20 00:07 in Tokyo.
-  const ja = autoScheduleRunDateTimeLabel('ja', '2026-10-19T15:07:00Z', 'Asia/Tokyo');
-  assert.match(ja, /2026\/10\/20/);
-  assert.match(ja, /00:07/);
-  const en = autoScheduleRunDateTimeLabel('en', '2026-10-19T15:07:00Z', 'Asia/Tokyo');
-  assert.match(en, /10\/20\/2026/);
+test('run datetime: exact deterministic strings in the location timezone (hydration-safe)', () => {
+  // 2026-10-20T00:07Z is 2026-10-20 09:07 in Tokyo.
+  assert.equal(autoScheduleRunDateTimeLabel('ja', '2026-10-20T00:07:00Z', 'Asia/Tokyo'), '10月20日 9:07');
+  assert.equal(autoScheduleRunDateTimeLabel('en', '2026-10-20T00:07:00Z', 'Asia/Tokyo'), 'Oct 20, 9:07');
+  // 2026-10-19T15:07Z crosses the JST day boundary: 20 Oct 0:07 in Tokyo, still 19 Oct in UTC.
+  assert.equal(autoScheduleRunDateTimeLabel('ja', '2026-10-19T15:07:00Z', 'Asia/Tokyo'), '10月20日 0:07');
+  assert.equal(autoScheduleRunDateTimeLabel('en', '2026-10-19T15:07:00Z', 'UTC'), 'Oct 19, 15:07');
+  // 24h clock, December, no locale punctuation (only ASCII digits/letters, ':', ',', ' ' and the JA 月/日).
+  const en = autoScheduleRunDateTimeLabel('en', '2026-12-31T14:59:00Z', 'Asia/Tokyo');
+  assert.equal(en, 'Dec 31, 23:59');
+  assert.match(en, /^[A-Za-z0-9:, ]+$/);
 });
 
 test('generated line, JA and EN', () => {
   assert.equal(
-    autoScheduleRunGeneratedLine.ja('2026/10/20 00:07', '2026年11月', 42, 3),
-    '2026/10/20 00:07 2026年11月分の下書きを作成しました（42件、人員不足 3件）',
+    autoScheduleRunGeneratedLine.ja('10月20日 9:07', '2026年11月', 42, 3),
+    '10月20日 9:07 2026年11月分の下書きを作成しました（42件、人員不足 3件）',
   );
   assert.equal(
-    autoScheduleRunGeneratedLine.en('10/20/2026, 12:07 AM', 'November 2026', 42, 3),
-    '10/20/2026, 12:07 AM: created a draft for November 2026 (42 shifts, 3 shortages)',
+    autoScheduleRunGeneratedLine.en('Oct 20, 9:07', 'November 2026', 42, 3),
+    'Oct 20, 9:07: created a draft for November 2026 (42 shifts, 3 shortages)',
   );
 });
 
