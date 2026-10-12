@@ -104,6 +104,8 @@ interface InventoryDashboardDict {
   referencePriceHint: string;
   allergensLabel: string;
   allergensConfirmedCheckboxLabel: string;
+  /** Shown while the confirmed checkbox is ticked; `{count}` = vocabulary length. */
+  allergensNoneSelectedHint: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -198,6 +200,8 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     referencePriceHint: 'An estimate, in yen per 1 unit — used only for the Recipes estimated-cost feature, never for receiving or accounting.',
     allergensLabel: 'Allergens',
     allergensConfirmedCheckboxLabel: 'Allergen information confirmed for this item',
+    allergensNoneSelectedHint:
+      'If you save without selecting any allergen, recipes will show that none of the {count} listed allergens is used.',
   },
   ja: {
     pageTitle: '在庫',
@@ -290,26 +294,66 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     referencePriceHint: '1単位あたりの目安価格（円）。レシピの材料費目安にのみ使用され、仕入れや会計には使用されません。',
     allergensLabel: 'アレルゲン',
     allergensConfirmedCheckboxLabel: 'この品目のアレルゲン情報を確認済み',
+    allergensNoneSelectedHint:
+      'アレルゲンを1つも選ばずに保存すると、「特定原材料等{count}品目を使用していない」と表示されます。',
   },
 };
 
 export const tInventoryDashboard = makeTranslator(dictionary);
 
-/** Fixed 10-code allergen vocabulary (migration 0121) -- same list/order as `recipes-i18n.ts`'s copy, kept independent (Inventory does not import from the Workforce/Recipes module, see `validation.ts`'s header note). */
-export const ALLERGEN_CODES = [
-  'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'soy', 'sesame',
+/**
+ * 29-code allergen vocabulary (migration 0124; 消費者庁 食品表示基準
+ * revision effective 2026-04-01), grouped for the item form: 9 特定原材料
+ * (mandatory) then 20 特定原材料に準ずるもの (recommended).
+ * Same list/order as `lib/workforce/recipe-allergens.ts`'s copy, kept
+ * independent (Inventory does not import from the Workforce/Recipes module,
+ * see `validation.ts`'s header note); `recipe-allergens.test.ts` asserts the
+ * two copies and the migration's array are identical.
+ */
+export const ALLERGEN_CODE_GROUPS = [
+  {
+    key: 'mandatory',
+    codes: ['egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew'],
+  },
+  {
+    key: 'recommended',
+    codes: [
+      'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
+      'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin',
+    ],
+  },
 ] as const;
 
-const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
+export const ALLERGEN_CODES: readonly string[] = ALLERGEN_CODE_GROUPS.flatMap((group) => group.codes);
+
+export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
   en: {
     egg: 'Egg', milk: 'Milk', wheat: 'Wheat', buckwheat: 'Buckwheat', peanut: 'Peanut',
-    shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut', soy: 'Soy', sesame: 'Sesame',
+    shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut',
+    almond: 'Almond', abalone: 'Abalone', squid: 'Squid', salmon_roe: 'Salmon roe', orange: 'Orange',
+    cashew: 'Cashew nut', kiwi: 'Kiwi fruit', beef: 'Beef', sesame: 'Sesame', salmon: 'Salmon',
+    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pistachio: 'Pistachio', pork: 'Pork',
+    macadamia: 'Macadamia nut', peach: 'Peach', yam: 'Yam', apple: 'Apple', gelatin: 'Gelatin',
   },
   ja: {
     egg: '卵', milk: '乳', wheat: '小麦', buckwheat: 'そば', peanut: '落花生',
-    shrimp: 'えび', crab: 'かに', walnut: 'くるみ', soy: '大豆', sesame: 'ごま',
+    shrimp: 'えび', crab: 'かに', walnut: 'くるみ',
+    almond: 'アーモンド', abalone: 'あわび', squid: 'いか', salmon_roe: 'いくら', orange: 'オレンジ',
+    cashew: 'カシューナッツ', kiwi: 'キウイフルーツ', beef: '牛肉', sesame: 'ごま', salmon: 'さけ',
+    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pistachio: 'ピスタチオ', pork: '豚肉',
+    macadamia: 'マカダミアナッツ', peach: 'もも', yam: 'やまいも', apple: 'りんご', gelatin: 'ゼラチン',
   },
 };
+
+const ALLERGEN_GROUP_HEADINGS: Record<Lang, Record<(typeof ALLERGEN_CODE_GROUPS)[number]['key'], string>> = {
+  en: { mandatory: 'Mandatory allergens ({count})', recommended: 'Recommended allergens ({count})' },
+  ja: { mandatory: '特定原材料（{count}品目）', recommended: '特定原材料に準ずるもの（{count}品目）' },
+};
+
+/** Subheading for one allergen group; `{count}` comes from the group's own code list, never hard-coded. */
+export function allergenGroupHeading(lang: Lang, group: (typeof ALLERGEN_CODE_GROUPS)[number]): string {
+  return ALLERGEN_GROUP_HEADINGS[lang][group.key].replace('{count}', String(group.codes.length));
+}
 
 export function allergenLabel(lang: Lang, code: string): string {
   return ALLERGEN_LABELS[lang][code] ?? code;
