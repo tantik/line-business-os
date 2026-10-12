@@ -219,6 +219,8 @@ interface ManagerDashboardDict {
   automationEnabledLabel: string;
   /** "Last generated: YYYY-MM" line, shown only after the scheduled worker has run at least once for this location. */
   automationLastGeneratedLabel: string;
+  /** Accessible name of the scheduled auto-create run-log list (DEBT-074). */
+  automationRunLogHeading: string;
   automationManualCreateButton: string;
   automationManualCreateRunning: string;
   automationLastResultHeading: string;
@@ -577,6 +579,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'When "Automatic schedule" is ON, the system creates next month\'s schedule for you on the day you choose below (1-28) -- as a draft proposal, based on staff preferences, your required-staff and monthly-hour-limit settings, and each employee\'s hours already used that month. It never publishes automatically and never notifies staff -- you always review and publish it yourself, the same as any other draft. You can also use the "Create schedule automatically" button any time to fill the week you are viewing right now. Past dates are never touched -- if part of the displayed week is already in the past, only the remaining days are filled. A shortage is shown honestly if not enough staff are available. A staff member who has not submitted a preference may still be assigned to fill a required slot, but this is always shown separately in the result so you can review it. Running it again (manually, or the next scheduled run) replaces that period\'s unconfirmed automatic shifts with a new set. Confirmed and manual shifts are always kept.',
     automationEnabledLabel: 'Automatically create next month\'s schedule',
     automationLastGeneratedLabel: 'Last automatically created',
+    automationRunLogHeading: 'Automatic creation log',
     automationManualCreateButton: 'Create schedule automatically',
     automationManualCreateRunning: 'Creating...',
     automationLastResultHeading: 'Last result',
@@ -907,6 +910,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       '「自動スケジュール」をONにすると、下で設定した日（1〜28日）に、来月分のシフトを自動で作成します -- スタッフの希望・必要人数・月間労働時間の上限・その月すでに入っている勤務時間にもとづいた「案」で、自動で公開されることも、スタッフに通知されることもありません。内容を確認してから、いつものように公開のタイミングはあなたが決めます。いま表示している週については、「自動でシフトを作成」ボタンでいつでも作成できます。過去の日付は変更されません。表示中の週の一部がすでに過去の場合、残りの日だけが対象になります。人数が足りない場合はその不足がそのまま表示されます。希望を出していないスタッフも、必要な枠を埋めるために割り当てられることがありますが、その場合は結果に必ず分けて表示されるので確認できます。もう一度実行すると（手動でも、次回の自動実行でも）、その期間の未確定の自動シフトは新しい案に置き換わります。確定済み・手動のシフトは常にそのまま残ります。',
     automationEnabledLabel: '来月のシフトを自動で作成する',
     automationLastGeneratedLabel: '最後に自動作成した月',
+    automationRunLogHeading: '自動作成の記録',
     automationManualCreateButton: '自動でシフトを作成',
     automationManualCreateRunning: '作成中...',
     automationLastResultHeading: '直近の結果',
@@ -1316,6 +1320,62 @@ export const autoCreateLastResultSummary: Record<
     return parts.join('・');
   },
 };
+
+/**
+ * Scheduled monthly auto-create run log (DEBT-074, `api.workforce_auto_schedule_runs`).
+ * `dateTime` is already formatted in the location's timezone; `month` is the
+ * target month label from `autoScheduleTargetMonthLabel`.
+ */
+export const autoScheduleRunGeneratedLine: Record<Lang, (dateTime: string, month: string, created: number, shortages: number) => string> = {
+  en: (dateTime, month, created, shortages) => `${dateTime}: created a draft for ${month} (${created} shifts, ${shortages} shortages)`,
+  ja: (dateTime, month, created, shortages) => `${dateTime} ${month}分の下書きを作成しました（${created}件、人員不足 ${shortages}件）`,
+};
+
+export const autoScheduleRunConfigErrorLine: Record<Lang, (reason: string) => string> = {
+  en: (reason) => `Automatic creation did not run: ${reason}`,
+  ja: (reason) => `自動作成できませんでした：${reason}`,
+};
+
+/** Reason text for a `config_error` run, keyed by its machine `error_code`. */
+export const autoScheduleConfigErrorReason: Record<Lang, Record<string, string>> = {
+  en: {
+    no_active_shift_types: 'no active shift types',
+    no_staffing_requirement: 'no required headcount set',
+  },
+  ja: {
+    no_active_shift_types: '有効なシフト区分がありません',
+    no_staffing_requirement: '必要人数が設定されていません',
+  },
+};
+
+export const autoScheduleRunFailedLine: Record<Lang, string> = {
+  en: 'Automatic creation failed. Please create the schedule manually.',
+  ja: '自動作成に失敗しました。手動で作成してください。',
+};
+
+export const autoScheduleRunMissedLine: Record<Lang, (dayOfMonth: number) => string> = {
+  en: (dayOfMonth) => `This month's automatic creation (day ${dayOfMonth}) has not run yet. Please create the schedule manually.`,
+  ja: (dayOfMonth) => `毎月${dayOfMonth}日の自動作成がまだ実行されていません。手動で作成してください。`,
+};
+
+/** `'YYYY-MM-01'` -> JA `2026年11月` / EN `November 2026`. */
+export function autoScheduleTargetMonthLabel(lang: Lang, targetMonth: string): string {
+  const [year, month] = targetMonth.split('-').map(Number) as [number, number];
+  if (lang === 'ja') return `${year}年${month}月`;
+  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+/** A run-log instant in the location's own timezone (never the browser's). */
+export function autoScheduleRunDateTimeLabel(lang: Lang, isoInstant: string, timeZone: string): string {
+  return new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(isoInstant));
+}
 
 /** Settings/auto-create result: how many shifts in the displayed week are still drafts (auto-created, not yet visible to staff). */
 export const unpublishedShiftsLabel: Record<Lang, (count: number) => string> = {

@@ -78,6 +78,12 @@ repo.
   should not become browser-facing unless a reviewed ADR says otherwise.
 - Cloud dev and production must not be confused. Check the target before every
   Cloud command.
+- Scheduled monthly auto-create (migration 0125, DEBT-074): after 0125 is
+  applied and the `auto-schedule-monthly` Edge Function is deployed, the
+  pg_cron runner stays a no-op until the vault secret `project_url` is set
+  for that project. In production this is a deliberate Founder-approved step
+  (`select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');`)
+  — see `docs/operations/auto-schedule-cloud-runner.md`.
 
 ## Vercel Deployment Checklist
 

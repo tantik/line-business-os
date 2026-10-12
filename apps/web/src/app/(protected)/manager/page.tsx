@@ -10,7 +10,7 @@ import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
 import { listWorkforceEmployeeInvitations } from '@/lib/workforce/invitations';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
-import { getWorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
+import { getWorkforceScheduleSettings, listRecentAutoScheduleRuns } from '@/lib/workforce/schedule-settings';
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
@@ -286,6 +286,7 @@ export default async function WorkforceManagerPage({
         operationsOpenExceptionsResult,
         issuesOpenResult,
         issuesAllResult,
+        autoScheduleRunsResult,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -373,6 +374,9 @@ export default async function WorkforceManagerPage({
         // already follows.
         issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
         issuesEnabled ? listAllIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        // Scheduled monthly auto-create run log (DEBT-074) -- last 3 rows
+        // for this location, shown in the Settings section's automation block.
+        listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
       ]);
 
       const recipeGroups =
@@ -493,6 +497,7 @@ export default async function WorkforceManagerPage({
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
             scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
+            autoScheduleRuns={autoScheduleRunsResult.status === 'success' ? autoScheduleRunsResult.data : null}
           />
         </main>
       );

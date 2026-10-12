@@ -51,6 +51,81 @@ export async function getWorkforceScheduleSettings(
   };
 }
 
+export type AutoScheduleRunOutcome = 'generated' | 'config_error' | 'failed';
+
+/** One row of the scheduled monthly auto-create run log (`api.workforce_auto_schedule_runs`, migration 0125). Ids/counts/machine code only. */
+export interface AutoScheduleRun {
+  runId: string;
+  /** First-of-month date (`'YYYY-MM-01'`) of the month the run targeted. */
+  targetMonth: string;
+  outcome: AutoScheduleRunOutcome;
+  createdCount: number;
+  shortageCount: number;
+  /** Short machine code (`no_active_shift_types`, `no_staffing_requirement`, `apply_failed`, ...) -- never raw error text. `null` for `generated`. */
+  errorCode: string | null;
+  attemptCount: number;
+  /** ISO instant of the latest attempt with this outcome. */
+  lastSeenAt: string;
+}
+
+/**
+ * Latest scheduled-auto-create run-log rows for one location (newest first).
+ * RLS (`wf_auto_schedule_runs_read`): workforce.shift.read at the location
+ * with the Workforce module ON -- the Manager page is the only caller.
+ */
+export async function listRecentAutoScheduleRuns(
+  supabase: SupabaseClient,
+  tenantId: string,
+  locationId: string,
+  limit = 3,
+): Promise<TenantAccessResult<AutoScheduleRun[]>> {
+  const { data, error } = await supabase
+    .schema('api')
+    .from('workforce_auto_schedule_runs')
+    .select('run_id, target_month, outcome, created_count, shortage_count, error_code, attempt_count, last_seen_at')
+    .eq('tenant_id', tenantId)
+    .eq('location_id', locationId)
+    .order('last_seen_at', { ascending: false })
+    .limit(limit);
+  if (error) return mapError(error);
+  return {
+    status: 'success',
+    data: (data ?? []).map((row) => ({
+      runId: row.run_id as string,
+      targetMonth: row.target_month as string,
+      outcome: row.outcome as AutoScheduleRunOutcome,
+      createdCount: row.created_count as number,
+      shortageCount: row.shortage_count as number,
+      errorCode: (row.error_code as string | null) ?? null,
+      attemptCount: row.attempt_count as number,
+      lastSeenAt: row.last_seen_at as string,
+    })),
+  };
+}
+
+/**
+ * True when the scheduled auto-create should already have run this month
+ * but there is no trace of it: automation ON, today (location timezone) is
+ * past the configured day, the marker is not next month, and no run-log row
+ * (of any outcome) exists for next month. Pure -- `todayIso` is the
+ * location-local date.
+ */
+export function isAutoScheduleRunMissed(input: {
+  autoCreateEnabled: boolean;
+  autoCreateDayOfMonth: number;
+  autoCreateLastGeneratedMonth: string | null;
+  todayIso: string;
+  runs: readonly Pick<AutoScheduleRun, 'targetMonth'>[];
+}): boolean {
+  if (!input.autoCreateEnabled) return false;
+  const [year, month, day] = input.todayIso.split('-').map(Number) as [number, number, number];
+  if (!(day > input.autoCreateDayOfMonth)) return false;
+  const next = new Date(Date.UTC(year, month, 1)); // `month` is 1-based, so this is next month's first day
+  const nextMonthStart = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  if (input.autoCreateLastGeneratedMonth === nextMonthStart) return false;
+  return !input.runs.some((run) => run.targetMonth === nextMonthStart);
+}
+
 /**
  * `autoCreateDayOfMonth` is optional here (unlike the full `WorkforceScheduleSettings`
  * read type, where the column's `not null default 20` guarantees it's always

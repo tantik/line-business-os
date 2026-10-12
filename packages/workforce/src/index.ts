@@ -13,8 +13,11 @@ import { z } from 'zod';
  * constraint-satisfaction engine) and its staffing-requirement-matrix helper
  * physically live HERE now -- the one place both the canonical Manager
  * Server Action (`apps/web`, manual "auto-create schedule") and the
- * scheduled-monthly worker job (`apps/worker`) import them from, so there is
- * exactly one implementation of the scheduling algorithm, never two. `apps/web`
+ * scheduled-monthly job (the `auto-schedule-monthly` Edge Function, DEBT-074 --
+ * Deno cannot import this package, so it runs a GENERATED verbatim copy made
+ * by `scripts/sync-edge-workforce-engine.mjs`, drift-guarded by a test) use,
+ * so there is exactly one implementation of the scheduling algorithm, never
+ * two. After editing either engine file, re-run that script. `apps/web`
  * keeps its historical file paths (`lib/workforce/auto-distribute.ts` /
  * `auto-distribution-authority.ts`) as thin re-export shims so no existing
  * import site needed to change.

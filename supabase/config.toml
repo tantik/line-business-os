@@ -69,3 +69,14 @@ verify_jwt = true
 # PII_ENCRYPTION_KEY above.
 [functions.liff-entry]
 verify_jwt = false
+
+# DEBT-074 (Stage 2): the scheduled monthly auto-create runner. Deliberately
+# false, not an oversight: the only caller is pg_cron (via pg_net, migration
+# 0125), which has no user session and therefore no Supabase JWT. The
+# function authenticates the caller itself instead: `Authorization: Bearer
+# <token>` must equal the vault secret `auto_schedule_cron_token`, compared
+# inside the DB by the service-role-only `api.verify_auto_schedule_cron_token`
+# (401 on missing/mismatch). See supabase/functions/auto-schedule-monthly/
+# index.ts and docs/operations/auto-schedule-cloud-runner.md.
+[functions.auto-schedule-monthly]
+verify_jwt = false

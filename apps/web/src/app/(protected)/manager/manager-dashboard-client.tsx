@@ -84,7 +84,7 @@ import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { StaffMessagesPopup } from './staff-messages-popup';
 import { SettingsSection } from './settings-section';
-import type { WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
+import type { AutoScheduleRun, WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -277,6 +277,8 @@ export interface ManagerDashboardClientProps {
   recipeCanManage: boolean;
   /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
   scheduleSettings: WorkforceScheduleSettings | null;
+  /** Latest scheduled auto-create run-log rows for this location (DEBT-074) -- `null` if the read failed. */
+  autoScheduleRuns: AutoScheduleRun[] | null;
 }
 
 function weekDates(periodStart: string): string[] {
@@ -382,6 +384,7 @@ function ManagerDashboardBody({
   recipeMediaUrlByRecipeId,
   recipeCanManage,
   scheduleSettings,
+  autoScheduleRuns,
 }: ManagerDashboardClientProps) {
   const router = useRouter();
   const { lang } = useLang();
@@ -1648,6 +1651,9 @@ function ManagerDashboardBody({
         onPublishWeek={() => setPublishWeekConfirmOpen(true)}
         publishWeekPending={isPending && pendingAction === 'publish-week'}
         publishWeekError={publishWeekError}
+        autoScheduleRuns={autoScheduleRuns}
+        timeZone={timeZone}
+        todayIso={todayIso}
         lang={lang}
       />
 

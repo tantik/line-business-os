@@ -3,12 +3,20 @@
  * a given IANA time zone, using only `Intl.DateTimeFormat` (no dependency).
  *
  * This is a small, generic date-math utility -- NOT part of the scheduling
- * engine (that lives in `@line-os/workforce`, shared verbatim with
- * `apps/web`). `apps/web/src/lib/workforce/timezone.ts` has the identical
- * implementation; it isn't imported directly here because it sits behind
- * `apps/web`'s own `@/...` path aliases and Next.js build config, which a
- * plain `tsx`-run worker process doesn't resolve. Keep any bugfix here in
- * sync with that file.
+ * engine (that lives in `packages/workforce`, copied verbatim into
+ * `../workforce-engine/` by `scripts/sync-edge-workforce-engine.mjs`).
+ * `apps/web/src/lib/workforce/timezone.ts` has the identical
+ * implementation; it isn't imported directly here because this file runs in
+ * the Supabase Edge Runtime (Deno), which cannot resolve `apps/web`'s `@/...`
+ * path aliases. Keep any bugfix here in sync with that file.
+ *
+ * Moved from `apps/worker/src/lib/timezone.ts` (DEBT-074, Stage 2). The only
+ * behavioural change: `todayIsoInTimeZone` takes an injectable `now`, so the
+ * scheduled job's "today" is a pure function of the instant it was invoked
+ * with (testable across the JST day boundary).
+ *
+ * PURE MODULE: no `Deno.*`, no `npm:`/`jsr:` imports -- importable under
+ * Node/tsx as well as Deno.
  */
 
 const OFFSET_GUESS_FORMATTER_CACHE = new Map<string, Intl.DateTimeFormat>();
@@ -69,9 +77,9 @@ export function utcIsoToLocalDateTime(isoInstant: string, timeZone: string): { w
   return { workDate, localTime };
 }
 
-/** Today's date as `YYYY-MM-DD` in the given IANA time zone. */
-export function todayIsoInTimeZone(timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+/** The date (`YYYY-MM-DD`) that instant `now` falls on in the given IANA time zone. */
+export function todayIsoInTimeZone(timeZone: string, now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
 }
 
 /** First/last day (inclusive) of the calendar month immediately AFTER the month containing `todayWorkDate` -- the scheduled monthly job's fixed target period. */

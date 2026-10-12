@@ -1,7 +1,6 @@
 import { Cron } from 'croner';
 import { serverEnv } from '@line-os/config/env';
 import { sendBookingReminders } from './jobs/booking-reminders.js';
-import { runAutoScheduleMonthly } from './jobs/auto-schedule-monthly.js';
 
 /**
  * Worker entrypoint: scheduled jobs, LINE reminders, async processing.
@@ -22,26 +21,9 @@ function main() {
     }
   });
 
-  // Once an hour: check every opted-in location's scheduled monthly
-  // auto-create (Manager ON/OFF + day-of-month, `workforce.schedule_settings`).
-  // Hourly (not daily) so a location is picked up promptly even if the
-  // worker was down at the exact trigger moment on its configured day; the
-  // job itself is idempotent per (location, target month), so repeat ticks
-  // on the same day are safe no-ops once a location has already generated.
-  new Cron('0 * * * *', { name: 'auto-schedule-monthly' }, async () => {
-    try {
-      const summaries = await runAutoScheduleMonthly();
-      for (const summary of summaries) {
-        console.log(
-          `auto-schedule-monthly: location ${summary.locationId} (tenant ${summary.tenantId}) -> ${summary.targetMonth}: ` +
-            `${summary.created} draft shifts, ${summary.shortages} shortages, ${summary.unplaced} unplaced, ` +
-            `${summary.assignedWithoutPreference} assigned without preference`,
-        );
-      }
-    } catch (err) {
-      console.error('auto-schedule-monthly failed:', err);
-    }
-  });
+  // The scheduled monthly auto-create no longer runs here (DEBT-074): it is
+  // the `auto-schedule-monthly` Supabase Edge Function, invoked hourly by
+  // pg_cron (migration 0125). See docs/operations/auto-schedule-cloud-runner.md.
 
   console.log('Worker started. Scheduled jobs registered.');
 }
