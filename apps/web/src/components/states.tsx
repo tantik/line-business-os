@@ -1,9 +1,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { tAuth, type AuthCopyKey } from '@/lib/auth/auth-copy';
-import { mutedText, pageStyle } from '@/lib/ui/theme';
+import { backLink, mutedText, pageStyle } from '@/lib/ui/theme';
 
 /**
  * Minimal, reusable "safe state" components for authenticated/tenant-aware
@@ -12,18 +13,23 @@ import { mutedText, pageStyle } from '@/lib/ui/theme';
  * stored dashboard language) and never expose internal error details.
  */
 
-function StateBody({ title, body, children }: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode }) {
+function StateBody({ title, body, children, homeLink }: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean }) {
   const { lang } = useLang();
   return (
     <main style={pageStyle(720)}>
       <h1>{tAuth(lang, title)}</h1>
       {body ? <p style={mutedText}>{tAuth(lang, body)}</p> : null}
       {children}
+      {homeLink ? (
+        <Link href="/" style={backLink}>
+          {tAuth(lang, 'goHome')}
+        </Link>
+      ) : null}
     </main>
   );
 }
 
-function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode }) {
+function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean }) {
   return (
     <LangProvider>
       <StateBody {...props} />
@@ -45,7 +51,8 @@ export function ErrorState({ message }: { message?: string }) {
 }
 
 export function UnauthorizedState() {
-  return <StateShell title="accessDeniedTitle" body="accessDeniedBody" />;
+  // '/' routes a signed-in user to their own workspace -- never a dead end.
+  return <StateShell title="accessDeniedTitle" body="accessDeniedBody" homeLink />;
 }
 
 export function NoTenantState() {
@@ -67,9 +74,9 @@ export function MissingConfigState() {
 }
 
 export function NotFoundState() {
-  return <StateShell title="itemNotFoundTitle" body="itemNotFoundBody" />;
+  return <StateShell title="itemNotFoundTitle" body="itemNotFoundBody" homeLink />;
 }
 
 export function ModuleUnavailableState() {
-  return <StateShell title="moduleUnavailableTitle" body="moduleUnavailableBody" />;
+  return <StateShell title="moduleUnavailableTitle" body="moduleUnavailableBody" homeLink />;
 }
