@@ -296,8 +296,9 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
 export const tInventoryDashboard = makeTranslator(dictionary);
 
 /**
- * 28-code allergen vocabulary (migration 0124), grouped for the item form:
- * 8 特定原材料 (mandatory) then 20 特定原材料に準ずるもの (recommended).
+ * 29-code allergen vocabulary (migration 0124; 消費者庁 食品表示基準
+ * revision effective 2026-04-01), grouped for the item form: 9 特定原材料
+ * (mandatory) then 20 特定原材料に準ずるもの (recommended).
  * Same list/order as `lib/workforce/recipe-allergens.ts`'s copy, kept
  * independent (Inventory does not import from the Workforce/Recipes module,
  * see `validation.ts`'s header note); `recipe-allergens.test.ts` asserts the
@@ -306,13 +307,13 @@ export const tInventoryDashboard = makeTranslator(dictionary);
 export const ALLERGEN_CODE_GROUPS = [
   {
     key: 'mandatory',
-    codes: ['egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut'],
+    codes: ['egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew'],
   },
   {
     key: 'recommended',
     codes: [
-      'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'cashew', 'kiwi', 'beef', 'sesame', 'salmon',
-      'mackerel', 'soy', 'chicken', 'banana', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin',
+      'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
+      'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin',
     ],
   },
 ] as const;
@@ -325,7 +326,7 @@ export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
     shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut',
     almond: 'Almond', abalone: 'Abalone', squid: 'Squid', salmon_roe: 'Salmon roe', orange: 'Orange',
     cashew: 'Cashew nut', kiwi: 'Kiwi fruit', beef: 'Beef', sesame: 'Sesame', salmon: 'Salmon',
-    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pork: 'Pork',
+    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pistachio: 'Pistachio', pork: 'Pork',
     macadamia: 'Macadamia nut', peach: 'Peach', yam: 'Yam', apple: 'Apple', gelatin: 'Gelatin',
   },
   ja: {
@@ -333,7 +334,7 @@ export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
     shrimp: 'えび', crab: 'かに', walnut: 'くるみ',
     almond: 'アーモンド', abalone: 'あわび', squid: 'いか', salmon_roe: 'いくら', orange: 'オレンジ',
     cashew: 'カシューナッツ', kiwi: 'キウイフルーツ', beef: '牛肉', sesame: 'ごま', salmon: 'さけ',
-    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pork: '豚肉',
+    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pistachio: 'ピスタチオ', pork: '豚肉',
     macadamia: 'マカダミアナッツ', peach: 'もも', yam: 'やまいも', apple: 'りんご', gelatin: 'ゼラチン',
   },
 };

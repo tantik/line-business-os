@@ -66,7 +66,7 @@ test('a code outside the vocabulary sorts after known codes (defensive; the DB C
 
 function migrationArrays(): string[][] {
   const sql = readFileSync(
-    new URL('../../../../../supabase/migrations/0124_inventory_allergen_vocabulary_28.sql', import.meta.url),
+    new URL('../../../../../supabase/migrations/0124_inventory_allergen_vocabulary_29.sql', import.meta.url),
     'utf8',
   );
   const arrays = [...sql.matchAll(/array\[([^\]]*)\]::text\[\]/g)].map((match) =>
@@ -75,20 +75,23 @@ function migrationArrays(): string[][] {
   return arrays.filter((codes) => codes.length > 0);
 }
 
-test('the vocabulary has 28 unique codes: 8 mandatory then 20 recommended', () => {
-  assert.equal(RECIPE_ALLERGEN_CODES.length, 28);
-  assert.equal(new Set(RECIPE_ALLERGEN_CODES).size, 28);
+test('the vocabulary has 29 unique codes: 9 mandatory then 20 recommended (CAA revision 2026-04-01)', () => {
+  assert.equal(RECIPE_ALLERGEN_CODES.length, 29);
+  assert.equal(new Set(RECIPE_ALLERGEN_CODES).size, 29);
   assert.deepEqual(ALLERGEN_CODE_GROUPS.map((group) => [group.key, group.codes.length]), [
-    ['mandatory', 8],
+    ['mandatory', 9],
     ['recommended', 20],
   ]);
+  const [mandatory, recommended] = ALLERGEN_CODE_GROUPS;
+  assert.ok((mandatory.codes as readonly string[]).includes('cashew'), 'cashew is mandatory since 2026-04-01');
+  assert.ok((recommended.codes as readonly string[]).includes('pistachio'), 'pistachio is recommended since 2026-04-01');
 });
 
 test('Inventory and Recipes code lists are identical (same codes, same order)', () => {
   assert.deepEqual([...INVENTORY_ALLERGEN_CODES], [...RECIPE_ALLERGEN_CODES]);
 });
 
-test('migration 0124 constraint and RPC both use exactly the same 28-code array, in the same order', () => {
+test('migration 0124 constraint and RPC both use exactly the same 29-code array, in the same order', () => {
   const arrays = migrationArrays();
   assert.equal(arrays.length, 2, 'expected the CHECK constraint array and the RPC array');
   for (const codes of arrays) assert.deepEqual(codes, [...RECIPE_ALLERGEN_CODES]);
@@ -103,23 +106,27 @@ test('every code has a JA and EN label in both modules, and both modules agree',
 
 test('group subheadings carry the count from the code list', () => {
   const [mandatory, recommended] = ALLERGEN_CODE_GROUPS;
-  assert.equal(allergenGroupHeading('ja', mandatory), '特定原材料（8品目）');
-  assert.equal(allergenGroupHeading('ja', recommended), '特定原材料に準ずるもの（20品目）');
-  assert.equal(allergenGroupHeading('en', mandatory), 'Mandatory allergens (8)');
-  assert.equal(allergenGroupHeading('en', recommended), 'Recommended allergens (20)');
+  const m = mandatory.codes.length;
+  const r = recommended.codes.length;
+  assert.equal(allergenGroupHeading('ja', mandatory), `特定原材料（${m}品目）`);
+  assert.equal(allergenGroupHeading('ja', recommended), `特定原材料に準ずるもの（${r}品目）`);
+  assert.equal(allergenGroupHeading('en', mandatory), `Mandatory allergens (${m})`);
+  assert.equal(allergenGroupHeading('en', recommended), `Recommended allergens (${r})`);
 });
 
-test('"contains none" copy fills {count} from the vocabulary length (28)', () => {
+test('"contains none" copy fills {count} from the vocabulary length', () => {
   const summary = summarizeRecipeAllergens([mapped([])]);
   assert.equal(summary.kind, 'none');
   if (summary.kind !== 'none') return;
+  const n = RECIPE_ALLERGEN_CODES.length;
+  assert.equal(summary.vocabularySize, n);
   assert.equal(
     tRecipes('ja', 'allergenNoneOfListed').replace('{count}', String(summary.vocabularySize)),
-    'この商品には特定原材料等28品目は使用していません（店舗確認）',
+    `この商品には特定原材料等${n}品目は使用していません（店舗確認）`,
   );
   assert.equal(
     tRecipes('en', 'allergenNoneOfListed').replace('{count}', String(summary.vocabularySize)),
-    'Contains none of the 28 listed allergens (checked by the store)',
+    `Contains none of the ${n} listed allergens (checked by the store)`,
   );
 });
 

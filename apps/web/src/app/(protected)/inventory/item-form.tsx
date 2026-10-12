@@ -230,7 +230,7 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
               {ALLERGEN_CODE_GROUPS.map((group) => (
                 <fieldset key={group.key} style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}>
                   <legend style={{ ...mutedText, fontSize: 13, padding: 0 }}>{allergenGroupHeading(lang, group)}</legend>
-                  {/* 28 items: a wrapping grid (2 columns at 375px, more when wider), never a horizontal scroll. */}
+                  {/* 29 items (9 + 20): a wrapping grid (2 columns at 375px, more when wider), never a horizontal scroll. */}
                   <div
                     style={{
                       display: 'grid',

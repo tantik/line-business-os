@@ -1,14 +1,15 @@
 -- ============================================================================
--- DB test: inventory allergen vocabulary 10 -> 28 codes (migration 0124)
+-- DB test: inventory allergen vocabulary 10 -> 29 codes (migration 0124)
 -- ----------------------------------------------------------------------------
 -- Run with:  pnpm exec supabase db reset && pnpm exec supabase test db
 --
--- Covers: the items_allergen_codes_check column constraint and
--- api.set_inventory_item_allergens both accept the new codes (e.g.
--- 'gelatin', 'salmon_roe') and the original 0121 codes, both reject an
--- unknown code, and NULL / '{}' stay accepted and distinct. The vocabulary
--- itself (exact 28-code list) is asserted against the constraint
--- definition here and against apps/web's two UI copies by a unit test.
+-- Covers: items_allergen_codes_check's definition equals the full expected
+-- 29-code array (exact text compare, not a substring check); the column and
+-- api.set_inventory_item_allergens both accept every one of the 29 codes
+-- (incl. the new 'pistachio', 'gelatin', 'salmon_roe') and the original
+-- 0121 codes, both reject an unknown code, and NULL / '{}' stay accepted
+-- and distinct. apps/web's two UI copies of the list are asserted against
+-- the migration file by a unit test (recipe-allergens.test.ts).
 -- ============================================================================
 
 begin;
@@ -16,7 +17,19 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, core, audit, workforce, inventory, purchases, ai;
 
-select plan(14);
+select plan(17);
+
+create function pg_temp.expected_allergen_codes()
+returns text[]
+language sql
+immutable
+as $$
+  select array[
+    'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew',
+    'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
+    'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin'
+  ]::text[]
+$$;
 
 -- ============================================================================
 -- Fixtures
@@ -75,17 +88,32 @@ $$;
 -- ============================================================================
 
 select is(
-  (select pg_get_constraintdef(oid) like '%gelatin%' and pg_get_constraintdef(oid) like '%salmon_roe%'
+  (select pg_get_constraintdef(oid)
      from pg_constraint
     where conrelid = 'inventory.items'::regclass and conname = 'items_allergen_codes_check'),
-  true,
-  'items_allergen_codes_check exists and carries the widened vocabulary'
+  (select 'CHECK (((allergen_codes IS NULL) OR (allergen_codes <@ ARRAY['
+          || string_agg(quote_literal(code) || '::text', ', ' order by ord)
+          || '])))'
+     from unnest(pg_temp.expected_allergen_codes()) with ordinality as v(code, ord)),
+  'items_allergen_codes_check is exactly the expected 29-code array, in order'
+);
+
+select is(
+  cardinality(pg_temp.expected_allergen_codes()),
+  29,
+  'the expected vocabulary has 29 codes (9 mandatory + 20 recommended)'
 );
 
 select lives_ok(
-  $$ update inventory.items set allergen_codes = array['gelatin', 'salmon_roe', 'macadamia']
+  $$ update inventory.items set allergen_codes = pg_temp.expected_allergen_codes()
       where id = '9e100000-0000-0000-0000-000000000001' $$,
-  'the column accepts new 0124 codes (gelatin, salmon_roe, macadamia)'
+  'the column accepts all 29 codes at once'
+);
+
+select lives_ok(
+  $$ update inventory.items set allergen_codes = array['pistachio', 'cashew', 'gelatin', 'salmon_roe', 'macadamia']
+      where id = '9e100000-0000-0000-0000-000000000001' $$,
+  'the column accepts new 0124 codes (pistachio, cashew, gelatin, salmon_roe, macadamia)'
 );
 
 select lives_ok(
@@ -121,14 +149,19 @@ select lives_ok(
 select pg_temp.as_role('9e900000-0000-0000-0000-000000000002');
 select lives_ok(
   $$ select api.set_inventory_item_allergens('9e000000-0000-0000-0000-00000000000a'::uuid,
-       '9e100000-0000-0000-0000-000000000002'::uuid, array['salmon_roe', 'gelatin', 'egg']) $$,
+       '9e100000-0000-0000-0000-000000000001'::uuid, pg_temp.expected_allergen_codes()) $$,
+  'the RPC accepts all 29 codes at once (its own array matches the vocabulary)'
+);
+select lives_ok(
+  $$ select api.set_inventory_item_allergens('9e000000-0000-0000-0000-00000000000a'::uuid,
+       '9e100000-0000-0000-0000-000000000002'::uuid, array['salmon_roe', 'pistachio', 'egg']) $$,
   'the RPC accepts new 0124 codes mixed with an original code'
 );
 reset role;
 
 select is(
   (select allergen_codes from inventory.items where id = '9e100000-0000-0000-0000-000000000002'),
-  array['salmon_roe', 'gelatin', 'egg'],
+  array['salmon_roe', 'pistachio', 'egg'],
   'RPC-written new codes actually persisted'
 );
 
@@ -143,7 +176,7 @@ reset role;
 
 select is(
   (select allergen_codes from inventory.items where id = '9e100000-0000-0000-0000-000000000002'),
-  array['salmon_roe', 'gelatin', 'egg'],
+  array['salmon_roe', 'pistachio', 'egg'],
   'a rejected RPC call leaves the stored codes untouched'
 );
 

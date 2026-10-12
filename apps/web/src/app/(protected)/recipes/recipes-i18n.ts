@@ -275,14 +275,14 @@ const dictionary: Record<Lang, RecipesDict> = {
 
 export const tRecipes = makeTranslator(dictionary);
 
-/** 28-code allergen vocabulary (migration 0124; order: `RECIPE_ALLERGEN_CODES`) -- JA/EN display names. */
+/** 29-code allergen vocabulary (migration 0124; order: `RECIPE_ALLERGEN_CODES`) -- JA/EN display names. */
 export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
   en: {
     egg: 'Egg', milk: 'Milk', wheat: 'Wheat', buckwheat: 'Buckwheat', peanut: 'Peanut',
     shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut',
     almond: 'Almond', abalone: 'Abalone', squid: 'Squid', salmon_roe: 'Salmon roe', orange: 'Orange',
     cashew: 'Cashew nut', kiwi: 'Kiwi fruit', beef: 'Beef', sesame: 'Sesame', salmon: 'Salmon',
-    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pork: 'Pork',
+    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pistachio: 'Pistachio', pork: 'Pork',
     macadamia: 'Macadamia nut', peach: 'Peach', yam: 'Yam', apple: 'Apple', gelatin: 'Gelatin',
   },
   ja: {
@@ -290,7 +290,7 @@ export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
     shrimp: 'えび', crab: 'かに', walnut: 'くるみ',
     almond: 'アーモンド', abalone: 'あわび', squid: 'いか', salmon_roe: 'いくら', orange: 'オレンジ',
     cashew: 'カシューナッツ', kiwi: 'キウイフルーツ', beef: '牛肉', sesame: 'ごま', salmon: 'さけ',
-    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pork: '豚肉',
+    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pistachio: 'ピスタチオ', pork: '豚肉',
     macadamia: 'マカダミアナッツ', peach: 'もも', yam: 'やまいも', apple: 'りんご', gelatin: 'ゼラチン',
   },
 };

@@ -1,24 +1,27 @@
 -- ============================================================================
--- 0124 — inventory.items.allergen_codes: 10-code -> 28-code vocabulary
+-- 0124 — inventory.items.allergen_codes: 10-code -> 29-code vocabulary
 -- ============================================================================
 -- Copy Audit A-09 / DEBT-053, Founder decision 2026-10-12. 0121 limited
--- allergen_codes to 10 codes (the 8 特定原材料 + soy + sesame), so a store
--- could not record the other 18 items Japanese food-labelling guidance
--- names. This widens the vocabulary to all 28 items:
+-- allergen_codes to 10 codes (8 items + soy + sesame), so a store could not
+-- record the other 19 items Japanese food-labelling rules name. This widens
+-- the vocabulary to all 29 items:
 --
---   特定原材料 (8, mandatory labelling):
+--   特定原材料 (9, mandatory labelling):
 --     egg 卵, milk 乳, wheat 小麦, buckwheat そば, peanut 落花生,
---     shrimp えび, crab かに, walnut くるみ
+--     shrimp えび, crab かに, walnut くるみ, cashew カシューナッツ
 --   特定原材料に準ずるもの (20, recommended labelling):
 --     almond アーモンド, abalone あわび, squid いか, salmon_roe いくら,
---     orange オレンジ, cashew カシューナッツ, kiwi キウイフルーツ,
---     beef 牛肉, sesame ごま, salmon さけ, mackerel さば, soy 大豆,
---     chicken 鶏肉, banana バナナ, pork 豚肉, macadamia マカダミアナッツ,
+--     orange オレンジ, kiwi キウイフルーツ, beef 牛肉, sesame ごま,
+--     salmon さけ, mackerel さば, soy 大豆, chicken 鶏肉, banana バナナ,
+--     pistachio ピスタチオ, pork 豚肉, macadamia マカダミアナッツ,
 --     peach もも, yam やまいも, apple りんご, gelatin ゼラチン
 --
--- Source: 消費者庁 食品表示基準 (Consumer Affairs Agency food labelling
--- standard) -- 8 特定原材料 (incl. くるみ, mandatory from 2025-04) + 20
--- 特定原材料に準ずるもの (incl. マカダミアナッツ, added 2024-03).
+-- Source: 消費者庁 食品表示基準 改正 2026-04-01 施行 (Consumer Affairs
+-- Agency food labelling standard, revision effective 2026-04-01):
+-- カシューナッツ moved from 準ずるもの to 特定原材料 (mandatory, with a
+-- transition period), ピスタチオ added to 特定原材料に準ずるもの. Group
+-- order follows the CAA list (50音 within each group). The vocabulary
+-- must follow future CAA revisions -- see the debt register row on it.
 --
 -- The 10 codes 0121 already allowed keep their exact spelling, so every
 -- existing row stays valid and no data is rewritten. The array order below
@@ -32,7 +35,7 @@
 -- and grants -- only the vocabulary array differs.
 --
 -- Rollback: re-create items_allergen_codes_check and the function with the
--- 0121 10-code array. Only safe if no row uses one of the 18 new codes
+-- 0121 10-code array. Only safe if no row uses one of the 19 new codes
 -- (check first: select count(*) from inventory.items where not
 -- (allergen_codes <@ array[<10 codes>]::text[]); the ADD CONSTRAINT fails
 -- otherwise, which is the desired guard -- never strip codes silently).
@@ -43,14 +46,14 @@ alter table inventory.items
   add constraint items_allergen_codes_check check (
     allergen_codes is null
     or allergen_codes <@ array[
-      'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut',
-      'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'cashew', 'kiwi', 'beef', 'sesame', 'salmon',
-      'mackerel', 'soy', 'chicken', 'banana', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin'
+      'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew',
+      'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
+      'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin'
     ]::text[]
   );
 
 comment on column inventory.items.allergen_codes is
-  'Fixed 28-code vocabulary (8 特定原材料 + 20 特定原材料に準ずるもの, migration 0124). NULL = not configured/unknown -- must never be displayed or treated as "no known allergens". Empty array (''{}'') = Manager explicitly confirmed no known allergens. These two states are never conflated by any reader of this column.';
+  'Fixed 29-code vocabulary (9 特定原材料 + 20 特定原材料に準ずるもの, CAA revision effective 2026-04-01, migration 0124). NULL = not configured/unknown -- must never be displayed or treated as "no known allergens". Empty array (''{}'') = Manager explicitly confirmed no known allergens. These two states are never conflated by any reader of this column.';
 
 create or replace function api.set_inventory_item_allergens(
   p_tenant_id uuid,
@@ -79,9 +82,9 @@ begin
 
   if p_allergen_codes is not null
      and not (p_allergen_codes <@ array[
-       'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut',
-       'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'cashew', 'kiwi', 'beef', 'sesame', 'salmon',
-       'mackerel', 'soy', 'chicken', 'banana', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin'
+       'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew',
+       'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
+       'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin'
      ]::text[]) then
     raise exception 'recipe_invalid_allergen_code' using errcode = '22023';
   end if;
@@ -93,7 +96,7 @@ end;
 $$;
 
 comment on function api.set_inventory_item_allergens(uuid, uuid, text[]) is
-  'Manager-only (inventory.item.manage, explicit in-function check). Sets allergen_codes on an Inventory item (28-code vocabulary, 0124). NULL = not configured/unknown; ''{}'' = explicitly confirmed none known -- caller controls which of the two it sends, this function never conflates them. SECURITY INVOKER.';
+  'Manager-only (inventory.item.manage, explicit in-function check). Sets allergen_codes on an Inventory item (29-code vocabulary, 0124). NULL = not configured/unknown; ''{}'' = explicitly confirmed none known -- caller controls which of the two it sends, this function never conflates them. SECURITY INVOKER.';
 
 revoke all on function api.set_inventory_item_allergens(uuid, uuid, text[]) from public;
 grant execute on function api.set_inventory_item_allergens(uuid, uuid, text[]) to authenticated;
