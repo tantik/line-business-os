@@ -38,6 +38,21 @@ Inspect → Understand → Implement → Test → Self-review → Report.
   did it touch anything out of scope, did it introduce a security or
   tenant-isolation issue.
 
+## Command discipline (avoids permission prompts reaching the Founder)
+
+You cannot approve your own permission prompts — every command outside the
+allow-list in `.claude/settings.json` interrupts the Founder. So:
+
+- Your working directory is already your worktree/repo root: never prefix a
+  command with `cd "<path>" &&`.
+- Read files with the Read tool (offset/limit) and search with Grep/Glob —
+  never `cat`/`sed`/`head`/`tail`/`grep`/`find` pipelines in Bash.
+- Use Bash only for single allow-listed commands (pnpm test/typecheck/lint/
+  build, git status/diff/add/commit, `supabase db reset` / `test db`, `node
+  --test`), one command per call: no pipes, no `;`/`&&` chains, no `2>&1`.
+- If a command still prompts and is denied, report it to the Lead Agent;
+  never rephrase it to get around the prompt.
+
 ## Stop and return to the Lead Agent — do not proceed, do not ask the Founder — when the task unexpectedly requires:
 
 - an architecture redesign or a materially different approach than what was
