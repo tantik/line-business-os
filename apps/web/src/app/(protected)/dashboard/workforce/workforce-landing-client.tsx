@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import type { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { employmentTypeLabel } from '../../manager/manager-dashboard-i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { badgeStyle, buttonSecondary, card, colors, mutedText, pageStyle } from '@/lib/ui/theme';
 import { primaryCard } from '../../_ui/workforce-theme';
@@ -65,9 +66,11 @@ export function WorkforceLandingClient(props: WorkforceLandingClientProps) {
 function MyStaffProfileCard({
   profileResult,
   t,
+  lang,
 }: {
   profileResult: WorkforceLandingClientProps['profileResult'];
   t: (key: Parameters<typeof tWorkforceLanding>[1]) => string;
+  lang: Lang;
 }) {
   return (
     <section style={primaryCard}>
@@ -80,7 +83,11 @@ function MyStaffProfileCard({
           </div>
           <div>
             <dt style={{ ...mutedText, fontSize: 13 }}>{t('employmentType')}</dt>
-            <dd style={{ margin: 0 }}>{profileResult.data.employmentType}</dd>
+            <dd style={{ margin: 0 }}>
+              {profileResult.data.employmentType
+                ? (employmentTypeLabel[lang][profileResult.data.employmentType] ?? profileResult.data.employmentType)
+                : t('notSet')}
+            </dd>
           </div>
           <div>
             <dt style={{ ...mutedText, fontSize: 13 }}>{t('status')}</dt>
@@ -115,7 +122,7 @@ function WorkforceLandingBody({ tenantName, canAccessManager, profileResult }: W
         </div>
         <PreviewLanguageToggle />
       </header>
-      <MyStaffProfileCard profileResult={profileResult} t={t} />
+      <MyStaffProfileCard profileResult={profileResult} t={t} lang={lang} />
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <IconBadge label="S" />

@@ -5,7 +5,10 @@ import { createPortal } from 'react-dom';
 import { BrandBadge } from './brand-badge';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { colors, mutedText } from '@/lib/ui/theme';
+import Link from 'next/link';
+import { useLang } from '@/lib/demo/cafe/i18n';
+import { tAuth } from '@/lib/auth/auth-copy';
+import { buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 
 export interface AccountMenuProps {
@@ -31,6 +34,7 @@ export interface AccountMenuProps {
  * sign-out form) doesn't fit that shape.
  */
 export function AccountMenu({ displayName, positionLabel, signOutLabel }: AccountMenuProps) {
+  const { lang } = useLang();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -144,6 +148,14 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
                   <p style={{ margin: '2px 0 0', fontSize: 13, ...mutedText }}>{positionLabel}</p>
                 </div>
                 <PreviewLanguageToggle fullWidth />
+                <Link
+                  href="/account"
+                  className={hoverStyles.buttonSecondary}
+                  style={{ ...buttonSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                  onClick={() => setOpen(false)}
+                >
+                  {tAuth(lang, 'accountMenuLink')}
+                </Link>
                 <div style={{ borderTop: `1px solid ${colors.border}` }} />
                 <SignOutButton label={signOutLabel} fullWidth />
               </div>

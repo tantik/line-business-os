@@ -69,7 +69,7 @@ const RECIPE_TRANSLATION_DICT: Record<Lang, RecipeTranslationDict> = {
     staffViewEnglish: 'English',
     staffViewJapanese: '日本語原文',
     staffMachineMarker: '機械翻訳',
-    staffOriginalMarker: '原文（日本語）',
+    staffOriginalMarker: '原文（未翻訳）',
   },
   en: {
     translateToggle: 'Translate',
@@ -100,7 +100,7 @@ const RECIPE_TRANSLATION_DICT: Record<Lang, RecipeTranslationDict> = {
     staffViewEnglish: 'English',
     staffViewJapanese: '日本語原文',
     staffMachineMarker: 'Machine translation',
-    staffOriginalMarker: 'Original text (Japanese)',
+    staffOriginalMarker: 'Original text (not translated)',
   },
 };
 

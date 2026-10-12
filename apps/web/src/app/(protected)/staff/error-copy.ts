@@ -1,5 +1,6 @@
 import type { WorkforceWriteResult } from '@/lib/workforce/result-types';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 /**
  * Shared client-side error copy for every write call on this page -- the
@@ -35,6 +36,6 @@ export function describeWriteError(
         ? 'このレシピの元の言語を変更しようとしています。既存のコンテンツは削除されません。変更内容を確認のうえ、再度保存してください。'
         : 'You are changing this recipe’s original language. Existing content will not be deleted. Please confirm the change and save again.';
     default:
-      return result.message;
+      return localizeServerMessage(result.status, result.message, lang);
   }
 }

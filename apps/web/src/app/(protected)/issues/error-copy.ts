@@ -1,6 +1,7 @@
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { IssuesWriteResult } from '@/lib/issues/result-types';
 import { tIssues, type IssuesDictKey } from './issues-i18n';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 /** Every `api.issues_*` (0118) exception message this slice's forms can realistically trigger, mapped to its own bilingual copy key. A code not in this map still renders `errorGeneric`, never the raw machine identifier. */
 const KNOWN_ISSUES_ERROR_KEYS: Record<string, IssuesDictKey> = {
@@ -30,7 +31,7 @@ export function describeIssuesWriteError(result: Exclude<IssuesWriteResult<unkno
     case 'unauthorized':
     case 'config_error':
     case 'unexpected_error':
-      return result.message || t('errorGeneric');
+      return localizeServerMessage(result.status, result.message, lang);
     default:
       return t('errorGeneric');
   }

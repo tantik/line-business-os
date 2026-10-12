@@ -7,6 +7,7 @@ import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { RecipeCostSummary } from '@/lib/workforce/recipes';
 import type { RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { resolveFieldDisplay } from '@/lib/content/recipe-display';
+import { tRecipeTranslation } from '@/lib/demo/cafe/i18n.recipe-translation';
 import { getRecipeDetailForPopup, deleteRecipe, getRecipeCostSummaryAction } from '@/lib/workforce/recipe-actions';
 import { InlineAlert, Tag } from '@line-os/ui';
 import { allergenLabel } from '../recipes-i18n';
@@ -214,6 +215,10 @@ export function RecipeDetailBody({
   }
 
   const fieldByKey = new Map(translationFields.map((field) => [field.key, field]));
+  // Copy Audit A-08: say when what is shown is an unreviewed machine
+  // translation or the untranslated Japanese original, instead of letting it
+  // read as reviewed content.
+  const contentMarkers = new Set(translationFields.map((field) => resolveFieldDisplay(field, lang).marker));
   /** Resolves one field's display text for the current `lang` -- falls back to the raw JA/EN column pair if this field somehow has no workspace entry (should not happen; defensive, not load-bearing). */
   function displayText(
     sourceEntityType: RecipeTranslationField['sourceEntityType'],
@@ -281,6 +286,12 @@ export function RecipeDetailBody({
               ) : null}
               {recipe.status === 'archived' ? (
                 <span style={badgeStyle('neutral')}>{t('archivedBadge')}</span>
+              ) : null}
+              {contentMarkers.has('machine') ? (
+                <span style={badgeStyle('neutral')}>{tRecipeTranslation(lang, 'staffMachineMarker')}</span>
+              ) : null}
+              {contentMarkers.has('original') ? (
+                <span style={badgeStyle('neutral')}>{tRecipeTranslation(lang, 'staffOriginalMarker')}</span>
               ) : null}
             </div>
             {description ? <p style={{ margin: '8px 0 0', ...mutedText }}>{description}</p> : null}

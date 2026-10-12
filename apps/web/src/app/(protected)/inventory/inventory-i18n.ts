@@ -285,7 +285,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     footerNeedRestocking: '要補充',
     footerSufficient: '十分',
     footerTip: 'ヒント: 実数を入力してEnterキー(または少し待つだけ)で保存されます。',
-    purchasedBadgeAriaLabel: '購入(仕入れ)で購入済みとしてマークされています — 下の実数を更新すると解除されます',
+    purchasedBadgeAriaLabel: '仕入れで購入済みとしてマークされています — 下の実数を更新すると解除されます',
     referencePriceLabel: '参考価格',
     referencePriceHint: '1単位あたりの目安価格（円）。レシピの材料費目安にのみ使用され、仕入れや会計には使用されません。',
     allergensLabel: 'アレルゲン',

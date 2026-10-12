@@ -171,7 +171,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     errInvalidNote: 'Please enter a note (up to 1000 characters).',
     errPermissionDenied: 'You do not have permission to do this.',
     errNotFound: 'This item could not be found.',
-    errNotOpen: 'This item is no longer open.',
+    errNotOpen: 'This item has already been handled. Check the latest state.',
     errAlreadyResolved: 'This item has already been resolved.',
     errorGeneric: 'Something went wrong. Please try again.',
     errorNotAuthenticated: 'Please sign in again.',
@@ -189,7 +189,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     unavailable: '申し送り・問題報告は一時的に利用できません。',
 
     viewSwitcherLabel: '申し送り・問題報告の表示',
-    viewOpen: '対応中',
+    viewOpen: '未解決',
     viewHistory: '履歴',
 
     reportButton: '+ 報告する',
@@ -214,7 +214,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     formSubmitting: '報告中…',
     reportSuccess: '報告しました。',
 
-    emptyOpenTitle: '対応中の問題はありません',
+    emptyOpenTitle: '未解決の問題はありません',
     emptyOpenDescription: '現在、対応が必要な項目はありません。報告された内容はすべて処理済みです。',
     emptyHistoryTitle: 'まだ履歴はありません',
     emptyHistoryDescription: '解決済みの問題や申し送りメモはここに表示されます。',
@@ -255,7 +255,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     errInvalidNote: 'メモを入力してください（1000文字以内）。',
     errPermissionDenied: 'この操作を行う権限がありません。',
     errNotFound: 'この項目が見つかりませんでした。',
-    errNotOpen: 'この項目はすでに対応中ではありません。',
+    errNotOpen: 'この項目はすでに処理されています。最新の状態を確認してください。',
     errAlreadyResolved: 'この項目はすでに解決済みです。',
     errorGeneric: 'エラーが発生しました。もう一度お試しください。',
     errorNotAuthenticated: 'もう一度ログインしてください。',

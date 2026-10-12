@@ -138,6 +138,49 @@ export async function completePasswordReset(formData: FormData): Promise<Passwor
   return { status: 'success', destination };
 }
 
+export type ChangePasswordResult = {
+  status: 'success' | 'wrong_current' | 'rate_limited' | 'too_short' | 'same_password' | 'weak_password' | 'not_authenticated' | 'error';
+};
+
+/**
+ * "My account" password change. The current password is re-checked with a
+ * fresh `signInWithPassword` for the signed-in user's own email (so a
+ * left-open session alone cannot change the password), then the new one is
+ * set and every other session is signed out. Never echoes Auth error text.
+ */
+export async function changePassword(formData: FormData): Promise<ChangePasswordResult> {
+  const current = String(formData.get('currentPassword') ?? '');
+  const next = String(formData.get('password') ?? '');
+  if (next.length < MIN_PASSWORD_LENGTH) return { status: 'too_short' };
+
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const email = data.user?.email;
+  if (!email) return { status: 'not_authenticated' };
+
+  const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: current });
+  if (reauthError) return { status: reauthError.status === 429 ? 'rate_limited' : 'wrong_current' };
+
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) {
+    if (error.code === 'same_password') return { status: 'same_password' };
+    if (error.code === 'weak_password') return { status: 'weak_password' };
+    return { status: 'error' };
+  }
+  // Best effort: the password is already changed. signOut returns (does not
+  // throw) its error; a failure here is not reported as a failed change.
+  const { error: othersError } = await supabase.auth.signOut({ scope: 'others' });
+  if (othersError) console.warn('[account] sign out of other sessions failed after a password change');
+  return { status: 'success' };
+}
+
+/** "Sign out on other devices": keeps this browser signed in. */
+export async function signOutOtherSessions(): Promise<{ status: 'success' | 'error' }> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut({ scope: 'others' });
+  return { status: error ? 'error' : 'success' };
+}
+
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   // See previewSignOut's comment (lib/preview/actions/session-actions.ts):

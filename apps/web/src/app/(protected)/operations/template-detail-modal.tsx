@@ -25,6 +25,7 @@ import { tOperations } from './operations-i18n';
 import { TemplateForm } from './template-form';
 import { ItemForm } from './item-form';
 import { ScheduleForm } from './schedule-form';
+import { localizeServerMessage } from '@/lib/ui/server-message-copy';
 
 type View =
   | { kind: 'overview' }
@@ -439,7 +440,7 @@ export function TemplateDetailModal({
             {retireItemError ? <div style={{ ...alertDanger, marginTop: 10 }}>{retireItemError}</div> : null}
 
             {itemsError ? (
-              <div style={{ ...alertDanger, marginTop: 10 }}>{itemsError}</div>
+              <div style={{ ...alertDanger, marginTop: 10 }}>{localizeServerMessage('unexpected_error', itemsError, lang)}</div>
             ) : sortedItems.length === 0 ? (
               <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noItemsYet')}</p>
             ) : (
@@ -526,7 +527,7 @@ export function TemplateDetailModal({
             {cancelScheduleError ? <div style={{ ...alertDanger, marginTop: 10 }}>{cancelScheduleError}</div> : null}
 
             {schedulesError ? (
-              <div style={{ ...alertDanger, marginTop: 10 }}>{schedulesError}</div>
+              <div style={{ ...alertDanger, marginTop: 10 }}>{localizeServerMessage('unexpected_error', schedulesError, lang)}</div>
             ) : templateSchedules.length === 0 ? (
               <p style={{ margin: '12px 0 0', ...mutedText }}>{t('noSchedulesYet')}</p>
             ) : (
