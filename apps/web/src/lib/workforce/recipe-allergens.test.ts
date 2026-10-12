@@ -9,6 +9,8 @@ import {
   allergenGroupHeading,
 } from '../../app/(protected)/inventory/inventory-i18n.js';
 import { ALLERGEN_LABELS as RECIPE_ALLERGEN_LABELS, tRecipes } from '../../app/(protected)/recipes/recipes-i18n.js';
+import { tInventoryDashboard } from '../../app/(protected)/inventory/inventory-i18n.js';
+import { colors } from '../ui/theme.js';
 
 const mapped = (codes: string[] | null) => ({ inventoryItemId: 'item', allergenCodes: codes });
 const unmapped = { inventoryItemId: null, allergenCodes: null };
@@ -64,11 +66,15 @@ test('a code outside the vocabulary sorts after known codes (defensive; the DB C
 // Vocabulary parity: Recipes copy == Inventory copy == migration 0124
 // ---------------------------------------------------------------------------
 
-function migrationArrays(): string[][] {
-  const sql = readFileSync(
+function migrationSql(): string {
+  return readFileSync(
     new URL('../../../../../supabase/migrations/0124_inventory_allergen_vocabulary_29.sql', import.meta.url),
     'utf8',
   );
+}
+
+function migrationArrays(): string[][] {
+  const sql = migrationSql();
   const arrays = [...sql.matchAll(/array\[([^\]]*)\]::text\[\]/g)].map((match) =>
     [...(match[1] ?? '').matchAll(/'([^']+)'/g)].map((code) => code[1] ?? ''),
   );
@@ -95,6 +101,47 @@ test('migration 0124 constraint and RPC both use exactly the same 29-code array,
   const arrays = migrationArrays();
   assert.equal(arrays.length, 2, 'expected the CHECK constraint array and the RPC array');
   for (const codes of arrays) assert.deepEqual(codes, [...RECIPE_ALLERGEN_CODES]);
+});
+
+test('migration 0124 resets stale "confirmed none" (\'{}\') to NULL, before widening the vocabulary', () => {
+  const sql = migrationSql();
+  const reset = sql.search(/^update inventory\.items set allergen_codes = null where allergen_codes = '\{\}';$/m);
+  const widen = sql.search(/^alter table inventory\.items$/m);
+  assert.ok(reset >= 0, '0124 must reset allergen_codes = \'{}\' to NULL (a 10-code confirmation is not a 29-code claim)');
+  assert.ok(widen > reset, 'the reset runs before the constraint is widened');
+  assert.doesNotMatch(sql, /^update inventory\.items set allergen_codes = null\s*;/m, 'non-empty code arrays must not be reset');
+});
+
+test('item-form hint fills {count} from the Inventory code list', () => {
+  const n = INVENTORY_ALLERGEN_CODES.length;
+  assert.equal(
+    tInventoryDashboard('ja', 'allergensNoneSelectedHint').replace('{count}', String(n)),
+    `アレルゲンを1つも選ばずに保存すると、「特定原材料等${n}品目を使用していない」と表示されます。`,
+  );
+  assert.equal(
+    tInventoryDashboard('en', 'allergensNoneSelectedHint').replace('{count}', String(n)),
+    `If you save without selecting any allergen, recipes will show that none of the ${n} listed allergens is used.`,
+  );
+});
+
+test('EN partial-unrecorded copy is singular for 1 and plural otherwise; JA is the same sentence', () => {
+  assert.equal(tRecipes('en', 'allergenPartiallyUnrecordedOne').replace('{n}', '1'), '1 ingredient has no allergen information recorded.');
+  assert.equal(tRecipes('en', 'allergenPartiallyUnrecorded').replace('{n}', '3'), '3 ingredients have no allergen information recorded.');
+  assert.equal(tRecipes('ja', 'allergenPartiallyUnrecordedOne'), tRecipes('ja', 'allergenPartiallyUnrecorded'));
+  assert.equal(tRecipes('en', 'ingredientAllergensNoneChecked'), 'None (checked by the store)');
+});
+
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+test('allergen disclaimer colour (DS text-muted) on the card surface meets WCAG AA 4.5:1', () => {
+  const fg = relativeLuminance(colors.textMuted);
+  const bg = relativeLuminance(colors.surface);
+  const ratio = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+  assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}:1 is below 4.5:1`);
 });
 
 test('every code has a JA and EN label in both modules, and both modules agree', () => {

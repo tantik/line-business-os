@@ -93,7 +93,8 @@ interface RecipesDict {
   ingredientAllergensNoneChecked: string;
   allergenInfoHeading: string;
   allergenRecordedLabel: string;
-  /** `{n}` = number of ingredients with no allergen information. */
+  /** `{n}` = number of ingredients with no allergen information; `One` is used when n === 1 (EN singular; JA identical). */
+  allergenPartiallyUnrecordedOne: string;
   allergenPartiallyUnrecorded: string;
   /** `{count}` = vocabulary length (from the code list, never hard-coded). */
   allergenNoneOfListed: string;
@@ -176,10 +177,11 @@ const dictionary: Record<Lang, RecipesDict> = {
     formIngredientUnitLabel: 'Unit',
     formIngredientItemUnavailable: 'No inventory items available to link at this location.',
     ingredientAllergensNotRecorded: 'Allergens not recorded',
-    ingredientAllergensNoneChecked: 'None (checked by store)',
+    ingredientAllergensNoneChecked: 'None (checked by the store)',
     allergenInfoHeading: 'Allergen information',
     allergenRecordedLabel: 'Recorded allergens',
-    allergenPartiallyUnrecorded: '{n} ingredient(s) have no allergen information recorded.',
+    allergenPartiallyUnrecordedOne: '{n} ingredient has no allergen information recorded.',
+    allergenPartiallyUnrecorded: '{n} ingredients have no allergen information recorded.',
     allergenNoneOfListed: 'Contains none of the {count} listed allergens (checked by the store)',
     allergenNotRecorded: 'No allergen information recorded',
     allergenDisclaimer:
@@ -262,6 +264,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     ingredientAllergensNoneChecked: '該当なし（店舗確認）',
     allergenInfoHeading: 'アレルゲン情報',
     allergenRecordedLabel: '登録されているアレルゲン',
+    allergenPartiallyUnrecordedOne: '一部の材料（{n}件）はアレルゲン情報が登録されていません。',
     allergenPartiallyUnrecorded: '一部の材料（{n}件）はアレルゲン情報が登録されていません。',
     allergenNoneOfListed: 'この商品には特定原材料等{count}品目は使用していません（店舗確認）',
     allergenNotRecorded: 'アレルゲン情報は登録されていません',

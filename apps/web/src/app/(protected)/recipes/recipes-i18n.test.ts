@@ -17,7 +17,8 @@ const KEYS: Parameters<typeof tRecipes>[1][] = [
   'editButton', 'deleteButton', 'deleteConfirmTitle',
   'popupHelpAriaLabel', 'popupHelpTitle', 'popupHelpBody',
   'ingredientAllergensNotRecorded', 'ingredientAllergensNoneChecked', 'allergenInfoHeading',
-  'allergenRecordedLabel', 'allergenPartiallyUnrecorded', 'allergenNoneOfListed', 'allergenNotRecorded',
+  'allergenRecordedLabel', 'allergenPartiallyUnrecorded', 'allergenNoneOfListed',
+  'allergenPartiallyUnrecordedOne', 'allergenNotRecorded',
   'allergenDisclaimer',
 ];
 

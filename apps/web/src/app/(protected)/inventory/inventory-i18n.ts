@@ -104,6 +104,8 @@ interface InventoryDashboardDict {
   referencePriceHint: string;
   allergensLabel: string;
   allergensConfirmedCheckboxLabel: string;
+  /** Shown while the confirmed checkbox is ticked; `{count}` = vocabulary length. */
+  allergensNoneSelectedHint: string;
 }
 
 const dictionary: Record<Lang, InventoryDashboardDict> = {
@@ -198,6 +200,8 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     referencePriceHint: 'An estimate, in yen per 1 unit — used only for the Recipes estimated-cost feature, never for receiving or accounting.',
     allergensLabel: 'Allergens',
     allergensConfirmedCheckboxLabel: 'Allergen information confirmed for this item',
+    allergensNoneSelectedHint:
+      'If you save without selecting any allergen, recipes will show that none of the {count} listed allergens is used.',
   },
   ja: {
     pageTitle: '在庫',
@@ -290,6 +294,8 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     referencePriceHint: '1単位あたりの目安価格（円）。レシピの材料費目安にのみ使用され、仕入れや会計には使用されません。',
     allergensLabel: 'アレルゲン',
     allergensConfirmedCheckboxLabel: 'この品目のアレルゲン情報を確認済み',
+    allergensNoneSelectedHint:
+      'アレルゲンを1つも選ばずに保存すると、「特定原材料等{count}品目を使用していない」と表示されます。',
   },
 };
 

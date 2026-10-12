@@ -127,7 +127,10 @@ function RecipeAllergenSection({
           </div>
           {summary.unknownCount > 0 ? (
             <p style={{ margin: '8px 0 0' }}>
-              {t('allergenPartiallyUnrecorded').replace('{n}', String(summary.unknownCount))}
+              {t(summary.unknownCount === 1 ? 'allergenPartiallyUnrecordedOne' : 'allergenPartiallyUnrecorded').replace(
+                '{n}',
+                String(summary.unknownCount),
+              )}
             </p>
           ) : null}
         </>
@@ -138,7 +141,8 @@ function RecipeAllergenSection({
       ) : (
         <p style={{ margin: '12px 0 0' }}>{t('allergenNotRecorded')}</p>
       )}
-      <p style={{ margin: '12px 0 0', ...mutedText, fontSize: 12 }}>{t('allergenDisclaimer')}</p>
+      {/* 13px, DS `text-muted` on the white card surface (~6.4:1, >= 4.5:1 -- asserted in recipe-allergens.test.ts). */}
+      <p style={{ margin: '12px 0 0', ...mutedText, fontSize: 13 }}>{t('allergenDisclaimer')}</p>
     </section>
   );
 }

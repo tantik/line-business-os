@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { parseSetInventoryItemActiveInput, parseUpsertInventoryItemInput } from './items-input';
 import { parseUuid } from './validation';
+import { decideAllergenWrite } from './allergen-input';
 import {
   getInventoryItemReferenceData,
   listInventoryItemStatus,
@@ -42,10 +43,10 @@ const ITEM_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
  * these two columns, see 0121's header). `referenceUnitPrice` is only
  * touched when the form actually submitted that field (fast-fail invalid
  * input closes as `INVALID_INPUT_RESULT` before calling anything).
- * `allergensConfirmed !== 'true'` means the Manager has not touched allergen
- * configuration in this save -- `null` (not configured/unknown) is left
- * alone rather than forced, since this form has no explicit "clear" action
- * for allergens yet. Returns `null` when nothing needed to change.
+ * Allergens follow `decideAllergenWrite` (`allergen-input.ts`): confirmed ->
+ * write the ticked codes; unchecking a previously-confirmed item -> write
+ * NULL (confirmation revoked); never confirmed and untouched -> write
+ * nothing. Returns `null` when nothing needed to change.
  */
 type InventoryWriteError = Exclude<InventoryWriteResult<unknown>, { status: 'success' }>;
 
@@ -64,19 +65,10 @@ async function applyRecipeIntelligenceFields(
     if (priceResult.status !== 'success') return priceResult;
   }
 
-  if (formData.get('allergensConfirmed') === 'true') {
-    const raw = formData.get('allergenCodesJson');
-    let codes: string[] = [];
-    if (typeof raw === 'string' && raw) {
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.every((code) => typeof code === 'string')) codes = parsed;
-        else return INVALID_INPUT_RESULT;
-      } catch {
-        return INVALID_INPUT_RESULT;
-      }
-    }
-    const allergenResult = await setInventoryItemAllergens(supabase, tenantId, itemId, codes);
+  const allergenDecision = decideAllergenWrite(formData);
+  if (allergenDecision.kind === 'invalid') return INVALID_INPUT_RESULT;
+  if (allergenDecision.kind === 'set') {
+    const allergenResult = await setInventoryItemAllergens(supabase, tenantId, itemId, allergenDecision.codes);
     if (allergenResult.status !== 'success') return allergenResult;
   }
 

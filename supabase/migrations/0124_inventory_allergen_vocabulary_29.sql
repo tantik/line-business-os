@@ -19,12 +19,14 @@
 -- Source: 消費者庁 食品表示基準 改正 2026-04-01 施行 (Consumer Affairs
 -- Agency food labelling standard, revision effective 2026-04-01):
 -- カシューナッツ moved from 準ずるもの to 特定原材料 (mandatory, with a
--- transition period), ピスタチオ added to 特定原材料に準ずるもの. Group
--- order follows the CAA list (50音 within each group). The vocabulary
--- must follow future CAA revisions -- see the debt register row on it.
+-- transition period), ピスタチオ added to 特定原材料に準ずるもの. Order
+-- within each group follows the CAA list order. The vocabulary must follow
+-- future CAA revisions -- see DEBT-089 in the debt register.
 --
 -- The 10 codes 0121 already allowed keep their exact spelling, so every
--- existing row stays valid and no data is rewritten. The array order below
+-- non-empty code array stays valid and is kept as-is (it only states what
+-- IS present). Stale "confirmed none" ('{}') rows are reset to NULL -- see
+-- section 1 below. The array order below
 -- is the canonical display order; apps/web keeps two copies of it
 -- (inventory-i18n.ts, lib/workforce/recipe-allergens.ts) and a unit test
 -- asserts both equal the array in this file.
@@ -39,7 +41,28 @@
 -- (check first: select count(*) from inventory.items where not
 -- (allergen_codes <@ array[<10 codes>]::text[]); the ADD CONSTRAINT fails
 -- otherwise, which is the desired guard -- never strip codes silently).
+-- The section 1 reset is not reversible (which rows were '{}' is not kept);
+-- Managers re-confirm, which is the intended outcome either way.
 -- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. Reset stale "confirmed none" confirmations
+-- ----------------------------------------------------------------------------
+-- A '{}' was a Manager's confirmation against the old 10-code list. Read
+-- against the 29-code list it would become a claim the Manager never made
+-- ("contains none of the 29 listed allergens" on the recipe page), so it is
+-- reset to NULL (not recorded) and the Manager re-confirms in the item
+-- form. Non-empty arrays are kept: they only state what IS present.
+-- Side effect: inventory.items' stamp_item_actor/set_updated_at triggers
+-- fire, so updated_by becomes NULL (no JWT in a migration) and updated_at
+-- moves for those rows only. Every future vocabulary expansion must reset
+-- '{}' to NULL the same way (DEBT-089).
+
+update inventory.items set allergen_codes = null where allergen_codes = '{}';
+
+-- ----------------------------------------------------------------------------
+-- 2. Widen the CHECK constraint and the RPC's own check
+-- ----------------------------------------------------------------------------
 
 alter table inventory.items
   drop constraint items_allergen_codes_check,

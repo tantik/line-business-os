@@ -11,7 +11,7 @@ import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, in
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { Checkbox, NumberInput } from '@line-os/ui';
 import { describeInventoryWriteError } from './error-copy';
-import { tInventoryDashboard, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from './inventory-i18n';
+import { tInventoryDashboard, ALLERGEN_CODES, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from './inventory-i18n';
 
 export interface ItemFormProps {
   locationId: string;
@@ -46,6 +46,8 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
   // values are fetched separately, once, on mount.
   const [referenceUnitPrice, setReferenceUnitPrice] = useState<number | ''>('');
   const [allergensConfirmed, setAllergensConfirmed] = useState(false);
+  /** True when the item loaded as confirmed -- unchecking then means "revoke" (save NULL), see `decideAllergenWrite`. */
+  const [allergensInitiallyConfirmed, setAllergensInitiallyConfirmed] = useState(false);
   const [allergenCodes, setAllergenCodes] = useState<string[]>([]);
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
       setReferenceUnitPrice(result.data.referenceUnitPrice ?? '');
       if (result.data.allergenCodes !== null) {
         setAllergensConfirmed(true);
+        setAllergensInitiallyConfirmed(true);
         setAllergenCodes(result.data.allergenCodes);
       }
     });
@@ -76,6 +79,7 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
     formData.set('locationId', item?.locationId ?? locationId);
     formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
     formData.set('allergensConfirmed', allergensConfirmed ? 'true' : 'false');
+    formData.set('allergensInitiallyConfirmed', allergensInitiallyConfirmed ? 'true' : 'false');
     formData.set('allergenCodesJson', JSON.stringify(allergenCodes));
 
     startTransition(async () => {
@@ -227,6 +231,9 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
           />
           {allergensConfirmed ? (
             <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+              <span style={{ ...mutedText, fontSize: 13 }}>
+                {t('allergensNoneSelectedHint').replace('{count}', String(ALLERGEN_CODES.length))}
+              </span>
               {ALLERGEN_CODE_GROUPS.map((group) => (
                 <fieldset key={group.key} style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}>
                   <legend style={{ ...mutedText, fontSize: 13, padding: 0 }}>{allergenGroupHeading(lang, group)}</legend>
