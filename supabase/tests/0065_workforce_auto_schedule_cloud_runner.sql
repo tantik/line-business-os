@@ -6,7 +6,8 @@
 --
 -- Proves:
 --   * grants: no app role (anon/authenticated) can execute any of the
---     service-role functions; service_role can; the runner is executable by
+--     service-role functions (called for real, asserted SQLSTATE 42501);
+--     service_role can; the runner is executable by
 --     no app role at all; api.* passthroughs are not SECURITY DEFINER;
 --   * candidates: only auto_create_enabled + Workforce module ON + active
 --     location;
@@ -19,7 +20,7 @@
 --     other tenant sees nothing of it, Staff (shift.read only) and a member
 --     without workforce.shift.read see nothing (Manager only); anon has no grant;
 --   * token verify true/false; cron job exists with the expected schedule;
---     the runner is a no-op without vault secret project_url.
+--     the runner is a no-op without vault secret auto_schedule_project_url.
 -- ============================================================================
 
 begin;
@@ -44,20 +45,23 @@ begin
 end;
 $$;
 
-create function pg_temp.as_auth_throws(p_sub text, p_sql text)
-returns boolean language plpgsql as $$
+-- Runs p_sql as p_role (authenticated / anon) and returns the SQLSTATE it
+-- failed with, or 'ok' if it succeeded -- so denials are asserted as
+-- 42501 (insufficient_privilege) specifically, never "any error".
+create function pg_temp.as_role_sqlstate(p_role text, p_sub text, p_sql text)
+returns text language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', '', true);
   perform set_config('app.current_user_id', '', true);
   perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
-  set local role authenticated;
+  execute format('set local role %I', p_role);
   execute p_sql;
   reset role;
-  return false;
+  return 'ok';
 exception
   when others then
     reset role;
-    return true;
+    return sqlstate;
 end;
 $$;
 
@@ -87,11 +91,14 @@ insert into core.tenants (id, slug, name) values
   ('c1250000-0000-0000-0000-00000000000b', 'pgtap-asr-b', 'pgTAP AutoSched Runner B'),
   ('c1250000-0000-0000-0000-00000000000c', 'pgtap-asr-c', 'pgTAP AutoSched Runner C'),
   ('c1250000-0000-0000-0000-00000000000d', 'pgtap-asr-d', 'pgTAP AutoSched Runner D');
+insert into core.tenants (id, slug, name, status) values
+  ('c1250000-0000-0000-0000-00000000000e', 'pgtap-asr-e', 'pgTAP AutoSched Runner E (suspended)', 'suspended');
 
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('c1250000-0000-0000-0000-00000000000a', 'workforce', true),
   ('c1250000-0000-0000-0000-00000000000b', 'workforce', true),
-  ('c1250000-0000-0000-0000-00000000000c', 'workforce', false);
+  ('c1250000-0000-0000-0000-00000000000c', 'workforce', false),
+  ('c1250000-0000-0000-0000-00000000000e', 'workforce', true);
 
 insert into core.locations (id, tenant_id, name, timezone, is_active) values
   ('c1251000-0000-0000-0000-000000000001', 'c1250000-0000-0000-0000-00000000000a', 'A/L1', 'Asia/Tokyo', true),
@@ -99,7 +106,8 @@ insert into core.locations (id, tenant_id, name, timezone, is_active) values
   ('c1251000-0000-0000-0000-000000000003', 'c1250000-0000-0000-0000-00000000000a', 'A/L3 inactive', 'Asia/Tokyo', false),
   ('c1251000-0000-0000-0000-000000000004', 'c1250000-0000-0000-0000-00000000000b', 'B/L1', 'Asia/Tokyo', true),
   ('c1251000-0000-0000-0000-000000000005', 'c1250000-0000-0000-0000-00000000000c', 'C/L1', 'Asia/Tokyo', true),
-  ('c1251000-0000-0000-0000-000000000006', 'c1250000-0000-0000-0000-00000000000d', 'D/L1', 'Asia/Tokyo', true);
+  ('c1251000-0000-0000-0000-000000000006', 'c1250000-0000-0000-0000-00000000000d', 'D/L1', 'Asia/Tokyo', true),
+  ('c1251000-0000-0000-0000-000000000007', 'c1250000-0000-0000-0000-00000000000e', 'E/L1', 'Asia/Tokyo', true);
 
 insert into workforce.schedule_settings (tenant_id, location_id, auto_create_enabled, auto_create_day_of_month) values
   ('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', true, 20),
@@ -107,7 +115,8 @@ insert into workforce.schedule_settings (tenant_id, location_id, auto_create_ena
   ('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000003', true, 20),
   ('c1250000-0000-0000-0000-00000000000b', 'c1251000-0000-0000-0000-000000000004', true, 20),
   ('c1250000-0000-0000-0000-00000000000c', 'c1251000-0000-0000-0000-000000000005', true, 20),
-  ('c1250000-0000-0000-0000-00000000000d', 'c1251000-0000-0000-0000-000000000006', true, 20);
+  ('c1250000-0000-0000-0000-00000000000d', 'c1251000-0000-0000-0000-000000000006', true, 20),
+  ('c1250000-0000-0000-0000-00000000000e', 'c1251000-0000-0000-0000-000000000007', true, 20);
 
 insert into core.users (id, display_name) values
   ('c1259000-0000-0000-0000-000000000001', 'Manager A (L1 only)'),
@@ -201,13 +210,39 @@ select is(
       and exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%')),
   6, 'every workforce.* runner function is SECURITY DEFINER with a fixed search_path');
 
-select ok(
-  pg_temp.as_auth_throws('c1259000-0000-0000-0000-000000000001', $q$select * from api.auto_schedule_candidates()$q$),
-  'a Manager (authenticated) cannot call api.auto_schedule_candidates');
-select ok(
-  pg_temp.as_auth_throws('c1259000-0000-0000-0000-000000000001',
-    $q$select api.auto_schedule_record_issue('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', 'failed', 'x')$q$),
-  'a Manager (authenticated) cannot call api.auto_schedule_record_issue');
+-- Every runner entry point, actually CALLED as each app role: must fail
+-- with 42501 (insufficient_privilege), not merely "some error".
+create temp table pg_temp.sr_calls (label text, sql text) on commit drop;
+insert into pg_temp.sr_calls values
+  ('api.auto_schedule_candidates', $q$select * from api.auto_schedule_candidates()$q$),
+  ('api.auto_schedule_load_inputs', $q$select api.auto_schedule_load_inputs('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', '2026-11-30', now(), now())$q$),
+  ('api.auto_schedule_apply', $q$select api.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', null, '[]'::jsonb, 0, 0, 0)$q$),
+  ('api.auto_schedule_record_issue', $q$select api.auto_schedule_record_issue('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', 'failed', 'x')$q$),
+  ('api.verify_auto_schedule_cron_token', $q$select api.verify_auto_schedule_cron_token(repeat('0', 64))$q$),
+  ('workforce.auto_schedule_candidates', $q$select * from workforce.auto_schedule_candidates()$q$),
+  ('workforce.auto_schedule_apply', $q$select workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', null, '[]'::jsonb, 0, 0, 0)$q$),
+  ('workforce.auto_schedule_record_issue', $q$select workforce.auto_schedule_record_issue('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', 'failed', 'x')$q$),
+  ('workforce.verify_auto_schedule_cron_token', $q$select workforce.verify_auto_schedule_cron_token(repeat('0', 64))$q$),
+  ('workforce.invoke_auto_schedule_runner', $q$select workforce.invoke_auto_schedule_runner()$q$);
+
+select is(
+  (select coalesce(string_agg(label || '=' || st, ', '), '')
+     from (select label, pg_temp.as_role_sqlstate('authenticated', 'c1259000-0000-0000-0000-000000000001', sql) as st
+             from pg_temp.sr_calls) x
+    where st <> '42501'),
+  '', 'a Manager (authenticated) gets 42501 from every runner function');
+select is(
+  (select coalesce(string_agg(label || '=' || st, ', '), '')
+     from (select label, pg_temp.as_role_sqlstate('anon', null, sql) as st from pg_temp.sr_calls) x
+    where st <> '42501'),
+  '', 'anon gets 42501 from every runner function');
+select is(
+  pg_temp.as_role_sqlstate('anon', null, $q$select count(*) from api.workforce_auto_schedule_runs$q$),
+  '42501', 'anon gets 42501 reading api.workforce_auto_schedule_runs');
+select is(
+  pg_temp.as_role_sqlstate('authenticated', 'c1259000-0000-0000-0000-000000000001',
+    $q$insert into workforce.auto_schedule_runs (tenant_id, location_id, target_month, outcome) values ('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', 'generated')$q$),
+  '42501', 'a Manager (authenticated) gets 42501 writing the run log directly');
 
 select ok(not has_table_privilege('anon', 'api.workforce_auto_schedule_runs', 'select'), 'anon has no SELECT on api.workforce_auto_schedule_runs');
 select ok(has_table_privilege('authenticated', 'api.workforce_auto_schedule_runs', 'select'), 'authenticated has SELECT on api.workforce_auto_schedule_runs (RLS-scoped)');
@@ -226,9 +261,13 @@ select ok(
 select is(
   (select array_agg(location_id order by location_id)::text from workforce.auto_schedule_candidates()
     where tenant_id in ('c1250000-0000-0000-0000-00000000000a', 'c1250000-0000-0000-0000-00000000000b',
-                        'c1250000-0000-0000-0000-00000000000c', 'c1250000-0000-0000-0000-00000000000d')),
+                        'c1250000-0000-0000-0000-00000000000c', 'c1250000-0000-0000-0000-00000000000d',
+                        'c1250000-0000-0000-0000-00000000000e')),
   '{c1251000-0000-0000-0000-000000000001,c1251000-0000-0000-0000-000000000004}',
-  'candidates: only enabled settings with Workforce ON and an active location (not disabled, not inactive location, not module OFF, not module row missing)');
+  'candidates: only enabled settings with Workforce ON, an active location and an active tenant (not disabled, not inactive location, not module OFF, not module row missing, not suspended tenant)');
+select is(
+  (select count(*)::int from workforce.auto_schedule_candidates() where tenant_id = 'c1250000-0000-0000-0000-00000000000e'),
+  0, 'candidates: a suspended tenant (status <> active) is excluded even with Workforce ON and automation ON');
 
 select is(
   pg_temp.as_service_text($q$select count(*)::text from api.auto_schedule_candidates()
@@ -281,6 +320,14 @@ select throws_ok(
   $q$select workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', null,
     '[{"employee_id":"c1253000-0000-0000-0000-000000000001","shift_type_id":"c1254000-0000-0000-0000-000000000001","starts_at":"2026-12-02T00:00:00Z","ends_at":"2026-12-02T08:00:00Z","break_minutes":60}]'::jsonb, 0, 0, 0)$q$,
   '22023', null, 'apply rejects a draft outside the target month');
+select throws_ok(
+  $q$select workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', null,
+    '[{"employee_id":"c1253000-0000-0000-0000-000000000001","shift_type_id":"c1254000-0000-0000-0000-000000000001","starts_at":"2026-11-02T08:00:00Z","ends_at":"2026-11-02T08:00:00Z","break_minutes":0}]'::jsonb, 0, 0, 0)$q$,
+  '22023', null, 'apply rejects a draft whose ends_at <= starts_at');
+select throws_ok(
+  $q$select workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000001', '2026-11-01', null,
+    '[{"employee_id":"c1253000-0000-0000-0000-000000000001","shift_type_id":"c1254000-0000-0000-0000-000000000001","starts_at":"2026-11-02T00:00:00Z","ends_at":"2026-11-03T00:01:00Z","break_minutes":60}]'::jsonb, 0, 0, 0)$q$,
+  '22023', null, 'apply rejects a draft longer than 24 hours');
 
 select is(
   (select auto_create_last_generated_month from workforce.schedule_settings
@@ -350,6 +397,26 @@ select is(
   workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000a', 'c1251000-0000-0000-0000-000000000002', '2026-11-01', null,
     '[]'::jsonb, 0, 0, 0),
   false, 'apply refuses a location whose automation is OFF');
+
+-- Module switched OFF after the candidate list was read: B/L1 was a
+-- candidate (enabled, marker null); the Workforce module is turned off,
+-- then apply runs with valid drafts -> false, nothing written.
+update core.tenant_modules set is_enabled = false
+  where tenant_id = 'c1250000-0000-0000-0000-00000000000b' and module = 'workforce';
+select is(
+  workforce.auto_schedule_apply('c1250000-0000-0000-0000-00000000000b', 'c1251000-0000-0000-0000-000000000004', '2026-11-01', null,
+    '[{"employee_id":"c1253000-0000-0000-0000-000000000004","shift_type_id":"c1254000-0000-0000-0000-000000000004","starts_at":"2026-11-02T00:00:00Z","ends_at":"2026-11-02T08:00:00Z","break_minutes":60}]'::jsonb,
+    0, 0, 0),
+  false, 'apply returns false when the Workforce module was disabled after candidates were read');
+select ok(
+  (select auto_create_last_generated_month is null from workforce.schedule_settings
+    where tenant_id = 'c1250000-0000-0000-0000-00000000000b' and location_id = 'c1251000-0000-0000-0000-000000000004')
+  and not exists (select 1 from workforce.shifts where tenant_id = 'c1250000-0000-0000-0000-00000000000b' and published = false)
+  and not exists (select 1 from workforce.auto_schedule_runs where tenant_id = 'c1250000-0000-0000-0000-00000000000b')
+  and not exists (select 1 from audit.audit_logs where tenant_id = 'c1250000-0000-0000-0000-00000000000b' and action = 'auto_schedule.generated'),
+  'module-OFF apply wrote nothing (no marker, no drafts, no run log, no audit)');
+update core.tenant_modules set is_enabled = true
+  where tenant_id = 'c1250000-0000-0000-0000-00000000000b' and module = 'workforce';
 
 -- ============================================================================
 -- 5. record_issue
@@ -438,13 +505,22 @@ select is(
   (select command from cron.job where jobname = 'workforce-auto-schedule-monthly'),
   'select workforce.invoke_auto_schedule_runner()', 'the cron job calls the runner');
 
-delete from vault.secrets where name = 'project_url';
+delete from vault.secrets where name = 'auto_schedule_project_url';
+-- A generic `project_url` secret (e.g. one another feature already set on
+-- production) must never switch this runner on by accident.
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'project_url') then
+    perform vault.create_secret('https://example.invalid', 'project_url');
+  end if;
+end;
+$$;
 create temp table pg_temp.queue_before on commit drop as select count(*)::int as n from net.http_request_queue;
-select is(workforce.invoke_auto_schedule_runner(), null::bigint, 'runner returns null without vault secret project_url');
+select is(workforce.invoke_auto_schedule_runner(), null::bigint, 'runner returns null without vault secret auto_schedule_project_url');
 select is(
   (select count(*)::int from net.http_request_queue),
   (select n from pg_temp.queue_before),
-  'runner queued no HTTP request without project_url (no-op)');
+  'runner queued no HTTP request without auto_schedule_project_url (no-op), even with a generic project_url secret present');
 
 select * from finish();
 rollback;

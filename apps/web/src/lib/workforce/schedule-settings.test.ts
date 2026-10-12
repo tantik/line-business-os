@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isAutoScheduleRunMissed, listRecentAutoScheduleRuns } from './schedule-settings.js';
+import { isAutoScheduleRunMissed, listRecentAutoScheduleRuns, visibleAutoScheduleRuns, type AutoScheduleRun } from './schedule-settings.js';
 import { recordingClient } from './test-helpers.js';
 
-test('listRecentAutoScheduleRuns reads the api run-log view, scoped to tenant + location, newest first, limited to 3', async () => {
+test('listRecentAutoScheduleRuns reads the api run-log view, scoped to tenant + location, newest first, limited to 6', async () => {
   const { client, calls } = recordingClient({
     data: [
       {
@@ -43,7 +43,34 @@ test('listRecentAutoScheduleRuns reads the api run-log view, scoped to tenant + 
     ['location_id', 'loc-1'],
   ]);
   assert.deepEqual(calls.find((c) => c.method === 'order')?.args, ['last_seen_at', { ascending: false }]);
-  assert.deepEqual(calls.find((c) => c.method === 'limit')?.args, [3]);
+  assert.deepEqual(calls.find((c) => c.method === 'limit')?.args, [6]);
+});
+
+function run(id: string, targetMonth: string, outcome: AutoScheduleRun['outcome']): AutoScheduleRun {
+  return {
+    runId: id,
+    targetMonth,
+    outcome,
+    createdCount: 0,
+    shortageCount: 0,
+    errorCode: outcome === 'generated' ? null : 'unexpected_error',
+    attemptCount: 1,
+    lastSeenAt: '2026-10-20T00:00:00Z',
+  };
+}
+
+test('visibleAutoScheduleRuns hides failed/config_error rows for a month that already has a generated row, keeps order, caps at 3', () => {
+  const runs = [
+    run('g-nov', '2026-11-01', 'generated'),
+    run('f-nov', '2026-11-01', 'failed'),
+    run('c-nov', '2026-11-01', 'config_error'),
+    run('f-oct', '2026-10-01', 'failed'),
+    run('g-sep', '2026-09-01', 'generated'),
+    run('g-aug', '2026-08-01', 'generated'),
+  ];
+  assert.deepEqual(visibleAutoScheduleRuns(runs).map((r) => r.runId), ['g-nov', 'f-oct', 'g-sep']);
+  assert.deepEqual(visibleAutoScheduleRuns([run('c-dec', '2026-12-01', 'config_error')]).map((r) => r.runId), ['c-dec'], 'an unresolved problem stays visible');
+  assert.deepEqual(visibleAutoScheduleRuns([]), []);
 });
 
 test('listRecentAutoScheduleRuns maps an RLS denial to unauthorized', async () => {

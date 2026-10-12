@@ -1326,36 +1326,40 @@ export const autoCreateLastResultSummary: Record<
  * `dateTime` is already formatted in the location's timezone; `month` is the
  * target month label from `autoScheduleTargetMonthLabel`.
  */
+const enCount = (n: number, singular: string, plural: string) => `${n} ${n === 1 ? singular : plural}`;
+
 export const autoScheduleRunGeneratedLine: Record<Lang, (dateTime: string, month: string, created: number, shortages: number) => string> = {
-  en: (dateTime, month, created, shortages) => `${dateTime}: created a draft for ${month} (${created} shifts, ${shortages} shortages)`,
+  en: (dateTime, month, created, shortages) =>
+    `${dateTime}: created a draft for ${month} (${enCount(created, 'shift', 'shifts')}, ${enCount(shortages, 'shortage', 'shortages')})`,
   ja: (dateTime, month, created, shortages) => `${dateTime} ${month}分の下書きを作成しました（${created}件、人員不足 ${shortages}件）`,
 };
 
-export const autoScheduleRunConfigErrorLine: Record<Lang, (reason: string) => string> = {
-  en: (reason) => `Automatic creation did not run: ${reason}`,
-  ja: (reason) => `自動作成できませんでした：${reason}`,
+/** `reason` is the full sentence from `autoScheduleConfigErrorReasonText` (the same copy as the manual auto-create's config errors). */
+export const autoScheduleRunConfigErrorLine: Record<Lang, (dateTime: string, month: string, reason: string) => string> = {
+  en: (dateTime, month, reason) => `${dateTime}: automatic creation for ${month} did not run: ${reason}`,
+  ja: (dateTime, month, reason) => `${dateTime} ${month}分は自動作成できませんでした：${reason}`,
 };
 
-/** Reason text for a `config_error` run, keyed by its machine `error_code`. */
-export const autoScheduleConfigErrorReason: Record<Lang, Record<string, string>> = {
-  en: {
-    no_active_shift_types: 'no active shift types',
-    no_staffing_requirement: 'no required headcount set',
-  },
-  ja: {
-    no_active_shift_types: '有効なシフト区分がありません',
-    no_staffing_requirement: '必要人数が設定されていません',
-  },
-};
+/**
+ * Reason sentence for a `config_error` run's machine `error_code`, reusing
+ * `autoCreateConfigErrorMessage` (the manual auto-create's copy) so both
+ * paths say the same thing. Unknown code -> `null` (caller shows the generic
+ * failed line instead of a raw code).
+ */
+export function autoScheduleConfigErrorReasonText(lang: Lang, errorCode: string | null): string | null {
+  if (errorCode === 'no_active_shift_types') return autoCreateConfigErrorMessage[lang]('no_active_windows');
+  if (errorCode === 'no_staffing_requirement') return autoCreateConfigErrorMessage[lang]('no_staffing_requirement');
+  return null;
+}
 
-export const autoScheduleRunFailedLine: Record<Lang, string> = {
-  en: 'Automatic creation failed. Please create the schedule manually.',
-  ja: '自動作成に失敗しました。手動で作成してください。',
+export const autoScheduleRunFailedLine: Record<Lang, (dateTime: string, month: string) => string> = {
+  en: (dateTime, month) => `${dateTime}: automatic creation for ${month} failed. Please create the schedule manually.`,
+  ja: (dateTime, month) => `${dateTime} ${month}分の自動作成に失敗しました。手動で作成してください。`,
 };
 
 export const autoScheduleRunMissedLine: Record<Lang, (dayOfMonth: number) => string> = {
-  en: (dayOfMonth) => `This month's automatic creation (day ${dayOfMonth}) has not run yet. Please create the schedule manually.`,
-  ja: (dayOfMonth) => `毎月${dayOfMonth}日の自動作成がまだ実行されていません。手動で作成してください。`,
+  en: (dayOfMonth) => `This month's automatic creation (day ${dayOfMonth}) did not run. Please create the schedule manually.`,
+  ja: (dayOfMonth) => `今月の自動作成（毎月${dayOfMonth}日）は実行されませんでした。手動で作成してください。`,
 };
 
 /** `'YYYY-MM-01'` -> JA `2026年11月` / EN `November 2026`. */

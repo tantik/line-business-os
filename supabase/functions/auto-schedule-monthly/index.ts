@@ -28,6 +28,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveSupabaseSecretKey } from '../_shared/supabase-secret-key.ts';
 import { AutoScheduleRunError, runAutoScheduleMonthly, type AutoScheduleRpc } from '../_shared/auto-schedule/job.ts';
 
+const CRON_TOKEN_FORMAT = /^[0-9a-f]{64}$/;
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -40,7 +42,9 @@ Deno.serve(async (req: Request) => {
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
-  if (!token) return jsonResponse(401, { error: 'unauthorized' });
+  // The vault token is always 32 random bytes as lowercase hex (0125).
+  // Anything else is rejected here, before any DB call.
+  if (!CRON_TOKEN_FORMAT.test(token)) return jsonResponse(401, { error: 'unauthorized' });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   let privilegedKey: string;

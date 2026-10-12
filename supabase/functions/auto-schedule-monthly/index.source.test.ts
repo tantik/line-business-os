@@ -14,10 +14,19 @@ test('POST only', () => {
   assert.match(SOURCE, /if \(req\.method !== 'POST'\) return jsonResponse\(405/);
 });
 
-test('missing bearer token -> 401 before any DB call', () => {
-  const missing = SOURCE.indexOf("if (!token) return jsonResponse(401, { error: 'unauthorized' });");
+test('missing / malformed bearer token (not exactly 64 lowercase hex) -> 401 before any DB call', () => {
+  assert.match(SOURCE, /const CRON_TOKEN_FORMAT = \/\^\[0-9a-f\]\{64\}\$\/;/);
+  const gate = SOURCE.indexOf("if (!CRON_TOKEN_FORMAT.test(token)) return jsonResponse(401, { error: 'unauthorized' });");
+  const client = SOURCE.indexOf('createClient(supabaseUrl');
   const firstRpc = SOURCE.indexOf('.rpc(');
-  assert.ok(missing > 0 && firstRpc > missing);
+  assert.ok(gate > 0 && client > gate && firstRpc > gate, 'format gate precedes client creation and every RPC');
+
+  // The exact regex, exercised: only 64 lowercase hex chars pass.
+  const format = /^[0-9a-f]{64}$/;
+  assert.ok(format.test('a'.repeat(64)));
+  for (const bad of ['', 'a'.repeat(63), 'a'.repeat(65), 'A'.repeat(64), `${'a'.repeat(63)}g`, `${'a'.repeat(64)}\n`, 'x'.repeat(64)]) {
+    assert.equal(format.test(bad), false, JSON.stringify(bad));
+  }
 });
 
 test('token is verified in the DB before the job runs; mismatch -> 401 with no detail', () => {

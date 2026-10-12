@@ -11,14 +11,15 @@ setting actually runs in Supabase Cloud. Introduced by migration
 ```
 pg_cron  (job workforce-auto-schedule-monthly, '7 * * * *' = minute 7 of every hour)
   -> select workforce.invoke_auto_schedule_runner()        -- SECURITY DEFINER, no app-role grant
-       reads vault secrets project_url + auto_schedule_cron_token
-       no project_url -> RAISE NOTICE, return (no-op)
-  -> pg_net  POST {project_url}/functions/v1/auto-schedule-monthly
+       reads vault secrets auto_schedule_project_url + auto_schedule_cron_token
+       no auto_schedule_project_url -> RAISE NOTICE, return (no-op)
+  -> pg_net  POST {auto_schedule_project_url}/functions/v1/auto-schedule-monthly
              Authorization: Bearer <auto_schedule_cron_token>
   -> Edge Function auto-schedule-monthly  (verify_jwt = false)
-       POST only; token checked in the DB by api.verify_auto_schedule_cron_token -> 401 on mismatch
+       POST only; token not exactly 64 lowercase hex -> 401 before any DB call;
+       then checked in the DB by api.verify_auto_schedule_cron_token -> 401 on mismatch
        service client (SUPABASE_SECRET_KEYS["default"]) on the `api` schema, RPCs only:
-         api.auto_schedule_candidates()        enabled + Workforce module ON + active location
+         api.auto_schedule_candidates()        enabled + tenant status active + Workforce module ON + active location
          per location, in ITS timezone:
            today's day-of-month != configured day        -> skip silently
            marker auto_create_last_generated_month = next month -> skip silently
@@ -54,7 +55,7 @@ pg_cron  (job workforce-auto-schedule-monthly, '7 * * * *' = minute 7 of every h
 3. The one manual step — tell the runner where to POST, as a vault secret:
 
    ```sql
-   select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');
+   select vault.create_secret('https://<project-ref>.supabase.co', 'auto_schedule_project_url');
    ```
 
    Until this exists the runner is a no-op. Local stacks and production stay
@@ -98,7 +99,7 @@ select tenant_id, location_id, target_month, outcome, created_count, shortage_co
 select cron.unschedule('workforce-auto-schedule-monthly');
 ```
 
-Or remove the `project_url` vault secret (runner becomes a no-op). Per
+Or remove the `auto_schedule_project_url` vault secret (runner becomes a no-op). Per
 location, the Manager can simply switch automatic creation OFF. Full rollback
 of the migration is described in its header comment.
 
@@ -109,7 +110,13 @@ of the migration is described in its header comment.
   SECURITY DEFINER functions in `workforce` (ADR 0008).
 - `auto_schedule_apply` re-validates every draft in the DB (employee and
   shift type in the same tenant AND location, active, start inside the
-  target month) and rejects the whole call otherwise.
+  target month, duration > 0 and <= 24 h) and rejects the whole call
+  otherwise. It also writes nothing (returns false) if automation, the
+  Workforce module or the tenant was switched off after the candidate list
+  was read.
+- The vault secret is deliberately named `auto_schedule_project_url`, not a
+  generic `project_url`, so a secret another feature sets can never switch
+  this runner on by accident.
 - The run log stores ids, counts and a short machine code (CHECK enforced) —
   no raw error text, no PII. RLS: Workforce module ON +
   `workforce.shift.write` at the location (Managers only; Staff, who hold

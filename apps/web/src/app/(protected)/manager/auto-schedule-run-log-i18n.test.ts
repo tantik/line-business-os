@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  autoScheduleConfigErrorReason,
+  autoCreateConfigErrorMessage,
+  autoScheduleConfigErrorReasonText,
   autoScheduleRunConfigErrorLine,
   autoScheduleRunDateTimeLabel,
   autoScheduleRunFailedLine,
@@ -31,7 +32,7 @@ test('run datetime: exact deterministic strings in the location timezone (hydrat
   assert.match(en, /^[A-Za-z0-9:, ]+$/);
 });
 
-test('generated line, JA and EN', () => {
+test('generated line, JA and EN, with EN pluralization', () => {
   assert.equal(
     autoScheduleRunGeneratedLine.ja('10月20日 9:07', '2026年11月', 42, 3),
     '10月20日 9:07 2026年11月分の下書きを作成しました（42件、人員不足 3件）',
@@ -40,28 +41,42 @@ test('generated line, JA and EN', () => {
     autoScheduleRunGeneratedLine.en('Oct 20, 9:07', 'November 2026', 42, 3),
     'Oct 20, 9:07: created a draft for November 2026 (42 shifts, 3 shortages)',
   );
+  assert.equal(
+    autoScheduleRunGeneratedLine.en('Oct 20, 9:07', 'November 2026', 1, 1),
+    'Oct 20, 9:07: created a draft for November 2026 (1 shift, 1 shortage)',
+  );
+  assert.equal(
+    autoScheduleRunGeneratedLine.en('Oct 20, 9:07', 'November 2026', 0, 0),
+    'Oct 20, 9:07: created a draft for November 2026 (0 shifts, 0 shortages)',
+  );
 });
 
-test('config error lines carry a translated reason for both machine codes', () => {
-  assert.equal(
-    autoScheduleRunConfigErrorLine.ja(autoScheduleConfigErrorReason.ja.no_active_shift_types!),
-    '自動作成できませんでした：有効なシフト区分がありません',
-  );
-  assert.equal(
-    autoScheduleRunConfigErrorLine.en(autoScheduleConfigErrorReason.en.no_staffing_requirement!),
-    'Automatic creation did not run: no required headcount set',
-  );
-  for (const lang of ['ja', 'en'] as const) {
-    assert.deepEqual(Object.keys(autoScheduleConfigErrorReason[lang]).sort(), ['no_active_shift_types', 'no_staffing_requirement']);
-  }
+test('config error reasons reuse the manual auto-create copy (one dictionary, シフト種別 terminology)', () => {
+  assert.equal(autoScheduleConfigErrorReasonText('ja', 'no_active_shift_types'), autoCreateConfigErrorMessage.ja('no_active_windows'));
+  assert.equal(autoScheduleConfigErrorReasonText('en', 'no_staffing_requirement'), autoCreateConfigErrorMessage.en('no_staffing_requirement'));
+  assert.match(autoScheduleConfigErrorReasonText('ja', 'no_active_shift_types')!, /シフト種別/);
+  assert.doesNotMatch(autoScheduleConfigErrorReasonText('ja', 'no_active_shift_types')!, /シフト区分/);
+  assert.equal(autoScheduleConfigErrorReasonText('ja', 'something_else'), null);
+  assert.equal(autoScheduleConfigErrorReasonText('en', null), null);
 });
 
-test('failed and missed lines', () => {
-  assert.equal(autoScheduleRunFailedLine.ja, '自動作成に失敗しました。手動で作成してください。');
-  assert.equal(autoScheduleRunFailedLine.en, 'Automatic creation failed. Please create the schedule manually.');
-  assert.equal(autoScheduleRunMissedLine.ja(20), '毎月20日の自動作成がまだ実行されていません。手動で作成してください。');
+test('config error and failed lines carry the local date/time and the target month', () => {
   assert.equal(
-    autoScheduleRunMissedLine.en(20),
-    "This month's automatic creation (day 20) has not run yet. Please create the schedule manually.",
+    autoScheduleRunConfigErrorLine.ja('10月20日 9:07', '2026年11月', '理由。'),
+    '10月20日 9:07 2026年11月分は自動作成できませんでした：理由。',
   );
+  assert.equal(
+    autoScheduleRunConfigErrorLine.en('Oct 20, 9:07', 'November 2026', 'Reason.'),
+    'Oct 20, 9:07: automatic creation for November 2026 did not run: Reason.',
+  );
+  assert.equal(autoScheduleRunFailedLine.ja('10月20日 9:07', '2026年11月'), '10月20日 9:07 2026年11月分の自動作成に失敗しました。手動で作成してください。');
+  assert.equal(
+    autoScheduleRunFailedLine.en('Oct 20, 9:07', 'November 2026'),
+    'Oct 20, 9:07: automatic creation for November 2026 failed. Please create the schedule manually.',
+  );
+});
+
+test('missed line', () => {
+  assert.equal(autoScheduleRunMissedLine.ja(20), '今月の自動作成（毎月20日）は実行されませんでした。手動で作成してください。');
+  assert.equal(autoScheduleRunMissedLine.en(20), "This month's automatic creation (day 20) did not run. Please create the schedule manually.");
 });

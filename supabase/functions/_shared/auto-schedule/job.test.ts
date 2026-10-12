@@ -261,6 +261,31 @@ test('existing manual shifts are preserved: the employee already working a day i
   assert.ok(!drafts.some((d) => d.starts_at === '2026-11-02T00:00:00.000Z'), 'no draft on the manually staffed day');
 });
 
+test('invalid IANA timezone: recorded as failed/invalid_timezone on the UTC trigger day, never loads or applies', async () => {
+  // JST_20TH is the 19th in UTC.
+  const { rpc, calls } = fakeRpc({ candidates: [candidate({ timezone: 'Not/A_Zone', auto_create_day_of_month: 19 })] });
+  const summary = await runAutoScheduleMonthly(rpc, JST_20TH);
+  assert.equal(summary.results.length, 1);
+  assert.equal(summary.results[0]!.outcome, 'failed');
+  assert.equal(summary.results[0]!.errorCode, 'invalid_timezone');
+  assert.equal(summary.results[0]!.targetMonth, '2026-11');
+  assert.deepEqual(callsTo(calls, 'auto_schedule_record_issue')[0]!.args, {
+    p_tenant_id: T1,
+    p_location_id: L1,
+    p_target_month: '2026-11-01',
+    p_outcome: 'failed',
+    p_error_code: 'invalid_timezone',
+  });
+  assert.equal(callsTo(calls, 'auto_schedule_load_inputs').length, 0);
+  assert.equal(callsTo(calls, 'auto_schedule_apply').length, 0);
+
+  // Any other UTC day: silent skip (no hourly spam outside the trigger day).
+  const other = fakeRpc({ candidates: [candidate({ timezone: 'Not/A_Zone', auto_create_day_of_month: 20 })] });
+  const skipped = await runAutoScheduleMonthly(other.rpc, JST_20TH);
+  assert.deepEqual(skipped.results, []);
+  assert.deepEqual(other.calls.map((c) => c.fn), ['auto_schedule_candidates']);
+});
+
 test('candidates RPC error is a whole-run error with a code (no location processed)', async () => {
   const { rpc } = fakeRpc({ candidates: { data: null, error: { code: '42501' } } });
   await assert.rejects(runAutoScheduleMonthly(rpc, JST_20TH), (err: unknown) => {

@@ -15,7 +15,6 @@
     "@line-os/core": "workspace:*",
     "@line-os/db": "workspace:*",
     "@line-os/line": "workspace:*",
-    "@line-os/workforce": "workspace:*",
     "croner": "^8.1.2"
   },
   "devDependencies": {

@@ -69,7 +69,9 @@ export interface AutoScheduleRun {
 }
 
 /**
- * Latest scheduled-auto-create run-log rows for one location (newest first).
+ * Latest scheduled-auto-create run-log rows for one location (newest first;
+ * a few more than are shown, so `visibleAutoScheduleRuns` can drop rows
+ * superseded by a later `generated` row and still show up to 3).
  * RLS (`wf_auto_schedule_runs_read`): workforce.shift.write at the location
  * with the Workforce module ON -- the Manager page is the only caller.
  */
@@ -77,7 +79,7 @@ export async function listRecentAutoScheduleRuns(
   supabase: SupabaseClient,
   tenantId: string,
   locationId: string,
-  limit = 3,
+  limit = 6,
 ): Promise<TenantAccessResult<AutoScheduleRun[]>> {
   const { data, error } = await supabase
     .schema('api')
@@ -101,6 +103,17 @@ export async function listRecentAutoScheduleRuns(
       lastSeenAt: row.last_seen_at as string,
     })),
   };
+}
+
+/**
+ * What the Manager sees: the newest `max` rows, minus any config_error /
+ * failed row for a target month that already has a `generated` row (a later
+ * successful run supersedes earlier problems for the same month, so the log
+ * never contradicts itself). Input is newest-first; order is preserved.
+ */
+export function visibleAutoScheduleRuns(runs: readonly AutoScheduleRun[], max = 3): AutoScheduleRun[] {
+  const generatedMonths = new Set(runs.filter((run) => run.outcome === 'generated').map((run) => run.targetMonth));
+  return runs.filter((run) => run.outcome === 'generated' || !generatedMonths.has(run.targetMonth)).slice(0, max);
 }
 
 /**

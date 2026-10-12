@@ -374,8 +374,9 @@ export default async function WorkforceManagerPage({
         // already follows.
         issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
         issuesEnabled ? listAllIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        // Scheduled monthly auto-create run log (DEBT-074) -- last 3 rows
-        // for this location, shown in the Settings section's automation block.
+        // Scheduled monthly auto-create run log (DEBT-074) -- latest rows
+        // for this location; the Settings section's automation block shows
+        // up to 3 after dropping problems superseded by a generated run.
         listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
       ]);
 

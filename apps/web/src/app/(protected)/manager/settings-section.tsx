@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
-import { isAutoScheduleRunMissed, type AutoScheduleRun, type WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
+import {
+  isAutoScheduleRunMissed,
+  visibleAutoScheduleRuns,
+  type AutoScheduleRun,
+  type WorkforceScheduleSettings,
+} from '@/lib/workforce/schedule-settings';
 import { deleteShiftType, saveScheduleSettings, setShiftTypeActive, upsertShiftType } from '@/lib/workforce/schedule-settings-actions';
 import { WEEKDAY_LABELS_EN_MON_FIRST, WEEKDAY_LABELS_MON_FIRST } from '@/lib/demo/cafe/format';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, card, colors, input, mutedText } from '@/lib/ui/theme';
@@ -13,7 +18,7 @@ import { Modal, ConfirmDialog, HelpIconButton } from '@/components/shared/design
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import {
   autoCreateLastResultSummary,
-  autoScheduleConfigErrorReason,
+  autoScheduleConfigErrorReasonText,
   autoScheduleRunConfigErrorLine,
   autoScheduleRunDateTimeLabel,
   autoScheduleRunFailedLine,
@@ -65,7 +70,7 @@ export interface SettingsSectionProps {
   publishWeekPending: boolean;
   /** Last Publish failure, shown next to the button (the page banner is off screen on a phone). */
   publishWeekError: string | null;
-  /** Latest scheduled auto-create run-log rows for this location (newest first, max 3) -- `null` if the read failed. DEBT-074. */
+  /** Latest scheduled auto-create run-log rows for this location (newest first; up to 3 shown after `visibleAutoScheduleRuns`) -- `null` if the read failed. DEBT-074. */
   autoScheduleRuns: AutoScheduleRun[] | null;
   /** Location IANA timezone -- run-log datetimes are shown in it, never the browser's. */
   timeZone: string;
@@ -123,20 +128,20 @@ export function SettingsSection({
       runs: autoScheduleRuns,
     });
 
+  const shownAutoScheduleRuns = autoScheduleRuns ? visibleAutoScheduleRuns(autoScheduleRuns) : null;
+
+  // Every line carries the local date/time and the target month, whatever the outcome.
   function autoScheduleRunText(run: AutoScheduleRun): string {
+    const dateTime = autoScheduleRunDateTimeLabel(lang, run.lastSeenAt, timeZone);
+    const month = autoScheduleTargetMonthLabel(lang, run.targetMonth);
     if (run.outcome === 'generated') {
-      return autoScheduleRunGeneratedLine[lang](
-        autoScheduleRunDateTimeLabel(lang, run.lastSeenAt, timeZone),
-        autoScheduleTargetMonthLabel(lang, run.targetMonth),
-        run.createdCount,
-        run.shortageCount,
-      );
+      return autoScheduleRunGeneratedLine[lang](dateTime, month, run.createdCount, run.shortageCount);
     }
     if (run.outcome === 'config_error') {
-      const reasons = autoScheduleConfigErrorReason[lang];
-      return autoScheduleRunConfigErrorLine[lang]((run.errorCode && reasons[run.errorCode]) || run.errorCode || '');
+      const reason = autoScheduleConfigErrorReasonText(lang, run.errorCode);
+      if (reason) return autoScheduleRunConfigErrorLine[lang](dateTime, month, reason);
     }
-    return autoScheduleRunFailedLine[lang];
+    return autoScheduleRunFailedLine[lang](dateTime, month);
   }
   const weekdayLabels = lang === 'en' ? WEEKDAY_LABELS_EN_MON_FIRST : WEEKDAY_LABELS_MON_FIRST;
 
@@ -638,9 +643,9 @@ export function SettingsSection({
             </p>
           ) : null}
 
-          {autoScheduleRuns && autoScheduleRuns.length > 0 ? (
+          {shownAutoScheduleRuns && shownAutoScheduleRuns.length > 0 ? (
             <ul aria-label={t('automationRunLogHeading')} style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 4 }}>
-              {autoScheduleRuns.map((run) => (
+              {shownAutoScheduleRuns.map((run) => (
                 <li
                   key={run.runId}
                   style={{

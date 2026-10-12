@@ -287,11 +287,16 @@ VIC: `APP/manager/manager-dashboard-client.tsx`, `APP/manager/shift-cell-editor.
   VIC `LIB/workforce/schedule-actions.ts` (`runAutoDistribution`,
   `undoAutoDistribution`), `APP/manager/manager-dashboard-client.tsx`.
 - Ежемесячное автосоздание: переключатель ON/OFF и день месяца (1-28) в
-  Settings; фоновая работа на `apps/worker` (почасовой cron), создаёт черновики
-  следующего месяца, ничего не публикует и не отправляет. Код есть; запущен ли
-  worker в облаке — из кода не видно.
-  VIC `apps/worker/src/jobs/auto-schedule-monthly.ts`, `apps/worker/src/index.ts`,
-  `MIG/0114_workforce_schedule_settings_auto_create_enabled.sql`.
+  Settings; фоновая работа — pg_cron (каждый час) → Edge Function
+  `auto-schedule-monthly` (DEBT-074, перенесено из `apps/worker`), создаёт
+  черновики следующего месяца, ничего не публикует и не отправляет. Manager
+  видит последние запуски и предупреждение «не выполнено» в Settings. В облаке
+  ещё не проверено (ожидает деплоя на Cloud DEV).
+  VIC `supabase/functions/auto-schedule-monthly/index.ts`,
+  `supabase/functions/_shared/auto-schedule/job.ts`,
+  `MIG/0114_workforce_schedule_settings_auto_create_enabled.sql`,
+  `MIG/0125_workforce_auto_schedule_cloud_runner.sql`,
+  `docs/operations/auto-schedule-cloud-runner.md`.
 
 Не построено: пересчёт "затрат" по факту сверх "Estimated labour cost" (это
 только оценка по отработанным часам и ставкам — см. 5.13 и 10.1), экспорт в

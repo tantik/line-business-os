@@ -51,8 +51,8 @@
 --
 -- MANUAL PER-ENVIRONMENT STEP (the only one)
 --   The runner is a no-op (RAISE NOTICE) until the vault secret
---   `project_url` exists. Set it deliberately per environment:
---     select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');
+--   `auto_schedule_project_url` exists. Set it deliberately per environment:
+--     select vault.create_secret('https://<project-ref>.supabase.co', 'auto_schedule_project_url');
 --   Local and production stay inert until someone does this on purpose
 --   (production = Founder gate). See docs/operations/auto-schedule-cloud-runner.md.
 --
@@ -63,7 +63,7 @@
 --     api.verify_auto_schedule_cron_token(text) and the workforce.* functions
 --     of the same names plus workforce.invoke_auto_schedule_runner();
 --   drop view api.workforce_auto_schedule_runs; drop table workforce.auto_schedule_runs;
---   optionally delete the vault secrets auto_schedule_cron_token / project_url.
+--   optionally delete the vault secrets auto_schedule_cron_token / auto_schedule_project_url.
 --   Drafts already generated are ordinary unpublished workforce.shifts rows
 --   and are left alone. pg_cron / pg_net / supabase_vault extensions are
 --   left installed (shared platform extensions).
@@ -186,14 +186,17 @@ as $$
   join core.tenant_modules tm
     on tm.tenant_id = s.tenant_id
    and tm.module = 'workforce'
+  join core.tenants tn
+    on tn.id = s.tenant_id
   where s.auto_create_enabled = true
     and tm.is_enabled = true
     and l.is_active = true
+    and tn.status = 'active' -- core.tenant_status: suspended / archived tenants never run
   order by s.tenant_id, s.location_id;
 $$;
 
 comment on function workforce.auto_schedule_candidates() is
-  'Service-role-only (0125): locations eligible for the scheduled monthly auto-create -- auto_create_enabled, tenant Workforce module enabled (missing row = excluded), location active. The day-of-month / marker check is done by the caller in the location timezone.';
+  'Service-role-only (0125): locations eligible for the scheduled monthly auto-create -- auto_create_enabled, tenant status active, tenant Workforce module enabled (missing row = excluded), location active. The day-of-month / marker check is done by the caller in the location timezone.';
 
 -- ============================================================================
 -- b. Input snapshot for one (tenant, location, target month).
@@ -346,6 +349,7 @@ begin
      or d.starts_at is null
      or d.ends_at is null
      or d.ends_at <= d.starts_at
+     or d.ends_at > d.starts_at + interval '24 hours'
      or coalesce(d.break_minutes, -1) < 0
      or d.starts_at < v_month_start
      or d.starts_at >= v_month_end
@@ -364,20 +368,23 @@ begin
          and t.is_active = true
      );
   if v_rejected > 0 then
-    raise exception 'auto_schedule_apply: % draft(s) rejected (employee/shift type outside this tenant+location, inactive, or time outside the target month)', v_rejected
+    raise exception 'auto_schedule_apply: % draft(s) rejected (employee/shift type outside this tenant+location, inactive, time outside the target month, or duration not in (0, 24h])', v_rejected
       using errcode = '22023';
   end if;
 
   -- Optimistic lock: claim the month only if the marker still holds the
-  -- value the caller read, automation is still ON and the module still
-  -- enabled. A concurrent winner makes this affect 0 rows.
+  -- value the caller read, automation is still ON, the module still
+  -- enabled and the tenant still active. A concurrent winner (or any of
+  -- those changing since the candidate list was read) makes this affect
+  -- 0 rows.
   update workforce.schedule_settings s
      set auto_create_last_generated_month = p_target_month
    where s.tenant_id = p_tenant_id
      and s.location_id = p_location_id
      and s.auto_create_enabled = true
      and s.auto_create_last_generated_month is not distinct from p_expected_marker
-     and core.has_module_access(p_tenant_id, 'workforce');
+     and core.has_module_access(p_tenant_id, 'workforce')
+     and exists (select 1 from core.tenants tn where tn.id = p_tenant_id and tn.status = 'active');
   get diagnostics v_claimed = row_count;
   if v_claimed = 0 then
     return false;
@@ -437,7 +444,7 @@ end;
 $$;
 
 comment on function workforce.auto_schedule_apply(uuid, uuid, date, date, jsonb, integer, integer, integer) is
-  'Service-role-only (0125): ONE transaction -- validates drafts (same tenant+location, active, inside the target month), claims the month via optimistic lock on auto_create_last_generated_month (false + nothing written if lost), inserts drafts with published = false, upserts the generated run-log row, writes an audit row (actor_kind system, action auto_schedule.generated).';
+  'Service-role-only (0125): ONE transaction -- validates drafts (same tenant+location, active, inside the target month, duration > 0 and <= 24h), claims the month via optimistic lock on auto_create_last_generated_month (false + nothing written if lost, automation OFF, module OFF or tenant not active), inserts drafts with published = false, upserts the generated run-log row, writes an audit row (actor_kind system, action auto_schedule.generated).';
 
 -- ============================================================================
 -- d. Record a config error / failure (upsert, attempt_count + 1).
@@ -637,7 +644,7 @@ end;
 $$;
 
 -- ============================================================================
--- Runner: pg_cron -> pg_net -> Edge Function. No-op until `project_url` set.
+-- Runner: pg_cron -> pg_net -> Edge Function. No-op until `auto_schedule_project_url` set.
 -- ============================================================================
 create or replace function workforce.invoke_auto_schedule_runner()
 returns bigint
@@ -647,17 +654,17 @@ security definer
 set search_path = workforce, public
 as $$
 declare
-  v_project_url text;
+  v_auto_schedule_project_url text;
   v_token       text;
   v_request_id  bigint;
 begin
-  select ds.decrypted_secret into v_project_url
+  select ds.decrypted_secret into v_auto_schedule_project_url
   from vault.decrypted_secrets ds
-  where ds.name = 'project_url'
+  where ds.name = 'auto_schedule_project_url'
   limit 1;
 
-  if v_project_url is null or btrim(v_project_url) = '' then
-    raise notice 'auto-schedule runner: vault secret project_url is not set -- skipping (see docs/operations/auto-schedule-cloud-runner.md)';
+  if v_auto_schedule_project_url is null or btrim(v_auto_schedule_project_url) = '' then
+    raise notice 'auto-schedule runner: vault secret auto_schedule_project_url is not set -- skipping (see docs/operations/auto-schedule-cloud-runner.md)';
     return null;
   end if;
 
@@ -672,7 +679,7 @@ begin
   end if;
 
   select net.http_post(
-    url := rtrim(btrim(v_project_url), '/') || '/functions/v1/auto-schedule-monthly',
+    url := rtrim(btrim(v_auto_schedule_project_url), '/') || '/functions/v1/auto-schedule-monthly',
     body := '{}'::jsonb,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
@@ -686,7 +693,7 @@ end;
 $$;
 
 comment on function workforce.invoke_auto_schedule_runner() is
-  'Called by pg_cron job workforce-auto-schedule-monthly (0125). Reads vault secrets project_url + auto_schedule_cron_token and POSTs to the auto-schedule-monthly Edge Function via pg_net. No-op (RAISE NOTICE) while project_url is unset. Not executable by any app role.';
+  'Called by pg_cron job workforce-auto-schedule-monthly (0125). Reads vault secrets auto_schedule_project_url + auto_schedule_cron_token and POSTs to the auto-schedule-monthly Edge Function via pg_net. No-op (RAISE NOTICE) while auto_schedule_project_url is unset. Not executable by any app role.';
 
 revoke all on function workforce.invoke_auto_schedule_runner() from public, anon, authenticated, service_role;
 
