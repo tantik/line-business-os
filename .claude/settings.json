@@ -97,7 +97,6 @@
       "Bash(supabase db reset)",
       "Bash(pnpm exec supabase db reset)",
       "Bash(pnpm db:reset)",
-      "Bash(pnpm db:seed)",
       "Bash(supabase migration up)",
       "Bash(pnpm exec supabase migration up)",
       "Bash(git rebase *)",
@@ -111,8 +110,6 @@
       "Bash(gh pr review *)",
       "Bash(gh issue edit *)",
       "Bash(gh issue create *)",
-      "Bash(curl -s https://preview.oruwa.jp/*)",
-      "Bash(curl -sI https://preview.oruwa.jp/*)",
 
       "Bash(bash scripts/ai-dev-merge.sh *)",
       "Bash(./scripts/ai-dev-merge.sh *)",

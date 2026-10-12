@@ -81,7 +81,9 @@ if [[ "$merge_state_status" == "DIRTY" || "$merge_state_status" == "BLOCKED" ]];
   exit 1
 fi
 
-red_paths_regex='(^|/)(\.env|backups/)|\.pem$|\.key$'
+# .github/workflows: a merged workflow could add a deploy step the agent then
+# runs (security review 2026-10-12); qa-accounts: local QA logins file.
+red_paths_regex='(^|/)(\.env|backups/)|\.pem$|\.key$|^\.github/workflows/|qa-accounts'
 red_hit="$(gh pr view "$PR" --json files -q '.files[].path' | grep -E "$red_paths_regex" || true)"
 if [[ -n "$red_hit" ]]; then
   echo "BLOCK: PR #$PR touches RED-operation path(s), requires Founder approval:" >&2
@@ -119,7 +121,9 @@ if [[ -n "$migration_files" ]]; then
     echo "$destructive_hit" >&2
     exit 1
   fi
-  echo "Migration file(s) present, no destructive pattern found — additive migration, proceeding (Founder standing authority 2026-09-05):"
+  if [[ -z "$destructive_hit" ]]; then
+    echo "Migration file(s) present, no destructive pattern found — additive migration, proceeding (Founder standing authority 2026-09-05):"
+  fi
   echo "$migration_files"
 fi
 
