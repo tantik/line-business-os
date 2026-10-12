@@ -428,7 +428,9 @@ select is(
         -- 0064_workforce_employee_invitations.sql: a later, separate migration.
         'employee_invitations',
         -- 0090_workforce_staff_messages.sql: a later, separate migration.
-        'staff_messages'
+        'staff_messages',
+        -- 0125_workforce_auto_schedule_cloud_runner.sql: SELECT only (RLS-scoped run log).
+        'auto_schedule_runs'
       )),
   0,
   'authenticated has no grants on any other workforce table (e.g. leave_requests)'

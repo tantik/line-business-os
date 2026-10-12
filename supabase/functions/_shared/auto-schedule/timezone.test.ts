@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addIsoDays, localDateTimeToUtcIso, nextMonthPeriod, todayIsoInTimeZone, utcIsoToLocalDateTime } from './timezone.js';
+import { addIsoDays, localDateTimeToUtcIso, nextMonthPeriod, todayIsoInTimeZone, utcIsoToLocalDateTime } from './timezone.ts';
 
 test('nextMonthPeriod returns the full calendar month immediately after today, mid-year', () => {
   assert.deepEqual(nextMonthPeriod('2026-09-20'), {
@@ -44,4 +44,13 @@ test('localDateTimeToUtcIso / addIsoDays / utcIsoToLocalDateTime round-trip in a
 
 test('todayIsoInTimeZone returns a YYYY-MM-DD string', () => {
   assert.match(todayIsoInTimeZone('Asia/Tokyo'), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('todayIsoInTimeZone derives "today" from the injected instant, across the JST day boundary', () => {
+  // 2026-10-19T15:30Z is 2026-10-20 00:30 in Tokyo, still 2026-10-19 in UTC.
+  const now = new Date('2026-10-19T15:30:00Z');
+  assert.equal(todayIsoInTimeZone('Asia/Tokyo', now), '2026-10-20');
+  assert.equal(todayIsoInTimeZone('UTC', now), '2026-10-19');
+  // One minute before JST midnight.
+  assert.equal(todayIsoInTimeZone('Asia/Tokyo', new Date('2026-10-19T14:59:00Z')), '2026-10-19');
 });

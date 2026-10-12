@@ -34,6 +34,18 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
+    "@line-os/config#test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/supabase/functions/**",
+        "$TURBO_ROOT$/supabase/config.toml",
+        "$TURBO_ROOT$/packages/workforce/src/auto-distribute.ts",
+        "$TURBO_ROOT$/packages/workforce/src/auto-distribution-authority.ts",
+        "$TURBO_ROOT$/scripts/sync-edge-workforce-engine.mjs"
+      ]
+    },
     "clean": {
       "cache": false
     }
