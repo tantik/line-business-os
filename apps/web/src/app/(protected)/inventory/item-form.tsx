@@ -11,7 +11,7 @@ import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, in
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { Checkbox, NumberInput } from '@line-os/ui';
 import { describeInventoryWriteError } from './error-copy';
-import { tInventoryDashboard, ALLERGEN_CODES, allergenLabel } from './inventory-i18n';
+import { tInventoryDashboard, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from './inventory-i18n';
 
 export interface ItemFormProps {
   locationId: string;
@@ -226,14 +226,30 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
             label={t('allergensConfirmedCheckboxLabel')}
           />
           {allergensConfirmed ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-              {ALLERGEN_CODES.map((code) => (
-                <Checkbox
-                  key={code}
-                  checked={allergenCodes.includes(code)}
-                  onCheckedChange={() => toggleAllergenCode(code)}
-                  label={allergenLabel(lang, code)}
-                />
+            <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+              {ALLERGEN_CODE_GROUPS.map((group) => (
+                <fieldset key={group.key} style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}>
+                  <legend style={{ ...mutedText, fontSize: 13, padding: 0 }}>{allergenGroupHeading(lang, group)}</legend>
+                  {/* 28 items: a wrapping grid (2 columns at 375px, more when wider), never a horizontal scroll. */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 120px), 1fr))',
+                      columnGap: 8,
+                      marginTop: 4,
+                    }}
+                  >
+                    {group.codes.map((code) => (
+                      <Checkbox
+                        key={code}
+                        className="min-w-0"
+                        checked={allergenCodes.includes(code)}
+                        onCheckedChange={() => toggleAllergenCode(code)}
+                        label={allergenLabel(lang, code)}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
               ))}
             </div>
           ) : null}

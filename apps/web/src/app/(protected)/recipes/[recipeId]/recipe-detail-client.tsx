@@ -11,7 +11,8 @@ import { tRecipeTranslation } from '@/lib/demo/cafe/i18n.recipe-translation';
 import { getRecipeDetailForPopup, deleteRecipe, getRecipeCostSummaryAction } from '@/lib/workforce/recipe-actions';
 import { InlineAlert, Tag } from '@line-os/ui';
 import { allergenLabel } from '../recipes-i18n';
-import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { summarizeRecipeAllergens } from '@/lib/workforce/recipe-allergens';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ConfirmDialog, LightboxTrigger } from '@/components/shared/design-kit';
@@ -95,6 +96,50 @@ export function RecipeDetailClient(props: RecipeDetailClientProps) {
         <RecipeDetailBody {...props} />
       </main>
     </LangProvider>
+  );
+}
+
+/**
+ * Recipe-level allergen block (Copy Audit A-09, Founder decision
+ * 2026-10-12): shown to every role that can see the recipe. All branching
+ * lives in the unit-tested `summarizeRecipeAllergens`; the disclaimer is
+ * always rendered.
+ */
+function RecipeAllergenSection({
+  ingredients,
+  lang,
+}: {
+  ingredients: WorkforceRecipeDetail['ingredients'];
+  lang: Lang;
+}) {
+  const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
+  const summary = summarizeRecipeAllergens(ingredients);
+  return (
+    <section style={card}>
+      <h2 style={{ margin: 0, fontSize: 16 }}>{t('allergenInfoHeading')}</h2>
+      {summary.kind === 'recorded' ? (
+        <>
+          <p style={{ margin: '12px 0 0' }}>{t('allergenRecordedLabel')}</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+            {summary.codes.map((code) => (
+              <Tag key={code}>{allergenLabel(lang, code)}</Tag>
+            ))}
+          </div>
+          {summary.unknownCount > 0 ? (
+            <p style={{ margin: '8px 0 0' }}>
+              {t('allergenPartiallyUnrecorded').replace('{n}', String(summary.unknownCount))}
+            </p>
+          ) : null}
+        </>
+      ) : summary.kind === 'none' ? (
+        <p style={{ margin: '12px 0 0' }}>
+          {t('allergenNoneOfListed').replace('{count}', String(summary.vocabularySize))}
+        </p>
+      ) : (
+        <p style={{ margin: '12px 0 0' }}>{t('allergenNotRecorded')}</p>
+      )}
+      <p style={{ margin: '12px 0 0', ...mutedText, fontSize: 12 }}>{t('allergenDisclaimer')}</p>
+    </section>
   );
 }
 
@@ -378,11 +423,11 @@ export function RecipeDetailBody({
                         </span>
                       ) : null}
                       {ingredient.inventoryItemId ? (
-                        <span style={{ display: 'inline-flex', gap: 4, marginLeft: 8, verticalAlign: 'middle' }}>
+                        <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginLeft: 8, verticalAlign: 'middle' }}>
                           {ingredient.allergenCodes === null || ingredient.allergenCodes === undefined ? (
-                            <Tag>{t('allergensNotConfigured')}</Tag>
+                            <Tag>{t('ingredientAllergensNotRecorded')}</Tag>
                           ) : ingredient.allergenCodes.length === 0 ? (
-                            <Tag>{t('allergensNoneKnown')}</Tag>
+                            <Tag>{t('ingredientAllergensNoneChecked')}</Tag>
                           ) : (
                             ingredient.allergenCodes.map((code) => <Tag key={code}>{allergenLabel(lang, code)}</Tag>)
                           )}
@@ -394,6 +439,8 @@ export function RecipeDetailBody({
               )}
             </section>
           ) : null}
+
+          {recipe.contentKind === 'recipe' ? <RecipeAllergenSection ingredients={ingredients} lang={lang} /> : null}
 
           {canManage && recipe.contentKind === 'recipe' && costSummary ? (
             <section style={card}>
