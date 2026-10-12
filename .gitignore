@@ -56,5 +56,10 @@ backups/
 # .claude/settings.json is the shared, reviewed governance layer.
 .claude/settings.local.json
 
+# Founder-classified PUBLIC DEMO QA accounts for Cloud DEV (oruwa-cafe test
+# tenant), so the CTO agent can run live QA without the Founder typing
+# passwords. Never real customer or production credentials.
+.claude/qa-accounts.local.md
+
 # Claude Code subagent worktrees (isolated repo checkouts, auto-created)
 .claude/worktrees/

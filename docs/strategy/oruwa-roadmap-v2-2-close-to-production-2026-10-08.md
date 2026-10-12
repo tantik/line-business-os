@@ -3,9 +3,26 @@
 Founder-requested plan, combining the Founder's own sequence with a
 ChatGPT-authored proposal. Prompt Review (Operating Model §18) by the Lead
 Agent against the repository: **ACCEPT WITH AMENDMENTS** (amendments marked
-**[A]**). This document orders the work; each stage still needs its own
-Founder prompt to start. It does not replace `docs/strategy/oruwa-master-roadmap.md`;
-it is the concrete next-phase order inside it.
+**[A]**). This document orders the work. Since 2026-10-12 the Lead Agent
+(CTO) moves from stage to stage on its own authority (Operating Model §9
+"CTO authority"); the Founder checks results and is asked only for
+production and for the inputs listed below. It does not replace
+`docs/strategy/oruwa-master-roadmap.md`; it is the concrete next-phase order
+inside it.
+
+## Founder inputs (the only things the CTO cannot do alone) — status 2026-10-12
+
+| Input | Needed for | Status |
+|---|---|---|
+| QA3 run by the Founder (`docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-08.md`) | Stage 1 | open |
+| QA account passwords in `.claude/qa-accounts.local.md` (gitignored) | CTO live QA without the Founder | open |
+| A way for the CTO to read QA emails (dedicated QA inbox it can query, or forwarding) | invite / reset / reminder tests without copy-paste | open — CTO proposes options |
+| Supabase access token (Cloud DEV only) or keep doing Dashboard edits by hand | email templates, auth settings via API | open |
+| 2–3 more Founder mailbox aliases (`+staffd`, `+staffe`) | QA4 | open |
+| Allergen list + wording decision, native/legal check (DEBT-053 A-09) | release | open — brief in the 2026-10-12 handoff |
+| LINE Official Account + Messaging API channel | Stage 4A | later |
+| Stripe (or other) account, legal texts (プライバシーポリシー, 利用規約, 特商法) | Stage 4H | later |
+| Production: deploy, DB, env, `main` | Stage 4G | Founder gate |
 
 ## Invariant (Founder, binding)
 

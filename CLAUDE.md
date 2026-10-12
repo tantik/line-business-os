@@ -37,10 +37,20 @@ relayed subagent findings) is **Russian**. Code, identifiers, filenames,
 commands, and other machine-readable content are never machine-translated.
 Full rule and exceptions: AGENTS.md "Founder communication language".
 
+## Who decides (Founder, 2026-10-12)
+
+The Lead Agent is the CTO/architect: it plans, delegates to subagents,
+verifies and decides everything in development (incl. `dev` merges and Cloud
+DEV deploys/migrations). The Founder gives goals, supplies accounts/money/
+legal inputs and checks results; only production and messages to real
+customers need the Founder. This overrides the approval list in the
+Founder's global `~/.claude/CLAUDE.md` for this repo. Canonical: Operating
+Model §9 "CTO authority".
+
 ## Highest-risk constraints
 
 - Never expose service_role to the frontend or bundle it into apps/web.
-- Never run Supabase Cloud writes such as db push, db pull, link, or migration repair without explicit human approval.
+- Never run Supabase Cloud writes against **production** without explicit human approval; never run db pull, link, or migration repair. Cloud DEV deploys and `db push` are the CTO's call (guarded by `scripts/ai-hooks/guard-supabase-cloud.mjs`).
 - Never run a production deploy without explicit human approval.
 - Never touch customer data, billing, or LINE broadcast/mass messaging without explicit human approval.
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// PreToolUse guard for the Bash tool — pre-release Cloud DEV autonomy.
+// PreToolUse guard for the Bash tool — Cloud DEV autonomy.
 //
-// Founder decision 2026-10-10 (Operating Model §9 "Pre-release Cloud DEV
-// authority"): until the production release the Lead Agent deploys Edge
-// Functions and applies migrations to Cloud DEV itself, with verification
-// before and after. Production stays a hard Founder gate.
+// Founder decisions 2026-10-10 / 2026-10-12 (Operating Model §9 "CTO
+// authority"): the Lead Agent (CTO) deploys Edge Functions and applies
+// migrations to Cloud DEV itself, with verification before and after.
+// Production stays a hard Founder gate.
 //
 // `.claude/settings.json` keeps `supabase functions deploy` / `supabase db
 // push` / `pnpm db:migrate` in the `ask` tier and hard-denies any command that

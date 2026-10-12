@@ -16,8 +16,10 @@
 #      DESTRUCTIVE_SQL_REGEX below. A routine additive migration (new
 #      table/column/view/RPC/index, RLS policy add) auto-merges like any
 #      other dev-bound PR (Founder standing authority, 2026-09-05); a
-#      migration matching the destructive pattern still requires Founder
-#      approval, same as before.
+#      migration matching the destructive pattern merges only when the
+#      caller passes --db-review-pass, asserting the DB/security reviewer
+#      passed it (Founder decision 2026-10-12, Operating Model §9 "CTO
+#      authority"). It only reaches Cloud DEV; production stays a Founder gate.
 #
 # Judgment gates that cannot be mechanically verified from PR metadata
 # (implementation complete, CTO review, Independent Reviewer PASS where
@@ -34,6 +36,8 @@
 set -euo pipefail
 
 PR="${1:-}"
+DB_REVIEW_PASS=0
+if [[ "${2:-}" == "--db-review-pass" ]]; then DB_REVIEW_PASS=1; fi
 
 if [[ ! "$PR" =~ ^[0-9]+$ ]]; then
   echo "BLOCK: usage: ai-dev-merge.sh <PR_NUMBER> (numeric PR number only)" >&2
@@ -107,8 +111,11 @@ if [[ -n "$migration_files" ]]; then
     | grep -E '^\+' \
     | grep -viE '^\+\+\+' \
     | grep -iE "$DESTRUCTIVE_SQL_REGEX" || true)"
-  if [[ -n "$destructive_hit" ]]; then
-    echo "BLOCK: PR #$PR's migration(s) contain a destructive SQL pattern — requires Founder approval:" >&2
+  if [[ -n "$destructive_hit" && "$DB_REVIEW_PASS" == "1" ]]; then
+    echo "NOTE: destructive SQL pattern present; merging on --db-review-pass (DB/security reviewer PASS asserted by the CTO):"
+    echo "$destructive_hit"
+  elif [[ -n "$destructive_hit" ]]; then
+    echo "BLOCK: PR #$PR's migration(s) contain a destructive SQL pattern — re-run with --db-review-pass after the DB/security reviewer PASS:" >&2
     echo "$destructive_hit" >&2
     exit 1
   fi
