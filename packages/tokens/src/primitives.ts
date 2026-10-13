@@ -163,12 +163,19 @@ export const borderWidth = {
   thick: '2px',
 } as const;
 
+/**
+ * Stacking order. `dropdown` (Menu, Select popovers) sits ABOVE `modal`: a
+ * popover opened from inside a Dialog must render on top of that Dialog
+ * (QA3 finding 2026-10-13 — at 1000 the Inventory "•••" menu opened behind
+ * the Inventory popup and looked dead). Popovers are always the topmost
+ * thing the user just opened, so this is safe on plain pages too.
+ */
 export const zIndex = {
   base: '0',
-  dropdown: '1000',
   sticky: '1100',
   overlay: '1200',
   modal: '1300',
+  dropdown: '1350',
   toast: '1400',
   tooltip: '1500',
 } as const;
