@@ -81,10 +81,10 @@
   --oruwa-control-height-lg: 44px;
   --oruwa-control-tap-target-min: 44px;
   --oruwa-z-base: 0;
-  --oruwa-z-dropdown: 1000;
   --oruwa-z-sticky: 1100;
   --oruwa-z-overlay: 1200;
   --oruwa-z-modal: 1300;
+  --oruwa-z-dropdown: 1350;
   --oruwa-z-toast: 1400;
   --oruwa-z-tooltip: 1500;
   --oruwa-focus-ring-width: 2px;

@@ -98,3 +98,12 @@ test('cssVar / varName helpers', () => {
   assert.equal(cssVar('font-size', '2xl'), 'var(--oruwa-font-size-2xl)');
   assert.equal(cssVar('color', 'bg', '#FAF3E7'), 'var(--oruwa-color-bg, #FAF3E7)');
 });
+
+test('popovers (dropdown) stack above modal dialogs, overlays and sticky bars, below toast', async () => {
+  const { zIndex } = await import('./src/primitives');
+  const z = (k: keyof typeof zIndex) => Number(zIndex[k]);
+  assert.ok(z('dropdown') > z('modal'), 'a Menu/Select opened inside a Dialog must render on top of it');
+  assert.ok(z('dropdown') > z('overlay'));
+  assert.ok(z('dropdown') > z('sticky'));
+  assert.ok(z('dropdown') < z('toast'));
+});
