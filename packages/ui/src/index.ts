@@ -17,6 +17,8 @@ export { InlineAlert } from './inline-alert';
 export type { InlineAlertProps } from './inline-alert';
 export { Dialog } from './dialog';
 export type { DialogProps, DialogSize } from './dialog';
+export { ImageViewer } from './image-viewer';
+export type { ImageViewerProps } from './image-viewer';
 export { ConfirmDialog } from './confirm-dialog';
 export type { ConfirmDialogProps } from './confirm-dialog';
 export { SegmentedControl } from './segmented-control';

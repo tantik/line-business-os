@@ -8,7 +8,8 @@ import { deleteInventoryItemAction, setInventoryItemActiveAction } from '@/lib/i
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
-import { ActionsMenu, ConfirmDialog, LightboxTrigger, Modal } from '@/components/shared/design-kit';
+import { Menu } from '@line-os/ui';
+import { ConfirmDialog, LightboxTrigger, Modal } from '@/components/shared/design-kit';
 import {
   backLink,
   badgeStyle,
@@ -282,17 +283,20 @@ function TableRow({ item, mediaUrl, locationId, locationTimezone, canManage, sta
             >
               ✎
             </button>
-            <ActionsMenu
-              triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+            {/* Radix `Menu`, not the design-kit `ActionsMenu`: this body renders inside the
+                Radix `Dialog` of the Inventory popup, which makes everything outside its
+                own layer non-interactive -- ActionsMenu's body portal could not be clicked. */}
+            <Menu
+              label={`${t('moreActionsAriaLabel')} — ${item.name}`}
               items={[
                 item.isActive
-                  ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
-                  : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
+                  ? { key: 'deactivate', label: t('deactivateButton'), onSelect: () => setConfirmToggleActive(true), disabled: isPending }
+                  : { key: 'reactivate', label: t('reactivateButton'), onSelect: () => setActive(true), disabled: isPending },
                 // 0082 (Founder decision, 2026-08-23): permanent delete now
                 // works for a counted item too -- it deletes the item's own
                 // stock-count history along with it. Always offered again;
                 // no client-side gating on countedAt.
-                { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                { key: 'delete', label: t('deleteButton'), onSelect: () => setConfirmDeleteOpen(true), destructive: true, disabled: isPending },
               ]}
             />
           </div>
@@ -409,13 +413,13 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
                 >
                   ✎
                 </button>
-                <ActionsMenu
-                  triggerLabel={`${t('moreActionsAriaLabel')} — ${item.name}`}
+                <Menu
+                  label={`${t('moreActionsAriaLabel')} — ${item.name}`}
                   items={[
                     item.isActive
-                      ? { label: t('deactivateButton'), onClick: () => setConfirmToggleActive(true), disabled: isPending }
-                      : { label: t('reactivateButton'), onClick: () => setActive(true), disabled: isPending },
-                    { label: t('deleteButton'), onClick: () => setConfirmDeleteOpen(true), danger: true, disabled: isPending },
+                      ? { key: 'deactivate', label: t('deactivateButton'), onSelect: () => setConfirmToggleActive(true), disabled: isPending }
+                      : { key: 'reactivate', label: t('reactivateButton'), onSelect: () => setActive(true), disabled: isPending },
+                    { key: 'delete', label: t('deleteButton'), onSelect: () => setConfirmDeleteOpen(true), destructive: true, disabled: isPending },
                   ]}
                 />
               </>
