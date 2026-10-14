@@ -15,7 +15,7 @@ export default async function LinkInvalidPage({ searchParams }: { searchParams: 
   const body = reason === 'invite' ? 'linkInvalidInviteBody' : reason === 'reset' ? 'linkInvalidResetBody' : 'linkInvalidBody';
 
   return (
-    <AuthShell title="linkInvalidTitle">
+    <AuthShell title="linkInvalidTitle" documentTitle="linkInvalidTitle">
       <AuthText k={body} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {reason === 'invite' ? null : <AuthLink href="/forgot-password" k="requestNewLink" asButton />}

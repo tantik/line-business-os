@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   customShiftTimeRangeLabel,
   describeExchangeError,
   earningsEstimatedSuffix,
   earningsWorkedHoursValue,
+  exchangeDecidedMessage,
   existingExchangeMessage,
   inventoryShortageLabel,
   scheduledThisWeekValue,
@@ -79,6 +81,27 @@ test('scheduledThisWeekValue interpolates the hours value and differs by languag
   assert.match(scheduledThisWeekValue.en('12.5'), /12\.5/);
   assert.match(scheduledThisWeekValue.ja('12.5'), /12\.5/);
   assert.notEqual(scheduledThisWeekValue.en('12.5'), scheduledThisWeekValue.ja('12.5'));
+});
+
+test('scheduledThisWeekValue says "this week" only for the current week, "the week shown" otherwise (QA3)', () => {
+  assert.match(scheduledThisWeekValue.ja('8.0', true), /^今週の予定時間/);
+  assert.match(scheduledThisWeekValue.ja('8.0', false), /^この週の予定時間: 8\.0h$/);
+  assert.match(scheduledThisWeekValue.en('8.0', false), /week shown/);
+  assert.equal(scheduledThisWeekValue.en('8.0'), scheduledThisWeekValue.en('8.0', true));
+});
+
+test('exchangeDecidedMessage states approved/rejected with the decision time in both languages (QA3)', () => {
+  assert.equal(exchangeDecidedMessage.ja('rejected', '2026-10-14 12:00'), '申請は却下されました（2026-10-14 12:00）');
+  assert.equal(exchangeDecidedMessage.ja('approved', '2026-10-14 12:00'), '申請は承認されました（2026-10-14 12:00）');
+  assert.match(exchangeDecidedMessage.en('rejected', '2026-10-14 12:00'), /rejected \(2026-10-14 12:00\)/);
+  assert.match(exchangeDecidedMessage.en('approved', '2026-10-14 12:00'), /approved/);
+});
+
+test('the Staff shift dialog renders the decided-request notice from the shared view-model helper (QA3)', () => {
+  const source = readFileSync(new URL('./staff-dashboard-client.tsx', import.meta.url), 'utf8');
+  assert.match(source, /latestDecidedOwnExchangeForShift\(exchanges \?\? \[\], selectedAssignment\.assignmentId, profile\.staffId\)/);
+  assert.match(source, /exchangeDecidedMessage\[lang\]\(decidedExchangeForSelected\.status/);
+  assert.match(source, /\{decidedExchangeNotice\}/);
 });
 
 test('inventoryShortageLabel interpolates the count and differs by language', () => {

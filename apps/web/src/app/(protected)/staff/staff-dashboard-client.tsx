@@ -24,6 +24,7 @@ import { getMyStaffMessages } from '@/lib/workforce/staff-messages-actions';
 import {
   buildStaffScheduleRoster,
   computeStaffAttentionCellKeys,
+  latestDecidedOwnExchangeForShift,
   toStaffViewAssignments,
   toStaffViewShiftTypes,
 } from '@/lib/workforce/staff-schedule-view-model';
@@ -36,6 +37,7 @@ import {
   customShiftTimeRangeLabel,
   earningsEstimatedSuffix,
   earningsWorkedHoursValue,
+  exchangeDecidedMessage,
   existingExchangeMessage,
   scheduledThisWeekValue,
   tStaffDashboard,
@@ -472,6 +474,19 @@ function StaffDashboardBody({
         exchange.shiftId === selectedAssignment.assignmentId && exchange.status !== 'rejected' && exchange.status !== 'cancelled',
     );
   }, [exchanges, selectedAssignment]);
+  // QA3 (2026-10-14): a Manager's approve/reject on the caller's own latest
+  // request for this shift -- previously the "!" just vanished and Staff was
+  // never told the outcome.
+  const decidedExchangeForSelected = useMemo(
+    () => (selectedAssignment ? latestDecidedOwnExchangeForShift(exchanges ?? [], selectedAssignment.assignmentId, profile.staffId) : null),
+    [exchanges, selectedAssignment, profile.staffId],
+  );
+  const decidedExchangeNotice = decidedExchangeForSelected
+    ? (() => {
+        const decided = utcIsoToLocalDateTime(decidedExchangeForSelected.decidedAt ?? decidedExchangeForSelected.updatedAt, timeZone);
+        return exchangeDecidedMessage[lang](decidedExchangeForSelected.status, `${decided.workDate} ${decided.localTime}`);
+      })()
+    : null;
   // Scoped to just the opened date -- `CorrectionRequestForm`'s "related work
   // report" picker should only offer that date's own attendance row(s), not
   // every week's.
@@ -792,7 +807,7 @@ function StaffDashboardBody({
         ) : (
           <>
             <p style={{ margin: '12px 0 0', fontSize: 14, fontWeight: 600, color: colors.textPrimary }}>
-              {scheduledThisWeekValue[lang](weeklyHours.toFixed(1))}
+              {scheduledThisWeekValue[lang](weeklyHours.toFixed(1), activeWeekOffset === 0)}
             </p>
             <div style={{ marginTop: 8 }} onTouchStart={handleScheduleTouchStart} onTouchEnd={handleScheduleTouchEnd}>
               <ShiftTable
@@ -851,6 +866,9 @@ function StaffDashboardBody({
                       </div>
                     ))}
                   </div>
+                  {decidedExchangeNotice ? (
+                    <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: colors.textPrimary }}>{decidedExchangeNotice}</p>
+                  ) : null}
                   {canRequestExchange ? (
                     <div style={{ paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 0 4px' }}>
@@ -867,7 +885,7 @@ function StaffDashboardBody({
                         }}
                       />
                     </div>
-                  ) : existingExchangeForSelected ? (
+                  ) : existingExchangeForSelected && !(decidedExchangeNotice && existingExchangeForSelected.status === 'approved') ? (
                     <p style={{ ...mutedText, fontSize: 13 }}>{existingExchangeMessage[lang](existingExchangeForSelected.status)}</p>
                   ) : null}
                 </>

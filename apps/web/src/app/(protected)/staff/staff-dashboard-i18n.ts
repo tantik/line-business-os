@@ -461,9 +461,14 @@ export const tStaffDashboard = makeTranslator(dictionary);
 /** Parameterized strings that don't fit `makeTranslator`'s fixed-string shape. */
 
 /** Header title including the caller's own real display name (Cafe v2.1 QA audit P2-7). Mirrors the Surface A reference's `{name} さん` pattern. */
-export const scheduledThisWeekValue: Record<Lang, (hours: string) => string> = {
-  en: (hours) => `Scheduled this week: ${hours}h`,
-  ja: (hours) => `今週の予定時間: ${hours}h`,
+/**
+ * QA3 (2026-10-14): `isCurrentWeek=false` when the Staff has navigated to a
+ * different week -- then it is "the week shown", not "this week" (same
+ * 「この週の…」 wording the Manager schedule uses for the displayed week).
+ */
+export const scheduledThisWeekValue: Record<Lang, (hours: string, isCurrentWeek?: boolean) => string> = {
+  en: (hours, isCurrentWeek = true) => (isCurrentWeek ? `Scheduled this week: ${hours}h` : `Scheduled in the week shown: ${hours}h`),
+  ja: (hours, isCurrentWeek = true) => (isCurrentWeek ? `今週の予定時間: ${hours}h` : `この週の予定時間: ${hours}h`),
 };
 
 export const inventoryShortageLabel: Record<Lang, (count: number) => string> = {
@@ -512,6 +517,16 @@ const exchangeStatusLabel: Record<Lang, Record<string, string>> = {
 export const existingExchangeMessage: Record<Lang, (status: string) => string> = {
   en: (status) => `A ${exchangeStatusLabel.en[status] ?? status} exchange request already exists for this shift.`,
   ja: (status) => `このシフトにはすでに${exchangeStatusLabel.ja[status] ?? status}状態の交換リクエストがあります。`,
+};
+
+/**
+ * QA3 (2026-10-14): outcome of the caller's latest change/exchange/cancel
+ * request for the opened shift, once a Manager has decided it. `dateTime` is
+ * the decision time already formatted in the location's timezone.
+ */
+export const exchangeDecidedMessage: Record<Lang, (status: 'approved' | 'rejected', dateTime: string) => string> = {
+  en: (status, dateTime) => (status === 'approved' ? `Your request was approved (${dateTime}).` : `Your request was rejected (${dateTime}).`),
+  ja: (status, dateTime) => (status === 'approved' ? `申請は承認されました（${dateTime}）` : `申請は却下されました（${dateTime}）`),
 };
 
 /** Minimal JA/EN mapping for the `WorkforceWriteResult` statuses the shift-exchange request form can actually surface -- scoped counterpart to `error-copy.ts`'s English-only `describeWriteError`, for this consolidation's new exchange flow only. */

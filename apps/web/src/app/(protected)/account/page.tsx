@@ -22,7 +22,7 @@ export default async function AccountPage() {
     backHref = await resolvePostLoginPath(await createClient(), tenantContext.data.activeTenant.tenantId);
   }
   return (
-    <AuthShell title="accountTitle">
+    <AuthShell title="accountTitle" documentTitle="accountTitle">
       <AccountSettings email={user.email ?? ''} backHref={backHref} />
     </AuthShell>
   );

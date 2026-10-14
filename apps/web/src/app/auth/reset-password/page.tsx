@@ -21,7 +21,7 @@ export default async function ResetPasswordPage() {
   if (!(await hasRecentRecoverySession(supabase))) redirect(`${LINK_INVALID_PATH}?reason=reset`);
 
   return (
-    <AuthShell title="resetTitle" lead="resetLead">
+    <AuthShell title="resetTitle" lead="resetLead" documentTitle="resetTitle">
       <ResetPasswordForm />
     </AuthShell>
   );

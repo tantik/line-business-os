@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'パスワードの再設定', robots
 
 export default function ForgotPasswordPage() {
   return (
-    <AuthShell title="forgotTitle">
+    <AuthShell title="forgotTitle" documentTitle="forgotTitle">
       <ForgotPasswordForm />
     </AuthShell>
   );

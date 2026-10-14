@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { tAuth, type AuthCopyKey } from '@/lib/auth/auth-copy';
 import { backLink, mutedText, pageStyle } from '@/lib/ui/theme';
+import { useDocumentTitle } from '@/lib/ui/document-title';
 
 /**
  * Minimal, reusable "safe state" components for authenticated/tenant-aware
@@ -13,8 +14,22 @@ import { backLink, mutedText, pageStyle } from '@/lib/ui/theme';
  * stored dashboard language) and never expose internal error details.
  */
 
-function StateBody({ title, body, children, homeLink }: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean }) {
+function StateBody({
+  title,
+  body,
+  children,
+  homeLink,
+  setDocumentTitle = true,
+}: {
+  title: AuthCopyKey;
+  body?: AuthCopyKey;
+  children?: ReactNode;
+  homeLink?: boolean;
+  /** QA3 (2026-10-14): the tab title follows the state headline (e.g. "アクセスできません | ORUWA" instead of the route's "Manager | ORUWA"). Off for the transient loading state, which must not race the next page's own title. */
+  setDocumentTitle?: boolean;
+}) {
   const { lang } = useLang();
+  useDocumentTitle(setDocumentTitle ? tAuth(lang, title) : null);
   return (
     <main style={pageStyle(720)}>
       <h1>{tAuth(lang, title)}</h1>
@@ -29,7 +44,7 @@ function StateBody({ title, body, children, homeLink }: { title: AuthCopyKey; bo
   );
 }
 
-function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean }) {
+function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean; setDocumentTitle?: boolean }) {
   return (
     <LangProvider>
       <StateBody {...props} />
@@ -38,7 +53,7 @@ function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: 
 }
 
 export function LoadingState() {
-  return <StateShell title="loadingTitle" body="loadingBody" />;
+  return <StateShell title="loadingTitle" body="loadingBody" setDocumentTitle={false} />;
 }
 
 export function ErrorState({ message }: { message?: string }) {
