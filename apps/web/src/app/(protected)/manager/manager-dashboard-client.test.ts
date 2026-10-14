@@ -23,7 +23,17 @@ test('a filled schedule cell is a single clickable button, no Draft/Published br
   assert.doesNotMatch(SOURCE, /publishedReadOnly/, 'the removed read-only dead end must not be reintroduced');
   const cellFn = cellFnSource();
   assert.match(cellFn, /onClick=\{\(\) => setEditingCell\(\{ staffId: s\.staffId, date \}\)\}/g);
-  assert.doesNotMatch(cellFn, /entry\.assignment\.published/, 'a filled cell must not branch on published status at all -- that concept is gone from Manager UX');
+  // QA3 (2026-10-14): the ONLY sanctioned use of `published` in the cell is the
+  // screen-reader draft suffix on the accessible name; click/visual must not branch on it.
+  const sanctioned = "const draftAriaSuffix = entry.assignment.published ? '' : t('draftCellAriaSuffix');";
+  assert.ok(cellFn.includes(sanctioned), 'expected the draft aria-suffix line');
+  assert.doesNotMatch(cellFn.replace(sanctioned, ''), /entry\.assignment\.published/, 'a filled cell must not branch on published status at all -- that concept is gone from Manager UX');
+});
+
+test('QA3: an unpublished cell says so in its accessible name (aria-label/title), via the draft suffix', () => {
+  const cellFn = cellFnSource();
+  assert.match(cellFn, /`\$\{cellText\}\$\{draftAriaSuffix\}`/);
+  assert.match(cellFn, /aria-label=\{ariaLabel\}/);
 });
 
 test('the empty-cell and filled-cell affordances are both a single <button>, not a stacked badge/button block', () => {

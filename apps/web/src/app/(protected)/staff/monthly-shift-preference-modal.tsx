@@ -175,7 +175,11 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
         </>
       }
     >
-      {error ? <div style={{ ...alertDanger, marginBottom: 10 }}>{error}</div> : null}
+      {error ? (
+        <div role="alert" style={{ ...alertDanger, marginBottom: 10 }}>
+          {error}
+        </div>
+      ) : null}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginBottom: 10 }}>
         {cycleOptions.map((value) => {

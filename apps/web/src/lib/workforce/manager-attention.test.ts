@@ -8,7 +8,188 @@ import {
   computePendingCorrectionCellKeys,
   computeDailyStaffingCoverage,
   buildManagerAttentionQueue,
+  classifyIssueForAttention,
+  countOpenIssuesForAttention,
+  countOpenOperationsExceptionsForAttention,
+  type AttentionIssueInput,
+  type AttentionOperationsExceptionInput,
 } from './manager-attention.js';
+
+function issue(overrides: Partial<AttentionIssueInput> & { issueId: string }): AttentionIssueInput {
+  return { kind: 'issue', severity: 'normal', status: 'open', businessDate: '2026-10-14', note: '', operationsExceptionId: null, ...overrides };
+}
+
+function exception(overrides: Partial<AttentionOperationsExceptionInput> & { exceptionId: string }): AttentionOperationsExceptionInput {
+  return { severity: 'action_required', source: 'critical_missed', businessDate: '2026-10-14', templateName: 'Opening', createdAt: '2026-10-14T00:00:00.000Z', ...overrides };
+}
+
+test('classifyIssueForAttention: open important issue is action-required, open normal/unset-severity issue is a notice', () => {
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'i1', severity: 'important' })), 'action_required');
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'i2', severity: 'normal' })), 'warning');
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'i3', severity: null })), 'warning');
+});
+
+test('classifyIssueForAttention ignores handovers, acknowledged and resolved issues', () => {
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'h1', kind: 'handover', severity: 'important' })), null);
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'a1', status: 'acknowledged', severity: 'important' })), null);
+  assert.equal(classifyIssueForAttention(issue({ issueId: 'r1', status: 'resolved', severity: 'important' })), null);
+});
+
+test('classifyIssueForAttention skips an issue linked to a still-open Operations exception (no double count)', () => {
+  const linked = issue({ issueId: 'i1', severity: 'important', operationsExceptionId: 'ex-1' });
+  assert.equal(classifyIssueForAttention(linked, new Set(['ex-1'])), null);
+  assert.equal(classifyIssueForAttention(linked, new Set(['ex-2'])), 'action_required');
+});
+
+test('countOpenIssuesForAttention splits critical vs notice; null input (module off / read failed) stays null', () => {
+  assert.equal(countOpenIssuesForAttention(null), null);
+  assert.deepEqual(
+    countOpenIssuesForAttention([
+      issue({ issueId: 'i1', severity: 'important' }),
+      issue({ issueId: 'i2', severity: 'normal' }),
+      issue({ issueId: 'i3', severity: null }),
+      issue({ issueId: 'h1', kind: 'handover' }),
+      issue({ issueId: 'a1', status: 'acknowledged', severity: 'important' }),
+    ]),
+    { actionRequired: 1, notice: 2 },
+  );
+});
+
+test('countOpenOperationsExceptionsForAttention uses each exception severity; null stays null', () => {
+  assert.equal(countOpenOperationsExceptionsForAttention(null), null);
+  assert.deepEqual(
+    countOpenOperationsExceptionsForAttention([
+      exception({ exceptionId: 'e1', severity: 'action_required' }),
+      exception({ exceptionId: 'e2', severity: 'action_required' }),
+      exception({ exceptionId: 'e3', severity: 'warning' }),
+    ]),
+    { actionRequired: 2, notice: 1 },
+  );
+});
+
+test('computeManagerAttention adds issue and operations categories after exchange, with their action-required split', () => {
+  const items = computeManagerAttention({
+    pendingCorrectionCount: 1,
+    pendingExchangeCount: 1,
+    openIssueCounts: { actionRequired: 1, notice: 2 },
+    openOperationsExceptionCounts: { actionRequired: 2, notice: 0 },
+    unavailableConflictCount: 1,
+    inventoryShortageCount: 1,
+  });
+  assert.deepEqual(items, [
+    { category: 'correction', count: 1 },
+    { category: 'exchange', count: 1 },
+    { category: 'issue', count: 3, actionRequiredCount: 1 },
+    { category: 'operations', count: 2, actionRequiredCount: 2 },
+    { category: 'unavailable_conflict', count: 1 },
+    { category: 'inventory', count: 1 },
+  ]);
+});
+
+test('computeManagerAttention omits issue/operations when null or zero (QA3 regression: a single important issue must appear)', () => {
+  assert.deepEqual(
+    computeManagerAttention({
+      pendingCorrectionCount: 0,
+      pendingExchangeCount: 0,
+      openIssueCounts: null,
+      openOperationsExceptionCounts: { actionRequired: 0, notice: 0 },
+      unavailableConflictCount: 0,
+      inventoryShortageCount: null,
+    }),
+    [],
+  );
+  const items = computeManagerAttention({
+    pendingCorrectionCount: 0,
+    pendingExchangeCount: 0,
+    openIssueCounts: countOpenIssuesForAttention([issue({ issueId: 'i1', severity: 'important' })]),
+    unavailableConflictCount: 0,
+    inventoryShortageCount: null,
+  });
+  assert.deepEqual(items, [{ category: 'issue', count: 1, actionRequiredCount: 1 }]);
+  assert.deepEqual(computeManagerAttentionSummary(items), { total: 1, actionRequiredCount: 1, warningCount: 0 });
+});
+
+test('computeManagerAttentionSummary splits mixed-severity issue/operations items into action-required and warnings', () => {
+  const summary = computeManagerAttentionSummary([
+    { category: 'correction', count: 1 },
+    { category: 'issue', count: 3, actionRequiredCount: 1 },
+    { category: 'operations', count: 2, actionRequiredCount: 1 },
+    { category: 'inventory', count: 4 },
+  ]);
+  assert.deepEqual(summary, { total: 10, actionRequiredCount: 3, warningCount: 7 });
+});
+
+test('buildManagerAttentionQueue lists issue/operations items with per-item severity, consistent with the counts', () => {
+  const openIssues = [
+    issue({ issueId: 'i-normal', severity: 'normal', businessDate: '2026-10-10' }),
+    issue({ issueId: 'i-critical', severity: 'important', businessDate: '2026-10-12' }),
+    issue({ issueId: 'h1', kind: 'handover' }),
+  ];
+  const openOperationsExceptions = [
+    exception({ exceptionId: 'e-warn', severity: 'warning', businessDate: '2026-10-01' }),
+    exception({ exceptionId: 'e-act', severity: 'action_required', businessDate: '2026-10-13' }),
+  ];
+  const items = buildManagerAttentionQueue({
+    pendingCorrections: [{ requestId: 'req-1', employeeId: 'emp-1', workDate: '2026-10-01' }],
+    pendingExchanges: [],
+    openIssues,
+    openOperationsExceptions,
+    unavailableConflicts: [{ employeeId: 'emp-3', workDate: '2026-10-02' }],
+    inventoryShortageItems: [],
+  });
+  assert.deepEqual(
+    items.map((i) => [i.id, i.severity]),
+    [
+      ['correction:req-1', 'action_required'],
+      ['issue:i-critical', 'action_required'],
+      ['issue:i-normal', 'warning'],
+      ['operations:Opening|critical_missed|action_required', 'action_required'],
+      ['operations:Opening|critical_missed|warning', 'warning'],
+      ['conflict:emp-3:2026-10-02', 'warning'],
+    ],
+  );
+  const issueCounts = countOpenIssuesForAttention(openIssues);
+  const queueIssues = items.filter((i) => i.category === 'issue');
+  assert.equal(queueIssues.length, (issueCounts?.actionRequired ?? 0) + (issueCounts?.notice ?? 0));
+});
+
+test('buildManagerAttentionQueue collapses Operations exceptions by task+source+severity (same key as the Operations popup), one row with a count and the newest date', () => {
+  const repeated = Array.from({ length: 14 }, (_, i) =>
+    exception({
+      exceptionId: `e-${String(i).padStart(2, '0')}`,
+      source: 'critical_missed',
+      severity: 'action_required',
+      templateName: 'Fridge check',
+      businessDate: `2026-10-${String(i + 1).padStart(2, '0')}`,
+      createdAt: `2026-10-${String(i + 1).padStart(2, '0')}T09:00:00.000Z`,
+    }),
+  );
+  const items = buildManagerAttentionQueue({
+    pendingCorrections: [],
+    pendingExchanges: [],
+    openOperationsExceptions: [
+      ...repeated,
+      exception({ exceptionId: 'th-1', source: 'threshold', severity: 'warning', templateName: 'Fridge check', createdAt: '2026-10-20T00:00:00.000Z' }),
+      exception({ exceptionId: 'ot-1', source: 'critical_missed', severity: 'action_required', templateName: 'Closing', createdAt: '2026-10-02T00:00:00.000Z' }),
+    ],
+    unavailableConflicts: [],
+    inventoryShortageItems: [],
+  });
+  const ops = items.filter((i): i is Extract<typeof i, { category: 'operations' }> => i.category === 'operations');
+  assert.deepEqual(
+    ops.map((g) => [g.templateName, g.source, g.severity, g.count, g.latestBusinessDate]),
+    [
+      ['Fridge check', 'critical_missed', 'action_required', 14, '2026-10-14'],
+      ['Closing', 'critical_missed', 'action_required', 1, '2026-10-14'],
+      ['Fridge check', 'threshold', 'warning', 1, '2026-10-14'],
+    ],
+  );
+  // Grouping is presentation only: the Level-1 count still counts every open exception.
+  assert.deepEqual(
+    countOpenOperationsExceptionsForAttention([...repeated]),
+    { actionRequired: 14, notice: 0 },
+  );
+});
 
 test('computeManagerAttention returns an empty list when nothing needs action (the calm state)', () => {
   const items = computeManagerAttention({

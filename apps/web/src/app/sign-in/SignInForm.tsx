@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { signIn } from '@/lib/auth/actions';
 import { AuthLink, authInput, useAuthT } from '@/components/auth/AuthShell';
@@ -9,6 +9,32 @@ import { alertDanger, buttonDisabled, buttonPrimary, mutedText } from '@/lib/ui/
 
 const labelStyle = { display: 'block', marginBottom: 12 } as const;
 const ERROR_ID = 'sign-in-error';
+/**
+ * QA3 (2026-10-14): a failed sign-in re-renders `/sign-in?error=1` and the
+ * typed email was lost. The email is kept for that one round-trip in this
+ * tab's `sessionStorage` only -- never in the URL (no PII in query strings,
+ * history, or server logs) and never sent anywhere new. Restored only when
+ * `?error=1` is present, for every failure alike, so it reveals nothing about
+ * whether the account exists.
+ */
+const EMAIL_STASH_KEY = 'oruwa:sign-in-email';
+
+function readEmailStash(): string | null {
+  try {
+    return window.sessionStorage.getItem(EMAIL_STASH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeEmailStash(email: string | null) {
+  try {
+    if (email) window.sessionStorage.setItem(EMAIL_STASH_KEY, email);
+    else window.sessionStorage.removeItem(EMAIL_STASH_KEY);
+  } catch {
+    // Storage unavailable (private mode / disabled) -- the email simply is not kept.
+  }
+}
 
 /**
  * Client wrapper around the `signIn` Server Action form. Submission itself
@@ -23,14 +49,39 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<AuthCopyKey | null>(null);
   const error: AuthCopyKey | null = localError ?? (hasError ? 'signInError' : null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // A plain (non-error) visit drops any leftover stash from an earlier tab
+  // session -- mount only, so it never races the submit that just wrote it.
+  useEffect(() => {
+    if (!hasError) writeEmailStash(null);
+  }, []); // mount-only by design
+
+  // No dependency list on purpose: React resets the form after the action
+  // round-trip, and this must run after whichever commit does that. Restores
+  // at most once per stash (the stash is removed on restore), and never
+  // overwrites something the user has typed.
+  useEffect(() => {
+    if (!hasError) return;
+    const input = emailRef.current;
+    if (!input || input.value) return;
+    const saved = readEmailStash();
+    if (!saved) return;
+    input.value = saved;
+    writeEmailStash(null);
+    passwordRef.current?.focus();
+  });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const data = new FormData(event.currentTarget);
-    if (!String(data.get('email') ?? '').trim() || !String(data.get('password') ?? '')) {
+    const email = String(data.get('email') ?? '').trim();
+    if (!email || !String(data.get('password') ?? '')) {
       event.preventDefault();
       setLocalError('signInMissing');
       return;
     }
+    writeEmailStash(email);
     setLocalError(null);
     setIsSubmitting(true);
   }
@@ -49,6 +100,7 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
         <label style={labelStyle}>
           {t('email')}
           <input
+            ref={emailRef}
             type="email"
             name="email"
             required
@@ -64,6 +116,7 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
         <label style={labelStyle}>
           {t('password')}
           <input
+            ref={passwordRef}
             type="password"
             name="password"
             required

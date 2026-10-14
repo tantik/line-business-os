@@ -58,6 +58,13 @@ interface ManagerDashboardDict {
   attentionReviewAllHelpTitle: string;
   attentionReviewAllHelpBody: string;
   attentionWarningsGroupHeading: string;
+  // QA3 (2026-10-14): Issues + Operations exceptions folded into Attention.
+  attentionIssueTitle: string;
+  attentionOperationsTitle: string;
+  attentionItemIssueCriticalTitle: string;
+  attentionItemIssueNoticeTitle: string;
+  attentionOpenIssues: string;
+  attentionOpenOperations: string;
   // Entry-points card (Recipes/Inventory/Manage staff)
   entryPointsHeading: string;
   // Staff section
@@ -282,6 +289,8 @@ interface ManagerDashboardDict {
   // (past, quiet "-" by default).
   assignCellAriaLabelPrefix: string;
   editCellAriaLabelPrefix: string;
+  /** QA3 (2026-10-14): appended to an unpublished (draft) cell's aria-label/title. */
+  draftCellAriaSuffix: string;
   correctPastScheduleAriaLabelPrefix: string;
   // Shift preferences review popup (Settings entry point). "Reviewed" is
   // persisted as `workforce.shift_requests.status = 'approved'` on the
@@ -447,6 +456,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionReviewAllHelpBody:
       'Shows all current items that need your attention. "Requires action" means someone is waiting for your decision. "Warnings" highlight situations to check, such as a schedule conflict or low stock. Open an item to review or resolve it.',
     attentionWarningsGroupHeading: 'Warnings',
+    attentionIssueTitle: 'Issue reports',
+    attentionOperationsTitle: 'Operations',
+    attentionItemIssueCriticalTitle: 'Issue report – needs action',
+    attentionItemIssueNoticeTitle: 'Issue report',
+    attentionOpenIssues: 'View issues',
+    attentionOpenOperations: 'View Operations',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
     manageStaff: 'Manage staff',
@@ -632,6 +647,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     reassignEmployeeButton: 'Reassign employee',
     assignCellAriaLabelPrefix: 'Assign shift',
     editCellAriaLabelPrefix: 'Edit shift',
+    draftCellAriaSuffix: ' (draft, not published)',
     correctPastScheduleAriaLabelPrefix: 'Correct past schedule',
     shiftRequestsCardTitle: 'Shift requests',
     viewRequestsButton: 'View requests',
@@ -784,6 +800,12 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionReviewAllHelpBody:
       '現在の要確認項目をまとめて表示します。「対応が必要」は、スタッフが店長の判断を待っている項目です。「注意事項」は、シフトの重複や在庫不足など確認しておきたい状態です。項目を開くと、そのまま確認や対応ができます。',
     attentionWarningsGroupHeading: '注意事項',
+    attentionIssueTitle: '問題報告',
+    attentionOperationsTitle: 'オペレーション',
+    attentionItemIssueCriticalTitle: '要対応の問題報告',
+    attentionItemIssueNoticeTitle: '問題報告',
+    attentionOpenIssues: '問題報告を開く',
+    attentionOpenOperations: 'オペレーションを開く',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     staffHeading: 'スタッフ',
     manageStaff: 'スタッフ管理',
@@ -968,6 +990,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     reassignEmployeeButton: '担当を変更',
     assignCellAriaLabelPrefix: 'シフトを割り当てる',
     editCellAriaLabelPrefix: 'シフトを編集',
+    draftCellAriaSuffix: '（下書き・未公開）',
     correctPastScheduleAriaLabelPrefix: '過去のスケジュールを修正',
     shiftRequestsCardTitle: 'シフト希望',
     viewRequestsButton: '希望を見る',
@@ -1150,6 +1173,48 @@ export const attentionExchangeLabel: Record<Lang, (count: number) => string> = {
 export const attentionInventoryLabel: Record<Lang, (count: number) => string> = {
   en: (count) => `${count} inventory item(s) need restocking`,
   ja: (count) => `${count}件の商品が要補充です`,
+};
+
+/** Full chip aria-label for the Issues category: names the critical count when there is one, otherwise the open count. */
+export const attentionIssueLabel: Record<Lang, (count: number, criticalCount: number) => string> = {
+  en: (count, criticalCount) =>
+    criticalCount > 0
+      ? `${criticalCount} issue report(s) need action${count > criticalCount ? `, ${count - criticalCount} other open issue report(s)` : ''}`
+      : `${count} open issue report(s)`,
+  ja: (count, criticalCount) =>
+    criticalCount > 0
+      ? `要対応の問題報告が${criticalCount}件あります${count > criticalCount ? `（その他の未対応の問題報告${count - criticalCount}件）` : ''}`
+      : `未対応の問題報告が${count}件あります`,
+};
+
+/** Visible chip count for the Issues category: the open total, plus the needs-action share when there is one (UX review, PR #584) -- so it never reads as contradicting the red Issues entry badge. */
+export const attentionIssueChipCount: Record<Lang, (count: number, criticalCount: number) => string> = {
+  en: (count, criticalCount) => (criticalCount > 0 ? `${count} (${criticalCount} needs action)` : `${count}`),
+  ja: (count, criticalCount) => (criticalCount > 0 ? `${count}（要対応 ${criticalCount}）` : `${count}`),
+};
+
+/** Operations chip aria-label: distinguishes needs-action from warning counts (Operations module's own 要対応/注意 terms). */
+export const attentionOperationsLabel: Record<Lang, (count: number, actionRequiredCount: number) => string> = {
+  en: (count, actionRequiredCount) => {
+    const warnings = count - actionRequiredCount;
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`${actionRequiredCount} need action`);
+    if (warnings > 0) parts.push(`${warnings} warning(s)`);
+    return `Operations: ${parts.join(', ')}`;
+  },
+  ja: (count, actionRequiredCount) => {
+    const warnings = count - actionRequiredCount;
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`要対応${actionRequiredCount}件`);
+    if (warnings > 0) parts.push(`注意${warnings}件`);
+    return `オペレーション：${parts.join('、')}`;
+  },
+};
+
+/** "N occurrences" suffix for a collapsed Operations queue group (shown only when > 1). */
+export const attentionOperationsGroupCount: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} occurrences`,
+  ja: (count) => `${count}件`,
 };
 
 export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => string> = {

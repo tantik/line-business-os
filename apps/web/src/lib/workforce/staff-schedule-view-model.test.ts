@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildStaffScheduleRoster,
   computeStaffAttentionCellKeys,
+  latestDecidedOwnExchangeForShift,
   toStaffViewAssignments,
   toStaffViewShiftTypes,
   toStaffViewWorkReports,
@@ -120,6 +121,40 @@ function shiftExchange(overrides: Partial<WorkforceShiftExchange>): WorkforceShi
     ...overrides,
   };
 }
+
+test('latestDecidedOwnExchangeForShift returns the caller\'s own rejected request for that shift (QA3: Staff must learn of a rejection)', () => {
+  const rejected = shiftExchange({ exchangeId: 'ex-1', status: 'rejected', decidedAt: '2026-10-14T03:00:00.000Z' });
+  const result = latestDecidedOwnExchangeForShift([rejected], 'assignment-default', 'staff-1');
+  assert.equal(result?.exchangeId, 'ex-1');
+  assert.equal(result?.status, 'rejected');
+});
+
+test('latestDecidedOwnExchangeForShift returns an approved request too', () => {
+  const approved = shiftExchange({ exchangeId: 'ex-1', status: 'approved', requestKind: 'change' });
+  assert.equal(latestDecidedOwnExchangeForShift([approved], 'assignment-default', 'staff-1')?.status, 'approved');
+});
+
+test('latestDecidedOwnExchangeForShift returns null when the newest own request is still pending or was withdrawn', () => {
+  const olderRejected = shiftExchange({ exchangeId: 'ex-1', status: 'rejected', createdAt: '2026-10-01T00:00:00.000Z' });
+  const newerOpen = shiftExchange({ exchangeId: 'ex-2', status: 'open', createdAt: '2026-10-05T00:00:00.000Z' });
+  const newerCancelled = shiftExchange({ exchangeId: 'ex-3', status: 'cancelled', createdAt: '2026-10-05T00:00:00.000Z' });
+  assert.equal(latestDecidedOwnExchangeForShift([olderRejected, newerOpen], 'assignment-default', 'staff-1'), null);
+  assert.equal(latestDecidedOwnExchangeForShift([newerCancelled, olderRejected], 'assignment-default', 'staff-1'), null);
+});
+
+test('latestDecidedOwnExchangeForShift picks the newest decided request regardless of input order', () => {
+  const older = shiftExchange({ exchangeId: 'ex-old', status: 'rejected', createdAt: '2026-10-01T00:00:00.000Z' });
+  const newer = shiftExchange({ exchangeId: 'ex-new', status: 'approved', createdAt: '2026-10-03T00:00:00.000Z' });
+  assert.equal(latestDecidedOwnExchangeForShift([older, newer], 'assignment-default', 'staff-1')?.exchangeId, 'ex-new');
+  assert.equal(latestDecidedOwnExchangeForShift([newer, older], 'assignment-default', 'staff-1')?.exchangeId, 'ex-new');
+});
+
+test('latestDecidedOwnExchangeForShift ignores other shifts and requests made by someone else', () => {
+  const otherShift = shiftExchange({ exchangeId: 'ex-1', status: 'rejected', shiftId: 'assignment-other' });
+  const colleagueRequest = shiftExchange({ exchangeId: 'ex-2', status: 'rejected', requesterEmployeeId: 'staff-2', replacementEmployeeId: 'staff-1' });
+  assert.equal(latestDecidedOwnExchangeForShift([otherShift, colleagueRequest], 'assignment-default', 'staff-1'), null);
+  assert.equal(latestDecidedOwnExchangeForShift([], 'assignment-default', 'staff-1'), null);
+});
 
 test('buildStaffScheduleRoster pins self first and never duplicates self', () => {
   const roster = buildStaffScheduleRoster(

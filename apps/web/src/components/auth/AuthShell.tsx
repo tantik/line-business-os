@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { tAuth, type AuthCopyKey } from '@/lib/auth/auth-copy';
 import { backLink, buttonPrimary, card, colors, input, minTouchTarget, mutedText, pageStyle } from '@/lib/ui/theme';
+import { useDocumentTitle } from '@/lib/ui/document-title';
 
 /** Translator bound to the surrounding `AuthShell` language. */
 export function useAuthT(): (key: AuthCopyKey) => string {
@@ -49,9 +50,10 @@ function AuthLangToggle() {
   );
 }
 
-function ShellBody({ title, lead, children }: { title?: AuthCopyKey; lead?: AuthCopyKey; children?: ReactNode }) {
+function ShellBody({ title, lead, documentTitle, children }: { title?: AuthCopyKey; lead?: AuthCopyKey; documentTitle?: AuthCopyKey; children?: ReactNode }) {
   const t = useAuthT();
   const { lang } = useLang();
+  useDocumentTitle(documentTitle ? t(documentTitle) : null);
   // Screen readers pick the voice from <html lang>; keep it in step with the toggle.
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -78,8 +80,10 @@ function ShellBody({ title, lead, children }: { title?: AuthCopyKey; lead?: Auth
  * Shared frame for signed-out account screens and app-wide state pages:
  * ORUWA brand, JA/EN toggle (same `localStorage` choice as the dashboards),
  * one card. JA renders first; a stored EN choice applies after hydration.
+ * `documentTitle` (opt-in) keeps the browser tab title in the selected
+ * language -- the server `metadata.title` is Japanese-only.
  */
-export function AuthShell(props: { title?: AuthCopyKey; lead?: AuthCopyKey; children?: ReactNode }) {
+export function AuthShell(props: { title?: AuthCopyKey; lead?: AuthCopyKey; documentTitle?: AuthCopyKey; children?: ReactNode }) {
   return (
     <LangProvider>
       <ShellBody {...props} />

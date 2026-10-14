@@ -50,7 +50,7 @@ export default async function SignInPage({
   }
 
   return (
-    <AuthShell title="signInTitle" lead="signInLead">
+    <AuthShell title="signInTitle" lead="signInLead" documentTitle="signInTitle">
       <SignInForm returnTo={safeReturnTo} hasError={Boolean(params?.error)} />
     </AuthShell>
   );

@@ -204,3 +204,29 @@ export function computeStaffAttentionCellKeys(
   }
   return attentionCellKeys;
 }
+
+/**
+ * QA3 (2026-10-14): the caller's own most recent change/exchange/cancel
+ * request for one shift, but only when that most recent request has been
+ * DECIDED by a Manager (`approved` / `rejected`) -- so the Staff shift dialog
+ * can say "your request was rejected/approved (when)" instead of the "!"
+ * silently disappearing. Returns `null` when the newest own request is still
+ * open/accepted (the existing "already requested" notice covers that), was
+ * withdrawn by the caller (`cancelled`), or there is none. Only the caller's
+ * own requests count (RLS already lets a requester read their own decided
+ * rows; a colleague's request that names the caller as replacement is not
+ * "their" request). Pure: data the Staff page already loads, no new fetch.
+ */
+export function latestDecidedOwnExchangeForShift(
+  exchanges: readonly WorkforceShiftExchange[],
+  shiftId: string,
+  ownStaffId: string,
+): (WorkforceShiftExchange & { status: 'approved' | 'rejected' }) | null {
+  let latest: WorkforceShiftExchange | null = null;
+  for (const exchange of exchanges) {
+    if (exchange.shiftId !== shiftId || exchange.requesterEmployeeId !== ownStaffId) continue;
+    if (!latest || exchange.createdAt.localeCompare(latest.createdAt) > 0) latest = exchange;
+  }
+  if (!latest || (latest.status !== 'approved' && latest.status !== 'rejected')) return null;
+  return latest as WorkforceShiftExchange & { status: 'approved' | 'rejected' };
+}

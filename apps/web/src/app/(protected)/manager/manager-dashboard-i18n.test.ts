@@ -6,6 +6,10 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionIssueChipCount,
+  attentionIssueLabel,
+  attentionOperationsGroupCount,
+  attentionOperationsLabel,
   attentionSummarySubtitle,
   autoCreateConfigErrorMessage,
   autoCreateCreatedMessage,
@@ -173,6 +177,65 @@ test('the Level-1 Attention subtitle passes the unread mail count that the total
   const source = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
   assert.match(source, /const combinedTotal = summary\.total \+ unreadMailCount;/);
   assert.match(source, /attentionSummarySubtitle\[lang\]\(summary\.actionRequiredCount, summary\.warningCount, unreadMailCount\)/);
+});
+
+test('QA3: Issues/Operations attention copy exists in both languages and names the counts', () => {
+  for (const key of [
+    'attentionIssueTitle',
+    'attentionOperationsTitle',
+    'attentionItemIssueCriticalTitle',
+    'attentionItemIssueNoticeTitle',
+    'attentionOpenIssues',
+    'attentionOpenOperations',
+    'draftCellAriaSuffix',
+  ] as const) {
+    assert.ok(tManagerDashboard('ja', key).length > 0, key);
+    assert.notEqual(tManagerDashboard('ja', key), tManagerDashboard('en', key), key);
+  }
+  assert.equal(tManagerDashboard('ja', 'attentionIssueTitle'), '問題報告');
+  assert.equal(tManagerDashboard('ja', 'attentionOperationsTitle'), 'オペレーション');
+  assert.equal(tManagerDashboard('ja', 'draftCellAriaSuffix'), '（下書き・未公開）');
+  // UX review (PR #584): Issues module's own 要対応 / "Needs action" term, never 重要.
+  assert.equal(tManagerDashboard('ja', 'attentionItemIssueCriticalTitle'), '要対応の問題報告');
+  assert.equal(tManagerDashboard('en', 'attentionItemIssueCriticalTitle'), 'Issue report – needs action');
+  assert.equal(tManagerDashboard('en', 'attentionOpenIssues'), 'View issues');
+  assert.equal(attentionIssueLabel.ja(1, 1), '要対応の問題報告が1件あります');
+  assert.match(attentionIssueLabel.ja(3, 1), /^要対応の問題報告が1件あります（その他の未対応の問題報告2件）$/);
+  assert.equal(attentionIssueLabel.ja(2, 0), '未対応の問題報告が2件あります');
+  assert.match(attentionIssueLabel.en(3, 1), /1 issue report\(s\) need action/);
+  for (const lang of LANGS) {
+    assert.doesNotMatch(attentionIssueLabel[lang](3, 1), /重要|important/i);
+  }
+  assert.equal(attentionIssueChipCount.ja(3, 1), '3（要対応 1）');
+  assert.equal(attentionIssueChipCount.ja(3, 0), '3');
+  assert.equal(attentionIssueChipCount.en(3, 1), '3 (1 needs action)');
+  assert.equal(attentionOperationsLabel.ja(3, 1), 'オペレーション：要対応1件、注意2件');
+  assert.equal(attentionOperationsLabel.ja(2, 0), 'オペレーション：注意2件');
+  assert.equal(attentionOperationsLabel.en(3, 1), 'Operations: 1 need action, 2 warning(s)');
+  assert.equal(attentionOperationsGroupCount.ja(14), '14件');
+});
+
+test('UX review (PR #584): Operations queue rows reuse the Operations module source/severity wording, and the issue chip shows the needs-action share', () => {
+  const panel = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
+  for (const key of ['attentionSourceThreshold', 'attentionSourceCriticalMissed', 'attentionSourceReported', 'severityActionRequired', 'severityWarning']) {
+    assert.ok(panel.includes(`'${key}'`), key);
+  }
+  assert.doesNotMatch(panel, /attentionItemOperationsTitle|attentionOperationsExceptionSummary/);
+  assert.match(panel, /attentionIssueChipCount\[lang\]\(item\.count, item\.actionRequiredCount \?\? 0\)/);
+  assert.match(panel, /Array\.from\(qi\.note\)/);
+});
+
+test('QA3: Attention chips for issue/operations open the existing Issues/Operations popups, and Review-all groups by per-item severity', () => {
+  const panel = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /item\.category === 'issue'\s*\?\s*onOpenIssues/);
+  assert.match(panel, /item\.category === 'operations'\s*\?\s*onOpenOperations/);
+  assert.match(panel, /queueItems\.filter\(\(qi\) => qi\.severity === 'action_required'\)/);
+  const client = readFileSync(new URL('./manager-dashboard-client.tsx', import.meta.url), 'utf8');
+  assert.match(client, /onOpenIssues=\{\(\) => \{\s*markPopupTriggerClick\('issues'\);\s*setIssuesPopupOpen\(true\);/);
+  assert.match(client, /onOpenOperations=\{\(\) => \{\s*markPopupTriggerClick\('operations'\);\s*setOperationsPopupOpen\(true\);/);
+  assert.match(client, /openIssueCounts: countOpenIssuesForAttention\(/);
+  assert.match(client, /openOperationsExceptionCounts: countOpenOperationsExceptionsForAttention\(/);
+  assert.match(client, /entry\.assignment\.published \? '' : t\('draftCellAriaSuffix'\)/);
 });
 
 test('estimatedLabourCostMissingRate interpolates the count and differs by language', () => {
