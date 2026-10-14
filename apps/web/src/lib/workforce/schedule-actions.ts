@@ -23,7 +23,10 @@ import {
 import {
   autoDistribute,
   computeDurationHours,
+  endOfIsoWeek,
+  startOfIsoWeek,
   type AutoDistributeEmployee,
+  type AutoDistributeExistingAssignment,
   type AutoDistributePreference,
   type DraftAssignment,
   type Shortage,
@@ -33,7 +36,7 @@ import {
   buildAuthoritativeStaffingRequirements,
   hasPositiveStaffingRequirement,
 } from './auto-distribution-authority';
-import { getWorkforceScheduleSettings } from './schedule-settings';
+import { DEFAULT_MAX_DAYS_PER_WEEK, DEFAULT_MAX_WEEKLY_HOURS, getWorkforceScheduleSettings } from './schedule-settings';
 import { getMonthPeriodForDate, getWeekPeriod } from './period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from './timezone';
 import {
@@ -281,11 +284,19 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
 
   // Fetch existing assignments across the UNION of every calendar month
   // touched (not just the requested slice) so each month's own
-  // outside-the-slice hours can be summed into that month's cap baseline.
+  // outside-the-slice hours can be summed into that month's cap baseline --
+  // widened further to the whole Monday-Sunday weeks overlapping the period,
+  // so the weekly labour limits (maxWeeklyHours / maxDaysPerWeek) also see
+  // the boundary weeks' out-of-period days. This widens the READ window
+  // only; the write window (clear + insert) stays [periodStart, periodEnd].
   const outerMonthStart = monthSlices[0]!.monthPeriodStart;
   const outerMonthEnd = monthSlices[monthSlices.length - 1]!.monthPeriodEnd;
-  const monthFromIso = localDateTimeToUtcIso(outerMonthStart, '00:00', timeZone);
-  const monthToIsoExclusive = localDateTimeToUtcIso(addIsoDays(outerMonthEnd, 1), '00:00', timeZone);
+  const firstWeekStart = startOfIsoWeek(periodStart);
+  const lastWeekEnd = endOfIsoWeek(periodEnd);
+  const readStart = firstWeekStart < outerMonthStart ? firstWeekStart : outerMonthStart;
+  const readEnd = lastWeekEnd > outerMonthEnd ? lastWeekEnd : outerMonthEnd;
+  const monthFromIso = localDateTimeToUtcIso(readStart, '00:00', timeZone);
+  const monthToIsoExclusive = localDateTimeToUtcIso(addIsoDays(readEnd, 1), '00:00', timeZone);
 
   const [staffResult, shiftTypesResult, preferencesResult, existingMonthResult, scheduleSettingsResult] = await Promise.all([
     listWorkforceStaffDirectory(supabase, tenantId),
@@ -366,6 +377,10 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   const unplaced: UnplacedEmployee[] = [];
   const assignedWithoutPreference: AssignedWithoutPreferenceEntry[] = [];
   let preservedCount = 0;
+  // Drafts placed by earlier slices: a Monday-Sunday week that straddles a
+  // month boundary is split across two slices, so the later slice must see
+  // the earlier slice's drafts to enforce the weekly limits on that week.
+  const draftsFromEarlierSlices: AutoDistributeExistingAssignment[] = [];
 
   for (const slice of monthSlices) {
     const existingAssignmentsThisSliceMonth = existingAssignmentsAllTouchedMonths.filter(
@@ -393,21 +408,44 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
       (p) => p.workDate >= slice.sliceStart && p.workDate <= slice.sliceEnd,
     );
 
+    // Weekly-limit context: every row of the slice's boundary weeks dated
+    // outside this slice that will still stand after this run -- rows outside
+    // [periodStart, periodEnd] (never written by this run, published or not),
+    // published rows inside the period (never cleared), and the drafts the
+    // earlier slices just placed. In-period unconfirmed rows are excluded:
+    // `clearUnconfirmedDraftAssignmentsInPeriod` below removes them. The
+    // engine uses out-of-period rows ONLY for the weekly limits.
+    const sliceWeekStart = startOfIsoWeek(slice.sliceStart);
+    const sliceWeekEnd = endOfIsoWeek(slice.sliceEnd);
+    const inSliceWeeksOutsideSlice = (workDate: string) =>
+      workDate >= sliceWeekStart && workDate <= sliceWeekEnd && (workDate < slice.sliceStart || workDate > slice.sliceEnd);
+    const weeklyContext = [
+      ...existingAssignmentsAllTouchedMonths.filter(
+        (a) =>
+          inSliceWeeksOutsideSlice(a.workDate) &&
+          (a.workDate < periodStart || a.workDate > periodEnd || a.published || a.locked === true),
+      ),
+      ...draftsFromEarlierSlices.filter((d) => inSliceWeeksOutsideSlice(d.workDate)),
+    ];
+
     const sliceResult = autoDistribute({
       employees,
       shiftTypes: mappedShiftTypes,
       preferences: preferencesInSlice,
       staffingRequirements,
-      existingAssignments: existingAssignmentsInSlice,
+      existingAssignments: [...existingAssignmentsInSlice, ...weeklyContext],
       options: {
         periodStart: slice.sliceStart,
         periodEnd: slice.sliceEnd,
         maxPeriodHours: scheduleSettings?.maxMonthlyHours,
         extraHoursByEmployee,
+        maxWeeklyHours: scheduleSettings?.maxWeeklyHours ?? DEFAULT_MAX_WEEKLY_HOURS,
+        maxDaysPerWeek: scheduleSettings?.maxDaysPerWeek ?? DEFAULT_MAX_DAYS_PER_WEEK,
         overwriteExisting: false,
       },
     });
 
+    draftsFromEarlierSlices.push(...sliceResult.draftAssignments);
     draftAssignments.push(...sliceResult.draftAssignments);
     shortages.push(...sliceResult.shortages);
     unplaced.push(...sliceResult.unplaced);

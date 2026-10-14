@@ -35,6 +35,8 @@
 
 import {
   autoDistribute,
+  endOfIsoWeek,
+  startOfIsoWeek,
   type AutoDistributeEmployee,
   type AutoDistributeExistingAssignment,
   type AutoDistributePreference,
@@ -63,6 +65,9 @@ export interface AutoScheduleCandidate {
   auto_create_last_generated_month: string | null;
   required_headcount_by_weekday: number[];
   max_monthly_hours: number;
+  /** Weekly labour limits (migration 0126; per ISO week Mon-Sun). */
+  max_weekly_hours: number;
+  max_days_per_week: number;
 }
 
 /** Shape of `api.auto_schedule_load_inputs(...)`'s jsonb result. */
@@ -219,8 +224,13 @@ async function runForLocation(
 
   try {
     const timeZone = candidate.timezone;
-    const monthFromIso = localDateTimeToUtcIso(target.periodStart, '00:00', timeZone);
-    const monthToIsoExclusive = localDateTimeToUtcIso(addIsoDays(target.periodEnd, 1), '00:00', timeZone);
+    // Existing-shift READ window = the whole Monday-Sunday weeks overlapping
+    // the target month, so the weekly labour limits also count the boundary
+    // weeks' days in the neighbouring months. Those out-of-month rows are
+    // used by the engine ONLY for the weekly limits; drafts are still only
+    // ever written inside the target month (re-checked by auto_schedule_apply).
+    const readFromIso = localDateTimeToUtcIso(startOfIsoWeek(target.periodStart), '00:00', timeZone);
+    const readToIsoExclusive = localDateTimeToUtcIso(addIsoDays(endOfIsoWeek(target.periodEnd), 1), '00:00', timeZone);
 
     // Every read inside this RPC is scoped by BOTH tenant_id and location_id
     // (service_role bypasses RLS -- isolation is explicit, never implied).
@@ -229,8 +239,8 @@ async function runForLocation(
       p_location_id: locationId,
       p_period_start: target.periodStart,
       p_period_end: target.periodEnd,
-      p_from: monthFromIso,
-      p_to: monthToIsoExclusive,
+      p_from: readFromIso,
+      p_to: readToIsoExclusive,
     });
     if (loaded.error || !loaded.data || typeof loaded.data !== 'object') throw new LocationStepError('load_inputs_failed');
     const inputs = loaded.data as AutoScheduleInputs;
@@ -272,8 +282,10 @@ async function runForLocation(
     }));
 
     // The target month is entirely in the future, so a manually pre-created
-    // shift is the only kind of existing assignment this run can see; it is
-    // preserved (`overwriteExisting: false`), never cleared. Defensively
+    // shift is the only kind of existing assignment this run can see inside
+    // it; it is preserved (`overwriteExisting: false`), never cleared. Rows
+    // of the boundary weeks outside the month (published or not -- this run
+    // never touches them) count only toward the weekly limits. Defensively
     // re-filtered to this location (belt-and-suspenders, as the manual path).
     const existingAssignments: AutoDistributeExistingAssignment[] = (inputs.existing_assignments ?? [])
       .filter((a) => a.location_id === locationId)
@@ -304,6 +316,8 @@ async function runForLocation(
         periodEnd: target.periodEnd,
         maxPeriodHours: candidate.max_monthly_hours,
         extraHoursByEmployee: {}, // the whole cap window IS this run's period -- nothing accrues outside it
+        maxWeeklyHours: candidate.max_weekly_hours,
+        maxDaysPerWeek: candidate.max_days_per_week,
         overwriteExisting: false,
       },
     });

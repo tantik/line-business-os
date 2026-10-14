@@ -56,6 +56,9 @@ export interface SaveScheduleSettingsInput {
   locationId: string;
   requiredHeadcountByWeekday: number[];
   maxMonthlyHours: number;
+  /** Weekly labour limits (0126): hours 1-168, days 1-7. Omit to leave the stored value untouched. */
+  maxWeeklyHours?: number;
+  maxDaysPerWeek?: number;
   autoCreateDayOfMonth: number;
   /** Manager ON/OFF opt-in for scheduled monthly auto-create. Omit to leave the stored value untouched (mirrors `autoCreateDayOfMonth`'s existing optionality). */
   autoCreateEnabled?: boolean;
@@ -68,6 +71,17 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
   const maxHours = value.maxMonthlyHours;
   const autoCreateDayOfMonth = value.autoCreateDayOfMonth;
   const autoCreateEnabled = value.autoCreateEnabled;
+  const maxWeeklyHours = value.maxWeeklyHours;
+  const maxDaysPerWeek = value.maxDaysPerWeek;
+  // Same bounds as the DB CHECK constraints (migration 0126).
+  const isOptionalIntInRange = (raw: unknown, min: number, max: number) =>
+    raw === undefined || (Number.isInteger(raw) && (raw as number) >= min && (raw as number) <= max);
+  if (
+    !isOptionalIntInRange(maxWeeklyHours, 1, 168) ||
+    !isOptionalIntInRange(maxDaysPerWeek, 1, 7)
+  ) {
+    return INVALID_INPUT_RESULT;
+  }
   if (
     !Array.isArray(required) ||
     required.length !== 7 ||
@@ -91,6 +105,8 @@ export async function saveScheduleSettings(input: unknown): Promise<WorkforceWri
     locationId: resolved.locationId,
     requiredHeadcountByWeekday: required as number[],
     maxMonthlyHours: maxHours as number,
+    ...(maxWeeklyHours !== undefined ? { maxWeeklyHours: maxWeeklyHours as number } : {}),
+    ...(maxDaysPerWeek !== undefined ? { maxDaysPerWeek: maxDaysPerWeek as number } : {}),
     autoCreateDayOfMonth: autoCreateDayOfMonth as number,
     ...(autoCreateEnabled !== undefined ? { autoCreateEnabled: autoCreateEnabled as boolean } : {}),
   });

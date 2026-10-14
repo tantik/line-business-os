@@ -179,6 +179,12 @@ interface ManagerDashboardDict {
   settingsHelpBody: string;
   requiredHeadcountHeading: string;
   maxWorkHoursLabel: string;
+  /** Weekly labour limits (0126) the auto-schedule engine respects. */
+  maxWeeklyHoursLabel: string;
+  maxWeeklyHoursSuffix: string;
+  maxDaysPerWeekLabel: string;
+  maxDaysPerWeekSuffix: string;
+  weeklyLimitsHint: string;
   weekdayAriaSuffix: string;
   nameLabel: string;
   optionalNameLabel: string;
@@ -547,6 +553,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       'Set the usual staffing needed for each weekday, the monthly working-hours limit, and the standard shift patterns used when creating the schedule.',
     requiredHeadcountHeading: 'Required staff per shift, by weekday',
     maxWorkHoursLabel: 'Max staff working hours / month',
+    maxWeeklyHoursLabel: 'Max hours per week',
+    maxWeeklyHoursSuffix: 'hours',
+    maxDaysPerWeekLabel: 'Max working days per week',
+    maxDaysPerWeekSuffix: 'days',
+    weeklyLimitsHint: 'Japanese labour law guide: 40 hours per week, at least 1 day off per week',
     weekdayAriaSuffix: ' required headcount',
     nameLabel: 'Name',
     optionalNameLabel: 'Name (optional)',
@@ -879,6 +890,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
       '曜日ごとに通常必要な人数、スタッフの月間勤務時間の上限、スケジュール作成時に使う標準的なシフト時間を設定します。',
     requiredHeadcountHeading: '曜日ごとの各シフト必要人数',
     maxWorkHoursLabel: 'スタッフ最大勤務時間 / 月',
+    maxWeeklyHoursLabel: '週の最大勤務時間',
+    maxWeeklyHoursSuffix: '時間',
+    maxDaysPerWeekLabel: '週の最大勤務日数',
+    maxDaysPerWeekSuffix: '日',
+    weeklyLimitsHint: '労働基準法の目安：週40時間・週1日以上の休日',
     weekdayAriaSuffix: '曜日の必要人数',
     nameLabel: '名称',
     optionalNameLabel: '名称（任意）',
@@ -1231,6 +1247,8 @@ export const unplacedReasonLabel: Record<Lang, (reason: UnplacedReason) => strin
       headcount_filled: 'the time slot was already full',
       no_staffing_requirement: 'no staff was needed for that time slot',
       max_period_hours_exceeded: 'it would exceed the staff member\'s hours limit',
+      max_weekly_hours_exceeded: 'it would exceed the staff member\'s weekly hours limit',
+      max_days_per_week_exceeded: 'it would exceed the staff member\'s working days per week',
       already_assigned: 'the staff member already has a shift that day',
       unknown_shift_type: 'the requested shift type no longer exists',
       inactive_shift_type: 'the requested shift type is no longer active',
@@ -1240,6 +1258,8 @@ export const unplacedReasonLabel: Record<Lang, (reason: UnplacedReason) => strin
       headcount_filled: 'その時間帯はすでに定員に達していました',
       no_staffing_requirement: 'その時間帯に必要な人員がありませんでした',
       max_period_hours_exceeded: '勤務時間の上限を超えるため割り当てできませんでした',
+      max_weekly_hours_exceeded: '週の最大勤務時間を超えるため割り当てできませんでした',
+      max_days_per_week_exceeded: '週の最大勤務日数を超えるため割り当てできませんでした',
       already_assigned: 'その日はすでに別のシフトがあります',
       unknown_shift_type: '希望されたシフト種別が存在しません',
       inactive_shift_type: '希望されたシフト種別は無効になっています',
