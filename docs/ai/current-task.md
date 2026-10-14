@@ -216,10 +216,14 @@ duplicated here.
   QA3 from `docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-08.md`.
 - **Shift Preferences recovery + real email reminder: CLOSED** (#557–#559;
   real Resend delivery verified 2026-10-08, DEBT-073 closed).
-- **Next:** the Founder runs QA3 from
-  `docs/ai/FOUNDER_QA3_CHECKLIST_2026-10-12.md` (supersedes the 2026-10-08
-  list); the Lead triages findings and prepares Stage 3 (QA4). Then the
-  order in
+- **2026-10-14:** the Lead ran most of QA3 live (results in the checklist
+  artifact, see the 2026-10-14 handoff) and fixed: Inventory ••• /
+  photo viewer in Radix popups + dropdown z-order (#579, #580), exchange
+  replacement conflicts (#581, #582), auto-schedule weekly labour limits
+  40 h / 5 days (#583, 0126 on Cloud DEV). PR #584 (QA3 batch 1: 要確認
+  issues/operations, staff request outcome, UX fixes) is OPEN — finish it.
+- **Next:** finish PR #584; continue Lead QA3 on the remaining sections;
+  prepare Stage 3 (QA4); plan Stage 4B. Then the order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
@@ -234,8 +238,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-12.md` (plus the
-  2026-10-12 later-session notes in it, §7).
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-14.md`.
 
 Where everything else lives:
 
