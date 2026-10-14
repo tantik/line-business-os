@@ -21,3 +21,7 @@ test('the exchange popup renders the decide/assign result inside the modal', () 
   assert.match(POPUP, /resultBanner \?/);
   assert.match(POPUP, /<InlineAlert/);
 });
+
+test('a candidate with a schedule conflict cannot be selected (the RPC always rejects it)', () => {
+  assert.match(POPUP, /disabled=\{c\.warning === 'schedule_conflict'\}/);
+});

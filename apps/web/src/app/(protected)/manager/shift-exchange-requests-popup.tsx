@@ -277,7 +277,16 @@ export function ShiftExchangeRequestsPopup({
                           <button
                             key={c.employeeId}
                             type="button"
-                            style={candidateRowStyle(selectedCandidateId === c.employeeId)}
+                            // A schedule conflict is a hard block in the RPC
+                            // (`shift_exchange_schedule_conflict`), so such a
+                            // candidate can never be assigned -- not selectable
+                            // here either (QA3 2026-10-14). "Marked unavailable"
+                            // stays a selectable warning, as the RPC allows it.
+                            disabled={c.warning === 'schedule_conflict'}
+                            style={{
+                              ...candidateRowStyle(selectedCandidateId === c.employeeId),
+                              ...(c.warning === 'schedule_conflict' ? { cursor: 'not-allowed', opacity: 0.55 } : {}),
+                            }}
                             onClick={() => setSelectedCandidateId(c.employeeId)}
                           >
                             <span style={{ fontSize: 14 }}>{c.name}</span>
