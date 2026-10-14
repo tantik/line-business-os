@@ -112,6 +112,35 @@ export interface AutoDistributeOptions {
    * pre-existing hours this month.
    */
   extraHoursByEmployee?: Readonly<Record<string, number>>;
+  /**
+   * Per-employee cap on net worked hours per ISO week (Monday-Sunday).
+   * Japanese Labour Standards Act (労働基準法) statutory limit is 40h/week.
+   * Absent = no weekly hour cap (backward compatible).
+   *
+   * What counts toward an employee's week (both weekly limits):
+   *   * in-period existing assignments this run PRESERVES (published /
+   *     locked -- exactly the rows `overwriteExisting` keeps);
+   *   * EVERY existing assignment dated OUTSIDE [periodStart, periodEnd]
+   *     (published or not): this run never writes outside its period, so
+   *     those rows will still stand afterwards. A caller that wants the
+   *     limits enforced across a week that straddles the period boundary
+   *     passes the rows of the boundary weeks' out-of-period days in
+   *     `existingAssignments` (they never affect anything else -- not
+   *     headcount, not `maxPeriodHours`, not "already assigned"). A caller
+   *     must therefore only pass out-of-period rows that will survive the
+   *     run;
+   *   * the drafts this run places.
+   * Existing assignments are never removed or altered to satisfy a limit; a
+   * candidate that would exceed it is skipped (a shortage), exactly like
+   * `maxPeriodHours`.
+   */
+  maxWeeklyHours?: number;
+  /**
+   * Per-employee cap on distinct working days per ISO week (Monday-Sunday);
+   * 労働基準法 requires at least one day off per week (<= 6). Same counting
+   * rules as `maxWeeklyHours`. Absent = no cap (backward compatible).
+   */
+  maxDaysPerWeek?: number;
   /** When false (default), published (and always locked) existing assignments are preserved untouched and never re-generated. */
   overwriteExisting?: boolean;
 }
@@ -149,6 +178,8 @@ export type UnplacedReason =
   | 'headcount_filled'
   | 'no_staffing_requirement'
   | 'max_period_hours_exceeded'
+  | 'max_weekly_hours_exceeded'
+  | 'max_days_per_week_exceeded'
   | 'already_assigned'
   | 'unknown_shift_type'
   | 'inactive_shift_type';
@@ -252,6 +283,23 @@ function listDatesInRange(periodStart: IsoDate, periodEnd: IsoDate): IsoDate[] {
 
 function weekdayOfIsoDate(date: IsoDate): number {
   return new Date(`${date}T00:00:00.000Z`).getUTCDay();
+}
+
+/**
+ * Monday of the ISO week (Monday-Sunday) containing `date`. Exported so
+ * callers widen their existing-assignment READ window to whole weeks with
+ * the exact same week definition the engine's weekly limits use.
+ */
+export function startOfIsoWeek(date: IsoDate): IsoDate {
+  const daysSinceMonday = (weekdayOfIsoDate(date) + 6) % 7;
+  const ms = new Date(`${date}T00:00:00.000Z`).getTime() - daysSinceMonday * 24 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** Sunday of the ISO week (Monday-Sunday) containing `date`. */
+export function endOfIsoWeek(date: IsoDate): IsoDate {
+  const ms = new Date(`${startOfIsoWeek(date)}T00:00:00.000Z`).getTime() + 6 * 24 * 60 * 60 * 1000;
+  return new Date(ms).toISOString().slice(0, 10);
 }
 
 function assignmentKey(employeeId: string, workDate: IsoDate): string {
@@ -369,6 +417,55 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
     preservedHeadcountByDateShiftType.set(key, (preservedHeadcountByDateShiftType.get(key) ?? 0) + 1);
   }
 
+  // Weekly labour limits (maxWeeklyHours / maxDaysPerWeek), per employee per
+  // ISO week (Monday-Sunday). Seeded from the preserved in-period rows plus
+  // every out-of-period existing row the caller passed (see
+  // `AutoDistributeOptions.maxWeeklyHours` for the exact counting rules).
+  const weeklyHoursByKey = new Map<string, number>();
+  const weeklyDatesByKey = new Map<string, Set<IsoDate>>();
+  const weekKey = (employeeId: string, date: IsoDate) => `${employeeId}|${startOfIsoWeek(date)}`;
+  const recordWeekly = (employeeId: string, date: IsoDate, hours: number) => {
+    const key = weekKey(employeeId, date);
+    weeklyHoursByKey.set(key, (weeklyHoursByKey.get(key) ?? 0) + hours);
+    const dates = weeklyDatesByKey.get(key) ?? new Set<IsoDate>();
+    dates.add(date);
+    weeklyDatesByKey.set(key, dates);
+  };
+  for (const preserved of preservedByKey.values()) {
+    recordWeekly(
+      preserved.employeeId,
+      preserved.workDate,
+      computeDurationHours(preserved.startsAtLocal, preserved.endsAtLocal, preserved.breakMinutes),
+    );
+  }
+  for (const existing of existingAssignments) {
+    if (!activeEmployeeIds.has(existing.employeeId)) continue;
+    if (periodDateSet.has(existing.workDate)) continue; // in-period rows: only preserved ones count (above)
+    recordWeekly(
+      existing.employeeId,
+      existing.workDate,
+      computeDurationHours(existing.startsAtLocal, existing.endsAtLocal, existing.breakMinutes),
+    );
+  }
+
+  /** The weekly limit placing `hours` on `date` would break, or null. */
+  const weeklyLimitViolation = (
+    employeeId: string,
+    date: IsoDate,
+    hours: number,
+  ): 'max_days_per_week_exceeded' | 'max_weekly_hours_exceeded' | null => {
+    const key = weekKey(employeeId, date);
+    if (options.maxDaysPerWeek !== undefined) {
+      const dates = weeklyDatesByKey.get(key);
+      const daysAfter = (dates?.size ?? 0) + (dates?.has(date) ? 0 : 1);
+      if (daysAfter > options.maxDaysPerWeek) return 'max_days_per_week_exceeded';
+    }
+    if (options.maxWeeklyHours !== undefined && (weeklyHoursByKey.get(key) ?? 0) + hours > options.maxWeeklyHours) {
+      return 'max_weekly_hours_exceeded';
+    }
+    return null;
+  };
+
   const draftAssignments: DraftAssignment[] = [];
   const shortages: Shortage[] = [];
   const unplaced: UnplacedEmployee[] = [];
@@ -468,6 +565,11 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
           unplaced.push({ employeeId: candidate.employeeId, workDate: date, reason: 'max_period_hours_exceeded' });
           continue;
         }
+        const weeklyViolation = weeklyLimitViolation(candidate.employeeId, date, hours);
+        if (weeklyViolation) {
+          unplaced.push({ employeeId: candidate.employeeId, workDate: date, reason: weeklyViolation });
+          continue;
+        }
 
         draftAssignments.push({
           employeeId: candidate.employeeId,
@@ -480,6 +582,7 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
           source: 'auto',
         });
         hoursByEmployee.set(candidate.employeeId, currentHours + hours);
+        recordWeekly(candidate.employeeId, date, hours);
         assignedDateByEmployee.get(candidate.employeeId)?.add(date);
         filled += 1;
       }
@@ -488,7 +591,7 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
       // preference has been honored may be filled by an active employee who
       // submitted NO preference row for this date at all (never someone who
       // explicitly marked unavailable, is already assigned that day, or
-      // would exceed the monthly hour cap). "No preference" is a fallback
+      // would exceed the monthly hour cap or a weekly limit). "No preference" is a fallback
       // candidate, not a guess at what they'd want -- always reported via
       // `assignedWithoutPreference` so a Manager can see exactly who was
       // placed this way.
@@ -504,6 +607,7 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
           const hours = computeDurationHours(shiftType.startsAtLocal, shiftType.endsAtLocal, shiftType.breakMinutes);
           const currentHours = hoursByEmployee.get(employee.employeeId) ?? 0;
           if (options.maxPeriodHours !== undefined && currentHours + hours > options.maxPeriodHours) continue;
+          if (weeklyLimitViolation(employee.employeeId, date, hours)) continue;
 
           draftAssignments.push({
             employeeId: employee.employeeId,
@@ -516,6 +620,7 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
             source: 'auto',
           });
           hoursByEmployee.set(employee.employeeId, currentHours + hours);
+          recordWeekly(employee.employeeId, date, hours);
           assignedDateByEmployee.get(employee.employeeId)?.add(date);
           assignedWithoutPreference.push({ employeeId: employee.employeeId, workDate: date, shiftTypeId: shiftType.shiftTypeId });
           filled += 1;

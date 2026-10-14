@@ -119,6 +119,20 @@ test('runAutoDistribution maps preferences without reading their review status, 
   assert.doesNotMatch(body, /kind: 'preference', status|status: 'approved'|\.status === 'approved'/);
 });
 
+test('weekly labour limits: settings values (statutory defaults when no row) reach the engine; READ window widened to whole Mon-Sun weeks, write window unchanged', () => {
+  const body = runAutoDistributionBody();
+  assert.match(body, /maxWeeklyHours: scheduleSettings\?\.maxWeeklyHours \?\? DEFAULT_MAX_WEEKLY_HOURS/);
+  assert.match(body, /maxDaysPerWeek: scheduleSettings\?\.maxDaysPerWeek \?\? DEFAULT_MAX_DAYS_PER_WEEK/);
+  assert.match(body, /const firstWeekStart = startOfIsoWeek\(periodStart\);/);
+  assert.match(body, /const lastWeekEnd = endOfIsoWeek\(periodEnd\);/);
+  assert.match(body, /listShiftAssignments\(supabase, tenantId, \{ fromIso: monthFromIso, toIsoExclusive: monthToIsoExclusive \}\)/);
+  // the clear (write window) still uses the effective period, not the widened read window
+  assert.match(body, /const fromIso = localDateTimeToUtcIso\(periodStart, '00:00', timeZone\);/);
+  assert.match(body, /clearUnconfirmedDraftAssignmentsInPeriod\(\s*supabase,\s*tenantId,\s*locationId,\s*fromIso,\s*toIsoExclusive,/);
+  // earlier slices' drafts are carried into later slices of a straddling week
+  assert.match(body, /draftsFromEarlierSlices\.push\(\.\.\.sliceResult\.draftAssignments\)/);
+});
+
 test('runAutoDistribution reads preferences bounded to the scheduled months, never the whole history', () => {
   assert.match(runAutoDistributionBody(), /listShiftRequestsForManager\(supabase, tenantId, \{ kind: 'preference', fromDate: outerMonthStart, toDate: outerMonthEnd \}\)/);
 });

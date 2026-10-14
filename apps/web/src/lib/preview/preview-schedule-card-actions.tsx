@@ -20,6 +20,8 @@ const UNPLACED_REASON_JA: Record<UnplacedReason, string> = {
   headcount_filled: '希望した時間帯の必要人数がすでに埋まっています',
   no_staffing_requirement: 'その曜日・時間帯には必要人数が設定されていません',
   max_period_hours_exceeded: 'スタッフの月間上限時間を超えるため配置できません',
+  max_weekly_hours_exceeded: 'スタッフの週の最大勤務時間を超えるため配置できません',
+  max_days_per_week_exceeded: 'スタッフの週の最大勤務日数を超えるため配置できません',
   already_assigned: '同じ日にすでに別のシフトが割り当てられています',
   unknown_shift_type: '希望に存在しないシフト種別が指定されています',
   inactive_shift_type: '希望に無効化されたシフト種別が指定されています',
@@ -28,6 +30,8 @@ const UNPLACED_REASON_JA: Record<UnplacedReason, string> = {
 const UNPLACED_REASON_EN: Record<UnplacedReason, string> = {
   headcount_filled: 'the requested time window is already fully staffed',
   max_period_hours_exceeded: "it would exceed the staff member's monthly hour limit",
+  max_weekly_hours_exceeded: "it would exceed the staff member's weekly hour limit",
+  max_days_per_week_exceeded: "it would exceed the staff member's working days per week",
   no_staffing_requirement: 'no headcount is required for that day/window',
   already_assigned: 'the staff member is already assigned elsewhere that day',
   unknown_shift_type: 'the preference references a shift type that no longer exists',

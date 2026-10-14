@@ -38,6 +38,8 @@ function candidate(overrides: Partial<AutoScheduleCandidate> = {}): AutoSchedule
     auto_create_last_generated_month: null,
     required_headcount_by_weekday: [1, 1, 1, 1, 1, 1, 1],
     max_monthly_hours: 160,
+    max_weekly_hours: 40,
+    max_days_per_week: 5,
     ...overrides,
   };
 }
@@ -118,8 +120,10 @@ test('trigger day matches in the location timezone (JST boundary): generates nex
     p_location_id: L1,
     p_period_start: '2026-11-01',
     p_period_end: '2026-11-30',
-    p_from: '2026-10-31T15:00:00.000Z',
-    p_to: '2026-11-30T15:00:00.000Z',
+    // READ window = whole Mon-Sun weeks overlapping November (JST):
+    // Mon 2026-10-26 00:00 .. Mon 2026-12-07 00:00 (exclusive).
+    p_from: '2026-10-25T15:00:00.000Z',
+    p_to: '2026-12-06T15:00:00.000Z',
   });
 
   const apply = callsTo(calls, 'auto_schedule_apply')[0]!;
@@ -261,6 +265,40 @@ test('existing manual shifts are preserved: the employee already working a day i
   assert.ok(!drafts.some((d) => d.starts_at === '2026-11-02T00:00:00.000Z'), 'no draft on the manually staffed day');
 });
 
+test('weekly labour limits: <= max_days_per_week days and <= max_weekly_hours per employee per week; boundary-week rows outside the month count', async () => {
+  // Two staff, 2 needed every day -> without limits both would work every day.
+  // E1 already worked Mon 26 .. Fri 30 Oct (the week of Sun 1 Nov), so with
+  // max 5 days/week E1 cannot also take Sun 1 Nov.
+  const outOfMonth = ['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30'].map((d) => ({
+    employee_id: E1,
+    shift_type_id: ST1,
+    starts_at: `${d}T00:00:00+00:00`, // 09:00 JST
+    ends_at: `${d}T08:00:00+00:00`,
+    break_minutes: 60,
+    published: false, // an earlier, still-standing proposal also counts
+    location_id: L1,
+  }));
+  const { rpc, calls } = fakeRpc({
+    candidates: [candidate({ required_headcount_by_weekday: [2, 2, 2, 2, 2, 2, 2] })],
+    inputsByLocation: { [L1]: inputs({ existing_assignments: outOfMonth }) },
+  });
+  await runAutoScheduleMonthly(rpc, JST_20TH);
+  const drafts = callsTo(calls, 'auto_schedule_apply')[0]!.args?.p_drafts as { employee_id: string; starts_at: string }[];
+
+  // Days per (employee, ISO week); JST date = UTC date here (09:00 JST starts).
+  const perWeek = new Map<string, number>();
+  for (const d of drafts) {
+    const date = new Date(d.starts_at.slice(0, 10) + 'T00:00:00Z');
+    const monday = new Date(date.getTime() - ((date.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+    const key = `${d.employee_id}|${monday}`;
+    perWeek.set(key, (perWeek.get(key) ?? 0) + 1);
+  }
+  for (const [key, days] of perWeek) assert.ok(days <= 5, `${key}: ${days} days`);
+  assert.ok(!drafts.some((d) => d.employee_id === E1 && d.starts_at.startsWith('2026-11-01')), 'E1 already has 5 days in the week of 1 Nov');
+  assert.ok(drafts.every((d) => d.starts_at >= '2026-10-31T15:00:00.000Z' && d.starts_at < '2026-11-30T15:00:00.000Z'), 'drafts only inside the target month');
+  // 8h net shifts: 5 days x 8h = 40h <= max_weekly_hours.
+});
+
 test('invalid IANA timezone: recorded as failed/invalid_timezone on the UTC trigger day, never loads or applies', async () => {
   // JST_20TH is the 19th in UTC.
   const { rpc, calls } = fakeRpc({ candidates: [candidate({ timezone: 'Not/A_Zone', auto_create_day_of_month: 19 })] });
@@ -302,6 +340,8 @@ test('source guard: one shared engine (generated copy), never a local reimplemen
   assert.doesNotMatch(source, /function autoDistribute/);
   assert.match(source, /overwriteExisting: false/);
   assert.match(source, /extraHoursByEmployee: \{\}/);
+  assert.match(source, /maxWeeklyHours: candidate\.max_weekly_hours/);
+  assert.match(source, /maxDaysPerWeek: candidate\.max_days_per_week/);
   assert.doesNotMatch(source, /published:\s*true/);
   assert.doesNotMatch(source, /Deno\.(env|serve)/);
 });

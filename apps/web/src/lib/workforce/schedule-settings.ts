@@ -1,11 +1,19 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 
+/** DB defaults of `workforce.schedule_settings.max_weekly_hours` / `max_days_per_week` (migration 0126). Also used when a location has no settings row yet, so the weekly labour limits are never silently off. */
+export const DEFAULT_MAX_WEEKLY_HOURS = 40;
+export const DEFAULT_MAX_DAYS_PER_WEEK = 5;
+
 export interface WorkforceScheduleSettings {
   tenantId: string;
   locationId: string;
   requiredHeadcountByWeekday: number[];
   maxMonthlyHours: number;
+  /** Per-staff cap on net worked hours per ISO week (Mon-Sun) the auto-schedule engine respects (migration 0126, default 40 -- 労働基準法 statutory weekly limit). */
+  maxWeeklyHours: number;
+  /** Per-staff cap on working days per ISO week (Mon-Sun) the auto-schedule engine respects (migration 0126, default 5). */
+  maxDaysPerWeek: number;
   /** Day of month (1-28) the scheduled monthly auto-create job uses to generate the next calendar month's schedule proposal. Real, persisted, manager-editable (Round 3, 2026-08-22). */
   autoCreateDayOfMonth: number;
   /** Manager opt-in for scheduled monthly auto-create (migration 0114). Default OFF -- automation never runs for a location until a Manager explicitly turns it on here. */
@@ -30,7 +38,7 @@ export async function getWorkforceScheduleSettings(
     .schema('api')
     .from('workforce_schedule_settings')
     .select(
-      'tenant_id, location_id, required_headcount_by_weekday, max_monthly_hours, auto_create_day_of_month, auto_create_enabled, auto_create_last_generated_month',
+      'tenant_id, location_id, required_headcount_by_weekday, max_monthly_hours, max_weekly_hours, max_days_per_week, auto_create_day_of_month, auto_create_enabled, auto_create_last_generated_month',
     )
     .eq('tenant_id', tenantId)
     .eq('location_id', locationId)
@@ -44,6 +52,8 @@ export async function getWorkforceScheduleSettings(
       locationId: data.location_id as string,
       requiredHeadcountByWeekday: data.required_headcount_by_weekday as number[],
       maxMonthlyHours: data.max_monthly_hours as number,
+      maxWeeklyHours: data.max_weekly_hours as number,
+      maxDaysPerWeek: data.max_days_per_week as number,
       autoCreateDayOfMonth: data.auto_create_day_of_month as number,
       autoCreateEnabled: data.auto_create_enabled as boolean,
       autoCreateLastGeneratedMonth: (data.auto_create_last_generated_month as string | null) ?? null,
@@ -151,9 +161,12 @@ export function isAutoScheduleRunMissed(input: {
  */
 export type UpsertWorkforceScheduleSettingsInput = Omit<
   WorkforceScheduleSettings,
-  'autoCreateDayOfMonth' | 'autoCreateEnabled' | 'autoCreateLastGeneratedMonth'
+  'autoCreateDayOfMonth' | 'autoCreateEnabled' | 'autoCreateLastGeneratedMonth' | 'maxWeeklyHours' | 'maxDaysPerWeek'
 > & {
   autoCreateDayOfMonth?: number;
+  /** Weekly labour limits (0126). Omitting either leaves the column untouched (or takes its DB default on first insert) -- the `_client-preview` settings action does not know about them. */
+  maxWeeklyHours?: number;
+  maxDaysPerWeek?: number;
   /** Manager ON/OFF opt-in. Omitting it (like `autoCreateDayOfMonth`) leaves the column untouched. `autoCreateLastGeneratedMonth` is deliberately NOT settable through this input at all -- only the scheduled worker (service-role) ever writes it. */
   autoCreateEnabled?: boolean;
 };
@@ -171,13 +184,15 @@ export async function upsertWorkforceScheduleSettings(
         location_id: settings.locationId,
         required_headcount_by_weekday: settings.requiredHeadcountByWeekday,
         max_monthly_hours: settings.maxMonthlyHours,
+        ...(settings.maxWeeklyHours !== undefined ? { max_weekly_hours: settings.maxWeeklyHours } : {}),
+        ...(settings.maxDaysPerWeek !== undefined ? { max_days_per_week: settings.maxDaysPerWeek } : {}),
         ...(settings.autoCreateDayOfMonth !== undefined ? { auto_create_day_of_month: settings.autoCreateDayOfMonth } : {}),
         ...(settings.autoCreateEnabled !== undefined ? { auto_create_enabled: settings.autoCreateEnabled } : {}),
       },
       { onConflict: 'tenant_id,location_id' },
     )
     .select(
-      'tenant_id, location_id, required_headcount_by_weekday, max_monthly_hours, auto_create_day_of_month, auto_create_enabled, auto_create_last_generated_month',
+      'tenant_id, location_id, required_headcount_by_weekday, max_monthly_hours, max_weekly_hours, max_days_per_week, auto_create_day_of_month, auto_create_enabled, auto_create_last_generated_month',
     )
     .single();
   if (error) return mapError(error);
@@ -188,6 +203,8 @@ export async function upsertWorkforceScheduleSettings(
       locationId: data.location_id as string,
       requiredHeadcountByWeekday: data.required_headcount_by_weekday as number[],
       maxMonthlyHours: data.max_monthly_hours as number,
+      maxWeeklyHours: data.max_weekly_hours as number,
+      maxDaysPerWeek: data.max_days_per_week as number,
       autoCreateDayOfMonth: data.auto_create_day_of_month as number,
       autoCreateEnabled: data.auto_create_enabled as boolean,
       autoCreateLastGeneratedMonth: (data.auto_create_last_generated_month as string | null) ?? null,

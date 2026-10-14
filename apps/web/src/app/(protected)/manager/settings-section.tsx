@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import {
+  DEFAULT_MAX_DAYS_PER_WEEK,
+  DEFAULT_MAX_WEEKLY_HOURS,
   isAutoScheduleRunMissed,
   visibleAutoScheduleRuns,
   type AutoScheduleRun,
@@ -148,6 +150,8 @@ export function SettingsSection({
   const [shiftTypes, setShiftTypes] = useState(initialShiftTypes);
   const [requirements, setRequirements] = useState(settings?.requiredHeadcountByWeekday ?? [1, 1, 1, 1, 1, 1, 1]);
   const [maxHours, setMaxHours] = useState(settings?.maxMonthlyHours ?? 160);
+  const [maxWeeklyHours, setMaxWeeklyHours] = useState(settings?.maxWeeklyHours ?? DEFAULT_MAX_WEEKLY_HOURS);
+  const [maxDaysPerWeek, setMaxDaysPerWeek] = useState(settings?.maxDaysPerWeek ?? DEFAULT_MAX_DAYS_PER_WEEK);
   const [autoCreateDayOfMonth, setAutoCreateDayOfMonth] = useState(settings?.autoCreateDayOfMonth ?? 20);
   const [autoCreateEnabled, setAutoCreateEnabled] = useState(settings?.autoCreateEnabled ?? false);
   const [isPending, startTransition] = useTransition();
@@ -174,16 +178,16 @@ export function SettingsSection({
   const confirmDeactivateTarget = confirmDeactivateId ? (activeShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeactivateId) ?? null : null;
   const confirmDeleteTarget = confirmDeleteId ? (inactiveShiftTypes ?? []).find((st) => st.shiftTypeId === confirmDeleteId) ?? null : null;
 
-  const latestRef = useRef({ requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled });
-  const lastConfirmedRef = useRef({ requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled });
+  const latestRef = useRef({ requirements, maxHours, maxWeeklyHours, maxDaysPerWeek, autoCreateDayOfMonth, autoCreateEnabled });
+  const lastConfirmedRef = useRef({ requirements, maxHours, maxWeeklyHours, maxDaysPerWeek, autoCreateDayOfMonth, autoCreateEnabled });
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const dirtyWhileSavingRef = useRef(false);
   const savedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    latestRef.current = { requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled };
-  }, [requirements, maxHours, autoCreateDayOfMonth, autoCreateEnabled]);
+    latestRef.current = { requirements, maxHours, maxWeeklyHours, maxDaysPerWeek, autoCreateDayOfMonth, autoCreateEnabled };
+  }, [requirements, maxHours, maxWeeklyHours, maxDaysPerWeek, autoCreateDayOfMonth, autoCreateEnabled]);
 
   useEffect(
     () => () => {
@@ -207,6 +211,8 @@ export function SettingsSection({
         locationId,
         requiredHeadcountByWeekday: toSave.requirements,
         maxMonthlyHours: toSave.maxHours,
+        maxWeeklyHours: toSave.maxWeeklyHours,
+        maxDaysPerWeek: toSave.maxDaysPerWeek,
         autoCreateDayOfMonth: toSave.autoCreateDayOfMonth,
         autoCreateEnabled: toSave.autoCreateEnabled,
       });
@@ -220,6 +226,8 @@ export function SettingsSection({
       } else {
         setRequirements(lastConfirmedRef.current.requirements);
         setMaxHours(lastConfirmedRef.current.maxHours);
+        setMaxWeeklyHours(lastConfirmedRef.current.maxWeeklyHours);
+        setMaxDaysPerWeek(lastConfirmedRef.current.maxDaysPerWeek);
         setAutoCreateDayOfMonth(lastConfirmedRef.current.autoCreateDayOfMonth);
         setAutoCreateEnabled(lastConfirmedRef.current.autoCreateEnabled);
         setAutosaveStatus('error');
@@ -323,6 +331,46 @@ export function SettingsSection({
           style={{ ...input, display: 'block', maxWidth: 140 }}
         />
       </div>
+
+      <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: '10px 24px' }}>
+        <div>
+          <label style={{ fontSize: 13, ...mutedText }}>{t('maxWeeklyHoursLabel')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              aria-label={t('maxWeeklyHoursLabel')}
+              type="number"
+              min={1}
+              max={168}
+              value={maxWeeklyHours}
+              onChange={(event) => {
+                setMaxWeeklyHours(Number(event.currentTarget.value));
+                scheduleAutosave();
+              }}
+              style={{ ...input, display: 'block', maxWidth: 100 }}
+            />
+            <span style={{ fontSize: 13, ...mutedText }}>{t('maxWeeklyHoursSuffix')}</span>
+          </div>
+        </div>
+        <div>
+          <label style={{ fontSize: 13, ...mutedText }}>{t('maxDaysPerWeekLabel')}</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              aria-label={t('maxDaysPerWeekLabel')}
+              type="number"
+              min={1}
+              max={7}
+              value={maxDaysPerWeek}
+              onChange={(event) => {
+                setMaxDaysPerWeek(Number(event.currentTarget.value));
+                scheduleAutosave();
+              }}
+              style={{ ...input, display: 'block', maxWidth: 100 }}
+            />
+            <span style={{ fontSize: 13, ...mutedText }}>{t('maxDaysPerWeekSuffix')}</span>
+          </div>
+        </div>
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('weeklyLimitsHint')}</p>
 
       <div style={{ marginTop: 18 }}>
         <div style={{ fontSize: 13, ...mutedText, marginBottom: 8 }}>{t('shiftTypesHeading')}</div>

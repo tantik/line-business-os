@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { autoDistribute, deriveActiveScheduleWindowCodes } from './auto-distribute.js';
+import { autoDistribute, deriveActiveScheduleWindowCodes, endOfIsoWeek, startOfIsoWeek } from './auto-distribute.js';
 import type {
   AutoDistributeEmployee,
   AutoDistributeExistingAssignment,
@@ -800,4 +800,160 @@ test('an existing assignment for an employee absent from the employees snapshot 
   assert.deepEqual(withForeign.unplaced, withoutForeign.unplaced);
   assert.equal(withForeign.draftAssignments.length, 1);
   assert.equal(withForeign.draftAssignments[0]?.employeeId, 'locA-1');
+});
+
+// -- Weekly labour limits (労働基準法: 40h/week, >= 1 day off per week) -------
+// QA 2026-10-14: with only the monthly cap, a high-demand week gave every
+// staff member 7/7 days and 57-70h. maxWeeklyHours / maxDaysPerWeek are
+// applied per employee per ISO week (Monday-Sunday).
+
+const EVERY_WEEKDAY_ALL = (headcount: number) =>
+  [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, shiftTypeId: 'st-all', requiredHeadcount: headcount }));
+
+function perEmployeeWeekTotals(drafts: { employeeId: string; workDate: string; startsAtLocal: string; endsAtLocal: string; breakMinutes: number }[]) {
+  const totals = new Map<string, { days: Set<string>; hours: number }>();
+  for (const d of drafts) {
+    const key = `${d.employeeId}|${startOfIsoWeek(d.workDate)}`;
+    const entry = totals.get(key) ?? { days: new Set<string>(), hours: 0 };
+    entry.days.add(d.workDate);
+    const [sh, sm] = d.startsAtLocal.split(':').map(Number) as [number, number];
+    const [eh, em] = d.endsAtLocal.split(':').map(Number) as [number, number];
+    entry.hours += (eh * 60 + em - (sh * 60 + sm) - d.breakMinutes) / 60;
+    totals.set(key, entry);
+  }
+  return totals;
+}
+
+test('startOfIsoWeek / endOfIsoWeek: Monday-Sunday weeks, including across a month boundary', () => {
+  assert.equal(startOfIsoWeek('2026-10-19'), '2026-10-19'); // Monday
+  assert.equal(startOfIsoWeek('2026-10-25'), '2026-10-19'); // Sunday
+  assert.equal(endOfIsoWeek('2026-10-19'), '2026-10-25');
+  assert.equal(startOfIsoWeek('2026-10-01'), '2026-09-28'); // Thursday -> previous month's Monday
+  assert.equal(endOfIsoWeek('2026-11-30'), '2026-12-06');
+});
+
+test('WEEKLY LIMITS: the QA high-demand week (5 staff, 5 needed every day) yields <= 5 days and <= 40h per employee; the rest are shortages', () => {
+  const employees = ['e1', 'e2', 'e3', 'e4', 'e5'].map((employeeId) => makeEmployee({ employeeId }));
+  const input = {
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences: [],
+    staffingRequirements: EVERY_WEEKDAY_ALL(5),
+    existingAssignments: [],
+  };
+
+  // Without the new options: unchanged (backward compatible) -- 7/7 days each.
+  const unlimited = autoDistribute({ ...input, options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-10-25', maxPeriodHours: 160 }) });
+  assert.equal(unlimited.draftAssignments.length, 35, 'limits are not applied when the options are absent');
+
+  const limited = autoDistribute({
+    ...input,
+    options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-10-25', maxPeriodHours: 160, maxWeeklyHours: 40, maxDaysPerWeek: 5 }),
+  });
+  assert.equal(limited.draftAssignments.length, 25);
+  for (const [key, totals] of perEmployeeWeekTotals(limited.draftAssignments)) {
+    assert.ok(totals.days.size <= 5, `${key}: ${totals.days.size} days > 5`);
+    assert.ok(totals.hours <= 40, `${key}: ${totals.hours}h > 40`);
+  }
+  assert.equal(limited.shortages.reduce((sum, s) => sum + s.shortage, 0), 10, 'unfillable slots are reported as shortages');
+});
+
+test('WEEKLY LIMITS: maxWeeklyHours alone caps hours (8h shifts, 20h cap -> 2 shifts per employee per week)', () => {
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const dates = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22'];
+  const result = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences: dates.map((workDate) => makePreference({ employeeId: 'e1', workDate, shiftTypeId: 'st-all' })),
+    staffingRequirements: dates.map((workDate) => ({ workDate, shiftTypeId: 'st-all', requiredHeadcount: 1 })),
+    existingAssignments: [],
+    options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-10-22', maxWeeklyHours: 20 }),
+  });
+  assert.deepEqual(result.draftAssignments.map((d) => d.workDate), ['2026-10-19', '2026-10-20']);
+  assert.deepEqual(
+    result.unplaced.map((u) => `${u.workDate}:${u.reason}`),
+    ['2026-10-21:max_weekly_hours_exceeded', '2026-10-22:max_weekly_hours_exceeded'],
+  );
+});
+
+test('WEEKLY LIMITS: existing published (manual) shifts in the week count toward both limits and are never touched', () => {
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const existingAssignments = ['2026-10-19', '2026-10-20', '2026-10-21'].map((workDate) =>
+    makeExisting({ employeeId: 'e1', workDate, shiftTypeId: 'st-all', published: true }),
+  );
+  const result = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences: [],
+    staffingRequirements: EVERY_WEEKDAY_ALL(1),
+    existingAssignments,
+    options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-10-25', maxWeeklyHours: 40, maxDaysPerWeek: 5 }),
+  });
+  // 3 manual days + 2 drafts = 5 days / 40h; Sat + Sun stay short.
+  assert.deepEqual(result.draftAssignments.map((d) => d.workDate), ['2026-10-22', '2026-10-23']);
+  assert.deepEqual(result.shortages.map((s) => s.workDate), ['2026-10-24', '2026-10-25']);
+});
+
+test('WEEKLY LIMITS: an in-period unconfirmed draft (being replaced) does NOT count toward the week', () => {
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const existingAssignments = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'].map((workDate) =>
+    makeExisting({ employeeId: 'e1', workDate, shiftTypeId: 'st-all', published: false }),
+  );
+  const result = autoDistribute({
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences: [],
+    staffingRequirements: EVERY_WEEKDAY_ALL(1),
+    existingAssignments,
+    options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-10-25', maxDaysPerWeek: 5 }),
+  });
+  assert.equal(result.draftAssignments.length, 5);
+});
+
+test('WEEKLY LIMITS: week boundary across a month start -- out-of-period existing rows of the same week (published or not) count', () => {
+  // Period = 2026-10-01 (Thu) .. 2026-10-04 (Sun); its week starts Mon 2026-09-28.
+  const employees = [makeEmployee({ employeeId: 'e1' })];
+  const existingAssignments = [
+    makeExisting({ employeeId: 'e1', workDate: '2026-09-28', shiftTypeId: 'st-all', published: true }),
+    makeExisting({ employeeId: 'e1', workDate: '2026-09-29', shiftTypeId: 'st-all', published: true }),
+    makeExisting({ employeeId: 'e1', workDate: '2026-09-30', shiftTypeId: 'st-all', published: false }),
+    // Previous week: must NOT count toward this week.
+    makeExisting({ employeeId: 'e1', workDate: '2026-09-27', shiftTypeId: 'st-all', published: true }),
+  ];
+  const input = {
+    employees,
+    shiftTypes: SHIFT_TYPES,
+    preferences: [],
+    staffingRequirements: EVERY_WEEKDAY_ALL(1),
+    existingAssignments,
+  };
+
+  const byDays = autoDistribute({ ...input, options: baseOptions({ periodStart: '2026-10-01', periodEnd: '2026-10-04', maxDaysPerWeek: 5 }) });
+  assert.deepEqual(byDays.draftAssignments.map((d) => d.workDate), ['2026-10-01', '2026-10-02']);
+  assert.ok(byDays.unplaced.length === 0, 'fallback skips are shortages, not unplaced preferences');
+  assert.deepEqual(byDays.shortages.map((s) => s.workDate), ['2026-10-03', '2026-10-04']);
+
+  // 3 x 8h = 24h already in the week; a 32h cap leaves room for exactly one more 8h shift.
+  const byHours = autoDistribute({ ...input, options: baseOptions({ periodStart: '2026-10-01', periodEnd: '2026-10-04', maxWeeklyHours: 32 }) });
+  assert.deepEqual(byHours.draftAssignments.map((d) => d.workDate), ['2026-10-01']);
+
+  // Out-of-period rows never block a day, add headcount, or count toward maxPeriodHours.
+  const noLimits = autoDistribute({ ...input, options: baseOptions({ periodStart: '2026-10-01', periodEnd: '2026-10-04', maxPeriodHours: 32 }) });
+  assert.equal(noLimits.draftAssignments.length, 4);
+});
+
+test('WEEKLY LIMITS: each ISO week has its own budget (two-week period, 1 staff, maxDaysPerWeek 5 -> 5 + 5)', () => {
+  const result = autoDistribute({
+    employees: [makeEmployee({ employeeId: 'e1' })],
+    shiftTypes: SHIFT_TYPES,
+    preferences: [],
+    staffingRequirements: EVERY_WEEKDAY_ALL(1),
+    existingAssignments: [],
+    options: baseOptions({ periodStart: '2026-10-19', periodEnd: '2026-11-01', maxDaysPerWeek: 5 }),
+  });
+  const weeks = perEmployeeWeekTotals(result.draftAssignments);
+  assert.deepEqual(
+    [...weeks.entries()].map(([key, t]) => `${key}:${t.days.size}`),
+    ['e1|2026-10-19:5', 'e1|2026-10-26:5'],
+  );
 });
