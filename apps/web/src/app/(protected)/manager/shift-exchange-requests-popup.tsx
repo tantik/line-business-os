@@ -7,6 +7,7 @@ import type { WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
 import type { Lang } from '@/lib/demo/cafe/i18n';
+import { InlineAlert } from '@line-os/ui';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDisabled, buttonPrimary, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
@@ -37,6 +38,8 @@ export interface ShiftExchangeRequestsPopupProps {
   pendingAction: string | null;
   onDecide: (exchangeId: string, decision: 'approved' | 'rejected') => void;
   onAssignReplacement: (exchangeId: string, replacementEmployeeId: string) => void;
+  /** The parent's result banner for the last decide/assign action. Rendered inside the popup too: the page-level banner sits under this modal, so a rejected assign (e.g. `shift_exchange_schedule_conflict`) used to fail silently (QA3 2026-10-14). */
+  resultBanner?: { tone: 'success' | 'error'; message: string } | null;
   lang: Lang;
 }
 
@@ -101,6 +104,7 @@ export function ShiftExchangeRequestsPopup({
   pendingAction,
   onDecide,
   onAssignReplacement,
+  resultBanner,
   lang,
 }: ShiftExchangeRequestsPopupProps) {
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -138,6 +142,11 @@ export function ShiftExchangeRequestsPopup({
       width="min(1100px, 96vw)"
       closeLabel={t('cancel')}
     >
+      {resultBanner ? (
+        <InlineAlert tone={resultBanner.tone === 'error' ? 'critical' : 'success'} style={{ marginBottom: 12 }}>
+          {resultBanner.message}
+        </InlineAlert>
+      ) : null}
       <p style={{ margin: 0, ...mutedText, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('needsActionEyebrow')}</p>
       {pendingExchanges.length === 0 ? (
         <p style={{ margin: '8px 0 0', ...mutedText }}>{t('noPendingExchanges')}</p>

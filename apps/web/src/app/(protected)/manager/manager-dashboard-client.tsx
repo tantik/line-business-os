@@ -1870,7 +1870,11 @@ function ManagerDashboardBody({
         staffById={staffById}
         staff={staff ?? []}
         exchangeAssignmentById={exchangeAssignmentById}
-        allAssignments={assignments}
+        // The -8..+8 week window, not just the viewed week: a request's shift is
+        // often in another week, and conflicts there must still be flagged
+        // (QA3 2026-10-14: every candidate showed 対応可能 for a November shift).
+        allAssignments={exchangeAssignments ?? assignments}
+        resultBanner={banner}
         preferences={requests}
         shiftTypes={shiftTypes}
         timeZone={timeZone}
