@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import type { ManagerAttentionCategory, ManagerAttentionItem, ManagerAttentionQueueItem } from '@/lib/workforce/manager-attention';
-import { ATTENTION_SEVERITY_BY_CATEGORY, computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
+import { computeManagerAttentionSummary } from '@/lib/workforce/manager-attention';
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
@@ -12,23 +12,32 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionIssueLabel,
+  attentionOperationsLabel,
   attentionSummarySubtitle,
   attentionUnavailableConflictLabel,
   tManagerDashboard,
 } from './manager-dashboard-i18n';
 
-const ATTENTION_TITLE_KEY: Record<ManagerAttentionCategory, 'attentionCorrectionTitle' | 'attentionExchangeTitle' | 'attentionUnavailableConflictTitle' | 'attentionInventoryTitle'> = {
+const ATTENTION_TITLE_KEY: Record<
+  ManagerAttentionCategory,
+  'attentionCorrectionTitle' | 'attentionExchangeTitle' | 'attentionIssueTitle' | 'attentionOperationsTitle' | 'attentionUnavailableConflictTitle' | 'attentionInventoryTitle'
+> = {
   correction: 'attentionCorrectionTitle',
   exchange: 'attentionExchangeTitle',
+  issue: 'attentionIssueTitle',
+  operations: 'attentionOperationsTitle',
   unavailable_conflict: 'attentionUnavailableConflictTitle',
   inventory: 'attentionInventoryTitle',
 };
 
-const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (count: number, lang: Lang) => string> = {
-  correction: (count, lang) => attentionCorrectionLabel[lang](count),
-  exchange: (count, lang) => attentionExchangeLabel[lang](count),
-  unavailable_conflict: (count, lang) => attentionUnavailableConflictLabel[lang](count),
-  inventory: (count, lang) => attentionInventoryLabel[lang](count),
+const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (item: ManagerAttentionItem, lang: Lang) => string> = {
+  correction: (item, lang) => attentionCorrectionLabel[lang](item.count),
+  exchange: (item, lang) => attentionExchangeLabel[lang](item.count),
+  issue: (item, lang) => attentionIssueLabel[lang](item.count, item.actionRequiredCount ?? 0),
+  operations: (item, lang) => attentionOperationsLabel[lang](item.count),
+  unavailable_conflict: (item, lang) => attentionUnavailableConflictLabel[lang](item.count),
+  inventory: (item, lang) => attentionInventoryLabel[lang](item.count),
 };
 
 /**
@@ -119,6 +128,8 @@ export function AttentionPanel({
   onOpenCorrections,
   onOpenExchanges,
   onOpenInventory,
+  onOpenIssues,
+  onOpenOperations,
   onViewShift,
   unreadMailCount,
   onOpenMail,
@@ -130,6 +141,10 @@ export function AttentionPanel({
   onOpenCorrections: () => void;
   onOpenExchanges: () => void;
   onOpenInventory: () => void;
+  /** QA3 (2026-10-14): opens the existing Issues manager popup. */
+  onOpenIssues: () => void;
+  /** QA3 (2026-10-14): opens the existing Operations manager popup. */
+  onOpenOperations: () => void;
   onViewShift: (employeeId: string, workDate: string) => void;
   /** Staff-authored, unread, non-archived/deleted message count across every thread -- folded into this panel's Level-1 total at the render site only (Founder confirmation: Mail does not become a 5th `ManagerAttentionCategory`, it doesn't fit the strict action-required/warning severity model or the one-item-per-decision "Review all" queue). */
   unreadMailCount: number;
@@ -247,16 +262,70 @@ export function AttentionPanel({
     );
   }
 
+  function renderIssueItem(qi: Extract<ManagerAttentionQueueItem, { category: 'issue' }>) {
+    const note = qi.note.length > 60 ? `${qi.note.slice(0, 60)}…` : qi.note;
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {qi.severity === 'action_required' ? t('attentionItemIssueCriticalTitle') : t('attentionItemIssueNoticeTitle')}
+          </div>
+          <div style={{ fontSize: 13 }}>{qi.businessDate}</div>
+          {note ? <div style={{ ...mutedText, fontSize: 12, overflowWrap: 'anywhere' }}>{note}</div> : null}
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, padding: '6px 14px' }}
+          onClick={() => {
+            setReviewAllOpen(false);
+            onOpenIssues();
+          }}
+        >
+          {t('attentionOpenIssues')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderOperationsItem(qi: Extract<ManagerAttentionQueueItem, { category: 'operations' }>) {
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemOperationsTitle')}</div>
+          <div style={{ fontSize: 13 }}>
+            {[qi.templateName, qi.businessDate].filter((part): part is string => Boolean(part)).join(' · ')}
+          </div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionOperationsExceptionSummary')}</div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, padding: '6px 14px' }}
+          onClick={() => {
+            setReviewAllOpen(false);
+            onOpenOperations();
+          }}
+        >
+          {t('attentionOpenOperations')}
+        </button>
+      </div>
+    );
+  }
+
   function renderQueueItem(qi: ManagerAttentionQueueItem) {
     if (qi.category === 'correction') return renderCorrectionItem(qi);
     if (qi.category === 'exchange') return renderExchangeItem(qi);
+    if (qi.category === 'issue') return renderIssueItem(qi);
+    if (qi.category === 'operations') return renderOperationsItem(qi);
     if (qi.category === 'unavailable_conflict') return renderConflictItem(qi);
     return renderInventoryItem(qi);
   }
 
   const conflictItems = queueItems.filter((qi): qi is Extract<ManagerAttentionQueueItem, { category: 'unavailable_conflict' }> => qi.category === 'unavailable_conflict');
-  const actionRequiredItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'action_required');
-  const warningItems = queueItems.filter((qi) => ATTENTION_SEVERITY_BY_CATEGORY[qi.category] === 'warning');
+  // Each queue item carries its own severity (issue/operations are mixed per item), so group by that, not by category.
+  const actionRequiredItems = queueItems.filter((qi) => qi.severity === 'action_required');
+  const warningItems = queueItems.filter((qi) => qi.severity === 'warning');
 
   // Mail is deliberately not a `ManagerAttentionCategory` (see this
   // component's own prop doc comment) -- its unread count is folded into
@@ -306,15 +375,19 @@ export function AttentionPanel({
                   ? onOpenCorrections
                   : item.category === 'exchange'
                     ? onOpenExchanges
-                    : item.category === 'inventory'
-                      ? onOpenInventory
-                      : () => setConflictsOpen(true);
+                    : item.category === 'issue'
+                      ? onOpenIssues
+                      : item.category === 'operations'
+                        ? onOpenOperations
+                        : item.category === 'inventory'
+                          ? onOpenInventory
+                          : () => setConflictsOpen(true);
               return (
                 <button
                   key={item.category}
                   type="button"
                   className={hoverStyles.buttonSecondary}
-                  aria-label={ATTENTION_FULL_LABEL[item.category](item.count, lang)}
+                  aria-label={ATTENTION_FULL_LABEL[item.category](item, lang)}
                   style={chipStyle}
                   onClick={onClick}
                 >

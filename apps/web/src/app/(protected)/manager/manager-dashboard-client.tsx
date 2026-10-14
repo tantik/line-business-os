@@ -37,6 +37,8 @@ import { monthlyLabourCostSummary } from '@/lib/workforce/labour-cost';
 import {
   buildManagerAttentionQueue,
   computeManagerAttention,
+  countOpenIssuesForAttention,
+  countOpenOperationsExceptionsForAttention,
   computePendingCorrectionCellKeys,
   computeUnavailableConflictCellKeys,
   computeUnavailableConflictRecords,
@@ -260,7 +262,7 @@ export interface ManagerDashboardClientProps {
   operationsOpenExceptions: OperationsOpenException[] | null;
   /** Whether the tenant's separate `issues` top-level module (0118) is enabled -- gates only this entry point's visibility; RLS on `issues.issues` remains the real authorization boundary regardless. */
   issuesEnabled: boolean;
-  /** Open + acknowledged issues/handovers (`api.issues_open`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Also this entry point's own count-badge source (deliberately NOT folded into `AttentionPanel`'s total -- see the Issues popup import site below). */
+  /** Open + acknowledged issues/handovers (`api.issues_open`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Also this entry point's own count-badge source and (QA3, 2026-10-14) AttentionPanel's `issue` category. */
   issuesOpen: Issue[] | null;
   /** Full issue/handover history incl. resolved (`api.issues`) at this Manager's own location, already filtered server-side -- see `page.tsx`. Feeds the Issues popup's History view. */
   issuesAll: Issue[] | null;
@@ -547,12 +549,9 @@ function ManagerDashboardBody({
   // Issues & Handover (Cafe v2.2 WP2, Slice B): this entry point's OWN count
   // badge -- the number of open (not-yet-acknowledged) issues needing
   // action, i.e. `kind='issue' && severity='important' && status='open'`.
-  // Deliberately its own entry-point badge, NOT folded into AttentionPanel's
-  // Level-1 total (mission direction -- avoids repeating the "9 vs 4+4"
-  // count-mismatch bug the Product Quality Foundation deferred list flagged
-  // elsewhere in this dashboard). The badge shows exactly this number and
-  // nothing else is derived from it, so there is no second, differently
-  // computed figure nearby to contradict it.
+  // QA3 (2026-10-14): open issues now also feed AttentionPanel's `issue`
+  // category; its action-required count uses this exact same rule
+  // (`classifyIssueForAttention`), so the badge and the panel never disagree.
   const issuesNeedingActionCount = useMemo(
     () => (issuesOpen ?? []).filter((issue) => issue.kind === 'issue' && issue.severity === 'important' && issue.status === 'open').length,
     [issuesOpen],
@@ -734,15 +733,30 @@ function ManagerDashboardBody({
     return map;
   }, [pendingCorrections, todayIso]);
 
+  // QA3 (2026-10-14): open Issues and open Operations exceptions now feed
+  // the Attention panel too (a Staff 「重要」 report previously moved only the
+  // Issues entry-point badge, never 「要確認」). `null` when the module is off
+  // or its read failed -- the category is then omitted, never shown as zero.
+  const attentionOpenExceptions = useMemo(
+    () => (operationsEnabled && operationsOpenExceptions ? operationsOpenExceptions : null),
+    [operationsEnabled, operationsOpenExceptions],
+  );
+  const attentionOpenIssues = useMemo(() => (issuesEnabled && issuesOpen ? issuesOpen : null), [issuesEnabled, issuesOpen]);
+
   const attentionItems = useMemo(
     () =>
       computeManagerAttention({
         pendingCorrectionCount: pendingCorrections.length,
         pendingExchangeCount: pendingExchanges.length,
+        openIssueCounts: countOpenIssuesForAttention(
+          attentionOpenIssues,
+          new Set((attentionOpenExceptions ?? []).map((e) => e.exceptionId)),
+        ),
+        openOperationsExceptionCounts: countOpenOperationsExceptionsForAttention(attentionOpenExceptions),
         unavailableConflictCount: unavailableConflictCellKeys.size,
         inventoryShortageCount,
       }),
-    [pendingCorrections.length, pendingExchanges.length, unavailableConflictCellKeys, inventoryShortageCount],
+    [pendingCorrections.length, pendingExchanges.length, attentionOpenIssues, attentionOpenExceptions, unavailableConflictCellKeys, inventoryShortageCount],
   );
 
   // Level-3 concrete "who/what/when" queue behind the Level-1/2 counts above
@@ -765,6 +779,8 @@ function ManagerDashboardBody({
             canApprove: e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId),
           };
         }),
+        openIssues: attentionOpenIssues ?? [],
+        openOperationsExceptions: attentionOpenExceptions ?? [],
         unavailableConflicts: unavailableConflictRecords,
         inventoryShortageItems:
           inventoryEnabled && inventoryItems
@@ -773,7 +789,7 @@ function ManagerDashboardBody({
                 .map((i) => ({ itemId: i.itemId, name: i.name, actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
             : [],
       }),
-    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, unavailableConflictRecords, inventoryEnabled, inventoryItems],
+    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, attentionOpenIssues, attentionOpenExceptions, unavailableConflictRecords, inventoryEnabled, inventoryItems],
   );
 
   // Attention "View shift" deep-link: once the correct week's data has
@@ -882,7 +898,11 @@ function ManagerDashboardBody({
     // badge. Shift type (color + name + time) is the only identity a cell
     // carries; a conflict/correction is a small, secondary corner mark,
     // never the whole cell.
-    const ariaParts = [t('editCellAriaLabelPrefix'), s.name, date, cellText];
+    // QA3 (2026-10-14): the visual cell deliberately carries no Draft badge,
+    // but a screen-reader user must still learn the shift is not yet visible
+    // to Staff. Accessible name only -- click/visual stay identical.
+    const draftAriaSuffix = entry.assignment.published ? '' : t('draftCellAriaSuffix');
+    const ariaParts = [t('editCellAriaLabelPrefix'), s.name, date, `${cellText}${draftAriaSuffix}`];
     if (hasCorrectionAlert) ariaParts.push(t('pendingCorrectionCellAriaLabel'));
     else if (hasConflictAlert) ariaParts.push(t('attentionConflictSummary'));
     const ariaLabel = ariaParts.join(' — ');
@@ -1245,6 +1265,14 @@ function ManagerDashboardBody({
           markPopupTriggerClick('inventory');
           setInventoryPopupInitialFilter('shortage');
           setInventoryPopupOpen(true);
+        }}
+        onOpenIssues={() => {
+          markPopupTriggerClick('issues');
+          setIssuesPopupOpen(true);
+        }}
+        onOpenOperations={() => {
+          markPopupTriggerClick('operations');
+          setOperationsPopupOpen(true);
         }}
         onViewShift={handleViewShift}
         unreadMailCount={unreadMailCount}

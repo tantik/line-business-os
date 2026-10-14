@@ -14,16 +14,33 @@
  * touching any dashboard markup.
  */
 
-export type ManagerAttentionCategory = 'correction' | 'exchange' | 'unavailable_conflict' | 'inventory';
+export type ManagerAttentionCategory = 'correction' | 'exchange' | 'issue' | 'operations' | 'unavailable_conflict' | 'inventory';
 
 export interface ManagerAttentionItem {
   category: ManagerAttentionCategory;
   count: number;
+  /**
+   * QA3 (2026-10-14): set only for the mixed-severity categories (`issue`,
+   * `operations`) -- how many of `count` are action-required; the rest are
+   * warnings/notices. Omitted for every fixed-severity category, whose split
+   * comes from `ATTENTION_SEVERITY_BY_CATEGORY` alone.
+   */
+  actionRequiredCount?: number;
+}
+
+/** Severity split of one mixed-severity category's open items. */
+export interface AttentionSeverityCounts {
+  actionRequired: number;
+  notice: number;
 }
 
 export interface ManagerAttentionInput {
   pendingCorrectionCount: number;
   pendingExchangeCount: number;
+  /** Open issues split by severity (see `countOpenIssuesForAttention`). `null`/omitted when the Issues module is disabled or its read failed -- omitted from the result, not shown as zero. */
+  openIssueCounts?: AttentionSeverityCounts | null;
+  /** Open Operations exceptions split by their own severity (see `countOpenOperationsExceptionsForAttention`). `null`/omitted when Operations is disabled or its read failed. */
+  openOperationsExceptionCounts?: AttentionSeverityCounts | null;
   /**
    * Cafe v2.1 QA audit P2-10, 2026-08-17: how many employee/date pairs have
    * both a submitted `isUnavailable` preference request AND a draft-or-published
@@ -45,6 +62,14 @@ export function computeManagerAttention(input: ManagerAttentionInput): ManagerAt
   if (input.pendingExchangeCount > 0) {
     items.push({ category: 'exchange', count: input.pendingExchangeCount });
   }
+  const issues = input.openIssueCounts;
+  if (issues && issues.actionRequired + issues.notice > 0) {
+    items.push({ category: 'issue', count: issues.actionRequired + issues.notice, actionRequiredCount: issues.actionRequired });
+  }
+  const operations = input.openOperationsExceptionCounts;
+  if (operations && operations.actionRequired + operations.notice > 0) {
+    items.push({ category: 'operations', count: operations.actionRequired + operations.notice, actionRequiredCount: operations.actionRequired });
+  }
   if (input.unavailableConflictCount > 0) {
     items.push({ category: 'unavailable_conflict', count: input.unavailableConflictCount });
   }
@@ -65,12 +90,88 @@ export function computeManagerAttention(input: ManagerAttentionInput): ManagerAt
  */
 export type ManagerAttentionSeverity = 'action_required' | 'warning';
 
+/**
+ * Default severity per category. `issue` and `operations` (QA3, 2026-10-14)
+ * are mixed: each open item carries its own severity (a critical issue / an
+ * `action_required` exception vs. a normal issue / a `warning` exception),
+ * so their summary split comes from `ManagerAttentionItem.actionRequiredCount`
+ * and their queue items carry their own `severity`; the value here is only
+ * the fallback when that split is absent.
+ */
 export const ATTENTION_SEVERITY_BY_CATEGORY: Record<ManagerAttentionCategory, ManagerAttentionSeverity> = {
   correction: 'action_required',
   exchange: 'action_required',
+  issue: 'action_required',
+  operations: 'action_required',
   unavailable_conflict: 'warning',
   inventory: 'warning',
 };
+
+/** Minimal shape `countOpenIssuesForAttention` needs from an `api.issues_open` row. */
+export interface AttentionIssueInput {
+  issueId: string;
+  kind: string;
+  severity: string | null;
+  status: string;
+  businessDate: string;
+  note: string;
+  operationsExceptionId: string | null;
+}
+
+/** Minimal shape the Operations attention counting needs from an `api.operations_open_exceptions` row. */
+export interface AttentionOperationsExceptionInput {
+  exceptionId: string;
+  severity: string;
+  businessDate: string | null;
+  templateName: string | null;
+}
+
+/**
+ * Which open issues the Attention panel counts, and at which severity.
+ * Only `kind='issue'` rows with `status='open'` (not yet acknowledged by a
+ * Manager) count -- handovers are notes, not problems, and an acknowledged
+ * issue has already been seen. `severity='important'` is action-required
+ * (the exact rule the Issues entry-point's own red badge already uses, so the
+ * two never disagree); any other severity is a notice. An issue cross-linked
+ * to an exception that is itself still open is skipped so the same problem is
+ * not counted twice (that link is reserved for a future slice; nothing writes
+ * it today).
+ */
+export function classifyIssueForAttention(
+  issue: AttentionIssueInput,
+  openExceptionIds: ReadonlySet<string> = new Set(),
+): 'action_required' | 'warning' | null {
+  if (issue.kind !== 'issue' || issue.status !== 'open') return null;
+  if (issue.operationsExceptionId && openExceptionIds.has(issue.operationsExceptionId)) return null;
+  return issue.severity === 'important' ? 'action_required' : 'warning';
+}
+
+export function countOpenIssuesForAttention(
+  issues: readonly AttentionIssueInput[] | null,
+  openExceptionIds: ReadonlySet<string> = new Set(),
+): AttentionSeverityCounts | null {
+  if (!issues) return null;
+  const counts: AttentionSeverityCounts = { actionRequired: 0, notice: 0 };
+  for (const issue of issues) {
+    const severity = classifyIssueForAttention(issue, openExceptionIds);
+    if (severity === 'action_required') counts.actionRequired += 1;
+    else if (severity === 'warning') counts.notice += 1;
+  }
+  return counts;
+}
+
+/** Every open Operations exception counts; its own `severity` (`action_required` | `warning`) decides the tier -- the view only returns still-open exceptions. */
+export function countOpenOperationsExceptionsForAttention(
+  exceptions: readonly AttentionOperationsExceptionInput[] | null,
+): AttentionSeverityCounts | null {
+  if (!exceptions) return null;
+  const counts: AttentionSeverityCounts = { actionRequired: 0, notice: 0 };
+  for (const exception of exceptions) {
+    if (exception.severity === 'action_required') counts.actionRequired += 1;
+    else counts.notice += 1;
+  }
+  return counts;
+}
 
 export interface ManagerAttentionSummary {
   total: number;
@@ -83,8 +184,14 @@ export function computeManagerAttentionSummary(items: readonly ManagerAttentionI
   let actionRequiredCount = 0;
   let warningCount = 0;
   for (const item of items) {
-    if (ATTENTION_SEVERITY_BY_CATEGORY[item.category] === 'action_required') actionRequiredCount += item.count;
-    else warningCount += item.count;
+    const actionRequired =
+      item.actionRequiredCount !== undefined
+        ? Math.min(Math.max(item.actionRequiredCount, 0), item.count)
+        : ATTENTION_SEVERITY_BY_CATEGORY[item.category] === 'action_required'
+          ? item.count
+          : 0;
+    actionRequiredCount += actionRequired;
+    warningCount += item.count - actionRequired;
   }
   return { total: actionRequiredCount + warningCount, actionRequiredCount, warningCount };
 }
@@ -123,6 +230,8 @@ export interface AttentionInventoryItemInput {
 export type ManagerAttentionQueueItem =
   | { id: string; category: 'correction'; severity: 'action_required'; requestId: string; employeeId: string; workDate: string }
   | { id: string; category: 'exchange'; severity: 'action_required'; exchangeId: string; employeeId: string; workDate: string | null; canApprove: boolean }
+  | { id: string; category: 'issue'; severity: ManagerAttentionSeverity; issueId: string; businessDate: string; note: string }
+  | { id: string; category: 'operations'; severity: ManagerAttentionSeverity; exceptionId: string; businessDate: string | null; templateName: string | null }
   | { id: string; category: 'unavailable_conflict'; severity: 'warning'; employeeId: string; workDate: string }
   | { id: string; category: 'inventory'; severity: 'warning'; shortageCount: number; topItems: readonly AttentionInventoryItemInput[] };
 
@@ -131,6 +240,10 @@ const INVENTORY_QUEUE_ITEM_PREVIEW_COUNT = 3;
 export interface BuildManagerAttentionQueueInput {
   pendingCorrections: readonly AttentionCorrectionQueueInput[];
   pendingExchanges: readonly AttentionExchangeQueueInput[];
+  /** Raw open issues -- filtered/classified here by `classifyIssueForAttention`, the same rule the counts use. Omit when the module is disabled. */
+  openIssues?: readonly AttentionIssueInput[];
+  /** Raw open Operations exceptions. Omit when the module is disabled. */
+  openOperationsExceptions?: readonly AttentionOperationsExceptionInput[];
   unavailableConflicts: readonly AttentionConflictQueueInput[];
   /** Already filtered to `status === 'shortage'` by the caller -- this builder does not re-derive Inventory's own shortage rule. */
   inventoryShortageItems: readonly AttentionInventoryItemInput[];
@@ -139,8 +252,10 @@ export interface BuildManagerAttentionQueueInput {
 /**
  * Level-3 concrete "who/what/when" items behind the Level-1/2 counts --
  * derives presentation only, no new business state. Ordering is fixed:
- * action-required categories (correction, then exchange) before warning
- * categories (unavailable-conflict, then inventory); each category's own
+ * action-required categories (correction, then exchange), then the
+ * mixed-severity issue/operations items (each carrying its own severity,
+ * action-required first), before warning categories (unavailable-conflict,
+ * then inventory); each category's own
  * items are sorted by `workDate` ascending (soonest/oldest first) then by id,
  * so the result is deterministic regardless of the caller's array order.
  * Inventory collapses to exactly one queue item (the whole shortage list),
@@ -163,6 +278,44 @@ export function buildManagerAttentionQueue(input: BuildManagerAttentionQueueInpu
   );
   for (const e of exchanges) {
     items.push({ id: `exchange:${e.exchangeId}`, category: 'exchange', severity: 'action_required', exchangeId: e.exchangeId, employeeId: e.employeeId, workDate: e.workDate, canApprove: e.canApprove });
+  }
+
+  const severityRank = (s: ManagerAttentionSeverity) => (s === 'action_required' ? 0 : 1);
+  const openExceptions = input.openOperationsExceptions ?? [];
+  const openExceptionIds = new Set(openExceptions.map((e) => e.exceptionId));
+
+  const issues: { issue: AttentionIssueInput; severity: ManagerAttentionSeverity }[] = [];
+  for (const issue of input.openIssues ?? []) {
+    const severity = classifyIssueForAttention(issue, openExceptionIds);
+    if (severity) issues.push({ issue, severity });
+  }
+  issues.sort(
+    (a, b) =>
+      severityRank(a.severity) - severityRank(b.severity) ||
+      a.issue.businessDate.localeCompare(b.issue.businessDate) ||
+      a.issue.issueId.localeCompare(b.issue.issueId),
+  );
+  for (const { issue, severity } of issues) {
+    items.push({ id: `issue:${issue.issueId}`, category: 'issue', severity, issueId: issue.issueId, businessDate: issue.businessDate, note: issue.note });
+  }
+
+  const exceptionSeverity = (e: AttentionOperationsExceptionInput): ManagerAttentionSeverity =>
+    e.severity === 'action_required' ? 'action_required' : 'warning';
+  const exceptions = [...openExceptions].sort(
+    (a, b) =>
+      severityRank(exceptionSeverity(a)) - severityRank(exceptionSeverity(b)) ||
+      (a.businessDate ?? '9999-99-99').localeCompare(b.businessDate ?? '9999-99-99') ||
+      a.exceptionId.localeCompare(b.exceptionId),
+  );
+  for (const e of exceptions) {
+    items.push({
+      id: `operations:${e.exceptionId}`,
+      category: 'operations',
+      severity: exceptionSeverity(e),
+      exceptionId: e.exceptionId,
+      businessDate: e.businessDate,
+      templateName: e.templateName,
+    });
   }
 
   const conflicts = [...input.unavailableConflicts].sort(
