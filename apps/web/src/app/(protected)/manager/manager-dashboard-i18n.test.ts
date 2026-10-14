@@ -6,7 +6,9 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionIssueChipCount,
   attentionIssueLabel,
+  attentionOperationsGroupCount,
   attentionOperationsLabel,
   attentionSummarySubtitle,
   autoCreateConfigErrorMessage,
@@ -183,8 +185,6 @@ test('QA3: Issues/Operations attention copy exists in both languages and names t
     'attentionOperationsTitle',
     'attentionItemIssueCriticalTitle',
     'attentionItemIssueNoticeTitle',
-    'attentionItemOperationsTitle',
-    'attentionOperationsExceptionSummary',
     'attentionOpenIssues',
     'attentionOpenOperations',
     'draftCellAriaSuffix',
@@ -195,12 +195,34 @@ test('QA3: Issues/Operations attention copy exists in both languages and names t
   assert.equal(tManagerDashboard('ja', 'attentionIssueTitle'), '問題報告');
   assert.equal(tManagerDashboard('ja', 'attentionOperationsTitle'), 'オペレーション');
   assert.equal(tManagerDashboard('ja', 'draftCellAriaSuffix'), '（下書き・未公開）');
-  assert.equal(attentionIssueLabel.ja(1, 1), '重要な問題報告が1件あります');
-  assert.match(attentionIssueLabel.ja(3, 1), /^重要な問題報告が1件あります（その他の未対応の問題報告2件）$/);
+  // UX review (PR #584): Issues module's own 要対応 / "Needs action" term, never 重要.
+  assert.equal(tManagerDashboard('ja', 'attentionItemIssueCriticalTitle'), '要対応の問題報告');
+  assert.equal(tManagerDashboard('en', 'attentionItemIssueCriticalTitle'), 'Issue report – needs action');
+  assert.equal(tManagerDashboard('en', 'attentionOpenIssues'), 'View issues');
+  assert.equal(attentionIssueLabel.ja(1, 1), '要対応の問題報告が1件あります');
+  assert.match(attentionIssueLabel.ja(3, 1), /^要対応の問題報告が1件あります（その他の未対応の問題報告2件）$/);
   assert.equal(attentionIssueLabel.ja(2, 0), '未対応の問題報告が2件あります');
-  assert.match(attentionIssueLabel.en(3, 1), /1 important issue report/);
-  assert.equal(attentionOperationsLabel.ja(2), 'オペレーションの対応が必要な項目が2件あります');
-  assert.match(attentionOperationsLabel.en(2), /2 Operations item/);
+  assert.match(attentionIssueLabel.en(3, 1), /1 issue report\(s\) need action/);
+  for (const lang of LANGS) {
+    assert.doesNotMatch(attentionIssueLabel[lang](3, 1), /重要|important/i);
+  }
+  assert.equal(attentionIssueChipCount.ja(3, 1), '3（要対応 1）');
+  assert.equal(attentionIssueChipCount.ja(3, 0), '3');
+  assert.equal(attentionIssueChipCount.en(3, 1), '3 (1 needs action)');
+  assert.equal(attentionOperationsLabel.ja(3, 1), 'オペレーション：要対応1件、注意2件');
+  assert.equal(attentionOperationsLabel.ja(2, 0), 'オペレーション：注意2件');
+  assert.equal(attentionOperationsLabel.en(3, 1), 'Operations: 1 need action, 2 warning(s)');
+  assert.equal(attentionOperationsGroupCount.ja(14), '14件');
+});
+
+test('UX review (PR #584): Operations queue rows reuse the Operations module source/severity wording, and the issue chip shows the needs-action share', () => {
+  const panel = readFileSync(new URL('./attention-panel.tsx', import.meta.url), 'utf8');
+  for (const key of ['attentionSourceThreshold', 'attentionSourceCriticalMissed', 'attentionSourceReported', 'severityActionRequired', 'severityWarning']) {
+    assert.ok(panel.includes(`'${key}'`), key);
+  }
+  assert.doesNotMatch(panel, /attentionItemOperationsTitle|attentionOperationsExceptionSummary/);
+  assert.match(panel, /attentionIssueChipCount\[lang\]\(item\.count, item\.actionRequiredCount \?\? 0\)/);
+  assert.match(panel, /Array\.from\(qi\.note\)/);
 });
 
 test('QA3: Attention chips for issue/operations open the existing Issues/Operations popups, and Review-all groups by per-item severity', () => {

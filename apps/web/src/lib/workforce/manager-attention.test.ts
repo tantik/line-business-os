@@ -20,7 +20,7 @@ function issue(overrides: Partial<AttentionIssueInput> & { issueId: string }): A
 }
 
 function exception(overrides: Partial<AttentionOperationsExceptionInput> & { exceptionId: string }): AttentionOperationsExceptionInput {
-  return { severity: 'action_required', businessDate: '2026-10-14', templateName: 'Opening', ...overrides };
+  return { severity: 'action_required', source: 'critical_missed', businessDate: '2026-10-14', templateName: 'Opening', createdAt: '2026-10-14T00:00:00.000Z', ...overrides };
 }
 
 test('classifyIssueForAttention: open important issue is action-required, open normal/unset-severity issue is a notice', () => {
@@ -143,14 +143,52 @@ test('buildManagerAttentionQueue lists issue/operations items with per-item seve
       ['correction:req-1', 'action_required'],
       ['issue:i-critical', 'action_required'],
       ['issue:i-normal', 'warning'],
-      ['operations:e-act', 'action_required'],
-      ['operations:e-warn', 'warning'],
+      ['operations:Opening|critical_missed|action_required', 'action_required'],
+      ['operations:Opening|critical_missed|warning', 'warning'],
       ['conflict:emp-3:2026-10-02', 'warning'],
     ],
   );
   const issueCounts = countOpenIssuesForAttention(openIssues);
   const queueIssues = items.filter((i) => i.category === 'issue');
   assert.equal(queueIssues.length, (issueCounts?.actionRequired ?? 0) + (issueCounts?.notice ?? 0));
+});
+
+test('buildManagerAttentionQueue collapses Operations exceptions by task+source+severity (same key as the Operations popup), one row with a count and the newest date', () => {
+  const repeated = Array.from({ length: 14 }, (_, i) =>
+    exception({
+      exceptionId: `e-${String(i).padStart(2, '0')}`,
+      source: 'critical_missed',
+      severity: 'action_required',
+      templateName: 'Fridge check',
+      businessDate: `2026-10-${String(i + 1).padStart(2, '0')}`,
+      createdAt: `2026-10-${String(i + 1).padStart(2, '0')}T09:00:00.000Z`,
+    }),
+  );
+  const items = buildManagerAttentionQueue({
+    pendingCorrections: [],
+    pendingExchanges: [],
+    openOperationsExceptions: [
+      ...repeated,
+      exception({ exceptionId: 'th-1', source: 'threshold', severity: 'warning', templateName: 'Fridge check', createdAt: '2026-10-20T00:00:00.000Z' }),
+      exception({ exceptionId: 'ot-1', source: 'critical_missed', severity: 'action_required', templateName: 'Closing', createdAt: '2026-10-02T00:00:00.000Z' }),
+    ],
+    unavailableConflicts: [],
+    inventoryShortageItems: [],
+  });
+  const ops = items.filter((i): i is Extract<typeof i, { category: 'operations' }> => i.category === 'operations');
+  assert.deepEqual(
+    ops.map((g) => [g.templateName, g.source, g.severity, g.count, g.latestBusinessDate]),
+    [
+      ['Fridge check', 'critical_missed', 'action_required', 14, '2026-10-14'],
+      ['Closing', 'critical_missed', 'action_required', 1, '2026-10-14'],
+      ['Fridge check', 'threshold', 'warning', 1, '2026-10-14'],
+    ],
+  );
+  // Grouping is presentation only: the Level-1 count still counts every open exception.
+  assert.deepEqual(
+    countOpenOperationsExceptionsForAttention([...repeated]),
+    { actionRequired: 14, notice: 0 },
+  );
 });
 
 test('computeManagerAttention returns an empty list when nothing needs action (the calm state)', () => {

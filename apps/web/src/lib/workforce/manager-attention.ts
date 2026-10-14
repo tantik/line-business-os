@@ -122,8 +122,10 @@ export interface AttentionIssueInput {
 export interface AttentionOperationsExceptionInput {
   exceptionId: string;
   severity: string;
+  source: string;
   businessDate: string | null;
   templateName: string | null;
+  createdAt: string;
 }
 
 /**
@@ -231,7 +233,19 @@ export type ManagerAttentionQueueItem =
   | { id: string; category: 'correction'; severity: 'action_required'; requestId: string; employeeId: string; workDate: string }
   | { id: string; category: 'exchange'; severity: 'action_required'; exchangeId: string; employeeId: string; workDate: string | null; canApprove: boolean }
   | { id: string; category: 'issue'; severity: ManagerAttentionSeverity; issueId: string; businessDate: string; note: string }
-  | { id: string; category: 'operations'; severity: ManagerAttentionSeverity; exceptionId: string; businessDate: string | null; templateName: string | null }
+  | {
+      id: string;
+      category: 'operations';
+      severity: ManagerAttentionSeverity;
+      /** Same grouping key as the Operations popup's `AttentionSection` (task + source + severity). */
+      groupKey: string;
+      templateName: string | null;
+      source: string;
+      /** How many open exceptions this group collapses. */
+      count: number;
+      /** Business date of the newest exception in the group (by `createdAt`). */
+      latestBusinessDate: string | null;
+    }
   | { id: string; category: 'unavailable_conflict'; severity: 'warning'; employeeId: string; workDate: string }
   | { id: string; category: 'inventory'; severity: 'warning'; shortageCount: number; topItems: readonly AttentionInventoryItemInput[] };
 
@@ -301,20 +315,36 @@ export function buildManagerAttentionQueue(input: BuildManagerAttentionQueueInpu
 
   const exceptionSeverity = (e: AttentionOperationsExceptionInput): ManagerAttentionSeverity =>
     e.severity === 'action_required' ? 'action_required' : 'warning';
-  const exceptions = [...openExceptions].sort(
-    (a, b) =>
-      severityRank(exceptionSeverity(a)) - severityRank(exceptionSeverity(b)) ||
-      (a.businessDate ?? '9999-99-99').localeCompare(b.businessDate ?? '9999-99-99') ||
-      a.exceptionId.localeCompare(b.exceptionId),
+  // UX review (PR #584): one row per task+source+severity group with a
+  // count -- the same grouping the Operations popup's `AttentionSection`
+  // uses -- never a wall of identical rows (e.g. 14 repeated
+  // `critical_missed` events for one task). Newest exception first within a
+  // group; groups ordered action-required first, then by newest exception.
+  const newestFirst = [...openExceptions].sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt) || a.exceptionId.localeCompare(b.exceptionId),
   );
-  for (const e of exceptions) {
+  const groups = new Map<string, { first: AttentionOperationsExceptionInput; count: number }>();
+  for (const e of newestFirst) {
+    const groupKey = `${e.templateName ?? ''}|${e.source}|${exceptionSeverity(e)}`;
+    const existing = groups.get(groupKey);
+    if (existing) existing.count += 1;
+    else groups.set(groupKey, { first: e, count: 1 });
+  }
+  const sortedGroups = [...groups.entries()].sort(
+    ([, a], [, b]) =>
+      severityRank(exceptionSeverity(a.first)) - severityRank(exceptionSeverity(b.first)) ||
+      b.first.createdAt.localeCompare(a.first.createdAt),
+  );
+  for (const [groupKey, group] of sortedGroups) {
     items.push({
-      id: `operations:${e.exceptionId}`,
+      id: `operations:${groupKey}`,
       category: 'operations',
-      severity: exceptionSeverity(e),
-      exceptionId: e.exceptionId,
-      businessDate: e.businessDate,
-      templateName: e.templateName,
+      severity: exceptionSeverity(group.first),
+      groupKey,
+      templateName: group.first.templateName,
+      source: group.first.source,
+      count: group.count,
+      latestBusinessDate: group.first.businessDate,
     });
   }
 

@@ -467,7 +467,7 @@ export const tStaffDashboard = makeTranslator(dictionary);
  * 「この週の…」 wording the Manager schedule uses for the displayed week).
  */
 export const scheduledThisWeekValue: Record<Lang, (hours: string, isCurrentWeek?: boolean) => string> = {
-  en: (hours, isCurrentWeek = true) => (isCurrentWeek ? `Scheduled this week: ${hours}h` : `Scheduled in the week shown: ${hours}h`),
+  en: (hours, isCurrentWeek = true) => (isCurrentWeek ? `Scheduled this week: ${hours}h` : `Scheduled (selected week): ${hours}h`),
   ja: (hours, isCurrentWeek = true) => (isCurrentWeek ? `今週の予定時間: ${hours}h` : `この週の予定時間: ${hours}h`),
 };
 

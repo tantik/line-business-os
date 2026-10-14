@@ -12,12 +12,15 @@ import {
   attentionExchangeLabel,
   attentionInventoryLabel,
   attentionInventoryShortageSummary,
+  attentionIssueChipCount,
   attentionIssueLabel,
+  attentionOperationsGroupCount,
   attentionOperationsLabel,
   attentionSummarySubtitle,
   attentionUnavailableConflictLabel,
   tManagerDashboard,
 } from './manager-dashboard-i18n';
+import { tOperations } from '../operations/operations-i18n';
 
 const ATTENTION_TITLE_KEY: Record<
   ManagerAttentionCategory,
@@ -35,7 +38,7 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (item: ManagerAtten
   correction: (item, lang) => attentionCorrectionLabel[lang](item.count),
   exchange: (item, lang) => attentionExchangeLabel[lang](item.count),
   issue: (item, lang) => attentionIssueLabel[lang](item.count, item.actionRequiredCount ?? 0),
-  operations: (item, lang) => attentionOperationsLabel[lang](item.count),
+  operations: (item, lang) => attentionOperationsLabel[lang](item.count, item.actionRequiredCount ?? 0),
   unavailable_conflict: (item, lang) => attentionUnavailableConflictLabel[lang](item.count),
   inventory: (item, lang) => attentionInventoryLabel[lang](item.count),
 };
@@ -263,7 +266,9 @@ export function AttentionPanel({
   }
 
   function renderIssueItem(qi: Extract<ManagerAttentionQueueItem, { category: 'issue' }>) {
-    const note = qi.note.length > 60 ? `${qi.note.slice(0, 60)}…` : qi.note;
+    // Code-point safe (no split surrogate pair / emoji).
+    const noteChars = Array.from(qi.note);
+    const note = noteChars.length > 60 ? `${noteChars.slice(0, 60).join('')}…` : qi.note;
     return (
       <div key={qi.id} style={queueItemStyle}>
         <div style={{ minWidth: 0 }}>
@@ -288,15 +293,27 @@ export function AttentionPanel({
     );
   }
 
+  function operationsSourceLabel(source: string): string {
+    return source === 'threshold'
+      ? tOperations(lang, 'attentionSourceThreshold')
+      : source === 'critical_missed'
+        ? tOperations(lang, 'attentionSourceCriticalMissed')
+        : tOperations(lang, 'attentionSourceReported');
+  }
+
   function renderOperationsItem(qi: Extract<ManagerAttentionQueueItem, { category: 'operations' }>) {
     return (
       <div key={qi.id} style={queueItemStyle}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemOperationsTitle')}</div>
-          <div style={{ fontSize: 13 }}>
-            {[qi.templateName, qi.businessDate].filter((part): part is string => Boolean(part)).join(' · ')}
+          {/* Operations module's own vocabulary (source + 要対応/注意), same as its popup. */}
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {operationsSourceLabel(qi.source)} ·{' '}
+            {tOperations(lang, qi.severity === 'action_required' ? 'severityActionRequired' : 'severityWarning')}
           </div>
-          <div style={{ ...mutedText, fontSize: 12 }}>{t('attentionOperationsExceptionSummary')}</div>
+          <div style={{ fontSize: 13 }}>
+            {[qi.templateName, qi.latestBusinessDate].filter((part): part is string => Boolean(part)).join(' · ')}
+          </div>
+          {qi.count > 1 ? <div style={{ ...mutedText, fontSize: 12 }}>{attentionOperationsGroupCount[lang](qi.count)}</div> : null}
         </div>
         <button
           type="button"
@@ -367,7 +384,9 @@ export function AttentionPanel({
               const label = (
                 <>
                   <span style={{ fontSize: 14 }}>{t(ATTENTION_TITLE_KEY[item.category])}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: colors.warning }}>{item.count}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: colors.warning }}>
+                    {item.category === 'issue' ? attentionIssueChipCount[lang](item.count, item.actionRequiredCount ?? 0) : item.count}
+                  </span>
                 </>
               );
               const onClick =

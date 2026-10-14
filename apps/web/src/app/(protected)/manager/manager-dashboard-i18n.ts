@@ -63,8 +63,6 @@ interface ManagerDashboardDict {
   attentionOperationsTitle: string;
   attentionItemIssueCriticalTitle: string;
   attentionItemIssueNoticeTitle: string;
-  attentionItemOperationsTitle: string;
-  attentionOperationsExceptionSummary: string;
   attentionOpenIssues: string;
   attentionOpenOperations: string;
   // Entry-points card (Recipes/Inventory/Manage staff)
@@ -460,12 +458,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionWarningsGroupHeading: 'Warnings',
     attentionIssueTitle: 'Issue reports',
     attentionOperationsTitle: 'Operations',
-    attentionItemIssueCriticalTitle: 'Important issue report',
+    attentionItemIssueCriticalTitle: 'Issue report – needs action',
     attentionItemIssueNoticeTitle: 'Issue report',
-    attentionItemOperationsTitle: 'Operations exception',
-    attentionOperationsExceptionSummary: 'A task needs follow-up',
-    attentionOpenIssues: 'Open issues',
-    attentionOpenOperations: 'Open Operations',
+    attentionOpenIssues: 'View issues',
+    attentionOpenOperations: 'View Operations',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     staffHeading: 'Staff',
     manageStaff: 'Manage staff',
@@ -806,10 +802,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionWarningsGroupHeading: '注意事項',
     attentionIssueTitle: '問題報告',
     attentionOperationsTitle: 'オペレーション',
-    attentionItemIssueCriticalTitle: '重要な問題報告',
+    attentionItemIssueCriticalTitle: '要対応の問題報告',
     attentionItemIssueNoticeTitle: '問題報告',
-    attentionItemOperationsTitle: 'オペレーションの例外',
-    attentionOperationsExceptionSummary: '対応が必要なタスクがあります',
     attentionOpenIssues: '問題報告を開く',
     attentionOpenOperations: 'オペレーションを開く',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
@@ -1185,17 +1179,42 @@ export const attentionInventoryLabel: Record<Lang, (count: number) => string> = 
 export const attentionIssueLabel: Record<Lang, (count: number, criticalCount: number) => string> = {
   en: (count, criticalCount) =>
     criticalCount > 0
-      ? `${criticalCount} important issue report(s)${count > criticalCount ? `, ${count - criticalCount} other open issue report(s)` : ''}`
+      ? `${criticalCount} issue report(s) need action${count > criticalCount ? `, ${count - criticalCount} other open issue report(s)` : ''}`
       : `${count} open issue report(s)`,
   ja: (count, criticalCount) =>
     criticalCount > 0
-      ? `重要な問題報告が${criticalCount}件あります${count > criticalCount ? `（その他の未対応の問題報告${count - criticalCount}件）` : ''}`
+      ? `要対応の問題報告が${criticalCount}件あります${count > criticalCount ? `（その他の未対応の問題報告${count - criticalCount}件）` : ''}`
       : `未対応の問題報告が${count}件あります`,
 };
 
-export const attentionOperationsLabel: Record<Lang, (count: number) => string> = {
-  en: (count) => `${count} Operations item(s) need follow-up`,
-  ja: (count) => `オペレーションの対応が必要な項目が${count}件あります`,
+/** Visible chip count for the Issues category: the open total, plus the needs-action share when there is one (UX review, PR #584) -- so it never reads as contradicting the red Issues entry badge. */
+export const attentionIssueChipCount: Record<Lang, (count: number, criticalCount: number) => string> = {
+  en: (count, criticalCount) => (criticalCount > 0 ? `${count} (${criticalCount} needs action)` : `${count}`),
+  ja: (count, criticalCount) => (criticalCount > 0 ? `${count}（要対応 ${criticalCount}）` : `${count}`),
+};
+
+/** Operations chip aria-label: distinguishes needs-action from warning counts (Operations module's own 要対応/注意 terms). */
+export const attentionOperationsLabel: Record<Lang, (count: number, actionRequiredCount: number) => string> = {
+  en: (count, actionRequiredCount) => {
+    const warnings = count - actionRequiredCount;
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`${actionRequiredCount} need action`);
+    if (warnings > 0) parts.push(`${warnings} warning(s)`);
+    return `Operations: ${parts.join(', ')}`;
+  },
+  ja: (count, actionRequiredCount) => {
+    const warnings = count - actionRequiredCount;
+    const parts: string[] = [];
+    if (actionRequiredCount > 0) parts.push(`要対応${actionRequiredCount}件`);
+    if (warnings > 0) parts.push(`注意${warnings}件`);
+    return `オペレーション：${parts.join('、')}`;
+  },
+};
+
+/** "N occurrences" suffix for a collapsed Operations queue group (shown only when > 1). */
+export const attentionOperationsGroupCount: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} occurrences`,
+  ja: (count) => `${count}件`,
 };
 
 export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => string> = {

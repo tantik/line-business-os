@@ -66,6 +66,7 @@ import { PurchasesPopup } from '../_ui/purchases-popup';
 import { OperationsStaffPopup } from '../_ui/operations-staff-popup';
 import { IssuesStaffPopup } from '../_ui/issues-staff-popup';
 import { HelpIconButton } from '@/components/shared/design-kit';
+import { InlineAlert } from '@line-os/ui';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
 
@@ -866,8 +867,10 @@ function StaffDashboardBody({
                       </div>
                     ))}
                   </div>
-                  {decidedExchangeNotice ? (
-                    <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: colors.textPrimary }}>{decidedExchangeNotice}</p>
+                  {decidedExchangeForSelected && decidedExchangeNotice ? (
+                    <InlineAlert tone={decidedExchangeForSelected.status === 'rejected' ? 'warning' : 'info'} className="mb-3">
+                      {decidedExchangeNotice}
+                    </InlineAlert>
                   ) : null}
                   {canRequestExchange ? (
                     <div style={{ paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
@@ -885,7 +888,7 @@ function StaffDashboardBody({
                         }}
                       />
                     </div>
-                  ) : existingExchangeForSelected && !(decidedExchangeNotice && existingExchangeForSelected.status === 'approved') ? (
+                  ) : existingExchangeForSelected && !decidedExchangeForSelected ? (
                     <p style={{ ...mutedText, fontSize: 13 }}>{existingExchangeMessage[lang](existingExchangeForSelected.status)}</p>
                   ) : null}
                 </>

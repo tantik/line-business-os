@@ -86,7 +86,7 @@ test('scheduledThisWeekValue interpolates the hours value and differs by languag
 test('scheduledThisWeekValue says "this week" only for the current week, "the week shown" otherwise (QA3)', () => {
   assert.match(scheduledThisWeekValue.ja('8.0', true), /^今週の予定時間/);
   assert.match(scheduledThisWeekValue.ja('8.0', false), /^この週の予定時間: 8\.0h$/);
-  assert.match(scheduledThisWeekValue.en('8.0', false), /week shown/);
+  assert.equal(scheduledThisWeekValue.en('8.0', false), 'Scheduled (selected week): 8.0h');
   assert.equal(scheduledThisWeekValue.en('8.0'), scheduledThisWeekValue.en('8.0', true));
 });
 
@@ -102,6 +102,9 @@ test('the Staff shift dialog renders the decided-request notice from the shared 
   assert.match(source, /latestDecidedOwnExchangeForShift\(exchanges \?\? \[\], selectedAssignment\.assignmentId, profile\.staffId\)/);
   assert.match(source, /exchangeDecidedMessage\[lang\]\(decidedExchangeForSelected\.status/);
   assert.match(source, /\{decidedExchangeNotice\}/);
+  // UX review (PR #584): DS InlineAlert (rejected = warning, approved = info), and no duplicate "already exists" line.
+  assert.match(source, /<InlineAlert tone=\{decidedExchangeForSelected\.status === 'rejected' \? 'warning' : 'info'\}/);
+  assert.match(source, /existingExchangeForSelected && !decidedExchangeForSelected \?/);
 });
 
 test('inventoryShortageLabel interpolates the count and differs by language', () => {
