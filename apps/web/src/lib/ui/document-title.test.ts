@@ -13,6 +13,13 @@ test('formatDocumentTitle matches the root layout title template', () => {
   assert.match(read('../../app/layout.tsx'), /template: '%s \| ORUWA'/);
 });
 
+test('QA3: the title survives a late streamed metadata <title>, but only on its own page', () => {
+  const hook = read('./document-title.ts');
+  assert.match(hook, /new MutationObserver\(apply\)/);
+  assert.match(hook, /return \(\) => observer\.disconnect\(\);/);
+  assert.match(hook, /window\.location\.pathname === pathname/);
+});
+
 test('QA3: state pages (incl. access denied) set the tab title from their headline; loading does not', () => {
   const states = read('../../components/states.tsx');
   assert.match(states, /useDocumentTitle\(setDocumentTitle \? tAuth\(lang, title\) : null\)/);
