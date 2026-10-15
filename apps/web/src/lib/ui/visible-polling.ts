@@ -9,7 +9,8 @@ import { useEffect, useRef } from 'react';
  * several Supabase calls. The old per-screen `setInterval(…, 2500)` kept an
  * open /staff tab at ~17k invocations per 12 h and used up most of the Vercel
  * Hobby free CPU. Contract:
- *   - at most one poll per `intervalMs` (default 60 s), never two at once;
+ *   - at most one poll per `intervalMs` (default 60 s; checked every 10 s
+ *     locally, so the gap is 60-70 s), never two at once;
  *   - no polling while the tab is hidden;
  *   - no polling after `idleMs` (default 5 min) without user input -- a
  *     tablet left open on the counter, or an automation browser, stops;
@@ -20,8 +21,10 @@ import { useEffect, useRef } from 'react';
  */
 export const POLL_INTERVAL_MS = 60_000;
 export const POLL_IDLE_PAUSE_MS = 5 * 60_000;
-/** A visibility/focus refresh is skipped when the last poll is newer than this. */
-export const POLL_RESUME_MIN_GAP_MS = 5_000;
+/** A visibility/focus refresh is skipped when the last poll is newer than this (alt-tab must not become a 5 s poll). */
+export const POLL_RESUME_MIN_GAP_MS = 30_000;
+/** How often the timer checks locally whether a poll is due -- no request unless it is. */
+export const POLL_CHECK_EVERY_MS = 10_000;
 
 const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'wheel'] as const;
 
@@ -64,10 +67,11 @@ export function startVisiblePoller(run: () => Promise<void>, env: PollerEnv, opt
 
   const isIdle = () => env.now() - lastActivityAt >= idleMs;
 
+  // Due-ness is measured from the last poll, so a resume refresh pushes the
+  // next poll a full interval out instead of leaving a near-double gap.
   const onTick = () => {
     if (!env.isVisible() || isIdle()) return;
-    // A resume refresh may have run just before this tick.
-    if (env.now() - lastRunAt < intervalMs / 2) return;
+    if (env.now() - lastRunAt < intervalMs) return;
     fire();
   };
 
@@ -83,7 +87,7 @@ export function startVisiblePoller(run: () => Promise<void>, env: PollerEnv, opt
     if (wasIdle && env.isVisible() && env.now() - lastRunAt >= intervalMs) fire();
   };
 
-  const id = env.setInterval(onTick, intervalMs);
+  const id = env.setInterval(onTick, Math.min(POLL_CHECK_EVERY_MS, intervalMs));
   const unsubscribers = [
     env.listen('document', 'visibilitychange', onResume),
     env.listen('window', 'focus', onResume),
@@ -113,16 +117,20 @@ function browserEnv(): PollerEnv {
 
 /**
  * Runs `poll` in the background under the shared policy above. `poll` always
- * sees the latest render's values (kept in a ref), so a changing argument such
- * as the displayed week does not restart the timer. `isCurrent()` turns false
- * after unmount or when `enabled` flips, so a late response can be dropped.
+ * sees the latest committed render's values (kept in a ref), so a changing
+ * argument such as the displayed week does not restart the timer.
+ * `isCurrent()` turns false after unmount, when `enabled` flips, or when
+ * `resetOn` changes -- pass the server-fetched data the poll overwrites, so a
+ * poll started before a `router.refresh()` cannot overwrite the fresher data.
  */
 export function useVisiblePolling(
   poll: (isCurrent: () => boolean) => Promise<void>,
-  { enabled = true, intervalMs, idleMs }: PollerOptions & { enabled?: boolean } = {},
+  { enabled = true, intervalMs, idleMs, resetOn }: PollerOptions & { enabled?: boolean; resetOn?: unknown } = {},
 ): void {
   const pollRef = useRef(poll);
-  pollRef.current = poll;
+  useEffect(() => {
+    pollRef.current = poll;
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -132,5 +140,5 @@ export function useVisiblePolling(
       current = false;
       stop();
     };
-  }, [enabled, intervalMs, idleMs]);
+  }, [enabled, intervalMs, idleMs, resetOn]);
 }

@@ -369,7 +369,7 @@ function StaffDashboardBody({
       const result = await getMyStaffMessages();
       if (isCurrent() && result.status === 'success') setLiveStaffMessages(result.data);
     },
-    { enabled: staffMessages !== null },
+    { enabled: staffMessages !== null, resetOn: staffMessages },
   );
 
   const unreadMailCount = useMemo(
@@ -413,7 +413,7 @@ function StaffDashboardBody({
         ...result.data.assignments,
       ]);
     },
-    { enabled: assignments !== null },
+    { enabled: assignments !== null, resetOn: assignments },
   );
 
   const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);

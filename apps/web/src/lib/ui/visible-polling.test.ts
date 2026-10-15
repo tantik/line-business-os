@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { POLL_IDLE_PAUSE_MS, POLL_INTERVAL_MS, startVisiblePoller, type PollerEnv } from './visible-polling';
+import { POLL_CHECK_EVERY_MS, POLL_INTERVAL_MS, POLL_RESUME_MIN_GAP_MS, startVisiblePoller, type PollerEnv } from './visible-polling';
 
 /** Fake clock/timer/event env: `advance` fires due interval ticks; `emit` fires listeners. */
 function fakeEnv() {
@@ -67,7 +67,7 @@ test('polls once per interval (60 s by default), never at the old 2.5 s rate', a
   const c = counter();
   const stop = startVisiblePoller(c.run, f.env);
   assert.equal(f.timers.length, 1);
-  assert.equal(f.timers[0]!.ms, POLL_INTERVAL_MS);
+  assert.equal(f.timers[0]!.ms, POLL_CHECK_EVERY_MS, 'local check only; a request needs a full interval since the last poll');
   assert.equal(POLL_INTERVAL_MS, 60_000);
   await f.advance(59_000);
   assert.equal(c.calls, 0, 'no poll right after page load');
@@ -106,13 +106,27 @@ test('refreshes once immediately when the tab becomes visible again, and not twi
   stop();
 });
 
+test('a focus soon after a poll does not poll again (alt-tab is not a 5 s poll)', async () => {
+  const f = fakeEnv();
+  const c = counter();
+  const stop = startVisiblePoller(c.run, f.env);
+  f.emit('window', 'pointermove');
+  await f.advance(60_000);
+  assert.equal(c.calls, 1);
+  await f.advance(POLL_RESUME_MIN_GAP_MS - 10_000);
+  f.emit('window', 'focus');
+  await f.advance(0);
+  assert.equal(c.calls, 1);
+  stop();
+});
+
 test('pauses after the idle window and resumes with one refresh on the next user input', async () => {
   const f = fakeEnv();
   const c = counter();
   const stop = startVisiblePoller(c.run, f.env);
-  await f.advance(POLL_IDLE_PAUSE_MS + 30 * 60_000);
+  await f.advance(35 * 60_000);
   const whileIdle = c.calls;
-  assert.ok(whileIdle <= POLL_IDLE_PAUSE_MS / POLL_INTERVAL_MS, `idle tab kept polling: ${whileIdle}`);
+  assert.equal(whileIdle, 4, 'polls at 1-4 min, then the 5 min idle pause stops it for the remaining 30 min');
   f.emit('window', 'pointerdown');
   await f.advance(0);
   assert.equal(c.calls, whileIdle + 1, 'first input after idle refreshes at once');

@@ -99,7 +99,7 @@ export function PreviewStaffSchedule({
         ...result.data.assignments,
       ]);
     },
-    { enabled: assignments !== null },
+    { enabled: assignments !== null, resetOn: assignments },
   );
 
   function goToWeek(nextOffset: number) {

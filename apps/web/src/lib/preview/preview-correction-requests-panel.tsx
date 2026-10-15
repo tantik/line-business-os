@@ -14,15 +14,6 @@ import { tManager } from '@/lib/demo/cafe/i18n.manager';
 import { useVisiblePolling } from '@/lib/ui/visible-polling';
 
 /**
- * Staff→Manager live-sync poll interval (Founder P1, 2026-08-13, Contract
- * 3). Reuses the existing scoped `previewGetCorrectionRequestsManagerData`
- * refetch (already used after the manager's own decide action, below) on a
- * timer too, so a Staff-submitted correction request updates this trigger
- * button's own count/detail automatically - previously this panel only ever
- * refreshed after the *manager's* own mutation, never in response to a
- * Staff-originated change to the same data.
- */
-/**
  * Demo/Preview manager UX parity: correction requests surface as a 要確認
  * alert (see `toManagerCorrectionSummaries`, rendered by `PreviewManagerToday`)
  * plus a single trigger button here, never
