@@ -28,6 +28,8 @@ export function AccountSettings({ email, backHref }: { email: string; backHref: 
   const [pwError, setPwError] = useState<AuthCopyKey | null>(null);
   const [pwDone, setPwDone] = useState(false);
   const [sessionsState, setSessionsState] = useState<'idle' | 'done' | 'error'>('idle');
+  // Both actions share one transition (everything is disabled while either runs); this only picks which button says it is busy.
+  const [activeAction, setActiveAction] = useState<'password' | 'sessions' | null>(null);
 
   function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,6 +46,7 @@ export function AccountSettings({ email, backHref }: { email: string; backHref: 
       setPwError(problem);
       return;
     }
+    setActiveAction('password');
     startTransition(async () => {
       const result = await changePassword(formData);
       if (result.status === 'success') {
@@ -57,6 +60,7 @@ export function AccountSettings({ email, backHref }: { email: string; backHref: 
 
   function handleSignOutOthers() {
     setSessionsState('idle');
+    setActiveAction('sessions');
     startTransition(async () => {
       const result = await signOutOtherSessions();
       setSessionsState(result.status === 'success' ? 'done' : 'error');
@@ -91,7 +95,7 @@ export function AccountSettings({ email, backHref }: { email: string; backHref: 
           </label>
           <NewPasswordFields disabled={isPending} passwordLabel="newPassword" />
           <button type="submit" disabled={isPending} style={{ ...(isPending ? buttonDisabled : buttonPrimary), width: '100%' }}>
-            {isPending ? t('resetSaving') : t('changePasswordButton')}
+            {isPending && activeAction === 'password' ? t('resetSaving') : t('changePasswordButton')}
           </button>
         </form>
       </section>

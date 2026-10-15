@@ -33,6 +33,7 @@ import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { useDocumentTitle } from '@/lib/ui/document-title';
 import {
   customShiftTimeRangeLabel,
   earningsEstimatedSuffix,
@@ -260,6 +261,8 @@ function StaffDashboardBody({
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
+  // QA3 (2026-10-15): tab title follows the JA/EN toggle (server metadata is the JA default).
+  useDocumentTitle(lang === 'en' ? 'Staff' : 'スタッフ');
   const [banner, setBanner] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showCorrectionForm, setShowCorrectionForm] = useState(false);

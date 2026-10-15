@@ -151,3 +151,8 @@ test('the schedule view drops assignee-less (employee_id null) rows at the singl
   const memoBody = SOURCE.slice(memoStart, SOURCE.indexOf('[scheduleWindowAssignments, dates, timeZone],'));
   assert.match(memoBody, /\.filter\(\(a\) => a\.employeeId !== null\)/);
 });
+
+test('QA3: a deactivated staff member leaves the schedule grid unless they have a shift in the displayed week', () => {
+  assert.match(SOURCE, /return staff\.filter\(\(s\) => s\.isActive \|\| assignedIds\.has\(s\.staffId\)\);/);
+  assert.match(SOURCE, /\{scheduleStaff\.map\(\(s, staffIndex\) => \{/);
+});

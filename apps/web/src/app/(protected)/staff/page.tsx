@@ -38,7 +38,7 @@ import { StaffDashboardClient } from './staff-dashboard-client';
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Staff', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'スタッフ', robots: { index: false, follow: false } };
 
 /** Sanity cap on how far a staff member can navigate the weekly view, not a business rule. */
 const MAX_WEEK_OFFSET = 8;

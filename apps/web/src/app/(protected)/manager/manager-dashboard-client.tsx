@@ -46,6 +46,7 @@ import {
 } from '@/lib/workforce/manager-attention';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { useDocumentTitle } from '@/lib/ui/document-title';
 import { weekdayLabel } from '@/lib/demo/cafe/format';
 import {
   autoCreateAssignedWithoutPreferenceLine,
@@ -391,6 +392,8 @@ function ManagerDashboardBody({
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
+  // QA3 (2026-10-15): tab title follows the JA/EN toggle (server metadata is the JA default).
+  useDocumentTitle(lang === 'en' ? 'Manager' : 'マネージャー');
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
@@ -613,6 +616,14 @@ function ManagerDashboardBody({
         .filter((a) => dates.includes(a.workDate)),
     [scheduleWindowAssignments, dates, timeZone],
   );
+
+  // QA3 (2026-10-15): a deactivated staff member leaves the Weekly Schedule
+  // grid, except in a week where they still have a shift (history stays visible).
+  const scheduleStaff = useMemo(() => {
+    if (staff === null) return null;
+    const assignedIds = new Set(localAssignments.map((a) => a.assignment.employeeId));
+    return staff.filter((s) => s.isActive || assignedIds.has(s.staffId));
+  }, [staff, localAssignments]);
 
   // Drafts (auto-created, `published = false`) in the displayed week. The grid
   // deliberately draws drafts and published shifts the same (Founder Review
@@ -1470,7 +1481,7 @@ function ManagerDashboardBody({
             month" configuration -- Founder direction, same session. This
             card is click-a-cell-to-edit only now. */}
 
-        {staff === null || staff.length === 0 ? (
+        {scheduleStaff === null || scheduleStaff.length === 0 ? (
           <p style={{ margin: '12px 0 0', ...mutedText }}>{t('addStaffToSeeSchedule')}</p>
         ) : (
           <>
@@ -1540,8 +1551,8 @@ function ManagerDashboardBody({
                 </tr>
               </thead>
               <tbody>
-                {staff.map((s, staffIndex) => {
-                  const isLastRow = staffIndex === staff.length - 1;
+                {scheduleStaff.map((s, staffIndex) => {
+                  const isLastRow = staffIndex === scheduleStaff.length - 1;
                   return (
                     <tr key={s.staffId}>
                       <td style={{ ...scheduleTableCellStyle, ...(isLastRow ? { borderBottomLeftRadius: 8 } : {}) }}>

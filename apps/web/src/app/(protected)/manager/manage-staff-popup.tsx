@@ -253,17 +253,24 @@ export function ManageStaffPopup({
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
             {deleteError ? <div style={{ ...alertDanger, marginBottom: 8 }}>{deleteError}</div> : null}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <LoadingButton
-                type="button"
-                pending={isDeletePending}
-                pendingLabel={t('deletingStaff')}
-                style={buttonDanger}
-                pendingStyle={buttonDisabled}
-                className={hoverStyles.buttonDanger}
-                onClick={() => setConfirmDeleteOpen(true)}
-              >
-                {t('deleteStaffButton')}
-              </LoadingButton>
+              {/* QA3 (2026-10-15): with known history the delete can only fail, so the button is disabled and points at the hint below instead of opening a confirm that ends in the same message twice. */}
+              {detailStaff.hasProtectedHistory ? (
+                <button type="button" style={buttonDisabled} disabled aria-describedby={`staff-delete-blocked-${detailStaff.staffId}`}>
+                  {t('deleteStaffButton')}
+                </button>
+              ) : (
+                <LoadingButton
+                  type="button"
+                  pending={isDeletePending}
+                  pendingLabel={t('deletingStaff')}
+                  style={buttonDanger}
+                  pendingStyle={buttonDisabled}
+                  className={hoverStyles.buttonDanger}
+                  onClick={() => setConfirmDeleteOpen(true)}
+                >
+                  {t('deleteStaffButton')}
+                </LoadingButton>
+              )}
               {detailStaff.isActive ? (
                 <button
                   type="button"
@@ -287,7 +294,11 @@ export function ManageStaffPopup({
               )}
             </div>
             {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard produces on an actual blocked attempt, so the two never disagree. */}
-            {detailStaff.hasProtectedHistory ? <p style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>{t('staffBlockedByHistory')}</p> : null}
+            {detailStaff.hasProtectedHistory ? (
+              <p id={`staff-delete-blocked-${detailStaff.staffId}`} style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>
+                {t('staffBlockedByHistory')}
+              </p>
+            ) : null}
           </section>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
