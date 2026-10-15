@@ -20,16 +20,17 @@ import { readFileSync } from 'node:fs';
 const SOURCE = readFileSync(new URL('./preview-correction-requests-panel.tsx', import.meta.url), 'utf8');
 
 test('polls the existing scoped refetch on an interval, not only after the manager\'s own decide action', () => {
-  assert.match(SOURCE, /setInterval\(poll, CORRECTION_REQUESTS_POLL_INTERVAL_MS\)/);
-  assert.match(SOURCE, /clearInterval\(id\)/);
-  const pollBody = SOURCE.slice(SOURCE.indexOf('const poll = async'), SOURCE.indexOf('const id = setInterval'));
+  // 2026-10-15: through the shared `useVisiblePolling` policy (60 s, visible, idle pause), never a raw timer.
+  assert.doesNotMatch(SOURCE, /setInterval/);
+  const pollStart = SOURCE.indexOf('useVisiblePolling(async');
+  const pollBody = SOURCE.slice(pollStart, SOURCE.indexOf('});', pollStart));
   assert.match(pollBody, /previewGetCorrectionRequestsManagerData\(\)/);
   assert.match(pollBody, /setPendingRequests\(result\.data\.pending\)/);
   assert.match(pollBody, /setDecidedRequests\(result\.data\.decided\)/);
 });
 
-test('skips polling while the tab is hidden', () => {
-  assert.match(SOURCE, /document\.visibilityState !== 'visible'/);
+test('hidden-tab / idle / interval rules come from the shared hook (see visible-polling.test.ts)', () => {
+  assert.match(SOURCE, /import \{ useVisiblePolling \} from '@\/lib\/ui\/visible-polling'/);
 });
 
 test('never calls router.refresh() to sync state', () => {

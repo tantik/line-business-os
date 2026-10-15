@@ -57,6 +57,16 @@ current implementation.**
   feedback.
 - Do not add caching, virtualization, queues, or similar infrastructure
   without evidence that it is actually needed.
+- Background refresh (Founder decision 2026-10-15, replaces the 2026-08-13
+  "Contract 3" 1–3 s live-sync target): every poll goes through
+  `useVisiblePolling` (`apps/web/src/lib/ui/visible-polling.ts`) — at most
+  once per 60 s, never while the tab is hidden, paused after 5 min without
+  user input, one immediate refresh when the tab returns. Changes made by
+  another user therefore appear within about a minute; the user's own writes
+  still refresh at once. Raw `setInterval` in `apps/web/src` fails a test.
+  Reason: each poll is a Vercel function call plus ~5 Supabase calls, and the
+  old 2.5 s polls used most of the Vercel Hobby free CPU. Real-time push is
+  DEBT-095.
 
 ## 3. UX implementation standard
 

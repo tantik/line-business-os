@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { DemoHelpButton } from '@/components/demo/cafe/DemoHelpButton';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
@@ -23,14 +23,7 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tStaff } from '@/lib/demo/cafe/i18n.staff';
 import { estimatedEarningsSummary } from '@/lib/workforce/estimated-earnings';
 import { previewGetStaffScheduleWeek } from './actions/staff-schedule-actions';
-
-/**
- * Manager→Staff live-sync poll interval (Founder P1, 2026-08-13, Contract
- * 3). Targeted at the single displayed week only (`previewGetStaffScheduleWeek`),
- * never the whole page - meets the ~1-3s propagation target without the
- * "refresh everything every second" pattern the task explicitly rules out.
- */
-const SCHEDULE_POLL_INTERVAL_MS = 2500;
+import { useVisiblePolling } from '@/lib/ui/visible-polling';
 
 export interface PreviewStaffScheduleProps {
   timeZone: string;
@@ -96,31 +89,18 @@ export function PreviewStaffSchedule({
   // publish becomes visible here without a manual reload.
   const [windowAssignments, setWindowAssignments] = useState<WorkforceShiftAssignment[]>(assignments ?? []);
 
-  useEffect(() => {
-    if (assignments === null) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
-      inFlight = true;
-      try {
-        const result = await previewGetStaffScheduleWeek(activeWeekOffset);
-        if (cancelled || result.status !== 'success') return;
-        const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
-        setWindowAssignments((prev) => [
-          ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
-          ...result.data.assignments,
-        ]);
-      } finally {
-        inFlight = false;
-      }
-    };
-    const id = setInterval(poll, SCHEDULE_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [activeWeekOffset, timeZone, assignments]);
+  useVisiblePolling(
+    async (isCurrent) => {
+      const result = await previewGetStaffScheduleWeek(activeWeekOffset);
+      if (!isCurrent() || result.status !== 'success') return;
+      const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
+      setWindowAssignments((prev) => [
+        ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
+        ...result.data.assignments,
+      ]);
+    },
+    { enabled: assignments !== null },
+  );
 
   function goToWeek(nextOffset: number) {
     const bounded = Math.max(-8, Math.min(8, nextOffset));
