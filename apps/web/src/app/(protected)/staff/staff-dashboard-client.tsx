@@ -70,11 +70,8 @@ import { HelpIconButton } from '@/components/shared/design-kit';
 import { InlineAlert } from '@line-os/ui';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { useVisiblePolling } from '@/lib/ui/visible-polling';
 
-/** Manager -> Staff live-sync poll interval, matching `_client-preview`'s `PreviewStaffSchedule` (Founder P1, 2026-08-13, Contract 3): targets the single displayed week only, never the whole page. */
-const SCHEDULE_POLL_INTERVAL_MS = 2500;
-/** Mail is not time-critical like the schedule; a slow poll keeps the unread count honest without a request every few seconds. */
-const MAIL_POLL_INTERVAL_MS = 30000;
 
 /**
  * Founder Preview QA (2026-08-25, Staff Shift Schedule v2 fix-up): matches
@@ -365,26 +362,15 @@ function StaffDashboardBody({
   useEffect(() => {
     setLiveStaffMessages(staffMessages);
   }, [staffMessages]);
-  useEffect(() => {
-    if (staffMessages === null) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
-      inFlight = true;
-      try {
-        const result = await getMyStaffMessages();
-        if (!cancelled && result.status === 'success') setLiveStaffMessages(result.data);
-      } finally {
-        inFlight = false;
-      }
-    };
-    const id = setInterval(poll, MAIL_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [staffMessages]);
+  // Shared background-refresh policy (`useVisiblePolling`: 60 s, visible tab
+  // only, pauses when idle) -- 2026-10-15 Vercel CPU fix.
+  useVisiblePolling(
+    async (isCurrent) => {
+      const result = await getMyStaffMessages();
+      if (isCurrent() && result.status === 'success') setLiveStaffMessages(result.data);
+    },
+    { enabled: staffMessages !== null, resetOn: staffMessages },
+  );
 
   const unreadMailCount = useMemo(
     () => (liveStaffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
@@ -414,31 +400,21 @@ function StaffDashboardBody({
     setWindowAssignments(assignments ?? []);
   }, [assignments]);
 
-  useEffect(() => {
-    if (assignments === null) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
-      inFlight = true;
-      try {
-        const result = await getMyScheduleWeek(activeWeekOffset);
-        if (cancelled || result.status !== 'success') return;
-        const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
-        setWindowAssignments((prev) => [
-          ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
-          ...result.data.assignments,
-        ]);
-      } finally {
-        inFlight = false;
-      }
-    };
-    const id = setInterval(poll, SCHEDULE_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [activeWeekOffset, timeZone, assignments]);
+  // Was a 2.5 s `setInterval` -- the main Vercel CPU cost (2026-10-15); now
+  // the shared `useVisiblePolling` policy (60 s, visible tab only, idle pause,
+  // immediate refresh when the tab comes back).
+  useVisiblePolling(
+    async (isCurrent) => {
+      const result = await getMyScheduleWeek(activeWeekOffset);
+      if (!isCurrent() || result.status !== 'success') return;
+      const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
+      setWindowAssignments((prev) => [
+        ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
+        ...result.data.assignments,
+      ]);
+    },
+    { enabled: assignments !== null, resetOn: assignments },
+  );
 
   const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
 

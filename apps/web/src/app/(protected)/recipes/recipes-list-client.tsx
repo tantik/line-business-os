@@ -31,15 +31,7 @@ import { describeWriteError } from '../manager/error-copy';
 import { RecipeForm } from './recipe-form';
 import { RecipeDetailModal } from './recipe-detail-modal';
 import { tRecipes } from './recipes-i18n';
-
-/**
- * WP C1 (Track C, live-sync): matches the Staff dashboard's schedule poll
- * exactly (`staff-dashboard-client.tsx`'s `SCHEDULE_POLL_INTERVAL_MS`) --
- * same value, same Page-Visibility-gated/in-flight-guarded shape. Not a
- * shared exported constant (neither of the two existing poll
- * implementations was, either); kept file-local like its precedents.
- */
-const RECIPES_POLL_INTERVAL_MS = 2500;
+import { useVisiblePolling } from '@/lib/ui/visible-polling';
 
 type StatusFilter = 'published' | 'draft' | 'archived';
 
@@ -159,29 +151,16 @@ export function RecipesListBody({
   // already refreshes itself via `onChange` after its own writes, and a
   // second independent poll inside an already-open Modal risks a confusing
   // race with that popup's own state.
-  useEffect(() => {
-    if (embedded) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
-      inFlight = true;
-      try {
-        const result = await getRecipesListForPoll();
-        if (cancelled || result.status !== 'success') return;
-        setLiveGroups(result.data.groups);
-        setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
-        setLiveMediaUrlByRecipeId(result.data.mediaUrlByRecipeId);
-      } finally {
-        inFlight = false;
-      }
-    };
-    const id = setInterval(poll, RECIPES_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [embedded]);
+  useVisiblePolling(
+    async (isCurrent) => {
+      const result = await getRecipesListForPoll();
+      if (!isCurrent() || result.status !== 'success') return;
+      setLiveGroups(result.data.groups);
+      setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
+      setLiveMediaUrlByRecipeId(result.data.mediaUrlByRecipeId);
+    },
+    { enabled: !embedded },
+  );
 
   function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
     const field = liveTitleFieldByRecipeId[recipe.recipeId];

@@ -30,6 +30,7 @@ import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
 import { tRecipes } from '../recipes-i18n';
+import { useVisiblePolling } from '@/lib/ui/visible-polling';
 
 /**
  * Deterministic display rounding for an estimated ingredient cost (WP5):
@@ -147,9 +148,6 @@ function RecipeAllergenSection({
   );
 }
 
-/** WP C1: same interval/shape as `recipes-list-client.tsx`'s list poll, matching the Staff dashboard schedule poll this pattern originates from. */
-const RECIPE_DETAIL_POLL_INTERVAL_MS = 2500;
-
 export function RecipeDetailBody({
   recipe: initialRecipe,
   ingredients: initialIngredients,
@@ -217,32 +215,19 @@ export function RecipeDetailBody({
   // refreshes itself via onChange) or while a manage-only edit form is open
   // (never overwrite content the caller is actively editing out from under
   // them).
-  useEffect(() => {
-    if (embedded || editing) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight || document.visibilityState !== 'visible') return;
-      inFlight = true;
-      try {
-        const result = await getRecipeDetailForPopup(recipe.recipeId);
-        if (cancelled || result.status !== 'success' || !result.data) return;
-        setRecipe(result.data.recipe);
-        setIngredients(result.data.ingredients);
-        setSteps(result.data.steps);
-        setNotes(result.data.notes);
-        setTranslationFields(result.data.translationFields);
-        setMediaUrl(result.data.mediaUrl);
-      } finally {
-        inFlight = false;
-      }
-    };
-    const id = setInterval(poll, RECIPE_DETAIL_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [embedded, editing, recipe.recipeId]);
+  useVisiblePolling(
+    async (isCurrent) => {
+      const result = await getRecipeDetailForPopup(recipe.recipeId);
+      if (!isCurrent() || result.status !== 'success' || !result.data) return;
+      setRecipe(result.data.recipe);
+      setIngredients(result.data.ingredients);
+      setSteps(result.data.steps);
+      setNotes(result.data.notes);
+      setTranslationFields(result.data.translationFields);
+      setMediaUrl(result.data.mediaUrl);
+    },
+    { enabled: !embedded && !editing },
+  );
 
   function handleDelete() {
     setError(null);

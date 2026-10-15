@@ -14,16 +14,16 @@ const SOURCE = readFileSync(new URL('./preview-manager-live-today.tsx', import.m
 
 test('PreviewManagerLiveToday polls previewGetManagerTodaySignals on an interval, not just once', () => {
   assert.match(SOURCE, /import \{ previewGetManagerTodaySignals \} from '\.\/actions\/today-signals-actions'/);
-  assert.match(SOURCE, /setInterval\(poll, TODAY_SIGNALS_POLL_INTERVAL_MS\)/);
-  assert.match(SOURCE, /clearInterval\(id\)/);
+  assert.match(SOURCE, /useVisiblePolling\(async \(isCurrent\) => \{\s+const result = await previewGetManagerTodaySignals\(\);/);
+  assert.doesNotMatch(SOURCE, /setInterval/);
 });
 
 test('PreviewManagerLiveToday never calls router.refresh() to sync state', () => {
   assert.ok(!SOURCE.includes('router.refresh'), 'must rely on the scoped poll, not a full page refresh');
 });
 
-test('PreviewManagerLiveToday skips polling while the tab is hidden (never a background-tab request storm)', () => {
-  assert.match(SOURCE, /document\.visibilityState !== 'visible'/);
+test('PreviewManagerLiveToday uses the shared polling policy (hidden tab / idle pause live in visible-polling.ts)', () => {
+  assert.match(SOURCE, /import \{ useVisiblePolling \} from '@\/lib\/ui\/visible-polling'/);
 });
 
 test('PreviewManagerLiveToday feeds live state into PreviewManagerToday, not the raw initial props', () => {
