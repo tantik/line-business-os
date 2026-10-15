@@ -45,3 +45,10 @@ test('QA3: a failed sign-in keeps the typed email via sessionStorage only, never
 test('QA3: the monthly preference validation error is announced to screen readers', () => {
   assert.match(read('../../app/(protected)/staff/monthly-shift-preference-modal.tsx'), /<div role="alert" style=\{\{ \.\.\.alertDanger, marginBottom: 10 \}\}>/);
 });
+
+test('QA3: Manager/Staff tab titles are Japanese by default and follow the JA/EN toggle', () => {
+  assert.match(read('../../app/(protected)/manager/page.tsx'), /title: 'マネージャー'/);
+  assert.match(read('../../app/(protected)/staff/page.tsx'), /title: 'スタッフ'/);
+  assert.match(read('../../app/(protected)/manager/manager-dashboard-client.tsx'), /useDocumentTitle\(lang === 'en' \? 'Manager' : 'マネージャー'\)/);
+  assert.match(read('../../app/(protected)/staff/staff-dashboard-client.tsx'), /useDocumentTitle\(lang === 'en' \? 'Staff' : 'スタッフ'\)/);
+});

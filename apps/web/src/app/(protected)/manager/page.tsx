@@ -59,7 +59,7 @@ function readErrorMessage(result: { status: string; message?: string }): string 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Manager', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'マネージャー', robots: { index: false, follow: false } };
 
 /** Sanity cap on how far a manager can navigate the weekly view, not a business rule. */
 const MAX_WEEK_OFFSET = 8;
