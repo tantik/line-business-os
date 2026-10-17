@@ -29,9 +29,9 @@ and the change shows in ~1–2 s.
 
 | Topic | Who may join (policy on `realtime.messages`) | Gets |
 |---|---|---|
-| `oruwa:<tenant>:staff` | an active employee of the tenant, or a holder of `workforce.shift.read` | changes every staff member may see: published schedule, shift types, recipes, issues/handover, operations, inventory, purchases, roster |
+| `oruwa:<tenant>:staff` | a holder of `workforce.shift.read` in the tenant (every Staff and Manager role) | changes every staff member may see: published schedule, shift types, recipes, issues/handover, operations, inventory, purchases, roster |
 | `oruwa:<tenant>:manager` | holder of `workforce.request.manage` anywhere in the tenant | everything a Manager dashboard shows, incl. drafts, requests, staff mail, attendance, auto-schedule runs |
-| `oruwa:<tenant>:emp:<employee>` | the employee themself (`workforce.is_own_employee`) | own mail from the Manager, decisions on own requests/exchanges, own attendance |
+| `oruwa:<tenant>:emp:<employee>` | the employee themself (that `workforce.employees` row has the caller's `user_id` in that tenant) | own mail from the Manager, decisions on own requests/exchanges, own attendance |
 
 Join rules live in one `security definer` function,
 `core.realtime_topic_allowed(topic)`, called by a single `select` policy on
@@ -59,13 +59,30 @@ name the area and audiences. It:
   user's own changes (`by === me`; own writes already refresh), and calls
   `onResync` after a reconnect.
 - Staff: `schedule` → re-fetch the displayed week; `mail` → re-fetch mail;
-  any other area → debounced (1.5 s) `router.refresh()`.
-- Manager: any area → debounced `router.refresh()`.
+  `requests` / `attendance` / `issues` → coalesced `router.refresh()`
+  (1.5 s debounce, ≥ 5 s apart); other areas are ignored on the dashboard
+  (its popups read fresh data when opened, as before).
+- Manager: any area except `recipes` → coalesced `router.refresh()`
+  (2 s debounce, ≥ 10 s apart).
 - Recipes pages: `recipes` → their existing re-fetch.
 - Safety net: the `useVisiblePolling` timer stays at **15 min** (visible,
   non-idle tabs only) plus one refresh on reconnect / tab return, in case a
   signal is missed while the socket was down.
 - The preview-host-only Surface A (`lib/preview/*`) keeps 60 s polling.
+
+## Accepted limitations (DB/security review, PR #589)
+
+- Metadata only, within one tenant: a staff member's browser may learn that
+  something changed at another location, and the changing user's auth uid.
+- A signal may arrive for a module the tenant has switched off; the re-read
+  is module-checked, so nothing is shown.
+- Deactivated employees with a live session still join their own topics
+  (same as their read access to their own history, 0062).
+- Open exchange candidates and other Managers are not individually signalled
+  for every event; they catch up through the next signal or the 15 min
+  safety net.
+- Recommended setting: Realtime "Allow public access" off on the Supabase
+  projects (the app only uses private channels).
 
 ## Limits (Supabase Free, checked 2026-10-17)
 

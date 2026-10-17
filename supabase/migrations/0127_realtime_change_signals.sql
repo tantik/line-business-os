@@ -17,6 +17,20 @@
 -- Join rules: core.realtime_topic_allowed(topic), used by one SELECT policy
 -- on realtime.messages (Broadcast only). No INSERT policy: browsers cannot
 -- send. Additive only: no existing object is changed.
+--
+-- Accepted (DB/security review, PR #589): signals carry no content, so a
+-- staff member may learn "something changed at location X" within their own
+-- tenant, see the actor's auth uid, or get a signal for a module that is
+-- switched off -- the follow-up read is still fully RLS / module checked.
+--
+-- Rollback:
+--   do $$ declare r record; begin
+--     for r in select tgrelid::regclass as t from pg_trigger where tgname = 'oruwa_realtime_signal' loop
+--       execute format('drop trigger oruwa_realtime_signal on %s', r.t);
+--     end loop; end $$;
+--   drop policy if exists oruwa_broadcast_receive on realtime.messages;
+--   drop function if exists core.realtime_signal();
+--   drop function if exists core.realtime_topic_allowed(text);
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -85,6 +99,9 @@ begin
         to authenticated
         using (
           realtime.messages.extension = 'broadcast'
+          -- Row must belong to the channel being joined (defense in depth:
+          -- the join rule alone would not bind the row's own topic).
+          and realtime.messages.topic = (select realtime.topic())
           and core.realtime_topic_allowed((select realtime.topic()))
         )
     $p$;

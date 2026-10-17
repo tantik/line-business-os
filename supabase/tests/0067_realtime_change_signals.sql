@@ -175,6 +175,31 @@ select is(pg_temp.visible('c1279000-0000-0000-0000-000000000003', 'oruwa:c127000
 select is(pg_temp.visible('c1279000-0000-0000-0000-000000000001', 'oruwa:c1270000-0000-0000-0000-00000000000a:emp:c1273000-0000-0000-0000-000000000001'), 0,
   'even the Manager cannot listen on an employee''s personal topic');
 
+-- Review P2: a row is visible only on its own topic, even if the joined
+-- topic itself is allowed.
+select pg_temp.reset_signals();
+insert into workforce.shifts (tenant_id, location_id, employee_id, shift_type_id, starts_at, ends_at, break_minutes, published) values
+  ('c1270000-0000-0000-0000-00000000000b', 'c1271000-0000-0000-0000-000000000002', 'c1273000-0000-0000-0000-000000000003', null,
+   '2026-11-06 00:00:00+00', '2026-11-06 08:00:00+00', 0, false);
+select is(pg_temp.sent('oruwa:c1270000-0000-0000-0000-00000000000b:manager'), 1, 'tenant B draft signals B :manager');
+create function pg_temp.visible_any(p_sub text, p_joined_topic text, p_row_topic text)
+returns int language plpgsql as $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', coalesce(p_sub, ''), true);
+  perform set_config('realtime.topic', p_joined_topic, true);
+  set local role authenticated;
+  select count(*) into n from realtime.messages where topic = p_row_topic;
+  reset role;
+  return n;
+end;
+$$;
+select is(pg_temp.visible_any('c1279000-0000-0000-0000-000000000002',
+  'oruwa:c1270000-0000-0000-0000-00000000000a:staff', 'oruwa:c1270000-0000-0000-0000-00000000000b:manager'), 0,
+  'joined to own allowed topic, a row of another tenant''s topic stays invisible');
+
 select is(
   (select count(*)::int from pg_policies where schemaname = 'realtime' and tablename = 'messages' and policyname = 'oruwa_broadcast_receive' and cmd = 'SELECT'),
   1, 'one SELECT policy oruwa_broadcast_receive');
@@ -193,6 +218,20 @@ select lives_ok($q$
 $q$, 'exchange insert succeeds');
 select is(pg_temp.sent('oruwa:c1270000-0000-0000-0000-00000000000a:emp:c1273000-0000-0000-0000-000000000001'), 1, 'exchange signals the requester''s :emp topic');
 select is(pg_temp.sent('oruwa:c1270000-0000-0000-0000-00000000000a:manager'), 1, 'exchange signals :manager');
+
+-- A named replacement gets their own :emp signal too (emp:replacement_employee_id).
+select pg_temp.reset_signals();
+delete from workforce.shift_exchanges where tenant_id = 'c1270000-0000-0000-0000-00000000000a';
+insert into workforce.shift_exchanges (tenant_id, location_id, shift_id, requester_employee_id, replacement_employee_id, status, reason)
+select tenant_id, location_id, id, 'c1273000-0000-0000-0000-000000000001', 'c1273000-0000-0000-0000-000000000002', 'open', 'pgTAP'
+  from workforce.shifts where tenant_id = 'c1270000-0000-0000-0000-00000000000a' and published limit 1;
+select is(pg_temp.sent('oruwa:c1270000-0000-0000-0000-00000000000a:emp:c1273000-0000-0000-0000-000000000002'), 1, 'the named replacement gets an :emp signal');
+
+-- DELETE routes from the old row: deleting a published shift signals :staff.
+select pg_temp.reset_signals();
+delete from workforce.shift_exchanges where tenant_id = 'c1270000-0000-0000-0000-00000000000a';
+delete from workforce.shifts where tenant_id = 'c1270000-0000-0000-0000-00000000000a' and published;
+select is(pg_temp.sent('oruwa:c1270000-0000-0000-0000-00000000000a:staff'), 1, 'deleting a published shift signals :staff');
 
 select ok(
   (select prosecdef from pg_proc where oid = 'core.realtime_signal()'::regprocedure)
