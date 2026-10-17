@@ -360,6 +360,8 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
               value={numericValue}
               onValueChange={setNumericValue}
               unit={item.numericUnit ?? undefined}
+              // QA3 (2026-10-17): screen readers announced an unnamed spinbutton.
+              aria-label={item.numericUnit ? `${item.label} (${item.numericUnit})` : item.label}
               disabled={readOnly}
               className="flex-1"
             />

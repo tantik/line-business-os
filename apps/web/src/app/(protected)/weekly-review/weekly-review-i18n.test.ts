@@ -40,3 +40,11 @@ test('tWeeklyReview ja/en copy differs for every key (no untranslated English le
     assert.notEqual(tWeeklyReview('ja', key), tWeeklyReview('en', key), `tWeeklyReview(ja/en, ${key}) should have distinct copy`);
   }
 });
+
+test('QA3 (2026-10-17): week-scoped labels say "the week shown" / 「この週」, never "this week" / 「今週」 -- the review pages to past weeks', () => {
+  const keys = ['labelShiftAssignments', 'labelShiftExchanges', 'labelCompletedChecks', 'labelCriticalMissed', 'labelNewIssues', 'labelNewHandovers', 'recurringCategoryLine'] as const;
+  for (const key of keys) {
+    assert.doesNotMatch(tWeeklyReview('ja', key), /今週/, key);
+    assert.doesNotMatch(tWeeklyReview('en', key), /this week/i, key);
+  }
+});

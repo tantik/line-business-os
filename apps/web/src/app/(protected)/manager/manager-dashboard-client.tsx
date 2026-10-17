@@ -139,6 +139,8 @@ const dangerMarkerStyle = {
 } as const;
 
 const understaffedMarkerStyle = dangerMarkerStyle;
+/** Compact header variant: fits the reserved slot above the weekday in a ~36px phone column. */
+const understaffedHeaderMarkerStyle = { ...understaffedMarkerStyle, width: 14, height: 14, fontSize: 10 } as const;
 
 /**
  * Weekly Schedule redesign follow-up (Founder Review, 2026-08-22 continued):
@@ -1551,22 +1553,23 @@ function ManagerDashboardBody({
                             one -- every column's text sits at the same
                             position regardless of whether its own marker is
                             present. */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
+                        {/* QA3 (2026-10-17): on a 375px phone the overlay covered the
+                            weekday glyph (columns are ~36px wide). Every column now
+                            reserves the same small slot above the weekday, so the
+                            marker never overlaps text and all columns still align. */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <span style={{ height: 14, display: 'flex', alignItems: 'center' }}>
+                            {shortageLabel ? (
+                              <span role="img" aria-label={shortageLabel} title={shortageLabel} style={understaffedHeaderMarkerStyle}>
+                                !
+                              </span>
+                            ) : null}
+                          </span>
                           <span>
                             {formatWeekday(date, lang)}
                             <br />
                             {date.slice(8)}
                           </span>
-                          {shortageLabel ? (
-                            <span
-                              role="img"
-                              aria-label={shortageLabel}
-                              title={shortageLabel}
-                              style={{ ...understaffedMarkerStyle, position: 'absolute', top: 0, right: 0 }}
-                            >
-                              !
-                            </span>
-                          ) : null}
                         </div>
                       </th>
                     );
