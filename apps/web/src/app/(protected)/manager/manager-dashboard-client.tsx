@@ -47,6 +47,8 @@ import {
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { useDocumentTitle } from '@/lib/ui/document-title';
+import { createCoalescer, managerTopic, useLiveSignals } from '@/lib/realtime/live-signals';
+import { POLL_SAFETY_INTERVAL_MS, useVisiblePolling } from '@/lib/ui/visible-polling';
 import { weekdayLabel } from '@/lib/demo/cafe/format';
 import {
   autoCreateAssignedWithoutPreferenceLine,
@@ -214,6 +216,8 @@ const cellAlertCornerStyle: CSSProperties = {
 };
 
 export interface ManagerDashboardClientProps {
+  /** Live updates (0127): scopes the Realtime topic. */
+  tenantId: string;
   tenantName: string;
   locationName: string;
   locationId: string;
@@ -343,6 +347,7 @@ export function ManagerDashboardClient(props: ManagerDashboardClientProps) {
 }
 
 function ManagerDashboardBody({
+  tenantId,
   tenantName,
   locationName,
   locationId,
@@ -394,6 +399,24 @@ function ManagerDashboardBody({
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   // QA3 (2026-10-15): tab title follows the JA/EN toggle (server metadata is the JA default).
   useDocumentTitle(lang === 'en' ? 'Manager' : 'マネージャー');
+
+  // Live updates by push (0127): a Staff request, mail, issue, clock-in,
+  // Operations exception or stock count -- or another Manager / the cloud
+  // auto-schedule runner -- sends a signal on the tenant's :manager topic and
+  // the dashboard re-reads its server data once (coalesced: 2 s after the
+  // last signal, at most every 10 s). Before this the Manager saw Staff
+  // changes only after a manual reload. The 15 min timer is a safety net.
+  const livePageRefresh = useMemo(() => createCoalescer(() => router.refresh(), { debounceMs: 2000, minGapMs: 10_000 }), [router]);
+  useEffect(() => () => livePageRefresh.cancel(), [livePageRefresh]);
+  useLiveSignals({
+    topics: [managerTopic(tenantId)],
+    locationId,
+    onSignal: (area) => {
+      if (area !== 'recipes') livePageRefresh.trigger();
+    },
+    onResync: () => livePageRefresh.trigger(),
+  });
+  useVisiblePolling(async () => router.refresh(), { intervalMs: POLL_SAFETY_INTERVAL_MS });
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);

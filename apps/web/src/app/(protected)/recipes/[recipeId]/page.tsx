@@ -89,6 +89,7 @@ export default async function WorkforceRecipeDetailPage({
 
       return (
         <RecipeDetailClient
+          liveTenantId={activeTenant.tenantId}
           recipe={recipe}
           ingredients={ingredients}
           steps={steps}

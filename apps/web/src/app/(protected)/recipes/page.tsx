@@ -109,6 +109,7 @@ export default async function WorkforceRecipesPage() {
 
       return (
         <RecipesListClient
+          liveTenantId={activeTenant.tenantId}
           tenantName={activeTenant.tenantName}
           groups={groups}
           titleFieldByRecipeId={titleFieldByRecipeId}

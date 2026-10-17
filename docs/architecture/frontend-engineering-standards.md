@@ -57,18 +57,22 @@ current implementation.**
   feedback.
 - Do not add caching, virtualization, queues, or similar infrastructure
   without evidence that it is actually needed.
-- Background refresh (Founder approved the 60 s plan in chat on 2026-10-15,
-  with full authority for this fix; replaces the 2026-08-13 "Contract 3"
-  1–3 s live-sync target): every poll goes through `useVisiblePolling`
-  (`apps/web/src/lib/ui/visible-polling.ts`) — at most once per 60 s
-  (checked every 10 s), never while the tab is hidden, paused after 5 min
-  without user input, one refresh when the tab returns (if the last poll is
-  older than 30 s). Changes made by another user therefore appear within
-  60–70 s; the user's own writes
-  still refresh at once. Raw `setInterval` in `apps/web/src` fails a test.
-  Reason: each poll is a Vercel function call plus ~5 Supabase calls, and the
-  old 2.5 s polls used most of the Vercel Hobby free CPU. Real-time push is
-  DEBT-095.
+- Live updates (Founder decisions 2026-10-15 and 2026-10-17): another
+  user's change reaches an open screen **by push**, not by polling —
+  `useLiveSignals` (`apps/web/src/lib/realtime/live-signals.ts`) joins
+  private Supabase Realtime topics and re-reads only the affected area when a
+  DB trigger (migration 0127) signals a change; ~1–2 s, and no server call
+  while nothing changes. Design: `docs/architecture/realtime-live-updates.md`.
+  New live data = add the table to 0127's trigger list (new migration) and
+  handle its `area` on the screen; never add a fast timer.
+- Background timers go through `useVisiblePolling`
+  (`apps/web/src/lib/ui/visible-polling.ts`): never while the tab is
+  hidden, paused after 5 min without input, one refresh when the tab returns.
+  On push-enabled screens it is only a 15 min safety net
+  (`POLL_SAFETY_INTERVAL_MS`); the preview-only Surface A still polls at
+  60 s. Raw `setInterval` in `apps/web/src` fails a test. Reason: each
+  poll is a Vercel function call plus several Supabase calls; 2.5 s polling
+  used most of the Vercel Hobby free CPU (2026-10-15).
 
 ## 3. UX implementation standard
 

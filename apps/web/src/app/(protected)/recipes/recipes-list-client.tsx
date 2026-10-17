@@ -31,7 +31,8 @@ import { describeWriteError } from '../manager/error-copy';
 import { RecipeForm } from './recipe-form';
 import { RecipeDetailModal } from './recipe-detail-modal';
 import { tRecipes } from './recipes-i18n';
-import { useVisiblePolling } from '@/lib/ui/visible-polling';
+import { POLL_SAFETY_INTERVAL_MS, useVisiblePolling } from '@/lib/ui/visible-polling';
+import { staffTopic, useLiveSignals } from '@/lib/realtime/live-signals';
 
 type StatusFilter = 'published' | 'draft' | 'archived';
 
@@ -51,6 +52,8 @@ export interface RecipesListClientProps {
    * refreshing). Defaults false.
    */
   embedded?: boolean;
+  /** Live updates (0127): the standalone page subscribes to the tenant's :staff topic. */
+  liveTenantId?: string;
   /**
    * When provided, a row click (or its "Edit" button) calls this instead
    * of navigating to `/recipes/[id]` -- used both by an `embedded` popup
@@ -118,6 +121,7 @@ export function RecipesListBody({
   mediaUrlByRecipeId,
   canManage,
   embedded = false,
+  liveTenantId,
   onSelectRecipe,
   onHoverRecipe,
   onChange,
@@ -151,16 +155,24 @@ export function RecipesListBody({
   // already refreshes itself via `onChange` after its own writes, and a
   // second independent poll inside an already-open Modal risks a confusing
   // race with that popup's own state.
-  useVisiblePolling(
-    async (isCurrent) => {
-      const result = await getRecipesListForPoll();
-      if (!isCurrent() || result.status !== 'success') return;
-      setLiveGroups(result.data.groups);
-      setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
-      setLiveMediaUrlByRecipeId(result.data.mediaUrlByRecipeId);
+  const refreshList = async (isCurrent: () => boolean = () => true) => {
+    const result = await getRecipesListForPoll();
+    if (!isCurrent() || result.status !== 'success') return;
+    setLiveGroups(result.data.groups);
+    setLiveTitleFieldByRecipeId(result.data.titleFieldByRecipeId);
+    setLiveMediaUrlByRecipeId(result.data.mediaUrlByRecipeId);
+  };
+  // Live updates by push (0127); the timer is a 15 min safety net.
+  useLiveSignals({
+    topics: liveTenantId ? [staffTopic(liveTenantId)] : [],
+    locationId: null,
+    enabled: !embedded,
+    onSignal: (area) => {
+      if (area === 'recipes') void refreshList();
     },
-    { enabled: !embedded },
-  );
+    onResync: () => void refreshList(),
+  });
+  useVisiblePolling(refreshList, { enabled: !embedded, intervalMs: POLL_SAFETY_INTERVAL_MS });
 
   function recipeTitle(recipe: WorkforceRecipeGroup['recipes'][number]): string {
     const field = liveTitleFieldByRecipeId[recipe.recipeId];

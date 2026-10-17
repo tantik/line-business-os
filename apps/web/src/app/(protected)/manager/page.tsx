@@ -454,6 +454,7 @@ export default async function WorkforceManagerPage({
       return (
         <main style={pageStyle(1180)}>
           <ManagerDashboardClient
+            tenantId={activeTenant.tenantId}
             tenantName={activeTenant.tenantName}
             locationName={location.locationName}
             locationId={location.locationId}
