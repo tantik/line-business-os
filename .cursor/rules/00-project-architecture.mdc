@@ -18,6 +18,14 @@ that run inside one shared Core — never standalone apps.
 - 🧱 Use **one repo, one Vercel project, and one Supabase/PostgreSQL database**
   at this stage. Scale via multi-tenancy (`tenant_id` + RLS), not by spinning up
   per-client repos, projects, or databases.
+- 💳 Paid tiers (Founder, 2026-10-17): Vercel Pro from the first paying client
+  (Hobby is non-commercial only), Supabase Pro after the first 5. Never rely on
+  free-tier-only behaviour; the switch must be a settings change.
+- 📡 No polling for live data: push via Supabase Realtime change signals
+  (0127, `docs/architecture/realtime-live-updates.md`); timers only through
+  `useVisiblePolling` as a slow safety net. Every PR adding a screen, job or
+  live table states its per-tenant cost (server calls, Realtime messages,
+  storage). See AGENTS.md "Scale and cost".
 
 ## Do not create isolated projects
 

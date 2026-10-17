@@ -117,6 +117,25 @@ the short form.
 8. **AI never writes business data directly.** AI proposes → manager approves →
    backend applies → audit logs (`@line-os/ai`).
 
+## Scale and cost (Founder decision, 2026-10-17)
+
+The platform targets **300+ tenants**. Vercel Pro from the first paying client
+(Hobby is non-commercial only); Supabase Pro after the first 5 paying clients.
+Until then free tiers. Therefore:
+
+1. Design every feature for 300+ tenants; never rely on free-tier limits or
+   behaviour, and keep the move to paid tiers a settings change.
+2. **No polling for live data.** Other users' changes reach open screens by
+   push (Supabase Realtime change signals, migration 0127,
+   `docs/architecture/realtime-live-updates.md`). Timers only through
+   `useVisiblePolling` as a slow safety net.
+3. Every PR that adds a screen, a background job or a live table states its
+   per-tenant cost (server calls, Realtime messages, storage) and how it
+   scales.
+4. Spend caps / budgets and usage alerts are on before the first paying
+   client. Canonical detail: `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`
+   "Scale and cost".
+
 ## Before implementing any module feature
 
 1. Complete the OAES Product Review and Architecture Review gates in

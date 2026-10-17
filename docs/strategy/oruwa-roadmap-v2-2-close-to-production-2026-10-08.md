@@ -23,12 +23,32 @@ inside it.
 | LINE Official Account + Messaging API channel | Stage 4A | later |
 | Stripe (or other) account, legal texts (プライバシーポリシー, 利用規約, 特商法) | Stage 4H | later |
 | Production: deploy, DB, env, `main` | Stage 4G | Founder gate |
+| Paid tiers (Vercel Pro, Supabase Pro) | Stage 4G / scale | Founder decision 2026-10-17: **Vercel Pro from the first paying client** (Hobby forbids commercial use); **Supabase Pro after the first 5 paying clients** — DEBT-096 |
 
 ## Invariant (Founder, binding)
 
 A new client is a **new tenant inside the one ORUWA platform**, never a code
 copy or a separate deployment. "Onboarding a client in 3–5 minutes" means
 automated tenant provisioning, not a new project.
+
+## Scale and cost (Founder, binding 2026-10-17)
+
+- **Target: 300+ tenants (cafés) on the one platform.** Every feature is
+  designed and reviewed for that scale, even while we run on free tiers.
+- **Hosting tiers:** Vercel Hobby only until the first paying client, then
+  Vercel Pro (Hobby is non-commercial only); Supabase Free until the first 5
+  paying clients, then Supabase Pro — paid from client fees. Development must not depend on free-tier-only behaviour, and the
+  move to paid tiers must be a settings/billing change, not a rewrite.
+- **Rules that follow** (AGENTS.md "Scale and cost"): no polling for live
+  data (push via Supabase Realtime, `docs/architecture/realtime-live-updates.md`);
+  every new screen/feature states its per-tenant cost — server calls,
+  Realtime messages, storage — in its PR; spend caps/budgets are on before
+  the first paying client; usage is measured per tenant in the 6-tenant
+  test and extrapolated to 300.
+- **Rough estimate (2026-10-17, to be replaced by the Stage 4C
+  measurement):** 300 cafés ≈ 900 concurrent connections, ≈ 3 M Realtime
+  messages / month, ≈ 10 M function calls / month → about $80–150 / month
+  in total on Vercel Pro + Supabase Pro (incl. a larger DB compute size).
 
 ## Exit criteria for closing Cafe v2.2 (replaces "no debt at all")
 
@@ -122,7 +142,9 @@ pgTAP, CI, post-merge Preview smoke, Founder final review →
   ready, isolation (Staff/Manager of A see nothing of B in schedule, wages,
   inventory, recipes, mail, issues), Owner access, defaults, deactivation and
   deletion (deletion Founder/admin-gated). This is also the live multi-tenant
-  test (DEBT-049).
+  test (DEBT-049). **Plus a usage measurement per tenant** (function calls,
+  Active CPU, Realtime connections/messages, DB size) and a written
+  capacity/cost plan for 300+ tenants (DEBT-097).
 - **D. Clean demo tenant** created through the same provisioning (DEBT-004),
   replacing manual clean-up of `oruwa-cafe` (DEBT-001..003/059/067/080).
 - **E. Japanese copy finalization**: native review, Copy Audit A items,
@@ -131,12 +153,16 @@ pgTAP, CI, post-merge Preview smoke, Founder final review →
 - **F. SaaS hardening**: audit completeness (DEBT-056/071), rate limits
   (reminder cooldown), error monitoring/alerting (worker, email, LINE,
   provisioning), backups and a tested restore, concurrency/idempotency
-  review, security review.
+  review, security review, **a load test at 300-tenant scale** (DEBT-097)
+  and **spend caps / budgets + usage alerts** on Vercel and Supabase
+  (DEBT-098).
 - **G. Production readiness and release**: production Supabase + key
   migration (DEBT-036), Vercel production env (DEBT-035), Resend production
   domain, LINE production credentials, domain, monitoring, migration
   process, rollback plan, smoke tests; the `dev → main → production` path
   (DEBT-043). Merging to `main` and deploying are two separate Founder gates.
+  Paid tiers per "Scale and cost": Vercel Pro at the first paying client,
+  Supabase Pro after the 5th (DEBT-096).
 - **[A] H. Commercial prerequisites the plan did not list**: billing
   (subscription collection, e.g. Stripe — Founder decision), legal pages
   (privacy policy under APPI, 利用規約, 特定商取引法に基づく表記), a support
