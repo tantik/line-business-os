@@ -20,6 +20,12 @@ import { useEffect, useRef } from 'react';
  * A user's own writes still refresh at once through their own code paths.
  */
 export const POLL_INTERVAL_MS = 60_000;
+/**
+ * Safety-net interval for screens that get live updates by push
+ * (`useLiveSignals`, 0127): only catches a signal missed while the socket
+ * was down.
+ */
+export const POLL_SAFETY_INTERVAL_MS = 15 * 60_000;
 export const POLL_IDLE_PAUSE_MS = 5 * 60_000;
 /** A visibility/focus refresh is skipped when the last poll is newer than this (alt-tab must not become a 5 s poll). */
 export const POLL_RESUME_MIN_GAP_MS = 30_000;

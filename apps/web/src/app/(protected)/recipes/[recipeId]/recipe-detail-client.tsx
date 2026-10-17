@@ -30,7 +30,8 @@ import { buttonDanger } from '../../_ui/workforce-theme';
 import { describeWriteError } from '../../manager/error-copy';
 import { RecipeForm } from '../recipe-form';
 import { tRecipes } from '../recipes-i18n';
-import { useVisiblePolling } from '@/lib/ui/visible-polling';
+import { POLL_SAFETY_INTERVAL_MS, useVisiblePolling } from '@/lib/ui/visible-polling';
+import { staffTopic, useLiveSignals } from '@/lib/realtime/live-signals';
 
 /**
  * Deterministic display rounding for an estimated ingredient cost (WP5):
@@ -65,6 +66,8 @@ export interface RecipeDetailClientProps {
    * page's own behavior is completely unchanged.
    */
   embedded?: boolean;
+  /** Live updates (0127): the standalone page subscribes to the tenant's :staff topic. */
+  liveTenantId?: string;
   /** Required when `embedded` is true; ignored otherwise. */
   onBack?: () => void;
   /**
@@ -157,6 +160,7 @@ export function RecipeDetailBody({
   canManage,
   mediaUrl: initialMediaUrl,
   embedded = false,
+  liveTenantId,
   onBack,
   onChange,
   initialEditing = false,
@@ -215,19 +219,27 @@ export function RecipeDetailBody({
   // refreshes itself via onChange) or while a manage-only edit form is open
   // (never overwrite content the caller is actively editing out from under
   // them).
-  useVisiblePolling(
-    async (isCurrent) => {
-      const result = await getRecipeDetailForPopup(recipe.recipeId);
-      if (!isCurrent() || result.status !== 'success' || !result.data) return;
-      setRecipe(result.data.recipe);
-      setIngredients(result.data.ingredients);
-      setSteps(result.data.steps);
-      setNotes(result.data.notes);
-      setTranslationFields(result.data.translationFields);
-      setMediaUrl(result.data.mediaUrl);
+  const refreshDetail = async (isCurrent: () => boolean = () => true) => {
+    const result = await getRecipeDetailForPopup(recipe.recipeId);
+    if (!isCurrent() || result.status !== 'success' || !result.data) return;
+    setRecipe(result.data.recipe);
+    setIngredients(result.data.ingredients);
+    setSteps(result.data.steps);
+    setNotes(result.data.notes);
+    setTranslationFields(result.data.translationFields);
+    setMediaUrl(result.data.mediaUrl);
+  };
+  // Live updates by push (0127); the timer is a 15 min safety net.
+  useLiveSignals({
+    topics: liveTenantId ? [staffTopic(liveTenantId)] : [],
+    locationId: null,
+    enabled: !embedded && !editing,
+    onSignal: (area) => {
+      if (area === 'recipes') void refreshDetail();
     },
-    { enabled: !embedded && !editing },
-  );
+    onResync: () => void refreshDetail(),
+  });
+  useVisiblePolling(refreshDetail, { enabled: !embedded && !editing, intervalMs: POLL_SAFETY_INTERVAL_MS });
 
   function handleDelete() {
     setError(null);

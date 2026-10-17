@@ -70,7 +70,8 @@ import { HelpIconButton } from '@/components/shared/design-kit';
 import { InlineAlert } from '@line-os/ui';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
 import hoverStyles from '@/lib/ui/theme.module.css';
-import { useVisiblePolling } from '@/lib/ui/visible-polling';
+import { POLL_SAFETY_INTERVAL_MS, useVisiblePolling } from '@/lib/ui/visible-polling';
+import { createCoalescer, employeeTopic, staffTopic, useLiveSignals } from '@/lib/realtime/live-signals';
 
 
 /**
@@ -115,6 +116,8 @@ const alertSuccess = {
 } as const;
 
 export interface StaffDashboardClientProps {
+  /** Live updates (0127): scopes the Realtime topics. */
+  tenantId: string;
   tenantName: string;
   locationName: string;
   timeZone: string;
@@ -217,6 +220,7 @@ export function StaffDashboardClient(props: StaffDashboardClientProps) {
 }
 
 function StaffDashboardBody({
+  tenantId,
   tenantName,
   locationName,
   timeZone,
@@ -362,15 +366,14 @@ function StaffDashboardBody({
   useEffect(() => {
     setLiveStaffMessages(staffMessages);
   }, [staffMessages]);
-  // Shared background-refresh policy (`useVisiblePolling`: 60 s, visible tab
-  // only, pauses when idle) -- 2026-10-15 Vercel CPU fix.
-  useVisiblePolling(
-    async (isCurrent) => {
-      const result = await getMyStaffMessages();
-      if (isCurrent() && result.status === 'success') setLiveStaffMessages(result.data);
-    },
-    { enabled: staffMessages !== null, resetOn: staffMessages },
-  );
+  // Live updates by push (0127): a Manager reply arrives as a signal on the
+  // caller's own topic (see `useLiveSignals` below); the timer is only a
+  // 15 min safety net for a signal missed while offline.
+  const refreshMail = async (isCurrent: () => boolean = () => true) => {
+    const result = await getMyStaffMessages();
+    if (isCurrent() && result.status === 'success') setLiveStaffMessages(result.data);
+  };
+  useVisiblePolling(refreshMail, { enabled: staffMessages !== null, resetOn: staffMessages, intervalMs: POLL_SAFETY_INTERVAL_MS });
 
   const unreadMailCount = useMemo(
     () => (liveStaffMessages ?? []).filter((m) => m.senderRole === 'manager' && !m.isRead && !m.archivedAt && !m.deletedAt).length,
@@ -400,21 +403,38 @@ function StaffDashboardBody({
     setWindowAssignments(assignments ?? []);
   }, [assignments]);
 
-  // Was a 2.5 s `setInterval` -- the main Vercel CPU cost (2026-10-15); now
-  // the shared `useVisiblePolling` policy (60 s, visible tab only, idle pause,
-  // immediate refresh when the tab comes back).
-  useVisiblePolling(
-    async (isCurrent) => {
-      const result = await getMyScheduleWeek(activeWeekOffset);
-      if (!isCurrent() || result.status !== 'success') return;
-      const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
-      setWindowAssignments((prev) => [
-        ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
-        ...result.data.assignments,
-      ]);
+  // Live updates by push (0127): a published-schedule change arrives as a
+  // `schedule` signal and re-reads the displayed week only. The timer is a
+  // 15 min safety net (was 2.5 s polling until 2026-10-15, then 60 s).
+  const refreshScheduleWeek = async (isCurrent: () => boolean = () => true) => {
+    const result = await getMyScheduleWeek(activeWeekOffset);
+    if (!isCurrent() || result.status !== 'success') return;
+    const fetchedDateSet = new Set(dateRange(result.data.periodStart, result.data.periodEnd));
+    setWindowAssignments((prev) => [
+      ...prev.filter((a) => !fetchedDateSet.has(utcIsoToLocalDateTime(a.startsAt, timeZone).workDate)),
+      ...result.data.assignments,
+    ]);
+  };
+  useVisiblePolling(refreshScheduleWeek, { enabled: assignments !== null, resetOn: assignments, intervalMs: POLL_SAFETY_INTERVAL_MS });
+
+  // Decisions on the caller's own requests, attendance corrections and
+  // issues/handover live in server-loaded props: a debounced page refresh.
+  const pageRefresh = useMemo(() => createCoalescer(() => router.refresh(), { debounceMs: 1500, minGapMs: 5000 }), [router]);
+  useEffect(() => () => pageRefresh.cancel(), [pageRefresh]);
+  useLiveSignals({
+    topics: [staffTopic(tenantId), employeeTopic(tenantId, profile.staffId)],
+    locationId,
+    onSignal: (area) => {
+      if (area === 'schedule') void refreshScheduleWeek();
+      else if (area === 'mail') void refreshMail();
+      else if (area === 'requests' || area === 'attendance' || area === 'issues') pageRefresh.trigger();
     },
-    { enabled: assignments !== null, resetOn: assignments },
-  );
+    onResync: () => {
+      void refreshScheduleWeek();
+      void refreshMail();
+      pageRefresh.trigger();
+    },
+  });
 
   const dates = useMemo(() => dateRange(activePeriodStart, activePeriodEnd), [activePeriodStart, activePeriodEnd]);
 
