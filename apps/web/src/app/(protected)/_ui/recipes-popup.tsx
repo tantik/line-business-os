@@ -6,6 +6,7 @@ import type { RecipeTranslationField } from '@/lib/content/recipe-translation-wo
 import { Dialog } from '@line-os/ui';
 import { HelpIconButton, Skeleton } from '@/components/shared/design-kit';
 import { useLang } from '@/lib/demo/cafe/i18n';
+import { resolveFieldDisplay } from '@/lib/content/recipe-display';
 import { mutedText } from '@/lib/ui/theme';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { getRecipeDetailForPopup, type RecipeDetailForPopup } from '@/lib/workforce/recipe-actions';
@@ -162,7 +163,13 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
     onClose();
   }
 
-  const title = view.kind === 'list' ? t('pageTitle') : detail ? detail.recipe.titleJa || detail.recipe.titleEn || t('untitledRecipe') : t('pageTitle');
+  // QA3 (2026-10-17): the opened recipe's title in the viewer's language --
+  // same resolution as the detail body (was always the Japanese title).
+  const detailTitleField = detail ? titleFieldByRecipeId[detail.recipe.recipeId] : undefined;
+  const title =
+    view.kind === 'list' || !detail
+      ? t('pageTitle')
+      : (detailTitleField ? resolveFieldDisplay(detailTitleField, lang).text : '') || detail.recipe.titleJa || detail.recipe.titleEn || t('untitledRecipe');
 
   return (
     <Dialog

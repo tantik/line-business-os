@@ -112,21 +112,21 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     quietWeekDescription: 'No critical misses, no unresolved issues, no pending purchases, no unresolved shift requests.',
 
     sectionTeam: 'Team',
-    labelShiftAssignments: 'Shift assignments this week',
-    labelShiftExchanges: 'Shift exchanges/corrections created this week',
+    labelShiftAssignments: 'Shift assignments in the week shown',
+    labelShiftExchanges: 'Shift exchanges/corrections created in the week shown',
     labelUnresolvedShiftRequests: 'Still-unresolved shift requests (any date)',
 
     sectionOperations: 'Operations',
-    labelCompletedChecks: 'Checks completed this week',
-    labelCriticalMissed: 'Critical checks missed this week',
+    labelCompletedChecks: 'Checks completed in the week shown',
+    labelCriticalMissed: 'Critical checks missed in the week shown',
     labelOpenExceptions: 'Still-open exceptions (any date)',
 
     sectionIssues: 'Issues & Handover',
-    labelNewIssues: 'New issues this week',
-    labelNewHandovers: 'New handovers this week',
+    labelNewIssues: 'New issues in the week shown',
+    labelNewHandovers: 'New handovers in the week shown',
     labelUnresolvedIssues: 'Still-unresolved issues (any date)',
     labelUnresolvedImportantIssues: 'Still-unresolved important issues (any date)',
-    recurringCategoryLine: '{count} issues in ‘{category}’ this week',
+    recurringCategoryLine: '{count} issues in ‘{category}’ in the week shown',
 
     sectionPurchasing: 'Purchasing',
     labelShortageItems: 'Items currently in shortage',
@@ -179,21 +179,22 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     quietWeekDescription: '重大な未実施、未解決の問題、保留中の仕入れ、未対応のシフト希望はありませんでした。',
 
     sectionTeam: 'チーム',
-    labelShiftAssignments: '今週のシフト件数',
-    labelShiftExchanges: '今週作成された交代・修正申請',
+    // QA3 (2026-10-17): 「この週」, not 「今週」 -- the review pages to past weeks.
+    labelShiftAssignments: 'この週のシフト件数',
+    labelShiftExchanges: 'この週に作成された交代・修正申請',
     labelUnresolvedShiftRequests: '未対応のシフト希望（日付を問わず）',
 
     sectionOperations: '業務チェック',
-    labelCompletedChecks: '今週完了したチェック',
-    labelCriticalMissed: '今週見逃された重要チェック',
+    labelCompletedChecks: 'この週に完了したチェック',
+    labelCriticalMissed: 'この週に見逃された重要チェック',
     labelOpenExceptions: '現在未解決の対応事項（日付を問わず）',
 
     sectionIssues: '申し送り・問題',
-    labelNewIssues: '今週報告された問題',
-    labelNewHandovers: '今週の申し送り',
+    labelNewIssues: 'この週に報告された問題',
+    labelNewHandovers: 'この週の申し送り',
     labelUnresolvedIssues: '現在未解決の問題（日付を問わず）',
     labelUnresolvedImportantIssues: '現在未解決の重要な問題（日付を問わず）',
-    recurringCategoryLine: '今週「{category}」が{count}件',
+    recurringCategoryLine: 'この週「{category}」が{count}件',
 
     sectionPurchasing: '仕入れ',
     labelShortageItems: '現在不足している商品',
