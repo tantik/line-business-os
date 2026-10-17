@@ -186,7 +186,7 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-12** (checked against git; see `git log -1` on `dev`):
+**As of 2026-10-17** (checked against git; see `git log -1` on `dev`):
 
 - **Account screens + pre-QA3 polish (2026-10-10..12):** invite/recovery dead
   link fixed and deployed (DEBT-087, #568); ORUWA sign-in JA/EN, forgot /
@@ -220,16 +220,24 @@ duplicated here.
   artifact, see the 2026-10-14 handoff) and fixed: Inventory ••• /
   photo viewer in Radix popups + dropdown z-order (#579, #580), exchange
   replacement conflicts (#581, #582), auto-schedule weekly labour limits
-  40 h / 5 days (#583, 0126 on Cloud DEV). PR #584 (QA3 batch 1: 要確認
-  issues/operations, staff request outcome, UX fixes) is OPEN — finish it.
-- **Next:** finish PR #584; continue Lead QA3 on the remaining sections;
-  prepare Stage 3 (QA4); plan Stage 4B. Then the order in
+  40 h / 5 days (#583, 0126 on Cloud DEV).
+- **2026-10-15..17:** Lead QA3 finished for every Lead-testable item; fixes
+  #584, #586, #587, #591 merged and live-verified. **Vercel CPU alert
+  fixed** (#588, shared `useVisiblePolling`) and **live updates moved to
+  push** — Supabase Realtime change signals (#589, **0127 on Cloud DEV**,
+  DEBT-095 closed). **Scale and cost rules** (Founder 2026-10-17, #590):
+  300+ tenants, no polling, Vercel Pro from the first paying client,
+  Supabase Pro after the 5th (DEBT-096..098). Founder asked for: reporter
+  name on Issues/Handover, standard HACCP ranges in presets.
+- **Next** (detail: `docs/ai/SESSION_HANDOFF_2026-10-17.md` §6): small batch
+  (reporter name, HACCP preset defaults) → Stage 3 QA4 prep (month scenario
+  + seed, mobile Realtime check) → QA4 → plan Stage 4B. Then the order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
   tenant provisioning → 6-tenant test → demo tenant → JA copy → SaaS
   hardening → production.
-- **Founder inputs open** (bundle; table in the roadmap doc): QA3 run;
+- **Founder inputs open** (bundle; table in the roadmap doc):
   a dedicated QA mailbox the CTO can read (Founder's personal Gmail is not
   readable by the agent browser and should not be); QA4 aliases; native/
   legal review of the allergen strings. Done 2026-10-12: QA passwords
@@ -238,7 +246,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-14.md`.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-17.md`.
 
 Where everything else lives:
 
