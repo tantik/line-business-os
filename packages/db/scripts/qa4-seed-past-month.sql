@@ -158,7 +158,10 @@ begin
       continue when exists (
         select 1 from workforce.shifts s
          where s.tenant_id = v_tenant and s.employee_id = v_emp
-           and (s.starts_at at time zone v_tz)::date = d);
+           and (s.starts_at at time zone v_tz)::date = d)
+        or exists (
+        select 1 from workforce.attendance a
+         where a.tenant_id = v_tenant and a.employee_id = v_emp and a.work_date = d);
       select count(*), coalesce(sum(extract(epoch from s.ends_at - s.starts_at) / 3600), 0)
         into v_wk_days, v_wk_hours
         from workforce.shifts s
