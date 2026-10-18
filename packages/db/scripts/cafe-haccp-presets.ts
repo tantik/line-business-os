@@ -14,9 +14,12 @@
  *    (日本食品衛生協会, 令和6年1月改訂: 冷蔵庫 10℃以下 / 冷凍庫 -15℃以下):
  *      - freezer: max -15 °C (「冷凍で保存するものは－15℃以下」);
  *      - hot-holding: min 65 °C (「10℃以下又は65℃以上で管理」);
- *      - fridge: 0-5 °C (Founder's chosen value, the one the `oruwa-cafe`
- *        reference tenant runs; stricter than the general 10℃以下 and
- *        meets the 魚介類 5℃以下 rule).
+ *      - fridge: 0-5 °C (Founder's chosen value, the one `oruwa-cafe` uses
+ *        on its configured fridge checks, Cloud DEV read 2026-10-18;
+ *        stricter than the general 10℃以下 and meets 魚介類 5℃以下).
+ *    Delivery: today the executor installs only into `oruwa-cafe` (already
+ *    installed there, so nothing changes); new tenants get these values once
+ *    Stage 4B provisioning installs the presets (DEBT-100).
  *    One-sided ranges leave the other bound NULL. These are only the
  *    starting values for a NEW install: the Manager edits them per template
  *    item (最小値/最大値/単位), and the plan builder never touches an item
