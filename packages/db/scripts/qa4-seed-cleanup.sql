@@ -3,7 +3,14 @@
 -- (ids starting with 0a4a5eed-) on one test tenant, and reopens the backlog
 -- rows it resolved (matched by its resolution note).
 --
--- Not restorable: the open critical_missed rows the seed removed for the
+-- Valid only BEFORE live QA4 actions point at seeded rows: a live purchase on
+-- a seeded latest count (purchase_actions.snapshot_stock_count_id), a
+-- correction request on a seeded attendance row (shift_requests.attendance_id)
+-- or a 'reported' exception on a seeded instance are foreign keys that block
+-- the delete. The function then refuses up front and names them; nothing is
+-- deleted (one statement).
+--
+-- Not restorable: the critical_missed rows the seed removed for the
 -- occurrences it completed. The Manager Operations read recreates them for
 -- the last 31 days (operations.flag_missed_critical window); older ones stay
 -- gone (they were system flags on test data).
@@ -21,8 +28,25 @@ begin
   if p_slug not in ('oruwa-cafe', 'qa4-local') then
     raise exception 'qa4_cleanup: % is not a registered test tenant', p_slug;
   end if;
-  select t.id into v_tenant from core.tenants t where t.slug = p_slug;
-  if v_tenant is null then raise exception 'qa4_cleanup: tenant % not found', p_slug; end if;
+  select t.id into v_tenant from core.tenants t
+   where t.slug = p_slug
+     and t.id in ('72b81b2f-9ba5-4a4a-a296-02e32d4682b8', '9a400000-0000-0000-0000-000000000001');
+  if v_tenant is null then raise exception 'qa4_cleanup: tenant % not found or not the pinned test tenant', p_slug; end if;
+
+  -- live rows that reference seeded rows block the delete: refuse with a clear message
+  select
+    (select count(*) from purchases.purchase_actions pa
+      where pa.tenant_id = v_tenant and pa.id::text not like '0a4a5eed-%' and pa.snapshot_stock_count_id::text like '0a4a5eed-%')
+  + (select count(*) from workforce.shift_requests sr
+      where sr.tenant_id = v_tenant and sr.attendance_id::text like '0a4a5eed-%')
+  + (select count(*) from operations.task_exceptions te
+      where te.tenant_id = v_tenant and te.id::text not like '0a4a5eed-%' and te.instance_id::text like '0a4a5eed-%')
+  + (select count(*) from issues.issues i
+      where i.tenant_id = v_tenant and i.id::text not like '0a4a5eed-%' and i.operations_exception_id::text like '0a4a5eed-%')
+  into v_n;
+  if v_n > 0 then
+    raise exception 'qa4_cleanup: % live row(s) reference seeded rows (purchases on seeded counts, correction requests on seeded attendance, exceptions on seeded instances); nothing deleted', v_n;
+  end if;
 
   -- children first
   delete from workforce.staff_messages where tenant_id = v_tenant and id::text like '0a4a5eed-%';
@@ -47,7 +71,7 @@ begin
   update operations.task_exceptions
      set status = 'open', resolved_at = null, resolved_by = null, resolution_note = null
    where tenant_id = v_tenant and source = 'critical_missed' and status = 'resolved'
-     and resolution_note like 'QA4 baseline (%): pre-QA4 test backlog closed by the Lead (DEBT-002).';
+     and resolution_note like 'QA4 baseline (%): pre-QA4 test backlog closed by the Lead via the QA4 seed, recorded under the QA Manager account (DEBT-002).';
   get diagnostics v_n = row_count; what := 'backlog_reopened'; n := v_n; return next;
 end;
 $$;

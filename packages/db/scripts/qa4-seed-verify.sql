@@ -65,6 +65,19 @@ select check_name, ok, detail from (
          and not exists (select 1 from inst i where not exists (select 1 from operations.item_responses r where r.instance_id = i.id)),
          (select count(*)::text from inst)
   union all
+  select 'every required active item answered in every seeded instance',
+         not exists (select 1 from inst i
+                       join operations.checklist_items ci on ci.tenant_id = i.tenant_id and ci.template_id = i.template_id
+                      where ci.is_active and ci.is_required
+                        and not exists (select 1 from operations.item_responses r where r.instance_id = i.id and r.item_id = ci.id)),
+         '-'
+  union all
+  select 'no critical_missed (any status) on a seeded completed occurrence',
+         not exists (select 1 from inst i join operations.task_exceptions te
+                       on te.tenant_id = i.tenant_id and te.schedule_id = i.schedule_id and te.business_date = i.business_date
+                      where te.source = 'critical_missed'),
+         '-'
+  union all
   select 'no open critical_missed on a completed occurrence',
          not exists (select 1 from operations.task_exceptions te, p
                       join operations.task_instances ti on ti.tenant_id = p.tenant
@@ -87,12 +100,14 @@ select check_name, ok, detail from (
          (select string_agg(i.status || '=' || n, ', ') from (select i.status, count(*) n from issues.issues i, p
                                                                where i.tenant_id = p.tenant and i.id::text like '0a4a5eed-%' group by 1) i)
   union all
-  select 'every receive follows an order of the same item',
+  select 'every receive follows an order and points at its own new count (app shape)',
          not exists (select 1 from purchases.purchase_actions r, p
                      where r.tenant_id = p.tenant and r.id::text like '0a4a5eed-%' and r.action_type = 'received'
-                       and not exists (select 1 from purchases.purchase_actions o
-                                        where o.tenant_id = r.tenant_id and o.item_id = r.item_id and o.action_type = 'ordered'
-                                          and o.actioned_at < r.actioned_at and o.snapshot_stock_count_id = r.snapshot_stock_count_id)),
+                       and (not exists (select 1 from purchases.purchase_actions o
+                                         where o.tenant_id = r.tenant_id and o.item_id = r.item_id and o.action_type = 'ordered'
+                                           and o.actioned_at < r.actioned_at)
+                            or not exists (select 1 from inventory.stock_counts sc
+                                            where sc.id = r.snapshot_stock_count_id and sc.counted_at = r.actioned_at))),
          (select string_agg(action_type || '=' || n, ', ') from (select action_type, count(*) n from purchases.purchase_actions pa, p
                                                                   where pa.tenant_id = p.tenant and pa.id::text like '0a4a5eed-%' group by 1) x)
   union all

@@ -99,6 +99,8 @@ declare
   v_count_id uuid;
   v_dec int;
   v_absent uuid;
+  v_recv_day date;
+  v_recv_qty numeric;
 begin
   -- --- target ---------------------------------------------------------------
   if p_slug not in ('oruwa-cafe', 'qa4-local') then
@@ -108,8 +110,11 @@ begin
     raise exception 'qa4_seed: window must end before today (got %)', p_to;
   end if;
 
-  select t.id into v_tenant from core.tenants t where t.slug = p_slug;
-  if v_tenant is null then raise exception 'qa4_seed: tenant % not found', p_slug; end if;
+  -- pinned ids, not just the slug: the Cloud DEV oruwa-cafe tenant and the local fixture
+  select t.id into v_tenant from core.tenants t
+   where t.slug = p_slug
+     and t.id in ('72b81b2f-9ba5-4a4a-a296-02e32d4682b8', '9a400000-0000-0000-0000-000000000001');
+  if v_tenant is null then raise exception 'qa4_seed: tenant % not found or not the pinned test tenant', p_slug; end if;
 
   select l.id, l.timezone into v_loc, v_tz
     from core.locations l where l.tenant_id = v_tenant order by l.created_at, l.id limit 1;
@@ -175,7 +180,7 @@ begin
       v_end := (d + v_type.ends_at_local) at time zone v_tz;
       insert into workforce.shifts (id, tenant_id, location_id, employee_id, starts_at, ends_at, published, shift_type_id, break_minutes, created_at)
       values (pg_temp.qa4_id(v_tenant, 'shift', d::text || ':' || k), v_tenant, v_loc, v_emp, v_start, v_end, true,
-              v_type.id, v_type.break_minutes, (d - 14) + time '18:00');
+              v_type.id, v_type.break_minutes, ((d - 14) + time '18:00') at time zone v_tz);
       v_n_shifts := v_n_shifts + 1;
       k := k + 1;
     end loop;
@@ -234,7 +239,9 @@ begin
     for r in
       select ts.* from operations.task_schedules ts
         join operations.checklist_templates ct on ct.tenant_id = ts.tenant_id and ct.id = ts.template_id
-       where ts.tenant_id = v_tenant and ts.location_id = v_loc and ts.is_active and ct.is_active
+       -- same occurrence rule as the app (0116): effective dates + retired_on, not is_active,
+       -- so a superseded schedule version still gets its past days
+       where ts.tenant_id = v_tenant and ts.location_id = v_loc
          and ts.effective_from <= d and (ts.effective_to is null or d <= ts.effective_to)
          and (ct.retired_on is null or d <= ct.retired_on)
          and (ts.recurrence_kind = 'daily' or extract(isodow from d)::smallint = any (ts.weekdays))
@@ -268,6 +275,9 @@ begin
         if it.response_type = 'boolean' then
           insert into operations.item_responses (id, tenant_id, location_id, instance_id, item_id, response_bool, recorded_by, recorded_at)
           values (pg_temp.qa4_id(v_tenant, 'resp', v_inst::text || it.id), v_tenant, v_loc, v_inst, it.id, true, v_by, v_start + interval '2 minutes');
+        elsif it.response_type = 'text' then
+          insert into operations.item_responses (id, tenant_id, location_id, instance_id, item_id, response_text, recorded_by, recorded_at)
+          values (pg_temp.qa4_id(v_tenant, 'resp', v_inst::text || it.id), v_tenant, v_loc, v_inst, it.id, '問題なし', v_by, v_start + interval '2 minutes');
         elsif it.response_type = 'numeric' then
           continue when not it.is_required and v_h % 3 <> 0;
           if it.label ~ '冷凍|Freezer' then v_val := -18 - (v_h % 30) / 10.0;
@@ -304,7 +314,8 @@ begin
          set status = 'completed', completed_at = v_start + interval '6 minutes', completed_by = v_by
        where id = v_inst;
       delete from operations.task_exceptions te
-       where te.tenant_id = v_tenant and te.source = 'critical_missed' and te.status = 'open'
+       -- any status: a completed-on-time occurrence must not also count as missed (Weekly Review)
+       where te.tenant_id = v_tenant and te.source = 'critical_missed'
          and te.schedule_id = r.id and te.business_date = d;
       get diagnostics k = row_count;
       v_n_del_missed := v_n_del_missed + k;
@@ -315,7 +326,7 @@ begin
 
   update operations.task_exceptions te
      set status = 'resolved', resolved_at = now(), resolved_by = v_mgr,
-         resolution_note = 'QA4 baseline (' || to_char(now() at time zone 'Asia/Tokyo', 'YYYY-MM-DD') || '): pre-QA4 test backlog closed by the Lead (DEBT-002).'
+         resolution_note = 'QA4 baseline (' || to_char(now() at time zone 'Asia/Tokyo', 'YYYY-MM-DD') || '): pre-QA4 test backlog closed by the Lead via the QA4 seed, recorded under the QA Manager account (DEBT-002).'
    where te.tenant_id = v_tenant and te.source = 'critical_missed' and te.status = 'open' and te.business_date < p_from;
   get diagnostics v_n_backlog = row_count;
 
@@ -363,10 +374,26 @@ begin
     v_dec := case when it.unit in ('kg', 'L') then 1 else 0 end;
     v_qty := it.required_quantity;
     v_count_id := null;
+    v_recv_day := null;
     d := p_from;
     while d <= p_to loop
       -- daily use: about a tenth of the target
       v_qty := greatest(v_qty - it.required_quantity * (8 + pg_temp.qa4_h(it.id::text || d) % 5) / 100.0, 0);
+      -- delivery of an earlier order: like api.record_purchase_receipt, a new count (old + received)
+      -- by the receiver, and the 'received' row points at that new count
+      if d = v_recv_day then
+        v_qty := v_qty + v_recv_qty;
+        v_count_id := pg_temp.qa4_id(v_tenant, 'recvcount', it.id::text || d);
+        insert into inventory.stock_counts (id, tenant_id, location_id, item_id, actual_quantity, counted_by, counted_at, created_at)
+        values (v_count_id, v_tenant, v_loc, it.id, round(v_qty, v_dec), v_mgr,
+                (d + time '10:00') at time zone v_tz, (d + time '10:00') at time zone v_tz);
+        insert into purchases.purchase_actions (id, tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, actioned_at, created_at, action_type, received_quantity)
+        values (pg_temp.qa4_id(v_tenant, 'recv', it.id::text || d), v_tenant, v_loc, it.id, v_count_id, v_mgr,
+                (d + time '10:00') at time zone v_tz, (d + time '10:00') at time zone v_tz, 'received', v_recv_qty);
+        v_n_counts := v_n_counts + 1;
+        v_n_purch := v_n_purch + 1;
+        v_recv_day := null;
+      end if;
       if extract(isodow from d) in (1, 4)
          and not exists (select 1 from inventory.stock_counts sc
                           where sc.tenant_id = v_tenant and sc.item_id = it.id
@@ -379,28 +406,26 @@ begin
                            order by s.id limit 1), v_mgr),
                 (d + time '16:30') at time zone v_tz, (d + time '16:30') at time zone v_tz);
         v_n_counts := v_n_counts + 1;
-        if it.reorder_point is not null and v_qty <= it.reorder_point then
+        if it.reorder_point is not null and v_qty <= it.reorder_point and v_recv_day is null then
           if it.unit = 'L' then
-            -- bought at a nearby shop the same day
+            -- bought at a nearby shop the same day; the next count shows the refill
             insert into purchases.purchase_actions (id, tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, actioned_at, created_at, action_type)
             values (pg_temp.qa4_id(v_tenant, 'buy', it.id::text || d), v_tenant, v_loc, it.id, v_count_id, v_mgr,
                     (d + time '17:00') at time zone v_tz, (d + time '17:00') at time zone v_tz, 'bought');
             v_n_purch := v_n_purch + 1;
+            v_qty := it.required_quantity;
           else
             insert into purchases.purchase_actions (id, tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, actioned_at, created_at, action_type, ordered_quantity)
             values (pg_temp.qa4_id(v_tenant, 'order', it.id::text || d), v_tenant, v_loc, it.id, v_count_id, v_mgr,
                     (d + time '17:00') at time zone v_tz, (d + time '17:00') at time zone v_tz, 'ordered',
                     round(it.required_quantity - v_qty, v_dec));
-            if d + 2 <= p_to then
-              insert into purchases.purchase_actions (id, tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, actioned_at, created_at, action_type, received_quantity)
-              values (pg_temp.qa4_id(v_tenant, 'recv', it.id::text || d), v_tenant, v_loc, it.id, v_count_id, v_mgr,
-                      (d + 2 + time '10:00') at time zone v_tz, (d + 2 + time '10:00') at time zone v_tz, 'received',
-                      round(it.required_quantity - v_qty, v_dec));
-              v_n_purch := v_n_purch + 1;
-            end if;
             v_n_purch := v_n_purch + 1;
+            -- delivered two days later, if that is still inside the window (else it stays "ordered")
+            if d + 2 <= p_to then
+              v_recv_day := d + 2;
+              v_recv_qty := round(it.required_quantity - v_qty, v_dec);
+            end if;
           end if;
-          v_qty := it.required_quantity;
         end if;
       end if;
       d := d + 1;
