@@ -188,27 +188,13 @@ duplicated here.
 
 **As of 2026-10-18** (checked against git; see `git log -1` on `dev`):
 
-- **Account screens + pre-QA3 polish (2026-10-10..12):** invite/recovery dead
-  link fixed and deployed (DEBT-087, #568); ORUWA sign-in JA/EN, forgot /
-  reset password, invalid-link, 404/error pages (#570, DEBT-088 closed);
-  resend-no-email notice (#572, DEBT-084 closed); Copy Audit A-01..A-08
-  (DEBT-053, A-09 allergen wording left to native + legal); `/account`
-  (change password, sign out other devices).
+- **2026-10-10..12:** account screens (#568–#572: sign-in JA/EN, forgot/
+  reset password, invalid-link, 404/error, `/account`); Copy Audit A-01..A-08;
+  29 allergens (#576, 0124; native/legal string review open, DEBT-053/089);
+  **Stage 2 / DEBT-074 CLOSED** (#577, 0125 + `auto-schedule-monthly`).
 - **Operating model (Founder, 2026-10-12): CTO authority** (Operating Model
-  §9, v1.11.0). The Lead Agent plans, delegates, verifies and decides all
-  development work incl. `dev` merges and Cloud DEV deploys/migrations, and
-  moves between roadmap stages without a Founder prompt. Founder gates:
-  production (deploy/DB/env/`main`) and real-customer messages only.
-
-- **2026-10-12 (later):** A-09 allergens done (#576, migration 0124 on Cloud
-  DEV): vocabulary follows the CAA revision effective 2026-04-01 — **29
-  items** (9 特定原材料 incl. カシューナッツ + 20 準ずるもの incl. ピスタチオ),
-  store-checked wording + disclaimer, stale "confirmed none" reset; native/
-  legal review of the strings stays open (DEBT-053), list upkeep DEBT-089.
-  **Stage 2 / DEBT-074 CLOSED** (#577, 0125 + Edge Function
-  `auto-schedule-monthly` on Cloud DEV, live run verified): pg_cron →
-  pg_net → Edge Function, run log in Manager Settings. Multi-manager gap
-  registered (DEBT-091).
+  §9): the Lead decides all development incl. `dev` merges and Cloud DEV;
+  Founder gates = production (deploy/DB/env/`main`) + real-customer messages.
 - **Founder Technical Freeze: APPROVED** (2026-09-23).
 - **Founder Acceptance (Mission 11) is IN PROGRESS.** QA1/QA2 closed;
   full functional QA of every block except LINE done by the Lead on
