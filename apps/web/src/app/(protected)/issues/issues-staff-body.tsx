@@ -129,7 +129,7 @@ function StaffIssueRow({ t, issue }: StaffIssueRowProps) {
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
         {categoryLabel ? <MetadataText>{categoryLabel}</MetadataText> : null}
         <MetadataText>
-          {t('reportedByLabel')}: {issue.reportedByRole === 'manager' ? t('reportedByManager') : t('reportedByStaff')}
+          {t('reportedByLabel')}: {issue.reporterName ?? (issue.reportedByRole === 'manager' ? t('reportedByManager') : t('reportedByStaff'))}
         </MetadataText>
         <MetadataText>
           {t('businessDateLabel')}: {issue.businessDate}

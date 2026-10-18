@@ -43,6 +43,8 @@ interface ApiIssueRow {
   operations_exception_id: string | null;
   created_at: string;
   updated_at: string;
+  /** The reporter's `workforce.employees` id (0128); `null` unless the caller may read that employee row under RLS. */
+  reporter_employee_id: string | null;
 }
 
 export interface Issue {
@@ -67,6 +69,9 @@ export interface Issue {
   operationsExceptionId: string | null;
   createdAt: string;
   updatedAt: string;
+  reporterEmployeeId: string | null;
+  /** Decrypted reporter name, filled server-side by `withReporterNames`; `null` falls back to the role label. */
+  reporterName: string | null;
 }
 
 function mapIssueRow(row: ApiIssueRow): Issue {
@@ -91,14 +96,24 @@ function mapIssueRow(row: ApiIssueRow): Issue {
     operationsExceptionId: row.operations_exception_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    reporterEmployeeId: row.reporter_employee_id ?? null,
+    reporterName: null,
   };
 }
 
+/** Attach reporter names from a roster the page already decrypted (employee id -> name). No extra read; an unknown id keeps `reporterName: null`. */
+export function withReporterNames(issues: Issue[], nameByEmployeeId: ReadonlyMap<string, string>): Issue[] {
+  return issues.map((issue) => ({
+    ...issue,
+    reporterName: issue.reporterEmployeeId ? (nameByEmployeeId.get(issue.reporterEmployeeId) ?? null) : null,
+  }));
+}
+
 const ISSUE_OPEN_SELECT =
-  'issue_id, tenant_id, location_id, kind, category, severity, status, note, business_date, reported_by, reported_by_role, acknowledged_by, acknowledged_at, source, operations_exception_id, created_at, updated_at';
+  'issue_id, tenant_id, location_id, kind, category, severity, status, note, business_date, reported_by, reported_by_role, acknowledged_by, acknowledged_at, source, operations_exception_id, created_at, updated_at, reporter_employee_id';
 
 const ISSUE_FULL_SELECT =
-  'issue_id, tenant_id, location_id, kind, category, severity, status, note, business_date, reported_by, reported_by_role, acknowledged_by, acknowledged_at, resolved_by, resolved_at, resolution_note, source, operations_exception_id, created_at, updated_at';
+  'issue_id, tenant_id, location_id, kind, category, severity, status, note, business_date, reported_by, reported_by_role, acknowledged_by, acknowledged_at, resolved_by, resolved_at, resolution_note, source, operations_exception_id, created_at, updated_at, reporter_employee_id';
 
 /** Read every currently-open (`open` or `acknowledged`) issue/handover the caller may see, via `api.issues_open` (RLS-scoped: module ON + `issues.report`/`issues.manage`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listOpenOperationsExceptions`. */
 export async function listOpenIssues(supabase: SupabaseClient, tenantId: string): Promise<TenantAccessResult<Issue[]>> {

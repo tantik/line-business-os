@@ -23,7 +23,7 @@ import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/oper
 import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
 import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
-import { listAllIssues, listOpenIssues } from '@/lib/issues/issues';
+import { listAllIssues, listOpenIssues, withReporterNames } from '@/lib/issues/issues';
 import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
@@ -430,14 +430,24 @@ export default async function WorkforceManagerPage({
 
       // `issues.report`/`issues.manage` may be tenant-wide for some roles --
       // narrow to this Manager's own location here, same convention as the
-      // Operations reads above.
+      // Operations reads above. Reporter names come from the already-decrypted
+      // Manager roster (`staffResult`), matched on `reporter_employee_id` (0128).
+      const reporterNameByEmployeeId = new Map(
+        staffResult.status === 'success' ? staffResult.data.map((s) => [s.staffId, s.name] as const) : [],
+      );
       const issuesOpen =
         issuesOpenResult && issuesOpenResult.status === 'success'
-          ? issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId)
+          ? withReporterNames(
+              issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId),
+              reporterNameByEmployeeId,
+            )
           : null;
       const issuesAll =
         issuesAllResult && issuesAllResult.status === 'success'
-          ? issuesAllResult.data.filter((issue) => issue.locationId === location.locationId)
+          ? withReporterNames(
+              issuesAllResult.data.filter((issue) => issue.locationId === location.locationId),
+              reporterNameByEmployeeId,
+            )
           : null;
 
       // Header account menu's identity -- `myProfileResult` carries the
