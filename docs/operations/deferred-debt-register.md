@@ -186,6 +186,7 @@ Source for every row: `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-
 | ID | Item | Class | Source | Trigger | Owner | Status |
 |---|---|---|---|---|---|---|
 | DEBT-099 | Staff-readable `api.issues` / `api.issues_open` return raw auth uids (`reported_by`, `acknowledged_by`, since 0118); with `reporter_employee_id` (0128) a Staff caller can pair a coworker's auth uid with their employee id. Opaque ids inside one tenant, names already visible; the staff views otherwise never carry `user_id` (0061). Fix: stop selecting the uid columns in the app and project them out of the views (or a staff-only view). | C | DB/security review, PR #595 | T-PROD (Stage 4F hardening) | Lead | OPEN |
+| DEBT-100 | HACCP preset default ranges (fridge 0–5 °C, freezer ≤ −15 °C, hot-holding ≥ 65 °C; PR #594) live only in the manifest: `cafe-haccp-presets-write.ts` installs into the hardcoded `oruwa-cafe` tenant (already installed, so unchanged) and no provisioning / package-template path installs the presets for a new tenant. Fix: Stage 4B provisioning installs `CAFE_HACCP_PRESETS_MANIFEST` for every new Cafe tenant (tenant id as input, not hardcoded). | B | PR #594 review | Stage 4B (tenant provisioning) | Lead | OPEN |
 
 ## Accepted, will not fix
 

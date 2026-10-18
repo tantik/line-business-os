@@ -5,28 +5,28 @@
  *
  * SCOPE / GOVERNANCE NOTES (read before touching any content below):
  *
- * 1. NUMERIC THRESHOLDS ARE INTENTIONALLY UNSET (Founder decision,
- *    2026-09-05, second HACCP mission). An earlier version of this file
- *    shipped canonical `numeric_min`/`numeric_max` values (0-10C fridge,
- *    -30 to -15C freezer, 60-90C hot-holding) as "operational defaults" --
- *    the Founder rejected treating ANY unverified number as a canonical
- *    ORUWA default, even one flagged as unverified. The product rule going
- *    forward: ORUWA presets define WHAT to check, the response type, the
- *    unit, and critical/required semantics -- the actual acceptable
- *    range for a numeric check is Manager/Owner configuration for their
- *    specific business/location, never something this preset content
- *    imposes. Every numeric item below therefore ships with
- *    `numericMin: null, numericMax: null` and a real `numericUnit`
- *    (`'°C'`) -- this is a fully supported, safe state (verified against
- *    the schema/RPC/response-recording code before this change: a NULL
- *    threshold can never produce a false threshold exception -- see
- *    `operations.checklist_items_numeric_range_chk`/`..._numeric_only_chk`
- *    in `0100_operations_module_foundation.sql` and the threshold check in
- *    `api.operations_record_response`, `0101_operations_scheduling_execution.sql`,
- *    which only compares against a bound when that bound is NOT NULL). Do
- *    NOT reintroduce a guessed/"more correct" number here -- if a real
- *    canonical default is ever wanted, it needs its own sourced, approved
- *    decision, not a value invented inside this data file.
+ * 1. NUMERIC THRESHOLDS ARE SOURCED DEFAULTS (Founder decision 2026-10-17,
+ *    superseding the 2026-09-05 "leave every threshold unset" rule, which
+ *    rejected UNSOURCED numbers). Each numeric item now ships a standard
+ *    starting range, checked against the MHLW 大量調理施設衛生管理マニュアル
+ *    (平成9年3月24日衛食第85号 別添, https://www.mhlw.go.jp/web/t_doc?dataId=00tb9161&dataType=1&pageNo=1,
+ *    checked 2026-10-18) and the MHLW-published 小規模な一般飲食店向け手引書
+ *    (日本食品衛生協会, 令和6年1月改訂: 冷蔵庫 10℃以下 / 冷凍庫 -15℃以下):
+ *      - freezer: max -15 °C (「冷凍で保存するものは－15℃以下」);
+ *      - hot-holding: min 65 °C (「10℃以下又は65℃以上で管理」);
+ *      - fridge: 0-5 °C (Founder's chosen value, the one `oruwa-cafe` uses
+ *        on its configured fridge checks, Cloud DEV read 2026-10-18;
+ *        stricter than the general 10℃以下 and meets 魚介類 5℃以下).
+ *    Delivery: today the executor installs only into `oruwa-cafe` (already
+ *    installed there, so nothing changes); new tenants get these values once
+ *    Stage 4B provisioning installs the presets (DEBT-100).
+ *    One-sided ranges leave the other bound NULL. These are only the
+ *    starting values for a NEW install: the Manager edits them per template
+ *    item (最小値/最大値/単位), and the plan builder never touches an item
+ *    that is already installed, so existing tenants keep their own values.
+ *    A NULL bound is never compared (`api.operations_record_response`,
+ *    `0101_operations_scheduling_execution.sql`). Any change to these
+ *    numbers needs a new source check, not a guess.
  *
  * 1a. CURRENT THRESHOLD-CONFIGURATION MODEL (record of the current product
  *    rule, not a design decision made by this file): a numeric threshold
@@ -153,8 +153,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: null,
-          numericMax: null,
+          numericMin: 0,
+          numericMax: 5,
           numericUnit: '°C',
         },
       ],
@@ -189,8 +189,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: null,
-          numericMax: null,
+          numericMin: 0,
+          numericMax: 5,
           numericUnit: '°C',
         },
       ],
@@ -243,8 +243,8 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: true,
-          numericMin: null,
-          numericMax: null,
+          numericMin: 0,
+          numericMax: 5,
           numericUnit: '°C',
         },
         {
@@ -253,7 +253,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           isCritical: true,
           isRequired: true,
           numericMin: null,
-          numericMax: null,
+          numericMax: -15,
           numericUnit: '°C',
         },
         {
@@ -261,7 +261,7 @@ export const CAFE_HACCP_PRESETS_MANIFEST: CafeHaccpPresetsManifest = {
           responseType: 'numeric',
           isCritical: true,
           isRequired: false,
-          numericMin: null,
+          numericMin: 65,
           numericMax: null,
           numericUnit: '°C',
         },
