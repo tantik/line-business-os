@@ -18,7 +18,7 @@ import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listOperationsTemplateItems } from '@/lib/operations/templates';
 import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
-import { listOpenIssues } from '@/lib/issues/issues';
+import { listOpenIssues, withReporterNames } from '@/lib/issues/issues';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
@@ -420,9 +420,15 @@ export default async function WorkforceStaffPage({
       // reads above and `manager/page.tsx`'s own `issuesOpen` filter. LOC-1:
       // Staff always has exactly one resolved `location` by this point (see
       // the fail-closed branch above), never a caller-chosen location.
+      // Reporter names come from the same coworker roster the schedule grid
+      // already shows (`staffNameById`, 0061), matched on `reporter_employee_id`
+      // (0128); anyone outside it keeps the role label.
       const issuesOpen =
         issuesOpenResult && issuesOpenResult.status === 'success'
-          ? issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId)
+          ? withReporterNames(
+              issuesOpenResult.data.filter((issue) => issue.locationId === location.locationId),
+              new Map(Object.entries(staffNameById)),
+            )
           : null;
 
       return (
