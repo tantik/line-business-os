@@ -186,29 +186,15 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-17** (checked against git; see `git log -1` on `dev`):
+**As of 2026-10-18** (checked against git; see `git log -1` on `dev`):
 
-- **Account screens + pre-QA3 polish (2026-10-10..12):** invite/recovery dead
-  link fixed and deployed (DEBT-087, #568); ORUWA sign-in JA/EN, forgot /
-  reset password, invalid-link, 404/error pages (#570, DEBT-088 closed);
-  resend-no-email notice (#572, DEBT-084 closed); Copy Audit A-01..A-08
-  (DEBT-053, A-09 allergen wording left to native + legal); `/account`
-  (change password, sign out other devices).
+- **2026-10-10..12:** account screens (#568–#572: sign-in JA/EN, forgot/
+  reset password, invalid-link, 404/error, `/account`); Copy Audit A-01..A-08;
+  29 allergens (#576, 0124; native/legal string review open, DEBT-053/089);
+  **Stage 2 / DEBT-074 CLOSED** (#577, 0125 + `auto-schedule-monthly`).
 - **Operating model (Founder, 2026-10-12): CTO authority** (Operating Model
-  §9, v1.11.0). The Lead Agent plans, delegates, verifies and decides all
-  development work incl. `dev` merges and Cloud DEV deploys/migrations, and
-  moves between roadmap stages without a Founder prompt. Founder gates:
-  production (deploy/DB/env/`main`) and real-customer messages only.
-
-- **2026-10-12 (later):** A-09 allergens done (#576, migration 0124 on Cloud
-  DEV): vocabulary follows the CAA revision effective 2026-04-01 — **29
-  items** (9 特定原材料 incl. カシューナッツ + 20 準ずるもの incl. ピスタチオ),
-  store-checked wording + disclaimer, stale "confirmed none" reset; native/
-  legal review of the strings stays open (DEBT-053), list upkeep DEBT-089.
-  **Stage 2 / DEBT-074 CLOSED** (#577, 0125 + Edge Function
-  `auto-schedule-monthly` on Cloud DEV, live run verified): pg_cron →
-  pg_net → Edge Function, run log in Manager Settings. Multi-manager gap
-  registered (DEBT-091).
+  §9): the Lead decides all development incl. `dev` merges and Cloud DEV;
+  Founder gates = production (deploy/DB/env/`main`) + real-customer messages.
 - **Founder Technical Freeze: APPROVED** (2026-09-23).
 - **Founder Acceptance (Mission 11) is IN PROGRESS.** QA1/QA2 closed;
   full functional QA of every block except LINE done by the Lead on
@@ -229,9 +215,17 @@ duplicated here.
   300+ tenants, no polling, Vercel Pro from the first paying client,
   Supabase Pro after the 5th (DEBT-096..098). Founder asked for: reporter
   name on Issues/Handover, standard HACCP ranges in presets.
-- **Next** (detail: `docs/ai/SESSION_HANDOFF_2026-10-17.md` §6): small batch
-  (reporter name, HACCP preset defaults) → Stage 3 QA4 prep (month scenario
-  + seed, mobile Realtime check) → QA4 → plan Stage 4B. Then the order in
+- **2026-10-18:** small batch done — reporter name on Issues/Handover (#595,
+  **0128 on Cloud DEV**, DEBT-075 closed), HACCP preset default ranges from
+  MHLW (#594; install path for new tenants = DEBT-100). **QA4 prep done**
+  (#596): scenario `docs/ai/QA4_SCENARIO_2026-10-18.md`; past-month seed
+  applied to `oruwa-cafe` (2026-09-21..10-17, verify 16/16, open missed
+  198 → 8); emulated mobile Realtime reconnect verified (push ≈ 2 s after a
+  45 s offline). Stage 4B architecture plan:
+  `docs/architecture/tenant-provisioning-plan-2026-10-18.md`.
+- **Next:** QA4 live days from 2026-10-19 per the scenario (real phone
+  check of a > 1 h sleep incl. token refresh), reviewers → Founder final
+  review → Cafe v2.2 CLOSED; then 4B-1 (provisioning migration). Then the order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
