@@ -76,13 +76,16 @@ test('a partial context (template 1 exists with its items but no schedule yet) c
   assert.ok(plan.schedulesToCreate.some((s) => s.templateName === template1.name));
 });
 
-test('every planned numeric item carries a real numericUnit but NO numericMin/numericMax (Founder decision: thresholds are Manager/Owner configuration, never an ORUWA-imposed default); every boolean item carries null for all three', () => {
+test('every planned numeric item carries numericUnit °C and its manifest range; every boolean item carries null for all three', () => {
   const plan = buildCafeHaccpPresetsPlan(CAFE_HACCP_PRESETS_MANIFEST, baseContext());
+  const manifestItems = CAFE_HACCP_PRESETS_MANIFEST.templates.flatMap((t) => t.items);
   for (const item of plan.itemsToCreate) {
     if (item.responseType === 'numeric') {
-      assert.equal(item.numericMin, null, `numeric item "${item.label}" must NOT carry a numericMin -- ORUWA presets never impose a threshold`);
-      assert.equal(item.numericMax, null, `numeric item "${item.label}" must NOT carry a numericMax -- ORUWA presets never impose a threshold`);
-      assert.notEqual(item.numericUnit, null, `numeric item "${item.label}" must still carry numericUnit`);
+      const source = manifestItems.find((i) => i.label === item.label);
+      assert.ok(source);
+      assert.equal(item.numericMin, source.numericMin);
+      assert.equal(item.numericMax, source.numericMax);
+      assert.equal(item.numericUnit, '°C', `numeric item "${item.label}" must carry numericUnit`);
     } else if (item.responseType === 'boolean') {
       assert.equal(item.numericMin, null);
       assert.equal(item.numericMax, null);
@@ -91,25 +94,46 @@ test('every planned numeric item carries a real numericUnit but NO numericMin/nu
   }
 });
 
-test('no invented temperature default survives in the manifest: every numeric item is unset (null/null), never a guessed number, while unit stays °C', () => {
+test('sourced default ranges (Founder 2026-10-17, MHLW 大量調理施設衛生管理マニュアル): fridge 0-5 °C, freezer <= -15 °C, hot-holding >= 65 °C', () => {
   const numericItems = CAFE_HACCP_PRESETS_MANIFEST.templates.flatMap((t) => t.items).filter((i) => i.responseType === 'numeric');
   assert.equal(numericItems.length, 5, 'expected exactly 5 numeric HACCP items (fridge x3: opening/closing/midday, freezer, hot-holding) -- update this count deliberately if the manifest content changes');
+  const fridge = numericItems.filter((i) => i.label.includes('冷蔵庫内温度確認'));
+  assert.equal(fridge.length, 3);
+  for (const item of fridge) {
+    assert.equal(item.numericMin, 0, `"${item.label}"`);
+    assert.equal(item.numericMax, 5, `"${item.label}"`);
+  }
+  const freezer = numericItems.find((i) => i.label.includes('冷凍庫内温度確認'));
+  assert.ok(freezer);
+  assert.equal(freezer.numericMin, null, 'freezer is one-sided: no lower bound');
+  assert.equal(freezer.numericMax, -15);
   for (const item of numericItems) {
-    assert.equal(item.numericMin, null, `"${item.label}" must not carry a canonical min`);
-    assert.equal(item.numericMax, null, `"${item.label}" must not carry a canonical max`);
-    assert.equal(item.numericUnit, '°C', `"${item.label}" must still declare its unit`);
+    assert.equal(item.numericUnit, '°C', `"${item.label}" must declare its unit`);
+    if (item.numericMin !== null && item.numericMax !== null) assert.ok(item.numericMin <= item.numericMax, 'numeric_range_chk (0100)');
   }
 });
 
-test('the hot-holding temperature item is isCritical:true, isRequired:false, with no canonical threshold (spot check)', () => {
+test('the hot-holding temperature item is isCritical:true, isRequired:false, min 65 °C with no upper bound (spot check)', () => {
   const plan = buildCafeHaccpPresetsPlan(CAFE_HACCP_PRESETS_MANIFEST, baseContext());
   const hotHolding = plan.itemsToCreate.find((i) => i.label.includes('温蔵・保温機器'));
   assert.ok(hotHolding);
   assert.equal(hotHolding.isCritical, true);
   assert.equal(hotHolding.isRequired, false);
-  assert.equal(hotHolding.numericMin, null);
+  assert.equal(hotHolding.numericMin, 65);
   assert.equal(hotHolding.numericMax, null);
   assert.equal(hotHolding.numericUnit, '°C');
+});
+
+test('an already-installed item is never re-planned, so an existing tenant keeps its own range', () => {
+  const template = CAFE_HACCP_PRESETS_MANIFEST.templates.find((t) => t.items.some((i) => i.label.includes('冷凍庫内温度確認')));
+  assert.ok(template);
+  const plan = buildCafeHaccpPresetsPlan(CAFE_HACCP_PRESETS_MANIFEST, {
+    ...baseContext(),
+    existingTemplates: [
+      { templateId: 'existing-temp', name: template.name, locationId: baseContext().locationId, itemLabels: template.items.map((i) => i.label), hasScheduleAtLocation: true },
+    ],
+  });
+  assert.equal(plan.itemsToCreate.filter((i) => i.templateName === template.name).length, 0);
 });
 
 test('buildCafeHaccpPresetsPlan is deterministic: the same manifest+context produces byte-identical output across two calls', () => {
