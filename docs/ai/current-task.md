@@ -186,7 +186,7 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-17** (checked against git; see `git log -1` on `dev`):
+**As of 2026-10-18** (checked against git; see `git log -1` on `dev`):
 
 - **Account screens + pre-QA3 polish (2026-10-10..12):** invite/recovery dead
   link fixed and deployed (DEBT-087, #568); ORUWA sign-in JA/EN, forgot /
@@ -229,9 +229,17 @@ duplicated here.
   300+ tenants, no polling, Vercel Pro from the first paying client,
   Supabase Pro after the 5th (DEBT-096..098). Founder asked for: reporter
   name on Issues/Handover, standard HACCP ranges in presets.
-- **Next** (detail: `docs/ai/SESSION_HANDOFF_2026-10-17.md` §6): small batch
-  (reporter name, HACCP preset defaults) → Stage 3 QA4 prep (month scenario
-  + seed, mobile Realtime check) → QA4 → plan Stage 4B. Then the order in
+- **2026-10-18:** small batch done — reporter name on Issues/Handover (#595,
+  **0128 on Cloud DEV**, DEBT-075 closed), HACCP preset default ranges from
+  MHLW (#594; install path for new tenants = DEBT-100). **QA4 prep done**
+  (#596): scenario `docs/ai/QA4_SCENARIO_2026-10-18.md`; past-month seed
+  applied to `oruwa-cafe` (2026-09-21..10-17, verify 16/16, open missed
+  198 → 8); emulated mobile Realtime reconnect verified (push ≈ 2 s after a
+  45 s offline). Stage 4B architecture plan:
+  `docs/architecture/tenant-provisioning-plan-2026-10-18.md`.
+- **Next:** QA4 live days from 2026-10-19 per the scenario (real phone
+  check of a > 1 h sleep incl. token refresh), reviewers → Founder final
+  review → Cafe v2.2 CLOSED; then 4B-1 (provisioning migration). Then the order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
