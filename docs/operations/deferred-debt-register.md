@@ -181,6 +181,12 @@ Source for every row: `docs/ai/CAFE_V2_2_FULL_INTEGRATED_ACCEPTANCE_REPORT_2026-
 | DEBT-097 | No measured capacity plan for 300+ tenants: the 2026-10-17 cost estimate (~900 concurrent connections, ~3 M Realtime messages, ~10 M function calls per month, ~$80–150/month) is an assumption. Fix: measure per-tenant usage in the 6-tenant test (function calls, Active CPU, Realtime connections/messages, DB size, slow queries), load-test at 300-tenant scale, write the capacity/cost plan incl. DB compute size. | B | Founder target 300+ tenants, 2026-10-17 | Stage 4C (measure) and Stage 4F (load test), before production | Lead | OPEN |
 | DEBT-098 | Spend control and usage alerts not configured: Supabase Pro spend cap (on by default), Vercel Pro on-demand budget (default $200) with notifications/pause, and a weekly usage check (Vercel Fluid Active CPU + invocations per route, Supabase Realtime connections/messages, DB size). Needs the Founder's accounts. | B | Vercel CPU alert 2026-10-15 + Founder decision 2026-10-17 | When moving to paid tiers (before the first paying client for Vercel) | Founder + Lead | OPEN |
 
+## H. Found 2026-10-18 (small batch: reporter name, HACCP defaults)
+
+| ID | Item | Class | Source | Trigger | Owner | Status |
+|---|---|---|---|---|---|---|
+| DEBT-099 | Staff-readable `api.issues` / `api.issues_open` return raw auth uids (`reported_by`, `acknowledged_by`, since 0118); with `reporter_employee_id` (0128) a Staff caller can pair a coworker's auth uid with their employee id. Opaque ids inside one tenant, names already visible; the staff views otherwise never carry `user_id` (0061). Fix: stop selecting the uid columns in the app and project them out of the views (or a staff-only view). | C | DB/security review, PR #595 | T-PROD (Stage 4F hardening) | Lead | OPEN |
+
 ## Accepted, will not fix
 
 None recorded yet.

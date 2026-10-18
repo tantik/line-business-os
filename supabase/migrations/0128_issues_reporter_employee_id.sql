@@ -4,10 +4,15 @@
 -- Founder decision 2026-10-17 (DEBT-075): show the reporter's NAME on Issues /
 -- Handover instead of only 「スタッフ」/「マネージャー」.
 --
--- issues.issues.reported_by is an auth user id, and no app-facing view exposes
--- raw user ids (0067). This migration appends one column to api.issues_open
--- and api.issues: reporter_employee_id, the workforce.employees row of the
--- reporter in the same tenant (unique (tenant_id, user_id), 0062).
+-- issues.issues.reported_by is an auth user id; the staff views deliberately
+-- never carry employees.user_id (0061, 0067), so the app cannot match it to a
+-- roster entry. This migration appends one column to api.issues_open and
+-- api.issues: reporter_employee_id, the workforce.employees row of the
+-- reporter in the same tenant (unique (tenant_id, user_id) where user_id is
+-- not null, 0063; reported_by is not null, so at most one match per issue).
+-- Accepted (DB review, PR #595): next to the pre-existing reported_by column
+-- this pairs a coworker's auth uid with their employee id for a Staff caller
+-- (opaque ids, same tenant, already-visible names); DEBT-099.
 --
 -- Visibility needs no new rule: both views stay security_invoker, so the LEFT
 -- JOIN only finds an employee row the CALLER may already read under the

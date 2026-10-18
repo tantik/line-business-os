@@ -111,6 +111,9 @@ select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000001', 'issues_op
 select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000002', 'issues_open', 'a8400000-0000-0000-0000-000000000001'),
   'a8300000-0000-0000-0000-000000000001'::uuid, 'C: an active coworker at the same location sees the reporter''s id');
 
+select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000002', 'issues', 'a8400000-0000-0000-0000-000000000001'),
+  'a8300000-0000-0000-0000-000000000001'::uuid, 'C: same for the full-history view (issues)');
+
 -- D
 update workforce.employees set is_active = false where id = 'a8300000-0000-0000-0000-000000000004';
 select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000002', 'issues_open', 'a8400000-0000-0000-0000-000000000004'),
@@ -123,6 +126,20 @@ select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000003', 'issues_op
   null::uuid, 'E/F: a Manager reporter with no employee row in this tenant gives NULL; their tenant-B employee row is never joined');
 select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000001', 'issues', 'a8400000-0000-0000-0000-000000000003'),
   null::uuid, 'E/F: same row seen by Staff is NULL');
+
+select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000002', 'issues', 'a8400000-0000-0000-0000-000000000004'),
+  null::uuid, 'D: same for the full-history view (issues)');
+
+-- H: workforce module OFF (issues ON) -> the issue is still readable, the id is NULL, no error
+update core.tenant_modules set is_enabled = false
+  where tenant_id = 'a8000000-0000-0000-0000-00000000000a' and module = 'workforce';
+select is(pg_temp.reporter_of('a8900000-0000-0000-0000-000000000002', 'issues_open', 'a8400000-0000-0000-0000-000000000001'),
+  null::uuid, 'H: workforce OFF hides the coworker reporter id');
+select is(pg_temp.count_as('a8900000-0000-0000-0000-000000000002',
+    $$ select count(*)::int from api.issues_open where tenant_id = 'a8000000-0000-0000-0000-00000000000a' $$),
+  3, 'H: workforce OFF still returns every open issue (LEFT JOIN)');
+update core.tenant_modules set is_enabled = true
+  where tenant_id = 'a8000000-0000-0000-0000-00000000000a' and module = 'workforce';
 
 -- G
 select is(pg_temp.count_as('a8900000-0000-0000-0000-000000000003',
