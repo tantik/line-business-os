@@ -22,6 +22,8 @@ export interface EntryPointsCardButton {
   /** Optional own count badge (e.g. Issues & Handover's open-issue count) -- rendered next to the label via `CountBadge`. Only shown when > 0. The label/tooltip near it must describe this SAME number, never a differently-derived one (see the Manager Attention "9 vs 4+4" bug this deliberately avoids). */
   badgeCount?: number;
   badgeTone?: 'neutral' | 'critical';
+  /** Module this entry point belongs to (`core.module_code`), used to order the row by the tenant's package navigation order (`orderByModule`, task P4). Absent for platform entries such as mail or the weekly review. */
+  module?: string;
 }
 
 export interface EntryPointsCardProps {

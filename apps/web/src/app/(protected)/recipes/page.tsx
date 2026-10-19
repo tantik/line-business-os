@@ -37,16 +37,16 @@ export default async function WorkforceRecipesPage() {
       const { activeTenant } = result.data;
       const supabase = await createClient();
       const modulesResult = await listTenantModules(supabase);
-      const workforceEnabled =
+      const recipesEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
           (module) =>
             module.tenantId === activeTenant.tenantId &&
-            module.module === 'workforce' &&
+            module.module === 'recipes' &&
             module.isEnabled,
         );
 
-      if (!workforceEnabled) return <ModuleUnavailableState />;
+      if (!recipesEnabled) return <ModuleUnavailableState />;
 
       // Manager-role visitors (same hasManagerAccess gate as `/manager`
       // itself) are sent into the Manager dashboard's Recipes popup (WP

@@ -70,7 +70,8 @@ import {
 import { publishSchedule, runAutoDistribution, undoAutoDistribution } from '@/lib/workforce/schedule-actions';
 import type { RunAutoDistributionActionResult } from '@/lib/workforce/schedule-types';
 import { AttentionPanel } from './attention-panel';
-import { EntryPointsCard } from '../_ui/entry-points-card';
+import { EntryPointsCard, type EntryPointsCardButton } from '../_ui/entry-points-card';
+import { orderByModule } from '@/lib/tenant/module-nav';
 import { BrandBadge } from '../_ui/brand-badge';
 import { AccountMenu } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
@@ -245,6 +246,12 @@ export interface ManagerDashboardClientProps {
   staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the Attention layer's inventory line; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
+  /** Whether the `purchases` module (0131) is enabled -- gates only the Purchases entry point; RLS/RPCs remain the authorization boundary. */
+  purchasesEnabled: boolean;
+  /** Whether the `recipes` module (0131) is enabled -- gates only the Recipes entry point; RLS remains the authorization boundary. */
+  recipesEnabled: boolean;
+  /** Enabled modules in the tenant's package navigation order (0132) -- orders the entry-point row. */
+  moduleOrder: readonly string[];
   /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility; the real `/operations` page and its RLS remain the authorization boundary regardless. */
   operationsEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
@@ -371,6 +378,9 @@ function ManagerDashboardBody({
   exchangeAssignments,
   staffMessages,
   inventoryEnabled,
+  purchasesEnabled,
+  recipesEnabled,
+  moduleOrder,
   operationsEnabled,
   inventoryItems,
   inventoryMediaUrlByItemId,
@@ -1196,19 +1206,25 @@ function ManagerDashboardBody({
       <EntryPointsCard
         heading={t('entryPointsHeading')}
         subtitle={staff === null ? t('staffUnavailable') : staff.length === 0 ? t('staffEmpty') : staffSummaryLabel[lang](staff.filter((s) => s.isActive).length, staff.length)}
-        buttons={[
-          {
-            key: 'recipes',
-            label: t('navRecipes'),
-            onClick: () => {
-              markPopupTriggerClick('recipes');
-              setRecipesPopupOpen(true);
-            },
-          },
+        buttons={orderByModule<EntryPointsCardButton>([
+          ...(recipesEnabled
+            ? [
+                {
+                  key: 'recipes',
+                  module: 'recipes',
+                  label: t('navRecipes'),
+                  onClick: () => {
+                    markPopupTriggerClick('recipes');
+                    setRecipesPopupOpen(true);
+                  },
+                },
+              ]
+            : []),
           ...(inventoryEnabled
             ? [
                 {
                   key: 'inventory',
+                  module: 'inventory',
                   label: t('navInventory'),
                   onClick: () => {
                     markPopupTriggerClick('inventory');
@@ -1222,6 +1238,7 @@ function ManagerDashboardBody({
             ? [
                 {
                   key: 'manage-staff',
+                  module: 'workforce',
                   label: t('manageStaff'),
                   onClick: () => {
                     markPopupTriggerClick('manage-staff');
@@ -1230,10 +1247,11 @@ function ManagerDashboardBody({
                 },
               ]
             : []),
-          ...(inventoryEnabled
+          ...(purchasesEnabled
             ? [
                 {
                   key: 'purchases',
+                  module: 'purchases',
                   label: t('navPurchases'),
                   onClick: () => {
                     markPopupTriggerClick('purchases');
@@ -1246,6 +1264,7 @@ function ManagerDashboardBody({
             ? [
                 {
                   key: 'operations',
+                  module: 'operations',
                   label: t('navOperations'),
                   onClick: () => {
                     markPopupTriggerClick('operations');
@@ -1258,6 +1277,7 @@ function ManagerDashboardBody({
             ? [
                 {
                   key: 'issues',
+                  module: 'issues',
                   label: t('navIssues'),
                   onClick: () => {
                     markPopupTriggerClick('issues');
@@ -1281,7 +1301,7 @@ function ManagerDashboardBody({
                 },
               ]
             : []),
-        ]}
+        ], moduleOrder)}
       />
 
       <AttentionPanel

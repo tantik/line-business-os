@@ -46,13 +46,13 @@ export default async function PurchasesPage() {
       const { activeTenant } = result.data;
       const supabase = await createClient();
       const modulesResult = await listTenantModules(supabase);
-      const inventoryEnabled =
+      const purchasesEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'purchases' && module.isEnabled,
         );
 
-      if (!inventoryEnabled) return <ModuleUnavailableState />;
+      if (!purchasesEnabled) return <ModuleUnavailableState />;
 
       const locationsResult = await listTenantLocations(supabase);
       const tenantLocations =

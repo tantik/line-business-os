@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantModules } from '@/lib/tenant/modules';
+import { listTenantNavigation } from '@/lib/tenant/modules';
+import { tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -91,7 +92,7 @@ export default async function WorkforceManagerPage({
       const { activeTenant } = result.data;
       const supabase = await createClient();
       // Weekly Schedule Founder Review Round 2 (2026-08-22), week-navigation
-      // performance: `listTenantModules` and `listTenantLocations` don't
+      // performance: `listTenantNavigation` and `listTenantLocations` don't
       // depend on each other (module-enablement flags vs. the tenant's
       // locations) -- they were two sequential round trips before this page
       // even started its main data batch below, on every single request
@@ -99,53 +100,23 @@ export default async function WorkforceManagerPage({
       // pass; see this file's own note further down for why the deeper fix
       // (not re-running the *whole* page's unrelated data on a week change)
       // is out of scope for this pass.
-      const [modulesResult, locationsResult] = await Promise.all([listTenantModules(supabase), listTenantLocations(supabase)]);
-      const workforceEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) =>
-            module.tenantId === activeTenant.tenantId &&
-            module.module === 'workforce' &&
-            module.isEnabled,
-        );
+      const [navigationResult, locationsResult] = await Promise.all([listTenantNavigation(supabase), listTenantLocations(supabase)]);
+      // Enabled modules of the active tenant, in package order (0132, task
+      // P4). The flags below gate only this dashboard's entry points and
+      // their reads; RLS / RPCs (`core.has_module_access`) remain the real
+      // authorization boundary regardless of them.
+      const navigation = tenantNavigation(
+        navigationResult.status === 'success' ? navigationResult.data : [],
+        activeTenant.tenantId,
+      );
 
-      if (!workforceEnabled) return <ModuleUnavailableState />;
+      if (!navigation.enabled.has('workforce')) return <ModuleUnavailableState />;
 
-      // `inventory` is a separate top-level module (ADR 0010) from
-      // `workforce` -- reuses the already-fetched `modulesResult` rather
-      // than a second `listTenantModules` call. Gates only the Manager
-      // Attention layer's inventory-shortage line (Mission 2); the real
-      // Inventory page/RLS remain the authorization boundary regardless of
-      // this flag. Mirrors the identical pattern already used by the
-      // canonical Staff page for its own Inventory entry-point card.
-      const inventoryEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
-        );
-
-      // `operations` is a separate top-level module (0099/0111) from
-      // `workforce` -- reuses the already-fetched `modulesResult`. Gates only
-      // this dashboard's Operations entry-point link (Cafe v2.2 WP1
-      // Operations, Manager Configuration UI slice); the real `/operations`
-      // page and its RLS remain the authorization boundary regardless of
-      // this flag.
-      const operationsEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
-        );
-
-      // `issues` is a separate top-level module (0118) from `workforce` --
-      // reuses the already-fetched `modulesResult`. Gates only this
-      // dashboard's Issues & Handover entry-point link (Cafe v2.2 WP2,
-      // Manager frontend slice); RLS on `issues.issues` remains the real
-      // authorization boundary regardless of this flag.
-      const issuesEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'issues' && module.isEnabled,
-        );
+      const inventoryEnabled = navigation.enabled.has('inventory');
+      const purchasesEnabled = navigation.enabled.has('purchases');
+      const recipesEnabled = navigation.enabled.has('recipes');
+      const operationsEnabled = navigation.enabled.has('operations');
+      const issuesEnabled = navigation.enabled.has('issues');
 
       const tenantLocations =
         locationsResult.status === 'success'
@@ -318,15 +289,14 @@ export default async function WorkforceManagerPage({
           : Promise.resolve(null),
         // Purchases' entire read surface -- also the exact data the
         // Manager's Purchases popup below renders (no separate fetch).
-        // Rides the `inventory` module flag (Founder decision, this
-        // session): Purchases has no data without Inventory enabled.
-        inventoryEnabled
+        // Gated on the `purchases` module (0131; it depends on `inventory`).
+        purchasesEnabled
           ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Purchases' History tab read surface (0120) -- same
         // tenant/location scope as `purchasesItemsResult` above, also the
         // exact data the Manager's Purchases popup's History tab renders.
-        inventoryEnabled
+        purchasesEnabled
           ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
@@ -486,6 +456,9 @@ export default async function WorkforceManagerPage({
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}
             staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
+            purchasesEnabled={purchasesEnabled}
+            recipesEnabled={recipesEnabled}
+            moduleOrder={navigation.order}
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
