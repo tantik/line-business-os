@@ -4,7 +4,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantNavigation } from '@/lib/tenant/modules';
-import { tenantNavigation } from '@/lib/tenant/module-nav';
+import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -475,7 +475,7 @@ export default async function WorkforceManagerPage({
             issuesOpen={issuesOpen}
             issuesAll={issuesAll}
             weeklyReviewEnabled={weeklyReviewEnabled}
-            initialPopup={initialPopup}
+            initialPopup={popupIfModuleEnabled(initialPopup, navigation.enabled)}
             initialFocusCell={initialFocusCell}
             recipeGroups={recipeGroups}
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}

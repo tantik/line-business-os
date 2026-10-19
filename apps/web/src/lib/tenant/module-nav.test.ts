@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { orderByModule, tenantNavigation } from './module-nav.js';
+import { orderByModule, popupIfModuleEnabled, tenantNavigation } from './module-nav.js';
 
 const T = 'tenant-a';
 
@@ -40,4 +40,13 @@ test('orderByModule follows the module order; items without a module go last, st
 test('orderByModule puts a module missing from the order after the known ones', () => {
   const keys = orderByModule([{ key: 'x', module: 'crm' }, { key: 'y', module: 'recipes' }], ['recipes']).map((i) => i.key);
   assert.deepEqual(keys, ['y', 'x']);
+});
+
+test('popupIfModuleEnabled drops a deep link to a switched-off module and keeps the rest', () => {
+  const enabled = new Set(['workforce', 'inventory']);
+  assert.equal(popupIfModuleEnabled('purchases', enabled), null);
+  assert.equal(popupIfModuleEnabled('recipes', enabled), null);
+  assert.equal(popupIfModuleEnabled('inventory', enabled), 'inventory');
+  assert.equal(popupIfModuleEnabled('weekly-review', enabled), 'weekly-review');
+  assert.equal(popupIfModuleEnabled(null, enabled), null);
 });

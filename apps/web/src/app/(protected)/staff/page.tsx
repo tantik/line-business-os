@@ -4,7 +4,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantNavigation } from '@/lib/tenant/modules';
-import { tenantNavigation } from '@/lib/tenant/module-nav';
+import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
@@ -444,7 +444,7 @@ export default async function WorkforceStaffPage({
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
-            initialPopup={initialPopup}
+            initialPopup={popupIfModuleEnabled(initialPopup, navigation.enabled)}
             locationId={location.locationId}
           />
         </main>
