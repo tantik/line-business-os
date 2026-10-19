@@ -44,7 +44,7 @@ function writeEmailStash(email: string | null) {
  * `noValidate`) and flips a local `isSubmitting` flag. A failed sign-in
  * re-renders `/sign-in?error=1` fresh from the server, resetting this state.
  */
-export function SignInForm({ returnTo, hasError }: { returnTo: string | null; hasError: boolean }) {
+export function SignInForm({ hasError }: { hasError: boolean }) {
   const t = useAuthT();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<AuthCopyKey | null>(null);
@@ -96,7 +96,6 @@ export function SignInForm({ returnTo, hasError }: { returnTo: string | null; ha
         </p>
       ) : null}
       <form action={signIn} onSubmit={handleSubmit} noValidate>
-        {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
         <label style={labelStyle}>
           {t('email')}
           <input
