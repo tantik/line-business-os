@@ -21,7 +21,8 @@
 --
 -- Rollback: drop view api.my_tenant_navigation; restore the cafe sort_order
 -- values (core 0, workforce 10, inventory 20, purchases 25, operations 30,
--- recipes 35, issues 40).
+-- recipes 35, issues 40) and module_registry.nav_sort_order (workforce 10,
+-- inventory 20, purchases 25, recipes 30, operations 30, issues 35).
 -- ============================================================================
 
 update core.package_modules set sort_order = v.sort_order
@@ -29,6 +30,13 @@ update core.package_modules set sort_order = v.sort_order
                ('purchases', 30), ('operations', 40), ('issues', 50)) as v(module, sort_order)
  where package_modules.package_code = 'cafe'
    and package_modules.module = v.module::core.module_code;
+
+-- Same order in the registry (used for add-ons and tenants without a
+-- package), so every tenant sees one consistent order.
+update core.module_registry set nav_sort_order = v.nav_sort_order
+  from (values ('recipes', 10), ('inventory', 20), ('workforce', 25),
+               ('purchases', 30), ('operations', 40), ('issues', 50)) as v(module, nav_sort_order)
+ where module_registry.module = v.module::core.module_code;
 
 create view api.my_tenant_navigation with (security_invoker = true) as
 select tm.tenant_id,

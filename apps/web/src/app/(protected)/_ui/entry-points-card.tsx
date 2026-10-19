@@ -87,6 +87,9 @@ const buttonStyle: CSSProperties = {
  * fill the full row width equally instead of sizing to their label.
  */
 export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
+  // A reduced tenant (modules switched off) can leave no entry point at all:
+  // render nothing rather than an empty card.
+  if (buttons.length === 0) return null;
   return (
     <section style={{ ...card, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {buttons.map((button) => {

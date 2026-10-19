@@ -45,6 +45,14 @@ export default async function WorkforceLandingPage() {
 
       if (!workforceEnabled) return <ModuleUnavailableState />;
 
+      // Recipes is its own module since 0131: hide its card when it is off
+      // (the `/recipes` route gates on it independently).
+      const recipesEnabled =
+        modulesResult.status === 'success' &&
+        modulesResult.data.some(
+          (module) => module.tenantId === activeTenant.tenantId && module.module === 'recipes' && module.isEnabled,
+        );
+
       // Role-aware nav: only offer the Manager card to a caller who can
       // actually use `/manager` -- mirrors that page's
       // own gate (`hasManagerAccess`, `workforce.staff.manage`) and its own
@@ -69,6 +77,7 @@ export default async function WorkforceLandingPage() {
         <WorkforceLandingClient
           tenantName={activeTenant.tenantName}
           canAccessManager={canAccessManager}
+          recipesEnabled={recipesEnabled}
           profileResult={profileResult}
         />
       );

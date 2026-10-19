@@ -12,6 +12,8 @@ import { tWorkforceLanding } from './workforce-landing-i18n';
 export interface WorkforceLandingClientProps {
   tenantName: string;
   canAccessManager: boolean;
+  /** Whether the `recipes` module (0131) is enabled -- hides the Recipes card when off. */
+  recipesEnabled: boolean;
   profileResult: Awaited<ReturnType<typeof getMyWorkforceStaffProfile>>;
 }
 
@@ -107,7 +109,7 @@ function MyStaffProfileCard({
   );
 }
 
-function WorkforceLandingBody({ tenantName, canAccessManager, profileResult }: WorkforceLandingClientProps) {
+function WorkforceLandingBody({ tenantName, canAccessManager, recipesEnabled, profileResult }: WorkforceLandingClientProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tWorkforceLanding>[1]) => tWorkforceLanding(lang, key);
 
@@ -145,16 +147,18 @@ function WorkforceLandingBody({ tenantName, canAccessManager, profileResult }: W
           </Link>
         </section>
       ) : null}
-      <section style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <IconBadge label="R" />
-          <h2 style={{ margin: 0, fontSize: 16 }}>{t('recipesHeading')}</h2>
-        </div>
-        <p style={{ margin: '8px 0 0', ...mutedText }}>{t('recipesDescription')}</p>
-        <Link href="/recipes" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
-          {t('viewRecipes')}
-        </Link>
-      </section>
+      {recipesEnabled ? (
+        <section style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <IconBadge label="R" />
+            <h2 style={{ margin: 0, fontSize: 16 }}>{t('recipesHeading')}</h2>
+          </div>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('recipesDescription')}</p>
+          <Link href="/recipes" style={{ ...buttonSecondary, display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
+            {t('viewRecipes')}
+          </Link>
+        </section>
+      ) : null}
     </main>
   );
 }
