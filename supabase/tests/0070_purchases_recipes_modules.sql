@@ -94,7 +94,7 @@ select is((select count(*)::int from core.module_dependencies where module = 're
 select is((select count(*)::int from core.package_modules where package_code = 'cafe' and module in ('purchases', 'recipes')),
   2, 'A: the cafe package contains purchases and recipes');
 select is((select string_agg(module::text, ',' order by sort_order) from core.package_modules where package_code = 'cafe'),
-  'core,workforce,inventory,purchases,operations,recipes,issues', 'A: cafe modules in navigation order');
+  'core,recipes,inventory,workforce,purchases,operations,issues', 'A: cafe modules in navigation order (0132)');
 
 -- ============================================================================
 -- B. The moved gates

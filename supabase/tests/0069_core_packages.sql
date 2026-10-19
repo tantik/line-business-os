@@ -82,7 +82,7 @@ end $$;
 -- A
 select is((select version from core.packages where code = 'cafe'), 3, 'A: cafe package v3 exists');
 select is((select string_agg(module::text, ',' order by sort_order) from core.package_modules where package_code = 'cafe'),
-  'core,workforce,inventory,purchases,operations,recipes,issues', 'A: cafe modules in navigation order');
+  'core,recipes,inventory,workforce,purchases,operations,issues', 'A: cafe modules in navigation order (0132)');
 
 -- B
 select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), '', 'B: a new tenant starts with no modules');

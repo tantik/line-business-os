@@ -103,22 +103,16 @@ test('the schedule heading uses the short MM/DD date form and never wraps mid-co
 });
 
 /**
- * Purchases-visibility-when-Inventory-OFF fix
- * (docs/ai/PURCHASES_VISIBILITY_INVENTORY_OFF_FOLLOWUP_2026-08-26.md).
- * Purchases has no `core.module_code` of its own; it rides Inventory's
- * module flag. So the Staff entry-point action for Purchases must be gated
- * by the same `inventoryEnabled` condition as the Inventory action -- when
- * Inventory is OFF, neither action appears. Source-text guard, same
- * convention as the guards above (no DOM/React harness).
+ * Module gating of the entry points (packages model P3/P4, 0131/0132).
+ * Inventory, Purchases and Recipes each have their own `core.module_code`;
+ * every entry-point action is spread from an array guarded by its own
+ * module flag, never included unconditionally. Purchases depends on
+ * Inventory (`core.module_dependencies`), so a tenant cannot have Purchases
+ * on with Inventory off. Source-text guard, same convention as above.
  */
-test('the Inventory and Purchases entry-point actions are both gated behind inventoryEnabled -- neither is included unconditionally', () => {
-  const inventoryBtn = /\.\.\.\(inventoryEnabled\s*\n?\s*\?\s*\[\s*\n?\s*\{\s*\n?\s*key: 'inventory'/;
-  const purchasesBtn = /\.\.\.\(inventoryEnabled\s*\n?\s*\?\s*\[\s*\n?\s*\{\s*\n?\s*key: 'purchases'/;
-  assert.match(SOURCE, inventoryBtn, 'the inventory button must be spread from an inventoryEnabled-guarded array');
-  assert.match(SOURCE, purchasesBtn, 'the purchases button must be spread from an inventoryEnabled-guarded array (rides Inventory module flag)');
-  assert.doesNotMatch(
-    SOURCE,
-    /\]\s*:\s*\[\]\),\s*\n\s*\{\s*\n\s*key: 'purchases'/,
-    'the purchases button must not be an unconditional entry immediately after the inventory guard',
-  );
+test('the Inventory, Purchases and Recipes entry-point actions are each gated behind their own module flag', () => {
+  assert.match(SOURCE, /\.\.\.\(inventoryEnabled\s*\?\s*\[\s*\{\s*key: 'inventory'/, 'the inventory button must be spread from an inventoryEnabled-guarded array');
+  assert.match(SOURCE, /\.\.\.\(purchasesEnabled\s*\?\s*\[\s*\{\s*key: 'purchases'/, 'the purchases button must be spread from a purchasesEnabled-guarded array');
+  assert.match(SOURCE, /\.\.\.\(recipesEnabled\s*\?\s*\[\{ key: 'recipes'/, 'the recipes button must be spread from a recipesEnabled-guarded array');
+  assert.match(SOURCE, /orderByModule<EntryPointsCardButton>\(\[/, 'the entry points must be ordered by the package navigation order');
 });
