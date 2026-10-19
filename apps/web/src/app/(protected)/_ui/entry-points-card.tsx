@@ -22,6 +22,8 @@ export interface EntryPointsCardButton {
   /** Optional own count badge (e.g. Issues & Handover's open-issue count) -- rendered next to the label via `CountBadge`. Only shown when > 0. The label/tooltip near it must describe this SAME number, never a differently-derived one (see the Manager Attention "9 vs 4+4" bug this deliberately avoids). */
   badgeCount?: number;
   badgeTone?: 'neutral' | 'critical';
+  /** Module this entry point belongs to (`core.module_code`), used to order the row by the tenant's package navigation order (`orderByModule`, task P4). Absent for platform entries such as mail or the weekly review. */
+  module?: string;
 }
 
 export interface EntryPointsCardProps {
@@ -85,6 +87,9 @@ const buttonStyle: CSSProperties = {
  * fill the full row width equally instead of sizing to their label.
  */
 export function EntryPointsCard({ buttons }: EntryPointsCardProps) {
+  // A reduced tenant (modules switched off) can leave no entry point at all:
+  // render nothing rather than an empty card.
+  if (buttons.length === 0) return null;
   return (
     <section style={{ ...card, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {buttons.map((button) => {

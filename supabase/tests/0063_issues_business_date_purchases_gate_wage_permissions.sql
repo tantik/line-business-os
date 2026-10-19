@@ -22,6 +22,7 @@ insert into core.tenants (id, slug, name) values
 
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('a2000000-0000-0000-0000-00000000000a', 'inventory', true),
+  ('a2000000-0000-0000-0000-00000000000a', 'purchases', true),  -- own gate since 0131
   ('a2000000-0000-0000-0000-00000000000a', 'issues', true),
   ('a2000000-0000-0000-0000-00000000000a', 'workforce', true);
 
@@ -216,7 +217,8 @@ reset role;
 reset role;
 
 -- ============================================================================
--- B. Inventory module OFF blocks Purchases writes with P0004 (0122)
+-- B. Purchases module OFF blocks Purchases writes with P0004 (0122; the gate
+--    was the Inventory flag until 0131 moved it to 'purchases')
 -- ============================================================================
 -- Positive control first (module ON): the very same direct INSERT succeeds, so the
 -- refusal below can only be the restored policy conjunct, not a CHECK/FK/grant.
@@ -227,32 +229,32 @@ select is(
     (select id from inventory.stock_counts where item_id = 'a2100000-0000-0000-0000-000000000001' order by counted_at desc, id desc limit 1)
   )),
   1,
-  'positive control: a direct purchase_actions INSERT is accepted while Inventory is ON'
+  'positive control: a direct purchase_actions INSERT is accepted while Purchases is ON'
 );
 reset role;
 
 update core.tenant_modules set is_enabled = false
-  where tenant_id = 'a2000000-0000-0000-0000-00000000000a' and module = 'inventory';
+  where tenant_id = 'a2000000-0000-0000-0000-00000000000a' and module = 'purchases';
 
 select ok(
   pg_temp.as_auth_throws_code('a2900000-0000-0000-0000-000000000002',
     $$select * from api.record_purchase_order('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', 5)$$,
     'P0004'),
-  'record_purchase_order raises purchases_module_disabled (P0004) when Inventory is OFF'
+  'record_purchase_order raises purchases_module_disabled (P0004) when Purchases is OFF'
 );
 reset role;
 select ok(
   pg_temp.as_auth_throws_code('a2900000-0000-0000-0000-000000000002',
     $$select * from api.record_purchase_receipt('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', 5)$$,
     'P0004'),
-  'record_purchase_receipt raises purchases_module_disabled (P0004) when Inventory is OFF'
+  'record_purchase_receipt raises purchases_module_disabled (P0004) when Purchases is OFF'
 );
 reset role;
 select ok(
   pg_temp.as_auth_throws_code('a2900000-0000-0000-0000-000000000002',
     $$select * from api.record_purchase_action('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001')$$,
     'P0004'),
-  'record_purchase_action (0094) still raises P0004 when Inventory is OFF'
+  'record_purchase_action (0094) still raises P0004 when Purchases is OFF'
 );
 reset role;
 
@@ -263,7 +265,7 @@ select ok(
        values ('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', %L, 'a2900000-0000-0000-0000-000000000002', 'ordered', 5)$f$,
     (select id from inventory.stock_counts where item_id = 'a2100000-0000-0000-0000-000000000001' order by counted_at desc, id desc limit 1)
   ), '42501'),
-  'the identical direct INSERT is refused by RLS (42501) while Inventory is OFF (the has_module_access conjunct itself is asserted by the pg_policy check below and by the P0004 RPC checks)'
+  'the identical direct INSERT is refused by RLS (42501) while Purchases is OFF (the has_module_access conjunct itself is asserted by the pg_policy check below and by the P0004 RPC checks)'
 );
 reset role;
 
@@ -275,12 +277,12 @@ select ok(
 
 -- Back ON: the same caller can order again (the gate blocks only the OFF state).
 update core.tenant_modules set is_enabled = true
-  where tenant_id = 'a2000000-0000-0000-0000-00000000000a' and module = 'inventory';
+  where tenant_id = 'a2000000-0000-0000-0000-00000000000a' and module = 'purchases';
 
 select ok(
   pg_temp.as_auth_rowcount('a2900000-0000-0000-0000-000000000002',
     $$select * from api.record_purchase_order('a2000000-0000-0000-0000-00000000000a', 'a2200000-0000-0000-0000-000000000001', 'a2100000-0000-0000-0000-000000000001', 5)$$) >= 0,
-  'with Inventory ON the Manager can record an order again'
+  'with Purchases ON the Manager can record an order again'
 );
 reset role;
 

@@ -48,16 +48,16 @@ export default async function WorkforceRecipeDetailPage({
       const { activeTenant } = result.data;
       const supabase = await createClient();
       const modulesResult = await listTenantModules(supabase);
-      const workforceEnabled =
+      const recipesEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
           (module) =>
             module.tenantId === activeTenant.tenantId &&
-            module.module === 'workforce' &&
+            module.module === 'recipes' &&
             module.isEnabled,
         );
 
-      if (!workforceEnabled) return <ModuleUnavailableState />;
+      if (!recipesEnabled) return <ModuleUnavailableState />;
 
       const [detailResult, canManage] = await Promise.all([
         getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipeId),

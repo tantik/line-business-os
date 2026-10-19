@@ -9,7 +9,7 @@
 begin;
 insert into core.tenants (id, slug, name) values ('9a400000-0000-0000-0000-000000000001', 'qa4-local', 'QA4 Local');
 insert into core.tenant_modules (tenant_id, module, is_enabled)
-  select '9a400000-0000-0000-0000-000000000001', m::core.module_code, true from unnest(array['workforce', 'operations', 'issues', 'inventory']) m;
+  select '9a400000-0000-0000-0000-000000000001', m::core.module_code, true from unnest(array['workforce', 'operations', 'issues', 'inventory', 'purchases', 'recipes']) m;
 insert into core.locations (id, tenant_id, name, timezone) values
   ('9a410000-0000-0000-0000-000000000001', '9a400000-0000-0000-0000-000000000001', 'QA4 Store', 'Asia/Tokyo');
 insert into core.users (id, display_name) values

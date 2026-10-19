@@ -38,6 +38,10 @@ export const VALID_MODULE_CODES = [
   'crm',
   'inventory',
   'ai',
+  'operations',
+  'issues',
+  'purchases',
+  'recipes',
 ] as const;
 
 export type ModuleCode = (typeof VALID_MODULE_CODES)[number];

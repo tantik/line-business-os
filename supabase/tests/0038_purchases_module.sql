@@ -83,9 +83,11 @@ insert into core.tenants (id, slug, name) values
 -- WP-S2's 0094_purchases_module_access_gate.sql). This whole file's
 -- scenarios assume normal, Inventory-ON behavior, so the fixture tenant
 -- needs an explicit ON row -- module-OFF behavior itself is covered
--- separately in 0041_purchases_module_access_gate.sql.
+-- separately in 0041_purchases_module_access_gate.sql. Since 0131 Purchases
+-- gates on its own 'purchases' module (which depends on 'inventory').
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
-  ('9c000000-0000-0000-0000-00000000000a', 'inventory', true);
+  ('9c000000-0000-0000-0000-00000000000a', 'inventory', true),
+  ('9c000000-0000-0000-0000-00000000000a', 'purchases', true);
 
 insert into core.locations (id, tenant_id, name) values
   ('9c200000-0000-0000-0000-000000000001', '9c000000-0000-0000-0000-00000000000a', 'Tenant A Location A');

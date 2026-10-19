@@ -1,5 +1,6 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from './types';
+import type { TenantNavRow } from './module-nav';
 
 /** Flat row shape returned by `api.my_tenant_modules`. */
 interface ApiTenantModuleRow {
@@ -60,6 +61,39 @@ export async function listTenantModules(
     return {
       status: 'unexpected_error',
       message: err instanceof Error ? err.message : 'Unexpected error reading tenant modules.',
+    };
+  }
+}
+
+/** Flat row shape returned by `api.my_tenant_navigation` (0132). */
+interface ApiTenantNavigationRow {
+  tenant_id: string;
+  module: string;
+  nav_order: number;
+}
+
+/**
+ * Read the caller's enabled modules with their navigation order (package
+ * order, then add-ons) through `api.my_tenant_navigation`. Self-scoped to the
+ * caller's active memberships like `my_tenant_modules`; pass the rows to
+ * `tenantNavigation()` for the active tenant. Navigation only — RLS / RPCs
+ * (`core.has_module_access`) remain the authorization boundary.
+ */
+export async function listTenantNavigation(supabase: SupabaseClient): Promise<TenantAccessResult<TenantNavRow[]>> {
+  try {
+    const { data, error } = await supabase.schema('api').from('my_tenant_navigation').select('tenant_id, module, nav_order');
+
+    if (error) return mapPostgrestError(error);
+
+    const rows = (data ?? []) as ApiTenantNavigationRow[];
+    return {
+      status: 'success',
+      data: rows.map((row) => ({ tenantId: row.tenant_id, module: row.module, navOrder: Number(row.nav_order) })),
+    };
+  } catch (err) {
+    return {
+      status: 'unexpected_error',
+      message: err instanceof Error ? err.message : 'Unexpected error reading tenant navigation.',
     };
   }
 }

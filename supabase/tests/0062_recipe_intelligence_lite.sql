@@ -31,6 +31,7 @@ insert into core.tenants (id, slug, name) values
 
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('9f000000-0000-0000-0000-00000000000a', 'workforce', true),
+  ('9f000000-0000-0000-0000-00000000000a', 'recipes', true),  -- recipes gate on 'recipes' since 0131
   ('9f000000-0000-0000-0000-00000000000a', 'inventory', true),
   ('9f000000-0000-0000-0000-00000000000b', 'inventory', true);
 

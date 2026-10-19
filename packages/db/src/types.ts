@@ -12,7 +12,11 @@ export type ModuleCode =
   | 'logistics'
   | 'crm'
   | 'inventory'
-  | 'ai';
+  | 'ai'
+  | 'operations'
+  | 'issues'
+  | 'purchases'
+  | 'recipes';
 
 export type RoleKey =
   | 'platform_owner'

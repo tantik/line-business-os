@@ -51,7 +51,8 @@ import {
   primaryCard,
   todayIsoInTimeZone,
 } from '../_ui/workforce-theme';
-import { EntryPointsCard } from '../_ui/entry-points-card';
+import { EntryPointsCard, type EntryPointsCardButton } from '../_ui/entry-points-card';
+import { orderByModule } from '@/lib/tenant/module-nav';
 import { BrandBadge } from '../_ui/brand-badge';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { CorrectionRequestForm } from './correction-request-form';
@@ -152,6 +153,12 @@ export interface StaffDashboardClientProps {
   staffMessages: WorkforceStaffMessage[] | null;
   /** Whether the tenant's separate `inventory` top-level module (ADR 0010) is enabled -- gates only the entry-point card below; the real Inventory page/RLS remain the authorization boundary. */
   inventoryEnabled: boolean;
+  /** Whether the `purchases` module (0131) is enabled -- gates only the Purchases entry point; RLS/RPCs remain the authorization boundary. */
+  purchasesEnabled: boolean;
+  /** Whether the `recipes` module (0131) is enabled -- gates only the Recipes entry point; RLS remains the authorization boundary. */
+  recipesEnabled: boolean;
+  /** Enabled modules in the tenant's package navigation order (0132) -- orders the entry-point row. */
+  moduleOrder: readonly string[];
   /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility, mirroring `manager-dashboard-client.tsx`'s own `operationsEnabled`; the real `/operations` page and its RLS remain the authorization boundary regardless of this flag. */
   operationsEnabled: boolean;
   /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
@@ -238,6 +245,9 @@ function StaffDashboardBody({
   exchanges,
   staffMessages,
   inventoryEnabled,
+  purchasesEnabled,
+  recipesEnabled,
+  moduleOrder,
   operationsEnabled,
   inventoryItems,
   inventoryCanManage,
@@ -614,12 +624,15 @@ function StaffDashboardBody({
 
       <EntryPointsCard
         heading={t('entryPointsHeading')}
-        buttons={[
-          { key: 'recipes', label: t('navRecipes'), onClick: () => setRecipesPopupOpen(true) },
+        buttons={orderByModule<EntryPointsCardButton>([
+          ...(recipesEnabled
+            ? [{ key: 'recipes', module: 'recipes', label: t('navRecipes'), onClick: () => setRecipesPopupOpen(true) }]
+            : []),
           ...(inventoryEnabled
             ? [
                 {
                   key: 'inventory',
+                  module: 'inventory',
                   label: t('navInventory'),
                   onClick: () => {
                     markPopupTriggerClick('inventory');
@@ -628,16 +641,14 @@ function StaffDashboardBody({
                 },
               ]
             : []),
-          // Purchases has no module flag of its own -- it rides Inventory's
-          // (`core.has_module_access(tenant_id, 'inventory')`), so its
-          // entry point is gated by the same `inventoryEnabled` condition as
-          // Inventory itself. Matches manager-dashboard-client.tsx. The
-          // PurchasesPopup keeps its own "temporarily unavailable" fallback
-          // for other failure scenarios; this only hides the action.
-          ...(inventoryEnabled
+          // Purchases is its own module since 0131 (depends on Inventory).
+          // The PurchasesPopup keeps its own "temporarily unavailable"
+          // fallback for other failure scenarios; this only hides the action.
+          ...(purchasesEnabled
             ? [
                 {
                   key: 'purchases',
+                  module: 'purchases',
                   label: t('navPurchases'),
                   onClick: () => {
                     markPopupTriggerClick('purchases');
@@ -658,6 +669,7 @@ function StaffDashboardBody({
             ? [
                 {
                   key: 'operations',
+                  module: 'operations',
                   label: t('navOperations'),
                   onClick: () => {
                     markPopupTriggerClick('operations');
@@ -670,6 +682,7 @@ function StaffDashboardBody({
             ? [
                 {
                   key: 'issues',
+                  module: 'issues',
                   label: t('navIssues'),
                   onClick: () => {
                     markPopupTriggerClick('issues');
@@ -680,7 +693,7 @@ function StaffDashboardBody({
                 },
               ]
             : []),
-        ]}
+        ], moduleOrder)}
       />
 
       <RecipesPopup

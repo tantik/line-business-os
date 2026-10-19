@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantModules } from '@/lib/tenant/modules';
+import { listTenantNavigation } from '@/lib/tenant/modules';
+import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
@@ -81,52 +82,23 @@ export default async function WorkforceStaffPage({
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const modulesResult = await listTenantModules(supabase);
-      const workforceEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) =>
-            module.tenantId === activeTenant.tenantId &&
-            module.module === 'workforce' &&
-            module.isEnabled,
-        );
+      const navigationResult = await listTenantNavigation(supabase);
+      // Enabled modules of the active tenant, in package order (0132, task
+      // P4), same as `manager/page.tsx`. The flags below gate only this
+      // page's entry points and their reads; RLS / RPCs
+      // (`core.has_module_access`) remain the real authorization boundary.
+      const navigation = tenantNavigation(
+        navigationResult.status === 'success' ? navigationResult.data : [],
+        activeTenant.tenantId,
+      );
 
-      if (!workforceEnabled) return <ModuleUnavailableState />;
+      if (!navigation.enabled.has('workforce')) return <ModuleUnavailableState />;
 
-      // `inventory` is a separate top-level module (ADR 0010) from `workforce`
-      // -- re-uses the already-fetched `modulesResult` rather than a second
-      // `listTenantModules` call. Gates only whether the Inventory
-      // entry-point card below renders; the real Inventory page/RLS remain
-      // the authorization boundary regardless of this flag.
-      const inventoryEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'inventory' && module.isEnabled,
-        );
-
-      // `operations` is a separate top-level module (0099/0111) from
-      // `workforce` -- re-uses the already-fetched `modulesResult`, same
-      // pattern as `inventoryEnabled` above and `manager/page.tsx`'s own
-      // `operationsEnabled`. Gates only this entry point's visibility; the
-      // real `/operations` page and its RLS remain the authorization
-      // boundary regardless of this flag.
-      const operationsEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'operations' && module.isEnabled,
-        );
-
-      // `issues` is a separate top-level module (0118) from `workforce` --
-      // re-uses the already-fetched `modulesResult`, same pattern as
-      // `operationsEnabled` above and `manager/page.tsx`'s own
-      // `issuesEnabled`. Gates only this entry point's visibility; RLS on
-      // `issues.issues` remains the real authorization boundary regardless
-      // of this flag.
-      const issuesEnabled =
-        modulesResult.status === 'success' &&
-        modulesResult.data.some(
-          (module) => module.tenantId === activeTenant.tenantId && module.module === 'issues' && module.isEnabled,
-        );
+      const inventoryEnabled = navigation.enabled.has('inventory');
+      const purchasesEnabled = navigation.enabled.has('purchases');
+      const recipesEnabled = navigation.enabled.has('recipes');
+      const operationsEnabled = navigation.enabled.has('operations');
+      const issuesEnabled = navigation.enabled.has('issues');
 
       // Resolved before anything else: a caller with no `workforce.employees`
       // row has nothing else on this page to show, and no location/period is
@@ -287,16 +259,15 @@ export default async function WorkforceStaffPage({
           : Promise.resolve(false),
         // Purchases' entire read surface -- also the exact data the
         // Purchases popup below renders (no separate fetch), same pattern
-        // Inventory's own popup uses. Rides the `inventory` module flag
-        // (Founder decision, this session): Purchases has no data without
-        // Inventory enabled, so no separate module check is needed.
-        inventoryEnabled
+        // Inventory's own popup uses. Gated on the `purchases` module (0131;
+        // it depends on `inventory`).
+        purchasesEnabled
           ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Purchases' History tab read surface (0120) -- same
         // tenant/location scope as `purchasesItemsResult` above, also the
         // exact data the Staff Purchases popup's History tab renders.
-        inventoryEnabled
+        purchasesEnabled
           ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Real display names for the caller's own profile header and the
@@ -452,6 +423,9 @@ export default async function WorkforceStaffPage({
             exchanges={exchangesResult.status === 'success' ? exchangesResult.data : null}
             staffMessages={staffMessagesResult.status === 'success' ? staffMessagesResult.data : null}
             inventoryEnabled={inventoryEnabled}
+            purchasesEnabled={purchasesEnabled}
+            recipesEnabled={recipesEnabled}
+            moduleOrder={navigation.order}
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryCanManage={inventoryCanManage}
@@ -470,7 +444,7 @@ export default async function WorkforceStaffPage({
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
-            initialPopup={initialPopup}
+            initialPopup={popupIfModuleEnabled(initialPopup, navigation.enabled)}
             locationId={location.locationId}
           />
         </main>
