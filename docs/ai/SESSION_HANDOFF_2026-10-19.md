@@ -27,9 +27,20 @@ Archive JSON (619 rows): `D:/Dev/oruwa-archive/r0-mame-to-cha-smoke-archive-2026
 
 ## 3. In flight — check first in the new session
 
-1. **R0b (code removal of Mame To Cha)** — delegated to an `oruwa-engineer`
-   subagent in a worktree: branch `chore/r0b-remove-mame-to-cha`, a PR to
-   `dev` may already exist (`gh pr list`). Scope: delete
+1. **R0b (code removal of Mame To Cha)** — **PR #602 OPEN, not merged**
+   (branch `chore/r0b-remove-mame-to-cha`). Engineer report: web typecheck/
+   lint/test (1053/1053)/build pass, db tests 345/345. NOT validated:
+   `supabase/seed/seed.sql` (local DB was empty) — run `db reset` and check
+   `core.tenant_packages`/`tenant_modules` for the 3 seed tenants. Open
+   decisions: (a) sign-in `returnTo` allow-list in `lib/preview/return-to.ts`
+   still only accepts `/mame-to-cha…` (now 404) — replace with protected
+   routes or drop `returnTo` (auth boundary → security review); (b)
+   `.env.example` lines describing removed tooling need an edit; (c)
+   `scripts/smoke/operations-cloud-dev-module-on-smoke.ps1` default var name;
+   (d) salon/client-template seed tenants adopted into `cafe` (access same,
+   semantically odd — a salon package later). Engineer worktree left at
+   `.claude/worktrees/agent-ad5ba1b1b11d6e0c1` (remove after merge).
+   Original scope: Scope: delete
    `app/%5Fclient-preview/mame-to-cha/**` and public `app/mame-to-cha/**`,
    only Mame-specific parts of `lib/preview` (it is shared with ORUWA screens!),
    `packages/db/scripts/mame-to-cha-*`, seed tenant → `oruwa-local` via
