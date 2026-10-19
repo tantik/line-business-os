@@ -186,7 +186,7 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-18** (checked against git; see `git log -1` on `dev`):
+**As of 2026-10-19** (checked against git; see `git log -1` on `dev`):
 
 - **2026-10-10..12:** account screens (#568–#572: sign-in JA/EN, forgot/
   reset password, invalid-link, 404/error, `/account`); Copy Audit A-01..A-08;
@@ -223,9 +223,8 @@ duplicated here.
   198 → 8); emulated mobile Realtime reconnect verified (push ≈ 2 s after a
   45 s offline). Stage 4B architecture plan:
   `docs/architecture/tenant-provisioning-plan-2026-10-18.md`.
-- **Next:** QA4 live days from 2026-10-19 per the scenario (real phone
-  check of a > 1 h sleep incl. token refresh), reviewers → Founder final
-  review → Cafe v2.2 CLOSED; then 4B-1 (provisioning migration). Then the order in
+- **2026-10-19:** platform/modules/packages model approved (#599); **P1 packages live** (#600, **0129 on Cloud DEV**); Mame To Cha + smoke tenants archived on Cloud DEV (R0a). In flight: R0b code removal (branch chore/r0b-remove-mame-to-cha), P3 WIP (branch feat/p3-purchases-recipes-modules, not verified).
+- **Next** (detail: `docs/ai/SESSION_HANDOFF_2026-10-19.md` §3–§4): R0b → P3 → P2/P4–P7 → QA4 → provisioning (2–5 min) → LINE → 6-tenant test. Then the order in
   `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
   QA4 Final Operational Simulation → Cafe v2.2
   close (exit criteria in that document) → LINE + email notifications →
@@ -240,7 +239,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-17.md`.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-19.md`.
 
 Where everything else lives:
 
