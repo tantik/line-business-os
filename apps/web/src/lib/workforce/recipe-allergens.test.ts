@@ -1,14 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RECIPE_ALLERGEN_CODES, summarizeRecipeAllergens } from './recipe-allergens.js';
+import { summarizeRecipeAllergens } from './recipe-allergens.js';
 import {
   ALLERGEN_CODE_GROUPS,
-  ALLERGEN_CODES as INVENTORY_ALLERGEN_CODES,
-  ALLERGEN_LABELS as INVENTORY_ALLERGEN_LABELS,
+  ALLERGEN_CODES,
+  ALLERGEN_DISCLAIMER,
+  ALLERGEN_LABELS,
   allergenGroupHeading,
-} from '../../app/(protected)/inventory/inventory-i18n.js';
-import { ALLERGEN_LABELS as RECIPE_ALLERGEN_LABELS, tRecipes } from '../../app/(protected)/recipes/recipes-i18n.js';
+  allergenLabel,
+} from '../packages/cafe/allergens.js';
+import { tRecipes } from '../../app/(protected)/recipes/recipes-i18n.js';
 import { tInventoryDashboard } from '../../app/(protected)/inventory/inventory-i18n.js';
 import { colors } from '../ui/theme.js';
 
@@ -26,7 +28,7 @@ test('no ingredients -> unrecorded (never "contains none")', () => {
 test('every ingredient mapped and confirmed none -> none, with count taken from the vocabulary', () => {
   assert.deepEqual(summarizeRecipeAllergens([mapped([]), mapped([])]), {
     kind: 'none',
-    vocabularySize: RECIPE_ALLERGEN_CODES.length,
+    vocabularySize: ALLERGEN_CODES.length,
   });
   assert.deepEqual(summarizeRecipeAllergens([mapped([])], ['a', 'b', 'c']), { kind: 'none', vocabularySize: 3 });
 });
@@ -63,7 +65,7 @@ test('a code outside the vocabulary sorts after known codes (defensive; the DB C
 });
 
 // ---------------------------------------------------------------------------
-// Vocabulary parity: Recipes copy == Inventory copy == migration 0124
+// Vocabulary parity: the one Cafe-package vocabulary == migration 0124
 // ---------------------------------------------------------------------------
 
 function migrationSql(): string {
@@ -82,8 +84,8 @@ function migrationArrays(): string[][] {
 }
 
 test('the vocabulary has 29 unique codes: 9 mandatory then 20 recommended (CAA revision 2026-04-01)', () => {
-  assert.equal(RECIPE_ALLERGEN_CODES.length, 29);
-  assert.equal(new Set(RECIPE_ALLERGEN_CODES).size, 29);
+  assert.equal(ALLERGEN_CODES.length, 29);
+  assert.equal(new Set(ALLERGEN_CODES).size, 29);
   assert.deepEqual(ALLERGEN_CODE_GROUPS.map((group) => [group.key, group.codes.length]), [
     ['mandatory', 9],
     ['recommended', 20],
@@ -93,14 +95,25 @@ test('the vocabulary has 29 unique codes: 9 mandatory then 20 recommended (CAA r
   assert.ok((recommended.codes as readonly string[]).includes('pistachio'), 'pistachio is recommended since 2026-04-01');
 });
 
-test('Inventory and Recipes code lists are identical (same codes, same order)', () => {
-  assert.deepEqual([...INVENTORY_ALLERGEN_CODES], [...RECIPE_ALLERGEN_CODES]);
+test('the flat code list is the groups in order (mandatory, then recommended)', () => {
+  assert.deepEqual([...ALLERGEN_CODES], ALLERGEN_CODE_GROUPS.flatMap((group) => [...group.codes]));
 });
 
 test('migration 0124 constraint and RPC both use exactly the same 29-code array, in the same order', () => {
   const arrays = migrationArrays();
   assert.equal(arrays.length, 2, 'expected the CHECK constraint array and the RPC array');
-  for (const codes of arrays) assert.deepEqual(codes, [...RECIPE_ALLERGEN_CODES]);
+  for (const codes of arrays) assert.deepEqual(codes, [...ALLERGEN_CODES]);
+});
+
+test('Inventory and Recipes keep no copy of their own (one vocabulary, task P6)', () => {
+  for (const file of [
+    '../../app/(protected)/inventory/inventory-i18n.ts',
+    '../../app/(protected)/recipes/recipes-i18n.ts',
+    './recipe-allergens.ts',
+  ]) {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /'salmon_roe'|salmon_roe:|特定原材料（|同じ厨房/, file);
+  }
 });
 
 test('migration 0124 resets stale "confirmed none" (\'{}\') to NULL, before widening the vocabulary', () => {
@@ -113,7 +126,7 @@ test('migration 0124 resets stale "confirmed none" (\'{}\') to NULL, before wide
 });
 
 test('item-form hint fills {count} from the Inventory code list', () => {
-  const n = INVENTORY_ALLERGEN_CODES.length;
+  const n = ALLERGEN_CODES.length;
   assert.equal(
     tInventoryDashboard('ja', 'allergensNoneSelectedHint').replace('{count}', String(n)),
     `アレルゲンを1つも選ばずに保存すると、「特定原材料等${n}品目を使用していない」と表示されます。`,
@@ -144,11 +157,24 @@ test('allergen disclaimer colour (DS text-muted) on the card surface meets WCAG 
   assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}:1 is below 4.5:1`);
 });
 
-test('every code has a JA and EN label in both modules, and both modules agree', () => {
+test('every code has a JA and EN label; an unknown code falls back to the raw code', () => {
   for (const lang of ['ja', 'en'] as const) {
-    assert.deepEqual(Object.keys(RECIPE_ALLERGEN_LABELS[lang]).sort(), [...RECIPE_ALLERGEN_CODES].sort());
-    assert.deepEqual(INVENTORY_ALLERGEN_LABELS[lang], RECIPE_ALLERGEN_LABELS[lang]);
+    assert.deepEqual(Object.keys(ALLERGEN_LABELS[lang]).sort(), [...ALLERGEN_CODES].sort());
+    assert.equal(allergenLabel(lang, 'zzz'), 'zzz');
   }
+  assert.equal(allergenLabel('ja', 'salmon_roe'), 'いくら');
+  assert.equal(allergenLabel('en', 'cashew'), 'Cashew nut');
+});
+
+test('kitchen disclaimer copy (JA/EN) is unchanged', () => {
+  assert.equal(
+    ALLERGEN_DISCLAIMER.ja,
+    '同じ厨房で他の食材も扱っています。アレルギーのある方はスタッフにお尋ねください。この情報は店舗が登録した原材料に基づく参考情報であり、アレルゲンが含まれないことを保証するものではありません。',
+  );
+  assert.equal(
+    ALLERGEN_DISCLAIMER.en,
+    'Prepared in a kitchen that handles other ingredients. Please ask staff about allergies. This information is based on ingredients recorded by the store, is for reference only, and does not guarantee that a dish is free of allergens.',
+  );
 });
 
 test('group subheadings carry the count from the code list', () => {
@@ -165,7 +191,7 @@ test('"contains none" copy fills {count} from the vocabulary length', () => {
   const summary = summarizeRecipeAllergens([mapped([])]);
   assert.equal(summary.kind, 'none');
   if (summary.kind !== 'none') return;
-  const n = RECIPE_ALLERGEN_CODES.length;
+  const n = ALLERGEN_CODES.length;
   assert.equal(summary.vocabularySize, n);
   assert.equal(
     tRecipes('ja', 'allergenNoneOfListed').replace('{count}', String(summary.vocabularySize)),

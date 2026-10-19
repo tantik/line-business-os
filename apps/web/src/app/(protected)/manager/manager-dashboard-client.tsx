@@ -255,6 +255,8 @@ export interface ManagerDashboardClientProps {
   moduleOrder: readonly string[];
   /** The tenant's active package codes in package order (`api.my_tenant_packages`) -- selects the package vocabulary for module names (task P5). */
   packageCodes: readonly string[];
+  /** Package config `allergens` (task P6), resolved server-side from `packageCodes`: allergen UI in the Inventory and Recipes popups. */
+  allergensEnabled: boolean;
   /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility; the real `/operations` page and its RLS remain the authorization boundary regardless. */
   operationsEnabled: boolean;
   /** This location's inventory item statuses, read-only, for the Attention layer's shortage count. `null` when the module is disabled or the read failed (never rendered as a zero-shortage attention item). Also the exact data the Inventory popup (WP A5a) renders -- no separate fetch. */
@@ -385,6 +387,7 @@ function ManagerDashboardBody({
   recipesEnabled,
   moduleOrder,
   packageCodes,
+  allergensEnabled,
   operationsEnabled,
   inventoryItems,
   inventoryMediaUrlByItemId,
@@ -1394,6 +1397,7 @@ function ManagerDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={staffNameById}
         canManage
+        allergensEnabled={allergensEnabled}
         boughtItemIds={inventoryBoughtItemIds}
       />
 
@@ -1417,6 +1421,7 @@ function ManagerDashboardBody({
         titleFieldByRecipeId={recipeTitleFieldByRecipeId}
         mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
         canManage={recipeCanManage}
+        allergensEnabled={allergensEnabled}
         onChange={() => router.refresh()}
       />
 

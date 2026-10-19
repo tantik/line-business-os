@@ -16,6 +16,8 @@ export interface RecipeDetailModalProps {
   onClose: () => void;
   /** Called after a successful edit/delete so the underlying list (fetched by the standalone page's own server component) picks up the change. */
   onChange: () => void;
+  /** Package config `allergens` (task P6), resolved server-side by the page. */
+  allergensEnabled: boolean;
 }
 
 /**
@@ -27,7 +29,7 @@ export interface RecipeDetailModalProps {
  * no prefetch cache here (unlike that popup) since this is a single list
  * page, not a hover-heavy dense grid -- simplest thing that works.
  */
-export function RecipeDetailModal({ recipeId, startEditing = false, onClose, onChange }: RecipeDetailModalProps) {
+export function RecipeDetailModal({ recipeId, startEditing = false, onClose, onChange, allergensEnabled }: RecipeDetailModalProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   const [detail, setDetail] = useState<RecipeDetailForPopup | null>(null);
@@ -90,6 +92,7 @@ export function RecipeDetailModal({ recipeId, startEditing = false, onClose, onC
           translationFields={detail.translationFields}
           canManage={detail.canManage}
           mediaUrl={detail.mediaUrl}
+          allergensEnabled={allergensEnabled}
           embedded
           onBack={onClose}
           onChange={refresh}

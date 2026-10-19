@@ -99,7 +99,6 @@ interface RecipesDict {
   /** `{count}` = vocabulary length (from the code list, never hard-coded). */
   allergenNoneOfListed: string;
   allergenNotRecorded: string;
-  allergenDisclaimer: string;
   costSummaryHeading: string;
   costKnownSubtotalLabel: string;
   costIncompleteMessage: string;
@@ -184,8 +183,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     allergenPartiallyUnrecorded: '{n} ingredients have no allergen information recorded.',
     allergenNoneOfListed: 'Contains none of the {count} listed allergens (checked by the store)',
     allergenNotRecorded: 'No allergen information recorded',
-    allergenDisclaimer:
-      'Prepared in a kitchen that handles other ingredients. Please ask staff about allergies. This information is based on ingredients recorded by the store, is for reference only, and does not guarantee that a dish is free of allergens.',
     costSummaryHeading: 'Estimated ingredient cost',
     costKnownSubtotalLabel: 'Estimated total',
     costIncompleteMessage: 'Estimated cost so far: {knownSubtotal} ({pricedCount} of {ingredientCount} ingredients priced). Price not set or unit conversion not supported for the rest.',
@@ -268,8 +265,6 @@ const dictionary: Record<Lang, RecipesDict> = {
     allergenPartiallyUnrecorded: '一部の材料（{n}件）はアレルゲン情報が登録されていません。',
     allergenNoneOfListed: 'この商品には特定原材料等{count}品目は使用していません（店舗確認）',
     allergenNotRecorded: 'アレルゲン情報は登録されていません',
-    allergenDisclaimer:
-      '同じ厨房で他の食材も扱っています。アレルギーのある方はスタッフにお尋ねください。この情報は店舗が登録した原材料に基づく参考情報であり、アレルゲンが含まれないことを保証するものではありません。',
     costSummaryHeading: '材料費目安',
     costKnownSubtotalLabel: '概算合計',
     costIncompleteMessage: '現時点の概算費用: {knownSubtotal}（{ingredientCount}個中{pricedCount}個が計算済み）。残りは価格未設定または単位換算不可です。',
@@ -278,27 +273,5 @@ const dictionary: Record<Lang, RecipesDict> = {
 
 export const tRecipes = makeTranslator(dictionary);
 
-/** 29-code allergen vocabulary (migration 0124; order: `RECIPE_ALLERGEN_CODES`) -- JA/EN display names. */
-export const ALLERGEN_LABELS: Record<Lang, Record<string, string>> = {
-  en: {
-    egg: 'Egg', milk: 'Milk', wheat: 'Wheat', buckwheat: 'Buckwheat', peanut: 'Peanut',
-    shrimp: 'Shrimp', crab: 'Crab', walnut: 'Walnut',
-    almond: 'Almond', abalone: 'Abalone', squid: 'Squid', salmon_roe: 'Salmon roe', orange: 'Orange',
-    cashew: 'Cashew nut', kiwi: 'Kiwi fruit', beef: 'Beef', sesame: 'Sesame', salmon: 'Salmon',
-    mackerel: 'Mackerel', soy: 'Soy', chicken: 'Chicken', banana: 'Banana', pistachio: 'Pistachio', pork: 'Pork',
-    macadamia: 'Macadamia nut', peach: 'Peach', yam: 'Yam', apple: 'Apple', gelatin: 'Gelatin',
-  },
-  ja: {
-    egg: '卵', milk: '乳', wheat: '小麦', buckwheat: 'そば', peanut: '落花生',
-    shrimp: 'えび', crab: 'かに', walnut: 'くるみ',
-    almond: 'アーモンド', abalone: 'あわび', squid: 'いか', salmon_roe: 'いくら', orange: 'オレンジ',
-    cashew: 'カシューナッツ', kiwi: 'キウイフルーツ', beef: '牛肉', sesame: 'ごま', salmon: 'さけ',
-    mackerel: 'さば', soy: '大豆', chicken: '鶏肉', banana: 'バナナ', pistachio: 'ピスタチオ', pork: '豚肉',
-    macadamia: 'マカダミアナッツ', peach: 'もも', yam: 'やまいも', apple: 'りんご', gelatin: 'ゼラチン',
-  },
-};
-
-/** Localized display name for one allergen code; falls back to the raw code for an unrecognized value (should not happen -- the DB CHECK constraint already limits this to the fixed vocabulary). */
-export function allergenLabel(lang: Lang, code: string): string {
-  return ALLERGEN_LABELS[lang][code] ?? code;
-}
+// Allergen display names (`allergenLabel`) and the kitchen disclaimer live in
+// the Cafe package configuration: `@/lib/packages/cafe/allergens` (task P6).

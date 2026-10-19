@@ -22,6 +22,8 @@ export interface RecipesPopupProps {
   titleFieldByRecipeId: Record<string, RecipeTranslationField>;
   mediaUrlByRecipeId: Record<string, string>;
   canManage: boolean;
+  /** Package config `allergens` (task P6), resolved server-side: shows the detail view's allergen block. */
+  allergensEnabled: boolean;
   /** Refreshes the Manager page's own server-fetched recipe list (e.g. `router.refresh()`) -- needed after add/archive/delete since that data isn't re-fetched by this popup's own lazy detail fetch. */
   onChange: () => void;
 }
@@ -49,7 +51,7 @@ type View = { kind: 'list' } | { kind: 'detail'; recipeId: string; startEditing:
  * fetching every recipe's full detail upfront would be wasteful for a
  * list that can grow arbitrarily large.
  */
-export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRecipeId, mediaUrlByRecipeId, canManage, onChange }: RecipesPopupProps) {
+export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRecipeId, mediaUrlByRecipeId, canManage, allergensEnabled, onChange }: RecipesPopupProps) {
   const { lang } = useLang();
   const t = (key: Parameters<typeof tRecipes>[1]) => tRecipes(lang, key);
   usePopupOpenTiming(open, 'recipes');
@@ -216,6 +218,7 @@ export function RecipesPopup({ open, onClose, tenantName, groups, titleFieldByRe
           translationFields={detail.translationFields}
           canManage={detail.canManage}
           mediaUrl={detail.mediaUrl}
+          allergensEnabled={allergensEnabled}
           embedded
           onBack={backToList}
           onChange={refreshDetail}

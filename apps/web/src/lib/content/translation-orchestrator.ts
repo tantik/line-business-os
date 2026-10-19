@@ -69,6 +69,8 @@ export async function runContentTranslationBatch(
     /** Direction for this whole batch -- always one recipe's original_language -> the other language, never guessed per field. Defaults to ja->en for backward compatibility with existing callers/tests. */
     sourceLang?: 'ja' | 'en';
     targetLang?: 'ja' | 'en';
+    /** The tenant's package config `translationDomainHint` (task P6), passed through to the provider unchanged. */
+    domainHint?: string;
   } = {},
 ): Promise<RunTranslationBatchResult> {
   const sourceLang = options.sourceLang ?? 'ja';
@@ -121,6 +123,7 @@ export async function runContentTranslationBatch(
     texts: batch.map((field) => field.sourceText),
     sourceLang,
     targetLang,
+    ...(options.domainHint !== undefined ? { domainHint: options.domainHint } : {}),
   });
 
   if (!result.ok) {

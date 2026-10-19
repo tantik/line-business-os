@@ -11,10 +11,18 @@ import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, in
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { Checkbox, NumberInput } from '@line-os/ui';
 import { describeInventoryWriteError } from './error-copy';
-import { tInventoryDashboard, ALLERGEN_CODES, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from './inventory-i18n';
+import { tInventoryDashboard } from './inventory-i18n';
+import { ALLERGEN_CODES, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from '@/lib/packages/cafe/allergens';
 
 export interface ItemFormProps {
   locationId: string;
+  /**
+   * Package config `allergens` (task P6), resolved server-side. When false
+   * the allergen block is not rendered and the form sends no allergen
+   * fields, so the save leaves the item's stored allergen data untouched
+   * (`decideAllergenWrite` -> skip).
+   */
+  allergensEnabled: boolean;
   /** Omit/undefined to create a new item; pass an existing item to edit it. Active/inactive is a separate toggle, not this form. */
   item?: InventoryItem;
   /** Signed URL for the item's current photo (mirrors the recipe form's `mediaUrl`), if any -- ignored when creating a new item. */
@@ -29,7 +37,7 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const MAX_PHOTO_DIMENSION = 4096;
 
 /** Manager-only create/edit form for an Inventory catalog item, its reorder policy, and its photo (mirrors `recipes/recipe-form.tsx`'s photo block). */
-export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel }: ItemFormProps) {
+export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, onSuccess, onCancel }: ItemFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
@@ -78,9 +86,13 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', item?.locationId ?? locationId);
     formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
-    formData.set('allergensConfirmed', allergensConfirmed ? 'true' : 'false');
-    formData.set('allergensInitiallyConfirmed', allergensInitiallyConfirmed ? 'true' : 'false');
-    formData.set('allergenCodesJson', JSON.stringify(allergenCodes));
+    // Allergen fields only when the block is shown: absent fields mean
+    // "leave the stored allergen data as it is" on the server.
+    if (allergensEnabled) {
+      formData.set('allergensConfirmed', allergensConfirmed ? 'true' : 'false');
+      formData.set('allergensInitiallyConfirmed', allergensInitiallyConfirmed ? 'true' : 'false');
+      formData.set('allergenCodesJson', JSON.stringify(allergenCodes));
+    }
 
     startTransition(async () => {
       const result = await upsertInventoryItemAction(formData);
@@ -223,44 +235,46 @@ export function ItemForm({ locationId, item, mediaUrl, lang, onSuccess, onCancel
           />
           <span style={{ ...mutedText, fontSize: 11 }}>{t('referencePriceHint')}</span>
         </div>
-        <div>
-          <Checkbox
-            checked={allergensConfirmed}
-            onCheckedChange={setAllergensConfirmed}
-            label={t('allergensConfirmedCheckboxLabel')}
-          />
-          {allergensConfirmed ? (
-            <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
-              <span style={{ ...mutedText, fontSize: 13 }}>
-                {t('allergensNoneSelectedHint').replace('{count}', String(ALLERGEN_CODES.length))}
-              </span>
-              {ALLERGEN_CODE_GROUPS.map((group) => (
-                <fieldset key={group.key} style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}>
-                  <legend style={{ ...mutedText, fontSize: 13, padding: 0 }}>{allergenGroupHeading(lang, group)}</legend>
-                  {/* 29 items (9 + 20): a wrapping grid (2 columns at 375px, more when wider), never a horizontal scroll. */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 120px), 1fr))',
-                      columnGap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    {group.codes.map((code) => (
-                      <Checkbox
-                        key={code}
-                        className="min-w-0"
-                        checked={allergenCodes.includes(code)}
-                        onCheckedChange={() => toggleAllergenCode(code)}
-                        label={allergenLabel(lang, code)}
-                      />
-                    ))}
-                  </div>
-                </fieldset>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        {allergensEnabled ? (
+          <div>
+            <Checkbox
+              checked={allergensConfirmed}
+              onCheckedChange={setAllergensConfirmed}
+              label={t('allergensConfirmedCheckboxLabel')}
+            />
+            {allergensConfirmed ? (
+              <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+                <span style={{ ...mutedText, fontSize: 13 }}>
+                  {t('allergensNoneSelectedHint').replace('{count}', String(ALLERGEN_CODES.length))}
+                </span>
+                {ALLERGEN_CODE_GROUPS.map((group) => (
+                  <fieldset key={group.key} style={{ margin: 0, padding: 0, border: 0, minWidth: 0 }}>
+                    <legend style={{ ...mutedText, fontSize: 13, padding: 0 }}>{allergenGroupHeading(lang, group)}</legend>
+                    {/* 29 items (9 + 20): a wrapping grid (2 columns at 375px, more when wider), never a horizontal scroll. */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 120px), 1fr))',
+                        columnGap: 8,
+                        marginTop: 4,
+                      }}
+                    >
+                      {group.codes.map((code) => (
+                        <Checkbox
+                          key={code}
+                          className="min-w-0"
+                          checked={allergenCodes.includes(code)}
+                          onCheckedChange={() => toggleAllergenCode(code)}
+                          label={allergenLabel(lang, code)}
+                        />
+                      ))}
+                    </div>
+                  </fieldset>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>

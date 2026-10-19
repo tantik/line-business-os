@@ -5,6 +5,7 @@ import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
+import { resolvePackageConfig } from '@/lib/packages/config';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -464,6 +465,7 @@ export default async function WorkforceManagerPage({
             recipesEnabled={recipesEnabled}
             moduleOrder={navigation.order}
             packageCodes={packageCodes}
+            allergensEnabled={resolvePackageConfig(packageCodes).allergens}
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
