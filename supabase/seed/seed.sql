@@ -12,7 +12,9 @@
 -- cafe tenant gets the 'cafe' package via core.set_tenant_package; tenants
 -- seeded with direct core.tenant_modules rows are converted afterwards with
 -- core.adopt_tenant_into_package (zero access change). Seed runs as postgres.
--- Safe to re-run.
+-- Safe to re-run on a database seeded by this version. A local database
+-- seeded before the packages model (old 'mame-to-cha-tokyo' tenant) needs
+-- `supabase db reset` instead.
 -- ============================================================================
 
 -- Stable ids for repeatable seeding -----------------------------------------

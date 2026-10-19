@@ -175,8 +175,11 @@ export async function signOutOtherSessions(): Promise<{ status: 'success' | 'err
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  // See previewSignOut's comment (lib/preview/actions/session-actions.ts):
-  // a failed remote token-revoke must not block the local sign-out redirect.
+  // `signOut()` (scope 'global') round-trips to Supabase Auth to revoke the
+  // refresh token before the local cookies are cleared. If that call fails or
+  // times out (e.g. a stale access token), an unguarded await would throw and
+  // skip the redirect, leaving the user stuck: a failed remote revoke must
+  // never block the local sign-out redirect.
   try {
     await supabase.auth.signOut();
   } catch {

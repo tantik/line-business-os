@@ -20,7 +20,8 @@ import { queueLineNotification } from '@/lib/notifications/queue-line-notificati
  * Server Actions for the shift-exchange/change/cancel workflow -- canonical-
  * dashboard counterpart to `_client-preview`'s
  * `lib/preview/actions/shift-exchange-actions.ts` /
- * `shift-exchange-manager-actions.ts`, ported to consolidate this Cafe v2.1
+ * `shift-exchange-manager-actions.ts` (both removed in R0b, 2026-10-19),
+ * ported to consolidate this Cafe v2.1
  * capability into the canonical app rather than leaving it preview-only.
  * Wraps the already-shared backend (`shift-exchanges.ts`). The staff-side
  * actions always use the server-resolved, self-bound `employeeId`/

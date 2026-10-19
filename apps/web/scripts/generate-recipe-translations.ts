@@ -2,7 +2,8 @@
  * One-time/repeatable admin script: generate machine translations for every
  * existing recipe of one tenant, using the exact same application code path
  * as the Manager "Generate Translation" action (`previewGenerateRecipeTranslation`
- * in `src/lib/preview/actions/recipe-translation-actions.ts`) -- just driven
+ * in `src/lib/preview/actions/recipe-translation-actions.ts`, removed with the
+ * pilot preview in R0b, 2026-10-19) -- just driven
  * recipe-by-recipe from a script instead of one recipe per HTTP request.
  *
  * Every piece of business logic below is the SAME imported module the real
