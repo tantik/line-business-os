@@ -30,7 +30,7 @@ ORUWA admin console (platform staff)
 Edge Function `provision-tenant` (service role, server-only)
    1. validate input (shared pure validator, ported from onboard-tenant.ts)
    2. rpc core.provision_tenant(request_id, payload jsonb)   ← ONE transaction
-        tenant → location → modules (template v3) → tenant_plan (trial)
+        tenant → location → core.set_tenant_package(cafe) (0129) → tenant_plan (trial)
         → entitlement limits → schedule_settings + shift types
         → Operations HACCP templates/items/schedules (manifest)
         → owner invitation row (pending) → provisioning status 'db_done' → audit row
@@ -125,9 +125,12 @@ Decided:
   then sign-in closed; data kept 90 days after closing.
 - **Plans at launch:** one plan, all Cafe modules, no limits on staff or
   locations. Customer-facing name: open (after the product line-up below).
-- **Design consequence (Lead):** a plan/package is stored as **a list of
-  modules** (`core.entitlement_plans` + plan → modules), never hardcoded as
-  "Cafe = everything". Splitting the suite into several smaller apps later
+- **Design consequence (Lead):** a package is **a list of modules**
+  (`core.packages` / `core.package_modules`, migration 0129), never hardcoded
+  as "Cafe = everything"; plans (`core.entitlement_plans`) stay billing tiers.
+  Provisioning and the Owner wizard change modules only through
+  `core.set_tenant_package` / `core.set_tenant_module_override` (server code
+  with the service role, after its own permission check). Splitting the suite into several smaller apps later
   must be a configuration change, not a migration of tenant data. Part of
   4B-1.
 
@@ -140,9 +143,9 @@ Open:
 
 ## 9. Risks
 
-- Template drift between code and DB → template version stored on the
-  tenant (`tenants.settings.package_template_version`), validator rejects
-  unknown versions.
+- Template drift between code and DB → the version a tenant was provisioned
+  with is `core.tenant_packages.package_version` (0129, single source); the
+  validator rejects unknown versions.
 - Auth email deliverability for Owners (DEBT-083 template still English) —
   fix the template before 4C.
 - Two Managers editing the same settings (DEBT-091 b) — last-write-wins

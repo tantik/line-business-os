@@ -21,14 +21,11 @@
 -- Callable by service_role only (provisioning Edge Function, admin console
 -- server code) -- never by a browser session.
 --
--- Back-fill: every existing tenant with module rows gets the 'cafe' package
--- plus compensating overrides, so the desired set equals today's enabled set
--- exactly. The migration ASSERTS that and aborts otherwise: zero access
--- change for existing tenants.
+-- Back-fill: every existing tenant with module rows is adopted into the 'cafe'
+-- package with compensating overrides (core.adopt_tenant_into_package), which
+-- asserts per tenant that nothing changes: zero access change.
 --
--- Rollback: the new tables, views and functions are additive and can be
--- removed in reverse order; tenant_modules is left exactly as the last sync
--- wrote it, and before the first package change that is today's state.
+-- Rollback: explicit statements at the end of this file.
 -- ============================================================================
 
 -- --- catalog -------------------------------------------------------------------
@@ -123,6 +120,8 @@ grant select on core.packages, core.package_modules, core.tenant_packages, core.
 revoke all on core.packages, core.package_modules, core.tenant_packages, core.tenant_module_overrides from anon;
 
 -- --- desired module set ----------------------------------------------------------
+-- Internal helper (SECURITY DEFINER, no caller check): never granted to app
+-- roles, so a member cannot read another tenant's module set (DB review #600).
 create or replace function core.desired_tenant_modules(p_tenant_id uuid)
 returns setof core.module_code
 language sql stable security definer set search_path = core, public as $$
@@ -140,7 +139,47 @@ language sql stable security definer set search_path = core, public as $$
    where o.tenant_id = p_tenant_id and not o.is_enabled;
 $$;
 comment on function core.desired_tenant_modules(uuid) is
-  'Modules a tenant should have enabled: active packages + add-on overrides - opted-out overrides (0129).';
+  'Modules a tenant should have enabled: active packages + add-on overrides - opted-out overrides (0129). Internal: service_role / definer callers only.';
+
+-- A tenant is package-managed once it has a tenant_packages or override row.
+-- Tenants written the old way (seed, local onboarding CLI, smoke scripts:
+-- direct tenant_modules rows) are not, and sync refuses them instead of
+-- switching all their modules off; core.adopt_tenant_into_package converts one.
+create or replace function core.is_package_managed(p_tenant_id uuid)
+returns boolean
+language sql stable security definer set search_path = core, public as $$
+  select exists (select 1 from core.tenant_packages where tenant_id = p_tenant_id)
+      or exists (select 1 from core.tenant_module_overrides where tenant_id = p_tenant_id);
+$$;
+
+-- One writer per tenant at a time (DB review #600: two concurrent package
+-- changes could otherwise compute the desired set from stale snapshots).
+create or replace function core.lock_tenant_modules(p_tenant_id uuid)
+returns void
+language sql security definer set search_path = core, public as $$
+  select pg_advisory_xact_lock(hashtextextended('core.tenant_modules:' || p_tenant_id::text, 0));
+$$;
+
+-- Audit actor: an explicit platform-staff user (server code passes it), else
+-- the JWT user when it is a known core.users row, else 'system'.
+create or replace function core.package_audit_actor(p_actor_id uuid)
+returns uuid
+language plpgsql stable security definer set search_path = core, public as $$
+declare v_actor uuid;
+begin
+  if p_actor_id is not null then
+    if not exists (select 1 from core.users where id = p_actor_id and is_platform_staff) then
+      raise exception 'actor_not_platform_staff' using errcode = '42501';
+    end if;
+    return p_actor_id;
+  end if;
+  v_actor := core.current_user_id();
+  if v_actor is not null and exists (select 1 from core.users where id = v_actor) then
+    return v_actor;
+  end if;
+  return null;
+end;
+$$;
 
 -- --- sync into the runtime gate ---------------------------------------------------
 create or replace function core.sync_tenant_modules(p_tenant_id uuid)
@@ -151,6 +190,11 @@ declare
   v_disabled text[];
   v_missing text;
 begin
+  if not core.is_package_managed(p_tenant_id)
+     and exists (select 1 from core.tenant_modules where tenant_id = p_tenant_id and is_enabled) then
+    raise exception 'tenant_not_package_managed: adopt the tenant first (core.adopt_tenant_into_package)' using errcode = 'P0001';
+  end if;
+
   -- dependencies (core.module_dependencies, direct edges) must be inside the desired set
   select string_agg(md.module || ' requires ' || md.depends_on, ', ')
     into v_missing
@@ -183,41 +227,79 @@ begin
 end;
 $$;
 comment on function core.sync_tenant_modules(uuid) is
-  'Writes core.desired_tenant_modules into core.tenant_modules (enable/disable, never delete; data and config of a switched-off module stay). Refuses a missing dependency. Returns {enabled, disabled}. service_role only (0129).';
+  'Writes core.desired_tenant_modules into core.tenant_modules (enable/disable, never delete; data and config of a switched-off module stay). Refuses a tenant that is not package-managed but has enabled modules, and a missing dependency. Callers hold core.lock_tenant_modules. Returns {enabled, disabled}. service_role only (0129).';
 
--- --- the two mutations ------------------------------------------------------------
-create or replace function core.set_tenant_package(p_tenant_id uuid, p_package_code text, p_active boolean)
+-- A module may be switched ON only when it is shipped (beta/ga) and, if it
+-- names a min_plan_code, the tenant is on that plan. Switching OFF is always
+-- allowed, so retiring a package or module never locks tenants in.
+create or replace function core.assert_module_enableable(p_tenant_id uuid, p_module core.module_code)
+returns void
+language plpgsql stable security definer set search_path = core, public as $$
+begin
+  if not exists (
+    select 1 from core.module_registry mr
+     where mr.module = p_module
+       and mr.lifecycle_status in ('beta', 'ga')
+       and (mr.min_plan_code is null
+            or exists (select 1 from core.tenant_plans tp where tp.tenant_id = p_tenant_id and tp.plan_code = mr.min_plan_code))
+  ) then
+    raise exception 'module_not_available: %', p_module using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+-- --- the mutations -------------------------------------------------------------------
+create or replace function core.set_tenant_package(p_tenant_id uuid, p_package_code text, p_active boolean, p_actor_id uuid default null)
 returns jsonb
 language plpgsql security definer set search_path = core, audit, public as $$
 declare
   v_version int;
   v_before text;
   v_result jsonb;
+  v_actor uuid;
+  m core.module_code;
 begin
+  if p_tenant_id is null or p_package_code is null or p_active is null then
+    raise exception 'invalid_argument: tenant, package and active are required' using errcode = '22004';
+  end if;
   if not exists (select 1 from core.tenants where id = p_tenant_id) then
     raise exception 'tenant_not_found' using errcode = 'P0002';
   end if;
-  select version into v_version from core.packages
-   where code = p_package_code and lifecycle_status not in ('deprecated', 'retired');
-  if v_version is null then
-    raise exception 'package_not_available: %', p_package_code using errcode = 'P0002';
+  v_actor := core.package_audit_actor(p_actor_id);
+  perform core.lock_tenant_modules(p_tenant_id);
+  if not core.is_package_managed(p_tenant_id)
+     and exists (select 1 from core.tenant_modules where tenant_id = p_tenant_id and is_enabled) then
+    raise exception 'tenant_not_package_managed: adopt the tenant first (core.adopt_tenant_into_package)' using errcode = 'P0001';
   end if;
   select status into v_before from core.tenant_packages where tenant_id = p_tenant_id and package_code = p_package_code;
 
   if p_active then
+    select version into v_version from core.packages
+     where code = p_package_code and lifecycle_status in ('beta', 'ga');
+    if v_version is null then
+      raise exception 'package_not_available: %', p_package_code using errcode = 'P0002';
+    end if;
+    for m in select pm.module from core.package_modules pm where pm.package_code = p_package_code loop
+      perform core.assert_module_enableable(p_tenant_id, m);
+    end loop;
+    -- (re)activation records the current package version
     insert into core.tenant_packages (tenant_id, package_code, package_version)
     values (p_tenant_id, p_package_code, v_version)
     on conflict (tenant_id, package_code) do update
-      set status = 'active', removed_at = null, added_at = case when core.tenant_packages.status = 'removed' then now() else core.tenant_packages.added_at end;
+      set status = 'active', removed_at = null, package_version = excluded.package_version,
+          added_at = case when core.tenant_packages.status = 'removed' then now() else core.tenant_packages.added_at end;
   else
+    if v_before is distinct from 'active' then
+      raise exception 'package_not_active: %', p_package_code using errcode = 'P0002';
+    end if;
     update core.tenant_packages set status = 'removed', removed_at = now()
-     where tenant_id = p_tenant_id and package_code = p_package_code and status = 'active';
+     where tenant_id = p_tenant_id and package_code = p_package_code;
   end if;
 
   v_result := core.sync_tenant_modules(p_tenant_id);
 
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-  values (p_tenant_id, core.current_user_id(), case when core.current_user_id() is null then 'system' else 'user' end,
+  values (p_tenant_id, v_actor, case when v_actor is null then 'system' else 'user' end,
           'core', 'tenant_package', p_package_code, case when p_active then 'add' else 'remove' end,
           jsonb_build_object('status', v_before), jsonb_build_object('status', case when p_active then 'active' else 'removed' end),
           jsonb_build_object('sync', v_result));
@@ -225,22 +307,33 @@ begin
 end;
 $$;
 
-create or replace function core.set_tenant_module_override(p_tenant_id uuid, p_module core.module_code, p_enabled boolean, p_reason text default null)
+create or replace function core.set_tenant_module_override(p_tenant_id uuid, p_module core.module_code, p_enabled boolean, p_reason text default null, p_actor_id uuid default null)
 returns jsonb
 language plpgsql security definer set search_path = core, audit, public as $$
 declare
   v_before boolean;
   v_result jsonb;
+  v_actor uuid;
 begin
+  if p_tenant_id is null or p_module is null then
+    raise exception 'invalid_argument: tenant and module are required' using errcode = '22004';
+  end if;
   if not exists (select 1 from core.tenants where id = p_tenant_id) then
     raise exception 'tenant_not_found' using errcode = 'P0002';
   end if;
-  if not exists (select 1 from core.module_registry where module = p_module and lifecycle_status not in ('deprecated', 'retired', 'planned')) then
-    raise exception 'module_not_available: %', p_module using errcode = 'P0002';
+  v_actor := core.package_audit_actor(p_actor_id);
+  if p_enabled then
+    perform core.assert_module_enableable(p_tenant_id, p_module);
+  end if;
+  perform core.lock_tenant_modules(p_tenant_id);
+  if not core.is_package_managed(p_tenant_id)
+     and exists (select 1 from core.tenant_modules where tenant_id = p_tenant_id and is_enabled) then
+    raise exception 'tenant_not_package_managed: adopt the tenant first (core.adopt_tenant_into_package)' using errcode = 'P0001';
   end if;
   select is_enabled into v_before from core.tenant_module_overrides where tenant_id = p_tenant_id and module = p_module;
 
   if p_enabled is null then
+    -- clearing an override (row removal; the module then follows the packages)
     delete from core.tenant_module_overrides where tenant_id = p_tenant_id and module = p_module;
   else
     insert into core.tenant_module_overrides (tenant_id, module, is_enabled, reason)
@@ -251,7 +344,7 @@ begin
   v_result := core.sync_tenant_modules(p_tenant_id);
 
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-  values (p_tenant_id, core.current_user_id(), case when core.current_user_id() is null then 'system' else 'user' end,
+  values (p_tenant_id, v_actor, case when v_actor is null then 'system' else 'user' end,
           'core', 'tenant_module_override', p_module::text, case when p_enabled is null then 'clear' else 'set' end,
           jsonb_build_object('is_enabled', v_before), jsonb_build_object('is_enabled', p_enabled),
           jsonb_build_object('sync', v_result, 'reason', p_reason));
@@ -259,14 +352,75 @@ begin
 end;
 $$;
 
-revoke all on function core.desired_tenant_modules(uuid) from public, anon;
+-- Converts a tenant written the old way into a package-managed one with ZERO
+-- access change: the package plus compensating overrides (add-ons for modules
+-- enabled outside it, opt-outs for package modules not enabled today). Used by
+-- this migration's back-fill and for tenants created later by seed / legacy
+-- scripts. Idempotent: an already-managed tenant is refused.
+create or replace function core.adopt_tenant_into_package(p_tenant_id uuid, p_package_code text, p_actor_id uuid default null)
+returns jsonb
+language plpgsql security definer set search_path = core, audit, public as $$
+declare
+  v_version int;
+  v_result jsonb;
+  v_actor uuid;
+begin
+  if p_tenant_id is null or p_package_code is null then
+    raise exception 'invalid_argument: tenant and package are required' using errcode = '22004';
+  end if;
+  v_actor := core.package_audit_actor(p_actor_id);
+  perform core.lock_tenant_modules(p_tenant_id);
+  if core.is_package_managed(p_tenant_id) then
+    raise exception 'tenant_already_package_managed' using errcode = 'P0001';
+  end if;
+  select version into v_version from core.packages where code = p_package_code;
+  if v_version is null then
+    raise exception 'package_not_available: %', p_package_code using errcode = 'P0002';
+  end if;
+
+  insert into core.tenant_packages (tenant_id, package_code, package_version)
+  values (p_tenant_id, p_package_code, v_version);
+
+  insert into core.tenant_module_overrides (tenant_id, module, is_enabled, reason)
+  select tm.tenant_id, tm.module, true, 'adopted: enabled before packages'
+    from core.tenant_modules tm
+   where tm.tenant_id = p_tenant_id and tm.is_enabled
+     and tm.module not in (select module from core.package_modules where package_code = p_package_code);
+
+  insert into core.tenant_module_overrides (tenant_id, module, is_enabled, reason)
+  select p_tenant_id, pm.module, false, 'adopted: not enabled before packages'
+    from core.package_modules pm
+   where pm.package_code = p_package_code
+     and not exists (select 1 from core.tenant_modules tm
+                      where tm.tenant_id = p_tenant_id and tm.module = pm.module and tm.is_enabled);
+
+  v_result := core.sync_tenant_modules(p_tenant_id);
+  if v_result <> '{"enabled": [], "disabled": []}'::jsonb then
+    raise exception 'adopt would change module access: %', v_result using errcode = 'P0001';
+  end if;
+
+  insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, after, metadata)
+  values (p_tenant_id, v_actor, case when v_actor is null then 'system' else 'user' end,
+          'core', 'tenant_package', p_package_code, 'adopt',
+          jsonb_build_object('status', 'active'), jsonb_build_object('sync', v_result));
+  return v_result;
+end;
+$$;
+
+revoke all on function core.desired_tenant_modules(uuid) from public, anon, authenticated;
+revoke all on function core.is_package_managed(uuid) from public, anon, authenticated;
+revoke all on function core.lock_tenant_modules(uuid) from public, anon, authenticated;
+revoke all on function core.package_audit_actor(uuid) from public, anon, authenticated;
+revoke all on function core.assert_module_enableable(uuid, core.module_code) from public, anon, authenticated;
 revoke all on function core.sync_tenant_modules(uuid) from public, anon, authenticated;
-revoke all on function core.set_tenant_package(uuid, text, boolean) from public, anon, authenticated;
-revoke all on function core.set_tenant_module_override(uuid, core.module_code, boolean, text) from public, anon, authenticated;
-grant execute on function core.desired_tenant_modules(uuid) to authenticated, service_role;
+revoke all on function core.set_tenant_package(uuid, text, boolean, uuid) from public, anon, authenticated;
+revoke all on function core.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid) from public, anon, authenticated;
+revoke all on function core.adopt_tenant_into_package(uuid, text, uuid) from public, anon, authenticated;
+grant execute on function core.desired_tenant_modules(uuid) to service_role;
 grant execute on function core.sync_tenant_modules(uuid) to service_role;
-grant execute on function core.set_tenant_package(uuid, text, boolean) to service_role;
-grant execute on function core.set_tenant_module_override(uuid, core.module_code, boolean, text) to service_role;
+grant execute on function core.set_tenant_package(uuid, text, boolean, uuid) to service_role;
+grant execute on function core.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid) to service_role;
+grant execute on function core.adopt_tenant_into_package(uuid, text, uuid) to service_role;
 
 -- --- api facade -------------------------------------------------------------------
 create view api.my_tenant_packages with (security_invoker = true) as
@@ -279,18 +433,18 @@ grant select on api.my_tenant_packages to authenticated;
 revoke all on api.my_tenant_packages from anon, public;
 
 -- service-role wrappers for the provisioning Edge Function (ADR 0008: no SECURITY DEFINER in api)
-create or replace function api.set_tenant_package(p_tenant_id uuid, p_package_code text, p_active boolean)
+create or replace function api.set_tenant_package(p_tenant_id uuid, p_package_code text, p_active boolean, p_actor_id uuid default null)
 returns jsonb language sql security invoker set search_path = core, public as $$
-  select core.set_tenant_package(p_tenant_id, p_package_code, p_active);
+  select core.set_tenant_package(p_tenant_id, p_package_code, p_active, p_actor_id);
 $$;
-create or replace function api.set_tenant_module_override(p_tenant_id uuid, p_module core.module_code, p_enabled boolean, p_reason text default null)
+create or replace function api.set_tenant_module_override(p_tenant_id uuid, p_module core.module_code, p_enabled boolean, p_reason text default null, p_actor_id uuid default null)
 returns jsonb language sql security invoker set search_path = core, public as $$
-  select core.set_tenant_module_override(p_tenant_id, p_module, p_enabled, p_reason);
+  select core.set_tenant_module_override(p_tenant_id, p_module, p_enabled, p_reason, p_actor_id);
 $$;
-revoke all on function api.set_tenant_package(uuid, text, boolean) from public, anon, authenticated;
-revoke all on function api.set_tenant_module_override(uuid, core.module_code, boolean, text) from public, anon, authenticated;
-grant execute on function api.set_tenant_package(uuid, text, boolean) to service_role;
-grant execute on function api.set_tenant_module_override(uuid, core.module_code, boolean, text) to service_role;
+revoke all on function api.set_tenant_package(uuid, text, boolean, uuid) from public, anon, authenticated;
+revoke all on function api.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid) from public, anon, authenticated;
+grant execute on function api.set_tenant_package(uuid, text, boolean, uuid) to service_role;
+grant execute on function api.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid) to service_role;
 
 -- --- seed: the Cafe package (template v3) ---------------------------------------
 insert into core.packages (code, name_ja, name_en, description, version, lifecycle_status, sort_order) values
@@ -299,41 +453,31 @@ insert into core.package_modules (package_code, module, sort_order) values
   ('cafe', 'core', 0), ('cafe', 'workforce', 10), ('cafe', 'inventory', 20),
   ('cafe', 'operations', 30), ('cafe', 'issues', 40);
 
--- --- back-fill existing tenants, with zero access change -----------------------------
-insert into core.tenant_packages (tenant_id, package_code, package_version)
-select distinct tm.tenant_id, 'cafe', 3 from core.tenant_modules tm;
-
--- add-ons: enabled today, not in the package
-insert into core.tenant_module_overrides (tenant_id, module, is_enabled, reason)
-select tm.tenant_id, tm.module, true, '0129 back-fill: enabled before packages'
-  from core.tenant_modules tm
- where tm.is_enabled
-   and tm.module not in (select module from core.package_modules where package_code = 'cafe');
-
--- opted out: in the package, not enabled today (no row or disabled row)
-insert into core.tenant_module_overrides (tenant_id, module, is_enabled, reason)
-select tp.tenant_id, pm.module, false, '0129 back-fill: not enabled before packages'
-  from core.tenant_packages tp
-  join core.package_modules pm on pm.package_code = tp.package_code
- where not exists (select 1 from core.tenant_modules tm
-                    where tm.tenant_id = tp.tenant_id and tm.module = pm.module and tm.is_enabled);
-
+-- --- back-fill existing tenants, with zero access change (adopt asserts it per tenant) ---
 do $$
-declare v_bad int;
+declare t uuid;
 begin
-  select count(*) into v_bad from (
-    select t.id
-      from core.tenants t
-     where exists (
-       (select m from core.desired_tenant_modules(t.id) as m)
-       except
-       (select tm.module from core.tenant_modules tm where tm.tenant_id = t.id and tm.is_enabled))
-        or exists (
-       (select tm.module from core.tenant_modules tm where tm.tenant_id = t.id and tm.is_enabled)
-       except
-       (select m from core.desired_tenant_modules(t.id) as m))
-  ) x;
-  if v_bad > 0 then
-    raise exception '0129 back-fill would change module access for % tenant(s); aborting', v_bad;
-  end if;
+  for t in select distinct tm.tenant_id from core.tenant_modules tm order by 1 loop
+    perform core.adopt_tenant_into_package(t, 'cafe');
+  end loop;
 end $$;
+
+-- ============================================================================
+-- Rollback (Cloud DEV safe: tenant_modules keeps its last synced state):
+--   drop view if exists api.my_tenant_packages;
+--   drop function if exists api.set_tenant_package(uuid, text, boolean, uuid);
+--   drop function if exists api.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid);
+--   drop function if exists core.adopt_tenant_into_package(uuid, text, uuid);
+--   drop function if exists core.set_tenant_module_override(uuid, core.module_code, boolean, text, uuid);
+--   drop function if exists core.set_tenant_package(uuid, text, boolean, uuid);
+--   drop function if exists core.assert_module_enableable(uuid, core.module_code);
+--   drop function if exists core.sync_tenant_modules(uuid);
+--   drop function if exists core.package_audit_actor(uuid);
+--   drop function if exists core.lock_tenant_modules(uuid);
+--   drop function if exists core.is_package_managed(uuid);
+--   drop function if exists core.desired_tenant_modules(uuid);
+--   drop table if exists core.tenant_module_overrides;
+--   drop table if exists core.tenant_packages;
+--   drop table if exists core.package_modules;
+--   drop table if exists core.packages;
+-- ============================================================================
