@@ -45,5 +45,8 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify preview server actions
+        run: pnpm --filter @line-os/web verify:preview-actions
+
       - name: Lint
         run: pnpm lint

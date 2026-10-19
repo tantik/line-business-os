@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "verify:preview-actions": "node scripts/verify-preview-server-actions.mjs"
   },
   "dependencies": {
     "@line-os/booking": "workspace:*",
