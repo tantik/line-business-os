@@ -25,7 +25,7 @@ export interface WorkStatusCardProps {
 /**
  * Live Clock in / Clock out card for the caller's own attendance today --
  * one whole-cell primary action plus a break-time confirmation step, matching
- * the `_client-preview` `PreviewClockPanel` reference one-to-one (Founder
+ * the earlier preview clock-panel reference one-to-one (Founder
  * screenshot direction, 2026-08-24) but wired to the canonical, non-preview
  * `clockIn`/`clockOut` Server Actions so a real Staff session's clock event
  * is immediately visible to the Manager's Weekly Schedule as a closed day.

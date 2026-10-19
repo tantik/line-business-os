@@ -109,8 +109,8 @@ export function parseSubmitCorrectionRequestInput(formData: FormData): SubmitCor
 }
 
 // ============================================================================
-// Strict correction-request validity contract (originally FA-02, Mame To Cha
-// preview; now the canonical Staff correction-request contract too)
+// Strict correction-request validity contract (originally FA-02, earlier
+// preview surface; now the canonical Staff correction-request contract)
 // ============================================================================
 
 export interface PreviewSubmitCorrectionRequestFormInput extends Omit<SubmitCorrectionRequestFormInput, 'message'> {
@@ -122,8 +122,8 @@ export interface PreviewSubmitCorrectionRequestFormInput extends Omit<SubmitCorr
  * or break) and (2) a non-blank reason - both required simultaneously, not
  * either/or. Layered strictly on top of the more permissive
  * `parseSubmitCorrectionRequestInput` (never a second reimplementation of its
- * date/time/uuid parsing). Originally written for the since-deleted Mame To
- * Cha preview form (Surface A, retired PR #266); adopted by the canonical
+ * date/time/uuid parsing). Originally written for a since-deleted preview
+ * form (Surface A); adopted by the canonical
  * `submitCorrectionRequest` server action (attendance-actions.ts) once the
  * canonical Staff dashboard form gained matching time/break fields (Cafe
  * v2.1 QA audit, P1-4, 2026-08-17) - without this, an all-blank submission

@@ -2,7 +2,7 @@
  * `oruwa-cafe` QA fixture manifest + pure plan builder (Cafe Manager UI/UX
  * Parity mission, WP-10).
  *
- * SCOPE — unlike `mame-to-cha-fixture.ts`, this does NOT provision a tenant:
+ * SCOPE — this does NOT provision a tenant:
  * `oruwa-cafe` already exists as a real, live tenant with real employees,
  * shift types, and history from earlier missions (do not "templatize" its
  * data -- see project memory `project_v2_2_and_provisioning_plan`). This
@@ -15,7 +15,7 @@
  *
  * PURE: no Supabase client, no database, no `Date.now()`/`Math.random()`
  * dependence on "now" (the caller supplies `todayIso`/`now`, same
- * discipline as `mame-to-cha-fixture.ts`/`mame-to-cha-dates.ts`). All dates
+ * discipline as `fixture-dates.ts`). All dates
  * are relative day OFFSETS from "today", so re-running the write script on a
  * different day still targets stable, predictable dates. This file only
  * decides WHAT to write, given the live tenant state the executor

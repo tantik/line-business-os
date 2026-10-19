@@ -42,7 +42,7 @@ import {
   useDemoCafeStore,
 } from '@/lib/demo/cafe/store';
 
-/** Manager weekly-schedule dashboard. Shared by `/demo/cafe/manager` and `/mame-to-cha/manager`. */
+/** Manager weekly-schedule dashboard. Rendered by `/demo/cafe/manager`. */
 export function ManagerView() {
   const brand = useBrand();
   const todayIso = useTodayIso();

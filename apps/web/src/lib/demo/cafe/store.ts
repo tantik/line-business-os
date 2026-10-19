@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Shared frontend-only state for the public Mirawi Cafe / Mame To Cha demo.
+ * Shared frontend-only state for the public Mirawi Cafe demo.
  *
  * Manager (`ManagerView`) and staff (`StaffView`) render as two separate
  * component trees under two separate routes. Before this store existed, each
@@ -15,11 +15,8 @@
  * made the change).
  *
  * State is namespaced per `DemoCafeStoreScope` (one localStorage key per
- * scope) so the generic `/demo/cafe/*` demo and the branded `/mame-to-cha/*`
- * demo never bleed into each other, and so a later `app.oruwa.jp/mame-to-cha/*`
- * real product route (not implemented here — no DB/auth in this slice) has a
- * distinct namespace to eventually migrate off of rather than colliding with
- * the public demo's localStorage data.
+ * scope) so any future branded demo surface gets its own namespace instead
+ * of colliding with the generic `/demo/cafe/*` demo's localStorage data.
  *
  * Demo-only: no backend, no auth, no real persistence guarantee. See
  * docs/phase-1j-2-cafe-workforce-demo-to-production-plan.md for what a real
@@ -37,14 +34,14 @@ import { addDays, startOfDay, toISODate } from './format';
 import type { CorrectionRequest, ShiftAssignment, WorkReport } from './types';
 
 /** Distinct localStorage namespaces for each public demo surface. */
-export const DEMO_CAFE_STORE_SCOPES = ['generic-cafe', 'mame-to-cha'] as const;
+export const DEMO_CAFE_STORE_SCOPES = ['generic-cafe'] as const;
 export type DemoCafeStoreScope = (typeof DEMO_CAFE_STORE_SCOPES)[number];
 
 const DEFAULT_SCOPE: DemoCafeStoreScope = 'generic-cafe';
 
 /** Maps a demo brand slug (see `lib/demo/brand.tsx`) to its store scope. Unknown slugs fall back to the generic demo scope. Intentionally takes a plain string, not a `DemoBrand`, so this module never has to import the UI-facing brand module. */
 export function scopeForBrandSlug(slug: string): DemoCafeStoreScope {
-  return slug === 'mame-to-cha' ? 'mame-to-cha' : DEFAULT_SCOPE;
+  return (DEMO_CAFE_STORE_SCOPES as readonly string[]).includes(slug) ? (slug as DemoCafeStoreScope) : DEFAULT_SCOPE;
 }
 
 const STORAGE_KEY_PREFIX = 'demo-cafe-store-v1';
@@ -220,9 +217,9 @@ function subscribeToScope(scope: DemoCafeStoreScope, callback: () => void): () =
 /**
  * React hook exposing the live shared demo store for one scope. Re-renders
  * on same-tab mutations to that scope and cross-tab storage events.
- * `scope` defaults to the generic `/demo/cafe` demo — pass `'mame-to-cha'`
- * (or `scopeForBrandSlug(brand.slug)`) for the branded demo so the two never
- * share localStorage state.
+ * `scope` defaults to the generic `/demo/cafe` demo — pass
+ * `scopeForBrandSlug(brand.slug)` from a branded demo so it never shares
+ * localStorage state with another surface.
  */
 export function useDemoCafeStore(scope: DemoCafeStoreScope = DEFAULT_SCOPE): DemoCafeStoreState {
   const subscribe = useCallback((callback: () => void) => subscribeToScope(scope, callback), [scope]);

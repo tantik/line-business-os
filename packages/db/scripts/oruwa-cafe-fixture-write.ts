@@ -4,16 +4,16 @@
  *
  * Resolves live tenant state, builds the plan via the pure
  * `buildOruwaCafeFixturePlan` (see `oruwa-cafe-fixture.ts`), prints it, and
- * only actually writes when `--confirm-apply` is passed -- the same
- * dry-run-by-default safety convention `mame-to-cha-rehearsal.ts` already
- * established in this package. Re-running without `--confirm-apply` is
+ * only actually writes when `--confirm-apply` is passed -- the
+ * dry-run-by-default safety convention of this package's write tools.
+ * Re-running without `--confirm-apply` is
  * always safe (read-only).
  *
  * CONNECTION -- this targets whatever `SUPABASE_URL` / `SUPABASE_SECRET_KEY` /
  * `SUPABASE_PUBLISHABLE_KEY` currently resolve to (local or the linked Cloud
  * dev project), same
  * operator-controlled-target convention as `scripts/seed.ts`. Unlike
- * `onboard-db.ts`/`mame-to-cha-*`, this tool is NOT gated to
+ * `onboard-db.ts`, this tool is NOT gated to
  * `assertLocalDatabaseUrl` -- it deliberately targets Cloud (that is the
  * whole point: seeding QA-visible data for the Vercel Preview deployment,
  * which reads the linked Cloud project, not a local database). Treat
@@ -69,7 +69,7 @@ import {
   type OruwaCafeFixtureContext,
   type OruwaCafeFixturePlan,
 } from './oruwa-cafe-fixture.js';
-import { localDateTimeToUtcIso } from './mame-to-cha-dates.js';
+import { localDateTimeToUtcIso } from './fixture-dates.js';
 
 /** From `docs/ai/ORUWA_CAFE_V2_1_REFERENCE_TENANT_REPORT_2026-08-14.md` §8-9/§15 -- re-verify there (or in Supabase Studio) if this tool ever fails to find the tenant. */
 const ORUWA_CAFE_TENANT_ID = '72b81b2f-9ba5-4a4a-a296-02e32d4682b8';

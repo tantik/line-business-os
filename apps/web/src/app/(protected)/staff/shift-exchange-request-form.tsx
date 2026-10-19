@@ -20,7 +20,7 @@ export interface ShiftExchangeRequestFormProps {
 /**
  * Request a shift change, cancellation, or open exchange for one of the
  * caller's own future published shifts -- canonical-dashboard counterpart to
- * `_client-preview`'s `PreviewShiftExchangeRequestForm`, ported to close the
+ * the earlier preview surface's shift-exchange request form, ported to close the
  * "Shift change/cancel/exchange: Missing" gap the Staff-surface audit found
  * in the dashboard. Same shape/conventions as the sibling
  * `CorrectionRequestForm` in this directory.

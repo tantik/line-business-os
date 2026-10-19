@@ -1,6 +1,6 @@
 import { makeTranslator, type Lang } from './i18n';
 
-/** UI-chrome dictionary for the Manager screen (both `/demo/cafe/manager` -- not yet wired, and the DB-backed `_client-preview/mame-to-cha/manager` preview, which is). Static system-chrome copy only -- not for user-authored content (staff names are PII and never appear here; recipe content has its own concern, see docs). */
+/** UI-chrome dictionary for the Manager screen (`/demo/cafe/manager` and the shared Cafe manager components). Static system-chrome copy only -- not for user-authored content (staff names are PII and never appear here; recipe content has its own concern, see docs). */
 interface ManagerDict {
   dashboardTitle: string;
   needsReview: string;

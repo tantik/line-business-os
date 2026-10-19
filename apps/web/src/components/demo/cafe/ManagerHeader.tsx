@@ -18,10 +18,9 @@ interface ManagerHeaderProps {
 
 /**
  * Shared manager-dashboard header — brand mark + "店長ダッシュボード" title + a
- * caller-supplied subtitle/right-slot. Used by both `/demo/cafe/manager` (via
- * `ManagerView`) and the DB-backed `_client-preview/mame-to-cha/manager` page,
- * so the two always show the same header regardless of where the data (or
- * the right-slot action) comes from.
+ * caller-supplied subtitle/right-slot. Used by `/demo/cafe/manager` (via
+ * `ManagerView`), so every caller shows the same header regardless of where
+ * the data (or the right-slot action) comes from.
  */
 export function ManagerHeader({ subtitle, rightSlot, homeHref }: ManagerHeaderProps) {
   const { lang } = useLang();

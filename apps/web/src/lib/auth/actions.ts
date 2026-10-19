@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getActiveTenantContext } from '@/lib/tenant/context';
 import { SIGN_IN_PATH } from './require-user';
 import { parseCredentials } from './credentials';
-import { buildSignInErrorPath, sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { DASHBOARD_PATH, resolvePostLoginPath } from './post-login-redirect';
 import {
   MIN_PASSWORD_LENGTH,
@@ -38,17 +37,13 @@ import {
  */
 
 export async function signIn(formData: FormData): Promise<void> {
-  // Re-sanitize server-side rather than trusting the hidden form field as-is -
-  // a malicious client could submit `returnTo` without ever rendering the page.
-  const safeReturnTo = sanitizePreviewReturnTo(formData.get('returnTo')?.toString());
-
   const credentials = parseCredentials(formData);
   if (!credentials) {
     // Same Router Cache staleness reasoning as the success path below applies
     // here too: the destination is the same `/sign-in` route re-rendered with
     // `?error=1`, which can otherwise serve a stale cached RSC payload.
     revalidatePath('/', 'layout');
-    redirect(buildSignInErrorPath(safeReturnTo));
+    redirect(`${SIGN_IN_PATH}?error=1`);
   }
 
   const supabase = await createClient();
@@ -60,14 +55,11 @@ export async function signIn(formData: FormData): Promise<void> {
   // Fail closed with a generic redirect; do not log or echo the auth error.
   if (error) {
     revalidatePath('/', 'layout');
-    redirect(buildSignInErrorPath(safeReturnTo));
+    redirect(`${SIGN_IN_PATH}?error=1`);
   }
 
   revalidatePath('/', 'layout');
-  if (safeReturnTo) redirect(safeReturnTo);
-
-  // No explicit destination (e.g. an invite deep link) was requested: land
-  // on the caller's role-appropriate workspace instead of the generic
+  // Land on the caller's role-appropriate workspace instead of the generic
   // `/dashboard` shell every sign-in previously used regardless of role.
   let destination: string = DASHBOARD_PATH;
   const tenantContext = await getActiveTenantContext();
@@ -183,8 +175,11 @@ export async function signOutOtherSessions(): Promise<{ status: 'success' | 'err
 
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  // See previewSignOut's comment (lib/preview/actions/session-actions.ts):
-  // a failed remote token-revoke must not block the local sign-out redirect.
+  // `signOut()` (scope 'global') round-trips to Supabase Auth to revoke the
+  // refresh token before the local cookies are cleared. If that call fails or
+  // times out (e.g. a stale access token), an unguarded await would throw and
+  // skip the redirect, leaving the user stuck: a failed remote revoke must
+  // never block the local sign-out redirect.
   try {
     await supabase.auth.signOut();
   } catch {

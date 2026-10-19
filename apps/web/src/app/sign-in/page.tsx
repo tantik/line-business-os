@@ -4,7 +4,6 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { DASHBOARD_PATH, resolvePostLoginPath } from '@/lib/auth/post-login-redirect';
 import { getActiveTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
-import { sanitizePreviewReturnTo } from '@/lib/preview/return-to';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { SignInForm } from './SignInForm';
 
@@ -32,14 +31,12 @@ export const metadata: Metadata = { title: 'ログイン', robots: { index: fals
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; returnTo?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
-  const safeReturnTo = sanitizePreviewReturnTo(params?.returnTo);
 
   const user = await getCurrentUser();
   if (user) {
-    if (safeReturnTo) redirect(safeReturnTo);
     let destination: string = DASHBOARD_PATH;
     const tenantContext = await getActiveTenantContext({ user });
     if (tenantContext.status === 'success') {
@@ -51,7 +48,7 @@ export default async function SignInPage({
 
   return (
     <AuthShell title="signInTitle" lead="signInLead" documentTitle="signInTitle">
-      <SignInForm returnTo={safeReturnTo} hasError={Boolean(params?.error)} />
+      <SignInForm hasError={Boolean(params?.error)} />
     </AuthShell>
   );
 }

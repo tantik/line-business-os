@@ -51,7 +51,7 @@ export const RESERVED_TENANT_SLUGS = [
   'admin',
   'api',
   'client-template',
-  'mame-to-cha-tokyo',
+  'oruwa-local',
   'mirawi-demo-salon',
 ] as const;
 

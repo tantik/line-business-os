@@ -6,16 +6,15 @@ import { demoColors } from '@/lib/demo/cafe/theme';
 import { DEMO_CAFE_NAME, DEMO_CAFE_NAME_JA } from '@/lib/demo/cafe/data';
 
 /**
- * Cross-brand demo identity (name + accent colors + route prefix) for the
- * public cafe workforce demo package. Both `/demo/cafe*` and `/mame-to-cha*`
- * render the same shared view components from `components/demo/cafe/views`;
- * this is the only thing that differs between the two trees. No logo image
- * asset exists for either brand — `BrandMark` renders a text/initial glyph
- * using these colors, not an external image.
+ * Demo identity (name + accent colors + route prefix) for the public cafe
+ * workforce demo package (`/demo/cafe*`), which renders the shared view
+ * components from `components/demo/cafe/views`. No logo image asset exists —
+ * `BrandMark` renders a text/initial glyph using these colors, not an
+ * external image.
  */
 export interface DemoBrand {
   slug: string;
-  /** Route prefix used to build in-package links, e.g. '/demo/cafe' or '/mame-to-cha'. */
+  /** Route prefix used to build in-package links, e.g. '/demo/cafe'. */
   homePath: string;
   name: string;
   nameJa: string;
@@ -33,21 +32,6 @@ export const CAFE_DEMO_BRAND: DemoBrand = {
   taglineJa: 'カフェ向け勤務管理デモ',
   accent: demoColors.accent,
   accentStrong: demoColors.accentStrong,
-};
-
-/**
- * Client-branded demo package. Only the name and a rough visual-identity
- * idea (accent color) are reused from the old cafe-shift reference project —
- * no official Japanese shop name is invented, no code or assets copied.
- */
-export const MAME_TO_CHA_BRAND: DemoBrand = {
-  slug: 'mame-to-cha',
-  homePath: '/mame-to-cha',
-  name: 'MATCHA-tea',
-  nameJa: 'MATCHA-tea',
-  taglineJa: 'カフェ向け勤務管理デモ',
-  accent: '#9C6B3E',
-  accentStrong: '#6F4A29',
 };
 
 const BrandContext = createContext<DemoBrand | null>(null);

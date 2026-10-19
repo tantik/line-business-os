@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
  * Source-text guards for the canonical `runAutoDistribution` Server Action's
  * server-side staffing authority. This repo's test runner has no way to
  * execute a `'use server'` module with a real Supabase client, so -- exactly
- * like `lib/preview/actions/schedule-actions.test.ts` -- these assert the
+ * like the former `lib/preview/actions/schedule-actions.test.ts` (removed in
+ * R0b, 2026-10-19) -- these assert the
  * shape of the action, not its runtime behaviour. The behavioural coverage
  * lives in the pure helpers (`auto-distribution-authority.test.ts`,
  * `auto-distribute.test.ts`).

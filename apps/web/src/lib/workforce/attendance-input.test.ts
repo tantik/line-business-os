@@ -104,7 +104,7 @@ test('parseDecideCorrectionRequestInput rejects an unknown decision value', () =
 });
 
 // ============================================================================
-// FA-02 - parsePreviewSubmitCorrectionRequestInput (Mame To Cha preview
+// FA-02 - parsePreviewSubmitCorrectionRequestInput (strict
 // correction-request validity contract: a meaningful change AND a non-blank
 // reason, both required)
 // ============================================================================

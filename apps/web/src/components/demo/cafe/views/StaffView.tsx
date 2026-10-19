@@ -59,7 +59,7 @@ function emptyCorrectionDefaults(todayIso: string): CorrectionRequestPayload {
   return { date: todayIso, actualClockIn: '', actualClockOut: '', breakMinutes: 45, message: '' };
 }
 
-/** Staff schedule / clock in-out / work-report screen. Shared by `/demo/cafe/staff` and `/mame-to-cha/staff`. */
+/** Staff schedule / clock in-out / work-report screen. Rendered by `/demo/cafe/staff`. */
 export function StaffView() {
   const brand = useBrand();
   const { lang } = useLang();

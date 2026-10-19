@@ -288,7 +288,10 @@ select is(
   (select count(*)::int from core.module_dependencies where module = 'operations'),
   0, 'operations: no module dependencies');
 select is(
-  (select count(*)::int from core.tenant_modules where module = 'operations'),
+  -- The local seed tenant (oruwa-local) gets operations from the 'cafe'
+  -- package via core.set_tenant_package in seed.sql, not from this migration.
+  (select count(*)::int from core.tenant_modules
+    where module = 'operations' and tenant_id <> '11111111-1111-1111-1111-111111111111'),
   0, 'operations: NOT enabled for any tenant (no tenant_modules row inserted by the reconciliation)');
 select is(
   (select core.has_module_access('0a110000-0000-0000-0000-00000000f001', 'operations')::text),
