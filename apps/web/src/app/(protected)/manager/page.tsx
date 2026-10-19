@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantNavigation } from '@/lib/tenant/modules';
+import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
@@ -100,7 +100,11 @@ export default async function WorkforceManagerPage({
       // pass; see this file's own note further down for why the deeper fix
       // (not re-running the *whole* page's unrelated data on a week change)
       // is out of scope for this pass.
-      const [navigationResult, locationsResult] = await Promise.all([listTenantNavigation(supabase), listTenantLocations(supabase)]);
+      const [navigationResult, locationsResult, packageCodes] = await Promise.all([
+        listTenantNavigation(supabase),
+        listTenantLocations(supabase),
+        listTenantPackageCodes(supabase, activeTenant.tenantId),
+      ]);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4). The flags below gate only this dashboard's entry points and
       // their reads; RLS / RPCs (`core.has_module_access`) remain the real
@@ -459,6 +463,7 @@ export default async function WorkforceManagerPage({
             purchasesEnabled={purchasesEnabled}
             recipesEnabled={recipesEnabled}
             moduleOrder={navigation.order}
+            packageCodes={packageCodes}
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}

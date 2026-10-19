@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantNavigation } from '@/lib/tenant/modules';
+import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -82,7 +82,10 @@ export default async function WorkforceStaffPage({
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const navigationResult = await listTenantNavigation(supabase);
+      const [navigationResult, packageCodes] = await Promise.all([
+        listTenantNavigation(supabase),
+        listTenantPackageCodes(supabase, activeTenant.tenantId),
+      ]);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4), same as `manager/page.tsx`. The flags below gate only this
       // page's entry points and their reads; RLS / RPCs
@@ -426,6 +429,7 @@ export default async function WorkforceStaffPage({
             purchasesEnabled={purchasesEnabled}
             recipesEnabled={recipesEnabled}
             moduleOrder={navigation.order}
+            packageCodes={packageCodes}
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryCanManage={inventoryCanManage}

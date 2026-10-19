@@ -97,3 +97,36 @@ export async function listTenantNavigation(supabase: SupabaseClient): Promise<Te
     };
   }
 }
+
+/** Flat row shape returned by `api.my_tenant_packages` (0129). */
+interface ApiTenantPackageRow {
+  tenant_id: string;
+  package_code: string;
+  status: string;
+  sort_order: number;
+}
+
+/**
+ * Active package codes of one tenant in package order (lowest `sort_order`
+ * first), through `api.my_tenant_packages` (RLS-scoped to the caller's
+ * memberships). Feeds the package vocabulary (`resolveVocabulary`, task P5).
+ * On a read failure returns an empty list, so screens fall back to the
+ * default (Cafe) words.
+ */
+export async function listTenantPackageCodes(supabase: SupabaseClient, tenantId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('my_tenant_packages')
+      .select('tenant_id, package_code, status, sort_order')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active');
+    if (error) return [];
+    return ((data ?? []) as ApiTenantPackageRow[])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order || a.package_code.localeCompare(b.package_code))
+      .map((row) => row.package_code);
+  } catch {
+    return [];
+  }
+}
