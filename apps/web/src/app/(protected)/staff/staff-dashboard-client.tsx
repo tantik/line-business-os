@@ -53,6 +53,7 @@ import {
 } from '../_ui/workforce-theme';
 import { EntryPointsCard, type EntryPointsCardButton } from '../_ui/entry-points-card';
 import { orderByModule } from '@/lib/tenant/module-nav';
+import { resolveVocabulary, vocabularyWord, type VocabularyKey } from '@/lib/packages/vocabulary';
 import { BrandBadge } from '../_ui/brand-badge';
 import { ShiftExchangeRequestForm } from './shift-exchange-request-form';
 import { CorrectionRequestForm } from './correction-request-form';
@@ -159,6 +160,8 @@ export interface StaffDashboardClientProps {
   recipesEnabled: boolean;
   /** Enabled modules in the tenant's package navigation order (0132) -- orders the entry-point row. */
   moduleOrder: readonly string[];
+  /** The tenant's active package codes in package order (`api.my_tenant_packages`) -- selects the package vocabulary for module names (task P5). */
+  packageCodes: readonly string[];
   /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility, mirroring `manager-dashboard-client.tsx`'s own `operationsEnabled`; the real `/operations` page and its RLS remain the authorization boundary regardless of this flag. */
   operationsEnabled: boolean;
   /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
@@ -248,6 +251,7 @@ function StaffDashboardBody({
   purchasesEnabled,
   recipesEnabled,
   moduleOrder,
+  packageCodes,
   operationsEnabled,
   inventoryItems,
   inventoryCanManage,
@@ -272,6 +276,9 @@ function StaffDashboardBody({
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
+  // Module names come from the package vocabulary (Cafe words by default).
+  const vocabulary = useMemo(() => resolveVocabulary(packageCodes), [packageCodes]);
+  const word = (key: VocabularyKey) => vocabularyWord(vocabulary, lang, key);
   // QA3 (2026-10-15): tab title follows the JA/EN toggle (server metadata is the JA default).
   useDocumentTitle(lang === 'en' ? 'Staff' : 'スタッフ');
   const [banner, setBanner] = useState<string | null>(null);
@@ -626,14 +633,14 @@ function StaffDashboardBody({
         heading={t('entryPointsHeading')}
         buttons={orderByModule<EntryPointsCardButton>([
           ...(recipesEnabled
-            ? [{ key: 'recipes', module: 'recipes', label: t('navRecipes'), onClick: () => setRecipesPopupOpen(true) }]
+            ? [{ key: 'recipes', module: 'recipes', label: word('module.recipes'), onClick: () => setRecipesPopupOpen(true) }]
             : []),
           ...(inventoryEnabled
             ? [
                 {
                   key: 'inventory',
                   module: 'inventory',
-                  label: t('navInventory'),
+                  label: word('module.inventory'),
                   onClick: () => {
                     markPopupTriggerClick('inventory');
                     setInventoryPopupOpen(true);
@@ -649,7 +656,7 @@ function StaffDashboardBody({
                 {
                   key: 'purchases',
                   module: 'purchases',
-                  label: t('navPurchases'),
+                  label: word('module.purchases'),
                   onClick: () => {
                     markPopupTriggerClick('purchases');
                     setPurchasesPopupOpen(true);
@@ -670,7 +677,7 @@ function StaffDashboardBody({
                 {
                   key: 'operations',
                   module: 'operations',
-                  label: t('navOperations'),
+                  label: word('module.operations'),
                   onClick: () => {
                     markPopupTriggerClick('operations');
                     setOperationsPopupOpen(true);
@@ -683,7 +690,7 @@ function StaffDashboardBody({
                 {
                   key: 'issues',
                   module: 'issues',
-                  label: t('navIssues'),
+                  label: word('module.issues'),
                   onClick: () => {
                     markPopupTriggerClick('issues');
                     setIssuesPopupOpen(true);

@@ -119,12 +119,7 @@ interface StaffDashboardDict {
   workStatusCancel: string;
   // Page chrome (header, profile card)
   pageTitle: string;
-  navRecipes: string;
-  navInventory: string;
-  navPurchases: string;
   navMail: string;
-  navOperations: string;
-  navIssues: string;
   entryPointsHeading: string;
   // Staff<->Manager Mail module (0090): replaces the deleted DailyMessageForm card
   mailHeading: string;
@@ -269,12 +264,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     workStatusConfirmAction: 'Confirm clock-out',
     workStatusCancel: 'Cancel',
     pageTitle: 'Staff',
-    navRecipes: 'Recipes',
-    navInventory: 'Inventory',
-    navPurchases: 'Purchases',
     navMail: 'Mail',
-    navOperations: 'Operations',
-    navIssues: 'Issues & Handover',
     entryPointsHeading: 'Staff & recipe & Inventory management',
     mailHeading: 'Mail',
     mailEmpty: 'No messages yet.',
@@ -413,12 +403,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     workStatusConfirmAction: '退勤を確定',
     workStatusCancel: 'キャンセル',
     pageTitle: 'スタッフ',
-    navRecipes: 'レシピ',
-    navInventory: '在庫',
-    navPurchases: '仕入れ',
     navMail: 'メール',
-    navOperations: 'オペレーション',
-    navIssues: '申し送り・問題報告',
     entryPointsHeading: 'スタッフ・レシピ・在庫管理',
     mailHeading: 'メール',
     mailEmpty: 'まだメッセージはありません。',
