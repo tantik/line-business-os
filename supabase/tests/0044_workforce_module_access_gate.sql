@@ -111,9 +111,12 @@ $$;
 insert into core.tenants (id, slug, name) values
   ('a5000000-0000-0000-0000-00000000000a', 'pgtap-wf-gate-tenant', 'pgTAP Workforce Gate Tenant');
 
--- Workforce starts ON.
+-- Workforce starts ON. Since 0131 the recipe surfaces gate on their own
+-- 'recipes' module, so it starts ON too and is toggled together with
+-- Workforce below (recipes OFF with Workforce ON: 0070_purchases_recipes_modules.sql).
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
-  ('a5000000-0000-0000-0000-00000000000a', 'workforce', true);
+  ('a5000000-0000-0000-0000-00000000000a', 'workforce', true),
+  ('a5000000-0000-0000-0000-00000000000a', 'recipes', true);
 
 insert into core.locations (id, tenant_id, name, timezone) values
   ('a5200000-0000-0000-0000-000000000001', 'a5000000-0000-0000-0000-00000000000a', 'Gate Tenant Location A', 'Asia/Tokyo');
@@ -345,7 +348,7 @@ select is(
 -- ============================================================================
 
 update core.tenant_modules set is_enabled = false
-  where tenant_id = 'a5000000-0000-0000-0000-00000000000a' and module = 'workforce';
+  where tenant_id = 'a5000000-0000-0000-0000-00000000000a' and module in ('workforce', 'recipes');
 
 select is(
   pg_temp.as_auth_count('a5900000-0000-0000-0000-000000000001',
@@ -409,21 +412,21 @@ select is(
   pg_temp.as_auth_count('a5900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from api.workforce_recipes where status = 'published' $$),
   0,
-  'Workforce OFF: staff no longer sees the published recipe'
+  'Recipes OFF: staff no longer sees the published recipe'
 );
 
 select is(
   pg_temp.as_auth_count('a5900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from api.workforce_recipe_ingredients where recipe_id = 'a5700000-0000-0000-0000-000000000001' $$),
   0,
-  'Workforce OFF: staff no longer sees the recipe''s ingredients'
+  'Recipes OFF: staff no longer sees the recipe''s ingredients'
 );
 
 select ok(
   pg_temp.as_auth_throws('a5900000-0000-0000-0000-000000000003',
     $q$insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja)
        values ('a5000000-0000-0000-0000-00000000000a', 'a5700000-0000-0000-0000-000000000001', 'Blocked ingredient')$q$),
-  'Workforce OFF: manager cannot INSERT a new recipe ingredient'
+  'Recipes OFF: manager cannot INSERT a new recipe ingredient'
 );
 
 select is(
@@ -482,7 +485,7 @@ select is(
   (pg_temp.as_auth_permadelete_recipe('a5900000-0000-0000-0000-000000000003',
     'a5000000-0000-0000-0000-00000000000a', 'a5700000-0000-0000-0000-000000000003')).deleted,
   false,
-  'Workforce OFF: permanently_delete_recipe refuses (explicit module-access pre-check, before status/permission checks)'
+  'Recipes OFF: permanently_delete_recipe refuses (explicit recipes module-access pre-check, before status/permission checks)'
 );
 
 select is(
@@ -506,7 +509,7 @@ select is(
 select is(
   (select count(*)::int from workforce.recipes where tenant_id = 'a5000000-0000-0000-0000-00000000000a' and status = 'published'),
   1,
-  'Workforce OFF: the published recipe row still exists in storage'
+  'Recipes OFF: the published recipe row still exists in storage'
 );
 select is(
   (select count(*)::int from workforce.staff_messages where tenant_id = 'a5000000-0000-0000-0000-00000000000a'),
@@ -537,7 +540,7 @@ select is(
 -- ============================================================================
 
 update core.tenant_modules set is_enabled = true
-  where tenant_id = 'a5000000-0000-0000-0000-00000000000a' and module = 'workforce';
+  where tenant_id = 'a5000000-0000-0000-0000-00000000000a' and module in ('workforce', 'recipes');
 
 select is(
   pg_temp.as_auth_count('a5900000-0000-0000-0000-000000000001',
@@ -564,7 +567,7 @@ select is(
   pg_temp.as_auth_count('a5900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from api.workforce_recipes where status = 'published' $$),
   1,
-  'Workforce ON again: staff sees the published recipe again'
+  'Recipes ON again: staff sees the published recipe again'
 );
 
 -- Staff (plain employee role, no staff.manage) never gained directory access

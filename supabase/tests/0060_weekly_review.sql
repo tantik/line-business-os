@@ -42,10 +42,13 @@ insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('0f120000-0000-0000-0000-000000000000', 'operations', true),
   ('0f120000-0000-0000-0000-000000000000', 'issues', true),
   ('0f120000-0000-0000-0000-000000000000', 'inventory', true),
+  ('0f120000-0000-0000-0000-000000000000', 'purchases', true),
   ('10120000-0000-0000-0000-000000000000', 'workforce', true),
   ('11120000-0000-0000-0000-000000000000', 'workforce', true),
   ('11120000-0000-0000-0000-000000000000', 'operations', true),
-  ('11120000-0000-0000-0000-000000000000', 'inventory', true);
+  ('11120000-0000-0000-0000-000000000000', 'inventory', true),
+  ('11120000-0000-0000-0000-000000000000', 'purchases', true);
+  -- The purchasing section gates on 'purchases' (own module since 0131).
   -- Tenant P deliberately has NO 'issues' row at all -> has_module_access
   -- fails closed to false -> the RPC's issues section must be null.
 

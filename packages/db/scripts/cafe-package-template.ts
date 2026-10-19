@@ -20,7 +20,7 @@ export interface CafePackageTemplate {
 export const CAFE_PACKAGE_V2_TEMPLATE: CafePackageTemplate = {
   version: CAFE_PACKAGE_TEMPLATE_VERSION,
   productCode: 'cafe-v2',
-  requiredModules: ['core', 'workforce', 'inventory'],
+  requiredModules: ['core', 'workforce', 'inventory', 'purchases', 'recipes'],
   defaultTimeZone: 'Asia/Tokyo',
   requiredRoles: ['manager', 'employee'],
   minimumReadyData: { activeShiftTypes: 1, publishedRecipes: 1, activeInventoryItems: 1 },
@@ -49,7 +49,7 @@ export function validateCafePackageTemplate(template: CafePackageTemplate): Cafe
     errors.push(`Unsupported Cafe Package template version: ${template.version}.`);
   }
   if (template.productCode !== 'cafe-v2') errors.push('Cafe Package productCode must be "cafe-v2".');
-  for (const required of ['core', 'workforce', 'inventory'] as const) {
+  for (const required of ['core', 'workforce', 'inventory', 'purchases', 'recipes'] as const) {
     if (!modules.has(required)) errors.push(`Required module "${required}" is missing.`);
   }
   if (modules.size !== template.requiredModules.length) errors.push('Required modules must not contain duplicates.');

@@ -25,8 +25,10 @@ select no_plan();
 insert into core.tenants (id, slug, name) values
   ('9e000000-0000-0000-0000-00000000000a', 'pgtap-purch-v2-tenant-a', 'pgTAP Purchases v2 Tenant A');
 
+-- Purchases gates on its own 'purchases' module since 0131.
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
-  ('9e000000-0000-0000-0000-00000000000a', 'inventory', true);
+  ('9e000000-0000-0000-0000-00000000000a', 'inventory', true),
+  ('9e000000-0000-0000-0000-00000000000a', 'purchases', true);
 
 insert into core.locations (id, tenant_id, name) values
   ('9e200000-0000-0000-0000-000000000001', '9e000000-0000-0000-0000-00000000000a', 'Tenant A Location A');

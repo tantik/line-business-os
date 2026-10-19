@@ -82,49 +82,49 @@ end $$;
 -- A
 select is((select version from core.packages where code = 'cafe'), 3, 'A: cafe package v3 exists');
 select is((select string_agg(module::text, ',' order by sort_order) from core.package_modules where package_code = 'cafe'),
-  'core,workforce,inventory,operations,issues', 'A: cafe modules in navigation order');
+  'core,workforce,inventory,purchases,operations,recipes,issues', 'A: cafe modules in navigation order');
 
 -- B
 select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), '', 'B: a new tenant starts with no modules');
 select is(pg_temp.as_service($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'cafe', true) $$) -> 'disabled',
   '[]'::jsonb, 'B: adding cafe disables nothing');
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'core,inventory,issues,operations,workforce', 'B: cafe modules enabled');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'core,inventory,issues,operations,purchases,recipes,workforce', 'B: cafe modules enabled');
 select is((select count(*)::int from audit.audit_logs where tenant_id = 'a9000000-0000-0000-0000-00000000000a' and entity = 'tenant_package' and action = 'add'),
   1, 'B: one audit row');
 
 -- C
 select pg_temp.as_service($$ select core.set_tenant_module_override('a9000000-0000-0000-0000-00000000000a', 'booking', true, 'add-on') $$);
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,workforce', 'C: add-on booking enabled');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,purchases,recipes,workforce', 'C: add-on booking enabled');
 
 -- D
 select pg_temp.as_service($$ select core.set_tenant_module_override('a9000000-0000-0000-0000-00000000000a', 'issues', false) $$);
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,operations,workforce', 'D: issues opted out');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,operations,purchases,recipes,workforce', 'D: issues opted out');
 select is((select is_enabled from core.tenant_modules where tenant_id = 'a9000000-0000-0000-0000-00000000000a' and module = 'issues'),
   false, 'D: the issues row is kept, only disabled');
 select pg_temp.as_service($$ select core.set_tenant_module_override('a9000000-0000-0000-0000-00000000000a', 'issues', null) $$);
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,workforce', 'D: clearing the override follows the package again');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,purchases,recipes,workforce', 'D: clearing the override follows the package again');
 
 -- E
 insert into core.packages (code, name_ja, name_en, version, lifecycle_status) values ('pgtap_mini', '店舗チェック', 'Store check', 1, 'beta');
 insert into core.package_modules (package_code, module) values ('pgtap_mini', 'inventory'), ('pgtap_mini', 'operations');
 select pg_temp.as_service($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'pgtap_mini', true) $$);
 select is(pg_temp.as_service($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'cafe', false) $$) -> 'disabled',
-  '["core", "issues", "workforce"]'::jsonb, 'E: removing cafe disables only what no package or add-on still needs');
+  '["core", "issues", "purchases", "recipes", "workforce"]'::jsonb, 'E: removing cafe disables only what no package or add-on still needs');
 select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,inventory,operations', 'E: mini package modules + add-on remain');
 select is((select status from core.tenant_packages where tenant_id = 'a9000000-0000-0000-0000-00000000000a' and package_code = 'cafe'),
   'removed', 'E: the removed package row is kept for history');
 
 -- F
 select is((select count(*)::int from core.tenant_modules where tenant_id = 'a9000000-0000-0000-0000-00000000000a'),
-  6, 'F: all six module rows still exist (nothing deleted)');
+  8, 'F: all eight module rows still exist (nothing deleted)');
 select pg_temp.as_service($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'cafe', true) $$);
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,workforce', 'F: re-adding cafe restores the modules');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,purchases,recipes,workforce', 'F: re-adding cafe restores the modules');
 
 -- G
 insert into core.module_dependencies (module, depends_on) values ('issues', 'operations');
 select matches(pg_temp.as_service_throws($$ select core.set_tenant_module_override('a9000000-0000-0000-0000-00000000000a', 'operations', false) $$),
   'module_dependency_missing', 'G: opting out of a dependency is refused');
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,workforce', 'G: nothing changed');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,purchases,recipes,workforce', 'G: nothing changed');
 select is((select count(*)::int from core.tenant_module_overrides where tenant_id = 'a9000000-0000-0000-0000-00000000000a' and module = 'operations'),
   0, 'G: the refused override was not stored');
 select matches(pg_temp.as_service_throws($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'no_such', true) $$),
@@ -189,14 +189,14 @@ select is(pg_temp.as_service($$ select core.adopt_tenant_into_package('a9000000-
 select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000b'), 'booking,workforce', 'I: same modules after adopt');
 select is((select string_agg(module::text || '=' || is_enabled, ',' order by module::text) from core.tenant_module_overrides
             where tenant_id = 'a9000000-0000-0000-0000-00000000000b'),
-  'booking=true,core=false,inventory=false,issues=false,operations=false', 'I: compensating overrides');
+  'booking=true,core=false,inventory=false,issues=false,operations=false,purchases=false,recipes=false', 'I: compensating overrides');
 select is(pg_temp.service_sqlstate($$ select core.adopt_tenant_into_package('a9000000-0000-0000-0000-00000000000b', 'cafe') $$),
   'P0001', 'I: adopting twice is refused');
 
 -- J: NULL arguments are refused, never read as "remove"
 select is(pg_temp.service_sqlstate($$ select core.set_tenant_package('a9000000-0000-0000-0000-00000000000a', 'cafe', null) $$),
   '22004', 'J: p_active null refused');
-select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,workforce', 'J: nothing changed');
+select is(pg_temp.enabled('a9000000-0000-0000-0000-00000000000a'), 'booking,core,inventory,issues,operations,purchases,recipes,workforce', 'J: nothing changed');
 
 -- K: a deprecated package can be removed but not added
 update core.packages set lifecycle_status = 'deprecated' where code = 'pgtap_mini';

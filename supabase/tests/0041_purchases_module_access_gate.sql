@@ -1,6 +1,8 @@
 -- ============================================================================
--- DB test: Purchases Inventory module-OFF gating (WP-S2, migration
--- 0094_purchases_module_access_gate.sql)
+-- DB test: Purchases module-OFF gating (WP-S2, migration
+-- 0094_purchases_module_access_gate.sql; gate moved from 'inventory' to
+-- 'purchases' by 0131_purchases_recipes_module_gates.sql -- "Inventory" in
+-- the lifecycle below now reads "Purchases", with Inventory kept ON)
 -- ----------------------------------------------------------------------------
 -- Run with:  pnpm exec supabase db reset && pnpm exec supabase test db
 --
@@ -28,9 +30,11 @@ select no_plan();
 insert into core.tenants (id, slug, name) values
   ('9e000000-0000-0000-0000-00000000000a', 'pgtap-purch-gate-tenant', 'pgTAP Purchases Gate Tenant');
 
--- Inventory starts ON.
+-- Inventory and Purchases start ON. Since 0131 Purchases gates on its own
+-- 'purchases' module; this file toggles that flag (Inventory stays ON).
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
-  ('9e000000-0000-0000-0000-00000000000a', 'inventory', true);
+  ('9e000000-0000-0000-0000-00000000000a', 'inventory', true),
+  ('9e000000-0000-0000-0000-00000000000a', 'purchases', true);
 
 insert into core.locations (id, tenant_id, name) values
   ('9e200000-0000-0000-0000-000000000001', '9e000000-0000-0000-0000-00000000000a', 'Gate Tenant Location A');
@@ -103,20 +107,20 @@ end;
 $$;
 
 -- ============================================================================
--- Section 1: Inventory ON -- normal behavior (baseline, before any OFF test).
+-- Section 1: Purchases ON -- normal behavior (baseline, before any OFF test).
 -- ============================================================================
 
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from api.purchases_needed where item_id = '9e100000-0000-0000-0000-000000000001' $$),
   1,
-  'Inventory ON: staff sees the short item in api.purchases_needed'
+  'Purchases ON: staff sees the short item in api.purchases_needed'
 );
 reset role;
 
 select ok(
   pg_temp.as_auth_rpc('9e900000-0000-0000-0000-000000000001', '9e100000-0000-0000-0000-000000000001') is not null,
-  'Inventory ON: staff can mark a genuinely-short item as bought via api.record_purchase_action'
+  'Purchases ON: staff can mark a genuinely-short item as bought via api.record_purchase_action'
 );
 reset role;
 
@@ -125,37 +129,38 @@ select is(
     where tenant_id = '9e000000-0000-0000-0000-00000000000a'
       and item_id = '9e100000-0000-0000-0000-000000000001'),
   1,
-  'Inventory ON: the acknowledgement row was actually written (superuser read, bypasses RLS)'
+  'Purchases ON: the acknowledgement row was actually written (superuser read, bypasses RLS)'
 );
 
 -- ============================================================================
--- Section 2: Inventory OFF -- tenant-facing access is blocked, data preserved.
+-- Section 2: Purchases OFF (Inventory still ON) -- tenant-facing access is
+-- blocked, data preserved.
 -- ============================================================================
 
 update core.tenant_modules set is_enabled = false
-  where tenant_id = '9e000000-0000-0000-0000-00000000000a' and module = 'inventory';
+  where tenant_id = '9e000000-0000-0000-0000-00000000000a' and module = 'purchases';
 
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from purchases.purchase_actions where tenant_id = '9e000000-0000-0000-0000-00000000000a' $$),
   0,
-  'Inventory OFF: tenant-facing SELECT on purchases.purchase_actions returns zero rows, even though the row still exists'
+  'Purchases OFF: tenant-facing SELECT on purchases.purchase_actions returns zero rows, even though the row still exists'
 );
 reset role;
 
--- As of WP-S3 (0095_inventory_module_access_gate.sql), inv_items_select and
--- inv_stock_counts_select are ALSO gated on core.has_module_access(...) --
--- so api.purchases_needed (which joins inventory.items/stock_counts
--- directly) now goes fully empty when Inventory is OFF, not just its
--- Purchases-acknowledgement half. This supersedes this test's original
--- WP-S2-only expectation (the item staying visible as 'pending') now that
--- WP-S3 has landed -- see 0095's own header note ("closing the gap WP-S2's
--- own header note flagged as until WP-S3 lands").
+-- Since 0131 only the Purchases flag is OFF here; Inventory (which gates
+-- inventory.items/stock_counts since WP-S3, 0095) stays ON. So
+-- api.purchases_needed -- which joins inventory.items/stock_counts directly --
+-- still lists the short item, but its Purchases-acknowledgement half is
+-- blocked: the 'bought' acknowledgement is invisible and the item reads as
+-- 'pending' (the original WP-S2 expectation). Inventory-OFF emptying the view
+-- entirely is covered by 0070_purchases_recipes_modules.sql.
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
-    $$ select count(*)::int from api.purchases_needed where item_id = '9e100000-0000-0000-0000-000000000001' $$),
-  0,
-  'Inventory OFF: the item no longer appears in api.purchases_needed at all -- WP-S3 gates inventory.items/stock_counts too, so both halves of the view are now blocked'
+    $$ select count(*)::int from api.purchases_needed
+        where item_id = '9e100000-0000-0000-0000-000000000001' and purchase_status = 'pending' $$),
+  1,
+  'Purchases OFF: api.purchases_needed no longer shows the acknowledgement -- the item reads as pending (purchase_actions half blocked, Inventory half still ON)'
 );
 reset role;
 
@@ -168,7 +173,7 @@ select ok(
                 '9e100000-0000-0000-0000-000000000001',
                 (select id from inventory.stock_counts where item_id = '9e100000-0000-0000-0000-000000000001' order by counted_at desc, id desc limit 1),
                 '9e900000-0000-0000-0000-000000000001' $$),
-  'Inventory OFF: direct INSERT into purchases.purchase_actions is rejected by RLS'
+  'Purchases OFF: direct INSERT into purchases.purchase_actions is rejected by RLS'
 );
 reset role;
 
@@ -185,7 +190,7 @@ select throws_ok(
     ) $$,
   'P0004',
   'purchases_module_disabled',
-  'Inventory OFF: api.record_purchase_action raises purchases_module_disabled (P0004) before any other check'
+  'Purchases OFF: api.record_purchase_action raises purchases_module_disabled (P0004) before any other check'
 );
 
 -- Existing rows preserved: verified via a superuser/RLS-bypassing read, not
@@ -196,29 +201,30 @@ select is(
     where tenant_id = '9e000000-0000-0000-0000-00000000000a'
       and item_id = '9e100000-0000-0000-0000-000000000001'),
   1,
-  'Inventory OFF: the pre-existing acknowledgement row still exists in storage -- module-OFF hides it, never deletes it'
+  'Purchases OFF: the pre-existing acknowledgement row still exists in storage -- module-OFF hides it, never deletes it'
 );
 
 -- ============================================================================
--- Section 3: Inventory ON again -- prior data accessible again, unchanged.
+-- Section 3: Purchases ON again -- prior data accessible again, unchanged.
 -- ============================================================================
 
 update core.tenant_modules set is_enabled = true
-  where tenant_id = '9e000000-0000-0000-0000-00000000000a' and module = 'inventory';
+  where tenant_id = '9e000000-0000-0000-0000-00000000000a' and module = 'purchases';
 
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
     $$ select count(*)::int from purchases.purchase_actions where tenant_id = '9e000000-0000-0000-0000-00000000000a' $$),
   1,
-  'Inventory ON again: the same pre-existing row is visible again through the tenant-facing path'
+  'Purchases ON again: the same pre-existing row is visible again through the tenant-facing path'
 );
 reset role;
 
 select is(
   pg_temp.as_auth_count('9e900000-0000-0000-0000-000000000001',
-    $$ select count(*)::int from api.purchases_needed where item_id = '9e100000-0000-0000-0000-000000000001' $$),
+    $$ select count(*)::int from api.purchases_needed
+        where item_id = '9e100000-0000-0000-0000-000000000001' and purchase_status = 'bought' $$),
   1,
-  'Inventory ON again: api.purchases_needed shows the item as bought again'
+  'Purchases ON again: api.purchases_needed shows the item as bought again'
 );
 reset role;
 

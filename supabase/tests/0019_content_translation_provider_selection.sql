@@ -19,10 +19,12 @@ insert into core.tenants (id, slug, name) values
 
 -- Workforce is fail-closed by default since 0097_workforce_module_access_gate.sql;
 -- this file's scenarios exercise workforce.recipes and assume normal, Workforce-ON
--- behavior for both fixture tenants.
+-- behavior for both fixture tenants. Recipes gate on 'recipes' since 0131.
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('a1000000-0000-0000-0000-00000000000a', 'workforce', true),
-  ('a2000000-0000-0000-0000-00000000000b', 'workforce', true);
+  ('a2000000-0000-0000-0000-00000000000b', 'workforce', true),
+  ('a1000000-0000-0000-0000-00000000000a', 'recipes', true),
+  ('a2000000-0000-0000-0000-00000000000b', 'recipes', true);
 
 insert into workforce.recipes (id, tenant_id, title_ja, description_ja, status)
   values ('a1100000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-00000000000a', '抹茶ラテ', '抹茶を使ったラテです。', 'published');

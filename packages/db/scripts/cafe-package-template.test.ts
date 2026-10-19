@@ -13,7 +13,7 @@ function clone(): CafePackageTemplate {
 
 test('Cafe v2 template is valid and enables the required modules', () => {
   assert.equal(validateCafePackageTemplate(CAFE_PACKAGE_V2_TEMPLATE).ok, true);
-  assert.deepEqual(CAFE_PACKAGE_V2_TEMPLATE.requiredModules, ['core', 'workforce', 'inventory']);
+  assert.deepEqual(CAFE_PACKAGE_V2_TEMPLATE.requiredModules, ['core', 'workforce', 'inventory', 'purchases', 'recipes']);
 });
 
 test('Cafe v2 template has a stable version and no secret/customer identity fields', () => {
@@ -23,8 +23,18 @@ test('Cafe v2 template has a stable version and no secret/customer identity fiel
 
 test('template validation rejects a missing Inventory module', () => {
   const bad = clone();
-  bad.requiredModules = ['core', 'workforce'];
+  bad.requiredModules = ['core', 'workforce', 'purchases', 'recipes'];
   assert.equal(validateCafePackageTemplate(bad).ok, false);
+});
+
+test('template validation rejects a missing Purchases or Recipes module', () => {
+  for (const missing of ['purchases', 'recipes'] as const) {
+    const bad = clone();
+    bad.requiredModules = CAFE_PACKAGE_V2_TEMPLATE.requiredModules.filter((m) => m !== missing);
+    const result = validateCafePackageTemplate(bad);
+    assert.equal(result.ok, false);
+    assert.ok(!result.ok && result.errors.includes(`Required module "${missing}" is missing.`));
+  }
 });
 
 test('template validation rejects an unready minimum-data contract', () => {

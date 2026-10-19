@@ -30,7 +30,9 @@ insert into core.tenants (id, slug, name, kind) values
   ('0b220000-0000-0000-0000-00000000c002', 'pgtap-rec-b', 'pgTAP Rec B', 'client');
 insert into core.tenant_modules (tenant_id, module, is_enabled) values
   ('0a110000-0000-0000-0000-00000000c001', 'workforce', true),
-  ('0b220000-0000-0000-0000-00000000c002', 'workforce', true);
+  ('0b220000-0000-0000-0000-00000000c002', 'workforce', true),
+  ('0a110000-0000-0000-0000-00000000c001', 'recipes', true),
+  ('0b220000-0000-0000-0000-00000000c002', 'recipes', true);
 insert into core.locations (id, tenant_id, name, timezone) values
   ('0a100000-0000-0000-0000-00000000c001', '0a110000-0000-0000-0000-00000000c001', 'A/L1', 'Asia/Tokyo'),
   ('0a100000-0000-0000-0000-00000000c002', '0a110000-0000-0000-0000-00000000c001', 'A/L2', 'Asia/Tokyo'),
