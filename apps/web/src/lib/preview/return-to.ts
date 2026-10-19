@@ -1,5 +1,3 @@
-import { PREVIEW_BASE_PATH } from './constants';
-
 /**
  * Duplicated from `@/lib/auth/require-user`'s `SIGN_IN_PATH` rather than
  * imported - `require-user.ts` pulls in the `server-only` sentinel package
@@ -61,11 +59,6 @@ export function sanitizePreviewReturnTo(raw: string | null | undefined): string 
   return decoded;
 }
 
-/** Build the sign-in redirect target carrying a validated, statically-known preview `returnTo`. */
-export function buildPreviewSignInRedirect(publicPath: string): string {
-  return `${SIGN_IN_PATH}?returnTo=${encodeURIComponent(publicPath)}`;
-}
-
 /**
  * Build the sign-in-with-error redirect target for a failed sign-in attempt
  * (credential parse failure or `signInWithPassword` failure), carrying a
@@ -82,6 +75,3 @@ export function buildSignInErrorPath(safeReturnTo: string | null): string {
   if (safeReturnTo) params.set('returnTo', safeReturnTo);
   return `${SIGN_IN_PATH}?${params.toString()}`;
 }
-
-/** Re-exported for callers that only need the base path constant. */
-export { PREVIEW_BASE_PATH };

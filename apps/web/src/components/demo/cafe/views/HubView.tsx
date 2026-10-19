@@ -37,7 +37,7 @@ const CARDS: HubCard[] = [
   },
 ];
 
-/** Premium product-overview landing for the cafe demo package. Shared by `/demo/cafe` and `/mame-to-cha`. */
+/** Premium product-overview landing for the cafe demo package. Rendered by `/demo/cafe`. */
 export function HubView() {
   const brand = useBrand();
 

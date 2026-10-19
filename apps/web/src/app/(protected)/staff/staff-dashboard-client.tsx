@@ -137,7 +137,7 @@ export interface StaffDashboardClientProps {
    * employee, not just the caller) -- already narrowed server-side
    * (`page.tsx`) to `published && locationId === <this location>`. Powers
    * the coworker-roster/self-pin/self-highlight/All-Only-me schedule grid
-   * below (`ShiftTable`), mirroring `_client-preview`'s `windowAssignments`.
+   * below (`ShiftTable`), mirroring the earlier preview surface's `windowAssignments`.
    * RLS on `api.workforce_shift_assignments` remains the real boundary; a
    * plain Staff reader is already limited to published rows tenant-wide.
    */
@@ -205,7 +205,7 @@ function hoursBetween(startsAtLocal: string, endsAtLocal: string): number {
 
 /**
  * Outer wrapper: mounts the one shared `LangProvider` (`@/lib/demo/cafe/i18n`,
- * the same JA/EN mechanism `_client-preview` uses) around the whole Staff
+ * the shared JA/EN mechanism) around the whole Staff
  * page body, so `StaffDashboardBody` and everything it renders (`ShiftTable`,
  * `ShiftLegend`, `Modal`, `ShiftExchangeRequestForm`, the language toggle
  * itself) can call `useLang()`/receive a `lang` prop. Split out because a
@@ -395,7 +395,7 @@ function StaffDashboardBody({
   // The full ±8-week, this-location window seeded once from the initial page
   // load's `assignments` prop, then spliced with a background poll of just
   // the currently displayed week (`getMyScheduleWeek`) -- same pattern
-  // `_client-preview`'s `PreviewStaffSchedule` uses -- so a Manager's publish
+  // the earlier preview Staff schedule used -- so a Manager's publish
   // becomes visible here without a manual reload.
   const [windowAssignments, setWindowAssignments] = useState<WorkforceShiftAssignment[]>(assignments ?? []);
 

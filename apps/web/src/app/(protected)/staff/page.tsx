@@ -167,7 +167,7 @@ export default async function WorkforceStaffPage({
           : [];
       // LOC-1 (docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md): fails
       // closed on the employee's own location being missing or inactive,
-      // matching the `_client-preview/mame-to-cha` reference surface -- never
+      // matching the earlier preview reference surface -- never
       // silently substitutes a different active location, which would show
       // this Staff member schedule/shift-type data for a location they
       // aren't actually assigned to (same-tenant only, not a tenant-isolation
@@ -227,7 +227,7 @@ export default async function WorkforceStaffPage({
 
       // Full ±MAX_WEEK_OFFSET assignment window (not just the displayed
       // week), tenant/location-wide (every employee, not just the caller) --
-      // mirrors `_client-preview`'s `mame-to-cha/page.tsx` initial load, so
+      // mirrors the earlier preview Staff page's initial load, so
       // the coworker-roster/self-pin view below has a stable, week-independent
       // roster instead of one that changes shape as the caller navigates
       // weeks. Other employees' shift rows are read here only to build this

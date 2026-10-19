@@ -17,8 +17,8 @@ function bilingual(ja: DemoHelpContent, en: DemoHelpContent): DemoHelpContentByL
  * Kept separate from i18n.*.ts because this help system is JA-only by design (demo sales-support copy, not a translated UI string).
  *
  * The Recipes-related items below (`HELP_RECIPES_*`) are the one exception:
- * `RecipeDetail`/`RecipeView` are shared with the real Mame To Cha DB-backed
- * Staff preview, which DOES support an EN/JA toggle for recipe content, so
+ * `RecipeDetail`/`RecipeView` are shared with DB-backed surfaces that DO
+ * support an EN/JA toggle for recipe content, so
  * these four are lang-keyed (`Record<Lang, DemoHelpContent>`, same shape as
  * `i18n.recipes.ts`'s `RECIPES_DICT`) instead of a single JA-only object.
  * The Staff/Manager help items above stay untouched, single-language

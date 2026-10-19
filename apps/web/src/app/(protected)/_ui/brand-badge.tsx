@@ -8,7 +8,7 @@ interface BrandBadgeProps {
 
 /**
  * Canonical-theme circular initial badge, matching the visual weight of the
- * Mame To Cha reference's `BrandMark` without depending on that demo tree's
+ * public demo's `BrandMark` without depending on that demo tree's
  * `BrandProvider` context (which the canonical app never mounts). Text-only,
  * CSS-drawn -- no logo asset. Shared by both the Manager and Staff dashboard
  * headers so the two surfaces stay visually identical.

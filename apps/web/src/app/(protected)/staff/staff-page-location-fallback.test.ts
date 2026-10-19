@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
  * Staff page previously fell back to a different active location, or even
  * `tenantLocations[0]` unconditionally, when the employee's own assigned
  * location was missing or inactive -- unlike the
- * `_client-preview/mame-to-cha` reference surface, which fails closed. Same
+ * earlier preview reference surface, which failed closed. Same
  * as every other fail-closed regression guard in this codebase, this is a
  * source-text check (no DOM/Supabase mocking harness here), not a
  * behavioral test.

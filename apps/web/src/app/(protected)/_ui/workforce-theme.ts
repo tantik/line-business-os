@@ -3,8 +3,8 @@ import { badgeStyle, card, colors } from '@/lib/ui/theme';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 
 // Re-exported for existing call sites in this dashboard tree; the canonical
-// implementation now lives in `@/lib/workforce/timezone.ts` (shared with the
-// `_client-preview` surface). New call sites should import it from there
+// implementation now lives in `@/lib/workforce/timezone.ts`. New call sites
+// should import it from there
 // directly rather than from this dashboard-page-scoped module.
 export { todayIsoInTimeZone } from '@/lib/workforce/timezone';
 

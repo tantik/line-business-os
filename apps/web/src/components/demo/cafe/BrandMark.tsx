@@ -5,8 +5,8 @@ interface BrandMarkProps {
 }
 
 /**
- * Small circular wordmark used in the header of all demo screens across both
- * the generic and client-branded (`/mame-to-cha*`) route trees. Text-only
+ * Small circular wordmark used in the header of all public demo screens
+ * (`/demo/cafe*`). Text-only
  * placeholder built from CSS — no logo image asset exists or is used. Reads
  * colors/initial from the active `BrandProvider`.
  */

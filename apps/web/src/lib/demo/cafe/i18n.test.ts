@@ -4,7 +4,6 @@ import { tStaff, staffWeekdayInitials } from './i18n.staff.js';
 import { tManager } from './i18n.manager.js';
 import { tRecipes } from './i18n.recipes.js';
 import { weekdayLabel } from './format.js';
-import { previewWriteMessage, previewWriteMessageJa } from '@/lib/preview/write-result';
 
 const LANGS = ['ja', 'en'] as const;
 
@@ -86,21 +85,5 @@ test('tRecipes returns a non-empty string for every key in both languages', () =
       assert.equal(typeof value, 'string');
       assert.ok(value.length > 0);
     }
-  }
-});
-
-test('previewWriteMessage returns a non-empty, lang-appropriate string for every failure status', () => {
-  const statuses: Parameters<typeof previewWriteMessage>[1][] = [
-    'not_authenticated', 'no_access', 'module_disabled', 'location_blocked', 'no_profile',
-    'invalid_input', 'not_found', 'duplicate', 'unexpected_error',
-  ];
-  for (const status of statuses) {
-    const ja = previewWriteMessage('ja', status);
-    const en = previewWriteMessage('en', status);
-    assert.ok(ja.length > 0, `previewWriteMessage(ja, ${status}) must not be empty`);
-    assert.ok(en.length > 0, `previewWriteMessage(en, ${status}) must not be empty`);
-    assert.notEqual(ja, en, `previewWriteMessage(ja/en, ${status}) should have distinct copy`);
-    // Backward-compat: the JA-only helper still exists for not-yet-wired components.
-    assert.equal(previewWriteMessageJa(status), ja);
   }
 });

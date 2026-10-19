@@ -153,7 +153,7 @@ export default async function WorkforceManagerPage({
           : [];
       // LOC-1 (docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md): fails
       // closed on 0 or more than 1 active location, matching the
-      // `_client-preview/mame-to-cha/manager` reference surface exactly --
+      // earlier preview Manager reference surface exactly --
       // never silently falls back to an arbitrary (possibly inactive)
       // location the way this page previously did.
       const activeTenantLocations = tenantLocations.filter((l) => l.isActive);
@@ -235,7 +235,7 @@ export default async function WorkforceManagerPage({
       // than the one the request's shift falls in), so the shift lookup for
       // the exchange panel reads the same bounded -8..+8 week window the
       // page's own navigator allows, not just the current week -- mirrors
-      // `_client-preview`'s `previewGetShiftExchangeManagerData` window.
+      // the earlier preview surface's shift-exchange manager window.
       const exchangeWindow = getWeekOffsetWindow(new Date().toISOString(), location.timezone, -MAX_WEEK_OFFSET, MAX_WEEK_OFFSET);
       const exchangeFromIso = localDateTimeToUtcIso(exchangeWindow.periodStart, '00:00', location.timezone);
       const exchangeToIsoExclusive = localDateTimeToUtcIso(addIsoDays(exchangeWindow.periodEnd, 1), '00:00', location.timezone);

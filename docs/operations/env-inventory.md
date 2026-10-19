@@ -89,7 +89,8 @@ do **not** resolve:
   - Root `.env.local` and `.env.cloud.local` stay **deferred with the non-cloud
     Mame reconciliation** (their names feed only deferred `mame-to-cha-*` tooling;
     `MAME_TO_CHA_CLOUD_DATABASE_URL` is still read — fallback-only — by
-    `mame-to-cha-showcase.ts`).
+    `mame-to-cha-showcase.ts`). **Superseded 2026-10-19:** the non-cloud
+    pilot tooling (incl. `mame-to-cha-showcase.ts`) was removed; see §9.
   - `apps/web/.env.translation-script.local` cleanup is **deferred** (translation
     generation is not on any active canonical step). Currently configured
     provider category = `google` (name only; no credential value recorded).
@@ -131,14 +132,11 @@ do **not** resolve:
 > running `pnpm --filter @line-os/db …`. **Cloud DEV operator runs use the same generic
 > variable names** with Cloud DEV values (see `docs/supabase-cloud-dev-setup.md`).
 >
-> Repo-root `.env.local` is **deprecated non-cloud Mame To Cha pilot/rehearsal
-> tooling** (`MAME_TO_CHA_LOCAL_*`) — not a generic ORUWA operator env file. Do
-> not add generic variables to it or extend it; it is a deletion candidate
-> pending a generic-fixture/onboarding reconciliation. The Cloud-specific Mame
-> To Cha tooling (`packages/db/scripts/mame-to-cha-cloud-*`) and its
-> `.env.cloud.local` / `MAME_TO_CHA_CLOUD_*` vars were removed Sept 2026.
-> `apps/web/.env.local` is the separate web-app env and never holds a
-> privileged key.
+> Repo-root `.env.local` held only the **removed** pilot/rehearsal tooling's
+> `MAME_TO_CHA_LOCAL_*` variables — not a generic ORUWA operator env file. No
+> code reads those variables since 2026-10-19 (§9); do not add generic
+> variables to it. `apps/web/.env.local` is the separate web-app env and never
+> holds a privileged key.
 
 | Variable | Purpose | Where it should live | Visibility | When |
 | -------- | ------- | -------------------- | ---------- | ---- |
@@ -165,10 +163,8 @@ do **not** resolve:
 > `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are no longer read by any
 > active ORUWA runtime/tooling and were removed from the schemas /
 > `.env.example` / `turbo.json`. Cloud DEV's legacy JWT-based API keys are
-> disabled. (The remaining non-cloud `MAME_TO_CHA_LOCAL_*` deprecated pilot
-> tooling still names its own separate legacy vars — untouched, deferred for
-> deletion. The Cloud-specific `MAME_TO_CHA_CLOUD_*` tooling was removed Sept
-> 2026.)
+> disabled. (The pilot tooling that named its own separate legacy vars was
+> removed: Cloud-specific in Sept 2026, non-cloud on 2026-10-19; see §9.)
 | `SUPABASE_PROJECT_REF` | Supabase project reference id (for CLI / Cloud ops). | Password manager / CI secret | secret-adjacent | future |
 | `SUPABASE_DB_PASSWORD` | Database password (cannot be re-read; reset if lost). | Password manager only | **secret** | future |
 | `SUPABASE_ACCESS_TOKEN` | Personal access token for CLI/CI Cloud operations. | Password manager / CI secret only | **secret** | future |
@@ -352,18 +348,20 @@ committed).
 | `ORUWA_CAFE_MANAGER_EMAIL` | Optional override for the reference-tenant manager sign-in email; defaults to `manager@oruwa-cafe.test` (hardcoded in the scripts above) if unset. | Repo-root `.env` (gitignored) | public-ish (disposable QA account identifier) | now (optional) |
 | `ORUWA_CAFE_STAFF_A_EMAIL` / `ORUWA_CAFE_STAFF_A_PASSWORD` | Disposable Staff QA sign-in credentials for `oruwa-cafe` on Cloud DEV/Preview (currently bound to an existing reference employee identity), used for live Staff Browser QA and cross-role Operations testing. Same PUBLIC DEMO/QA classification and exposure-acceptance as `ORUWA_CAFE_MANAGER_PASSWORD` above. `ORUWA_CAFE_STAFF_A_EMAIL` currently points at the Founder's own real email (temporary, Founder-acknowledged) pending a dedicated public demo address swap — not yet authorized, do not do this proactively. | Repo-root `.env` (gitignored) | **disposable QA secret** (same acceptance as above) | now (Browser QA) |
 | `RECIPE_TRANSLATION_MANAGER_EMAIL` / `RECIPE_TRANSLATION_MANAGER_PASSWORD` | Manager sign-in credentials for the recipe-translation generator script (`apps/web/scripts/generate-recipe-translations.ts`). | Operator shell / password manager | **secret** | now (script) |
-| `RECIPE_TRANSLATION_TENANT_SLUG` | Optional tenant slug for the same script; defaults to `mame-to-cha` (the reference tenant). | Operator shell | public-ish | now (optional) |
+| `RECIPE_TRANSLATION_TENANT_SLUG` | **Required** target tenant slug for the same script (no built-in default tenant). | Operator shell | public-ish | now (script) |
 | `RECIPE_TRANSLATION_CONFIRM` / `RECIPE_TRANSLATION_REPLACE_STALE_REVIEWED` | Optional non-interactive/behaviour flags for the same script. | Operator shell | public | now (optional) |
 
-## 9. Deferred legacy — non-cloud Mame To Cha tooling
+## 9. Removed legacy — Mame To Cha pilot tooling
 
-The remaining non-cloud `mame-to-cha-*` operator scripts still read
-`MAME_TO_CHA_LOCAL_*`, `MAME_TO_CHA_FIXTURE`, `MAME_TO_CHA_WRITE_SQL`, and
-`MAME_TO_CHA_CLEANUP_SQL` (repo-root `.env.local`). These are **deferred
-technical debt**, kept together with the rest of the non-cloud pilot/rehearsal
-tooling pending a generic fixture/onboarding reconciliation. This ENV cleanup
-does **not** touch them. The Cloud-specific `mame-to-cha-cloud-*` tooling and
-its `MAME_TO_CHA_CLOUD_*` vars were removed in Sept 2026 (PR #480).
+The non-cloud `mame-to-cha-*` operator scripts were **removed on 2026-10-19**
+(Founder decision: ORUWA is the only product). Nothing in the repo reads
+`MAME_TO_CHA_LOCAL_*`, `MAME_TO_CHA_FIXTURE`, `MAME_TO_CHA_WRITE_SQL`, or
+`MAME_TO_CHA_CLEANUP_SQL` any more; operators can delete them from their local
+repo-root `.env.local`. The Cloud-specific `mame-to-cha-cloud-*` tooling was
+removed in Sept 2026 (PR #480). One name survives as a default only:
+`scripts/smoke/operations-cloud-dev-module-on-smoke.ps1` reads
+`MAME_TO_CHA_CLOUD_DATABASE_URL` from `.env.cloud.local` unless `-VarName`
+is given.
 
 ## Rules (always)
 

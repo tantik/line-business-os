@@ -151,8 +151,8 @@ const understaffedHeaderMarkerStyle = { ...understaffedMarkerStyle, width: 14, h
  * an explicit `<colgroup>` locks every date column to the same width
  * regardless of content; a full `border` on every cell (not just
  * `borderBottom`) restores a real grid-line look -- easy to trace which row/
- * column a cell belongs to, matching the `_client-preview/mame-to-cha`
- * reference table -- while a small `borderSpacing` on the `<table>` (paired
+ * column a cell belongs to, matching the earlier preview reference
+ * table -- while a small `borderSpacing` on the `<table>` (paired
  * with `borderCollapse: 'separate'`) still keeps a thin gap between cells
  * instead of them sharing one collapsed border.
  */
@@ -301,7 +301,7 @@ function weekDates(periodStart: string): string[] {
  * re-ran this page's entire ~16-item data batch (staff, shift types,
  * requests, attendance, invitations, exchanges, inventory, recipes,
  * settings) even though only the assignments actually change per week. The
- * `_client-preview/mame-to-cha` reference surface already proved the fix:
+ * earlier preview reference surface already proved the fix:
  * preload a bounded assignment window once, then treat week navigation as a
  * pure client-side filter (`activeWeekOffset` state + `window.history.
  * replaceState`, never `router.push`/`router.refresh()`). This page already
@@ -717,7 +717,7 @@ function ManagerDashboardBody({
   }, [staff, requests, shiftRequestsMonthPrefix]);
 
   // Round 3 (2026-08-22): "Estimated labour cost" box below the grid,
-  // matching the `_client-preview/mame-to-cha` reference table exactly --
+  // matching the earlier preview reference table exactly --
   // current-month worked hours (from `attendance`, not the displayed week's
   // scheduled shifts) times each staff member's hourly wage, summed. An
   // operational estimate for the Manager, not a payroll run.

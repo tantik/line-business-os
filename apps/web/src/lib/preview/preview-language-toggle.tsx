@@ -4,20 +4,17 @@ import { demoColors } from '@/lib/demo/cafe/theme';
 import { useLang } from '@/lib/demo/cafe/i18n';
 
 /**
- * Language switch for the DB-backed preview shell.
+ * JA/EN language switch used across the authenticated app screens.
  *
  * Previously this held its own local `useState('ja')`: clicking a button
  * only re-highlighted itself and had zero effect on any surrounding text,
- * because no shared language state existed for it to change and no preview
- * component ever read one. That was the root cause of "switching language
- * does not translate the UI" -- not a per-string bug, an architecture gap
- * (this toggle was never wired to the existing `LangProvider`/`useLang()`
- * mechanism already used by the demo Staff/Recipes screens). Fixed by
- * consuming the same shared `useLang()` context that `apps/_client-preview/
- * mame-to-cha/page.tsx` and `.../manager/page.tsx` now mount a `LangProvider`
- * for -- every component under that provider (this toggle, and any preview
- * component that calls `useLang()`) now shares one persisted `lang` value
- * instead of each button/component guessing its own.
+ * because no shared language state existed for it to change. That was the
+ * root cause of "switching language does not translate the UI" -- not a
+ * per-string bug, an architecture gap (this toggle was never wired to the
+ * existing `LangProvider`/`useLang()` mechanism). Fixed by consuming the
+ * shared `useLang()` context -- every component under a `LangProvider` (this
+ * toggle, and any component that calls `useLang()`) now shares one
+ * persisted `lang` value instead of each button/component guessing its own.
  */
 export function PreviewLanguageToggle({ variant = 'light', fullWidth = false }: { variant?: 'light' | 'dark'; fullWidth?: boolean }) {
   const { lang, setLang } = useLang();

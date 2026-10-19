@@ -9,7 +9,7 @@ import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
  * which previously mixed hardcoded bilingual literals with some
  * English-only strings instead of toggling with the rest of the page.
  * Reuses the existing `LangProvider`/`useLang`/`makeTranslator` mechanism
- * (`@/lib/demo/cafe/i18n`) already powering `_client-preview`'s JA/EN
+ * (`@/lib/demo/cafe/i18n`) already powering the shared JA/EN
  * toggle -- one dictionary, not a new i18n system, and never the Manager
  * dashboard (out of this mission's scope).
  */

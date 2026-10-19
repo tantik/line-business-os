@@ -52,9 +52,8 @@ export const tRecipes = makeTranslator(RECIPES_DICT);
  * categories are a separate entity, `workforce_recipe_categories`, outside
  * `ContentSourceEntityType`) — this is a deliberately small, hand-maintained
  * lookup, same as the original demo categories below. Includes both the
- * original demo set (`ドリンク`/`デザート`/`フード`) and the real Mame To Cha
- * showcase/fixture categories (`packages/db/scripts/mame-to-cha-showcase.ts`,
- * `mame-to-cha-fixture.ts`) so no known category falls through to Japanese in
+ * original demo set (`ドリンク`/`デザート`/`フード`) and the categories used by
+ * earlier pilot fixture/showcase data so no known category falls through to Japanese in
  * English mode. Also covers `recipe-view-model.ts`'s own hardcoded `'未分類'`
  * fallback (shown when a recipe has no category at all), so the "no
  * category" empty state is translated too. Add an entry here whenever a new

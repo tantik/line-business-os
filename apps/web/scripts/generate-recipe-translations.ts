@@ -41,8 +41,8 @@
  *   "reviewed is untouchable except by explicit force" rule.
  * - Never logs recipe/translation text, credentials, or API keys -- only
  *   counts and field references (entity type + field name).
- * - Reusable for any tenant: set RECIPE_TRANSLATION_TENANT_SLUG to override
- *   the default ('mame-to-cha').
+ * - Reusable for any tenant: the target tenant is always named explicitly via
+ *   RECIPE_TRANSLATION_TENANT_SLUG (no built-in default tenant).
  *
  * DRY RUN + CONFIRMATION
  * Before any write, the script loads every recipe's fields once and runs the
@@ -62,12 +62,12 @@
  *       uses (an sb_publishable_* value; required, no legacy anon fallback)
  *   RECIPE_TRANSLATION_MANAGER_EMAIL, RECIPE_TRANSLATION_MANAGER_PASSWORD
  *       -- a real manager account with workforce.recipe.manage for the target tenant
+ *   RECIPE_TRANSLATION_TENANT_SLUG  -- slug of the target tenant
  *   CONTENT_TRANSLATION_PROVIDER=google, GOOGLE_TRANSLATE_API_KEY  -- same vars the app reads
  *       (any other supported provider -- e.g. deepl/openai -- also works; the
  *       script always uses whatever resolveContentTranslationProvider() resolves)
  * OPTIONAL:
- *   RECIPE_TRANSLATION_TENANT_SLUG                        -- defaults to 'mame-to-cha'
- *   RECIPE_TRANSLATION_REPLACE_STALE_REVIEWED=true         -- defaults to false
+ *   RECIPE_TRANSLATION_REPLACE_STALE_REVIEWED=true        -- defaults to false
  *   RECIPE_TRANSLATION_CONFIRM=yes                         -- skips the interactive prompt
  *
  * RUN (from apps/web):
@@ -113,7 +113,6 @@ async function confirm(message: string): Promise<boolean> {
   }
 }
 
-const TENANT_SLUG = process.env.RECIPE_TRANSLATION_TENANT_SLUG?.trim() || 'mame-to-cha';
 const REPLACE_STALE_REVIEWED = process.env.RECIPE_TRANSLATION_REPLACE_STALE_REVIEWED?.trim().toLowerCase() === 'true';
 
 function requireEnv(name: string): string {
@@ -129,6 +128,7 @@ async function main() {
   const { url, key } = requirePublicSupabaseEnv();
   const managerEmail = requireEnv('RECIPE_TRANSLATION_MANAGER_EMAIL');
   const managerPassword = requireEnv('RECIPE_TRANSLATION_MANAGER_PASSWORD');
+  const TENANT_SLUG = requireEnv('RECIPE_TRANSLATION_TENANT_SLUG');
 
   const supabase = createClient(url, key);
 

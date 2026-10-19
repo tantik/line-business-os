@@ -18,11 +18,10 @@ export interface CafeManagerScreenProps {
 }
 
 /**
- * Full manager-screen shell shared by `/demo/cafe/manager` and the DB-backed
- * `_client-preview/mame-to-cha/manager` page: page background, main
+ * Full manager-screen shell for `/demo/cafe/manager`: page background, main
  * container, header, 要確認 alerts block, and section spacing all live here
- * once, so the two routes render as one product and differ only in the data
- * source/actions/states their section children supply.
+ * once, so any route rendering it differs only in the data
+ * source/actions/states its section children supply.
  */
 export function CafeManagerScreen({ subtitle, rightSlot, homeHref, alerts, alertActions, showAlerts = true, children }: CafeManagerScreenProps) {
   return (

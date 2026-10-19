@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPreviewSignInRedirect, buildSignInErrorPath, sanitizePreviewReturnTo } from './return-to.js';
+import { buildSignInErrorPath, sanitizePreviewReturnTo } from './return-to.js';
 
 test('sanitizePreviewReturnTo accepts the preview root path', () => {
   assert.equal(sanitizePreviewReturnTo('/mame-to-cha'), '/mame-to-cha');
@@ -61,10 +61,6 @@ test('sanitizePreviewReturnTo rejects a query string or fragment appended to an 
 test('sanitizePreviewReturnTo rejects a bare tenant-slug-looking path without the leading segment match', () => {
   assert.equal(sanitizePreviewReturnTo('/mame-to-cha-tokyo'), null);
   assert.equal(sanitizePreviewReturnTo('mame-to-cha'), null);
-});
-
-test('buildPreviewSignInRedirect builds a sign-in path carrying an encoded returnTo', () => {
-  assert.equal(buildPreviewSignInRedirect('/mame-to-cha/manager'), '/sign-in?returnTo=%2Fmame-to-cha%2Fmanager');
 });
 
 // ---------------------------------------------------------------------------

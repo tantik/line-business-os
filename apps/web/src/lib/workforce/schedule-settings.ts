@@ -152,8 +152,8 @@ export function isAutoScheduleRunMissed(input: {
 /**
  * `autoCreateDayOfMonth` is optional here (unlike the full `WorkforceScheduleSettings`
  * read type, where the column's `not null default 20` guarantees it's always
- * present) -- the `_client-preview/mame-to-cha` reference surface's own
- * settings action writes `requiredHeadcountByWeekday`/`maxMonthlyHours`
+ * present) -- callers that only edit headcount/hours (e.g. the earlier
+ * preview surface's settings action) write `requiredHeadcountByWeekday`/`maxMonthlyHours`
  * only and has no concept of scheduled automation. Omitting the field from
  * the upsert payload leaves the column untouched on an existing row (or
  * takes its DB default on first insert) rather than forcing every caller to
