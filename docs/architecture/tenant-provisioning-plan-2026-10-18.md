@@ -118,9 +118,23 @@ sends as `payload.template` (validated again in SQL):
 | 4B-4 | Owner first-run wizard (store → shift types → staff invites → modules) + Manager appointment (DEBT-091) | UX review, live QA |
 | 4C | 6-tenant test (standard, other location, minimal modules, two locations, failed/retried, full) + usage measurement (DEBT-097) | Lead report → Founder |
 
-## 8. Open inputs (Founder)
+## 8. Founder decisions (2026-10-19) and open inputs
 
-- Trial length and plan names/prices (business).
+Decided:
+- **Trial:** 30 days, no card at sign-up; after it ends 7 days read-only,
+  then sign-in closed; data kept 90 days after closing.
+- **Plans at launch:** one plan, all Cafe modules, no limits on staff or
+  locations. Customer-facing name: open (after the product line-up below).
+- **Design consequence (Lead):** a plan/package is stored as **a list of
+  modules** (`core.entitlement_plans` + plan → modules), never hardcoded as
+  "Cafe = everything". Splitting the suite into several smaller apps later
+  must be a configuration change, not a migration of tenant data. Part of
+  4B-1.
+
+Open:
+- Product line-up (one suite vs several apps; ingredient-delivery app) —
+  Lead analysis given to the Founder 2026-10-19, decision pending.
+- Prices, yearly discount (Stage 4H billing).
 - Whether ORUWA staff or the client starts provisioning (sales flow): the
   plan assumes ORUWA staff first; self-serve sign-up later behind billing (Stage 4H).
 
