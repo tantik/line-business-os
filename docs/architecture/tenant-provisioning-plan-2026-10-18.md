@@ -30,7 +30,7 @@ ORUWA admin console (platform staff)
 Edge Function `provision-tenant` (service role, server-only)
    1. validate input (shared pure validator, ported from onboard-tenant.ts)
    2. rpc core.provision_tenant(request_id, payload jsonb)   ← ONE transaction
-        tenant → location → core.set_tenant_package(cafe) (0129) → tenant_plan (trial)
+        tenant → location → tenant_plan (trial) → core.set_tenant_package(cafe) (0129; after the plan, so min_plan_code checks see it)
         → entitlement limits → schedule_settings + shift types
         → Operations HACCP templates/items/schedules (manifest)
         → owner invitation row (pending) → provisioning status 'db_done' → audit row

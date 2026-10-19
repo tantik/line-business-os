@@ -190,6 +190,7 @@ declare
   v_disabled text[];
   v_missing text;
 begin
+  perform core.lock_tenant_modules(p_tenant_id);  -- re-entrant; also serialises a direct call
   if not core.is_package_managed(p_tenant_id)
      and exists (select 1 from core.tenant_modules where tenant_id = p_tenant_id and is_enabled) then
     raise exception 'tenant_not_package_managed: adopt the tenant first (core.adopt_tenant_into_package)' using errcode = 'P0001';
@@ -279,14 +280,18 @@ begin
     if v_version is null then
       raise exception 'package_not_available: %', p_package_code using errcode = 'P0002';
     end if;
-    for m in select pm.module from core.package_modules pm where pm.package_code = p_package_code loop
+    for m in select pm.module from core.package_modules pm
+              where pm.package_code = p_package_code
+                and not exists (select 1 from core.tenant_module_overrides o
+                                 where o.tenant_id = p_tenant_id and o.module = pm.module and not o.is_enabled) loop
       perform core.assert_module_enableable(p_tenant_id, m);
     end loop;
-    -- (re)activation records the current package version
+    -- a new or re-activated package records the current version; an already active one keeps its own
     insert into core.tenant_packages (tenant_id, package_code, package_version)
     values (p_tenant_id, p_package_code, v_version)
     on conflict (tenant_id, package_code) do update
-      set status = 'active', removed_at = null, package_version = excluded.package_version,
+      set status = 'active', removed_at = null,
+          package_version = case when core.tenant_packages.status = 'removed' then excluded.package_version else core.tenant_packages.package_version end,
           added_at = case when core.tenant_packages.status = 'removed' then now() else core.tenant_packages.added_at end;
   else
     if v_before is distinct from 'active' then
@@ -373,7 +378,7 @@ begin
   if core.is_package_managed(p_tenant_id) then
     raise exception 'tenant_already_package_managed' using errcode = 'P0001';
   end if;
-  select version into v_version from core.packages where code = p_package_code;
+  select version into v_version from core.packages where code = p_package_code and lifecycle_status in ('beta', 'ga');
   if v_version is null then
     raise exception 'package_not_available: %', p_package_code using errcode = 'P0002';
   end if;
