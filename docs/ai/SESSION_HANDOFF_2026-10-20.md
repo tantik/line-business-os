@@ -33,10 +33,22 @@ removed afterwards (0 overrides, 7 modules on — verified).
    transitions. Acceptance (DEBT-109): actor only from verified JWT; retry with
    the same `request_id`. Next: check the commit, DB/security review, local
    tests, then Cloud DEV apply + `functions deploy` (CTO call), PR.
-3. **QA4** (scenario `docs/ai/QA4_SCENARIO_2026-10-18.md`): section 2 done
-   (findings F1–F3 below); stopped at section 7 before any write.
-   Remaining: 3 (Nov preferences → auto-create → publish), 4, 5 (live days),
-   6, 7, 8, 9, 10, 11, 12 (phone — Founder), 13.
+3. **QA4** (scenario `docs/ai/QA4_SCENARIO_2026-10-18.md`), Lead run on Cloud DEV:
+   - §2 DONE (F1–F3).
+   - §7 DONE: 佐藤 10/16 missing clock-out → request → 承認 → 33.7 h → 37.7 h; 10/15
+     request → 却下; Staff sees both decisions; Manager past-shift edit 07:00–11:00
+     → Staff 予定時間 13.0 → 12.0 h live (reverted to 12:00).
+   - §10 DONE: Staff issue → 報告者 shown → 確認 → 解決 with note → gone from Staff
+     live, in 履歴 with the seed month.
+   - §11 DONE (F6): 佐藤 ↔ Manager threads separate, unread counters right, reply live.
+   - §6 PARTLY: fridge 7 °C → warning + exception live (17 → 18) → resolved with
+     note (18 → 17); freezer −12 °C → no exception (no range, by design);
+     未実施 items visible. NOT DONE: Manager sets freezer max −15 °C in the
+     template (permanent template change — decide), history "who/what".
+   - §9 DONE: allergen block + disclaimer, partial cost "3個中2個"; data oddity 蓋(1kg) (units, DEBT-106).
+   - Remaining: §3 (Nov preferences → auto-create → publish), §4 exchanges/
+     cancel, §5 live clock-in/out (real days), §8 stock counts + purchases,
+     §12 phone (Founder), §13 (cost measurement).
 
 ## 3. QA4 findings so far
 
@@ -47,6 +59,12 @@ removed afterwards (0 overrides, 7 modules on — verified).
   the current month; no way to see September.
 - **F3 (product gap)**: Weekly Review has no attendance / lateness and no
   temperature out-of-range counts (the scenario expects them).
+- **F5 (UX, P3)**: 承認 / 却下 of correction requests and saving a HACCP item take
+  3–5 s before the UI changes — check that a pending state is shown.
+- **F6 (P3)**: a mail reply that arrives while the thread is OPEN stays unread
+  (counter 1) until the thread is opened again.
+- QA automation note (not a user bug): tabs (`role=tab`) and some send buttons
+  ignore `element.click()`; use real clicks (snapshot uid).
 - Not a finding: Attention 15 vs Weekly 17 open checks — stale page; cron-made
   exceptions arrive via the 15-min safety poll, not Realtime (by design #589).
 
