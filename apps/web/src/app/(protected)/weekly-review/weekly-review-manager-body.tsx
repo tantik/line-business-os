@@ -87,10 +87,19 @@ export function WeeklyReviewManagerBody({
   const summary = week?.summary ?? null;
   const isQuietWeek =
     summary !== null &&
-    (summary.operations === null || (summary.operations.criticalMissedCount === 0 && summary.operations.openExceptionsCount === 0)) &&
+    (summary.operations === null ||
+      (summary.operations.criticalMissedCount === 0 &&
+        summary.operations.openExceptionsCount === 0 &&
+        summary.operations.thresholdOutOfRangeCount === 0)) &&
     (summary.issues === null || (summary.issues.unresolvedIssuesCount === 0 && summary.issues.newIssuesCount === 0 && summary.issues.newHandoversCount === 0)) &&
     (summary.purchasing === null || (summary.purchasing.pendingPurchasesCount === 0 && summary.purchasing.shortageItemsCount === 0)) &&
-    (summary.workforce === null || summary.workforce.unresolvedShiftRequestsCount === 0);
+    // QA4 F3: a week with late arrivals, possible no-shows or clock-ins without
+    // a shift is not "quiet" -- it must show the Team numbers, not the empty state.
+    (summary.workforce === null ||
+      (summary.workforce.unresolvedShiftRequestsCount === 0 &&
+        summary.workforce.lateCount === 0 &&
+        summary.workforce.noShowCount === 0 &&
+        summary.workforce.unscheduledClockInsCount === 0));
 
   return (
     <div className="flex flex-col gap-4">
@@ -172,8 +181,10 @@ function SectionCard({
  * with no "…" at narrow (375px) width instead of truncating cleanly. Plain
  * text lets the ancestor's `truncate` work as designed.
  */
-function MetricRow({ label, count, onOpen }: { label: string; count: number; onOpen?: () => void }) {
-  return <ListRow title={label} status={<strong className="text-base font-medium text-text-primary">{count}</strong>} onOpen={onOpen} />;
+function MetricRow({ label, count, value, onOpen }: { label: string; count: number; value?: string; onOpen?: () => void }) {
+  // `value` (optional) is a pre-formatted display string such as 「2回（計 16分）」;
+  // without it the bare count is shown, as before. Zero is always shown, never hidden.
+  return <ListRow title={label} status={<strong className="text-base font-medium text-text-primary">{value ?? count}</strong>} onOpen={onOpen} />;
 }
 
 function TeamSection({
@@ -190,6 +201,22 @@ function TeamSection({
           <MetricRow label={t('labelShiftAssignments')} count={wf.shiftAssignmentsCount} />
           <MetricRow label={t('labelShiftExchanges')} count={wf.shiftExchangesCount} onOpen={onOpenShiftExchanges} />
           <MetricRow label={t('labelUnresolvedShiftRequests')} count={wf.unresolvedShiftRequestsCount} onOpen={onOpenShiftRequests} />
+          <MetricRow
+            label={t('labelAttendance')}
+            count={wf.attendanceCount}
+            value={t('valueTimes').replace('{count}', String(wf.attendanceCount))}
+          />
+          <MetricRow
+            label={t('labelLateArrivals')}
+            count={wf.lateCount}
+            value={t('valueLate').replace('{count}', String(wf.lateCount)).replace('{minutes}', String(wf.lateMinutesTotal))}
+          />
+          <MetricRow label={t('labelNoShows')} count={wf.noShowCount} value={t('valueItems').replace('{count}', String(wf.noShowCount))} />
+          <MetricRow
+            label={t('labelUnscheduledClockIns')}
+            count={wf.unscheduledClockInsCount}
+            value={t('valueItems').replace('{count}', String(wf.unscheduledClockInsCount))}
+          />
         </div>
       ) : null}
     </SectionCard>
@@ -205,6 +232,14 @@ function OperationsSection({ t, summary, onOpenOperations }: SectionProps & Pick
           <MetricRow label={t('labelCompletedChecks')} count={ops.completedCount} />
           <MetricRow label={t('labelCriticalMissed')} count={ops.criticalMissedCount} onOpen={onOpenOperations} />
           <MetricRow label={t('labelOpenExceptions')} count={ops.openExceptionsCount} onOpen={onOpenOperations} />
+          <MetricRow
+            label={t('labelThresholdOutOfRange')}
+            count={ops.thresholdOutOfRangeCount}
+            value={t('valueThreshold')
+              .replace('{count}', String(ops.thresholdOutOfRangeCount))
+              .replace('{open}', String(ops.thresholdOutOfRangeOpenCount))}
+            onOpen={onOpenOperations}
+          />
         </div>
       ) : null}
     </SectionCard>

@@ -14,7 +14,9 @@ const KEYS: Parameters<typeof tWeeklyReview>[1][] = [
   'unavailable', 'notAvailableTitle', 'notAvailableModuleOff',
   'quietWeekTitle', 'quietWeekDescription',
   'sectionTeam', 'labelShiftAssignments', 'labelShiftExchanges', 'labelUnresolvedShiftRequests',
-  'sectionOperations', 'labelCompletedChecks', 'labelCriticalMissed', 'labelOpenExceptions',
+  'labelAttendance', 'labelLateArrivals', 'labelNoShows', 'labelUnscheduledClockIns',
+  'sectionOperations', 'labelCompletedChecks', 'labelCriticalMissed', 'labelOpenExceptions', 'labelThresholdOutOfRange',
+  'valueTimes', 'valueItems', 'valueLate', 'valueThreshold',
   'sectionIssues', 'labelNewIssues', 'labelNewHandovers', 'labelUnresolvedIssues', 'labelUnresolvedImportantIssues',
   'recurringCategoryLine',
   'sectionPurchasing', 'labelShortageItems', 'labelPendingPurchases',
@@ -42,9 +44,28 @@ test('tWeeklyReview ja/en copy differs for every key (no untranslated English le
 });
 
 test('QA3 (2026-10-17): week-scoped labels say "the week shown" / 「この週」, never "this week" / 「今週」 -- the review pages to past weeks', () => {
-  const keys = ['labelShiftAssignments', 'labelShiftExchanges', 'labelCompletedChecks', 'labelCriticalMissed', 'labelNewIssues', 'labelNewHandovers', 'recurringCategoryLine'] as const;
+  const keys = [
+    'labelShiftAssignments', 'labelShiftExchanges', 'labelCompletedChecks', 'labelCriticalMissed', 'labelNewIssues', 'labelNewHandovers', 'recurringCategoryLine',
+    'labelAttendance', 'labelLateArrivals', 'labelNoShows', 'labelUnscheduledClockIns', 'labelThresholdOutOfRange',
+  ] as const;
   for (const key of keys) {
     assert.doesNotMatch(tWeeklyReview('ja', key), /今週/, key);
     assert.doesNotMatch(tWeeklyReview('en', key), /this week/i, key);
+  }
+});
+
+test('QA4 F3: JA attendance / out-of-range copy matches the Founder-approved wording and keeps every placeholder', () => {
+  assert.match(tWeeklyReview('ja', 'labelAttendance'), /出勤/);
+  assert.match(tWeeklyReview('ja', 'labelLateArrivals'), /遅刻/);
+  assert.match(tWeeklyReview('ja', 'labelNoShows'), /無断欠勤の可能性/);
+  assert.match(tWeeklyReview('ja', 'labelUnscheduledClockIns'), /シフト外の出勤/);
+  assert.match(tWeeklyReview('ja', 'labelThresholdOutOfRange'), /温度などの範囲外/);
+  assert.equal(tWeeklyReview('ja', 'valueLate').replace('{count}', '2').replace('{minutes}', '16'), '2回（計 16分）');
+  assert.equal(tWeeklyReview('ja', 'valueThreshold').replace('{count}', '3').replace('{open}', '1'), '3件（未対応 1件）');
+  for (const lang of ['ja', 'en'] as const) {
+    assert.match(tWeeklyReview(lang, 'valueTimes'), /\{count\}/);
+    assert.match(tWeeklyReview(lang, 'valueItems'), /\{count\}/);
+    assert.match(tWeeklyReview(lang, 'valueLate'), /\{count\}[\s\S]*\{minutes\}/);
+    assert.match(tWeeklyReview(lang, 'valueThreshold'), /\{count\}[\s\S]*\{open\}/);
   }
 });

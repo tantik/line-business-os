@@ -46,11 +46,22 @@ interface WeeklyReviewDict {
   labelShiftAssignments: string;
   labelShiftExchanges: string;
   labelUnresolvedShiftRequests: string;
+  labelAttendance: string;
+  labelLateArrivals: string;
+  labelNoShows: string;
+  labelUnscheduledClockIns: string;
 
   sectionOperations: string;
   labelCompletedChecks: string;
   labelCriticalMissed: string;
   labelOpenExceptions: string;
+  labelThresholdOutOfRange: string;
+
+  /** Value templates for the attendance / out-of-range rows (QA4 F3). */
+  valueTimes: string;
+  valueItems: string;
+  valueLate: string;
+  valueThreshold: string;
 
   sectionIssues: string;
   labelNewIssues: string;
@@ -109,17 +120,28 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     notAvailableModuleOff: 'This module is not enabled for this workspace.',
 
     quietWeekTitle: 'A quiet week',
-    quietWeekDescription: 'No critical misses, no unresolved issues, no pending purchases, no unresolved shift requests.',
+    quietWeekDescription:
+      'No critical misses, no out-of-range readings, no late arrivals or possible no-shows, no unresolved issues, no pending purchases, no unresolved shift requests.',
 
     sectionTeam: 'Team',
     labelShiftAssignments: 'Shift assignments in the week shown',
     labelShiftExchanges: 'Shift exchanges/corrections created in the week shown',
     labelUnresolvedShiftRequests: 'Still-unresolved shift requests (any date)',
+    labelAttendance: 'Clock-ins in the week shown',
+    labelLateArrivals: 'Late arrivals in the week shown',
+    labelNoShows: 'Possible no-shows in the week shown',
+    labelUnscheduledClockIns: 'Clock-ins without a shift in the week shown',
 
     sectionOperations: 'Operations',
     labelCompletedChecks: 'Checks completed in the week shown',
     labelCriticalMissed: 'Critical checks missed in the week shown',
     labelOpenExceptions: 'Still-open exceptions (any date)',
+    labelThresholdOutOfRange: 'Out-of-range readings (temperature etc.) in the week shown',
+
+    valueTimes: '{count}',
+    valueItems: '{count}',
+    valueLate: '{count} ({minutes} min total)',
+    valueThreshold: '{count} ({open} still open)',
 
     sectionIssues: 'Issues & Handover',
     labelNewIssues: 'New issues in the week shown',
@@ -176,18 +198,28 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     notAvailableModuleOff: 'このワークスペースではこの機能が有効になっていません。',
 
     quietWeekTitle: '穏やかな一週間でした',
-    quietWeekDescription: '重大な未実施、未解決の問題、保留中の仕入れ、未対応のシフト希望はありませんでした。',
+    quietWeekDescription: '重大な未実施、温度などの範囲外、遅刻・無断欠勤の可能性、未解決の問題、保留中の仕入れ、未対応のシフト希望はありませんでした。',
 
     sectionTeam: 'チーム',
     // QA3 (2026-10-17): 「この週」, not 「今週」 -- the review pages to past weeks.
     labelShiftAssignments: 'この週のシフト件数',
     labelShiftExchanges: 'この週に作成された交代・修正申請',
     labelUnresolvedShiftRequests: '未対応のシフト希望（日付を問わず）',
+    labelAttendance: 'この週の出勤',
+    labelLateArrivals: 'この週の遅刻',
+    labelNoShows: 'この週の無断欠勤の可能性',
+    labelUnscheduledClockIns: 'この週のシフト外の出勤',
 
     sectionOperations: '業務チェック',
     labelCompletedChecks: 'この週に完了したチェック',
     labelCriticalMissed: 'この週に見逃された重要チェック',
     labelOpenExceptions: '現在未解決の対応事項（日付を問わず）',
+    labelThresholdOutOfRange: 'この週の温度などの範囲外',
+
+    valueTimes: '{count}回',
+    valueItems: '{count}件',
+    valueLate: '{count}回（計 {minutes}分）',
+    valueThreshold: '{count}件（未対応 {open}件）',
 
     sectionIssues: '申し送り・問題',
     labelNewIssues: 'この週に報告された問題',

@@ -20,6 +20,16 @@ export interface WeeklyReviewWorkforceSection {
   shiftExchangesCount: number;
   /** Still-pending shift requests as of now -- NOT scoped to this week (may predate it). */
   unresolvedShiftRequestsCount: number;
+  /** Worked days in the week: distinct (employee, work_date) attendance rows with a clock-in (0136). */
+  attendanceCount: number;
+  /** Worked days whose earliest clock-in is >= 1 minute after that day's first published shift start. */
+  lateCount: number;
+  /** Sum of floor((clock-in - shift start) / 1 min) over the late days. */
+  lateMinutesTotal: number;
+  /** Published shifts already ended (as of now) with no clock-in that employee/day -- a POSSIBLE no-show (approved leave not subtracted). */
+  noShowCount: number;
+  /** Worked days with no published shift for that employee that day. */
+  unscheduledClockInsCount: number;
 }
 
 export interface WeeklyReviewOperationsSection {
@@ -27,6 +37,10 @@ export interface WeeklyReviewOperationsSection {
   criticalMissedCount: number;
   /** Still-open exceptions as of now -- NOT scoped to this week (may predate it). */
   openExceptionsCount: number;
+  /** Out-of-range numeric answers (temperature etc., source = 'threshold') created in the week (0136). */
+  thresholdOutOfRangeCount: number;
+  /** The subset of `thresholdOutOfRangeCount` still open now. */
+  thresholdOutOfRangeOpenCount: number;
 }
 
 export interface WeeklyReviewRecurringCategory {
@@ -60,8 +74,54 @@ export interface WeeklyReviewSummary {
   purchasing: WeeklyReviewPurchasingSection | null;
 }
 
-/** Raw JSON shape returned by `api.weekly_review_summary` -- same field names as the TS interfaces above (the RPC already returns camelCase keys), so this is a pass-through type, not a distinct snake_case row. */
-type ApiWeeklyReviewSummary = WeeklyReviewSummary;
+/** Raw JSON shape returned by `api.weekly_review_summary` -- same field names as the TS interfaces above (the RPC already returns camelCase keys), but the 0136 keys may be absent if the app is deployed before the migration is applied. */
+type ApiWeeklyReviewSummary = {
+  weekStart: string;
+  weekEnd: string;
+  workforce: Partial<WeeklyReviewWorkforceSection> | null;
+  operations: Partial<WeeklyReviewOperationsSection> | null;
+  issues: WeeklyReviewIssuesSection | null;
+  purchasing: WeeklyReviewPurchasingSection | null;
+};
+
+const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+
+/**
+ * Normalises the RPC payload: module-off sections stay `null`; numeric
+ * counts missing from an older DB function (pre-0136) read as 0 rather than
+ * `undefined`, so the UI never renders "undefined".
+ */
+export function mapWeeklyReviewSummary(raw: ApiWeeklyReviewSummary): WeeklyReviewSummary {
+  const wf = raw.workforce;
+  const ops = raw.operations;
+  return {
+    weekStart: raw.weekStart,
+    weekEnd: raw.weekEnd,
+    workforce: wf
+      ? {
+          shiftAssignmentsCount: count(wf.shiftAssignmentsCount),
+          shiftExchangesCount: count(wf.shiftExchangesCount),
+          unresolvedShiftRequestsCount: count(wf.unresolvedShiftRequestsCount),
+          attendanceCount: count(wf.attendanceCount),
+          lateCount: count(wf.lateCount),
+          lateMinutesTotal: count(wf.lateMinutesTotal),
+          noShowCount: count(wf.noShowCount),
+          unscheduledClockInsCount: count(wf.unscheduledClockInsCount),
+        }
+      : null,
+    operations: ops
+      ? {
+          completedCount: count(ops.completedCount),
+          criticalMissedCount: count(ops.criticalMissedCount),
+          openExceptionsCount: count(ops.openExceptionsCount),
+          thresholdOutOfRangeCount: count(ops.thresholdOutOfRangeCount),
+          thresholdOutOfRangeOpenCount: count(ops.thresholdOutOfRangeOpenCount),
+        }
+      : null,
+    issues: raw.issues,
+    purchasing: raw.purchasing,
+  };
+}
 
 /**
  * Read the Weekly Review summary for one tenant+location+week. The caller
@@ -88,7 +148,7 @@ export async function getWeeklyReviewSummary(
       p_week_ends_at_exclusive: weekEndsAtExclusive,
     });
     if (error) return mapWeeklyReviewReadError(error, 'read the Weekly Review');
-    return { status: 'success', data: data as ApiWeeklyReviewSummary };
+    return { status: 'success', data: mapWeeklyReviewSummary(data as ApiWeeklyReviewSummary) };
   } catch (err) {
     return {
       status: 'unexpected_error',
