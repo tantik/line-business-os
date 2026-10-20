@@ -1,0 +1,203 @@
+import { makeTranslator } from '@/lib/demo/cafe/i18n';
+import type { ProvisionOutcomeKind } from '@/lib/platform/provision-outcome';
+import type { ProvisioningField, ProvisioningFieldError } from '@/lib/platform/provisioning-form';
+
+/**
+ * JA/EN strings for the ORUWA admin console `/admin/tenants` (Stage 4B-3,
+ * platform staff only). Same `makeTranslator` mechanism as every other
+ * dashboard dictionary. Fixed strings only: a DB / function error is shown
+ * as its machine code (reference), never as free text.
+ */
+const dict = {
+  ja: {
+    pageTitle: 'テナント管理',
+    pageLead: 'ORUWA スタッフ専用。新しいお店（テナント）を作成し、オーナーに招待を送ります。',
+    createButton: '新しいお店を作成',
+    listHeading: 'お店の一覧',
+    listCount: '件',
+    listEmpty: 'まだお店がありません。',
+    listError: '一覧を読み込めませんでした。ページを再読み込みしてください。',
+    colStore: 'お店',
+    colStatus: '作成状況',
+    colOwner: 'オーナー招待',
+    colCreated: '作成日時',
+    colActions: '操作',
+    notProvisioned: '既存（4B以前）',
+    retry: '再試行',
+    retryHint: '同じリクエストIDで、失敗した部分だけをやり直します。',
+
+    statusRequested: '受付',
+    statusDbDone: 'データ作成済み',
+    statusInviteSent: '招待送信済み',
+    statusReady: '完了',
+    statusFailedDb: '作成失敗',
+    statusInviteFailed: '招待失敗',
+
+    ownerPending: '承認待ち',
+    ownerAccepted: '承認済み',
+    ownerRevoked: '取消',
+    ownerExpired: '期限切れ',
+    ownerNone: '—',
+
+    formTitleCreate: '新しいお店を作成',
+    formTitleRetry: '作成を再試行',
+    formBusinessName: '店舗名（会社・ブランド名）',
+    formSlug: 'ID（URL用・半角英小文字、数字、ハイフン）',
+    formSlugHint: '例: cafe-sakura。あとから変更できません。',
+    formLocationName: '最初の店舗の名前',
+    formTimezone: 'タイムゾーン',
+    formOwnerEmail: 'オーナーのメールアドレス',
+    formOwnerEmailHint: '招待メールが届きます。Cloud DEV ではテスト用アドレスのみ使用してください。',
+    formRetryEmailHint: '安全のため、メールアドレスは保存されていません。もう一度入力してください。',
+    formSubmit: '作成して招待を送る',
+    formSubmitRetry: '再試行する',
+    formSubmitting: '作成中…',
+    formCancel: 'キャンセル',
+    formClose: '閉じる',
+    requestIdLabel: 'リクエストID',
+    errorCodeLabel: 'エラーコード',
+
+    errRequired: '入力してください。',
+    errTooLong: '長すぎます。',
+    errSlugFormat: '半角英小文字・数字・ハイフンのみ使用できます（先頭と末尾は英数字）。',
+    errSlugReserved: 'このIDは予約されているため使用できません。',
+    errSlugLength: 'IDは3〜63文字で入力してください。',
+    errEmailInvalid: '正しいメールアドレスを入力してください。',
+    errTimezoneInvalid: 'タイムゾーンが正しくありません。',
+
+    outInvited: 'お店を作成し、オーナーに招待メールを送りました。',
+    outInvitedExisting: 'お店を作成しました。このアドレスはすでにORUWAアカウントがあるため、メールは送られません。オーナーはログイン後、画面上部の案内から承認できます。',
+    outAlreadyDone: 'このリクエストはすでに完了しています。',
+    outInvalidInput: '入力内容を確認してください。',
+    outSlugTaken: 'このIDはすでに使われています。別のIDを入力してください。',
+    outRequestMismatch: 'このリクエストIDは別のIDで使われています。新しく作成し直してください。',
+    outRateLimited: '短時間に作成しすぎました。しばらくしてから再試行してください。',
+    outNotStaff: 'この操作を行う権限がありません。',
+    outFailedDb: 'お店を作成できませんでした（何も作成されていません）。同じ内容で再試行できます。',
+    outInviteFailed: 'お店は作成されましたが、招待の送信に失敗しました。再試行すると招待だけを送り直します。',
+    outInviteBlocked: 'お店は作成されましたが、オーナー招待に問題があります（別のアドレスが招待中、またはオーナー登録済み）。サポート対応が必要です。',
+    outUnavailable: '作成サービスに接続できませんでした。しばらくしてから再試行してください。',
+    outError: '予期しないエラーが発生しました。再試行してください。',
+    outSessionExpired: 'ログインの有効期限が切れました。再度ログインしてください。',
+    outUnauthorized: 'この操作を行う権限がありません。',
+  },
+  en: {
+    pageTitle: 'Tenants',
+    pageLead: 'ORUWA staff only. Create a new business (tenant) and send its owner an invitation.',
+    createButton: 'Create a business',
+    listHeading: 'Businesses',
+    listCount: '',
+    listEmpty: 'No businesses yet.',
+    listError: 'Could not load the list. Reload the page.',
+    colStore: 'Business',
+    colStatus: 'Setup',
+    colOwner: 'Owner invite',
+    colCreated: 'Created',
+    colActions: 'Actions',
+    notProvisioned: 'Existing (before 4B)',
+    retry: 'Retry',
+    retryHint: 'Re-runs only the failed part with the same request ID.',
+
+    statusRequested: 'Requested',
+    statusDbDone: 'Data created',
+    statusInviteSent: 'Invite sent',
+    statusReady: 'Ready',
+    statusFailedDb: 'Setup failed',
+    statusInviteFailed: 'Invite failed',
+
+    ownerPending: 'Pending',
+    ownerAccepted: 'Accepted',
+    ownerRevoked: 'Revoked',
+    ownerExpired: 'Expired',
+    ownerNone: '—',
+
+    formTitleCreate: 'Create a business',
+    formTitleRetry: 'Retry setup',
+    formBusinessName: 'Business name',
+    formSlug: 'ID (for the URL: lowercase letters, digits, hyphens)',
+    formSlugHint: 'e.g. cafe-sakura. Cannot be changed later.',
+    formLocationName: 'First location name',
+    formTimezone: 'Time zone',
+    formOwnerEmail: 'Owner email',
+    formOwnerEmailHint: 'The invitation email goes here. On Cloud DEV use test addresses only.',
+    formRetryEmailHint: 'For safety the address is not stored. Enter it again.',
+    formSubmit: 'Create and send invite',
+    formSubmitRetry: 'Retry',
+    formSubmitting: 'Creating…',
+    formCancel: 'Cancel',
+    formClose: 'Close',
+    requestIdLabel: 'Request ID',
+    errorCodeLabel: 'Error code',
+
+    errRequired: 'Required.',
+    errTooLong: 'Too long.',
+    errSlugFormat: 'Use lowercase letters, digits and hyphens only (start and end with a letter or digit).',
+    errSlugReserved: 'This ID is reserved.',
+    errSlugLength: 'The ID must be 3–63 characters.',
+    errEmailInvalid: 'Enter a valid email address.',
+    errTimezoneInvalid: 'Invalid time zone.',
+
+    outInvited: 'Business created; the owner was sent an invitation email.',
+    outInvitedExisting: 'Business created. This address already has an ORUWA account, so no email is sent: the owner accepts from the banner after signing in.',
+    outAlreadyDone: 'This request has already finished.',
+    outInvalidInput: 'Check the form.',
+    outSlugTaken: 'This ID is already taken. Choose another one.',
+    outRequestMismatch: 'This request ID was used with another ID. Start a new request.',
+    outRateLimited: 'Too many requests in a short time. Retry later.',
+    outNotStaff: 'You do not have permission to do this.',
+    outFailedDb: 'The business could not be created (nothing was created). You can retry with the same data.',
+    outInviteFailed: 'The business was created, but the invite failed. Retry re-sends only the invite.',
+    outInviteBlocked: 'The business was created, but the owner invite needs support (another address is pending, or an owner already joined).',
+    outUnavailable: 'Could not reach the setup service. Retry later.',
+    outError: 'Unexpected error. Retry.',
+    outSessionExpired: 'Your session expired. Sign in again.',
+    outUnauthorized: 'You do not have permission to do this.',
+  },
+};
+
+export type TenantsKey = keyof (typeof dict)['ja'];
+export const tTenants = makeTranslator(dict);
+
+export const FIELD_ERROR_KEY: Record<ProvisioningFieldError, TenantsKey> = {
+  required: 'errRequired',
+  too_long: 'errTooLong',
+  slug_format: 'errSlugFormat',
+  slug_reserved: 'errSlugReserved',
+  slug_length: 'errSlugLength',
+  email_invalid: 'errEmailInvalid',
+  timezone_invalid: 'errTimezoneInvalid',
+};
+
+export const OUTCOME_KEY: Record<ProvisionOutcomeKind, TenantsKey> = {
+  invited: 'outInvited',
+  invited_existing: 'outInvitedExisting',
+  already_done: 'outAlreadyDone',
+  invalid_input: 'outInvalidInput',
+  slug_taken: 'outSlugTaken',
+  request_mismatch: 'outRequestMismatch',
+  rate_limited: 'outRateLimited',
+  not_staff: 'outNotStaff',
+  failed_db: 'outFailedDb',
+  invite_failed: 'outInviteFailed',
+  invite_blocked: 'outInviteBlocked',
+  unavailable: 'outUnavailable',
+  error: 'outError',
+};
+
+export const STATUS_KEY: Record<string, TenantsKey> = {
+  requested: 'statusRequested',
+  db_done: 'statusDbDone',
+  invite_sent: 'statusInviteSent',
+  ready: 'statusReady',
+  failed_db: 'statusFailedDb',
+  invite_failed: 'statusInviteFailed',
+};
+
+export const OWNER_KEY: Record<string, TenantsKey> = {
+  pending: 'ownerPending',
+  accepted: 'ownerAccepted',
+  revoked: 'ownerRevoked',
+  expired: 'ownerExpired',
+};
+
+export const FIELD_ORDER: readonly ProvisioningField[] = ['businessName', 'tenantSlug', 'locationName', 'timezone', 'ownerEmail'];

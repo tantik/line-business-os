@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { requireUser } from '@/lib/auth/require-user';
 import { PendingInvitationBanner } from '@/components/workforce/PendingInvitationBanner';
+import { PendingTenantInvitationBanner } from '@/components/tenant/PendingTenantInvitationBanner';
 import { ToastProvider } from '@/components/shared/design-kit/Toast';
 
 /**
@@ -20,6 +21,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   await requireUser();
   return (
     <ToastProvider>
+      <PendingTenantInvitationBanner />
       <PendingInvitationBanner />
       {children}
     </ToastProvider>

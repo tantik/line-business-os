@@ -145,3 +145,37 @@ test('route.ts references no service_role path', () => {
   assert.ok(!/service_role/i.test(SOURCE));
   assert.ok(!/createServiceClient/.test(SOURCE));
 });
+
+// --- Tenant (Owner) invitation branch (Stage 4B-3, DEBT-110 a) -------------
+const OWNER_FN_START = SOURCE.indexOf('async function tenantInviteCallback');
+const OWNER_FN_REST = SOURCE.slice(OWNER_FN_START);
+const OWNER_FN = OWNER_FN_REST.slice(0, OWNER_FN_REST.search(/\r?\n\}\r?\n/) + 3);
+
+test('owner branch: dispatched only without invitation_id and with flow=tenant_invite', () => {
+  const guardIdx = BODY.indexOf('if (!invitationId)');
+  const flowIdx = BODY.indexOf("url.searchParams.get('flow') === 'tenant_invite'");
+  assert.ok(guardIdx >= 0 && flowIdx > guardIdx);
+});
+
+test('owner branch: allow-listed token_hash type checked before verifyOtp; no code exchange, no raw tokens', () => {
+  assert.ok(OWNER_FN.length > 0, 'expected to find tenantInviteCallback');
+  const typeGuardIdx = OWNER_FN.indexOf('!ALLOWED_TOKEN_HASH_TYPES.has(type)');
+  const verifyIdx = OWNER_FN.indexOf('supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType })');
+  assert.ok(typeGuardIdx >= 0 && verifyIdx > typeGuardIdx);
+  assert.ok(!/exchangeCodeForSession|refresh_token|access_token|setSession\(/.test(OWNER_FN));
+});
+
+test('owner branch: invitations read from the verified session (own JWT), decided, signed out when nothing to accept', () => {
+  const verifyIdx = OWNER_FN.indexOf('supabase.auth.verifyOtp(');
+  const readIdx = OWNER_FN.indexOf('listMyPendingTenantInvitations(supabase)');
+  const signOutIdx = OWNER_FN.indexOf('supabase.auth.signOut()');
+  const invalidIdx = OWNER_FN.indexOf("decision.kind === 'invalid'");
+  assert.ok(verifyIdx >= 0 && readIdx > verifyIdx && invalidIdx > readIdx && signOutIdx > invalidIdx);
+  assert.ok(!OWNER_FN.includes("searchParams.get('invitation_id')"), 'the owner link carries no invitation id to trust');
+});
+
+test('owner branch: never accepts, only routes to password setup', () => {
+  assert.ok(!/accept_tenant_invitation|acceptTenantInvitation\(/.test(OWNER_FN));
+  assert.ok(OWNER_FN.includes("new URL('/auth/accept-invite/set-password', url.origin)"));
+  assert.ok(!OWNER_FN.includes('/dashboard') && !OWNER_FN.includes('/manager'));
+});

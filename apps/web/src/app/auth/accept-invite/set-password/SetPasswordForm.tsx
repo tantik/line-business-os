@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { setPasswordAndAcceptInvitation } from '@/lib/workforce/invitation-actions';
+import { setPasswordAndAcceptTenantInvitation } from '@/lib/tenant/tenant-invitation-actions';
 import { useAuthT } from '@/components/auth/AuthShell';
 import { NewPasswordFields } from '@/components/auth/NewPasswordFields';
 import { validateNewPassword } from '@/lib/auth/password-rules';
@@ -24,7 +25,27 @@ function describeError(result: { status: string }): AuthCopyKey {
   }
 }
 
-export function SetPasswordForm({ invitationId }: { invitationId: string }) {
+/** Owner (tenant invitation) statuses -> fixed copy. */
+function describeOwnerError(status: string): AuthCopyKey {
+  switch (status) {
+    case 'too_short':
+      return 'passwordTooShort';
+    case 'weak_password':
+      return 'passwordWeak';
+    case 'expired':
+      return 'ownerInviteExpired';
+    case 'not_acceptable':
+    case 'none_pending':
+    case 'unauthorized':
+      return 'ownerInviteNotAcceptable';
+    default:
+      return 'genericError';
+  }
+}
+
+type Props = { flow: 'employee'; invitationId: string } | { flow: 'tenant_invite'; invitationId: string | null };
+
+export function SetPasswordForm(props: Props) {
   const t = useAuthT();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -39,9 +60,15 @@ export function SetPasswordForm({ invitationId }: { invitationId: string }) {
       setError(problem);
       return;
     }
-    formData.set('invitationId', invitationId);
+    if (props.invitationId) formData.set('invitationId', props.invitationId);
 
     startTransition(async () => {
+      if (props.flow === 'tenant_invite') {
+        const result = await setPasswordAndAcceptTenantInvitation(formData);
+        if (result.status === 'success') router.push(result.destination);
+        else setError(describeOwnerError(result.status));
+        return;
+      }
       const result = await setPasswordAndAcceptInvitation(formData);
       if (result.status === 'success') {
         router.push('/staff');

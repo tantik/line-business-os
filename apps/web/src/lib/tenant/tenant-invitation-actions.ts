@@ -29,7 +29,6 @@ export type TenantInviteActionResult =
         | 'expired'
         | 'unauthorized'
         | 'too_short'
-        | 'same_password'
         | 'weak_password'
         | 'password_failed'
         | 'error';
@@ -69,8 +68,10 @@ export async function setPasswordAndAcceptTenantInvitation(formData: FormData): 
   if (!userData.user) return { status: 'unauthorized' };
 
   const { error: updateErr } = await supabase.auth.updateUser({ password });
-  if (updateErr) {
-    if (updateErr.code === 'same_password') return { status: 'same_password' };
+  // `same_password` = a second submit after the password was already set but
+  // the accept step failed (transient): carry on to the accept, do not strand
+  // the new Owner on an error they cannot fix.
+  if (updateErr && updateErr.code !== 'same_password') {
     if (updateErr.code === 'weak_password') return { status: 'weak_password' };
     return { status: 'password_failed' };
   }
