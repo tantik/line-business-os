@@ -179,3 +179,7 @@ test('owner branch: never accepts, only routes to password setup', () => {
   assert.ok(OWNER_FN.includes("new URL('/auth/accept-invite/set-password', url.origin)"));
   assert.ok(!OWNER_FN.includes('/dashboard') && !OWNER_FN.includes('/manager'));
 });
+
+test('owner branch accepts only an Invite token (a recovery link must use the reset flow)', () => {
+  assert.ok(OWNER_FN.includes("type !== 'invite'"));
+});

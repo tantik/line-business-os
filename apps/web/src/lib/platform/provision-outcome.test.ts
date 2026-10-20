@@ -61,3 +61,12 @@ test('isRetryableStatus: only failed_db and invite_failed', () => {
   assert.equal(isRetryableStatus('invite_failed'), true);
   for (const s of ['requested', 'db_done', 'invite_sent', 'ready', null]) assert.equal(isRetryableStatus(s), false);
 });
+
+test('environment problems are "unavailable"; a refused template payload is a non-retryable error', () => {
+  assert.equal(mapProvisionResponse(500, { error: 'missing_configuration' }, REQ).kind, 'unavailable');
+  assert.equal(mapProvisionResponse(500, { error: 'permission_check_failed' }, REQ).kind, 'unavailable');
+  const payload = mapProvisionResponse(422, { error: 'invalid_payload' }, REQ);
+  assert.equal(payload.kind, 'error');
+  assert.equal(payload.retryable, false);
+  assert.equal(mapProvisionResponse(400, { error: 'invalid_json_body' }, REQ).kind, 'invalid_input');
+});

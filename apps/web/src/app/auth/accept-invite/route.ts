@@ -91,7 +91,9 @@ async function passwordResetCallback(url: URL): Promise<NextResponse> {
 async function tenantInviteCallback(url: URL): Promise<NextResponse> {
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type');
-  if (!tokenHash || !type || !ALLOWED_TOKEN_HASH_TYPES.has(type)) {
+  // Only the Invite email: a recovery link must go through the reset flow
+  // (its HMAC marker), never through this password step.
+  if (!tokenHash || !type || !ALLOWED_TOKEN_HASH_TYPES.has(type) || type !== 'invite') {
     return errorRedirect(url.origin, 'owner');
   }
   const supabase = await createClient();

@@ -5,7 +5,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
-import { Modal } from '@/components/shared/design-kit';
+import { Dialog } from '@line-os/ui';
 import { submitTenantProvisioning, type SubmitProvisioningResult } from '@/lib/platform/provisioning-actions';
 import { isRetryableStatus, type ProvisionOutcome } from '@/lib/platform/provision-outcome';
 import { DEFAULT_TIMEZONE, validateProvisioningForm, type ProvisioningField, type ProvisioningFieldError } from '@/lib/platform/provisioning-form';
@@ -24,15 +24,21 @@ import {
   tableHeaderCell,
   type BadgeTone,
 } from '@/lib/ui/theme';
-import { FIELD_ERROR_KEY, OUTCOME_KEY, OWNER_KEY, STATUS_KEY, tTenants, type TenantsKey } from './tenants-i18n';
+import { FIELD_ERROR_KEY, FIELD_ORDER, OUTCOME_KEY, OWNER_KEY, STATUS_KEY, tTenants, type TenantsKey } from './tenants-i18n';
 
 /** Time zones offered in the form (the validator accepts any IANA zone; Japan first). */
 const TIMEZONES = ['Asia/Tokyo', 'Asia/Seoul', 'Asia/Taipei', 'Asia/Bangkok', 'UTC'] as const;
 
 type T = (key: TenantsKey) => string;
 
+/** Row cap of `api.platform_tenant_provisioning_list` (0135). */
+const LIST_CAP = 1000;
+
+/** Stored error codes a retry cannot fix (0134 owner invitation conflicts). */
+const OPERATOR_ONLY_CODES: ReadonlySet<string> = new Set(['owner_invitation_conflict', 'owner_already_accepted']);
+
 /** Outcomes after which nothing is reserved under the request_id, so the slug may still be edited. */
-const SLUG_FREE_OUTCOMES: ReadonlySet<ProvisionOutcome['kind']> = new Set(['invalid_input', 'slug_taken', 'request_mismatch', 'not_staff']);
+const SLUG_FREE_OUTCOMES: ReadonlySet<ProvisionOutcome['kind']> = new Set(['invalid_input', 'slug_taken', 'request_mismatch', 'not_staff', 'rate_limited']);
 
 /** A form session: one request_id for its whole life (create, then any retries of it). */
 interface FormSession {
@@ -124,7 +130,10 @@ function ConsoleBody({ rows }: { rows: PlatformTenantRow[] | null }) {
         ) : rows.length === 0 ? (
           <p style={mutedText}>{t('listEmpty')}</p>
         ) : (
-          <TenantsTable rows={rows} t={t} lang={lang} onRetry={openRetry} />
+          <>
+            {rows.length >= LIST_CAP ? <p style={{ ...mutedText, fontSize: 13 }}>{t('listCapped')}</p> : null}
+            <TenantsTable rows={rows} t={t} lang={lang} onRetry={openRetry} />
+          </>
         )}
       </section>
 
@@ -150,7 +159,8 @@ function TenantsTable({ rows, t, lang, onRetry }: { rows: PlatformTenantRow[]; t
           {rows.map((row) => {
             const statusKey = row.status ? STATUS_KEY[row.status] : undefined;
             const ownerKey = row.ownerInvitationStatus ? OWNER_KEY[row.ownerInvitationStatus] : undefined;
-            const retryable = row.requestId !== null && isRetryableStatus(row.status);
+            // An owner-invitation conflict repeats on every retry: support case, no button.
+            const retryable = row.requestId !== null && isRetryableStatus(row.status) && !OPERATOR_ONLY_CODES.has(row.errorCode ?? '');
             return (
               <tr key={row.requestId ?? row.tenantId ?? row.slug}>
                 <td style={tableCell}>
@@ -230,6 +240,8 @@ function ProvisioningDialog({ session, t, onClose }: { session: FormSession; t: 
     const checked = validateProvisioningForm(values);
     if (!checked.ok) {
       setFieldErrors(checked.fieldErrors);
+      const first = FIELD_ORDER.find((field) => checked.fieldErrors[field]);
+      if (first) document.getElementById(`prov-${first}`)?.focus();
       return;
     }
     setFieldErrors({});
@@ -259,7 +271,7 @@ function ProvisioningDialog({ session, t, onClose }: { session: FormSession; t: 
   const resultIsSuccess = finished;
 
   return (
-    <Modal open onClose={onClose} title={t(session.mode === 'retry' ? 'formTitleRetry' : 'formTitleCreate')} width="min(560px, 94vw)" closeLabel={t('formClose')}>
+    <Dialog open onClose={onClose} title={t(session.mode === 'retry' ? 'formTitleRetry' : 'formTitleCreate')} size="form" closeLabel={t('formClose')} dismissible={!isPending}>
       <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {resultMessage ? (
           <div
@@ -309,6 +321,8 @@ function ProvisioningDialog({ session, t, onClose }: { session: FormSession; t: 
             value={values.timezone}
             onChange={(e) => set('timezone', e.target.value)}
             disabled={isPending || finished}
+            aria-invalid={fieldErrors.timezone ? true : undefined}
+            aria-describedby={fieldErrors.timezone ? 'prov-timezone-error' : undefined}
             style={{ ...input, fontSize: 16 }}
           >
             {(TIMEZONES as readonly string[]).includes(values.timezone) ? null : <option value={values.timezone}>{values.timezone}</option>}
@@ -339,12 +353,16 @@ function ProvisioningDialog({ session, t, onClose }: { session: FormSession; t: 
           </p>
         </Field>
 
+        {session.mode === 'retry' && !session.initial.businessName ? (
+          <p style={{ ...mutedText, fontSize: 12.5, margin: 0 }}>{t('formRetryNamesHint')}</p>
+        ) : null}
+
         <p style={{ ...mutedText, fontSize: 12, margin: 0 }}>
           {t('requestIdLabel')}: <code>{requestId}</code>
         </p>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button type="button" style={buttonSecondary} onClick={onClose}>
+          <button type="button" style={isPending ? buttonDisabled : buttonSecondary} onClick={onClose} disabled={isPending}>
             {t(finished ? 'formClose' : 'formCancel')}
           </button>
           {finished ? null : (
@@ -354,7 +372,7 @@ function ProvisioningDialog({ session, t, onClose }: { session: FormSession; t: 
           )}
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 }
 

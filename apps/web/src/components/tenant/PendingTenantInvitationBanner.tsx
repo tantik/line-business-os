@@ -22,7 +22,7 @@ export async function PendingTenantInvitationBanner() {
   return (
     <div
       role="region"
-      aria-label="オーナー招待"
+      aria-label="お店への招待"
       style={{
         background: '#fff8e1',
         borderBottom: '1px solid #f0d98c',
@@ -35,7 +35,9 @@ export async function PendingTenantInvitationBanner() {
     >
       {open.map((invitation) => (
         <div key={invitation.invitationId} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <span>「{invitation.tenantName}」のオーナーとして招待されています。</span>
+          <span>
+            「{invitation.tenantName}」の{invitation.roleKey === 'manager' ? '店長' : 'オーナー'}として招待されています。
+          </span>
           <AcceptTenantInvitationButton invitationId={invitation.invitationId} />
         </div>
       ))}

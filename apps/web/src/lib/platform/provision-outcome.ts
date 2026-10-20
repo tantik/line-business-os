@@ -85,6 +85,7 @@ export function mapProvisionResponse(httpStatus: number | null, body: unknown, r
 
   switch (errorCode) {
     case 'invalid_input':
+    case 'invalid_json_body':
     case 'invalid_body':
     case 'unknown_field':
     case 'invalid_request_id':
@@ -102,12 +103,20 @@ export function mapProvisionResponse(httpStatus: number | null, body: unknown, r
     case 'owner_invitation_conflict':
     case 'owner_already_accepted':
       return { ...base, kind: 'invite_blocked' };
+    // Function configuration / its own permission read: an environment problem, not the request.
+    case 'missing_configuration':
+    case 'permission_check_failed':
+      return { ...base, kind: 'unavailable', retryable: true };
+    // The payload the code template built was refused: the same data fails again.
+    case 'invalid_payload':
+    case 'template_invalid':
+      return { ...base, kind: 'error' };
     default:
       break;
   }
 
   if (status === 'invite_failed' || (tenantId && status === 'db_done')) return { ...base, kind: 'invite_failed', retryable: true };
-  if (status === 'failed_db' || errorCode === 'db_error' || errorCode === 'invalid_payload') {
+  if (status === 'failed_db' || errorCode === 'db_error') {
     return { ...base, kind: 'failed_db', retryable: true };
   }
   if (httpStatus === 401 || httpStatus === 403) return { ...base, kind: 'not_staff' };

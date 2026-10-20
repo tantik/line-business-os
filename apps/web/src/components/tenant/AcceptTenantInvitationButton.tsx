@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { acceptPendingTenantInvitation } from '@/lib/tenant/tenant-invitation-actions';
-import { buttonDisabled, buttonPrimary } from '@/lib/ui/theme';
+import { buttonDisabled, buttonPrimary, colors } from '@/lib/ui/theme';
 
 // Fixed JA copy per status (same convention as AcceptInvitationButton) --
 // never the underlying error text.
@@ -46,7 +46,7 @@ export function AcceptTenantInvitationButton({ invitationId }: { invitationId: s
         {isPending ? '処理中…' : '承認して開始する'}
       </button>
       {error ? (
-        <span role="alert" style={{ color: '#b00020', fontSize: 13 }}>
+        <span role="alert" style={{ color: colors.dangerText, fontSize: 13 }}>
           {error}
         </span>
       ) : null}
