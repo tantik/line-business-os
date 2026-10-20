@@ -372,3 +372,10 @@ is given.
 - Never paste secrets, DB URLs, API keys, passwords, JWTs, or refresh tokens into
   docs, chat tools, or commits.
 - `service_role` and all `secret` variables are **server-only**.
+
+## Edge Function `provision-tenant` (4B-2, not deployed yet)
+
+Needs `SUPABASE_SECRET_KEYS` + `SUPABASE_PUBLISHABLE_KEYS` (like `invite-employee`),
+plus `PII_ENCRYPTION_KEY` and `PII_HASH_PEPPER` (must equal the apps/web values,
+or stored Owner emails cannot be decrypted) and `SITE_URL` (the app URL; its
+`/auth/accept-invite` must be on the Auth redirect allow-list). Deploy gate: DEBT-110(d).

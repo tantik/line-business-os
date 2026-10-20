@@ -80,3 +80,12 @@ verify_jwt = false
 # index.ts and docs/operations/auto-schedule-cloud-runner.md.
 [functions.auto-schedule-monthly]
 verify_jwt = false
+
+# Stage 4B-2: tenant provisioning, called server-to-server with the platform-
+# staff caller's own JWT. verify_jwt = true: the gateway rejects anonymous
+# calls; the function re-derives the actor from that JWT (auth.getUser) and
+# checks api.is_platform_staff() before any service-role call. Local secrets
+# (functions/.env): PII_ENCRYPTION_KEY + PII_HASH_PEPPER must match apps/web,
+# SITE_URL = [auth] site_url. See supabase/functions/provision-tenant/index.ts.
+[functions.provision-tenant]
+verify_jwt = true

@@ -28,39 +28,36 @@ import type { BackupArtifactValidationResult } from './onboard-backup-gate.js';
 // Type-only import: no runtime edge, so this does not create an import cycle
 // with the (pure) preflight aggregator, which depends on this module.
 import type { PreflightInputs, PreflightReport } from './onboard-preflight.js';
+import {
+  LOCATION_NAME_MAX_LENGTH,
+  TENANT_NAME_MAX_LENGTH,
+  VALID_MODULE_CODES,
+  validateOwnerEmail,
+  validateTenantSlug,
+  validateTimezone,
+  type ModuleCode,
+  type ParseResult,
+  type ValidationResult,
+} from './tenant-input-rules.js';
 
-/** Module codes the platform understands (`core.module_code`). */
-export const VALID_MODULE_CODES = [
-  'core',
-  'workforce',
-  'booking',
-  'logistics',
-  'crm',
-  'inventory',
-  'ai',
-  'operations',
-  'issues',
-  'purchases',
-  'recipes',
-] as const;
-
-export type ModuleCode = (typeof VALID_MODULE_CODES)[number];
-
-/**
- * Slugs that must never be claimed by an onboarded client tenant: platform
- * words and the demo / client-template tenants from the seed.
- */
-export const RESERVED_TENANT_SLUGS = [
-  'demo',
-  'admin',
-  'api',
-  'client-template',
-  'oruwa-local',
-  'mirawi-demo-salon',
-] as const;
-
-/** Default location timezone for Japanese SMB clients. */
-export const DEFAULT_TIMEZONE = 'Asia/Tokyo';
+// The pure input rules live in ./tenant-input-rules.ts (runtime-neutral, so the
+// provision-tenant Edge Function can use the same code); re-exported here so
+// every existing importer of this module keeps working unchanged.
+export {
+  DEFAULT_TIMEZONE,
+  EMAIL_MAX_LENGTH,
+  LOCATION_NAME_MAX_LENGTH,
+  RESERVED_TENANT_SLUGS,
+  SLUG_MAX_LENGTH,
+  SLUG_MIN_LENGTH,
+  TENANT_NAME_MAX_LENGTH,
+  VALID_MODULE_CODES,
+  normalizeTenantSlug,
+  validateOwnerEmail,
+  validateTenantSlug,
+  validateTimezone,
+} from './tenant-input-rules.js';
+export type { ModuleCode, ParseResult, ValidationResult } from './tenant-input-rules.js';
 
 /** Onboarding always creates real client tenants. */
 export const TENANT_KIND_CLIENT = 'client';
@@ -68,55 +65,7 @@ export const TENANT_KIND_CLIENT = 'client';
 /** A membership must be active for the tenant to be visible to its owner. */
 export const MEMBERSHIP_STATUS_ACTIVE = 'active';
 
-export const SLUG_MIN_LENGTH = 3;
-export const SLUG_MAX_LENGTH = 63;
-export const TENANT_NAME_MAX_LENGTH = 200;
-export const LOCATION_NAME_MAX_LENGTH = 200;
-/** RFC 5321 maximum total email length. */
-export const EMAIL_MAX_LENGTH = 320;
-
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Single-error validation result. */
-export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
-
-/** Aggregated parse result (collects every field error). */
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
-
-/** Lowercase + trim only. Validation is performed by {@link validateTenantSlug}. */
-export function normalizeTenantSlug(input: string): string {
-  return input.trim().toLowerCase();
-}
-
-/**
- * Validate a tenant slug. Normalizes case/whitespace, enforces the DNS-style
- * pattern and length bounds, and rejects reserved slugs. Returns the normalized
- * slug on success.
- */
-export function validateTenantSlug(input: unknown): ValidationResult<string> {
-  if (typeof input !== 'string') {
-    return { ok: false, error: 'Tenant slug is required.' };
-  }
-  const slug = normalizeTenantSlug(input);
-  if (slug.length < SLUG_MIN_LENGTH || slug.length > SLUG_MAX_LENGTH) {
-    return {
-      ok: false,
-      error: `Tenant slug must be ${SLUG_MIN_LENGTH}-${SLUG_MAX_LENGTH} characters.`,
-    };
-  }
-  if (!SLUG_PATTERN.test(slug)) {
-    return {
-      ok: false,
-      error: 'Tenant slug must be lowercase alphanumeric words separated by single hyphens.',
-    };
-  }
-  if ((RESERVED_TENANT_SLUGS as readonly string[]).includes(slug)) {
-    return { ok: false, error: `Tenant slug "${slug}" is reserved.` };
-  }
-  return { ok: true, value: slug };
-}
 
 /**
  * Validate the owner's auth user id. Strict UUID shape only — this stage never
@@ -134,47 +83,12 @@ export function validateOwnerAuthUserId(input: unknown): ValidationResult<string
 }
 
 /**
- * Validate the owner's email (basic shape only). Email is PII: callers must
- * never log the returned value, and it is never included in a redacted summary.
- */
-export function validateOwnerEmail(input: unknown): ValidationResult<string> {
-  if (typeof input !== 'string') {
-    return { ok: false, error: 'Owner email must be a string.' };
-  }
-  const value = input.trim().toLowerCase();
-  if (value.length === 0 || value.length > EMAIL_MAX_LENGTH || !EMAIL_PATTERN.test(value)) {
-    return { ok: false, error: 'Owner email is not a valid email address.' };
-  }
-  return { ok: true, value };
-}
-
-/**
  * Canonical key for location idempotency: trim, collapse internal whitespace,
  * lowercase. Used to match an existing location by tenant + normalized name; the
  * original (trimmed) display name is preserved separately.
  */
 export function normalizeLocationName(input: string): string {
   return input.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-/**
- * Validate a timezone, defaulting to {@link DEFAULT_TIMEZONE} when omitted.
- * Validity is decided by `Intl.DateTimeFormat` (throws on an unknown zone).
- */
-export function validateTimezone(input?: unknown): ValidationResult<string> {
-  if (input === undefined || input === null || (typeof input === 'string' && input.trim() === '')) {
-    return { ok: true, value: DEFAULT_TIMEZONE };
-  }
-  if (typeof input !== 'string') {
-    return { ok: false, error: 'Timezone must be a string.' };
-  }
-  const tz = input.trim();
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return { ok: true, value: tz };
-  } catch {
-    return { ok: false, error: `Invalid timezone: "${tz}".` };
-  }
 }
 
 /**

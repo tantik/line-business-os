@@ -11,8 +11,16 @@
  * package and timezone against the live catalog).
  *
  * Input rules are the ones of the local onboarding planner
- * (`onboard-tenant.ts`: validateTenantSlug, validateTimezone, name lengths),
+ * (`tenant-input-rules.ts`, re-exported by `onboard-tenant.ts`:
+ * validateTenantSlug, validateTimezone, validateOwnerEmail, name lengths),
  * reused, not copied.
+ *
+ * EDGE COPY: this file, `tenant-input-rules.ts`, `cafe-package-template.ts`
+ * and `cafe-haccp-presets.ts` are copied verbatim into
+ * `supabase/functions/_shared/provisioning/` by
+ * `scripts/sync-edge-provisioning.mjs` (drift guard:
+ * `_shared/provisioning/provisioning-sync.test.ts`). Keep them free of
+ * `node:*` imports and Node globals.
  *
  * PII: the payload never carries an email, phone or personal name. Only
  * whitelisted keys are accepted, here and in SQL. The Owner invitation is a
@@ -28,10 +36,11 @@ import { CAFE_PACKAGE_TEMPLATE, type CafePackageTemplate } from './cafe-package-
 import {
   LOCATION_NAME_MAX_LENGTH,
   TENANT_NAME_MAX_LENGTH,
+  validateOwnerEmail,
   validateTenantSlug,
   validateTimezone,
   type ParseResult,
-} from './onboard-tenant.js';
+} from './tenant-input-rules.js';
 
 /** Payload shape of core.provision_tenant (snake_case = SQL keys). */
 export interface ProvisioningPayload {
@@ -125,6 +134,45 @@ export function parseProvisioningInput(raw: RawProvisioningInput): ParseResult<P
     return { ok: false, errors };
   }
   return { ok: true, value: { businessName, tenantSlug: slug.value, locationName, timezone: timezone.value } };
+}
+
+/** Raw body `input` of the provision-tenant Edge Function (4B-2): tenant fields + the Owner email. */
+export interface RawProvisioningRequestInput extends RawProvisioningInput {
+  ownerEmail?: unknown;
+}
+
+/**
+ * Parsed Edge Function input. The Owner email is PII: it is kept OUT of the
+ * provisioning payload (never sent to core.provision_tenant, never logged) and
+ * only used for the Auth invite + its encrypted / blind-indexed copy.
+ */
+export interface ProvisioningRequestInput {
+  tenant: ProvisioningInput;
+  ownerEmail: string;
+}
+
+const REQUEST_INPUT_KEYS = ['businessName', 'tenantSlug', 'locationName', 'timezone', 'ownerEmail'] as const;
+
+/**
+ * Validate the whole Edge Function `input` object: only the known keys, the
+ * tenant fields ({@link parseProvisioningInput}) and a required Owner email
+ * (`validateOwnerEmail`, normalized to lowercase). Errors never echo the email.
+ */
+export function parseProvisioningRequestInput(raw: unknown): ParseResult<ProvisioningRequestInput> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, errors: ['input must be an object.'] };
+  }
+  const obj = raw as Record<string, unknown>;
+  const errors: string[] = [];
+  for (const key of Object.keys(obj)) {
+    if (!(REQUEST_INPUT_KEYS as readonly string[]).includes(key)) errors.push(`input: unknown key "${key}".`);
+  }
+  const tenant = parseProvisioningInput(obj);
+  if (!tenant.ok) errors.push(...tenant.errors);
+  const email = validateOwnerEmail(obj.ownerEmail);
+  if (!email.ok) errors.push(email.error);
+  if (errors.length > 0 || !tenant.ok || !email.ok) return { ok: false, errors };
+  return { ok: true, value: { tenant: tenant.value, ownerEmail: email.value } };
 }
 
 /**

@@ -5,6 +5,7 @@ import { CAFE_PACKAGE_TEMPLATE } from './cafe-package-template.js';
 import {
   buildProvisioningPayload,
   parseProvisioningInput,
+  parseProvisioningRequestInput,
   validateProvisioningPayload,
   type ProvisioningInput,
 } from './provisioning-payload.js';
@@ -118,6 +119,29 @@ test('validator refuses numeric bounds on a non-numeric HACCP item', () => {
   ops.templates[0]!.items[0]!.numeric_min = 1;
   const result = validateProvisioningPayload(p);
   assert.ok(!result.ok && result.errors.some((e) => e.includes('numeric bounds only on numeric items')));
+});
+
+test('parseProvisioningRequestInput: tenant fields + normalized owner email, email kept out of the payload', () => {
+  const result = parseProvisioningRequestInput({
+    businessName: 'Sample Cafe', tenantSlug: 'Sample-Cafe', locationName: '本店', ownerEmail: '  Owner@Example.COM ',
+  });
+  assert.ok(result.ok);
+  assert.equal(result.value.ownerEmail, 'owner@example.com');
+  assert.deepEqual(result.value.tenant, INPUT);
+  assert.doesNotMatch(JSON.stringify(buildProvisioningPayload(result.value.tenant)), /example\.com/);
+});
+
+test('parseProvisioningRequestInput refuses unknown keys, a missing email and non-objects without echoing the email', () => {
+  const bad = parseProvisioningRequestInput({
+    businessName: 'Sample Cafe', tenantSlug: 'sample-cafe', locationName: '本店', ownerEmail: 'not-an-email@', payload: {},
+  });
+  assert.equal(bad.ok, false);
+  assert.ok(!bad.ok && bad.errors.some((e) => e.includes('unknown key "payload"')));
+  assert.ok(!bad.ok && bad.errors.some((e) => e.includes('Owner email')));
+  assert.ok(!bad.ok && bad.errors.every((e) => !e.includes('not-an-email')));
+  const missing = parseProvisioningRequestInput({ businessName: 'Sample Cafe', tenantSlug: 'sample-cafe', locationName: '本店' });
+  assert.equal(missing.ok, false);
+  for (const v of [null, 'x', [], 1]) assert.equal(parseProvisioningRequestInput(v).ok, false);
 });
 
 test('validator refuses a non-object payload and a bad timezone', () => {
