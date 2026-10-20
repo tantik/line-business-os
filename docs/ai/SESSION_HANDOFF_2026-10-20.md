@@ -46,9 +46,24 @@ removed afterwards (0 overrides, 7 modules on — verified).
      未実施 items visible. NOT DONE: Manager sets freezer max −15 °C in the
      template (permanent template change — decide), history "who/what".
    - §9 DONE: allergen block + disclaimer, partial cost "3個中2個"; data oddity 蓋(1kg) (units, DEBT-106).
-   - Remaining: §3 (Nov preferences → auto-create → publish), §4 exchanges/
-     cancel, §5 live clock-in/out (real days), §8 stock counts + purchases,
-     §12 phone (Founder), §13 (cost measurement).
+   - §3 DONE: 田中 Nov preferences (11/10 休み, 11/12 shift 1) → Manager sees +
+     確認済み → auto-create for week 11/9–11/15 respects 不可, 40 h / 5 d (田中 38 h,
+     佐藤 40 h), detailed result dialog → publish (confirm step) → Staff sees it in
+     ~1 s live. Observation: the old 10/12 November drafts (before 0126 weekly
+     limits) had 7 shifts / ~70 h for one person and a shift on a 不可 day (UI
+     flags it) — re-run each November week before publishing.
+   - §4 DONE (F10): exchange request → Manager "交換相手を指名" shows conflicts
+     (busy / 不可) → 却下 → Staff sees it live; cancel request → 承認 → cell empty
+     for both, 38 → 26 h live. Coworker "accept exchange" step does not exist on
+     /staff (DEBT-057 confirmed live).
+   - §5 PARTLY: clock-in/out without a shift works, break dialog, 交通費 persists;
+     DEBT-101 seen (+¥21, hours unchanged). 日報 form not on /staff (DEBT-057).
+     Lateness ("遅刻") and the monthly-hours limit need real shifts on real days.
+   - §8 DONE (F7–F9): counts in all 5 units → 要補充 (2) → order 8 L → receipt
+     without order ACCEPTED → partial receipt 4/8 L closes the item → history
+     shows seed month + live actions.
+   - Remaining: §5 lateness/limit (real days), §6 template −15 °C, §12 phone
+     (Founder), §13 cost measurement.
 
 ## 3. QA4 findings so far
 
@@ -63,6 +78,16 @@ removed afterwards (0 overrides, 7 modules on — verified).
   3–5 s before the UI changes — check that a pending state is shown.
 - **F6 (P3)**: a mail reply that arrives while the thread is OPEN stays unread
   (counter 1) until the thread is opened again.
+- **F7 (P3, check)**: inventory count inputs first rendered raw floats
+  (`3.799999952316284`, `10.399999618530273`), later 3.8 / 10.4 — check on a fresh load.
+- **F8 (decision)**: 入荷 (receipt) without a prior 発注 is accepted; the scenario
+  expected an error. Keep (supplier delivered without an order) or block?
+- **F9 (product gap)**: a partial receipt (4 of 8 L) that lifts stock above the
+  reorder point removes the item; the 4 L still expected are not shown anywhere.
+- **F10 (copy, P3)**: a CANCEL request shows "シフト交換リクエストを送信しました" (Staff) and
+  "シフト交換を承認しました" (Manager) — wording says "exchange".
+- **F11 (product gap)**: Manager has no "who is working now" view; a clock-in
+  without a scheduled shift is visible nowhere (not even in 要確認).
 - QA automation note (not a user bug): tabs (`role=tab`) and some send buttons
   ignore `element.click()`; use real clicks (snapshot uid).
 - Not a finding: Attention 15 vs Weekly 17 open checks — stale page; cron-made
