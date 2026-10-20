@@ -118,9 +118,7 @@ function WorkforceLandingBody({ tenantName, canAccessManager, recipesEnabled, pr
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 style={{ margin: 0 }}>Workforce</h1>
-          <p style={{ margin: '8px 0 0', ...mutedText }}>
-            Cafe staff scheduling, shift reports, and recipes for {tenantName}.
-          </p>
+          <p style={{ margin: '8px 0 0', ...mutedText }}>{t('pageDescription').replace('{tenantName}', tenantName)}</p>
         </div>
         <PreviewLanguageToggle />
       </header>

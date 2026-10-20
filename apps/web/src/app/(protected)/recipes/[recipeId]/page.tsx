@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
+import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import { createRecipeMediaUrlMap, getWorkforceRecipeDetail, hasRecipeManagerAccess } from '@/lib/workforce/recipes';
 import { listContentTranslationsForEntities } from '@/lib/content/translations';
 import { buildRecipeTranslationWorkspace, flattenRecipeTranslationFields } from '@/lib/content/recipe-translation-workspace';
@@ -59,9 +60,11 @@ export default async function WorkforceRecipeDetailPage({
 
       if (!recipesEnabled) return <ModuleUnavailableState />;
 
-      const [detailResult, canManage] = await Promise.all([
+      const [detailResult, canManage, packageConfig] = await Promise.all([
         getWorkforceRecipeDetail(supabase, activeTenant.tenantId, recipeId),
         hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+        // Package config (task P6): whether the allergen block is shown.
+        loadTenantPackageConfig(supabase, activeTenant.tenantId),
       ]);
 
       if (detailResult.status === 'unauthorized') return <UnauthorizedState />;
@@ -97,6 +100,7 @@ export default async function WorkforceRecipeDetailPage({
           translationFields={translationFields}
           canManage={canManage}
           mediaUrl={mediaUrlMap[recipe.recipeId] ?? null}
+          allergensEnabled={packageConfig.allergens}
           initialEditing={edit === '1'}
         />
       );

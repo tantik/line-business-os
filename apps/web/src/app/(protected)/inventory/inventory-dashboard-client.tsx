@@ -43,6 +43,8 @@ export interface InventoryDashboardClientProps {
   canManage: boolean;
   /** Manager-only decrypted staff-id -> display-name map (see page.tsx). Always empty for a non-manager caller -- staff never see another employee's name here. */
   staffNameById: Record<string, string>;
+  /** Package config `allergens` (task P6), resolved server-side: shows the item form's allergen block. */
+  allergensEnabled: boolean;
   /**
    * True only when rendered inside the Manager dashboard's Inventory popup
    * (WP A5) -- skips this component's own page-level `<header>` (title,
@@ -495,6 +497,7 @@ export function InventoryDashboardBody({
   mediaUrlByItemId,
   canManage,
   staffNameById,
+  allergensEnabled,
   embedded = false,
   initialStatusFilter = 'all',
   boughtItemIds,
@@ -752,6 +755,7 @@ export function InventoryDashboardBody({
         {editing ? (
           <ItemForm
             locationId={locationId}
+            allergensEnabled={allergensEnabled}
             item={editingItem}
             mediaUrl={editingItem ? (mediaUrlByItemId[editingItem.itemId] ?? null) : null}
             lang={lang}

@@ -19,7 +19,6 @@ const KEYS: Parameters<typeof tRecipes>[1][] = [
   'ingredientAllergensNotRecorded', 'ingredientAllergensNoneChecked', 'allergenInfoHeading',
   'allergenRecordedLabel', 'allergenPartiallyUnrecorded', 'allergenNoneOfListed',
   'allergenPartiallyUnrecordedOne', 'allergenNotRecorded',
-  'allergenDisclaimer',
 ];
 
 test('tRecipes returns a non-empty string for every key in both languages', () => {

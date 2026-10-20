@@ -11,6 +11,11 @@
  *   claiming "contains none".
  * - otherwise (new item, or never configured and left untouched) -> write
  *   nothing; NULL stays NULL.
+ * - the form did not send `allergensConfirmed` at all (the allergen block is
+ *   hidden because the tenant's package config has `allergens: false`, task
+ *   P6) -> write nothing, whatever else was sent. Absence never means
+ *   "none" or "revoked": the item's stored codes/confirmation stay as they
+ *   are.
  */
 export type AllergenWriteDecision =
   | { kind: 'skip' }
@@ -18,6 +23,8 @@ export type AllergenWriteDecision =
   | { kind: 'invalid' };
 
 export function decideAllergenWrite(formData: FormData): AllergenWriteDecision {
+  if (!formData.has('allergensConfirmed')) return { kind: 'skip' };
+
   if (formData.get('allergensConfirmed') === 'true') {
     const raw = formData.get('allergenCodesJson');
     if (typeof raw !== 'string' || raw === '') return { kind: 'set', codes: [] };

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
+import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
@@ -66,10 +67,12 @@ export default async function WorkforceRecipesPage() {
         if (managerAccess) redirect('/manager?popup=recipes');
       }
 
-      const [categoriesResult, recipesResult, canManage] = await Promise.all([
+      const [categoriesResult, recipesResult, canManage, packageConfig] = await Promise.all([
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
         listWorkforceRecipes(supabase, activeTenant.tenantId),
         hasRecipeManagerAccess(supabase, activeTenant.tenantId),
+        // Package config (task P6): whether the detail modal shows allergens.
+        loadTenantPackageConfig(supabase, activeTenant.tenantId),
       ]);
 
       const groups =
@@ -115,6 +118,7 @@ export default async function WorkforceRecipesPage() {
           titleFieldByRecipeId={titleFieldByRecipeId}
           mediaUrlByRecipeId={mediaUrlByRecipeId}
           canManage={canManage}
+          allergensEnabled={packageConfig.allergens}
         />
       );
     }

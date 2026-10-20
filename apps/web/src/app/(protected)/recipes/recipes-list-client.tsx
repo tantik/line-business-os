@@ -92,7 +92,13 @@ export interface RecipesListClientProps {
  * `Modal`'s content between list and detail views instead of nesting a
  * second `Modal`, so this state only matters for the standalone page.
  */
-export function RecipesListClient(props: RecipesListClientProps) {
+export function RecipesListClient({
+  allergensEnabled,
+  ...props
+}: RecipesListClientProps & {
+  /** Package config `allergens` (task P6), resolved server-side -- forwarded to the detail modal. */
+  allergensEnabled: boolean;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<{ recipeId: string; startEditing: boolean } | null>(null);
 
@@ -109,6 +115,7 @@ export function RecipesListClient(props: RecipesListClientProps) {
         startEditing={selected?.startEditing ?? false}
         onClose={() => setSelected(null)}
         onChange={() => router.refresh()}
+        allergensEnabled={allergensEnabled}
       />
     </LangProvider>
   );

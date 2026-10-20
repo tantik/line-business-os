@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { OpenAIContentTranslationProvider } from './openai-provider.js';
+import { OpenAIContentTranslationProvider, buildOpenAiSystemPrompt } from './openai-provider.js';
+import { DEFAULT_PACKAGE_CONFIG, resolvePackageConfig } from '../../packages/config.js';
 
 function chatCompletion(translations: string[]) {
   return {
@@ -152,6 +153,66 @@ test('translateBatch maps a missing "choices" key to translation_invalid_respons
   });
   const result = await provider.translateBatch({ texts: ['x'], sourceLang: 'ja', targetLang: 'en' });
   assert.deepEqual(result, { ok: false, error: { code: 'translation_invalid_response' } });
+});
+
+// -- domain hint from the package config (task P6) ---------------------------
+
+/** The system prompt exactly as it was hard-coded before P6 (Cafe = every tenant). */
+const PRE_P6_CAFE_SYSTEM_PROMPT = [
+  'You translate short Japanese food/beverage-recipe text fields into clear, natural English for a cafe staff app.',
+  'Rules:',
+  '- Preserve quantities, units, temperatures, timing, and numbered steps EXACTLY as given -- never convert units or round numbers.',
+  '- Do not add ingredients, steps, or safety warnings that are not in the source text.',
+  '- Do not remove any safety warning present in the source text.',
+  '- Preserve the order and count of the input list exactly -- one output string per input string, in the same order.',
+  '- Return ONLY the JSON object described below -- no markdown, no commentary, no extra keys.',
+  'Respond with a single JSON object of the exact shape: {"translations": string[]}',
+  'where translations.length equals the number of input texts.',
+].join('\n');
+
+function capturingFetch(): { fetchImpl: typeof fetch; systemPrompt: () => string } {
+  let body: string | undefined;
+  const fetchImpl = (async (_url: string, init: RequestInit) => {
+    body = init.body as string;
+    return new Response(JSON.stringify(chatCompletion(['x'])), { status: 200 });
+  }) as unknown as typeof fetch;
+  return {
+    fetchImpl,
+    systemPrompt: () => JSON.parse(body!).messages.find((m: { role: string }) => m.role === 'system').content,
+  };
+}
+
+test('cafe package: the system prompt sent is byte-identical to the pre-P6 prompt', async () => {
+  assert.equal(buildOpenAiSystemPrompt(resolvePackageConfig(['cafe']).translationDomainHint), PRE_P6_CAFE_SYSTEM_PROMPT);
+  // Empty package list (read failure) also resolves to the cafe prompt.
+  assert.equal(buildOpenAiSystemPrompt(resolvePackageConfig([]).translationDomainHint), PRE_P6_CAFE_SYSTEM_PROMPT);
+
+  const capture = capturingFetch();
+  const provider = new OpenAIContentTranslationProvider({ apiKey: 'fake-key', fetchImpl: capture.fetchImpl });
+  await provider.translateBatch({
+    texts: ['x'],
+    sourceLang: 'ja',
+    targetLang: 'en',
+    domainHint: resolvePackageConfig(['cafe']).translationDomainHint,
+  });
+  assert.equal(capture.systemPrompt(), PRE_P6_CAFE_SYSTEM_PROMPT);
+});
+
+test('the domain hint replaces only the first prompt line; no hint -> neutral default', async () => {
+  const capture = capturingFetch();
+  const provider = new OpenAIContentTranslationProvider({ apiKey: 'fake-key', fetchImpl: capture.fetchImpl });
+  await provider.translateBatch({ texts: ['x'], sourceLang: 'ja', targetLang: 'en', domainHint: 'You translate cleaning reports.' });
+  const lines = capture.systemPrompt().split('\n');
+  assert.equal(lines[0], 'You translate cleaning reports.');
+  assert.deepEqual(lines.slice(1), PRE_P6_CAFE_SYSTEM_PROMPT.split('\n').slice(1));
+
+  await provider.translateBatch({ texts: ['x'], sourceLang: 'ja', targetLang: 'en' });
+  assert.equal(capture.systemPrompt().split('\n')[0], DEFAULT_PACKAGE_CONFIG.translationDomainHint);
+});
+
+test('openai-provider.ts carries no cafe/food wording of its own', () => {
+  const source = readFileSync(new URL('./openai-provider.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /cafe|food\/beverage/i);
 });
 
 // -- source scan: no secret/full-content logging -----------------------------

@@ -5,6 +5,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { listTenantLocations } from '@/lib/tenant/locations';
+import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
@@ -100,12 +101,14 @@ export default async function InventoryPage() {
       const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
       if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=inventory');
 
-      const [itemsResult, canManage, purchasesItemsResult] = await Promise.all([
+      const [itemsResult, canManage, purchasesItemsResult, packageConfig] = await Promise.all([
         listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId),
         hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId),
         // "Bought" reminder icon on shortage items -- see
         // `InventoryDashboardClientProps.boughtItemIds`.
         listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId),
+        // Package config (task P6): whether the item form shows allergens.
+        loadTenantPackageConfig(supabase, activeTenant.tenantId),
       ]);
       const boughtItemIds =
         purchasesItemsResult.status === 'success'
@@ -145,6 +148,7 @@ export default async function InventoryPage() {
               mediaUrlByItemId={mediaUrlByItemId}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}
+              allergensEnabled={packageConfig.allergens}
               boughtItemIds={boughtItemIds}
             />
           ) : (

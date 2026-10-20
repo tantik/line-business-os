@@ -4,6 +4,7 @@ import type {
   TranslateBatchInput,
   TranslateBatchResult,
 } from '../translation-provider';
+import { DEFAULT_PACKAGE_CONFIG } from '../../packages/config';
 
 /**
  * OpenAI Chat Completions implementation of `ContentTranslationProvider`.
@@ -28,8 +29,13 @@ const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
-const SYSTEM_PROMPT = [
-  'You translate short Japanese food/beverage-recipe text fields into clear, natural English for a cafe staff app.',
+/**
+ * Rules after the domain hint -- industry-neutral; the first line (what kind
+ * of text, for whom) comes from the tenant's package config
+ * (`translationDomainHint`, `lib/packages/config.ts`, task P6), never from
+ * this shared module.
+ */
+const SYSTEM_PROMPT_RULES = [
   'Rules:',
   '- Preserve quantities, units, temperatures, timing, and numbered steps EXACTLY as given -- never convert units or round numbers.',
   '- Do not add ingredients, steps, or safety warnings that are not in the source text.',
@@ -38,7 +44,12 @@ const SYSTEM_PROMPT = [
   '- Return ONLY the JSON object described below -- no markdown, no commentary, no extra keys.',
   'Respond with a single JSON object of the exact shape: {"translations": string[]}',
   'where translations.length equals the number of input texts.',
-].join('\n');
+];
+
+/** Full system prompt: the domain hint as the first line, then the fixed rules. */
+export function buildOpenAiSystemPrompt(domainHint: string = DEFAULT_PACKAGE_CONFIG.translationDomainHint): string {
+  return [domainHint, ...SYSTEM_PROMPT_RULES].join('\n');
+}
 
 function mapStatusToError(status: number): ContentTranslationProviderError {
   // 401 (bad key) and 429 (rate limit / quota) both surface as a
@@ -112,7 +123,7 @@ export class OpenAIContentTranslationProvider implements ContentTranslationProvi
       response_format: { type: 'json_object' },
       temperature: 0,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: buildOpenAiSystemPrompt(input.domainHint) },
         { role: 'user', content: userPayload },
       ],
     });

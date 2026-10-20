@@ -162,6 +162,8 @@ export interface StaffDashboardClientProps {
   moduleOrder: readonly string[];
   /** The tenant's active package codes in package order (`api.my_tenant_packages`) -- selects the package vocabulary for module names (task P5). */
   packageCodes: readonly string[];
+  /** Package config `allergens` (task P6), resolved server-side from `packageCodes`: allergen UI in the Inventory and Recipes popups. */
+  allergensEnabled: boolean;
   /** Whether the tenant's separate `operations` top-level module (0099/0111) is enabled -- gates only this entry point's visibility, mirroring `manager-dashboard-client.tsx`'s own `operationsEnabled`; the real `/operations` page and its RLS remain the authorization boundary regardless of this flag. */
   operationsEnabled: boolean;
   /** This location's inventory item statuses -- also the exact data the Inventory popup below renders (no separate fetch), same pattern the Manager dashboard's own `InventoryPopup` uses. `null` when the module is disabled or the read failed. */
@@ -252,6 +254,7 @@ function StaffDashboardBody({
   recipesEnabled,
   moduleOrder,
   packageCodes,
+  allergensEnabled,
   operationsEnabled,
   inventoryItems,
   inventoryCanManage,
@@ -711,6 +714,7 @@ function StaffDashboardBody({
         titleFieldByRecipeId={recipeTitleFieldByRecipeId}
         mediaUrlByRecipeId={recipeMediaUrlByRecipeId}
         canManage={recipeCanManage}
+        allergensEnabled={allergensEnabled}
         onChange={() => router.refresh()}
       />
 
@@ -725,6 +729,7 @@ function StaffDashboardBody({
         mediaUrlByItemId={inventoryMediaUrlByItemId}
         staffNameById={inventoryStaffNameById}
         canManage={inventoryCanManage}
+        allergensEnabled={allergensEnabled}
         boughtItemIds={inventoryBoughtItemIds}
       />
 

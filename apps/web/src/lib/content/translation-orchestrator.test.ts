@@ -163,6 +163,15 @@ test('an en-original recipe drives the provider with en->ja direction', async ()
   assert.equal(result.accepted[0]?.translatedText, 'JA:Matcha Latte');
 });
 
+test('domainHint is passed through to the provider unchanged; omitted -> not sent', async () => {
+  const captured: { input: TranslateBatchInput | null } = { input: null };
+  const provider = fakeProvider((input) => { captured.input = input; return { ok: true, translations: input.texts.map((t) => `EN:${t}`) }; });
+  await runContentTranslationBatch([field({})], provider, { domainHint: 'Package hint' });
+  assert.equal(captured.input?.domainHint, 'Package hint');
+  await runContentTranslationBatch([field({})], provider);
+  assert.equal(captured.input !== null && 'domainHint' in captured.input, false);
+});
+
 test('original field objects passed in are never mutated', async () => {
   const original = field({ sourceText: '抹茶ラテ' });
   const snapshot = JSON.parse(JSON.stringify(original));

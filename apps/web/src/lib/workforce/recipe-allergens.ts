@@ -1,21 +1,14 @@
+import { ALLERGEN_CODES } from '../packages/cafe/allergens';
+
 /**
  * Recipe-level allergen summary (Copy Audit A-09 / DEBT-053, Founder
  * decision 2026-10-12).
  *
- * `RECIPE_ALLERGEN_CODES` is the 29-code vocabulary from migration 0124 in
- * canonical display order (9 特定原材料, then 20 特定原材料に準ずるもの;
- * 消費者庁 食品表示基準 revision effective 2026-04-01). Inventory keeps its own copy (`inventory/inventory-i18n.ts`) on purpose --
- * the Workforce/Recipes and Inventory modules do not import from each other.
- * `recipe-allergens.test.ts` asserts both copies equal the array in the
- * migration file.
+ * The default vocabulary is the one 29-code list of the Cafe package
+ * configuration (`lib/packages/cafe/allergens.ts`, task P6), in canonical
+ * display order (9 特定原材料, then 20 特定原材料に準ずるもの).
+ * `recipe-allergens.test.ts` asserts it equals the arrays in migration 0124.
  */
-export const RECIPE_ALLERGEN_CODES = [
-  // 特定原材料 (9)
-  'egg', 'milk', 'wheat', 'buckwheat', 'peanut', 'shrimp', 'crab', 'walnut', 'cashew',
-  // 特定原材料に準ずるもの (20)
-  'almond', 'abalone', 'squid', 'salmon_roe', 'orange', 'kiwi', 'beef', 'sesame', 'salmon', 'mackerel',
-  'soy', 'chicken', 'banana', 'pistachio', 'pork', 'macadamia', 'peach', 'yam', 'apple', 'gelatin',
-] as const;
 
 /** The subset of a recipe ingredient this summary needs (see `WorkforceRecipeIngredient`). */
 export interface AllergenSummaryIngredient {
@@ -43,7 +36,7 @@ export type RecipeAllergenSummary =
  */
 export function summarizeRecipeAllergens(
   ingredients: readonly AllergenSummaryIngredient[],
-  vocabulary: readonly string[] = RECIPE_ALLERGEN_CODES,
+  vocabulary: readonly string[] = ALLERGEN_CODES,
 ): RecipeAllergenSummary {
   const found = new Set<string>();
   let unknownCount = 0;

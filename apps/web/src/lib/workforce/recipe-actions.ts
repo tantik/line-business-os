@@ -33,6 +33,7 @@ import {
 } from '@/lib/content/recipe-translation-workspace';
 import { resolveContentTranslationProvider } from '@/lib/content/translation-provider-factory';
 import { runContentTranslationBatch } from '@/lib/content/translation-orchestrator';
+import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 import { optimizeImageForWeb } from '@/lib/media/optimize-image';
@@ -176,6 +177,8 @@ async function autoTranslateRecipe(supabase: SupabaseClient, tenantId: string, r
     const fields = flattenRecipeTranslationFields(workspace);
     const sourceLang = detailResult.data.recipe.originalLanguage;
     const targetLang = sourceLang === 'ja' ? 'en' : 'ja';
+    // Prompt domain from the tenant's package config (task P6).
+    const { translationDomainHint } = await loadTenantPackageConfig(supabase, tenantId);
     const batchResult = await runContentTranslationBatch(
       fields.map((field) => ({
         sourceEntityType: field.sourceEntityType,
@@ -185,7 +188,7 @@ async function autoTranslateRecipe(supabase: SupabaseClient, tenantId: string, r
         existing: field.existing,
       })),
       provider,
-      { sourceLang, targetLang },
+      { sourceLang, targetLang, domainHint: translationDomainHint },
     );
     for (const accepted of batchResult.accepted) {
       const saveResult = await setMachineContentTranslation(supabase, tenantId, {

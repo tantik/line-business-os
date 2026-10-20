@@ -28,6 +28,13 @@ export interface TranslateBatchInput {
   texts: string[];
   sourceLang: string;
   targetLang: string;
+  /**
+   * Industry context for providers that take a prompt (OpenAI): the tenant's
+   * package config `translationDomainHint` (`lib/packages/config.ts`, task
+   * P6). DeepL/Google ignore it. When omitted, the OpenAI provider uses the
+   * neutral default hint.
+   */
+  domainHint?: string;
 }
 
 export type TranslateBatchResult =

@@ -14,6 +14,8 @@ import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
  * customer-facing copy.
  */
 interface WorkforceLandingDict {
+  /** Header subtitle; `{tenantName}` is replaced with the workspace name. Industry-neutral (task P6). */
+  pageDescription: string;
   myProfileHeading: string;
   position: string;
   employmentType: string;
@@ -36,6 +38,7 @@ interface WorkforceLandingDict {
 
 const dictionary: Record<Lang, WorkforceLandingDict> = {
   ja: {
+    pageDescription: '{tenantName} のシフト・勤務報告・レシピ',
     myProfileHeading: 'マイスタッフプロフィール',
     position: '役職',
     employmentType: '雇用形態',
@@ -56,6 +59,7 @@ const dictionary: Record<Lang, WorkforceLandingDict> = {
     viewRecipes: 'レシピを見る',
   },
   en: {
+    pageDescription: 'Staff scheduling, shift reports and recipes for {tenantName}',
     myProfileHeading: 'My staff profile',
     position: 'Position',
     employmentType: 'Employment type',

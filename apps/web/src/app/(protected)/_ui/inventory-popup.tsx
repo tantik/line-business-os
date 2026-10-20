@@ -21,6 +21,8 @@ export interface InventoryPopupProps {
   staffNameById: Record<string, string>;
   /** Pure UX affordance (RLS is the real boundary regardless): whether to show catalog-management controls and the Deactivated filter tab. Always `true` for Manager; resolved from the real `inventory.item.manage` permission for Staff (almost always `false`). */
   canManage: boolean;
+  /** See `InventoryDashboardClientProps.allergensEnabled` (package config, task P6). */
+  allergensEnabled: boolean;
   /** See `InventoryDashboardClientProps.initialStatusFilter`. Defaults to 'all' when omitted. */
   initialStatusFilter?: 'all' | 'shortage' | 'ok' | 'inactive';
   /** See `InventoryDashboardClientProps.boughtItemIds`. */
@@ -64,6 +66,7 @@ export function InventoryPopup({
   mediaUrlByItemId,
   staffNameById,
   canManage,
+  allergensEnabled,
   initialStatusFilter,
   boughtItemIds,
 }: InventoryPopupProps) {
@@ -93,6 +96,7 @@ export function InventoryPopup({
           mediaUrlByItemId={mediaUrlByItemId}
           canManage={canManage}
           staffNameById={staffNameById}
+          allergensEnabled={allergensEnabled}
           embedded
           initialStatusFilter={initialStatusFilter}
           boughtItemIds={boughtItemIds}

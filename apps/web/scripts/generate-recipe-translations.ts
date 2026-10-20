@@ -92,6 +92,7 @@ import {
 import { listContentTranslationsForEntities, setMachineContentTranslation } from '../src/lib/content/translations';
 import { runContentTranslationBatch, type TranslationCandidateField } from '../src/lib/content/translation-orchestrator';
 import { resolveContentTranslationProvider } from '../src/lib/content/translation-provider-factory';
+import { loadTenantPackageConfig } from '../src/lib/packages/tenant-package-config';
 import type { ContentTranslationProvider, TranslateBatchResult } from '../src/lib/content/translation-provider';
 
 /** Zero-network, zero-cost stand-in provider used only to size the dry run -- never used for the real write pass. */
@@ -196,6 +197,10 @@ async function main() {
   }
   console.log(`Using translation provider: ${provider.providerId}`);
 
+  // Prompt domain from the tenant's package config (task P6) -- same
+  // resolution as the app's auto-translation (`recipe-actions.ts`).
+  const { translationDomainHint } = await loadTenantPackageConfig(supabase, tenantId);
+
   const recipesResult = await listWorkforceRecipes(supabase, tenantId);
   if (recipesResult.status !== 'success') {
     console.error('Could not list recipes:', recipesResult.status);
@@ -276,6 +281,7 @@ async function main() {
   for (const [recipeId, fields] of perRecipeFields.entries()) {
     const batchResult = await runContentTranslationBatch(fields, provider, {
       replaceStaleReviewed: REPLACE_STALE_REVIEWED,
+      domainHint: translationDomainHint,
     });
 
     recipesProcessed += 1;
