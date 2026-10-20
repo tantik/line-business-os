@@ -33,11 +33,11 @@ state, the Founder's decisions and the plan. Lead = CTO (Operating Model §9).
 |---|---|
 | Staff 「メール」 button last | keep |
 | F8 receipt without an order | keep (supplier delivered without an order) |
-| F2 month selector in the staff monthly report | yes if quick — Lead: yes (~0.5 d) |
-| F3 Weekly Review: attendance / lateness / temperature out-of-range | yes if quick — Lead: yes (~1 d, RPC + UI) |
-| F9 partial receipt "still expected" | yes if quick — Lead: yes (~1 d) |
-| F11 "who is working now" for the Manager | yes; Founder wants something short but clear (badge in the grid etc.) — options below |
-| HACCP freezer max −15 °C on `oruwa-cafe` | explained to the Founder; Lead recommends YES (see §4) |
+| F2 month selector in the staff monthly report | **APPROVED** (~0.5 d) |
+| F3 Weekly Review: attendance / lateness / temperature out-of-range | **APPROVED** (~1 d, RPC + UI) |
+| F9 partial receipt "still expected" | **APPROVED** (~1 d) |
+| F11 "who is working now" for the Manager | **APPROVED: option A + C** (§3) |
+| HACCP freezer max −15 °C on `oruwa-cafe` | **APPROVED** — do it (§4) |
 | Allergen list in the item form | Founder confirmed by screenshot: 29 checkboxes visible after 「確認済み」, saving works |
 | Phone Realtime test (QA4 §12) | Founder will do it |
 
