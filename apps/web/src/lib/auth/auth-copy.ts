@@ -54,11 +54,19 @@ const authCopy = {
     inviteNotFound: 'この招待は無効か、すでに使用されています。店長に再送を依頼してください。',
     inviteUnauthorized: 'この招待はご利用いただけません。有効期限が切れている可能性があります。店長に再送を依頼してください。',
 
+    ownerInviteTitle: 'ORUWAへようこそ',
+    ownerInviteLead: 'オーナーとしてお店の利用を開始します。ログインに使うパスワードを設定してください。',
+    ownerInviteExpired: 'この招待は有効期限が切れています。ORUWAサポートに再送を依頼してください。',
+    ownerInviteNotAcceptable: 'この招待はご利用いただけません。すでに使用されているか、取り消されています。ORUWAサポートにお問い合わせください。',
+
     linkInvalidTitle: 'リンクが無効です',
     linkInvalidBody:
       'このリンクは有効期限が切れているか、すでに使用されています。招待メールの場合は店長に再送を依頼してください。パスワード再設定の場合は、もう一度再設定メールを送信してください。',
     linkInvalidInviteBody: 'この招待リンクは有効期限が切れているか、すでに使用されています。店長に招待の再送を依頼してください。',
     linkInvalidResetBody: 'このパスワード再設定リンクは有効期限が切れているか、すでに使用されています。もう一度再設定メールを送信してください。',
+    linkInvalidOwnerBody: 'この招待リンクは有効期限が切れているか、すでに使用されています。すでにパスワードを設定済みの場合は、ログインしてください。まだの場合は、ORUWAサポートに招待の再送を依頼してください。',
+    linkInvalidOwnerExpiredBody: 'このオーナー招待は有効期限が切れています。ORUWAサポートに招待の再送を依頼してください。',
+    linkInvalidOwnerNoneBody: '有効なオーナー招待が見つかりません。すでに登録が完了している場合は、ログインしてください。',
     requestNewLink: '再設定メールを送り直す',
 
     accountTitle: 'アカウント設定',
@@ -142,11 +150,19 @@ const authCopy = {
     inviteNotFound: 'This invitation is invalid or has already been used. Ask your manager to resend it.',
     inviteUnauthorized: 'This invitation cannot be used. It may have expired. Ask your manager to resend it.',
 
+    ownerInviteTitle: 'Welcome to ORUWA',
+    ownerInviteLead: 'You are starting ORUWA for your business as the owner. Set the password you will use to sign in.',
+    ownerInviteExpired: 'This invitation has expired. Ask ORUWA support to resend it.',
+    ownerInviteNotAcceptable: 'This invitation cannot be used. It has already been used or was withdrawn. Contact ORUWA support.',
+
     linkInvalidTitle: 'This link is not valid',
     linkInvalidBody:
       'The link has expired or has already been used. For an invitation, ask your manager to resend it. For a password reset, request a new reset email.',
     linkInvalidInviteBody: 'This invitation link has expired or has already been used. Ask your manager to resend the invitation.',
     linkInvalidResetBody: 'This password reset link has expired or has already been used. Request a new reset email.',
+    linkInvalidOwnerBody: 'This invitation link has expired or has already been used. If you have already set your password, sign in. If not, ask ORUWA support to resend the invitation.',
+    linkInvalidOwnerExpiredBody: 'This owner invitation has expired. Ask ORUWA support to resend it.',
+    linkInvalidOwnerNoneBody: 'No valid owner invitation was found. If you have already finished setting up, sign in.',
     requestNewLink: 'Request a new reset email',
 
     accountTitle: 'Account settings',

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getWorkforceEmployeeInvitationById } from '@/lib/workforce/invitations';
+import { listMyPendingTenantInvitations } from '@/lib/tenant/tenant-invitations';
+import { decideTenantInviteCallback, type OwnerLinkInvalidReason } from '@/lib/tenant/tenant-invite-decision';
 import {
   buildResetMarker,
   LINK_INVALID_PATH,
@@ -35,7 +37,7 @@ const LINK_ERROR_URL = LINK_INVALID_PATH;
 const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite', 'recovery']);
 
 /** `reason` only picks the help text on the invalid-link page; it grants nothing. */
-function errorRedirect(origin: string, reason?: 'invite' | 'reset'): NextResponse {
+function errorRedirect(origin: string, reason?: 'invite' | 'reset' | OwnerLinkInvalidReason): NextResponse {
   const target = new URL(LINK_ERROR_URL, origin);
   if (reason) target.searchParams.set('reason', reason);
   return NextResponse.redirect(target);
@@ -66,6 +68,47 @@ async function passwordResetCallback(url: URL): Promise<NextResponse> {
   const response = NextResponse.redirect(new URL(RESET_PASSWORD_PATH, url.origin));
   response.cookies.set(RESET_MARKER_COOKIE, marker, RESET_MARKER_COOKIE_OPTIONS);
   return response;
+}
+
+/**
+ * Tenant (Owner) invitation email callback (`?flow=tenant_invite`, Stage
+ * 4B-3, DEBT-110 a). The provision-tenant Edge Function invites the Owner
+ * with `redirectTo = <site>/auth/accept-invite?flow=tenant_invite`; the
+ * Invite email template appends `&token_hash=...&type=invite`. Unlike the
+ * employee flow the link carries no invitation id: the invitation is found
+ * from the now-verified session (`api.my_pending_tenant_invitations`, scoped
+ * in SQL to the JWT's own user), so a link can never point at someone else's
+ * invitation.
+ *
+ * Same rules as the employee branch: token verified server-side only,
+ * `token_hash` + allow-listed type only (no PKCE, no raw tokens), then
+ * straight to password setup and nowhere else. Nothing is accepted here --
+ * `api.accept_tenant_invitation` (called from the password step) is the only
+ * authority. When there is nothing to accept, the fresh session is signed
+ * out again. A transient READ error keeps the session (the token is already
+ * used up; see `decideTenantInviteCallback`).
+ */
+async function tenantInviteCallback(url: URL): Promise<NextResponse> {
+  const tokenHash = url.searchParams.get('token_hash');
+  const type = url.searchParams.get('type');
+  // Only the Invite email: a recovery link must go through the reset flow
+  // (its HMAC marker), never through this password step.
+  if (!tokenHash || !type || !ALLOWED_TOKEN_HASH_TYPES.has(type) || type !== 'invite') {
+    return errorRedirect(url.origin, 'owner');
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType });
+  if (error) return errorRedirect(url.origin, 'owner');
+
+  const decision = decideTenantInviteCallback(await listMyPendingTenantInvitations(supabase));
+  if (decision.kind === 'invalid') {
+    await supabase.auth.signOut();
+    return errorRedirect(url.origin, decision.reason);
+  }
+  const setPassword = new URL('/auth/accept-invite/set-password', url.origin);
+  setPassword.searchParams.set('flow', 'tenant_invite');
+  if (decision.invitationId) setPassword.searchParams.set('invitation_id', decision.invitationId);
+  return NextResponse.redirect(setPassword);
 }
 
 /**
@@ -125,6 +168,9 @@ export async function GET(request: Request) {
   if (!invitationId) {
     if (url.searchParams.get('flow') === 'reset') {
       return passwordResetCallback(url);
+    }
+    if (url.searchParams.get('flow') === 'tenant_invite') {
+      return tenantInviteCallback(url);
     }
     return errorRedirect(url.origin);
   }
