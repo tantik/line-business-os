@@ -35,7 +35,7 @@ const LINK_ERROR_URL = LINK_INVALID_PATH;
 const ALLOWED_TOKEN_HASH_TYPES: ReadonlySet<string> = new Set(['invite', 'recovery']);
 
 /** `reason` only picks the help text on the invalid-link page; it grants nothing. */
-function errorRedirect(origin: string, reason?: 'invite' | 'reset'): NextResponse {
+function errorRedirect(origin: string, reason?: 'invite' | 'reset' | OwnerLinkInvalidReason): NextResponse {
   const target = new URL(LINK_ERROR_URL, origin);
   if (reason) target.searchParams.set('reason', reason);
   return NextResponse.redirect(target);
