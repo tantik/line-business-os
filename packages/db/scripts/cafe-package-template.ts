@@ -9,7 +9,7 @@
  *
  * No customer identity, no secrets, no demo data: a clean client tenant.
  */
-import type { ModuleCode } from './onboard-tenant.js';
+import type { ModuleCode } from './tenant-input-rules.js';
 import { CAFE_HACCP_PRESETS_MANIFEST_VERSION } from './cafe-haccp-presets.js';
 
 export const CAFE_PACKAGE_TEMPLATE_VERSION = 3 as const;

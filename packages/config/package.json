@@ -13,7 +13,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/env.test.ts ../../supabase/functions/_shared/supabase-secret-key.test.ts ../../supabase/functions/_shared/supabase-publishable-key.test.ts ../../supabase/functions/invite-employee/index.source.test.ts ../../supabase/functions/_shared/auto-schedule/timezone.test.ts ../../supabase/functions/_shared/auto-schedule/job.test.ts ../../supabase/functions/_shared/workforce-engine/engine-sync.test.ts ../../supabase/functions/auto-schedule-monthly/index.source.test.ts"
+    "test": "node --import tsx --test src/env.test.ts ../../supabase/functions/_shared/supabase-secret-key.test.ts ../../supabase/functions/_shared/supabase-publishable-key.test.ts ../../supabase/functions/invite-employee/index.source.test.ts ../../supabase/functions/_shared/auto-schedule/timezone.test.ts ../../supabase/functions/_shared/auto-schedule/job.test.ts ../../supabase/functions/_shared/workforce-engine/engine-sync.test.ts ../../supabase/functions/auto-schedule-monthly/index.source.test.ts ../../supabase/functions/_shared/pii-protect.test.ts ../../supabase/functions/_shared/provisioning/provisioning-sync.test.ts ../../supabase/functions/_shared/provision-tenant/job.test.ts ../../supabase/functions/provision-tenant/index.source.test.ts"
   },
   "dependencies": {
     "zod": "^3.23.8"

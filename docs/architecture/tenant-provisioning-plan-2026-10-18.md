@@ -93,7 +93,11 @@ sends as `payload.template` (validated again in SQL):
 
 - Invitation gets a `role` (`tenant_owner` | `manager` | `employee`);
   accepting it creates the matching `core.role_assignments` row (location
-  NULL for owner/manager-all, or one location).
+  NULL for owner/manager-all, or one location). **4B-2 (0134):** a separate
+  role-aware `core.tenant_invitations` table (`tenant_owner` | `manager`,
+  location NULL or one location) instead of extending
+  `workforce.employee_invitations`, which binds an employee row; the
+  employee flow is unchanged. Only the Owner path is wired so far.
 - Owner screen to appoint/revoke Managers per location (DEBT-091 a).
 - Fix DEBT-094 in the same rework: revoke pending invitations on
   deactivate; `accept_employee_invitation` rejects an inactive employee.
@@ -112,8 +116,8 @@ sends as `payload.template` (validated again in SQL):
 
 | Step | Content | Gate |
 |---|---|---|
-| 4B-1 | migration: `core.tenant_provisioning`, `core.provision_tenant(...)`, invitation `role`; template v3 + pure validator (ported); pgTAP: atomicity (forced failure rolls back everything), idempotency, slug conflict, non-staff denied | DB/security PASS, Cloud DEV apply |
-| 4B-2 | Edge Function `provision-tenant` (validate → RPC → invite → status), retry path; unit tests | DB/security PASS, deploy to Cloud DEV |
+| 4B-1 | migration: `core.tenant_provisioning`, `core.provision_tenant(...)`, invitation `role`; template v3 + pure validator (ported); pgTAP: atomicity (forced failure rolls back everything), idempotency, slug conflict, non-staff denied | DB/security PASS, Cloud DEV apply. **DONE** (0133, PR #608; the invitation `role` moved to 4B-2) |
+| 4B-2 | Edge Function `provision-tenant` (validate → RPC → invite → status), retry path; unit tests | DB/security PASS, deploy to Cloud DEV. **IN REVIEW** (this PR): migration 0134 `core.tenant_invitations` (role-aware, Owner now / Manager later) + `create_tenant_owner_invitation` / `set_provisioning_status` / `accept_tenant_invitation` / `my_pending_tenant_invitations` / `api.is_platform_staff`; function `supabase/functions/provision-tenant` (actor from the JWT only, same-`request_id` retry re-runs only the invite); validator shared by generated copy (`scripts/sync-edge-provisioning.mjs`); pgTAP 0073; not yet applied / deployed to Cloud DEV |
 | 4B-3 | admin console `/admin/tenants` (platform staff): list, create form, status, retry (JA/EN) | UX + general review, live QA |
 | 4B-4 | Owner first-run wizard (store → shift types → staff invites → modules) + Manager appointment (DEBT-091) | UX review, live QA |
 | 4C | 6-tenant test (standard, other location, minimal modules, two locations, failed/retried, full) + usage measurement (DEBT-097) | Lead report → Founder |
