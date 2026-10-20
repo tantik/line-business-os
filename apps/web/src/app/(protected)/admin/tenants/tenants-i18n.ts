@@ -24,6 +24,8 @@ const dict = {
     colCreated: '作成日時',
     colActions: '操作',
     notProvisioned: '既存のお店',
+    tenantSuspended: '停止中',
+    tenantArchived: 'アーカイブ済み',
     retry: '再試行',
     retryHint: '同じリクエストIDで、失敗した部分だけをやり直します。',
 
@@ -98,6 +100,8 @@ const dict = {
     colCreated: 'Created',
     colActions: 'Actions',
     notProvisioned: 'Existing business',
+    tenantSuspended: 'Suspended',
+    tenantArchived: 'Archived',
     retry: 'Retry',
     retryHint: 'Re-runs only the failed part with the same request ID.',
 

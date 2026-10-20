@@ -9,7 +9,8 @@ import { TenantsConsole } from './tenants-console';
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'テナント管理', robots: { index: false, follow: false } };
+// No static title: a non-staff 404 must not reveal the console in the tab title (the client sets it for staff).
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /**
  * ORUWA admin console (Stage 4B-3): platform staff create and retry tenant

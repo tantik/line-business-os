@@ -53,3 +53,8 @@ test('client keeps one request_id per form session and only renews it on request
   assert.ok(src.includes("formData.set('requestId', requestId)"));
   assert.ok(src.includes('next.outcome.needsNewRequest ? newRequestId() : next.requestId'));
 });
+
+test('page has no static title (a non-staff 404 must not name the console)', () => {
+  const page = read('./page.tsx');
+  assert.ok(!/title:\s*'/.test(page.slice(page.indexOf('export const metadata'))));
+});

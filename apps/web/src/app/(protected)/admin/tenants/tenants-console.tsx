@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
+import { useDocumentTitle } from '@/lib/ui/document-title';
 import { Dialog } from '@line-os/ui';
 import { submitTenantProvisioning, type SubmitProvisioningResult } from '@/lib/platform/provisioning-actions';
 import { isRetryableStatus, type ProvisionOutcome } from '@/lib/platform/provision-outcome';
@@ -84,6 +85,7 @@ function ConsoleBody({ rows }: { rows: PlatformTenantRow[] | null }) {
   const { lang } = useLang();
   const t: T = (key) => tTenants(lang, key);
   const [session, setSession] = useState<FormSession | null>(null);
+  useDocumentTitle(`${t('pageTitle')} | ORUWA`);
 
   function openCreate() {
     setSession({ mode: 'create', requestId: newRequestId(), initial: { timezone: DEFAULT_TIMEZONE, locationName: '本店' } });
@@ -164,7 +166,12 @@ function TenantsTable({ rows, t, lang, onRetry }: { rows: PlatformTenantRow[]; t
             return (
               <tr key={row.requestId ?? row.tenantId ?? row.slug}>
                 <td style={tableCell}>
-                  <div style={{ fontWeight: 600 }}>{row.businessName ?? '—'}</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {row.businessName ?? '—'}
+                    {row.tenantStatus === 'archived' || row.tenantStatus === 'suspended' ? (
+                      <span style={{ ...badgeStyle('inactive'), marginLeft: 8 }}>{t(row.tenantStatus === 'archived' ? 'tenantArchived' : 'tenantSuspended')}</span>
+                    ) : null}
+                  </div>
                   <div style={{ ...mutedText, fontSize: 12.5 }}>
                     {row.slug}
                     {row.locationName ? ` · ${row.locationName}` : ''}
