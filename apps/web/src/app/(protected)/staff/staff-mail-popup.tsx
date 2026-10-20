@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { archiveStaffMessageAction, markStaffMessageReadAction, submitStaffMessage } from '@/lib/workforce/staff-messages-actions';
@@ -69,15 +69,21 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
 
   const visibleMessages = (messages ?? []).filter((m) => !m.deletedAt).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  // Opening the popup marks every unread manager-authored message read.
+  // While the popup is open, every unread manager-authored message is marked
+  // read -- on open and also when a reply arrives live into the open thread
+  // (QA4 F6). `markedReadIds` makes each id be sent once, so the refresh that
+  // follows a mark (or this popup's own send) never loops.
+  const markedReadIds = useRef(new Set<string>());
   useEffect(() => {
     if (!open) {
       setComposeValue('');
       setSendError(null);
+      markedReadIds.current.clear();
       return;
     }
     for (const m of messages ?? []) {
-      if (m.senderRole === 'manager' && !m.isRead && !m.deletedAt) {
+      if (m.senderRole === 'manager' && !m.isRead && !m.deletedAt && !markedReadIds.current.has(m.messageId)) {
+        markedReadIds.current.add(m.messageId);
         const formData = new FormData();
         formData.set('messageId', m.messageId);
         startTransition(async () => {
@@ -86,11 +92,8 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
         });
       }
     }
-    // Only re-run on open/close -- marking read must not loop on every
-    // `messages` prop update (e.g. after this popup's own send/reply).
-    // Deliberately omits `messages`/`onChange` from the dependency array
-    // for that reason.
-  }, [open]);
+    // `onChange` is intentionally not a dependency (a new function each render).
+  }, [open, messages]);
 
   function handleArchive(messageId: string) {
     setPendingAction(`archive-${messageId}`);

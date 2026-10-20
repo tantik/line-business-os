@@ -182,7 +182,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     exchangeHelpTitle: 'About shift change requests',
     exchangeHelpBody:
       'This submits a request -- it does not change your shift by itself. "Offer for exchange" asks a coworker to take it, or your manager can assign a replacement. "Change" asks for a different shift type. "Cancel" asks to remove this shift entirely. Your manager reviews and approves every request before the schedule changes.',
-    exchangeSubmitted: 'Shift exchange request submitted.',
+    exchangeSubmitted: 'Request submitted.',
     inventoryTitle: 'Inventory',
     inventoryDescription: "Daily stock check for this location.",
     inventorySufficient: 'All items sufficient',
@@ -322,7 +322,7 @@ const dictionary: Record<Lang, StaffDashboardDict> = {
     exchangeHelpTitle: 'シフト変更の申請について',
     exchangeHelpBody:
       'この操作は申請です。送信しただけではシフトは変わりません。「交換希望」は同僚に引き受けてもらう、または店長が交換相手を指名します。「変更」は別のシフト種別を希望します。「キャンセル」はこのシフトの取り消しを希望します。いずれもスケジュールが変わるのは、店長が確認して承認した後です。',
-    exchangeSubmitted: 'シフト交換リクエストを送信しました。',
+    exchangeSubmitted: '申請を送信しました。',
     inventoryTitle: '在庫',
     inventoryDescription: 'この店舗の日次在庫確認。',
     inventorySufficient: '在庫はすべて十分です',
