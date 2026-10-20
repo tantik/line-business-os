@@ -1,25 +1,23 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Noto_Sans_JP } from 'next/font/google';
 import { colors } from '@/lib/ui/theme';
 import { fontFamily } from '@line-os/tokens';
+import '@fontsource-variable/noto-sans-jp/wght.css';
 import './globals.css';
 
 /**
- * Design System v1 fix (technical audit finding M): `fontFamily.base` named
- * "Noto Sans JP" but nothing actually loaded it — no `next/font`, no
- * `@font-face`, no `<link>`. Most devices silently fell back to `system-ui`.
- * `next/font/google` self-hosts the font (no runtime request to Google,
- * no layout shift) and exposes it as a CSS variable, kept first in the
- * fallback stack below so `fontFamily.base`'s existing fallback chain still
- * applies if the font somehow fails to load.
+ * Noto Sans JP, self-hosted from the `@fontsource-variable/noto-sans-jp`
+ * package (OFL-1.1): one variable font (weights 100-900) split into the same
+ * `unicode-range` woff2 chunks Google Fonts serves, emitted into
+ * `/_next/static/media` at build time. The browser downloads only the chunks
+ * a page's characters need; no request to Google at build time or at runtime.
+ *
+ * Replaces `next/font/google`, whose build-time fetch from Google Fonts
+ * failed `next build` on CI and locally (`Failed to fetch Noto Sans JP`,
+ * `Cannot read properties of null (reading '1')`). The family is exposed as
+ * `--font-noto-sans-jp` (globals.css) and kept first in the fallback stack
+ * below, so `fontFamily.base`'s fallback chain still applies.
  */
-const notoSansJP = Noto_Sans_JP({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-noto-sans-jp',
-});
 
 export const metadata: Metadata = {
   title: { default: 'ORUWA', template: '%s | ORUWA' },
@@ -36,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ja" className={notoSansJP.variable}>
+    <html lang="ja">
       <body
         style={{
           fontFamily: `var(--font-noto-sans-jp), ${fontFamily.base}`,

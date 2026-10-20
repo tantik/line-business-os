@@ -160,6 +160,8 @@ a:focus-visible,
  * responds to this media query correctly.
  */
 :root {
+  /* Self-hosted Noto Sans JP (@fontsource-variable/noto-sans-jp, imported in app/layout.tsx). */
+  --font-noto-sans-jp: 'Noto Sans JP Variable';
   --page-padding: 32px;
   /* Needs Attention chip row (attention-panel.tsx): a flex row, not a fixed
      grid -- Founder direction, 2026-08-22 (two rounds: first "4 chips +
