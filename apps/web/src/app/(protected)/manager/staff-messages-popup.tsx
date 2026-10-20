@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { Lang } from '@/lib/demo/cafe/i18n';
@@ -142,18 +142,27 @@ export function StaffMessagesPopup({
     ? allMessages.filter((m) => m.employeeId === selectedEmployeeId && !m.deletedAt).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     : [];
 
-  // Opening a thread marks every unread staff-authored message in it read --
-  // mirrors CorrectionRequestsPopup's "open = act on it" model.
+  // An open thread marks every unread staff-authored message in it read --
+  // on open and when a message arrives live into it (QA4 F6); mirrors
+  // CorrectionRequestsPopup's "open = act on it" model. `markedReadIds` sends
+  // each id once, so the refresh after a mark or a reply never loops.
+  const markedReadIds = useRef(new Set<string>());
   useEffect(() => {
     if (!selectedEmployeeId) return;
     for (const m of allMessages) {
-      if (m.employeeId === selectedEmployeeId && m.senderRole === 'staff' && !m.isRead && !m.deletedAt) onMarkRead(m.messageId);
+      if (
+        m.employeeId === selectedEmployeeId &&
+        m.senderRole === 'staff' &&
+        !m.isRead &&
+        !m.deletedAt &&
+        !markedReadIds.current.has(m.messageId)
+      ) {
+        markedReadIds.current.add(m.messageId);
+        onMarkRead(m.messageId);
+      }
     }
-    // Only re-run when the selected thread changes -- marking read must not
-    // loop on every `allMessages` prop update (e.g. after a reply's own
-    // `router.refresh()`). Deliberately omits `allMessages`/`onMarkRead`
-    // from the dependency array for that reason.
-  }, [selectedEmployeeId]);
+    // `onMarkRead` is intentionally not a dependency (a new function each render).
+  }, [selectedEmployeeId, allMessages]);
 
   function openThread(employeeId: string) {
     setSelectedEmployeeId(employeeId);
