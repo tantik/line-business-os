@@ -390,16 +390,18 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
       (a) => a.workDate >= slice.sliceStart && a.workDate <= slice.sliceEnd,
     );
 
-    // Calendar-month hour cap: sum each employee's PUBLISHED (confirmed/
-    // manual, or already-past) hours elsewhere in THIS SLICE's own calendar
-    // month -- i.e. every existing assignment in that month OUTSIDE this
-    // slice -- and seed the engine's running hour total with it, so
-    // `maxMonthlyHours` is enforced against that whole month, never just
-    // this slice.
+    // Calendar-month hour cap: sum each employee's hours elsewhere in THIS
+    // SLICE's own calendar month -- every existing assignment in that month
+    // OUTSIDE this slice, published OR draft -- and seed the engine's running
+    // hour total with it, so `maxMonthlyHours` is enforced against that whole
+    // month, never just this slice. Out-of-slice drafts count because this
+    // run never clears them (the clear is limited to the period), so they
+    // still stand once the month is published -- the same rule the weekly
+    // limits use below. Live QA4 2026-10-21: counting only published rows let
+    // a single-week re-run push November to 173 h against a 160 h cap.
     const extraHoursByEmployee: Record<string, number> = {};
     for (const assignment of existingAssignmentsThisSliceMonth) {
       if (assignment.workDate >= slice.sliceStart && assignment.workDate <= slice.sliceEnd) continue; // in-slice, handled by the engine itself
-      if (!assignment.published) continue; // unconfirmed drafts never count toward the cap
       const hours = computeDurationHours(assignment.startsAtLocal, assignment.endsAtLocal, assignment.breakMinutes);
       extraHoursByEmployee[assignment.employeeId] = (extraHoursByEmployee[assignment.employeeId] ?? 0) + hours;
     }
