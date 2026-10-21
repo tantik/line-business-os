@@ -189,7 +189,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     cancelRestButton: '残りを取り消す',
     cancelRestPendingButton: '取り消し中…',
     cancelRestConfirmTitle: '残りを取り消しますか？',
-    keepWaitingButton: 'やめる',
+    keepWaitingButton: '戻る',
     noOpenOrderError: 'この発注はすでに全量入荷済みか、取り消されています。',
   },
 };

@@ -14,12 +14,12 @@ test('formatAwaitingLabel keeps fractional quantities as-is', () => {
 
 test('formatCancelRestBody states the effect and that stock does not change (JA/EN)', () => {
   assert.equal(formatCancelRestBody('ja', 4, 'L'), '残り4 Lは入荷待ちから外れます。在庫は変わりません。');
-  assert.equal(formatCancelRestBody('en', 4, 'L'), 'The remaining 4 L will no longer be awaited. Stock will not change.');
+  assert.equal(formatCancelRestBody('en', 4, 'L'), 'The remaining 4 L will be removed from Awaiting delivery. Stock will not change.');
 });
 
-test('"Cancel the rest" uses the Radix Menu (clickable inside the Purchases Radix Dialog), never the body-portaled ActionsMenu', () => {
+test('"Cancel the rest" uses the Radix Menu + DS ConfirmDialog (work inside the Purchases Radix Dialog), never the design-kit ones', () => {
   const menu = readFileSync(new URL('./cancel-rest-menu.tsx', import.meta.url), 'utf8');
-  assert.match(menu, /import \{ Menu \} from '@line-os\/ui'/);
+  assert.match(menu, /import \{ ConfirmDialog, Menu \} from '@line-os\/ui'/);
   assert.doesNotMatch(menu, /<ActionsMenu/);
-  assert.match(menu, /import \{ ConfirmDialog \} from '@\/components\/shared\/design-kit'/);
+  assert.doesNotMatch(menu, /design-kit'/);
 });

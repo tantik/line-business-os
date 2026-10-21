@@ -583,15 +583,17 @@ export function PurchasesDashboardBody({
                     : value === 'received'
                       ? t('filterReceived')
                       : t('filterHistory');
+          // "All" and "Ordered" also list the 「入荷待ち」 section, so their
+          // counts include it (a chip count must match what the view shows).
           const count =
             value === 'all'
-              ? items.length
+              ? items.length + awaitingOnly.length
               : value === 'pending'
                 ? pendingCount
                 : value === 'bought'
                   ? boughtCount
                   : value === 'ordered'
-                    ? orderedCount
+                    ? orderedCount + awaitingOnly.length
                     : value === 'received'
                       ? receivedCount
                       : (history?.length ?? 0);
@@ -623,9 +625,11 @@ export function PurchasesDashboardBody({
           <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
         </section>
       ) : visibleItems.length === 0 ? (
-        <section style={{ ...card, marginTop: 12 }}>
-          <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
-        </section>
+        showAwaitingSection ? null : (
+          <section style={{ ...card, marginTop: 12 }}>
+            <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
+          </section>
+        )
       ) : (
         <>
           <div className={responsiveTable.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>

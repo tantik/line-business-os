@@ -21,5 +21,5 @@ export function formatAwaitingLabel(lang: Lang, openQuantity: number, orderedQua
 export function formatCancelRestBody(lang: Lang, openQuantity: number, unit: string): string {
   return lang === 'ja'
     ? `残り${quantity(openQuantity, unit)}は入荷待ちから外れます。在庫は変わりません。`
-    : `The remaining ${quantity(openQuantity, unit)} will no longer be awaited. Stock will not change.`;
+    : `The remaining ${quantity(openQuantity, unit)} will be removed from Awaiting delivery. Stock will not change.`;
 }
