@@ -19,7 +19,8 @@
 --      category (>=2 same category in the week), inventory shortage +
 --      pending purchase -- all present and correctly counted together
 --   F  Quiet week: a location with zero activity in the window returns all
---      zero counts (real zero, not "not available")
+--      zero counts (real zero, not "not available"); since 0136 that
+--      includes the attendance + threshold keys
 --   G  Missing/not-available: a tenant with `issues` OFF returns
 --      issues = null (not 0) while the other enabled domains still compute
 -- ============================================================================
@@ -297,8 +298,10 @@ select is(
          '2026-01-05'::date, '2026-01-11'::date, '2026-01-05 00:00:00+00'::timestamptz, '2026-01-12 00:00:00+00'::timestamptz) $$),
   '{
      "weekStart": "2026-01-05", "weekEnd": "2026-01-11",
-     "workforce": {"shiftAssignmentsCount": 0, "shiftExchangesCount": 0, "unresolvedShiftRequestsCount": 0},
-     "operations": {"completedCount": 0, "criticalMissedCount": 0, "openExceptionsCount": 0},
+     "workforce": {"shiftAssignmentsCount": 0, "shiftExchangesCount": 0, "unresolvedShiftRequestsCount": 0,
+                   "attendanceCount": 0, "lateCount": 0, "lateMinutesTotal": 0, "noShowCount": 0, "unscheduledClockInsCount": 0},
+     "operations": {"completedCount": 0, "criticalMissedCount": 0, "openExceptionsCount": 0,
+                    "thresholdOutOfRangeCount": 0, "thresholdOutOfRangeOpenCount": 0},
      "issues": {"newIssuesCount": 0, "newHandoversCount": 0, "unresolvedIssuesCount": 0, "unresolvedImportantIssuesCount": 0, "recurringCategories": []},
      "purchasing": {"shortageItemsCount": 0, "pendingPurchasesCount": 0}
    }'::jsonb,
