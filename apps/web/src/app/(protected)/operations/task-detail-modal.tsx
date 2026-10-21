@@ -18,6 +18,7 @@ import {
   Textarea,
 } from '@line-os/ui';
 import { describeOperationsWriteError } from './error-copy';
+import { formatNumericRange } from './numeric-range';
 import { formatTaskDueWindow, tOperations } from './operations-i18n';
 
 type TFn = (key: Parameters<typeof tOperations>[1]) => string;
@@ -307,10 +308,8 @@ function ItemResponseRow({ t, lang, scheduleId, item, response, missing, readOnl
     save(formData);
   }
 
-  const rangeHint =
-    item.numericMin !== null || item.numericMax !== null
-      ? `${t('numericRangeHint')}: ${item.numericMin ?? '—'}–${item.numericMax ?? '—'}${item.numericUnit ? ` ${item.numericUnit}` : ''}`
-      : t('thresholdNotConfiguredStaff');
+  const range = formatNumericRange(lang, item.numericMin, item.numericMax, item.numericUnit);
+  const rangeHint = range ? `${t('numericRangeHint')}: ${range}` : t('thresholdNotConfiguredStaff');
 
   // Same rule as the server's threshold check (0101): the SAVED value (not the
   // unsaved input) outside the configured range opened an exception for the
