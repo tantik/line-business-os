@@ -923,8 +923,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
     staffNamePopupWorkedHoursMonth: '実働時間',
     staffNamePopupEarnedMonth: '概算支給額',
-    staffNamePopupPrevMonth: '前の月',
-    staffNamePopupNextMonth: '次の月',
+    staffNamePopupPrevMonth: '前月',
+    staffNamePopupNextMonth: '次月',
     staffNamePopupLoading: '読み込み中…',
     staffNamePopupLoadFailed: 'この月の勤怠を読み込めませんでした。',
     staffNamePopupRetry: '再試行',
@@ -932,7 +932,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionClockInWithoutShiftPopupHelpAriaLabel: 'シフト外の出勤について',
     attentionClockInWithoutShiftPopupHelpTitle: 'シフト外の出勤について',
     attentionClockInWithoutShiftPopupHelpBody:
-      '今日（または最近の日で退勤していない）出勤したスタッフのうち、その日にシフトが入っていない人を表示します。予定どおりの勤務であれば、その日を開いてシフトを追加してください。自動で変更されることはありません。',
+      '今日出勤した、または最近出勤してまだ退勤していないスタッフのうち、その日にシフトが入っていない人を表示します。予定どおりの勤務であれば、その日を開いてシフトを追加してください。自動で変更されることはありません。',
     settingsCardTitle: '設定',
     settingsHelpAriaLabel: '設定について',
     settingsHelpBody:
@@ -1262,7 +1262,7 @@ export const presenceWorkingLabel: Record<Lang, (sinceLocal: string) => string> 
   ja: (sinceLocal) => `出勤中 ${sinceLocal}〜`,
 };
 export const presenceLeftLabel: Record<Lang, (atLocal: string) => string> = {
-  en: (atLocal) => `Left ${atLocal}`,
+  en: (atLocal) => `Clocked out ${atLocal}`,
   ja: (atLocal) => `退勤 ${atLocal}`,
 };
 

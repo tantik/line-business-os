@@ -486,6 +486,7 @@ function ManagerDashboardBody({
   // ref-map/requestAnimationFrame bookkeeping here.
   const [editingCell, setEditingCell] = useState<{ staffId: string; date: string } | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+  const [staffDetailKey, setStaffDetailKey] = useState<string | null>(null);
   const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   // Manual "auto-create schedule" (restored 2026-09-03). The client sends
@@ -1041,6 +1042,9 @@ function ManagerDashboardBody({
           }}
         />
         <span className={dashboardStyles.presenceText}>{label}</span>
+        <span aria-hidden="true" className={dashboardStyles.presenceShort}>
+          {working ? presence.sinceLocal : presence.atLocal}
+        </span>
       </div>
     );
   }
@@ -1681,7 +1685,10 @@ function ManagerDashboardBody({
                           type="button"
                           className={hoverStyles.staffNameCell}
                           style={{ width: '100%', height: '100%', minHeight: 44, border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: 6 }}
-                          onClick={() => setStaffDetailId(s.staffId)}
+                          onClick={() => {
+                            setStaffDetailId(s.staffId);
+                            setStaffDetailKey(s.staffId);
+                          }}
                         >
                           {s.name}
                         </button>
@@ -1747,8 +1754,10 @@ function ManagerDashboardBody({
       </Modal>
 
       <StaffNameDetailPopup
-        // Remount per staff member: month selection + on-demand cache reset.
-        key={staffDetailId ?? 'none'}
+        // Remount per staff member (month selection + on-demand cache reset),
+        // keyed on the last OPENED id so closing does not remount: the Modal
+        // must see open=false to return focus to the name button (FA-05).
+        key={staffDetailKey ?? 'none'}
         open={staffDetailId !== null}
         onClose={() => setStaffDetailId(null)}
         staffEntry={staffDetailId ? (staffById.get(staffDetailId) ?? null) : null}

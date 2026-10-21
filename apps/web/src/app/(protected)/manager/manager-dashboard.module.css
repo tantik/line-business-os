@@ -39,11 +39,21 @@
 }
 
 .presenceText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Phone: the time alone (「9:58」) under-the-dot width; the full label stays for screen readers. */
+.presenceShort {
+  display: none;
+}
+
 @media (max-width: 767px) {
+  .presenceShort {
+    display: inline;
+  }
+
   .presenceText {
     position: absolute;
     width: 1px;
