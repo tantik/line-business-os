@@ -40,6 +40,25 @@ test('listAttendanceForManager maps rows', async () => {
   assert.equal(result.status, 'success');
 });
 
+test('listAttendanceForManager applies work_date bounds and the one-employee filter (scale fix / F2)', async () => {
+  const { client, calls } = recordingClient({ data: [attendanceRow], error: null });
+  const result = await listAttendanceForManager(client, TENANT_ID, { fromDate: '2026-09-01', toDate: '2026-09-30', employeeId: EMPLOYEE_ID });
+  assert.equal(result.status, 'success');
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'tenant_id' && c.args[1] === TENANT_ID));
+  assert.ok(calls.some((c) => c.method === 'gte' && c.args[0] === 'work_date' && c.args[1] === '2026-09-01'));
+  assert.ok(calls.some((c) => c.method === 'lte' && c.args[0] === 'work_date' && c.args[1] === '2026-09-30'));
+  assert.ok(calls.some((c) => c.method === 'eq' && c.args[0] === 'employee_id' && c.args[1] === EMPLOYEE_ID));
+});
+
+test('listAttendanceForManager by ids: empty id list makes no query', async () => {
+  const { client, calls } = recordingClient({ data: [attendanceRow], error: null });
+  const empty = await listAttendanceForManager(client, TENANT_ID, { attendanceIds: [] });
+  assert.deepEqual(empty, { status: 'success', data: [] });
+  assert.equal(calls.length, 0);
+  await listAttendanceForManager(client, TENANT_ID, { attendanceIds: ['att-1'] });
+  assert.ok(calls.some((c) => c.method === 'in' && c.args[0] === 'attendance_id'));
+});
+
 test('submitWorkReport inserts when no existing row is found for (employee, work_date)', async () => {
   const { client, calls } = recordingClient([
     { data: null, error: null }, // find: no existing row

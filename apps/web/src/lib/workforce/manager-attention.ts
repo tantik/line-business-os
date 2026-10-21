@@ -14,7 +14,14 @@
  * touching any dashboard markup.
  */
 
-export type ManagerAttentionCategory = 'correction' | 'exchange' | 'issue' | 'operations' | 'unavailable_conflict' | 'inventory';
+export type ManagerAttentionCategory =
+  | 'correction'
+  | 'exchange'
+  | 'issue'
+  | 'operations'
+  | 'unavailable_conflict'
+  | 'clock_in_without_shift'
+  | 'inventory';
 
 export interface ManagerAttentionItem {
   category: ManagerAttentionCategory;
@@ -49,6 +56,8 @@ export interface ManagerAttentionInput {
    * from data the Manager dashboard already loads (no new query).
    */
   unavailableConflictCount: number;
+  /** QA4 F11-C: clock-ins with no shift that day (see `computeClockInWithoutShift`). Omitted/0 = no item. */
+  clockInWithoutShiftCount?: number;
   /** `null` when Inventory is not enabled for this tenant, or its read failed -- omitted from the result, not shown as zero. */
   inventoryShortageCount: number | null;
 }
@@ -72,6 +81,9 @@ export function computeManagerAttention(input: ManagerAttentionInput): ManagerAt
   }
   if (input.unavailableConflictCount > 0) {
     items.push({ category: 'unavailable_conflict', count: input.unavailableConflictCount });
+  }
+  if (input.clockInWithoutShiftCount && input.clockInWithoutShiftCount > 0) {
+    items.push({ category: 'clock_in_without_shift', count: input.clockInWithoutShiftCount });
   }
   if (input.inventoryShortageCount !== null && input.inventoryShortageCount > 0) {
     items.push({ category: 'inventory', count: input.inventoryShortageCount });
@@ -104,6 +116,7 @@ export const ATTENTION_SEVERITY_BY_CATEGORY: Record<ManagerAttentionCategory, Ma
   issue: 'action_required',
   operations: 'action_required',
   unavailable_conflict: 'warning',
+  clock_in_without_shift: 'warning',
   inventory: 'warning',
 };
 
@@ -247,6 +260,18 @@ export type ManagerAttentionQueueItem =
       latestBusinessDate: string | null;
     }
   | { id: string; category: 'unavailable_conflict'; severity: 'warning'; employeeId: string; workDate: string }
+  | {
+      id: string;
+      category: 'clock_in_without_shift';
+      severity: 'warning';
+      attendanceId: string;
+      employeeId: string;
+      workDate: string;
+      /** Clock-in instant (UTC ISO); the panel formats it in the location time zone. */
+      clockIn: string;
+      /** `true` while the staff member has not clocked out yet. */
+      stillWorking: boolean;
+    }
   | { id: string; category: 'inventory'; severity: 'warning'; shortageCount: number; topItems: readonly AttentionInventoryItemInput[] };
 
 const INVENTORY_QUEUE_ITEM_PREVIEW_COUNT = 3;
@@ -259,6 +284,8 @@ export interface BuildManagerAttentionQueueInput {
   /** Raw open Operations exceptions. Omit when the module is disabled. */
   openOperationsExceptions?: readonly AttentionOperationsExceptionInput[];
   unavailableConflicts: readonly AttentionConflictQueueInput[];
+  /** QA4 F11-C: output of `computeClockInWithoutShift`. Omit for none. */
+  clockInsWithoutShift?: readonly ClockInWithoutShiftRecord[];
   /** Already filtered to `status === 'shortage'` by the caller -- this builder does not re-derive Inventory's own shortage rule. */
   inventoryShortageItems: readonly AttentionInventoryItemInput[];
 }
@@ -269,7 +296,7 @@ export interface BuildManagerAttentionQueueInput {
  * action-required categories (correction, then exchange), then the
  * mixed-severity issue/operations items (each carrying its own severity,
  * action-required first), before warning categories (unavailable-conflict,
- * then inventory); each category's own
+ * then clock-in-without-shift, then inventory); each category's own
  * items are sorted by `workDate` ascending (soonest/oldest first) then by id,
  * so the result is deterministic regardless of the caller's array order.
  * Inventory collapses to exactly one queue item (the whole shortage list),
@@ -353,6 +380,22 @@ export function buildManagerAttentionQueue(input: BuildManagerAttentionQueueInpu
   );
   for (const c of conflicts) {
     items.push({ id: `conflict:${c.employeeId}:${c.workDate}`, category: 'unavailable_conflict', severity: 'warning', employeeId: c.employeeId, workDate: c.workDate });
+  }
+
+  const offShiftClockIns = [...(input.clockInsWithoutShift ?? [])].sort(
+    (a, b) => a.workDate.localeCompare(b.workDate) || a.clockIn.localeCompare(b.clockIn) || a.attendanceId.localeCompare(b.attendanceId),
+  );
+  for (const r of offShiftClockIns) {
+    items.push({
+      id: `clock_in_without_shift:${r.attendanceId}`,
+      category: 'clock_in_without_shift',
+      severity: 'warning',
+      attendanceId: r.attendanceId,
+      employeeId: r.employeeId,
+      workDate: r.workDate,
+      clockIn: r.clockIn,
+      stillWorking: r.stillWorking,
+    });
   }
 
   if (input.inventoryShortageItems.length > 0) {
@@ -451,6 +494,72 @@ export function computePendingCorrectionCellKeys(
     if (r.workDate < todayIso) keys.add(`${r.employeeId}:${r.workDate}`);
   }
   return keys;
+}
+
+/** Minimal attendance shape `computeClockInWithoutShift` needs. */
+export interface ClockInWithoutShiftAttendanceInput {
+  attendanceId: string;
+  employeeId: string;
+  workDate: string;
+  clockIn: string | null;
+  clockOut: string | null;
+}
+
+/** Minimal shift shape: the employee and the LOCAL dates the shift starts and ends on (already time-zone resolved by the caller). */
+export interface ClockInWithoutShiftAssignmentInput {
+  employeeId: string | null;
+  startWorkDate: string;
+  endWorkDate: string;
+}
+
+export interface ClockInWithoutShiftRecord {
+  attendanceId: string;
+  employeeId: string;
+  workDate: string;
+  clockIn: string;
+  stillWorking: boolean;
+}
+
+/** How many days back a still-open (not clocked out) past clock-in is still flagged -- the Manager page preloads shifts for at least this window. */
+export const CLOCK_IN_WITHOUT_SHIFT_OPEN_LOOKBACK_DAYS = 7;
+
+function isoDaysBefore(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) - days)).toISOString().slice(0, 10);
+}
+
+/**
+ * QA4 F11-C 「シフト外の出勤」: attendance rows with a clock-in where that
+ * staff member has no shift (draft or published) touching that work date --
+ * a shift counts when it starts or ends on that local date (an overnight
+ * shift covers both days). Considered rows: every clock-in of `todayIso`,
+ * plus past clock-ins that are still open (no clock-out) within
+ * `CLOCK_IN_WITHOUT_SHIFT_OPEN_LOOKBACK_DAYS`. Closed past days are history,
+ * not something to act on now. Pure -- the caller passes data the Manager
+ * page already loads (attendance + the preloaded shift window).
+ */
+export function computeClockInWithoutShift(
+  attendance: readonly ClockInWithoutShiftAttendanceInput[],
+  assignments: readonly ClockInWithoutShiftAssignmentInput[],
+  todayIso: string,
+): ClockInWithoutShiftRecord[] {
+  const shiftDays = new Set<string>();
+  for (const a of assignments) {
+    if (!a.employeeId) continue;
+    shiftDays.add(`${a.employeeId}:${a.startWorkDate}`);
+    shiftDays.add(`${a.employeeId}:${a.endWorkDate}`);
+  }
+  const oldestOpenDate = isoDaysBefore(todayIso, CLOCK_IN_WITHOUT_SHIFT_OPEN_LOOKBACK_DAYS);
+  const records: ClockInWithoutShiftRecord[] = [];
+  for (const row of attendance) {
+    if (!row.clockIn) continue;
+    const isToday = row.workDate === todayIso;
+    const isOpenRecentPast = !row.clockOut && row.workDate < todayIso && row.workDate >= oldestOpenDate;
+    if (!isToday && !isOpenRecentPast) continue;
+    if (shiftDays.has(`${row.employeeId}:${row.workDate}`)) continue;
+    records.push({ attendanceId: row.attendanceId, employeeId: row.employeeId, workDate: row.workDate, clockIn: row.clockIn, stillWorking: !row.clockOut });
+  }
+  return records;
 }
 
 /** Monday-first weekday index (0=Mon..6=Sun) matching `requiredHeadcountByWeekday`'s own indexing (see `settings-section.tsx`'s `WEEKDAY_LABELS_MON_FIRST`) -- NOT `Date#getUTCDay()`'s Sunday-first convention. */

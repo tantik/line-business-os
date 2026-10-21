@@ -19,3 +19,40 @@
     margin-right: -18px;
   }
 }
+
+/*
+ * QA4 F11-A presence marker in the week grid's today column. Above 767px the
+ * dot is followed by its text (「出勤中 09:58〜」); on a phone (~40px columns)
+ * only the dot shows and the text stays available to screen readers
+ * (visually hidden, not display:none) and as the marker's tooltip.
+ */
+.presenceMarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.presenceText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .presenceText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}

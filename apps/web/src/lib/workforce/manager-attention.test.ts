@@ -11,6 +11,10 @@ import {
   classifyIssueForAttention,
   countOpenIssuesForAttention,
   countOpenOperationsExceptionsForAttention,
+  computeClockInWithoutShift,
+  ATTENTION_SEVERITY_BY_CATEGORY,
+  CLOCK_IN_WITHOUT_SHIFT_OPEN_LOOKBACK_DAYS,
+  type ClockInWithoutShiftAttendanceInput,
   type AttentionIssueInput,
   type AttentionOperationsExceptionInput,
 } from './manager-attention.js';
@@ -431,4 +435,84 @@ test('buildManagerAttentionQueue carries through the exchange canApprove disable
   assert.ok(exchangeItem);
   if (exchangeItem.category !== 'exchange') throw new Error('expected exchange item');
   assert.equal(exchangeItem.canApprove, false);
+});
+
+// QA4 F11-C 「シフト外の出勤」
+const TODAY = '2026-10-20';
+function att(overrides: Partial<ClockInWithoutShiftAttendanceInput> & { attendanceId: string }): ClockInWithoutShiftAttendanceInput {
+  return { employeeId: 'emp-1', workDate: TODAY, clockIn: '2026-10-20T00:58:00.000Z', clockOut: null, ...overrides };
+}
+
+test('computeClockInWithoutShift flags a clock-in today with no shift that day', () => {
+  const records = computeClockInWithoutShift([att({ attendanceId: 'a1' })], [], TODAY);
+  assert.deepEqual(records, [{ attendanceId: 'a1', employeeId: 'emp-1', workDate: TODAY, clockIn: '2026-10-20T00:58:00.000Z', stillWorking: true }]);
+});
+
+test('computeClockInWithoutShift: a shift starting or ending that day (incl. overnight) clears it; another employee\'s shift does not', () => {
+  const rows = [att({ attendanceId: 'a1' })];
+  assert.deepEqual(computeClockInWithoutShift(rows, [{ employeeId: 'emp-1', startWorkDate: TODAY, endWorkDate: TODAY }], TODAY), []);
+  assert.deepEqual(computeClockInWithoutShift(rows, [{ employeeId: 'emp-1', startWorkDate: '2026-10-19', endWorkDate: TODAY }], TODAY), []);
+  assert.equal(computeClockInWithoutShift(rows, [{ employeeId: 'emp-2', startWorkDate: TODAY, endWorkDate: TODAY }], TODAY).length, 1);
+  assert.equal(computeClockInWithoutShift(rows, [{ employeeId: null, startWorkDate: TODAY, endWorkDate: TODAY }], TODAY).length, 1);
+});
+
+test('computeClockInWithoutShift: today counts even after clock-out; past days only while still open and within the lookback', () => {
+  const rows = [
+    att({ attendanceId: 'today-closed', clockOut: '2026-10-20T08:00:00.000Z' }),
+    att({ attendanceId: 'past-open', workDate: '2026-10-18' }),
+    att({ attendanceId: 'past-closed', workDate: '2026-10-18', employeeId: 'emp-2', clockOut: '2026-10-18T08:00:00.000Z' }),
+    att({ attendanceId: 'old-open', workDate: '2026-10-01', employeeId: 'emp-3' }),
+    att({ attendanceId: 'no-clock-in', employeeId: 'emp-4', clockIn: null }),
+  ];
+  const records = computeClockInWithoutShift(rows, [], TODAY);
+  assert.deepEqual(
+    records.map((r) => [r.attendanceId, r.stillWorking]),
+    [
+      ['today-closed', false],
+      ['past-open', true],
+    ],
+  );
+  assert.ok(CLOCK_IN_WITHOUT_SHIFT_OPEN_LOOKBACK_DAYS >= 1);
+});
+
+test('computeManagerAttention adds clock_in_without_shift as a warning, after conflicts and before inventory', () => {
+  const items = computeManagerAttention({
+    pendingCorrectionCount: 0,
+    pendingExchangeCount: 0,
+    unavailableConflictCount: 1,
+    clockInWithoutShiftCount: 2,
+    inventoryShortageCount: 1,
+  });
+  assert.deepEqual(items, [
+    { category: 'unavailable_conflict', count: 1 },
+    { category: 'clock_in_without_shift', count: 2 },
+    { category: 'inventory', count: 1 },
+  ]);
+  assert.equal(ATTENTION_SEVERITY_BY_CATEGORY.clock_in_without_shift, 'warning');
+  assert.deepEqual(computeManagerAttentionSummary(items), { total: 4, actionRequiredCount: 0, warningCount: 4 });
+  assert.deepEqual(
+    computeManagerAttention({ pendingCorrectionCount: 0, pendingExchangeCount: 0, unavailableConflictCount: 0, clockInWithoutShiftCount: 0, inventoryShortageCount: null }),
+    [],
+  );
+});
+
+test('buildManagerAttentionQueue lists clock-ins without a shift as warnings, oldest first, between conflicts and inventory', () => {
+  const items = buildManagerAttentionQueue({
+    pendingCorrections: [],
+    pendingExchanges: [],
+    unavailableConflicts: [{ employeeId: 'emp-9', workDate: TODAY }],
+    clockInsWithoutShift: [
+      { attendanceId: 'a-today', employeeId: 'emp-1', workDate: TODAY, clockIn: '2026-10-20T00:58:00.000Z', stillWorking: true },
+      { attendanceId: 'a-past', employeeId: 'emp-2', workDate: '2026-10-18', clockIn: '2026-10-18T00:00:00.000Z', stillWorking: true },
+    ],
+    inventoryShortageItems: [{ itemId: 'i1', name: 'Milk', actualQuantity: 0, requiredQuantity: 2 }],
+  });
+  assert.deepEqual(
+    items.map((i) => i.id),
+    ['conflict:emp-9:2026-10-20', 'clock_in_without_shift:a-past', 'clock_in_without_shift:a-today', 'inventory:shortage'],
+  );
+  const first = items[1];
+  if (!first || first.category !== 'clock_in_without_shift') throw new Error('expected clock_in_without_shift item');
+  assert.equal(first.severity, 'warning');
+  assert.equal(first.employeeId, 'emp-2');
 });

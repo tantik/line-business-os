@@ -9,7 +9,6 @@ import { resolveException } from '@/lib/operations/exceptions-actions';
 import { getRecordedNumericValue } from '@/lib/operations/tasks-actions';
 import { Button, Field, InlineAlert, MetadataText, StatusBadge, Textarea } from '@line-os/ui';
 import { describeOperationsWriteError } from './error-copy';
-import { formatNumericRange } from './numeric-range';
 import type { tOperations } from './operations-i18n';
 
 type TFn = (key: Parameters<typeof tOperations>[1]) => string;
@@ -216,9 +215,10 @@ function ExceptionRow({ t, lang, exception, itemById, onChange }: ExceptionRowPr
     };
   }, [isThreshold, exception.instanceId, exception.itemId]);
   const unit = item?.numericUnit ? ` ${item.numericUnit}` : '';
-  // Same label as the Staff task modal: a one-sided limit reads 「−15 °C以下」,
-  // not "—–-15" (an empty min next to "–5" read as minus five, 2026-10-07 review).
-  const range = item ? formatNumericRange(lang, item.numericMin, item.numericMax, item.numericUnit) : null;
+  const range =
+    // Same "—" for a missing bound as the Staff task modal: an empty min next to
+    // "–5" read as minus five (2026-10-07 review).
+    item && (item.numericMin !== null || item.numericMax !== null) ? `${item.numericMin ?? '—'}–${item.numericMax ?? '—'}${unit}` : null;
 
   return (
     <div className="flex flex-col gap-1.5 rounded-sm bg-surface-elevated p-2.5">

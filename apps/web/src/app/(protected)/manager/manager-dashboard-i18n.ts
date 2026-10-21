@@ -180,6 +180,19 @@ interface ManagerDashboardDict {
   staffNamePopupCopyReport: string;
   staffNamePopupCopied: string;
   staffNamePopupCopyFailed: string;
+  // QA4 F2: month selector in the Staff monthly report popup.
+  staffNamePopupWorkedHoursMonth: string;
+  staffNamePopupEarnedMonth: string;
+  staffNamePopupPrevMonth: string;
+  staffNamePopupNextMonth: string;
+  staffNamePopupLoading: string;
+  staffNamePopupLoadFailed: string;
+  staffNamePopupRetry: string;
+  // QA4 F11-C: 「シフト外の出勤」 attention category.
+  attentionClockInWithoutShiftTitle: string;
+  attentionClockInWithoutShiftPopupHelpAriaLabel: string;
+  attentionClockInWithoutShiftPopupHelpTitle: string;
+  attentionClockInWithoutShiftPopupHelpBody: string;
   // Settings section (A8)
   settingsCardTitle: string;
   settingsHelpAriaLabel: string;
@@ -557,6 +570,18 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: 'Copy monthly report',
     staffNamePopupCopied: 'Copied.',
     staffNamePopupCopyFailed: 'Could not copy -- please copy the numbers manually.',
+    staffNamePopupWorkedHoursMonth: 'Worked hours',
+    staffNamePopupEarnedMonth: 'Estimated earnings',
+    staffNamePopupPrevMonth: 'Previous month',
+    staffNamePopupNextMonth: 'Next month',
+    staffNamePopupLoading: 'Loading…',
+    staffNamePopupLoadFailed: 'Could not load attendance for this month.',
+    staffNamePopupRetry: 'Retry',
+    attentionClockInWithoutShiftTitle: 'Clock-in without a shift',
+    attentionClockInWithoutShiftPopupHelpAriaLabel: 'About clock-ins without a shift',
+    attentionClockInWithoutShiftPopupHelpTitle: 'About clock-ins without a shift',
+    attentionClockInWithoutShiftPopupHelpBody:
+      'Shows staff who clocked in today (or are still clocked in from a recent day) with no shift on the schedule for that day. Open the day to add a shift if the work was planned. Nothing changes automatically.',
     settingsCardTitle: 'Settings',
     settingsHelpAriaLabel: 'About settings',
     settingsHelpBody:
@@ -896,6 +921,18 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     staffNamePopupCopyReport: '月次レポートをコピー',
     staffNamePopupCopied: 'コピーしました。',
     staffNamePopupCopyFailed: 'コピーできませんでした。数値を手動でコピーしてください。',
+    staffNamePopupWorkedHoursMonth: '実働時間',
+    staffNamePopupEarnedMonth: '概算支給額',
+    staffNamePopupPrevMonth: '前の月',
+    staffNamePopupNextMonth: '次の月',
+    staffNamePopupLoading: '読み込み中…',
+    staffNamePopupLoadFailed: 'この月の勤怠を読み込めませんでした。',
+    staffNamePopupRetry: '再試行',
+    attentionClockInWithoutShiftTitle: 'シフト外の出勤',
+    attentionClockInWithoutShiftPopupHelpAriaLabel: 'シフト外の出勤について',
+    attentionClockInWithoutShiftPopupHelpTitle: 'シフト外の出勤について',
+    attentionClockInWithoutShiftPopupHelpBody:
+      '今日（または最近の日で退勤していない）出勤したスタッフのうち、その日にシフトが入っていない人を表示します。予定どおりの勤務であれば、その日を開いてシフトを追加してください。自動で変更されることはありません。',
     settingsCardTitle: '設定',
     settingsHelpAriaLabel: '設定について',
     settingsHelpBody:
@@ -1205,6 +1242,28 @@ export const attentionOperationsGroupCount: Record<Lang, (count: number) => stri
 export const attentionUnavailableConflictLabel: Record<Lang, (count: number) => string> = {
   en: (count) => `${count} shift(s) assigned to a staff member who marked that day Unavailable`,
   ja: (count) => `${count}件のシフトが、その日「不可」と回答したスタッフに割り当てられています`,
+};
+
+/** QA4 F11-C chip aria-label. */
+export const attentionClockInWithoutShiftLabel: Record<Lang, (count: number) => string> = {
+  en: (count) => `${count} clock-in(s) without a shift on the schedule`,
+  ja: (count) => `シフトのない日の出勤が${count}件あります`,
+};
+
+/** QA4 F11-C queue-item detail line: clock-in time and whether the staff member is still working. */
+export const attentionClockInWithoutShiftDetail: Record<Lang, (clockInLocal: string, stillWorking: boolean) => string> = {
+  en: (clockInLocal, stillWorking) => `Clocked in ${clockInLocal}${stillWorking ? ' · still working' : ''}`,
+  ja: (clockInLocal, stillWorking) => `出勤 ${clockInLocal}${stillWorking ? '・勤務中' : ''}`,
+};
+
+/** QA4 F11-A presence marker in the week grid's today column (visible text and accessible name). */
+export const presenceWorkingLabel: Record<Lang, (sinceLocal: string) => string> = {
+  en: (sinceLocal) => `Working since ${sinceLocal}`,
+  ja: (sinceLocal) => `出勤中 ${sinceLocal}〜`,
+};
+export const presenceLeftLabel: Record<Lang, (atLocal: string) => string> = {
+  en: (atLocal) => `Left ${atLocal}`,
+  ja: (atLocal) => `退勤 ${atLocal}`,
 };
 
 export const unavailableConflictBadgeLabel: Record<Lang, string> = {

@@ -7,7 +7,10 @@ import { computeManagerAttentionSummary } from '@/lib/workforce/manager-attentio
 import { HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { buttonPrimary, buttonSecondary, card, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { utcIsoToLocalDateTime } from '@/lib/workforce/timezone';
 import {
+  attentionClockInWithoutShiftDetail,
+  attentionClockInWithoutShiftLabel,
   attentionCorrectionLabel,
   attentionExchangeLabel,
   attentionInventoryLabel,
@@ -24,13 +27,20 @@ import { tOperations } from '../operations/operations-i18n';
 
 const ATTENTION_TITLE_KEY: Record<
   ManagerAttentionCategory,
-  'attentionCorrectionTitle' | 'attentionExchangeTitle' | 'attentionIssueTitle' | 'attentionOperationsTitle' | 'attentionUnavailableConflictTitle' | 'attentionInventoryTitle'
+  | 'attentionCorrectionTitle'
+  | 'attentionExchangeTitle'
+  | 'attentionIssueTitle'
+  | 'attentionOperationsTitle'
+  | 'attentionUnavailableConflictTitle'
+  | 'attentionClockInWithoutShiftTitle'
+  | 'attentionInventoryTitle'
 > = {
   correction: 'attentionCorrectionTitle',
   exchange: 'attentionExchangeTitle',
   issue: 'attentionIssueTitle',
   operations: 'attentionOperationsTitle',
   unavailable_conflict: 'attentionUnavailableConflictTitle',
+  clock_in_without_shift: 'attentionClockInWithoutShiftTitle',
   inventory: 'attentionInventoryTitle',
 };
 
@@ -40,6 +50,7 @@ const ATTENTION_FULL_LABEL: Record<ManagerAttentionCategory, (item: ManagerAtten
   issue: (item, lang) => attentionIssueLabel[lang](item.count, item.actionRequiredCount ?? 0),
   operations: (item, lang) => attentionOperationsLabel[lang](item.count, item.actionRequiredCount ?? 0),
   unavailable_conflict: (item, lang) => attentionUnavailableConflictLabel[lang](item.count),
+  clock_in_without_shift: (item, lang) => attentionClockInWithoutShiftLabel[lang](item.count),
   inventory: (item, lang) => attentionInventoryLabel[lang](item.count),
 };
 
@@ -136,10 +147,13 @@ export function AttentionPanel({
   onViewShift,
   unreadMailCount,
   onOpenMail,
+  timeZone,
 }: {
   items: ManagerAttentionItem[];
   queueItems: ManagerAttentionQueueItem[];
   lang: Lang;
+  /** Location time zone -- formats clock-in times of the 「シフト外の出勤」 items. */
+  timeZone: string;
   staffNameById: Record<string, string>;
   onOpenCorrections: () => void;
   onOpenExchanges: () => void;
@@ -155,6 +169,8 @@ export function AttentionPanel({
 }) {
   const t: Translate = (key) => tManagerDashboard(lang, key);
   const [conflictsOpen, setConflictsOpen] = useState(false);
+  const [offShiftOpen, setOffShiftOpen] = useState(false);
+  const [offShiftHelpOpen, setOffShiftHelpOpen] = useState(false);
   const [reviewAllOpen, setReviewAllOpen] = useState(false);
   const [conflictsHelpOpen, setConflictsHelpOpen] = useState(false);
   const [reviewAllHelpOpen, setReviewAllHelpOpen] = useState(false);
@@ -166,8 +182,33 @@ export function AttentionPanel({
 
   function handleViewShiftAndClose(employeeId: string, workDate: string) {
     setConflictsOpen(false);
+    setOffShiftOpen(false);
     setReviewAllOpen(false);
     onViewShift(employeeId, workDate);
+  }
+
+  // QA4 F11-C: "View shift" opens that staff/day cell in the schedule editor,
+  // where the Manager can add the missing shift -- same action the
+  // unavailable-conflict items already use.
+  function renderClockInWithoutShiftItem(qi: Extract<ManagerAttentionQueueItem, { category: 'clock_in_without_shift' }>) {
+    const clockInLocal = utcIsoToLocalDateTime(qi.clockIn, timeZone).localTime;
+    return (
+      <div key={qi.id} style={queueItemStyle}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionClockInWithoutShiftTitle')}</div>
+          <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)} · {qi.workDate}</div>
+          <div style={{ ...mutedText, fontSize: 12 }}>{attentionClockInWithoutShiftDetail[lang](clockInLocal, qi.stillWorking)}</div>
+        </div>
+        <button
+          type="button"
+          className={hoverStyles.buttonSecondary}
+          style={{ ...buttonSecondary, padding: '6px 14px' }}
+          onClick={() => handleViewShiftAndClose(qi.employeeId, qi.workDate)}
+        >
+          {t('attentionViewShift')}
+        </button>
+      </div>
+    );
   }
 
   function renderCorrectionItem(qi: Extract<ManagerAttentionQueueItem, { category: 'correction' }>) {
@@ -336,10 +377,14 @@ export function AttentionPanel({
     if (qi.category === 'issue') return renderIssueItem(qi);
     if (qi.category === 'operations') return renderOperationsItem(qi);
     if (qi.category === 'unavailable_conflict') return renderConflictItem(qi);
+    if (qi.category === 'clock_in_without_shift') return renderClockInWithoutShiftItem(qi);
     return renderInventoryItem(qi);
   }
 
   const conflictItems = queueItems.filter((qi): qi is Extract<ManagerAttentionQueueItem, { category: 'unavailable_conflict' }> => qi.category === 'unavailable_conflict');
+  const offShiftItems = queueItems.filter(
+    (qi): qi is Extract<ManagerAttentionQueueItem, { category: 'clock_in_without_shift' }> => qi.category === 'clock_in_without_shift',
+  );
   // Each queue item carries its own severity (issue/operations are mixed per item), so group by that, not by category.
   const actionRequiredItems = queueItems.filter((qi) => qi.severity === 'action_required');
   const warningItems = queueItems.filter((qi) => qi.severity === 'warning');
@@ -400,7 +445,9 @@ export function AttentionPanel({
                         ? onOpenOperations
                         : item.category === 'inventory'
                           ? onOpenInventory
-                          : () => setConflictsOpen(true);
+                          : item.category === 'clock_in_without_shift'
+                            ? () => setOffShiftOpen(true)
+                            : () => setConflictsOpen(true);
               return (
                 <button
                   key={item.category}
@@ -431,6 +478,27 @@ export function AttentionPanel({
         closeLabel={t('cancel')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{conflictItems.map((qi) => renderConflictItem(qi))}</div>
+      </Modal>
+
+      <Modal
+        open={offShiftOpen}
+        onClose={() => setOffShiftOpen(false)}
+        title={t('attentionClockInWithoutShiftTitle')}
+        titleAdornment={<HelpIconButton ariaLabel={t('attentionClockInWithoutShiftPopupHelpAriaLabel')} onClick={() => setOffShiftHelpOpen(true)} />}
+        width="min(700px, 96vw)"
+        closeLabel={t('cancel')}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{offShiftItems.map((qi) => renderClockInWithoutShiftItem(qi))}</div>
+      </Modal>
+
+      <Modal
+        open={offShiftHelpOpen}
+        onClose={() => setOffShiftHelpOpen(false)}
+        title={t('attentionClockInWithoutShiftPopupHelpTitle')}
+        closeLabel={t('cancel')}
+        width="min(480px, 94vw)"
+      >
+        <div style={{ whiteSpace: 'pre-line' }}>{t('attentionClockInWithoutShiftPopupHelpBody')}</div>
       </Modal>
 
       <Modal open={conflictsHelpOpen} onClose={() => setConflictsHelpOpen(false)} title={t('attentionConflictsPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
