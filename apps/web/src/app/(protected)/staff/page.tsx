@@ -18,6 +18,7 @@ import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
+import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
 import { listOperationsTemplateItems } from '@/lib/operations/templates';
 import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
 import { listOpenIssues, withReporterNames } from '@/lib/issues/issues';
@@ -226,6 +227,7 @@ export default async function WorkforceStaffPage({
         inventoryCanManage,
         purchasesItemsResult,
         purchaseHistoryResult,
+        purchasesAwaitingResult,
         rosterResult,
         recipeCategoriesResult,
         recipesResult,
@@ -273,6 +275,11 @@ export default async function WorkforceStaffPage({
         // exact data the Staff Purchases popup's History tab renders.
         purchasesEnabled
           ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
+          : Promise.resolve(null),
+        // Purchases' 「入荷待ち」 (awaiting delivery, 0137) read surface --
+        // open orders, same tenant/location scope, rendered by the same popup.
+        purchasesEnabled
+          ? listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
         // Real display names for the caller's own profile header and the
         // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
@@ -439,6 +446,7 @@ export default async function WorkforceStaffPage({
             inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
             purchaseHistory={purchaseHistoryResult && purchaseHistoryResult.status === 'success' ? purchaseHistoryResult.data : null}
+            purchasesAwaiting={purchasesAwaitingResult && purchasesAwaitingResult.status === 'success' ? purchasesAwaitingResult.data : null}
             purchasesStaffNameById={purchasesStaffNameById}
             operationsTasks={operationsTasks}
             operationsItems={operationsItemsResult && operationsItemsResult.status === 'success' ? operationsItemsResult.data : null}

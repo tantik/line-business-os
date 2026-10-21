@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { STATUS_RANK, type PurchaseNeededItem } from '@/lib/purchases/items';
 import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
+import { splitAwaitingDelivery, type PurchaseAwaitingDeliveryItem } from '@/lib/purchases/awaiting-delivery';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -15,6 +16,8 @@ import purchasesFooter from './purchases-footer.module.css';
 import { MarkBoughtButton } from './mark-bought-button';
 import { OrderForm } from './order-form';
 import { ReceiveForm } from './receive-form';
+import { CancelRestMenu } from './cancel-rest-menu';
+import { formatAwaitingLabel } from './awaiting-copy';
 import { tPurchasesDashboard } from './purchases-i18n';
 
 export interface PurchasesDashboardClientProps {
@@ -28,6 +31,14 @@ export interface PurchasesDashboardClientProps {
   staffNameById: Record<string, string>;
   /** Full append-only action log (0120, `api.purchase_history`), read-only "History" tab. `null` when it failed to load -- the tab still renders, showing `unavailable` copy instead of throwing. */
   history: PurchaseHistoryEntry[] | null;
+  /**
+   * Open orders (0137, `api.purchases_awaiting_delivery`). Shown inline on the
+   * item's shopping-list row when the item is still short, otherwise in the
+   * separate 「入荷待ち」 section -- see `splitAwaitingDelivery`. `null` when
+   * it failed to load: the shopping list still renders, just without the
+   * awaiting-delivery information.
+   */
+  awaiting: PurchaseAwaitingDeliveryItem[] | null;
   /** Skips this component's own page-level `<header>` when rendered inside a popup (mirrors `InventoryDashboardClientProps.embedded`). */
   embedded?: boolean;
 }
@@ -52,19 +63,56 @@ interface RowProps {
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
+  /** The item's open order (0137), when it has one -- rendered inline on this row (one place per item). */
+  openOrder?: PurchaseAwaitingDeliveryItem;
+}
+
+/** 「入荷待ち 4 L（8 Lのうち）」 line for an open order (0137). */
+function AwaitingLine({ openOrder, unit, lang }: { openOrder: PurchaseAwaitingDeliveryItem; unit: string; lang: ReturnType<typeof useLang>['lang'] }) {
+  return (
+    <div style={{ color: colors.accent, fontWeight: 600, fontSize: 13 }}>
+      {formatAwaitingLabel(lang, openOrder.openOrderQuantity, openOrder.orderedQuantity, unit)}
+    </div>
+  );
 }
 
 /**
  * The status-specific info line shown in place of (or alongside) the
  * action controls -- mirrors the original 0089 "bought" info block for the
  * two new 0120 statuses ('ordered'/'received'), each showing its own
- * quantity plus the same actionedAt/actionedBy convention.
+ * quantity plus the same actionedAt/actionedBy convention. When the item has
+ * an open order (0137) its 「入荷待ち」 line is added (or, for 'ordered',
+ * replaces the plain "Ordered: N" line, which it already contains).
  */
-function StatusInfo({ item, locationTimezone, staffNameById, lang, t }: Omit<RowProps, 'onChanged' | 'locationId'>) {
+function StatusInfo({ item, locationTimezone, staffNameById, lang, t, openOrder }: Omit<RowProps, 'onChanged' | 'locationId'>) {
   const actionedAt = formatActionedAt(item, lang, locationTimezone);
   const actorSuffix =
     item.actionedByStaffId && staffNameById[item.actionedByStaffId] ? ` · ${t('boughtByPrefix')} ${staffNameById[item.actionedByStaffId]}` : '';
+  const status = <StatusBlock item={item} actionedAt={actionedAt} actorSuffix={actorSuffix} t={t} lang={lang} openOrder={openOrder} />;
+  if (!openOrder || item.purchaseStatus === 'ordered') return status;
+  return (
+    <div style={{ textAlign: 'right' }}>
+      {status}
+      <AwaitingLine openOrder={openOrder} unit={item.unit} lang={lang} />
+    </div>
+  );
+}
 
+function StatusBlock({
+  item,
+  actionedAt,
+  actorSuffix,
+  t,
+  lang,
+  openOrder,
+}: {
+  item: PurchaseNeededItem;
+  actionedAt: string | null;
+  actorSuffix: string;
+  t: T;
+  lang: ReturnType<typeof useLang>['lang'];
+  openOrder?: PurchaseAwaitingDeliveryItem;
+}) {
   if (item.purchaseStatus === 'bought') {
     return (
       <div style={{ textAlign: 'right' }}>
@@ -82,9 +130,13 @@ function StatusInfo({ item, locationTimezone, staffNameById, lang, t }: Omit<Row
   if (item.purchaseStatus === 'ordered') {
     return (
       <div style={{ textAlign: 'right' }}>
-        <div style={{ color: colors.accent, fontWeight: 600, fontSize: 13 }}>
-          {t('orderedQuantityLabel')} {item.orderedQuantity} {item.unit}
-        </div>
+        {openOrder ? (
+          <AwaitingLine openOrder={openOrder} unit={item.unit} lang={lang} />
+        ) : (
+          <div style={{ color: colors.accent, fontWeight: 600, fontSize: 13 }}>
+            {t('orderedQuantityLabel')} {item.orderedQuantity} {item.unit}
+          </div>
+        )}
         {actionedAt ? (
           <div style={{ ...mutedText, fontSize: 11, marginTop: 2 }}>
             {t('orderedAtLabel')} {actionedAt}
@@ -122,9 +174,11 @@ function StatusInfo({ item, locationTimezone, staffNameById, lang, t }: Omit<Row
  * below its reorder point, and a real delivery can be logged at any point
  * in that window. Bought/Order remain one-time acknowledgements, offered
  * only while `purchaseStatus === 'pending'` (matching 0089's original
- * single-step lifecycle already in place for "Bought").
+ * single-step lifecycle already in place for "Bought"). With an open order
+ * (0137) Receive is pre-filled with the open quantity and the row's •••
+ * menu offers "Cancel the rest".
  */
-function ActionControls({ item, locationId, lang, onChanged }: Omit<RowProps, 'locationTimezone' | 'staffNameById' | 't'>) {
+function ActionControls({ item, locationId, lang, onChanged, openOrder }: Omit<RowProps, 'locationTimezone' | 'staffNameById' | 't'>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
       {item.purchaseStatus === 'pending' ? (
@@ -133,20 +187,146 @@ function ActionControls({ item, locationId, lang, onChanged }: Omit<RowProps, 'l
           <OrderForm locationId={locationId} itemId={item.itemId} itemName={item.name} unit={item.unit} lang={lang} onSuccess={onChanged} />
         </div>
       ) : null}
-      <ReceiveForm
+      <ReceiveRow
         locationId={locationId}
         itemId={item.itemId}
         itemName={item.name}
         unit={item.unit}
         expectedStockCountId={item.latestStockCountId}
+        openOrder={openOrder}
         lang={lang}
-        onSuccess={onChanged}
+        onChanged={onChanged}
       />
     </div>
   );
 }
 
-function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged }: RowProps) {
+/**
+ * Receive form (+ the ••• "Cancel the rest" menu when there is an open
+ * order). Shared by shopping-list rows and the 「入荷待ち」 section. The
+ * form is keyed by the open quantity so a refresh after a partial delivery
+ * re-seeds the pre-filled quantity with the new remainder.
+ */
+function ReceiveRow({
+  locationId,
+  itemId,
+  itemName,
+  unit,
+  expectedStockCountId,
+  openOrder,
+  lang,
+  onChanged,
+}: {
+  locationId: string;
+  itemId: string;
+  itemName: string;
+  unit: string;
+  expectedStockCountId: string;
+  openOrder?: PurchaseAwaitingDeliveryItem;
+  lang: ReturnType<typeof useLang>['lang'];
+  onChanged: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, justifyContent: 'flex-end' }}>
+      <ReceiveForm
+        key={`${openOrder?.orderActionId ?? 'none'}:${openOrder?.openOrderQuantity ?? ''}`}
+        locationId={locationId}
+        itemId={itemId}
+        itemName={itemName}
+        unit={unit}
+        expectedStockCountId={expectedStockCountId}
+        defaultQuantity={openOrder?.openOrderQuantity}
+        lang={lang}
+        onSuccess={onChanged}
+      />
+      {openOrder ? (
+        <CancelRestMenu
+          locationId={locationId}
+          itemId={itemId}
+          itemName={itemName}
+          unit={unit}
+          orderActionId={openOrder.orderActionId}
+          openQuantity={openOrder.openOrderQuantity}
+          lang={lang}
+          onSuccess={onChanged}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 「入荷待ち」 (0137): open orders of items that are NOT on the shopping list
+ * any more -- typically "ordered 8 L, received 4 L" lifted the stock above
+ * the reorder point. Items still short show their open order inline on their
+ * own row instead (`splitAwaitingDelivery`), so no item appears twice. One
+ * card list for every width (no table/card duplication needed for a short,
+ * secondary list).
+ */
+function AwaitingDeliverySection({
+  entries,
+  locationId,
+  locationTimezone,
+  staffNameById,
+  lang,
+  t,
+  onChanged,
+}: {
+  entries: PurchaseAwaitingDeliveryItem[];
+  locationId: string;
+  locationTimezone: string;
+  staffNameById: Record<string, string>;
+  lang: ReturnType<typeof useLang>['lang'];
+  t: T;
+  onChanged: () => void;
+}) {
+  return (
+    <section aria-labelledby="purchases-awaiting-delivery-title" style={{ marginTop: 20 }}>
+      <h2 id="purchases-awaiting-delivery-title" style={{ margin: 0, fontSize: 16 }}>
+        {t('awaitingSectionTitle')} ({entries.length})
+      </h2>
+      <p style={{ margin: '4px 0 0', ...mutedText, fontSize: 12 }}>{t('awaitingSectionHint')}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        {entries.map((entry) => {
+          const actorName = entry.orderedByStaffId ? staffNameById[entry.orderedByStaffId] : undefined;
+          return (
+            <div key={entry.itemId} style={{ ...card, marginTop: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, overflowWrap: 'anywhere' }}>{entry.name}</h3>
+                  <div style={{ marginTop: 4 }}>
+                    <AwaitingLine openOrder={entry} unit={entry.unit} lang={lang} />
+                  </div>
+                  <div style={{ ...mutedText, fontSize: 12, marginTop: 2 }}>
+                    {t('stockNowLabel')} {entry.actualQuantity} {entry.unit} · {t('reorderAtLabel')} {entry.reorderPoint} {entry.unit}
+                  </div>
+                  <div style={{ ...mutedText, fontSize: 11, marginTop: 2 }}>
+                    {t('orderedAtLabel')} {formatTimestamp(entry.orderedAt, lang, locationTimezone)}
+                    {actorName ? ` · ${t('boughtByPrefix')} ${actorName}` : ''}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <ReceiveRow
+                    locationId={locationId}
+                    itemId={entry.itemId}
+                    itemName={entry.name}
+                    unit={entry.unit}
+                    expectedStockCountId={entry.latestStockCountId}
+                    openOrder={entry}
+                    lang={lang}
+                    onChanged={onChanged}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, openOrder }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
   return (
     <tr>
@@ -163,15 +343,15 @@ function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, 
       </td>
       <td style={{ ...tableCell, textAlign: 'right' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} />
-          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} />
+          <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} openOrder={openOrder} />
+          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} openOrder={openOrder} />
         </div>
       </td>
     </tr>
   );
 }
 
-function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged }: RowProps) {
+function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, openOrder }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
   // Founder Acceptance QA1 2026-09-22 (Staff, 375px): a settled card used to also
   // get `opacity: 0.85` on top of `colors.textMuted` text -- stacking the two
@@ -191,8 +371,8 @@ function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, 
           </div>
         </div>
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} />
-          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} />
+          <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} openOrder={openOrder} />
+          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} openOrder={openOrder} />
         </div>
       </div>
     </div>
@@ -200,7 +380,13 @@ function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, 
 }
 
 const historyActionLabel = (t: T, actionType: PurchaseHistoryEntry['actionType']) =>
-  actionType === 'bought' ? t('historyActionBought') : actionType === 'ordered' ? t('historyActionOrdered') : t('historyActionReceived');
+  actionType === 'bought'
+    ? t('historyActionBought')
+    : actionType === 'ordered'
+      ? t('historyActionOrdered')
+      : actionType === 'order_closed'
+        ? t('historyActionOrderClosed')
+        : t('historyActionReceived');
 
 function historyQuantity(entry: PurchaseHistoryEntry) {
   if (entry.actionType === 'ordered') return entry.orderedQuantity;
@@ -325,6 +511,7 @@ export function PurchasesDashboardBody({
   items,
   staffNameById,
   history,
+  awaiting,
   embedded = false,
 }: PurchasesDashboardClientProps) {
   const { lang } = useLang();
@@ -352,6 +539,15 @@ export function PurchasesDashboardBody({
           });
 
   const rowProps = { locationId, locationTimezone, staffNameById, lang, t, onChanged: refresh };
+
+  // One place per item: still-short items carry their open order inline on
+  // their own row; only not-short ones go to the 「入荷待ち」 section, which
+  // belongs to the "All" and "Ordered" views.
+  const { openOrderByItemId, awaitingOnly } = splitAwaitingDelivery(
+    items.map((i) => i.itemId),
+    awaiting ?? [],
+  );
+  const showAwaitingSection = (filter === 'all' || filter === 'ordered') && awaitingOnly.length > 0;
 
   return (
     <>
@@ -387,15 +583,17 @@ export function PurchasesDashboardBody({
                     : value === 'received'
                       ? t('filterReceived')
                       : t('filterHistory');
+          // "All" and "Ordered" also list the 「入荷待ち」 section, so their
+          // counts include it (a chip count must match what the view shows).
           const count =
             value === 'all'
-              ? items.length
+              ? items.length + awaitingOnly.length
               : value === 'pending'
                 ? pendingCount
                 : value === 'bought'
                   ? boughtCount
                   : value === 'ordered'
-                    ? orderedCount
+                    ? orderedCount + awaitingOnly.length
                     : value === 'received'
                       ? receivedCount
                       : (history?.length ?? 0);
@@ -427,9 +625,11 @@ export function PurchasesDashboardBody({
           <p style={{ margin: 0, ...mutedText }}>{t('noItemsYet')}</p>
         </section>
       ) : visibleItems.length === 0 ? (
-        <section style={{ ...card, marginTop: 12 }}>
-          <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
-        </section>
+        showAwaitingSection ? null : (
+          <section style={{ ...card, marginTop: 12 }}>
+            <p style={{ margin: 0, ...mutedText }}>{t('noItemsMatchFilter')}</p>
+          </section>
+        )
       ) : (
         <>
           <div className={responsiveTable.tableView} style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -443,7 +643,7 @@ export function PurchasesDashboardBody({
               </thead>
               <tbody>
                 {visibleItems.map((item) => (
-                  <TableRow key={item.itemId} item={item} {...rowProps} />
+                  <TableRow key={item.itemId} item={item} {...rowProps} openOrder={openOrderByItemId.get(item.itemId)} />
                 ))}
               </tbody>
             </table>
@@ -451,7 +651,7 @@ export function PurchasesDashboardBody({
 
           <div className={responsiveTable.cardView} style={{ marginTop: 12, flexDirection: 'column', gap: 10 }}>
             {visibleItems.map((item) => (
-              <ItemCard key={item.itemId} item={item} {...rowProps} />
+              <ItemCard key={item.itemId} item={item} {...rowProps} openOrder={openOrderByItemId.get(item.itemId)} />
             ))}
           </div>
 
@@ -474,6 +674,18 @@ export function PurchasesDashboardBody({
           </div>
         </>
       )}
+
+      {showAwaitingSection ? (
+        <AwaitingDeliverySection
+          entries={awaitingOnly}
+          locationId={locationId}
+          locationTimezone={locationTimezone}
+          staffNameById={staffNameById}
+          lang={lang}
+          t={t}
+          onChanged={refresh}
+        />
+      ) : null}
     </>
   );
 }

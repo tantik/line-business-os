@@ -23,11 +23,17 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *     item's true latest stock count -- `purchases_stale_snapshot` (0120),
  *     raised by `api.record_purchase_receipt`'s optional optimistic-
  *     concurrency guard when a duplicate/concurrent submit races a newer
- *     count for the same item.
+ *     count for the same item. Also raised by
+ *     `api.close_purchase_order_remainder` (0137) when its optional
+ *     `p_expected_order_action_id` is no longer the item's open order.
+ *   - `no_open_order`: the item has no open order left to close --
+ *     `purchases_no_open_order` (0137, `api.close_purchase_order_remainder`),
+ *     e.g. it was fully received or someone already cancelled the rest.
  */
 export type PurchasesWriteResult<T> =
   | TenantAccessResult<T>
   | { status: 'not_found' }
   | { status: 'not_short' }
   | { status: 'invalid_quantity' }
-  | { status: 'stale_snapshot' };
+  | { status: 'stale_snapshot' }
+  | { status: 'no_open_order' };

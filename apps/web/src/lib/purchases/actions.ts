@@ -8,6 +8,8 @@ import { parseRecordPurchaseOrderInput } from './record-purchase-order-input';
 import { recordPurchaseOrder, type RecordedPurchaseOrder } from './record-purchase-order';
 import { parseRecordPurchaseReceiptInput } from './record-purchase-receipt-input';
 import { recordPurchaseReceipt, type RecordedPurchaseReceipt } from './record-purchase-receipt';
+import { parseClosePurchaseOrderRemainderInput } from './close-purchase-order-remainder-input';
+import { closePurchaseOrderRemainder, type ClosedPurchaseOrderRemainder } from './close-purchase-order-remainder';
 import type { PurchasesWriteResult } from './result-types';
 
 /**
@@ -88,5 +90,31 @@ export async function recordPurchaseReceiptAction(
     input.itemId,
     input.receivedQuantity,
     input.expectedStockCountId,
+  );
+}
+
+/**
+ * Server Action for "Cancel the rest" of an item's open order (0137,
+ * `api.close_purchase_order_remainder`) -- never touches Inventory. Same
+ * permission/RLS posture as the actions above (`purchases_actions_insert`,
+ * `purchases.action.write`, location-matched); `tenantId` always comes from
+ * `requireTenantContext()`, never from the client.
+ */
+export async function closePurchaseOrderRemainderAction(
+  formData: FormData,
+): Promise<PurchasesWriteResult<ClosedPurchaseOrderRemainder>> {
+  const input = parseClosePurchaseOrderRemainderInput(formData);
+  if (!input) return INVALID_INPUT_RESULT;
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') return tenantContext;
+
+  const supabase = await createClient();
+  return closePurchaseOrderRemainder(
+    supabase,
+    tenantContext.data.activeTenant.tenantId,
+    input.locationId,
+    input.itemId,
+    input.expectedOrderActionId,
   );
 }
