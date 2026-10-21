@@ -16,6 +16,7 @@ import { getWorkforceScheduleSettings, listRecentAutoScheduleRuns } from '@/lib/
 import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
 import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
+import { correctionAttendanceIdsToShow, managerAttendanceLoadRange } from '@/lib/workforce/attendance-month';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listStaffMessagesForManager } from '@/lib/workforce/staff-messages';
 import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
@@ -221,6 +222,13 @@ export default async function WorkforceManagerPage({
       // calendar date is still yesterday, which listed yesterday's tasks as
       // "today" and flagged every one of them overdue.
       const managerToday = todayIsoInTimeZone(location.timezone);
+      // Scale fix (QA4): attendance is read for the previous + current month
+      // only, never the tenant's whole history -- every consumer of the
+      // `attendance` prop is listed on `managerAttendanceLoadRange`. Other
+      // months reach the Staff monthly report popup on demand
+      // (`loadStaffMonthAttendance`); rows referenced by correction requests
+      // outside this window are read by id below.
+      const attendanceRange = managerAttendanceLoadRange(managerToday);
 
       // G1 (0116): read-time materialisation of persistent `critical_missed`
       // exceptions. A critical scheduled check whose window closed with no
@@ -270,7 +278,7 @@ export default async function WorkforceManagerPage({
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference', fromDate: exchangeWindow.periodStart }),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
         listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
-        listAttendanceForManager(supabase, activeTenant.tenantId),
+        listAttendanceForManager(supabase, activeTenant.tenantId, attendanceRange),
         listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
         listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
         listShiftAssignments(supabase, activeTenant.tenantId, { fromIso: exchangeFromIso, toIsoExclusive: exchangeToIsoExclusive }),
@@ -354,6 +362,22 @@ export default async function WorkforceManagerPage({
         // up to 3 after dropping problems superseded by a generated run.
         listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
       ]);
+
+      // The corrections popup shows each request's current attendance row
+      // (looked up by id). A pending request -- or one of the 50 most
+      // recently decided ones -- may point at a row older than
+      // `attendanceRange`; read just those rows by id (one bounded call,
+      // skipped when nothing is missing). Older decided history falls back to
+      // the requested change text, as it already did for a missing row.
+      let attendance = attendanceResult.status === 'success' ? attendanceResult.data : null;
+      if (attendance && correctionRequestsResult.status === 'success') {
+        const loadedIds = new Set(attendance.map((a) => a.attendanceId));
+        const missingIds = correctionAttendanceIdsToShow(correctionRequestsResult.data).filter((id) => !loadedIds.has(id));
+        if (missingIds.length > 0) {
+          const extra = await listAttendanceForManager(supabase, activeTenant.tenantId, { attendanceIds: missingIds });
+          if (extra.status === 'success') attendance = [...attendance, ...extra.data];
+        }
+      }
 
       const recipeGroups =
         recipeCategoriesResult.status === 'success' && recipesResult.status === 'success'
@@ -455,7 +479,8 @@ export default async function WorkforceManagerPage({
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
-            attendance={attendanceResult.status === 'success' ? attendanceResult.data : null}
+            attendance={attendance}
+            attendanceRange={attendanceRange}
             invitations={invitationsResult.status === 'success' ? invitationsResult.data : null}
             shiftExchanges={shiftExchangesResult.status === 'success' ? shiftExchangesResult.data : null}
             exchangeAssignments={exchangeAssignmentsResult.status === 'success' ? exchangeAssignmentsResult.data : null}

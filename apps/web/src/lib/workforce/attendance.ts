@@ -80,13 +80,35 @@ export async function listMyAttendance(
   }
 }
 
-/** Manager read of attendance (RLS `wf_attendance_manage`, `workforce.attendance.manage`, unchanged -- every employee's rows, not self-scoped). */
+/**
+ * Optional narrowing of the Manager attendance read. `fromDate`/`toDate` are
+ * inclusive local `work_date` bounds (`YYYY-MM-DD`); `employeeId` limits to
+ * one staff member; `attendanceIds` reads exactly those rows (combined with
+ * the other filters by AND).
+ */
+export interface ManagerAttendanceFilter {
+  fromDate?: string;
+  toDate?: string;
+  employeeId?: string;
+  attendanceIds?: readonly string[];
+}
+
+/** Manager read of attendance (RLS `wf_attendance_manage`, `workforce.attendance.manage`, unchanged -- every employee's rows, not self-scoped). Always pass a filter on hot paths: the unfiltered read grows with the tenant's whole history. */
 export async function listAttendanceForManager(
   supabase: SupabaseClient,
   tenantId: string,
+  filter: ManagerAttendanceFilter = {},
 ): Promise<TenantAccessResult<WorkforceAttendance[]>> {
   try {
-    const { data, error } = await supabase.schema('api').from('workforce_attendance').select(ATTENDANCE_SELECT).eq('tenant_id', tenantId);
+    if (filter.attendanceIds && filter.attendanceIds.length === 0) return { status: 'success', data: [] };
+    let query = supabase.schema('api').from('workforce_attendance').select(ATTENDANCE_SELECT).eq('tenant_id', tenantId);
+    if (filter.fromDate) query = query.gte('work_date', filter.fromDate);
+    if (filter.toDate) query = query.lte('work_date', filter.toDate);
+    if (filter.employeeId) query = query.eq('employee_id', filter.employeeId);
+    if (filter.attendanceIds) query = query.in('attendance_id', [...filter.attendanceIds]);
+    // Newest first: if the PostgREST row cap (max_rows 1000, DEBT-114) ever
+    // truncates the window, the oldest days drop out, not the current month.
+    const { data, error } = await query.order('work_date', { ascending: false });
     if (error) return mapWorkforceReadError(error, 'read attendance');
 
     const rows = (data ?? []) as ApiWorkforceAttendanceRow[];

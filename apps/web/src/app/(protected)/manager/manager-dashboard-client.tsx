@@ -43,7 +43,9 @@ import {
   computeUnavailableConflictCellKeys,
   computeUnavailableConflictRecords,
   computeDailyStaffingCoverage,
+  computeClockInWithoutShift,
 } from '@/lib/workforce/manager-attention';
+import { attendancePresence } from '@/lib/workforce/attendance-presence';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { useDocumentTitle } from '@/lib/ui/document-title';
@@ -59,6 +61,8 @@ import {
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
   estimatedLabourCostMissingRate,
+  presenceLeftLabel,
+  presenceWorkingLabel,
   publishWeekConfirmBody,
   publishWeekDoneMessage,
   scheduleHeadingValue,
@@ -239,7 +243,10 @@ export interface ManagerDashboardClientProps {
   requests: WorkforceShiftRequest[] | null;
   assignments: WorkforceShiftAssignment[] | null;
   correctionRequests: WorkforceShiftRequest[] | null;
+  /** Attendance rows within `attendanceRange` (plus rows referenced by correction requests) -- see `managerAttendanceLoadRange`. */
   attendance: WorkforceAttendance[] | null;
+  /** The `work_date` window `attendance` was loaded for (scale fix, QA4); other months are fetched on demand. */
+  attendanceRange: { fromDate: string; toDate: string };
   invitations: WorkforceEmployeeInvitation[] | null;
   shiftExchanges: WorkforceShiftExchange[] | null;
   exchangeAssignments: WorkforceShiftAssignment[] | null;
@@ -378,6 +385,7 @@ function ManagerDashboardBody({
   assignments,
   correctionRequests,
   attendance,
+  attendanceRange,
   invitations,
   shiftExchanges,
   exchangeAssignments,
@@ -478,6 +486,7 @@ function ManagerDashboardBody({
   // ref-map/requestAnimationFrame bookkeeping here.
   const [editingCell, setEditingCell] = useState<{ staffId: string; date: string } | null>(null);
   const [staffDetailId, setStaffDetailId] = useState<string | null>(null);
+  const [staffDetailKey, setStaffDetailKey] = useState<string | null>(null);
   const [confirmDeactivateStaffId, setConfirmDeactivateStaffId] = useState<string | null>(null);
   const [scheduleHelpOpen, setScheduleHelpOpen] = useState(false);
   // Manual "auto-create schedule" (restored 2026-09-03). The client sends
@@ -799,6 +808,28 @@ function ManagerDashboardBody({
   );
   const attentionOpenIssues = useMemo(() => (issuesEnabled && issuesOpen ? issuesOpen : null), [issuesEnabled, issuesOpen]);
 
+  // QA4 F11-C 「シフト外の出勤」: today's clock-ins (and still-open ones of the
+  // last few days) with no shift that day. Checked against the whole
+  // preloaded -8..+8 week shift window, not just the displayed week, so
+  // paging the grid never changes the result. No new fetch. If that window
+  // failed to load, the rule is skipped rather than guessing from a single
+  // week (which would flag every clock-in outside it).
+  const clockInsWithoutShift = useMemo(
+    () =>
+      exchangeAssignments === null
+        ? []
+        : computeClockInWithoutShift(
+            attendance ?? [],
+            exchangeAssignments.map((a) => ({
+              employeeId: a.employeeId,
+              startWorkDate: utcIsoToLocalDateTime(a.startsAt, timeZone).workDate,
+              endWorkDate: utcIsoToLocalDateTime(a.endsAt, timeZone).workDate,
+            })),
+            todayIso,
+          ),
+    [attendance, exchangeAssignments, timeZone, todayIso],
+  );
+
   const attentionItems = useMemo(
     () =>
       computeManagerAttention({
@@ -810,9 +841,10 @@ function ManagerDashboardBody({
         ),
         openOperationsExceptionCounts: countOpenOperationsExceptionsForAttention(attentionOpenExceptions),
         unavailableConflictCount: unavailableConflictCellKeys.size,
+        clockInWithoutShiftCount: clockInsWithoutShift.length,
         inventoryShortageCount,
       }),
-    [pendingCorrections.length, pendingExchanges.length, attentionOpenIssues, attentionOpenExceptions, unavailableConflictCellKeys, inventoryShortageCount],
+    [pendingCorrections.length, pendingExchanges.length, attentionOpenIssues, attentionOpenExceptions, unavailableConflictCellKeys, clockInsWithoutShift, inventoryShortageCount],
   );
 
   // Level-3 concrete "who/what/when" queue behind the Level-1/2 counts above
@@ -838,6 +870,7 @@ function ManagerDashboardBody({
         openIssues: attentionOpenIssues ?? [],
         openOperationsExceptions: attentionOpenExceptions ?? [],
         unavailableConflicts: unavailableConflictRecords,
+        clockInsWithoutShift,
         inventoryShortageItems:
           inventoryEnabled && inventoryItems
             ? inventoryItems
@@ -845,7 +878,7 @@ function ManagerDashboardBody({
                 .map((i) => ({ itemId: i.itemId, name: i.name, actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
             : [],
       }),
-    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, attentionOpenIssues, attentionOpenExceptions, unavailableConflictRecords, inventoryEnabled, inventoryItems],
+    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, attentionOpenIssues, attentionOpenExceptions, unavailableConflictRecords, clockInsWithoutShift, inventoryEnabled, inventoryItems],
   );
 
   // Attention "View shift" deep-link: once the correct week's data has
@@ -980,6 +1013,39 @@ function ManagerDashboardBody({
           </span>
         ) : null}
       </button>
+    );
+  }
+
+  // QA4 F11-A: today's presence under the today-column cell, with or without
+  // a shift. Working = filled green dot + 「出勤中 09:58〜」; left = hollow grey
+  // ring + 「退勤 17:02」 (shape differs too, never colour alone). The text is
+  // visually hidden on phones but stays the accessible name (CSS module).
+  // Live: a clock-in/out sends an `attendance` Realtime signal to the
+  // manager topic, which already refreshes this page -- no polling added.
+  function renderPresenceMarker(staffId: string) {
+    const presence = attendancePresence(attendance ?? [], staffId, todayIso, timeZone);
+    if (!presence) return null;
+    const working = presence.state === 'working';
+    const label = working ? presenceWorkingLabel[lang](presence.sinceLocal) : presenceLeftLabel[lang](presence.atLocal);
+    return (
+      <div className={dashboardStyles.presenceMarker} title={label} style={{ color: working ? colors.success : colors.textMuted }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 8,
+            height: 8,
+            flexShrink: 0,
+            borderRadius: 999,
+            boxSizing: 'border-box',
+            background: working ? colors.success : 'transparent',
+            border: `2px solid ${working ? colors.success : colors.textMuted}`,
+          }}
+        />
+        <span className={dashboardStyles.presenceText}>{label}</span>
+        <span aria-hidden="true" className={dashboardStyles.presenceShort}>
+          {working ? presence.sinceLocal : presence.atLocal}
+        </span>
+      </div>
     );
   }
 
@@ -1318,6 +1384,7 @@ function ManagerDashboardBody({
         items={attentionItems}
         queueItems={attentionQueueItems}
         lang={lang}
+        timeZone={timeZone}
         staffNameById={staffNameById}
         onOpenCorrections={() => {
           markPopupTriggerClick('correction-requests');
@@ -1618,7 +1685,10 @@ function ManagerDashboardBody({
                           type="button"
                           className={hoverStyles.staffNameCell}
                           style={{ width: '100%', height: '100%', minHeight: 44, border: 0, cursor: 'pointer', padding: '6px 4px', font: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: 6 }}
-                          onClick={() => setStaffDetailId(s.staffId)}
+                          onClick={() => {
+                            setStaffDetailId(s.staffId);
+                            setStaffDetailKey(s.staffId);
+                          }}
                         >
                           {s.name}
                         </button>
@@ -1636,6 +1706,7 @@ function ManagerDashboardBody({
                             }}
                           >
                             {renderScheduleCellContent(s, date)}
+                            {isToday ? renderPresenceMarker(s.staffId) : null}
                           </td>
                         );
                       })}
@@ -1683,11 +1754,16 @@ function ManagerDashboardBody({
       </Modal>
 
       <StaffNameDetailPopup
+        // Remount per staff member (month selection + on-demand cache reset),
+        // keyed on the last OPENED id so closing does not remount: the Modal
+        // must see open=false to return focus to the name button (FA-05).
+        key={staffDetailKey ?? 'none'}
         open={staffDetailId !== null}
         onClose={() => setStaffDetailId(null)}
         staffEntry={staffDetailId ? (staffById.get(staffDetailId) ?? null) : null}
         attendance={attendance ?? []}
-        monthPrefix={todayIso.slice(0, 7)}
+        attendanceRange={attendanceRange}
+        currentMonthPrefix={todayIso.slice(0, 7)}
         lang={lang}
       />
 
