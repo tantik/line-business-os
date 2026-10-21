@@ -37,6 +37,13 @@
 -- exactly like api.purchases_needed; the new RPC is SECURITY INVOKER and
 -- purchases_actions_insert RLS stays the real write boundary.
 --
+-- Concurrency: api.record_purchase_receipt (0120), api.close_purchase_order_
+-- remainder and api.record_purchase_order (redefined here, section 7, body
+-- otherwise unchanged) all take pg_advisory_xact_lock(hashtextextended(
+-- p_item_id::text, 0)), so an order, a receipt and a close for the same item
+-- never interleave -- a new order can no longer be silently closed by a
+-- concurrent "cancel the rest".
+--
 -- Rollback (at the end of this file, commented).
 -- ============================================================================
 
@@ -416,8 +423,143 @@ create trigger purchase_actions_audit_order_closed
   when (new.action_type = 'order_closed')
   execute function purchases.audit_order_closed();
 
+-- --- 7. api.record_purchase_order: same per-item advisory lock -----------------------
+-- Live body = 0122 with the module gate rewritten to 'purchases' by 0131 (that
+-- rewrite kept the 0122 comment, which is re-stated here plus one sentence).
+-- The ONLY change is the pg_advisory_xact_lock below, the same key
+-- (hashtextextended(p_item_id::text, 0)) taken by api.record_purchase_receipt
+-- (0120/0122) and api.close_purchase_order_remainder (above). Without it a new
+-- order committed between the close's read of api.purchases_awaiting_delivery
+-- and its insert would be silently closed (the close row lands after the new
+-- order). actioned_at defaults to clock_timestamp() (0089), so an order that
+-- waited on the lock is always stamped after the close it waited for.
+create or replace function api.record_purchase_order(
+  p_tenant_id uuid,
+  p_location_id uuid,
+  p_item_id uuid,
+  p_ordered_quantity numeric
+)
+returns table (
+  action_id uuid,
+  item_id uuid,
+  ordered_quantity numeric,
+  actioned_at timestamptz
+)
+language plpgsql
+security invoker
+set search_path = core, inventory, purchases, public
+as $$
+declare
+  v_snapshot_count_id uuid;
+  v_actual_quantity   numeric(12, 3);
+  v_reorder_point     numeric(12, 3);
+  v_is_active         boolean;
+begin
+  if not core.has_module_access(p_tenant_id, 'purchases') then
+    raise exception 'purchases_module_disabled' using errcode = 'P0004';
+  end if;
+
+  if p_ordered_quantity is null or p_ordered_quantity <= 0 or p_ordered_quantity = 'NaN'::numeric then
+    raise exception 'purchases_invalid_quantity' using errcode = 'P0006';
+  end if;
+
+  -- Serializes with receipts and "close the rest" for the SAME item (0137).
+  perform pg_advisory_xact_lock(hashtextextended(p_item_id::text, 0));
+
+  select i.reorder_point, i.is_active into v_reorder_point, v_is_active
+  from inventory.items i
+  where i.tenant_id = p_tenant_id and i.id = p_item_id;
+
+  if v_reorder_point is null then
+    raise exception 'purchases_item_not_found' using errcode = 'P0002';
+  end if;
+
+  select sc.id, sc.actual_quantity into v_snapshot_count_id, v_actual_quantity
+  from inventory.stock_counts sc
+  where sc.tenant_id = p_tenant_id and sc.item_id = p_item_id
+  order by sc.counted_at desc, sc.id desc
+  limit 1;
+
+  if v_snapshot_count_id is null then
+    raise exception 'purchases_item_never_counted' using errcode = 'P0001';
+  end if;
+
+  if not v_is_active or v_actual_quantity > v_reorder_point then
+    raise exception 'purchases_item_not_short' using errcode = 'P0003';
+  end if;
+
+  return query
+  insert into purchases.purchase_actions as pa (
+    tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by,
+    action_type, ordered_quantity
+  ) values (
+    p_tenant_id, p_location_id, p_item_id, v_snapshot_count_id, core.current_user_id(),
+    'ordered', p_ordered_quantity
+  )
+  returning pa.id, pa.item_id, pa.ordered_quantity, pa.actioned_at;
+end;
+$$;
+
+comment on function api.record_purchase_order(uuid, uuid, uuid, numeric) is
+  'Logs an Ordered acknowledgement with an informational quantity. Never writes to Inventory. actioned_by is always core.current_user_id(). Raises purchases_module_disabled (P0004) when the tenant''s Inventory module is OFF, before any other check (0122). SECURITY INVOKER: purchases_actions_insert RLS is the real authorization boundary. 0137: takes the same per-item advisory lock as api.record_purchase_receipt / api.close_purchase_order_remainder.';
+
+revoke all on function api.record_purchase_order(uuid, uuid, uuid, numeric) from public;
+grant execute on function api.record_purchase_order(uuid, uuid, uuid, numeric) to authenticated;
+
 -- ============================================================================
 -- Rollback (manual; run in one transaction):
+--   -- api.record_purchase_order: restore the pre-0137 live body (0122 + 0131
+--   -- gate), i.e. no advisory lock. Signature, security and grants unchanged.
+--   create or replace function api.record_purchase_order(
+--     p_tenant_id uuid, p_location_id uuid, p_item_id uuid, p_ordered_quantity numeric
+--   )
+--   returns table (action_id uuid, item_id uuid, ordered_quantity numeric, actioned_at timestamptz)
+--   language plpgsql
+--   security invoker
+--   set search_path = core, inventory, purchases, public
+--   as $fn$
+--   declare
+--     v_snapshot_count_id uuid;
+--     v_actual_quantity   numeric(12, 3);
+--     v_reorder_point     numeric(12, 3);
+--     v_is_active         boolean;
+--   begin
+--     if not core.has_module_access(p_tenant_id, 'purchases') then
+--       raise exception 'purchases_module_disabled' using errcode = 'P0004';
+--     end if;
+--     if p_ordered_quantity is null or p_ordered_quantity <= 0 or p_ordered_quantity = 'NaN'::numeric then
+--       raise exception 'purchases_invalid_quantity' using errcode = 'P0006';
+--     end if;
+--     select i.reorder_point, i.is_active into v_reorder_point, v_is_active
+--     from inventory.items i
+--     where i.tenant_id = p_tenant_id and i.id = p_item_id;
+--     if v_reorder_point is null then
+--       raise exception 'purchases_item_not_found' using errcode = 'P0002';
+--     end if;
+--     select sc.id, sc.actual_quantity into v_snapshot_count_id, v_actual_quantity
+--     from inventory.stock_counts sc
+--     where sc.tenant_id = p_tenant_id and sc.item_id = p_item_id
+--     order by sc.counted_at desc, sc.id desc
+--     limit 1;
+--     if v_snapshot_count_id is null then
+--       raise exception 'purchases_item_never_counted' using errcode = 'P0001';
+--     end if;
+--     if not v_is_active or v_actual_quantity > v_reorder_point then
+--       raise exception 'purchases_item_not_short' using errcode = 'P0003';
+--     end if;
+--     return query
+--     insert into purchases.purchase_actions as pa (
+--       tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by,
+--       action_type, ordered_quantity
+--     ) values (
+--       p_tenant_id, p_location_id, p_item_id, v_snapshot_count_id, core.current_user_id(),
+--       'ordered', p_ordered_quantity
+--     )
+--     returning pa.id, pa.item_id, pa.ordered_quantity, pa.actioned_at;
+--   end;
+--   $fn$;
+--   comment on function api.record_purchase_order(uuid, uuid, uuid, numeric) is
+--     'Logs an Ordered acknowledgement with an informational quantity. Never writes to Inventory. actioned_by is always core.current_user_id(). Raises purchases_module_disabled (P0004) when the tenant''s Inventory module is OFF, before any other check (0122). SECURITY INVOKER: purchases_actions_insert RLS is the real authorization boundary.';
 --   drop trigger if exists purchase_actions_audit_order_closed on purchases.purchase_actions;
 --   drop function if exists purchases.audit_order_closed();
 --   drop function if exists api.close_purchase_order_remainder(uuid, uuid, uuid, uuid);

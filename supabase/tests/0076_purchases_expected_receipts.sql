@@ -6,8 +6,12 @@
 -- or explicitly closed), api.close_purchase_order_remainder (permissions,
 -- P0007 no open order, P0005 stale order id, no Inventory write), the audit row
 -- written for every close, receipts without an order (Founder decision F8),
--- api.purchases_needed reading 'order_closed' as 'pending', and tenant
--- isolation for the new view and RPC.
+-- api.purchases_needed reading 'order_closed' as 'pending' (and Weekly Review
+-- pendingPurchasesCount counting it), tenant isolation (concrete P0002),
+-- location isolation inside one tenant, unauthenticated callers, direct
+-- order_closed inserts (forged actor / stale snapshot -> 42501), two orders in
+-- a row (only the latest is open), the per-item advisory lock in
+-- api.record_purchase_order, and module OFF (P0004, empty view).
 -- ============================================================================
 
 begin;
@@ -53,11 +57,26 @@ insert into inventory.items (id, tenant_id, location_id, name, unit, required_qu
   ('f9100000-0000-0000-0000-000000000001', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Milk', 'L', 10, 5),
   ('f9100000-0000-0000-0000-000000000002', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Beans', 'kg', 10, 5),
   ('f9100000-0000-0000-0000-000000000003', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Sugar', 'kg', 10, 5),
-  ('f9100000-0000-0000-0000-000000000004', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Napkins', 'pcs', 10, 5);
+  ('f9100000-0000-0000-0000-000000000004', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Napkins', 'pcs', 10, 5),
+  ('f9100000-0000-0000-0000-000000000005', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Cups', 'pcs', 10, 5),
+  ('f9100000-0000-0000-0000-000000000006', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'Lids', 'pcs', 10, 5);
 
 insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quantity, counted_by)
 select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', id, 2, 'f9900000-0000-0000-0000-000000000001'
   from inventory.items where tenant_id = 'f9000000-0000-0000-0000-00000000000a';
+
+-- Second location of Tenant A with one short item and an open order (seeded
+-- directly as the test superuser; the loc1-scoped manager must not reach it).
+insert into core.locations (id, tenant_id, name) values
+  ('f9200000-0000-0000-0000-000000000002', 'f9000000-0000-0000-0000-00000000000a', 'Tenant A Location 2');
+insert into inventory.items (id, tenant_id, location_id, name, unit, required_quantity, reorder_point) values
+  ('f9100000-0000-0000-0000-000000000008', 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000002', 'Loc2 Milk', 'L', 10, 5);
+insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quantity, counted_by) values
+  ('f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000008', 2, 'f9900000-0000-0000-0000-000000000002');
+insert into purchases.purchase_actions (tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, action_type, ordered_quantity)
+select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000008',
+       sc.id, 'f9900000-0000-0000-0000-000000000002', 'ordered', 6
+  from inventory.stock_counts sc where sc.item_id = 'f9100000-0000-0000-0000-000000000008';
 
 create function pg_temp.become(p_sub text)
 returns void
@@ -119,8 +138,53 @@ begin
   execute p_sql;
   return false;
 exception
+  -- P0004 is ASSERT_FAILURE in PL/pgSQL, which WHEN OTHERS does not catch (see 0063).
+  when assert_failure then
+    return p_expected_code = 'P0004';
   when others then
     return p_expected_code is null or sqlstate = p_expected_code;
+end;
+$$;
+
+create function pg_temp.as_exec_ok(p_sub text, p_sql text)
+returns boolean
+language plpgsql
+as $$
+begin
+  perform pg_temp.become(p_sub);
+  execute p_sql;
+  return true;
+end;
+$$;
+
+create function pg_temp.anon_throws_code(p_sql text, p_expected_code text)
+returns boolean
+language plpgsql
+as $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('app.current_user_id', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role anon;
+  execute p_sql;
+  return false;
+exception
+  when others then
+    return sqlstate = p_expected_code;
+end;
+$$;
+
+-- Weekly Review purchasing.pendingPurchasesCount for Tenant A / location 1.
+create function pg_temp.as_pending_count(p_sub text)
+returns int
+language plpgsql
+as $$
+begin
+  perform pg_temp.become(p_sub);
+  return (api.weekly_review_summary(
+    'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
+    current_date - 6, current_date, now() - interval '7 days', now() + interval '1 day'
+  ) -> 'purchasing' ->> 'pendingPurchasesCount')::int;
 end;
 $$;
 
@@ -188,6 +252,10 @@ select is((select open_order_quantity from api.purchases_awaiting_delivery where
 select is((select purchase_status from api.purchases_needed where item_id = 'f9100000-0000-0000-0000-000000000002'),
   'received', 'Beans still short: purchases_needed shows the receipt (unchanged)');
 
+-- Weekly Review pendingPurchasesCount before the close (Beans is 'received').
+select set_config('f9.pending_before', pg_temp.as_pending_count('f9900000-0000-0000-0000-000000000002')::text, true);
+reset role;
+
 select is(
   pg_temp.as_close('f9900000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000002',
     (select order_action_id from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000002')),
@@ -198,6 +266,10 @@ select is((select count(*)::int from api.purchases_awaiting_delivery where item_
   0, 'after "cancel the rest" the Beans order is no longer awaiting delivery');
 select is((select purchase_status from api.purchases_needed where item_id = 'f9100000-0000-0000-0000-000000000002'),
   'pending', 'a closed order reads as pending in purchases_needed (still short, nothing in progress)');
+select is(pg_temp.as_pending_count('f9900000-0000-0000-0000-000000000002'),
+  current_setting('f9.pending_before')::int + 1,
+  'Weekly Review pendingPurchasesCount counts the order_closed-but-still-short Beans as pending (+1)');
+reset role;
 select is((select actioned_at from api.purchases_needed where item_id = 'f9100000-0000-0000-0000-000000000002'),
   null::timestamptz, 'pending after a close carries no actioned_at, like any pending row');
 select is((select actual_quantity from inventory.stock_counts where item_id = 'f9100000-0000-0000-0000-000000000002'
@@ -280,8 +352,8 @@ select ok(
   pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000003',
     $$ select closed_quantity from api.close_purchase_order_remainder(
          'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
-         'f9100000-0000-0000-0000-000000000003', null) $$, null),
-  'a Tenant B owner cannot close a Tenant A order');
+         'f9100000-0000-0000-0000-000000000003', null) $$, 'P0002'),
+  'a Tenant B owner cannot close a Tenant A order: the item is invisible under RLS -> purchases_item_not_found (P0002)');
 reset role;
 
 select ok(
@@ -298,6 +370,177 @@ select is((select open_order_quantity from api.purchases_awaiting_delivery where
 select is((select count(*)::int from audit.audit_logs
             where tenant_id = 'f9000000-0000-0000-0000-00000000000a' and action = 'close_remainder'),
   1, 'refused closes write no audit rows');
+
+-- ============================================================================
+-- 4b. second location in the same tenant (location-scoped manager)
+-- ============================================================================
+
+select is((select open_order_quantity from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000008'),
+  6::numeric, 'fixture: the location-2 order is open (6 L)');
+
+select is(
+  pg_temp.as_count('f9900000-0000-0000-0000-000000000002',
+    $$ select count(*)::int from api.purchases_awaiting_delivery where location_id = 'f9200000-0000-0000-0000-000000000002' $$),
+  0, 'a loc1-scoped manager sees zero location-2 awaiting-delivery rows');
+reset role;
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000002',
+    $$ select closed_quantity from api.close_purchase_order_remainder(
+         'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000002',
+         'f9100000-0000-0000-0000-000000000008', null) $$, 'P0002'),
+  'a loc1-scoped manager cannot close a location-2 order (item invisible -> P0002)');
+reset role;
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000002',
+    $$ select closed_quantity from api.close_purchase_order_remainder(
+         'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
+         'f9100000-0000-0000-0000-000000000008', null) $$, 'P0002'),
+  'passing loc1 as p_location_id for a location-2 item does not help (P0002)');
+reset role;
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000002',
+    $$ insert into purchases.purchase_actions (tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, action_type)
+       select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000008',
+              (select id from inventory.stock_counts where item_id = 'f9100000-0000-0000-0000-000000000008' order by counted_at desc, id desc limit 1),
+              'f9900000-0000-0000-0000-000000000002', 'order_closed' $$, '42501'),
+  'a loc1-scoped manager cannot insert order_closed for location 2 directly (RLS 42501)');
+reset role;
+
+select is((select open_order_quantity from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000008'),
+  6::numeric, 'the location-2 order is untouched');
+
+-- ============================================================================
+-- 4c. unauthenticated callers
+-- ============================================================================
+
+select ok(
+  pg_temp.as_throws_code(null,
+    $$ select closed_quantity from api.close_purchase_order_remainder(
+         'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
+         'f9100000-0000-0000-0000-000000000003', null) $$, 'P0002'),
+  'authenticated role without a sub cannot close (no permission -> item invisible -> P0002)');
+reset role;
+
+select ok(
+  pg_temp.anon_throws_code(
+    $$ select closed_quantity from api.close_purchase_order_remainder(
+         'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
+         'f9100000-0000-0000-0000-000000000003', null) $$, '42501'),
+  'anon cannot execute the close RPC (42501)');
+reset role;
+
+select is((select open_order_quantity from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000003'),
+  3::numeric, 'the Sugar order is untouched after the unauthenticated attempts');
+
+-- ============================================================================
+-- 4d. direct order_closed inserts: forged actor, stale snapshot (RLS)
+-- ============================================================================
+
+select pg_temp.as_order('f9900000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000005', 4);
+reset role;
+
+-- A newer stock count makes the previous one stale.
+insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quantity, counted_by) values
+  ('f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000005', 2, 'f9900000-0000-0000-0000-000000000001');
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000001',
+    $$ insert into purchases.purchase_actions (tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, action_type)
+       select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000005',
+              (select id from inventory.stock_counts where item_id = 'f9100000-0000-0000-0000-000000000005' order by counted_at desc, id desc limit 1),
+              'f9900000-0000-0000-0000-000000000002', 'order_closed' $$, '42501'),
+  'RLS refuses order_closed with a forged actioned_by (42501)');
+reset role;
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000001',
+    $$ insert into purchases.purchase_actions (tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, action_type)
+       select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000005',
+              (select id from inventory.stock_counts where item_id = 'f9100000-0000-0000-0000-000000000005' order by counted_at asc, id asc limit 1),
+              'f9900000-0000-0000-0000-000000000001', 'order_closed' $$, '42501'),
+  'RLS refuses order_closed against a stale (not latest) stock count (42501)');
+reset role;
+
+select is((select open_order_quantity from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000005'),
+  4::numeric, 'the Cups order is still open after both refused inserts');
+
+select ok(
+  pg_temp.as_exec_ok('f9900000-0000-0000-0000-000000000001',
+    $$ insert into purchases.purchase_actions (tenant_id, location_id, item_id, snapshot_stock_count_id, actioned_by, action_type)
+       select 'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000005',
+              (select id from inventory.stock_counts where item_id = 'f9100000-0000-0000-0000-000000000005' order by counted_at desc, id desc limit 1),
+              'f9900000-0000-0000-0000-000000000001', 'order_closed' $$),
+  'control: the same insert with the real caller and the latest snapshot is accepted');
+reset role;
+
+select is((select count(*)::int from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000005'),
+  0, 'the accepted direct close closes the Cups order');
+select is((select count(*)::int from audit.audit_logs
+            where tenant_id = 'f9000000-0000-0000-0000-00000000000a' and action = 'close_remainder'
+              and metadata ->> 'item_id' = 'f9100000-0000-0000-0000-000000000005'),
+  1, 'a direct (non-RPC) close is audited by the trigger too');
+
+-- ============================================================================
+-- 4e. two orders in a row: only the latest is open (documented design)
+-- ============================================================================
+
+select pg_temp.as_order('f9900000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000006', 3);
+reset role;
+select is(pg_temp.as_receipt('f9900000-0000-0000-0000-000000000001', 'f9100000-0000-0000-0000-000000000006', 1),
+  3::numeric, 'Lids: order 3, receive 1 -> stock 3 (still short)');
+reset role;
+select pg_temp.as_order('f9900000-0000-0000-0000-000000000002', 'f9100000-0000-0000-0000-000000000006', 5);
+reset role;
+
+select results_eq(
+  $$ select count(*)::int, max(ordered_quantity), max(received_since_order_quantity), max(open_order_quantity)
+       from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000006' $$,
+  $$ values (1, 5::numeric, 0::numeric, 5::numeric) $$,
+  'two orders in a row: one row, the latest order (5) is open; the earlier order and receipts before it are not counted');
+select is((select order_action_id from api.purchases_awaiting_delivery where item_id = 'f9100000-0000-0000-0000-000000000006'),
+  (select id from purchases.purchase_actions where item_id = 'f9100000-0000-0000-0000-000000000006' and action_type = 'ordered'
+    order by actioned_at desc, id desc limit 1),
+  'the open order is the latest ordered action');
+
+-- ============================================================================
+-- 4f. race guard: record_purchase_order takes the per-item advisory lock
+-- ============================================================================
+
+select ok((select pg_get_functiondef('api.record_purchase_order(uuid, uuid, uuid, numeric)'::regprocedure)
+                  like '%pg_advisory_xact_lock(hashtextextended(p_item_id::text, 0))%'),
+  'api.record_purchase_order takes the same per-item advisory lock as receipts and closes');
+select ok(not (select prosecdef from pg_proc where oid = 'api.record_purchase_order(uuid, uuid, uuid, numeric)'::regprocedure),
+  'api.record_purchase_order is still SECURITY INVOKER');
+select ok(not has_function_privilege('anon', 'api.record_purchase_order(uuid, uuid, uuid, numeric)', 'execute'),
+  'anon still cannot execute api.record_purchase_order');
+
+-- ============================================================================
+-- 4g. module OFF (last: flips Tenant A's purchases module)
+-- ============================================================================
+
+update core.tenant_modules set is_enabled = false
+ where tenant_id = 'f9000000-0000-0000-0000-00000000000a' and module = 'purchases';
+
+select ok(
+  pg_temp.as_throws_code('f9900000-0000-0000-0000-000000000002',
+    $$ select closed_quantity from api.close_purchase_order_remainder(
+         'f9000000-0000-0000-0000-00000000000a', 'f9200000-0000-0000-0000-000000000001',
+         'f9100000-0000-0000-0000-000000000003', null) $$, 'P0004'),
+  'module OFF: the close RPC raises purchases_module_disabled (P0004)');
+reset role;
+
+select is(
+  pg_temp.as_count('f9900000-0000-0000-0000-000000000002',
+    $$ select count(*)::int from api.purchases_awaiting_delivery where tenant_id = 'f9000000-0000-0000-0000-00000000000a' $$),
+  0, 'module OFF: api.purchases_awaiting_delivery returns no rows');
+reset role;
+
+select is((select count(*)::int from api.purchases_awaiting_delivery
+            where tenant_id = 'f9000000-0000-0000-0000-00000000000a' and item_id = 'f9100000-0000-0000-0000-000000000003'),
+  1, 'module OFF: the data is still there (superuser view), only hidden from tenant users');
 
 -- ============================================================================
 -- 5. facade posture (ADR 0008)
