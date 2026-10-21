@@ -50,6 +50,14 @@
 }
 
 @media (max-width: 767px) {
+  /* ~40px columns: dot above the time, so neither is clipped (live QA 2026-10-21). */
+  .presenceMarker {
+    flex-direction: column;
+    gap: 1px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
   .presenceShort {
     display: inline;
   }
