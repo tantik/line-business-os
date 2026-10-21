@@ -77,7 +77,9 @@ test('calendar-month hour cap: hours already used elsewhere in the same month ar
   const body = runAutoDistributionBody();
   assert.match(body, /getMonthPeriodForDate\(cursor\)/);
   assert.match(body, /extraHoursByEmployee/);
-  assert.match(body, /if \(!assignment\.published\) continue;/);
+  // Out-of-slice drafts still stand after this run, so they count too (live
+  // QA4 2026-10-21: published-only let a week re-run exceed 160 h/month).
+  assert.doesNotMatch(body, /if \(!assignment\.published\) continue;/);
 });
 
 test('a re-run replaces the previous unconfirmed proposal: clears published=false rows for the period before inserting the new set', () => {
