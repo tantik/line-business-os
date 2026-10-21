@@ -55,6 +55,16 @@ interface PurchasesDashboardDict {
   historyActionBought: string;
   historyActionOrdered: string;
   historyActionReceived: string;
+  historyActionOrderClosed: string;
+  awaitingSectionTitle: string;
+  awaitingSectionHint: string;
+  stockNowLabel: string;
+  moreActionsAriaLabel: string;
+  cancelRestButton: string;
+  cancelRestPendingButton: string;
+  cancelRestConfirmTitle: string;
+  keepWaitingButton: string;
+  noOpenOrderError: string;
 }
 
 const dictionary: Record<Lang, PurchasesDashboardDict> = {
@@ -109,6 +119,16 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     historyActionBought: 'Bought',
     historyActionOrdered: 'Ordered',
     historyActionReceived: 'Received',
+    historyActionOrderClosed: 'Rest cancelled',
+    awaitingSectionTitle: 'Awaiting delivery',
+    awaitingSectionHint: 'Ordered, not delivered yet. Stock is already above the reorder point.',
+    stockNowLabel: 'In stock:',
+    moreActionsAriaLabel: 'More actions',
+    cancelRestButton: 'Cancel the rest',
+    cancelRestPendingButton: 'Cancelling…',
+    cancelRestConfirmTitle: 'Cancel the rest of this order?',
+    keepWaitingButton: 'Keep waiting',
+    noOpenOrderError: 'This order was already fully received or cancelled.',
   },
   ja: {
     pageTitle: '仕入れ',
@@ -161,6 +181,16 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     historyActionBought: '購入済み',
     historyActionOrdered: '発注済み',
     historyActionReceived: '入荷済み',
+    historyActionOrderClosed: '残りを取り消し',
+    awaitingSectionTitle: '入荷待ち',
+    awaitingSectionHint: '発注済みで、まだ届いていない分です。在庫はすでに発注点を上回っています。',
+    stockNowLabel: '在庫:',
+    moreActionsAriaLabel: 'その他の操作',
+    cancelRestButton: '残りを取り消す',
+    cancelRestPendingButton: '取り消し中…',
+    cancelRestConfirmTitle: '残りを取り消しますか？',
+    keepWaitingButton: 'やめる',
+    noOpenOrderError: 'この発注はすでに全量入荷済みか、取り消されています。',
   },
 };
 

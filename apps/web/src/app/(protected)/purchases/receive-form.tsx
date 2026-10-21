@@ -23,6 +23,13 @@ export interface ReceiveFormProps {
    * of silently receiving against stale data.
    */
   expectedStockCountId: string;
+  /**
+   * Pre-filled received quantity (still editable) -- the item's open order
+   * quantity (0137, "awaiting delivery") when it has one. Only read on mount:
+   * callers key this component by the open quantity so a refresh after a
+   * partial delivery re-seeds it with the new remainder.
+   */
+  defaultQuantity?: number;
   lang: Lang;
   onSuccess: () => void;
 }
@@ -34,8 +41,8 @@ export interface ReceiveFormProps {
  * does not require a prior Order (no client-side ordering guard is added
  * here, matching the RLS/RPC contract, which has none either).
  */
-export function ReceiveForm({ locationId, itemId, itemName, unit, expectedStockCountId, lang, onSuccess }: ReceiveFormProps) {
-  const [quantity, setQuantity] = useState('');
+export function ReceiveForm({ locationId, itemId, itemName, unit, expectedStockCountId, defaultQuantity, lang, onSuccess }: ReceiveFormProps) {
+  const [quantity, setQuantity] = useState(defaultQuantity !== undefined && defaultQuantity > 0 ? String(defaultQuantity) : '');
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = (key: Parameters<typeof tPurchasesDashboard>[1]) => tPurchasesDashboard(lang, key);

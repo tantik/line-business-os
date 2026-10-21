@@ -27,6 +27,11 @@ function isStaleSnapshotError(error: PostgrestError): boolean {
   return /purchases_stale_snapshot/i.test(error.message);
 }
 
+/** `purchases_no_open_order` (0137, P0007) -- raised by `api.close_purchase_order_remainder` when the item has no open order (fully received, or already closed by someone else). */
+function isNoOpenOrderError(error: PostgrestError): boolean {
+  return /purchases_no_open_order/i.test(error.message);
+}
+
 export function mapPurchasesReadError(error: PostgrestError, action: string): TenantAccessResult<never> {
   if (isPermissionError(error)) return { status: 'unauthorized', message: `Not permitted to ${action}.` };
   return { status: 'unexpected_error', message: 'Unable to load purchases data right now.' };
@@ -36,6 +41,7 @@ export function mapPurchasesWriteError(error: PostgrestError, action: string): P
   if (isNotShortError(error)) return { status: 'not_short' };
   if (isInvalidQuantityError(error)) return { status: 'invalid_quantity' };
   if (isStaleSnapshotError(error)) return { status: 'stale_snapshot' };
+  if (isNoOpenOrderError(error)) return { status: 'no_open_order' };
   if (isNotFoundError(error)) return { status: 'not_found' };
   if (isPermissionError(error)) return { status: 'unauthorized', message: `Not permitted to ${action}.` };
   return { status: 'unexpected_error', message: `Unable to ${action} right now.` };

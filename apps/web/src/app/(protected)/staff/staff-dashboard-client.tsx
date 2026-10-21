@@ -13,6 +13,7 @@ import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import type { PurchaseNeededItem } from '@/lib/purchases/items';
 import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
+import type { PurchaseAwaitingDeliveryItem } from '@/lib/purchases/awaiting-delivery';
 import type { OperationsExpectedTask, OperationsItemResponse } from '@/lib/operations/tasks';
 import type { OperationsTemplateItem } from '@/lib/operations/templates';
 import type { Issue } from '@/lib/issues/issues';
@@ -178,6 +179,8 @@ export interface StaffDashboardClientProps {
   purchasesItems: PurchaseNeededItem[] | null;
   /** Full Purchases action history (0120) -- also the exact data the Purchases popup's History tab renders (no separate fetch). `null` when the module is disabled or the read failed. */
   purchaseHistory: PurchaseHistoryEntry[] | null;
+  /** Open orders (0137, 「入荷待ち」) -- also the exact data the Purchases popup renders. `null` when the module is disabled or the read failed. */
+  purchasesAwaiting: PurchaseAwaitingDeliveryItem[] | null;
   /** Manager-only decrypted staff-id -> display-name map for the Purchases popup's "bought by" line. Always empty for a plain staff account. */
   purchasesStaffNameById: Record<string, string>;
   /** Today's expected Operations tasks at this Staff member's own location, already filtered server-side -- also the exact data the Staff Operations popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
@@ -262,6 +265,7 @@ function StaffDashboardBody({
   inventoryStaffNameById,
   purchasesItems,
   purchaseHistory,
+  purchasesAwaiting,
   purchasesStaffNameById,
   operationsTasks,
   operationsItems,
@@ -743,6 +747,7 @@ function StaffDashboardBody({
         items={purchasesItems}
         staffNameById={purchasesStaffNameById}
         history={purchaseHistory}
+        awaiting={purchasesAwaiting}
       />
 
       <OperationsStaffPopup

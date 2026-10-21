@@ -19,6 +19,8 @@ export function describePurchasesWriteError(result: Exclude<PurchasesWriteResult
       return t('invalidQuantityError');
     case 'stale_snapshot':
       return t('staleSnapshotError');
+    case 'no_open_order':
+      return t('noOpenOrderError');
     case 'unauthorized':
       return localizeServerMessage(result.status, result.message, lang);
     default:

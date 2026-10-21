@@ -11,7 +11,8 @@ interface ApiPurchaseHistoryRow {
   item_id: string;
   item_name: string;
   unit: InventoryUnit;
-  action_type: 'bought' | 'ordered' | 'received';
+  /** 'order_closed' since 0137 ("cancel the rest" -- no quantity, no Inventory write). */
+  action_type: 'bought' | 'ordered' | 'received' | 'order_closed';
   ordered_quantity: string | number | null;
   received_quantity: string | number | null;
   actioned_at: string;
@@ -25,7 +26,7 @@ export interface PurchaseHistoryEntry {
   itemId: string;
   itemName: string;
   unit: InventoryUnit;
-  actionType: 'bought' | 'ordered' | 'received';
+  actionType: 'bought' | 'ordered' | 'received' | 'order_closed';
   orderedQuantity: number | null;
   receivedQuantity: number | null;
   actionedAt: string;
