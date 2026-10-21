@@ -1265,6 +1265,11 @@ export const presenceLeftLabel: Record<Lang, (atLocal: string) => string> = {
   en: (atLocal) => `Clocked out ${atLocal}`,
   ja: (atLocal) => `退勤 ${atLocal}`,
 };
+/** QA4 F12: appended to the presence label when today's clock-in was late. */
+export const presenceLateSuffix: Record<Lang, (minutes: number) => string> = {
+  en: (minutes) => ` · ${minutes} min late`,
+  ja: (minutes) => `（遅刻${minutes}分）`,
+};
 
 export const unavailableConflictBadgeLabel: Record<Lang, string> = {
   en: '⚠ Unavailable',

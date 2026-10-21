@@ -45,7 +45,7 @@ import {
   computeDailyStaffingCoverage,
   computeClockInWithoutShift,
 } from '@/lib/workforce/manager-attention';
-import { attendancePresence } from '@/lib/workforce/attendance-presence';
+import { attendancePresence, lateMinutesToday } from '@/lib/workforce/attendance-presence';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
 import { useDocumentTitle } from '@/lib/ui/document-title';
@@ -61,6 +61,7 @@ import {
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
   estimatedLabourCostMissingRate,
+  presenceLateSuffix,
   presenceLeftLabel,
   presenceWorkingLabel,
   publishWeekConfirmBody,
@@ -1026,7 +1027,13 @@ function ManagerDashboardBody({
     const presence = attendancePresence(attendance ?? [], staffId, todayIso, timeZone);
     if (!presence) return null;
     const working = presence.state === 'working';
-    const label = working ? presenceWorkingLabel[lang](presence.sinceLocal) : presenceLeftLabel[lang](presence.atLocal);
+    // QA4 F12: lateness by the Weekly Review rule (0136), from the preloaded
+    // shift window -- no new read. Shown as text, plus the time on phones in
+    // the warning colour (never colour alone: the label says 遅刻).
+    const lateMinutes = exchangeAssignments ? lateMinutesToday(attendance ?? [], exchangeAssignments, staffId, todayIso, timeZone) : null;
+    const label =
+      (working ? presenceWorkingLabel[lang](presence.sinceLocal) : presenceLeftLabel[lang](presence.atLocal)) +
+      (lateMinutes !== null ? presenceLateSuffix[lang](lateMinutes) : '');
     return (
       <div className={dashboardStyles.presenceMarker} title={label} style={{ color: working ? colors.success : colors.textMuted }}>
         <span
@@ -1042,7 +1049,7 @@ function ManagerDashboardBody({
           }}
         />
         <span className={dashboardStyles.presenceText}>{label}</span>
-        <span aria-hidden="true" className={dashboardStyles.presenceShort}>
+        <span aria-hidden="true" className={dashboardStyles.presenceShort} style={lateMinutes !== null ? { color: colors.warningText } : undefined}>
           {working ? presence.sinceLocal : presence.atLocal}
         </span>
       </div>
