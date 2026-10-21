@@ -21,6 +21,7 @@ import {
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { buttonDanger } from '../_ui/workforce-theme';
 import { describeOperationsWriteError } from './error-copy';
+import { formatNumericRange } from './numeric-range';
 import { tOperations } from './operations-i18n';
 import { TemplateForm } from './template-form';
 import { ItemForm } from './item-form';
@@ -466,7 +467,7 @@ export function TemplateDetailModal({
                         {itemRow.responseType === 'numeric' ? (
                           itemRow.numericMin !== null || itemRow.numericMax !== null ? (
                             <span style={badgeStyle('neutral')}>
-                              {itemRow.numericMin ?? '—'}–{itemRow.numericMax ?? '—'} {itemRow.numericUnit ?? ''}
+                              {formatNumericRange(lang, itemRow.numericMin, itemRow.numericMax, itemRow.numericUnit)}
                             </span>
                           ) : (
                             <span style={badgeStyle('warning')}>{t('thresholdNotConfiguredManager')}</span>
