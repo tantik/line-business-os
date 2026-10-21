@@ -198,7 +198,7 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     notAvailableModuleOff: 'このワークスペースではこの機能が有効になっていません。',
 
     quietWeekTitle: '穏やかな一週間でした',
-    quietWeekDescription: '重大な未実施、温度などの範囲外、遅刻・無断欠勤の可能性、未解決の問題、保留中の仕入れ、未対応のシフト希望はありませんでした。',
+    quietWeekDescription: '重大な未実施、範囲外の値（温度など）、遅刻・無断欠勤の可能性、未解決の問題、保留中の仕入れ、未対応のシフト希望はありませんでした。',
 
     sectionTeam: 'チーム',
     // QA3 (2026-10-17): 「この週」, not 「今週」 -- the review pages to past weeks.
@@ -214,12 +214,12 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     labelCompletedChecks: 'この週に完了したチェック',
     labelCriticalMissed: 'この週に見逃された重要チェック',
     labelOpenExceptions: '現在未解決の対応事項（日付を問わず）',
-    labelThresholdOutOfRange: 'この週の温度などの範囲外',
+    labelThresholdOutOfRange: 'この週の範囲外の値（温度など）',
 
     valueTimes: '{count}回',
     valueItems: '{count}件',
-    valueLate: '{count}回（計 {minutes}分）',
-    valueThreshold: '{count}件（未対応 {open}件）',
+    valueLate: '{count}回（計{minutes}分）',
+    valueThreshold: '{count}件（未対応{open}件）',
 
     sectionIssues: '申し送り・問題',
     labelNewIssues: 'この週に報告された問題',

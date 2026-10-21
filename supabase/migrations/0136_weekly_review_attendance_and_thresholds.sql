@@ -27,8 +27,10 @@
 --                               (first) shift has already ENDED (ends_at <=
 --                               now()), and no attendance row with a clock_in
 --                               for that employee/day. Future and in-progress
---                               shifts are never counted. A "possible"
---                               no-show: approved leave is not subtracted.
+--                               shifts are never counted, nor a day with an
+--                               attendance row status='on_leave'. A "possible"
+--                               no-show: workforce.leave_requests (scaffold,
+--                               unused) is not consulted. Limits: DEBT-115.
 --     unscheduledClockInsCount  worked days with no published assigned shift
 --                               for that employee on that local day.
 --   operations (still null when the operations module is OFF):
@@ -54,9 +56,11 @@
 -- COST: still one RPC per review open. New reads use existing indexes
 -- wf_shifts_tenant_idx (tenant_id, starts_at) and wf_attendance_tenant_idx
 -- (tenant_id, work_date). task_exceptions had no index usable for a
--- created_at window (only a partial status='open' index), so the threshold
--- count would scan every tenant's exceptions; the additive index below
--- bounds it to one location-week.
+-- created_at window (only a partial status='open' index and the unique
+-- (tenant_id, instance_id, ...) index, which bounds the scan to one tenant's
+-- whole history); the additive index below bounds it to one location-week.
+-- Plain CREATE INDEX briefly blocks writes to task_exceptions while it
+-- builds -- fine at current volumes; note it for the production apply.
 --
 -- Rollback: re-run the previous body reproduced verbatim at the end of this
 -- file (CREATE OR REPLACE), then
@@ -149,7 +153,14 @@ begin
       coalesce(sum(floor(extract(epoch from (w.clock_in - ds.starts_at)) / 60))
                  filter (where w.employee_id is not null and ds.employee_id is not null
                            and w.clock_in >= ds.starts_at + interval '1 minute'), 0)::int,
-      count(*) filter (where w.employee_id is null and ds.ends_at <= now())::int,
+      -- A day the Manager marked on_leave (attendance row, no clock_in) is
+      -- not a possible no-show (F3 reviews, 2026-10-21).
+      count(*) filter (where w.employee_id is null and ds.ends_at <= now()
+                         and not exists (
+                           select 1 from workforce.attendance lv
+                            where lv.tenant_id = p_tenant_id and lv.location_id = p_location_id
+                              and lv.employee_id = ds.employee_id and lv.work_date = ds.work_date
+                              and lv.status = 'on_leave'))::int,
       count(*) filter (where w.employee_id is not null and ds.employee_id is null)::int
       into v_attendance_count, v_late_count, v_late_minutes, v_no_show_count, v_unscheduled_count
       from worked w
@@ -315,8 +326,11 @@ grant execute on function api.weekly_review_summary(uuid, uuid, date, date, time
 
 -- ============================================================================
 -- ROLLBACK -- previous body (0119 as rewritten by 0131), verbatim. To roll
--- back, run this block uncommented, restore 0119's COMMENT ON FUNCTION text,
--- and drop the index above.
+-- back, run this block uncommented, restore 0119's COMMENT ON FUNCTION text
+-- (below), and drop the index above.
+--
+-- comment on function api.weekly_review_summary(uuid, uuid, date, date, timestamptz, timestamptz) is
+--   'Owner Weekly Review read-model (Cafe v2.2 WP3): a single JSON summary of Team/Operations/Issues/Purchasing counts for one Monday-Sunday business week at one tenant+location. SECURITY INVOKER -- relies entirely on the underlying tables'' / views'' own RLS for the real access boundary; only checks core.weekly_review.view itself as the feature-level gate. Per-domain section is null (not 0) when that domain''s module is OFF for the tenant. No new table, no persisted snapshot -- recomputed on every call.';
 -- ----------------------------------------------------------------------------
 -- create or replace function api.weekly_review_summary(
 --   p_tenant_id               uuid,

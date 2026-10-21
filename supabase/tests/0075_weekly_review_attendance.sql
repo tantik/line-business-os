@@ -314,6 +314,22 @@ select ok(
     '2026-01-05'::date, '2026-01-11'::date, '2026-01-05 00:00+09'::timestamptz, '2026-01-12 00:00+09'::timestamptz) $$),
   'J: an Employee (no core.weekly_review.view) is denied');
 
+-- ============================================================================
+-- K -- A day marked on_leave is not a possible no-show (F3 reviews)
+-- ============================================================================
+-- E4 gets an ended Friday shift; with no attendance it is a no-show (2), with
+-- an on_leave row (no clock_in) it is not (back to 1).
+insert into workforce.shifts (tenant_id, location_id, employee_id, starts_at, ends_at, published) values
+  ('a7500000-0000-0000-0000-00000000000a', 'a7510000-0000-0000-0000-000000000001', 'a7520000-0000-0000-0000-000000000004', '2026-01-09 08:00+09', '2026-01-09 12:00+09', true);
+select is((pg_temp.call_week('a7590000-0000-0000-0000-000000000001',
+    'a7500000-0000-0000-0000-00000000000a', 'a7510000-0000-0000-0000-000000000001')->'workforce'->>'noShowCount')::int, 2,
+  'K: an ended shift with no attendance is a possible no-show');
+insert into workforce.attendance (tenant_id, location_id, employee_id, work_date, clock_in, clock_out, status) values
+  ('a7500000-0000-0000-0000-00000000000a', 'a7510000-0000-0000-0000-000000000001', 'a7520000-0000-0000-0000-000000000004', '2026-01-09', null, null, 'on_leave');
+select is((pg_temp.call_week('a7590000-0000-0000-0000-000000000001',
+    'a7500000-0000-0000-0000-00000000000a', 'a7510000-0000-0000-0000-000000000001')->'workforce'->>'noShowCount')::int, 1,
+  'K: the same day marked on_leave is not counted');
+
 -- Security posture unchanged.
 select is((select prosecdef from pg_proc where oid = 'api.weekly_review_summary(uuid,uuid,date,date,timestamptz,timestamptz)'::regprocedure),
   false, 'posture: still SECURITY INVOKER');

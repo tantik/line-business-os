@@ -54,14 +54,14 @@ test('QA3 (2026-10-17): week-scoped labels say "the week shown" / 「この週�
   }
 });
 
-test('QA4 F3: JA attendance / out-of-range copy matches the Founder-approved wording and keeps every placeholder', () => {
+test('QA4 F3: JA attendance / out-of-range copy uses the reviewed wording and keeps every placeholder', () => {
   assert.match(tWeeklyReview('ja', 'labelAttendance'), /出勤/);
   assert.match(tWeeklyReview('ja', 'labelLateArrivals'), /遅刻/);
   assert.match(tWeeklyReview('ja', 'labelNoShows'), /無断欠勤の可能性/);
   assert.match(tWeeklyReview('ja', 'labelUnscheduledClockIns'), /シフト外の出勤/);
-  assert.match(tWeeklyReview('ja', 'labelThresholdOutOfRange'), /温度などの範囲外/);
-  assert.equal(tWeeklyReview('ja', 'valueLate').replace('{count}', '2').replace('{minutes}', '16'), '2回（計 16分）');
-  assert.equal(tWeeklyReview('ja', 'valueThreshold').replace('{count}', '3').replace('{open}', '1'), '3件（未対応 1件）');
+  assert.match(tWeeklyReview('ja', 'labelThresholdOutOfRange'), /範囲外の値（温度など）/);
+  assert.equal(tWeeklyReview('ja', 'valueLate').replace('{count}', '2').replace('{minutes}', '16'), '2回（計16分）');
+  assert.equal(tWeeklyReview('ja', 'valueThreshold').replace('{count}', '3').replace('{open}', '1'), '3件（未対応1件）');
   for (const lang of ['ja', 'en'] as const) {
     assert.match(tWeeklyReview(lang, 'valueTimes'), /\{count\}/);
     assert.match(tWeeklyReview(lang, 'valueItems'), /\{count\}/);

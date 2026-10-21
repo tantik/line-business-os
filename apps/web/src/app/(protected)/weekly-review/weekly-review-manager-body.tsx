@@ -215,7 +215,7 @@ function TeamSection({
           <MetricRow
             label={t('labelUnscheduledClockIns')}
             count={wf.unscheduledClockInsCount}
-            value={t('valueItems').replace('{count}', String(wf.unscheduledClockInsCount))}
+            value={t('valueTimes').replace('{count}', String(wf.unscheduledClockInsCount))}
           />
         </div>
       ) : null}
