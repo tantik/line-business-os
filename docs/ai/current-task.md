@@ -224,13 +224,12 @@ duplicated here.
   45 s offline). Stage 4B architecture plan:
   `docs/architecture/tenant-provisioning-plan-2026-10-18.md`.
 - **2026-10-19:** platform/modules/packages model approved (#599); **P1 packages live** (#600, **0129 on Cloud DEV**); Mame To Cha + smoke tenants archived on Cloud DEV (R0a). In flight: R0b code removal (branch chore/r0b-remove-mame-to-cha), P3 WIP (branch feat/p3-purchases-recipes-modules, not verified).
-- **2026-10-20:** P3–P7 + 4B-1/4B-2 (0130–0134) and **4B-3** (#617, 0135, `provision-tenant` deployed) on Cloud DEV; **new client in ≈70 s proven live**; font self-hosted (#616); HACCP −15 °C step done. In flight (pushed, unverified): QA4 F3 (0136), F11+F2, F9 (0137), HACCP range label — `docs/ai/SESSION_HANDOFF_2026-10-21.md` §3.
-- **Next** (detail: `docs/ai/SESSION_HANDOFF_2026-10-19.md` §3–§4): R0b → P3 → P2/P4–P7 → QA4 → provisioning (2–5 min) → LINE → 6-tenant test. Then the order in
-  `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`:
-  QA4 Final Operational Simulation → Cafe v2.2
-  close (exit criteria in that document) → LINE + email notifications →
-  tenant provisioning → 6-tenant test → demo tenant → JA copy → SaaS
-  hardening → production.
+- **2026-10-20:** P3–P7 + 4B-1/4B-2 (0130–0134) and **4B-3** (#617, 0135, `provision-tenant` deployed) on Cloud DEV; **new client in ≈70 s proven live**; font self-hosted (#616); HACCP −15 °C step done.
+- **2026-10-21:** QA4 fixes merged and live-verified on preview: HACCP one-sided label (#619), F3 Weekly Review attendance/lateness/out-of-range (#620, **0136 on Cloud DEV**), F11+F2 presence / off-shift clock-ins / staff report months (#621, #623), F12 lateness in the presence marker (#624), F9 awaiting delivery + cancel the rest (#622, **0137 on Cloud DEV**), monthly hour cap counts drafts (#625). QA4 §5 done; §13 cost needs dashboard access (Founder). Detail: `docs/ai/SESSION_HANDOFF_2026-10-21B.md`.
+- **Next**: Founder QA4 final review (phone §12) → 4B-4 Owner first-run
+  wizard + Manager appointment (DEBT-091, DEBT-110c) → 4C 6-tenant test →
+  LINE → demo tenant → JA copy → SaaS hardening → production (order:
+  `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`).
 - **Founder inputs open** (bundle; table in the roadmap doc):
   a dedicated QA mailbox the CTO can read (Founder's personal Gmail is not
   readable by the agent browser and should not be); QA4 aliases; native/
@@ -240,7 +239,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-21.md`.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-21B.md`.
 
 Where everything else lives:
 
