@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { recordPurchaseReceiptAction } from '@/lib/purchases/actions';
+import { quantityInputValue } from '@/lib/inventory/validation';
 import { buttonDisabled, buttonPrimary, colors } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { describePurchasesWriteError } from './error-copy';
@@ -42,7 +43,7 @@ export interface ReceiveFormProps {
  * here, matching the RLS/RPC contract, which has none either).
  */
 export function ReceiveForm({ locationId, itemId, itemName, unit, expectedStockCountId, defaultQuantity, lang, onSuccess }: ReceiveFormProps) {
-  const [quantity, setQuantity] = useState(defaultQuantity !== undefined && defaultQuantity > 0 ? String(defaultQuantity) : '');
+  const [quantity, setQuantity] = useState(defaultQuantity !== undefined && defaultQuantity > 0 ? quantityInputValue(defaultQuantity) : '');
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = (key: Parameters<typeof tPurchasesDashboard>[1]) => tPurchasesDashboard(lang, key);

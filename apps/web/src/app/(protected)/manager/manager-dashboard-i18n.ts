@@ -1,6 +1,7 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
 import type { UnplacedReason, WindowCode } from '@/lib/workforce/auto-distribute';
 import type { RunAutoDistributionInvalidConfigReason } from '@/lib/workforce/schedule-types';
+import type { ShiftRequestKind } from '@/lib/workforce/shift-exchanges';
 
 /**
  * JA/EN strings for the canonical dashboard Manager surface (Cafe v2.1
@@ -1190,6 +1191,29 @@ export const attentionCorrectionLabel: Record<Lang, (count: number) => string> =
 export const attentionExchangeLabel: Record<Lang, (count: number) => string> = {
   en: (count) => `${count} shift exchange request(s) waiting on your decision`,
   ja: (count) => `${count}件のシフト交換リクエストがあなたの判断を待っています`,
+};
+
+/**
+ * QA4 F10: success banner after the Manager approves/rejects a staff shift
+ * request -- worded for its kind, so a cancellation never reads as an
+ * "exchange". `null` (request no longer in the loaded list) falls back to the
+ * neutral `exchangeApproved` / `exchangeRejected` copy.
+ */
+export const exchangeDecisionMessage: Record<Lang, (kind: ShiftRequestKind | null, decision: 'approved' | 'rejected') => string> = {
+  en: (kind, decision) => {
+    const approved = decision === 'approved';
+    if (kind === 'cancel') return approved ? 'Shift cancellation approved.' : 'Shift cancellation rejected.';
+    if (kind === 'change') return approved ? 'Shift change approved.' : 'Shift change rejected.';
+    if (kind === 'exchange') return approved ? 'Shift exchange approved.' : 'Shift exchange rejected.';
+    return tManagerDashboard('en', approved ? 'exchangeApproved' : 'exchangeRejected');
+  },
+  ja: (kind, decision) => {
+    const approved = decision === 'approved';
+    if (kind === 'cancel') return approved ? 'シフトの取り消しを承認しました。' : 'シフトの取り消しを却下しました。';
+    if (kind === 'change') return approved ? 'シフトの変更を承認しました。' : 'シフトの変更を却下しました。';
+    if (kind === 'exchange') return approved ? 'シフト交換を承認しました。' : 'シフト交換を却下しました。';
+    return tManagerDashboard('ja', approved ? 'exchangeApproved' : 'exchangeRejected');
+  },
 };
 
 export const attentionInventoryLabel: Record<Lang, (count: number) => string> = {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
+import { messageIdsToMarkRead } from '@/lib/workforce/staff-messages-read';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { archiveStaffMessageAction, markStaffMessageReadAction, submitStaffMessage } from '@/lib/workforce/staff-messages-actions';
 import { ActionsMenu, HelpIconButton, Modal } from '@/components/shared/design-kit';
@@ -81,16 +82,14 @@ export function StaffMailPopup({ open, onClose, messages, timeZone, lang, onChan
       markedReadIds.current.clear();
       return;
     }
-    for (const m of messages ?? []) {
-      if (m.senderRole === 'manager' && !m.isRead && !m.deletedAt && !markedReadIds.current.has(m.messageId)) {
-        markedReadIds.current.add(m.messageId);
-        const formData = new FormData();
-        formData.set('messageId', m.messageId);
-        startTransition(async () => {
-          await markStaffMessageReadAction(formData);
-          onChange();
-        });
-      }
+    for (const id of messageIdsToMarkRead(messages, { incomingRole: 'manager', alreadyMarked: markedReadIds.current })) {
+      markedReadIds.current.add(id);
+      const formData = new FormData();
+      formData.set('messageId', id);
+      startTransition(async () => {
+        await markStaffMessageReadAction(formData);
+        onChange();
+      });
     }
     // `onChange` is intentionally not a dependency (a new function each render).
   }, [open, messages]);

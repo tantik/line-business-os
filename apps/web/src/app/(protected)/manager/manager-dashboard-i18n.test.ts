@@ -18,6 +18,7 @@ import {
   autoCreateUnplacedLine,
   breakMinutesValue,
   estimatedLabourCostMissingRate,
+  exchangeDecisionMessage,
   scheduleHeadingValue,
   staffSummaryLabel,
   tManagerDashboard,
@@ -366,5 +367,27 @@ test('Shift preference review copy says reviewed (確認), never approved (承�
   }
   assert.match(tManagerDashboard('ja', 'markReviewedButton'), /確認済み/);
   assert.match(tManagerDashboard('en', 'markReviewedButton'), /reviewed/i);
+});
+
+test('exchangeDecisionMessage names the decided request kind; a cancel never says exchange (QA4 F10)', () => {
+  assert.equal(exchangeDecisionMessage.ja('cancel', 'approved'), 'シフトの取り消しを承認しました。');
+  assert.equal(exchangeDecisionMessage.ja('cancel', 'rejected'), 'シフトの取り消しを却下しました。');
+  assert.equal(exchangeDecisionMessage.en('cancel', 'approved'), 'Shift cancellation approved.');
+  assert.equal(exchangeDecisionMessage.en('cancel', 'rejected'), 'Shift cancellation rejected.');
+  for (const decision of ['approved', 'rejected'] as const) {
+    assert.doesNotMatch(exchangeDecisionMessage.ja('cancel', decision), /交換/);
+    assert.doesNotMatch(exchangeDecisionMessage.en('cancel', decision), /exchange/i);
+  }
+  assert.equal(exchangeDecisionMessage.ja('change', 'approved'), 'シフトの変更を承認しました。');
+  assert.equal(exchangeDecisionMessage.ja('exchange', 'approved'), 'シフト交換を承認しました。');
+  assert.equal(exchangeDecisionMessage.en('exchange', 'rejected'), 'Shift exchange rejected.');
+  // Unknown kind (request no longer loaded) -> neutral copy.
+  assert.equal(exchangeDecisionMessage.ja(null, 'approved'), tManagerDashboard('ja', 'exchangeApproved'));
+  assert.equal(exchangeDecisionMessage.en(null, 'rejected'), tManagerDashboard('en', 'exchangeRejected'));
+});
+
+test('the Manager decide handler banners with the kind-specific message (QA4 F10)', () => {
+  const source = readFileSync(new URL('./manager-dashboard-client.tsx', import.meta.url), 'utf8');
+  assert.match(source, /exchangeDecisionMessage\[lang\]\(requestKind, decision\)/);
 });
 
