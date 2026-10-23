@@ -30,6 +30,7 @@ import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/li
 import { listAllIssues, listOpenIssues, withReporterNames } from '@/lib/issues/issues';
 import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
+import { hasRoleManageAccess } from '@/lib/workforce/manager-role';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
@@ -273,6 +274,7 @@ export default async function WorkforceManagerPage({
         issuesOpenResult,
         issuesAllResult,
         autoScheduleRunsResult,
+        canAppointManagers,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -368,6 +370,10 @@ export default async function WorkforceManagerPage({
         // for this location; the Settings section's automation block shows
         // up to 3 after dropping problems superseded by a generated run.
         listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
+        // 4B-4a (0138): only an Owner/Admin (core.role.manage, tenant-wide)
+        // is offered 「店長にする / 店長から外す」. UI gate only --
+        // api.set_employee_manager_role re-checks the same permission.
+        hasRoleManageAccess(supabase, activeTenant.tenantId),
       ]);
 
       // The corrections popup shows each request's current attendance row
@@ -521,6 +527,8 @@ export default async function WorkforceManagerPage({
             recipeTitleFieldByRecipeId={recipeTitleFieldByRecipeId}
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
+            canAppointManagers={canAppointManagers}
+            selfStaffId={myProfile?.staffId ?? null}
             scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
             autoScheduleRuns={autoScheduleRunsResult.status === 'success' ? autoScheduleRunsResult.data : null}
           />

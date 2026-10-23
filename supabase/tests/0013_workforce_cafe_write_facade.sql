@@ -153,9 +153,11 @@ select is(
     -- 0067_workforce_staff_manage_account_access.sql: a later, separate
     -- migration. Derived boolean only (user_id is not null) -- still no raw
     -- user_id/created_by/updated_by.
-    'has_account_access'
+    'has_account_access',
+    -- 0138_manager_appointment.sql: derived boolean (manager role held), read-only.
+    'is_manager'
   ]::text[],
-  'api.workforce_staff_manage exposes no user_id/created_by/updated_by (beyond the derived has_account_access boolean)'
+  'api.workforce_staff_manage exposes no user_id/created_by/updated_by (beyond the derived has_account_access / is_manager booleans)'
 );
 
 select has_function('api', 'bind_workforce_employee_line_user',

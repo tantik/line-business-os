@@ -17,6 +17,7 @@ import { filterStaffEntries, type StaffStatusFilter } from './staff-filter';
 import { StaffForm, localizedFormError } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { InvitationCell } from './invitation-cell';
+import { ManagerRoleSection } from './manager-role-section';
 
 export interface ManageStaffPopupProps {
   open: boolean;
@@ -29,6 +30,9 @@ export interface ManageStaffPopupProps {
   pendingAction: string | null;
   onSetActive: (staffId: string, nextActive: boolean) => void;
   onChange: () => void;
+  /** 4B-4a: Owner/Admin only (server-resolved core.role.manage) -- 店長 badge + appoint/revoke. */
+  canAppointManagers?: boolean;
+  selfStaffId?: string | null;
   lang: Lang;
 }
 
@@ -107,6 +111,8 @@ export function ManageStaffPopup({
   pendingAction,
   onSetActive,
   onChange,
+  canAppointManagers = false,
+  selfStaffId = null,
   lang,
 }: ManageStaffPopupProps) {
   const t: T = (key) => tManagerDashboard(lang, key);
@@ -207,6 +213,7 @@ export function ManageStaffPopup({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <StaffAvatar name={detailStaff.name} />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {canAppointManagers && detailStaff.isManager ? <span style={badgeStyle('neutral')}>{t('managerBadge')}</span> : null}
               <span style={badgeStyle(detailStaff.isActive ? 'active' : 'inactive')}>{detailStaff.isActive ? t('statusActive') : t('statusInactive')}</span>
               <span style={badgeStyle(isLineLinkedByEmployeeId.get(detailStaff.staffId) ? 'active' : 'neutral')}>
                 {isLineLinkedByEmployeeId.get(detailStaff.staffId) ? t('lineLinkedShort') : t('lineNotLinkedShort')}
@@ -248,6 +255,8 @@ export function ManageStaffPopup({
               lang={lang}
             />
           </section>
+
+          {canAppointManagers ? <ManagerRoleSection key={detailStaff.staffId} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
 
           <section style={{ paddingTop: 4, borderTop: `1px solid ${colors.border}` }}>
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
@@ -427,6 +436,7 @@ export function ManageStaffPopup({
                       ) : null}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {canAppointManagers && s.isManager ? <span style={badgeStyle('neutral')}>{t('managerBadge')}</span> : null}
                       <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
                       <span style={badgeStyle(isLineLinkedByEmployeeId.get(s.staffId) ? 'active' : 'neutral')}>
                         {isLineLinkedByEmployeeId.get(s.staffId) ? t('lineLinkedShort') : t('lineNotLinkedShort')}
