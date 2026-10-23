@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { requestMyShiftExchange } from '@/lib/workforce/shift-exchange-actions';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
+import type { ShiftRequestKind } from '@/lib/workforce/shift-exchanges';
 import { alertDanger, buttonDisabled, buttonPrimary, input, mutedText } from '@/lib/ui/theme';
 import { describeExchangeError, tStaffDashboard } from './staff-dashboard-i18n';
 
@@ -14,7 +15,8 @@ export interface ShiftExchangeRequestFormProps {
   /** Active shift types offered by the "Change to a different shift type" picker, shown only when `requestKind === 'change'`. `null`/empty hides the picker -- the request can still be submitted as a plain 'change' with no `requestedShiftTypeId`. */
   shiftTypes: WorkforceShiftType[] | null;
   lang: Lang;
-  onSuccess: () => void;
+  /** Called with the kind actually submitted, so the parent's banner can name it (QA4 F10). */
+  onSuccess: (kind: ShiftRequestKind) => void;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface ShiftExchangeRequestFormProps {
 export function ShiftExchangeRequestForm({ shiftId, shiftTypes, lang, onSuccess }: ShiftExchangeRequestFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [requestKind, setRequestKind] = useState<'exchange' | 'change' | 'cancel'>('exchange');
+  const [requestKind, setRequestKind] = useState<ShiftRequestKind>('exchange');
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);
   const activeShiftTypes = (shiftTypes ?? []).filter((st) => st.isActive);
 
@@ -37,11 +39,12 @@ export function ShiftExchangeRequestForm({ shiftId, shiftTypes, lang, onSuccess 
     setError(null);
     const formData = new FormData(event.currentTarget);
     formData.set('shiftId', shiftId);
+    const submittedKind = requestKind;
 
     startTransition(async () => {
       const result = await requestMyShiftExchange(formData);
       if (result.status === 'success') {
-        onSuccess();
+        onSuccess(submittedKind);
       } else {
         setError(describeExchangeError(lang, result.status));
       }
@@ -57,7 +60,7 @@ export function ShiftExchangeRequestForm({ shiftId, shiftTypes, lang, onSuccess 
           style={input}
           name="requestKind"
           value={requestKind}
-          onChange={(e) => setRequestKind(e.target.value as 'exchange' | 'change' | 'cancel')}
+          onChange={(e) => setRequestKind(e.target.value as ShiftRequestKind)}
         >
           <option value="exchange">{t('optionExchange')}</option>
           <option value="change">{t('optionChange')}</option>

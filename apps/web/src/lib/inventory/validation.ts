@@ -74,6 +74,19 @@ export function parseQuantity(raw: unknown): number | null {
   return Math.round(n * 1000) / 1000;
 }
 
+/**
+ * A stored quantity as the string that seeds a number input (QA4 F7):
+ * rounded to the column's 3 decimals so float noise (e.g.
+ * `3.799999952316284`) is never shown -- and never sent back, since
+ * `parseQuantity` rejects more than 3 decimals. `null`/`undefined`/non-finite
+ * yields `''` (blank input).
+ */
+export function quantityInputValue(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '';
+  const rounded = Number(value.toFixed(3));
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}
+
 /** HTML checkbox / `FormData` boolean convention: present + one of these values means `true`; anything else (including absent) means `false`. */
 export function parseBooleanFlag(raw: unknown): boolean {
   const value = asString(raw);

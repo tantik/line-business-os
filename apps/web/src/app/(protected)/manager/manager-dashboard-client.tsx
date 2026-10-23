@@ -62,6 +62,7 @@ import {
   autoCreateUnplacedLine,
   dailyStaffingShortageExplanation,
   estimatedLabourCostMissingRate,
+  exchangeDecisionMessage,
   presenceLateSuffix,
   presenceLeftLabel,
   presenceWorkingLabel,
@@ -1184,13 +1185,15 @@ function ManagerDashboardBody({
   function handleDecideExchange(exchangeId: string, decision: 'approved' | 'rejected') {
     setBanner(null);
     setPendingAction(`decide-exchange-${exchangeId}`);
+    // Captured before the refresh replaces `shiftExchanges` (QA4 F10: banner names the request kind).
+    const requestKind = (shiftExchanges ?? []).find((e) => e.exchangeId === exchangeId)?.requestKind ?? null;
     startTransition(async () => {
       const formData = new FormData();
       formData.set('exchangeId', exchangeId);
       formData.set('decision', decision);
       const result = await decideShiftExchange(formData);
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: decision === 'approved' ? t('exchangeApproved') : t('exchangeRejected') });
+        setBanner({ tone: 'success', message: exchangeDecisionMessage[lang](requestKind, decision) });
         router.refresh();
       } else {
         setBanner({ tone: 'error', message: describeWriteError(result, lang) });

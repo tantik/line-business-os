@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { recordInventoryStockCountAction } from '@/lib/inventory/count-actions';
+import { quantityInputValue } from '@/lib/inventory/validation';
 import { colors, mutedText } from '@/lib/ui/theme';
 import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
@@ -34,7 +35,7 @@ export interface CountFormProps {
  * confirmed value instead of starting blank.
  */
 export function CountForm({ locationId, itemId, itemName, unit, initialValue, lang, onSuccess }: CountFormProps) {
-  const [quantity, setQuantity] = useState(initialValue === null ? '' : String(initialValue));
+  const [quantity, setQuantity] = useState(quantityInputValue(initialValue));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);

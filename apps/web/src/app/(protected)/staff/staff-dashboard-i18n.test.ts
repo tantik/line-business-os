@@ -7,6 +7,7 @@ import {
   earningsEstimatedSuffix,
   earningsWorkedHoursValue,
   exchangeDecidedMessage,
+  exchangeSubmittedMessage,
   existingExchangeMessage,
   inventoryShortageLabel,
   scheduledThisWeekValue,
@@ -95,6 +96,24 @@ test('exchangeDecidedMessage states approved/rejected with the decision time in 
   assert.equal(exchangeDecidedMessage.ja('approved', '2026-10-14 12:00'), '申請は承認されました（2026-10-14 12:00）');
   assert.match(exchangeDecidedMessage.en('rejected', '2026-10-14 12:00'), /rejected \(2026-10-14 12:00\)/);
   assert.match(exchangeDecidedMessage.en('approved', '2026-10-14 12:00'), /approved/);
+});
+
+test('exchangeSubmittedMessage names the submitted request kind; a cancel never says exchange (QA4 F10)', () => {
+  assert.equal(exchangeSubmittedMessage.ja('cancel'), 'シフト取り消しリクエストを送信しました。');
+  assert.equal(exchangeSubmittedMessage.en('cancel'), 'Shift cancellation request sent.');
+  assert.doesNotMatch(exchangeSubmittedMessage.ja('cancel'), /交換/);
+  assert.doesNotMatch(exchangeSubmittedMessage.en('cancel'), /exchange/i);
+  assert.equal(exchangeSubmittedMessage.ja('change'), 'シフト変更リクエストを送信しました。');
+  assert.equal(exchangeSubmittedMessage.en('change'), 'Shift change request sent.');
+  assert.equal(exchangeSubmittedMessage.ja('exchange'), 'シフト交換リクエストを送信しました。');
+  assert.equal(exchangeSubmittedMessage.en('exchange'), 'Shift exchange request sent.');
+});
+
+test('the Staff request form passes the submitted kind to the kind-specific banner (QA4 F10)', () => {
+  const form = readFileSync(new URL('./shift-exchange-request-form.tsx', import.meta.url), 'utf8');
+  assert.match(form, /onSuccess\(submittedKind\)/);
+  const client = readFileSync(new URL('./staff-dashboard-client.tsx', import.meta.url), 'utf8');
+  assert.match(client, /handleFormSuccess\(exchangeSubmittedMessage\[lang\]\(kind\)\)/);
 });
 
 test('the Staff shift dialog renders the decided-request notice from the shared view-model helper (QA3)', () => {

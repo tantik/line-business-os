@@ -1,4 +1,5 @@
 import { makeTranslator, type Lang } from '@/lib/demo/cafe/i18n';
+import type { ShiftRequestKind } from '@/lib/workforce/shift-exchanges';
 
 /**
  * JA/EN strings for the canonical dashboard Staff surface. Originally
@@ -512,6 +513,26 @@ export const existingExchangeMessage: Record<Lang, (status: string) => string> =
 export const exchangeDecidedMessage: Record<Lang, (status: 'approved' | 'rejected', dateTime: string) => string> = {
   en: (status, dateTime) => (status === 'approved' ? `Your request was approved (${dateTime}).` : `Your request was rejected (${dateTime}).`),
   ja: (status, dateTime) => (status === 'approved' ? `申請は承認されました（${dateTime}）` : `申請は却下されました（${dateTime}）`),
+};
+
+/**
+ * QA4 F10: success banner after the Staff submits a change/exchange/cancel
+ * request -- worded for the kind actually sent, so a cancellation never reads
+ * as an "exchange".
+ */
+export const exchangeSubmittedMessage: Record<Lang, (kind: ShiftRequestKind) => string> = {
+  en: (kind) =>
+    kind === 'cancel'
+      ? 'Shift cancellation request sent.'
+      : kind === 'change'
+        ? 'Shift change request sent.'
+        : 'Shift exchange request sent.',
+  ja: (kind) =>
+    kind === 'cancel'
+      ? 'シフト取り消しリクエストを送信しました。'
+      : kind === 'change'
+        ? 'シフト変更リクエストを送信しました。'
+        : 'シフト交換リクエストを送信しました。',
 };
 
 /** Minimal JA/EN mapping for the `WorkforceWriteResult` statuses the shift-exchange request form can actually surface -- scoped counterpart to `error-copy.ts`'s English-only `describeWriteError`, for this consolidation's new exchange flow only. */

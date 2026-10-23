@@ -40,6 +40,7 @@ import {
   earningsEstimatedSuffix,
   earningsWorkedHoursValue,
   exchangeDecidedMessage,
+  exchangeSubmittedMessage,
   existingExchangeMessage,
   scheduledThisWeekValue,
   tStaffDashboard,
@@ -911,9 +912,9 @@ function StaffDashboardBody({
                         shiftId={selectedAssignment.assignmentId}
                         shiftTypes={shiftTypes}
                         lang={lang}
-                        onSuccess={() => {
+                        onSuccess={(kind) => {
                           setSelectedDate(null);
-                          handleFormSuccess(t('exchangeSubmitted'));
+                          handleFormSuccess(exchangeSubmittedMessage[lang](kind));
                         }}
                       />
                     </div>

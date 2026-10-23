@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import type { FormEvent } from 'react';
 import type { InventoryItem } from '@/lib/inventory/items';
 import type { Lang } from '@/lib/demo/cafe/i18n';
-import { INVENTORY_UNITS } from '@/lib/inventory/validation';
+import { INVENTORY_UNITS, quantityInputValue } from '@/lib/inventory/validation';
 import { getInventoryItemReferenceDataAction, upsertInventoryItemAction } from '@/lib/inventory/manager-actions';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
@@ -189,7 +189,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
             type="number"
             min={0}
             step="0.001"
-            defaultValue={item?.requiredQuantity ?? 0}
+            defaultValue={quantityInputValue(item?.requiredQuantity ?? 0)}
             required
           />
         </label>
@@ -201,7 +201,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
             type="number"
             min={0}
             step="0.001"
-            defaultValue={item?.reorderPoint ?? 0}
+            defaultValue={quantityInputValue(item?.reorderPoint ?? 0)}
             required
           />
         </label>

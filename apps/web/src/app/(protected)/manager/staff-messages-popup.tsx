@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { WorkforceStaffMessage } from '@/lib/workforce/staff-messages';
+import { messageIdsToMarkRead } from '@/lib/workforce/staff-messages-read';
 import type { WorkforceStaffManageEntry } from '@/lib/workforce/employees';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { ActionsMenu, HelpIconButton, Modal } from '@/components/shared/design-kit';
@@ -148,21 +149,18 @@ export function StaffMessagesPopup({
   // each id once, so the refresh after a mark or a reply never loops.
   const markedReadIds = useRef(new Set<string>());
   useEffect(() => {
-    if (!selectedEmployeeId) return;
-    for (const m of allMessages) {
-      if (
-        m.employeeId === selectedEmployeeId &&
-        m.senderRole === 'staff' &&
-        !m.isRead &&
-        !m.deletedAt &&
-        !markedReadIds.current.has(m.messageId)
-      ) {
-        markedReadIds.current.add(m.messageId);
-        onMarkRead(m.messageId);
-      }
+    if (!open || !selectedEmployeeId) return;
+    const ids = messageIdsToMarkRead(allMessages, {
+      incomingRole: 'staff',
+      employeeId: selectedEmployeeId,
+      alreadyMarked: markedReadIds.current,
+    });
+    for (const id of ids) {
+      markedReadIds.current.add(id);
+      onMarkRead(id);
     }
     // `onMarkRead` is intentionally not a dependency (a new function each render).
-  }, [selectedEmployeeId, allMessages]);
+  }, [open, selectedEmployeeId, allMessages]);
 
   function openThread(employeeId: string) {
     setSelectedEmployeeId(employeeId);
