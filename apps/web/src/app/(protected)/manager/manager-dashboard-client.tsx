@@ -308,6 +308,10 @@ export interface ManagerDashboardClientProps {
   recipeTitleFieldByRecipeId: Record<string, RecipeTranslationField>;
   recipeMediaUrlByRecipeId: Record<string, string>;
   recipeCanManage: boolean;
+  /** 4B-4a (0138): caller holds core.role.manage (Owner/Admin), resolved server-side -- offers 店長にする / 店長から外す. The RPC re-checks. */
+  canAppointManagers: boolean;
+  /** The caller's own employee row id (null when they have none) -- their own row never offers a role change. */
+  selfStaffId: string | null;
   /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
   scheduleSettings: WorkforceScheduleSettings | null;
   /** Latest scheduled auto-create run-log rows for this location (DEBT-074) -- `null` if the read failed. */
@@ -424,6 +428,8 @@ function ManagerDashboardBody({
   recipeTitleFieldByRecipeId,
   recipeMediaUrlByRecipeId,
   recipeCanManage,
+  canAppointManagers,
+  selfStaffId,
   scheduleSettings,
   autoScheduleRuns,
 }: ManagerDashboardClientProps) {
@@ -1446,6 +1452,8 @@ function ManagerDashboardBody({
         pendingAction={pendingAction}
         onSetActive={handleSetActive}
         onChange={() => router.refresh()}
+        canAppointManagers={canAppointManagers}
+        selfStaffId={selfStaffId}
         lang={lang}
       />
 

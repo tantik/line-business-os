@@ -108,6 +108,26 @@ interface ManagerDashboardDict {
   accessNoneShort: string;
   accessSectionHeading: string;
   dangerZoneHeading: string;
+  // 4B-4a (0138): Manager appointment (Owner/Admin only).
+  managerBadge: string;
+  managerRoleHeading: string;
+  managerRoleIsManager: string;
+  managerRoleIsStaff: string;
+  appointManager: string;
+  revokeManager: string;
+  appointManagerConfirmTitle: string;
+  appointManagerConfirmBody: string;
+  revokeManagerConfirmTitle: string;
+  revokeManagerConfirmBody: string;
+  managerAppointed: string;
+  managerRevoked: string;
+  managerNeedsAccountHint: string;
+  managerInactiveHint: string;
+  managerOwnRoleHint: string;
+  managerRoleErrorPermission: string;
+  managerRoleErrorNotFound: string;
+  managerRoleErrorModule: string;
+  managerRoleErrorUnexpected: string;
   // 2026-08-21: InvitationCell's own interactive copy -- previously JA-only
   // per an older, now-superseded Founder scope decision (F4) made back when
   // the surrounding Manager dashboard was still English-only; the whole
@@ -509,6 +529,25 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessNoneShort: 'No access',
     accessSectionHeading: 'Account access',
     dangerZoneHeading: 'Danger zone',
+    managerBadge: 'Manager',
+    managerRoleHeading: 'Role',
+    managerRoleIsManager: 'Manager: can manage staff, shifts and store settings.',
+    managerRoleIsStaff: 'Staff',
+    appointManager: 'Make manager',
+    revokeManager: 'Remove manager role',
+    appointManagerConfirmTitle: 'Make this staff member a manager?',
+    appointManagerConfirmBody: 'They will be able to manage staff, shifts and store settings. Their staff access stays as it is.',
+    revokeManagerConfirmTitle: 'Remove the manager role?',
+    revokeManagerConfirmBody: 'They keep their staff access but can no longer use the manager screens.',
+    managerAppointed: 'Manager role given.',
+    managerRevoked: 'Manager role removed.',
+    managerNeedsAccountHint: 'Staff who have not accepted their invitation cannot be made managers.',
+    managerInactiveHint: 'Inactive staff cannot be made managers. Reactivate them first.',
+    managerOwnRoleHint: 'You cannot change your own role.',
+    managerRoleErrorPermission: 'Only the owner can change manager roles.',
+    managerRoleErrorNotFound: 'This staff member was not found. Refresh the page and try again.',
+    managerRoleErrorModule: 'Shift management is turned off for this workspace.',
+    managerRoleErrorUnexpected: 'Could not change the role. Please try again.',
     inviteButton: 'Invite',
     resendButton: 'Resend',
     sendingStatus: 'Sending…',
@@ -860,6 +899,25 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     accessNoneShort: 'アクセスなし',
     accessSectionHeading: 'アカウントアクセス',
     dangerZoneHeading: '危険な操作',
+    managerBadge: '店長',
+    managerRoleHeading: '役割',
+    managerRoleIsManager: '店長：スタッフ・シフト・店舗設定を管理できます。',
+    managerRoleIsStaff: 'スタッフ',
+    appointManager: '店長にする',
+    revokeManager: '店長から外す',
+    appointManagerConfirmTitle: 'このスタッフを店長にしますか？',
+    appointManagerConfirmBody: 'スタッフ・シフト・店舗設定を管理できるようになります。スタッフとしての利用はそのままです。',
+    revokeManagerConfirmTitle: '店長から外しますか？',
+    revokeManagerConfirmBody: 'スタッフとしては引き続き利用できますが、店長用の画面は使えなくなります。',
+    managerAppointed: '店長にしました。',
+    managerRevoked: '店長から外しました。',
+    managerNeedsAccountHint: '招待を承認していないスタッフは店長にできません',
+    managerInactiveHint: '無効のスタッフは店長にできません。先に有効にしてください。',
+    managerOwnRoleHint: 'ご自身の役割は変更できません。',
+    managerRoleErrorPermission: '店長の任命・解除はオーナーのみ行えます。',
+    managerRoleErrorNotFound: 'スタッフが見つかりません。画面を更新して、もう一度お試しください。',
+    managerRoleErrorModule: 'このワークスペースではシフト管理機能が無効です。',
+    managerRoleErrorUnexpected: '役割を変更できませんでした。もう一度お試しください。',
     inviteButton: '招待する',
     resendButton: '再送信',
     sendingStatus: '送信中…',
