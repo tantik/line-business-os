@@ -57,7 +57,7 @@ test('every error code has non-empty JA and EN copy, and the no-account hint is 
     assert.ok(tManagerDashboard('en', key).length > 0, `en copy for ${code}`);
     assert.notEqual(tManagerDashboard('ja', key), tManagerDashboard('en', key), `ja and en differ for ${code}`);
   }
-  assert.equal(tManagerDashboard('ja', managerRoleErrorCopyKey('employee_has_no_account')), '招待を承認していないスタッフは店長にできません');
+  assert.equal(tManagerDashboard('ja', managerRoleErrorCopyKey('employee_has_no_account')), '招待を承認していないスタッフは店長にできません。');
   assert.equal(tManagerDashboard('ja', 'appointManager'), '店長にする');
   assert.equal(tManagerDashboard('ja', 'revokeManager'), '店長から外す');
   assert.equal(tManagerDashboard('ja', 'managerBadge'), '店長');

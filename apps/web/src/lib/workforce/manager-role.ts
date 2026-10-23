@@ -57,6 +57,7 @@ type ManagerRoleCopyKey =
   | 'managerRoleErrorPermission'
   | 'managerRoleErrorNotFound'
   | 'managerRoleErrorModule'
+  | 'managerRoleErrorSession'
   | 'managerRoleErrorUnexpected'
   | 'managerInactiveHint'
   | 'managerNeedsAccountHint'
@@ -66,8 +67,9 @@ type ManagerRoleCopyKey =
 export function managerRoleErrorCopyKey(code: ManagerRoleErrorCode): ManagerRoleCopyKey {
   switch (code) {
     case 'permission_denied':
-    case 'not_authenticated':
       return 'managerRoleErrorPermission';
+    case 'not_authenticated':
+      return 'managerRoleErrorSession';
     case 'employee_not_found':
       return 'managerRoleErrorNotFound';
     case 'module_disabled':

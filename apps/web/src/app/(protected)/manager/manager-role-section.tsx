@@ -79,7 +79,7 @@ export function ManagerRoleSection({ staff, selfStaffId, onChange, lang }: Manag
           <span style={{ fontSize: 13, ...mutedText }}>{t('managerRoleIsStaff')}</span>
         )}
       </div>
-      {error ? <div style={{ ...alertDanger, marginTop: 8 }}>{error}</div> : null}
+      {error ? <div role="alert" style={{ ...alertDanger, marginTop: 8 }}>{error}</div> : null}
       {success ? (
         <div role="status" style={{ ...alertSuccess, marginTop: 8 }}>
           {success}
