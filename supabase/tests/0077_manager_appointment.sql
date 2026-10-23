@@ -285,5 +285,115 @@ select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000003',
 select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 0, 'G: reactivation does not restore the Manager role');
 select is(pg_temp.role_rows('a7790000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003'), 1, 'G: the Owner''s role was never touched');
 
+-- H: review additions ------------------------------------------------------------------------------
+-- fixtures: A = tenant_admin, ML = Manager scoped to L1 only, Z = legacy inactive Manager;
+-- T1 / L2 with employee ...10 (no account); employee ...11 = Z, inactive from the start
+insert into core.locations (id, tenant_id, name) values
+  ('a7710000-0000-0000-0000-000000000003', 'a7700000-0000-0000-0000-0000000000a1', 'T1 / L2');
+insert into core.users (id, display_name) values
+  ('a7790000-0000-0000-0000-00000000000a', 'A admin'),
+  ('a7790000-0000-0000-0000-00000000000b', 'ML location manager'),
+  ('a7790000-0000-0000-0000-00000000000c', 'Z legacy');
+insert into core.tenant_memberships (tenant_id, user_id, status) values
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000a', 'active'),
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000b', 'active'),
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000c', 'active');
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000004', null),
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000005', 'a7710000-0000-0000-0000-000000000001');
+insert into workforce.employees (id, tenant_id, location_id, name_encrypted, user_id, is_active) values
+  ('a7720000-0000-0000-0000-000000000010', 'a7700000-0000-0000-0000-0000000000a1', 'a7710000-0000-0000-0000-000000000003', convert_to('L2', 'UTF8'), null, true),
+  ('a7720000-0000-0000-0000-000000000011', 'a7700000-0000-0000-0000-0000000000a1', 'a7710000-0000-0000-0000-000000000001', convert_to('Z', 'UTF8'), 'a7790000-0000-0000-0000-00000000000c', false);
+
+-- H1: module OFF
+update core.tenant_modules set is_enabled = false where tenant_id = 'a7700000-0000-0000-0000-0000000000a1' and module = 'workforce';
+select matches(pg_temp.as_user('a7790000-0000-0000-0000-000000000001',
+  $$ select api.set_employee_manager_role('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000004', true)::text $$),
+  '^ERR P0001 workforce_module_disabled', 'H1: Workforce OFF -> P0001 workforce_module_disabled');
+update core.tenant_modules set is_enabled = true where tenant_id = 'a7700000-0000-0000-0000-0000000000a1' and module = 'workforce';
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 0, 'H1: nothing written while OFF');
+
+-- H2: tenant_admin appoints and revokes; owners untouched
+select is(pg_temp.as_user('a7790000-0000-0000-0000-00000000000a',
+  $$ select api.set_employee_manager_role('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000004', true)::text $$)::jsonb ->> 'changed',
+  'true', 'H2: tenant_admin appoints');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 1, 'H2: manager row created by the admin');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-00000000000a',
+  $$ select api.set_employee_manager_role('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000004', false)::text $$)::jsonb ->> 'changed',
+  'true', 'H2: tenant_admin revokes');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 0, 'H2: manager row removed by the admin');
+select is(pg_temp.role_rows('a7790000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003')
+          + pg_temp.role_rows('a7790000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003'), 2,
+  'H2: both tenant_owner assignments untouched');
+select is(pg_temp.role_rows('a7790000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000004'), 1, 'H2: tenant_admin assignment untouched');
+
+-- H3: a Manager deactivates the Owner's employee row (Owner also holds a manager row)
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000005', null);
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000003',
+  $$ with u as (update api.workforce_staff_manage set is_active = false where staff_id = 'a7720000-0000-0000-0000-000000000001' returning 1) select count(*)::text from u $$),
+  '1', 'H3: Manager M deactivates the Owner''s employee row');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000001'), 0, 'H3: only the Owner''s manager row is removed');
+select is(pg_temp.role_rows('a7790000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003'), 1, 'H3: tenant_owner stays');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000001',
+  $$ select core.has_permission('a7700000-0000-0000-0000-0000000000a1', 'core.role.manage', null)::text $$),
+  'true', 'H3: the Owner keeps owner permissions');
+update workforce.employees set is_active = true where id = 'a7720000-0000-0000-0000-000000000001';
+
+-- H4: deleting an employee drops the manager role
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000001',
+  $$ select api.set_employee_manager_role('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000004', true)::text $$)::jsonb ->> 'changed',
+  'true', 'H4: E1 appointed');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000003',
+  $$ select deleted::text from api.permanently_delete_employee('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000004') $$),
+  'true', 'H4: M permanently deletes E1''s (active, history-free) employee row');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 0, 'H4: the manager role did not outlive the employee row');
+select is((select count(*)::int from audit.audit_logs where tenant_id = 'a7700000-0000-0000-0000-0000000000a1'
+            and action = 'revoke_manager' and metadata ->> 'reason' = 'employee_deleted'
+            and metadata ->> 'user_id' = 'a7790000-0000-0000-0000-000000000004'
+            and actor_id = 'a7790000-0000-0000-0000-000000000003'), 1, 'H4: audited with reason employee_deleted');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000004',
+  $$ select core.has_permission('a7700000-0000-0000-0000-0000000000a1', 'workforce.staff.manage', 'a7710000-0000-0000-0000-000000000001')::text $$),
+  'false', 'H4: the former E1 has no Manager rights');
+-- an unbound employee row deletes without audit noise
+select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000001',
+  $$ select deleted::text from api.permanently_delete_employee('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000008') $$),
+  'true', 'H4: deleting an unbound employee still works');
+select is((select count(*)::int from audit.audit_logs where tenant_id = 'a7700000-0000-0000-0000-0000000000a1'
+            and metadata ->> 'employee_id' = 'a7720000-0000-0000-0000-000000000008' and metadata ->> 'reason' = 'employee_deleted'), 0,
+  'H4: ... with no revoke audit row (trigger only for bound rows)');
+
+-- H5: cross-location (RLS model: workforce.staff.manage is matched at the row's location)
+select is(pg_temp.as_user('a7790000-0000-0000-0000-00000000000b',
+  $$ select count(*)::text from api.workforce_staff_manage where staff_id = 'a7720000-0000-0000-0000-000000000010' $$),
+  '0', 'H5: an L1-scoped Manager cannot see L2 staff');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-00000000000b',
+  $$ select count(*)::text from api.workforce_staff_manage where staff_id = 'a7720000-0000-0000-0000-000000000009' $$),
+  '1', 'H5: ... but sees L1 staff');
+select is(pg_temp.as_user('a7790000-0000-0000-0000-00000000000b',
+  $$ with u as (update api.workforce_staff_manage set is_active = false where staff_id = 'a7720000-0000-0000-0000-000000000010' returning 1) select count(*)::text from u $$),
+  '0', 'H5: ... and cannot deactivate L2 staff');
+select is((select is_active from workforce.employees where id = 'a7720000-0000-0000-0000-000000000010'), true, 'H5: the L2 employee stays active');
+select matches(pg_temp.as_user('a7790000-0000-0000-0000-00000000000b',
+  $$ select api.set_employee_manager_role('a7700000-0000-0000-0000-0000000000a1', 'a7720000-0000-0000-0000-000000000009', true)::text $$),
+  '^ERR 42501 permission_denied', 'H5: a location Manager cannot appoint either');
+
+-- H6: backfill of legacy inactive Managers
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  ('a7700000-0000-0000-0000-0000000000a1', 'a7790000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000005', null);
+select is(has_function_privilege('authenticated', 'core.revoke_inactive_employee_managers()', 'execute'), false, 'H6: backfill not callable by authenticated');
+select is(has_function_privilege('service_role', 'core.revoke_inactive_employee_managers()', 'execute'), false, 'H6: ... nor by service_role');
+select ok(core.revoke_inactive_employee_managers() >= 1, 'H6: backfill removes the legacy inactive Manager');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-00000000000c'), 0, 'H6: Z has no manager row');
+select is((select count(*)::int from audit.audit_logs where tenant_id = 'a7700000-0000-0000-0000-0000000000a1'
+            and action = 'revoke_manager' and metadata ->> 'reason' = 'backfill_inactive'
+            and metadata ->> 'user_id' = 'a7790000-0000-0000-0000-00000000000c' and actor_id is null and actor_kind = 'system'), 1,
+  'H6: one system audit row, reason backfill_inactive');
+select is(core.revoke_inactive_employee_managers(), 0, 'H6: second run removes nothing (idempotent)');
+select is((select count(*)::int from core.role_assignments ra join workforce.employees e on e.tenant_id = ra.tenant_id and e.user_id = ra.user_id
+            where ra.role_id = '00000000-0000-0000-0000-000000000005' and not e.is_active), 0,
+  'H6: no inactive Manager exists anywhere');
+select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000003'), 1, 'H6: active Manager M untouched');
+
 select * from finish();
 rollback;

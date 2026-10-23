@@ -38,14 +38,30 @@
 --    0064, never redefined since) additionally refuses an inactive employee
 --    with the same generic invitation_not_acceptable (no new error surface
 --    for the callback).
+--    The same trigger body also runs AFTER DELETE (only when the deleted row
+--    had a bound account): workforce.permanently_delete_employee (0097) does
+--    not require an inactive row, and without this the user's tenant-wide
+--    manager assignment would outlive the employee row (the revoke RPC would
+--    then answer employee_not_found forever). Audit reason employee_deleted.
+--    Skipped when the tenant row itself is being deleted (tenant cascade).
+-- 4. Backfill (legacy data): core.revoke_inactive_employee_managers() deletes
+--    the manager assignments of every user whose employee row in that tenant
+--    is inactive, one audit row each (actor NULL / system, reason
+--    backfill_inactive). Called once below, so no inactive Manager exists
+--    after this migration. Owner-only function (no grant to any app role).
 --
 -- Security: every SECURITY DEFINER function lives in core / workforce with a
 -- pinned search_path; identity is core.current_user_id() (never an argument);
 -- revoke from public/anon; api.* stays SECURITY INVOKER (ADR 0008).
--- Note: a Manager (workforce.staff.manage) who deactivates a co-Manager's
--- employee row thereby removes that person's Manager role — deactivation means
--- the person has left; this is intended and audited (reason
--- employee_deactivated).
+--
+-- ACCEPTED BEHAVIOUR: deactivating (or deleting) another Manager's employee
+-- row removes that person's Manager role TENANT-WIDE. Anyone allowed to
+-- deactivate the row (workforce.staff.manage at its location, i.e. also a
+-- fellow Manager) thereby revokes it. Deactivation means the person has left;
+-- the change is audited (reason employee_deactivated / employee_deleted) and
+-- the Owner re-appoints if it was a mistake. tenant_owner / tenant_admin
+-- assignments are never touched by it — deactivating the Owner's own employee
+-- row removes only a manager assignment the Owner might also hold.
 --
 -- Cost: no new table, no polling, no Realtime. One RPC per appoint/revoke
 -- (rare, Owner-only); the staff list read gains one indexed EXISTS per row
@@ -210,29 +226,46 @@ returns trigger
 language plpgsql security definer set search_path = core, workforce, audit, public, pg_temp as $$
 declare
   v_actor uuid := core.current_user_id();
+  v_kind text := case when core.current_user_id() is null then 'system' else 'user' end;
+  v_tenant uuid;
+  v_employee uuid;
+  v_user uuid;
+  v_reason text;
   v_inv_ids uuid[];
   v_ra_ids uuid[];
 begin
+  if tg_op = 'DELETE' then
+    v_tenant := old.tenant_id; v_employee := old.id; v_user := old.user_id; v_reason := 'employee_deleted';
+    -- tenant cascade: the tenant row is already gone, everything of it goes
+    -- with it (an audit row could not even reference it)
+    if not exists (select 1 from core.tenants where id = v_tenant) then
+      return null;
+    end if;
+  else
+    v_tenant := new.tenant_id; v_employee := new.id; v_user := new.user_id; v_reason := 'employee_deactivated';
+  end if;
+
+  -- (on DELETE the FK cascade has usually removed them already; harmless no-op then)
   with revoked as (
     update workforce.employee_invitations
        set status = 'revoked', revoked_at = now()
-     where tenant_id = new.tenant_id and employee_id = new.id and status = 'pending'
+     where tenant_id = v_tenant and employee_id = v_employee and status = 'pending'
     returning id
   )
   select coalesce(array_agg(id), '{}') into v_inv_ids from revoked;
 
   if cardinality(v_inv_ids) > 0 then
     insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-    values (new.tenant_id, v_actor, case when v_actor is null then 'system' else 'user' end, 'workforce',
+    values (v_tenant, v_actor, v_kind, 'workforce',
             'employee_invitation', v_inv_ids[1]::text, 'revoke',
             jsonb_build_object('status', 'pending'), jsonb_build_object('status', 'revoked'),
-            jsonb_build_object('employee_id', new.id, 'invitation_ids', to_jsonb(v_inv_ids), 'reason', 'employee_deactivated'));
+            jsonb_build_object('employee_id', v_employee, 'invitation_ids', to_jsonb(v_inv_ids), 'reason', v_reason));
   end if;
 
-  if new.user_id is not null then
+  if v_user is not null then
     with gone as (
       delete from core.role_assignments
-       where tenant_id = new.tenant_id and user_id = new.user_id
+       where tenant_id = v_tenant and user_id = v_user
          and role_id = '00000000-0000-0000-0000-000000000005'
       returning id
     )
@@ -240,11 +273,11 @@ begin
 
     if cardinality(v_ra_ids) > 0 then
       insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-      values (new.tenant_id, v_actor, case when v_actor is null then 'system' else 'user' end, 'core',
+      values (v_tenant, v_actor, v_kind, 'core',
               'role_assignment', v_ra_ids[1]::text, 'revoke_manager',
               jsonb_build_object('is_manager', true), jsonb_build_object('is_manager', false),
-              jsonb_build_object('employee_id', new.id, 'user_id', new.user_id, 'role_key', 'manager',
-                                 'role_assignment_ids', to_jsonb(v_ra_ids), 'reason', 'employee_deactivated'));
+              jsonb_build_object('employee_id', v_employee, 'user_id', v_user, 'role_key', 'manager',
+                                 'role_assignment_ids', to_jsonb(v_ra_ids), 'reason', v_reason));
     end if;
   end if;
 
@@ -252,7 +285,7 @@ begin
 end;
 $$;
 comment on function workforce.on_employee_deactivated() is
-  '0138 (DEBT-094): AFTER UPDATE trigger body, fires only on is_active true -> false. Revokes the employee''s pending invitations and deletes their manager role assignments (employee role kept), with audit rows. SECURITY DEFINER because the deactivating Manager has no write access to core.role_assignments; it acts only on the row being deactivated (already authorised by wf_employees_staff_manage RLS).';
+  '0138 (DEBT-094): AFTER trigger body for workforce.employees. UPDATE: fires only on is_active true -> false (reason employee_deactivated). DELETE: fires only when the deleted row had a bound account (reason employee_deleted; skipped during a tenant cascade). Revokes pending invitations and deletes the user''s manager role assignments in that tenant (employee / owner / admin roles kept), with audit rows. SECURITY DEFINER because the deactivating / deleting Manager has no write access to core.role_assignments; it acts only on the row being changed (already authorised by wf_employees_staff_manage RLS or workforce.permanently_delete_employee).';
 revoke all on function workforce.on_employee_deactivated() from public, anon, authenticated;
 
 drop trigger if exists employees_on_deactivated on workforce.employees;
@@ -261,6 +294,47 @@ create trigger employees_on_deactivated
   for each row
   when (old.is_active and not new.is_active)
   execute function workforce.on_employee_deactivated();
+
+drop trigger if exists employees_on_deleted on workforce.employees;
+create trigger employees_on_deleted
+  after delete on workforce.employees
+  for each row
+  when (old.user_id is not null)
+  execute function workforce.on_employee_deactivated();
+
+-- --- 4. backfill: no inactive Manager survives this migration ----------------------
+create or replace function core.revoke_inactive_employee_managers()
+returns integer
+language plpgsql security definer set search_path = core, workforce, audit, public, pg_temp as $$
+declare
+  v_count integer;
+begin
+  with gone as (
+    delete from core.role_assignments ra
+     using workforce.employees e
+     where e.tenant_id = ra.tenant_id
+       and e.user_id = ra.user_id
+       and not e.is_active
+       and ra.role_id = '00000000-0000-0000-0000-000000000005'
+    returning ra.id, ra.tenant_id, ra.user_id, ra.location_id, e.id as employee_id
+  ), logged as (
+    insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
+    select g.tenant_id, null, 'system', 'core', 'role_assignment', g.id::text, 'revoke_manager',
+           jsonb_build_object('is_manager', true), jsonb_build_object('is_manager', false),
+           jsonb_build_object('employee_id', g.employee_id, 'user_id', g.user_id, 'role_key', 'manager',
+                              'location_id', g.location_id, 'reason', 'backfill_inactive')
+      from gone g
+    returning 1
+  )
+  select count(*)::int into v_count from logged;
+  return v_count;
+end;
+$$;
+comment on function core.revoke_inactive_employee_managers() is
+  '0138 backfill: deletes every manager role assignment whose user''s employee row in that tenant is inactive (legacy data from before the deactivation trigger), one audit row each (actor NULL / system, reason backfill_inactive). Returns the number removed. Idempotent. Not granted to any app role.';
+revoke all on function core.revoke_inactive_employee_managers() from public, anon, authenticated, service_role;
+
+select core.revoke_inactive_employee_managers();
 
 -- --- 3b. DEBT-094: accept refuses an inactive employee -----------------------------
 -- Live body from 0064: statements verbatim (long comments shortened), plus the
@@ -376,6 +450,10 @@ $$;
 -- Rollback (role assignments created by appointments stay; drop them by hand
 -- if wanted: delete from core.role_assignments where role_id = manager and
 -- the audit log shows appoint_manager):
+--   (the backfill's deleted manager assignments are not restored; their ids,
+--    users and locations are in audit.audit_logs, reason backfill_inactive)
+--   drop function if exists core.revoke_inactive_employee_managers();
+--   drop trigger if exists employees_on_deleted on workforce.employees;
 --   drop trigger if exists employees_on_deactivated on workforce.employees;
 --   drop function if exists workforce.on_employee_deactivated();
 --   -- re-apply api.workforce_staff_manage from 0122 requires DROP VIEW + CREATE
