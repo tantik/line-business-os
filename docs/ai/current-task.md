@@ -239,7 +239,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-21B.md`.
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-24.md` (4B-4a live, 0138 on Cloud DEV; mailbox oruwa.jp@gmail.com; Claude in Chrome).
 
 Where everything else lives:
 
