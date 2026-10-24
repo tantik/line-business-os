@@ -1641,7 +1641,7 @@ export const publishWeekDoneMessage: Record<Lang, (count: number) => string> = {
 // Kept as one self-contained block (not in `ManagerDashboardDict`) so it
 // merges independently of other key additions to the dictionary above.
 // ---------------------------------------------------------------------------
-type OwnerChecklistStepCopyId = 'add_staff' | 'invite_staff' | 'appoint_manager' | 'schedule_settings' | 'first_shift';
+type OwnerChecklistStepCopyId = 'add_staff' | 'invite_staff' | 'appoint_manager' | 'first_shift';
 
 export interface OwnerChecklistCopy {
   heading: string;
@@ -1665,7 +1665,6 @@ export const ownerChecklistCopy: Record<Lang, OwnerChecklistCopy> = {
       add_staff: { title: 'スタッフを登録する', hint: '一緒に働くスタッフを追加します。', action: 'スタッフを追加' },
       invite_staff: { title: 'スタッフをアプリに招待する', hint: '招待メールから登録すると、スタッフがシフトや勤怠を使えます。', action: '招待する' },
       appoint_manager: { title: '店長を決める', hint: 'スタッフの詳細から「店長にする」を選びます。', action: '店長を選ぶ' },
-      schedule_settings: { title: '営業日と必要人数を設定する', hint: '曜日ごとに必要なスタッフ数を入力します。', action: '設定を開く' },
       first_shift: { title: '最初のシフトを作る', hint: 'シフト表のマスをタップするか、「自動でシフトを作成」を使います。', action: 'シフト表へ' },
     },
   },
@@ -1680,7 +1679,6 @@ export const ownerChecklistCopy: Record<Lang, OwnerChecklistCopy> = {
       add_staff: { title: 'Add your staff', hint: 'Add the people who work with you.', action: 'Add staff' },
       invite_staff: { title: 'Invite staff to the app', hint: 'Once they sign up from the invitation email, staff can use shifts and attendance.', action: 'Invite' },
       appoint_manager: { title: 'Choose a manager', hint: 'Open a staff member and choose “Make manager”.', action: 'Choose' },
-      schedule_settings: { title: 'Set business days and staffing', hint: 'Enter how many staff you need on each weekday.', action: 'Open settings' },
       first_shift: { title: 'Create your first shift', hint: 'Tap a cell in the schedule, or use “Create schedule automatically”.', action: 'Go to schedule' },
     },
   },

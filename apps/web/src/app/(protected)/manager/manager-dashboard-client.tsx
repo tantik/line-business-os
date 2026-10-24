@@ -938,19 +938,18 @@ function ManagerDashboardBody({
   const ownerChecklist = useMemo(
     () =>
       canAppointManagers && staff !== null
-        ? deriveOwnerChecklist({ staff, selfStaffId, scheduleSettings, assignments: exchangeAssignments ?? assignments })
+        ? deriveOwnerChecklist({ staff, selfStaffId, assignments: exchangeAssignments ?? assignments })
         : null,
-    [canAppointManagers, staff, selfStaffId, scheduleSettings, exchangeAssignments, assignments],
+    [canAppointManagers, staff, selfStaffId, exchangeAssignments, assignments],
   );
 
   function handleOwnerChecklistAction(step: OwnerChecklistStepId) {
-    if (step === 'add_staff' || step === 'invite_staff' || step === 'appoint_manager') {
-      markPopupTriggerClick('manage-staff');
-      setStaffPopupOpen(true);
+    if (step === 'first_shift') {
+      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-    const targetId = step === 'schedule_settings' ? 'schedule-settings' : 'weekly-schedule';
-    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    markPopupTriggerClick('manage-staff');
+    setStaffPopupOpen(true);
   }
 
   function assignmentFor(staffId: string, date: string) {
@@ -1865,8 +1864,6 @@ function ManagerDashboardBody({
         }}
       />
 
-      {/* Scroll target for the Owner checklist's 「設定を開く」 (no id on the section itself). */}
-      <div id="schedule-settings">
       <SettingsSection
         locationId={locationId}
         settings={scheduleSettings}
@@ -1888,7 +1885,6 @@ function ManagerDashboardBody({
         todayIso={todayIso}
         lang={lang}
       />
-      </div>
 
       <ConfirmDialog
         open={publishWeekConfirmOpen}

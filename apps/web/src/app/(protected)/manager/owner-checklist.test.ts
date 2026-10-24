@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   deriveOwnerChecklist,
-  isScheduleSettingsConfigured,
   ownerChecklistStorageKey,
   readOwnerChecklistHidden,
   writeOwnerChecklistHidden,
@@ -11,27 +10,34 @@ import {
 } from './owner-checklist.js';
 import { ownerChecklistCopy } from './manager-dashboard-i18n.js';
 
+const STEP_IDS = ['add_staff', 'invite_staff', 'appoint_manager', 'first_shift'] as const;
+
 function staff(overrides: Partial<OwnerChecklistStaffInput> & { staffId: string }): OwnerChecklistStaffInput {
   return { isActive: true, hasAccountAccess: false, isManager: false, ...overrides };
 }
 
 function input(overrides: Partial<OwnerChecklistInput> = {}): OwnerChecklistInput {
-  return { staff: [], selfStaffId: 'owner', scheduleSettings: null, assignments: [], ...overrides };
+  return { staff: [], selfStaffId: 'owner', assignments: [], ...overrides };
 }
 
 function doneMap(state: ReturnType<typeof deriveOwnerChecklist>) {
   return Object.fromEntries(state.steps.map((s) => [s.id, s.done]));
 }
 
-test('a brand-new tenant (only the Owner row) has 0 / 5 done, in the fixed step order', () => {
+test('a brand-new tenant (only the Owner row) has 0 / 4 done, in the fixed step order', () => {
   const state = deriveOwnerChecklist(input({ staff: [staff({ staffId: 'owner', hasAccountAccess: true, isManager: true })] }));
   assert.deepEqual(
     state.steps.map((s) => s.id),
-    ['add_staff', 'invite_staff', 'appoint_manager', 'schedule_settings', 'first_shift'],
+    [...STEP_IDS],
   );
   assert.equal(state.doneCount, 0);
-  assert.equal(state.total, 5);
+  assert.equal(state.total, 4);
   assert.equal(state.allDone, false);
+});
+
+test('there is no business-days / staffing step (CTO decision: provisioned tenants already have it)', () => {
+  const state = deriveOwnerChecklist(input());
+  assert.equal(state.steps.some((s) => (s.id as string) === 'schedule_settings'), false);
 });
 
 test("the caller's own row never satisfies the staff steps", () => {
@@ -73,14 +79,6 @@ test('invite and manager steps are independent: any other active staff can satis
   assert.equal(done.appoint_manager, true);
 });
 
-test('schedule settings are configured only with a row that has a weekday headcount above 0', () => {
-  assert.equal(isScheduleSettingsConfigured(null), false);
-  assert.equal(isScheduleSettingsConfigured({ requiredHeadcountByWeekday: [0, 0, 0, 0, 0, 0, 0] }), false);
-  assert.equal(isScheduleSettingsConfigured({ requiredHeadcountByWeekday: [] }), false);
-  assert.equal(isScheduleSettingsConfigured({ requiredHeadcountByWeekday: [0, 0, 1, 0, 0, 0, 0] }), true);
-  assert.equal(isScheduleSettingsConfigured({ requiredHeadcountByWeekday: [Number.NaN, 0, 0, 0, 0, 0, 0] }), false);
-});
-
 test('first shift needs an assignment with an assignee; null assignments read as not done', () => {
   assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: [] }))).first_shift, false);
   assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: null }))).first_shift, false);
@@ -88,15 +86,14 @@ test('first shift needs an assignment with an assignee; null assignments read as
   assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: [{ employeeId: 'a' }] }))).first_shift, true);
 });
 
-test('all five done -> allDone (the card is then not rendered)', () => {
+test('all four done -> allDone (the card is then not rendered)', () => {
   const state = deriveOwnerChecklist(
     input({
       staff: [staff({ staffId: 'owner' }), staff({ staffId: 'a', hasAccountAccess: true, isManager: true })],
-      scheduleSettings: { requiredHeadcountByWeekday: [1, 2, 2, 2, 2, 2, 1] },
       assignments: [{ employeeId: 'a' }],
     }),
   );
-  assert.equal(state.doneCount, 5);
+  assert.equal(state.doneCount, 4);
   assert.equal(state.allDone, true);
 });
 
@@ -127,7 +124,8 @@ test('checklist copy exists in JA and EN for every step and differs by language'
   for (const lang of ['ja', 'en'] as const) {
     const c = ownerChecklistCopy[lang];
     for (const value of [c.heading, c.close, c.closeAriaLabel, c.statusDone, c.statusTodo]) assert.ok(value.length > 0);
-    for (const id of ['add_staff', 'invite_staff', 'appoint_manager', 'schedule_settings', 'first_shift'] as const) {
+    assert.deepEqual(Object.keys(c.steps).sort(), [...STEP_IDS].sort());
+    for (const id of STEP_IDS) {
       assert.ok(c.steps[id].title.length > 0);
       assert.ok(c.steps[id].hint.length > 0);
       assert.ok(c.steps[id].action.length > 0);
@@ -136,6 +134,6 @@ test('checklist copy exists in JA and EN for every step and differs by language'
   }
   assert.equal(ownerChecklistCopy.ja.heading, 'はじめにやること');
   assert.equal(ownerChecklistCopy.en.heading, 'Getting started');
-  assert.equal(ownerChecklistCopy.ja.progress(3, 5), '3 / 5 完了');
+  assert.equal(ownerChecklistCopy.ja.progress(3, 4), '3 / 4 完了');
   assert.equal(ownerChecklistCopy.ja.steps.appoint_manager.title, '店長を決める');
 });
