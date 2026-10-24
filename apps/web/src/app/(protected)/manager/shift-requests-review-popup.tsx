@@ -309,8 +309,9 @@ export function ShiftRequestsReviewPopup({
   }
 
   /**
-   * The legacy design-kit Modal closes on a window-level Escape, so Escape
-   * inside a nested dialog also reaches this outer popup. Refuse to close
+   * Escape in a nested design-kit Modal (help / review / reminder) now closes
+   * only that nested Modal (shared overlay stack, DEBT-119 c), but this popup
+   * still closes from its own Escape, × button and backdrop. Refuse to close
    * while a write is in flight, and reset the nested dialogs on close so a
    * reopen never shows a stale "sent" reminder or review dialog.
    */

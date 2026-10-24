@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { colors } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { useOverlayEscape } from './overlayStack';
 
 export interface ActionsMenuItem {
   label: string;
@@ -53,6 +54,14 @@ export function ActionsMenu({ triggerLabel, items }: ActionsMenuProps) {
     setOpen(true);
   }
 
+  // DEBT-119 (c): Escape goes through the shared overlay stack, so with this
+  // menu open inside a `Modal`, Escape closes only the menu (focus back on
+  // the ••• trigger); the next Escape closes the Modal.
+  useOverlayEscape(open, () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  });
+
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(event: MouseEvent) {
@@ -60,22 +69,14 @@ export function ActionsMenu({ triggerLabel, items }: ActionsMenuProps) {
       if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
       setOpen(false);
     }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    }
     function handleScrollOrResize() {
       setOpen(false);
     }
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };

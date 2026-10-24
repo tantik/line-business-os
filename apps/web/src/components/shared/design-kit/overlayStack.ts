@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 /**
  * DEBT-119 (c): stack-aware Escape handling for the design-kit overlays
- * (`Modal`, `ConfirmDialog`).
+ * (`Modal`, `ConfirmDialog`, `ActionsMenu`).
  *
  * Before this, `ConfirmDialog` listened for Escape on `document` and `Modal`
  * on `window`, each unconditionally - so with a confirmation open inside a
@@ -33,6 +33,10 @@ export interface OverlayKeyEvent {
   key: string;
   /** True while an IME (e.g. Japanese input) is composing; Escape then cancels the composition, not the dialog. */
   isComposing?: boolean;
+  /** Auto-repeat from a held key: ignored so holding Escape does not close every layer in turn. */
+  repeat?: boolean;
+  /** 229 = "IME is processing" - Safari reports the Escape that ends a composition with this and `isComposing: false`. */
+  keyCode?: number;
 }
 
 interface OverlayLayer {
@@ -63,7 +67,7 @@ function syncDocumentListener(): void {
  * `useOverlayEscape`.
  */
 export function handleOverlayKeyDown(event: OverlayKeyEvent): boolean {
-  if (event.key !== 'Escape' || event.isComposing) return false;
+  if (event.key !== 'Escape' || event.isComposing || event.repeat || event.keyCode === 229) return false;
   const top = stack[stack.length - 1];
   if (!top) return false;
   top.onEscape();

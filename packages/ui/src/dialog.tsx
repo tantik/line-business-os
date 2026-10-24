@@ -35,9 +35,11 @@ export interface DialogProps {
  * labelledby/describedby wiring, portal rendering, and *stack-aware*
  * dismiss (an inner Dialog/ConfirmDialog's Escape only closes the inner
  * one) come from a maintained a11y engine instead of ORUWA hand-rolling
- * them — closes the design-kit `Modal`'s three known gaps (P1-1/2/3): no
- * focus-trap, no scroll-lock, and Escape listening on `window` with no
- * awareness of which layer is topmost.
+ * them — closes the design-kit `Modal`'s known gaps (P1-1/2): no focus-trap
+ * and no scroll-lock. (P1-3, Escape with no awareness of the topmost layer,
+ * was fixed inside the design-kit by its own overlay stack - DEBT-119 c -
+ * but that stack is separate from Radix's: a design-kit overlay nested in a
+ * Radix Dialog, or the reverse, is still not stack-aware.)
  *
  * API intentionally mirrors the retiring `components/shared/design-kit/Modal`
  * (open/onClose/title/children/footer/titleAdornment/closeLabel) so call
