@@ -11,8 +11,9 @@
 --      tenant_owner never touched
 --   F  DEBT-094: deactivate revokes pending invitations (+ audit); accept
 --      refuses an inactive employee; an active one still accepts
---   G  deactivating a Manager drops the Manager role (+ audit), employee role
---      stays; reactivation does not restore it
+--   G  deactivating a Manager drops the Manager role (+ audit) and, since 0139
+--      (DEBT-121), the employee role too; reactivation does not restore the
+--      Manager role (full DEBT-121 coverage: 0078)
 -- ============================================================================
 begin;
 
@@ -275,7 +276,8 @@ select is(pg_temp.as_user('a7790000-0000-0000-0000-000000000003',
   $$ with u as (update api.workforce_staff_manage set is_active = false where staff_id = 'a7720000-0000-0000-0000-000000000004' returning 1) select count(*)::text from u $$),
   '1', 'G: M deactivates E1');
 select is(pg_temp.mgr_rows('a7790000-0000-0000-0000-000000000004'), 0, 'G: deactivation dropped the Manager role');
-select is(pg_temp.role_rows('a7790000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000006'), 1, 'G: employee role stays');
+-- 0139 (DEBT-121): deactivation now also removes the employee role (was: 'G: employee role stays', 1)
+select is(pg_temp.role_rows('a7790000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000006'), 0, 'G: employee role removed too (0139, DEBT-121)');
 select is((select count(*)::int from audit.audit_logs where tenant_id = 'a7700000-0000-0000-0000-0000000000a1'
             and action = 'revoke_manager' and metadata ->> 'reason' = 'employee_deactivated'
             and actor_id = 'a7790000-0000-0000-0000-000000000003'), 1, 'G: revoke audited with reason employee_deactivated');
