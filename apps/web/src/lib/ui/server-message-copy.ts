@@ -46,7 +46,22 @@ const KNOWN: Record<string, { ja: string; en: string }> = {
     ja: 'このスタッフはまだ招待されていません。「招待する」を使ってください。',
     en: 'This staff member has not been invited yet. Use "Invite".',
   },
-  'Could not upload the photo.': { ja: '写真をアップロードできませんでした。', en: 'Could not upload the photo.' },
+  // 0140 (DEBT-123 c), invitations.ts USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE
+  'This email is already linked to an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.': {
+    ja: 'このメールアドレスは、以前のスタッフ登録（無効を含む）にすでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+    en: 'This email is already linked to an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.',
+  },
+  // 0140 (DEBT-123 b), employees.ts SELF_OFFBOARDING_MESSAGE
+  'You cannot deactivate or delete your own staff record. Ask the owner.': {
+    ja: '自分自身のスタッフ登録は無効化・削除できません。オーナーに依頼してください。',
+    en: 'You cannot deactivate or delete your own staff record. Ask the owner.',
+  },
+  // 0049 email_hash unique index hit on create / edit, employees.ts EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE
+  'This email is already used by an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.': {
+    ja: 'このメールアドレスは、以前のスタッフ登録（無効を含む）ですでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+    en: 'This email is already used by an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.',
+  },
+  'Could not upload the photo.':{ ja: '写真をアップロードできませんでした。', en: 'Could not upload the photo.' },
   'Could not process the photo.': { ja: '写真を処理できませんでした。', en: 'Could not process the photo.' },
   'Weekly Review requires exactly one active location for this workspace.': {
     ja: '週次レビューは、有効な店舗が1つの場合のみ表示できます。',

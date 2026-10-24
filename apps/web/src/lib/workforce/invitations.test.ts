@@ -7,8 +7,10 @@ import {
   listMyPendingWorkforceInvitations,
   listWorkforceEmployeeInvitations,
   revokeWorkforceEmployeeInvitation,
+  USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE,
 } from './invitations.js';
 import { recordingClient } from './test-helpers.js';
+import { localizeServerMessage } from '../ui/server-message-copy.js';
 
 const TENANT_ID = 'tenant-a';
 
@@ -190,6 +192,32 @@ test('inviteOrResendWorkforceEmployee maps employee_already_bound to duplicate',
   try {
     const result = await inviteOrResendWorkforceEmployee('token', TENANT_ID, 'e1');
     assert.equal(result.status, 'duplicate');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('inviteOrResendWorkforceEmployee maps user_has_other_employee_record (0140, DEBT-123 c) to duplicate with its own code and localizable message', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'user_has_other_employee_record' }), { status: 409 })) as typeof fetch;
+  try {
+    const result = await inviteOrResendWorkforceEmployee('token', TENANT_ID, 'e1');
+    assert.deepEqual(result, { status: 'duplicate', code: 'user_has_other_employee_record', message: USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE });
+    assert.equal(
+      localizeServerMessage('duplicate', USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE, 'ja'),
+      'このメールアドレスは、以前のスタッフ登録（無効を含む）にすでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('employee_already_bound stays a plain duplicate (no code)', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: 'employee_already_bound' }), { status: 409 })) as typeof fetch;
+  try {
+    const result = await inviteOrResendWorkforceEmployee('token', TENANT_ID, 'e1');
+    assert.equal(result.status === 'duplicate' ? result.code : 'not-duplicate', undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }

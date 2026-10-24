@@ -5,8 +5,9 @@
 --   B  deactivate a plain employee: employee role gone, membership suspended,
 --      audit rows; no permission, not a member, gone from my_tenant_memberships
 --   C  deactivate a Manager-employee: manager + employee roles gone, suspended
---   D  user who also holds tenant_owner / tenant_admin: employee role gone,
---      membership stays active, owner/admin rights intact
+--   D  user who also holds tenant_owner: employee role gone, membership stays
+--      active, owner rights intact; tenant_admin: since 0140 removed too, so
+--      the admin-only user is suspended
 --   E  reactivate: membership active, employee role back at the CURRENT
 --      location, audit rows; Manager role not restored; owner (membership
 --      never suspended) gets the role back without a reactivate audit row
@@ -197,10 +198,12 @@ select is(pg_temp.as_user('a7890000-0000-0000-0000-000000000003',
          || '/' || core.is_member_of('a7800000-0000-0000-0000-0000000000a1')::text $$),
   'true/true', 'D: OE keeps owner rights and membership');
 select is(pg_temp.set_active('a7890000-0000-0000-0000-000000000001', 'a7820000-0000-0000-0000-000000000004', false), '1', 'D: Owner deactivates admin AE''s employee row');
+-- 0140 (4B-4b): deactivation now also removes tenant_admin, so AE has no role
+-- left and is suspended (was: '0/1/active', tenant_admin kept)
 select is(pg_temp.role_rows('a7890000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000006')::text
           || '/' || pg_temp.role_rows('a7890000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004')::text
           || '/' || pg_temp.mem('a7890000-0000-0000-0000-000000000004'),
-  '0/1/active', 'D: AE: employee role gone, tenant_admin kept, membership active');
+  '0/0/suspended', 'D: AE: employee role and tenant_admin gone, membership suspended (0140)');
 
 -- E: reactivate ----------------------------------------------------------------------------------------
 -- E is moved to L2 while inactive; reactivation restores the role at the CURRENT location

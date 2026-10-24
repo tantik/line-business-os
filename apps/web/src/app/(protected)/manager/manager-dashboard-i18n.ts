@@ -129,6 +129,25 @@ interface ManagerDashboardDict {
   managerRoleErrorNotFound: string;
   managerRoleErrorModule: string;
   managerRoleErrorUnexpected: string;
+  // 4B-4b (0140): Admin (管理者) appointment (Owner only). Copy keys returned by lib/workforce/admin-role.ts.
+  adminBadge: string;
+  adminRoleIsAdmin: string;
+  appointAdmin: string;
+  revokeAdmin: string;
+  appointAdminConfirmTitle: string;
+  appointAdminConfirmBody: string;
+  revokeAdminConfirmTitle: string;
+  revokeAdminConfirmBody: string;
+  adminAppointed: string;
+  adminRevoked: string;
+  adminNeedsAccountHint: string;
+  adminInactiveHint: string;
+  adminOwnRoleHint: string;
+  adminRoleErrorPermission: string;
+  adminRoleErrorSession: string;
+  adminRoleErrorNotFound: string;
+  adminRoleErrorModule: string;
+  adminRoleErrorUnexpected: string;
   // 2026-08-21: InvitationCell's own interactive copy -- previously JA-only
   // per an older, now-superseded Founder scope decision (F4) made back when
   // the surrounding Manager dashboard was still English-only; the whole
@@ -150,6 +169,8 @@ interface ManagerDashboardDict {
   confirmRevokeInvitationBody: string;
   inviteErrorNotFound: string;
   inviteErrorDuplicate: string;
+  /** 0140 (DEBT-123 c): the email's account already belongs to an earlier (possibly inactive) staff record. */
+  inviteErrorUserHasOtherEmployeeRecord: string;
   inviteErrorGeneric: string;
   revokeErrorNotFound: string;
   revokeErrorGeneric: string;
@@ -550,6 +571,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     managerRoleErrorNotFound: 'This staff member was not found. Refresh the page and try again.',
     managerRoleErrorModule: 'Shift management is turned off for this workspace.',
     managerRoleErrorUnexpected: 'Could not change the role. Please try again.',
+    adminBadge: 'Admin',
+    adminRoleIsAdmin: 'Admin: can do everything the owner can except billing, including appointing managers, staff information and store settings.',
+    appointAdmin: 'Make admin',
+    revokeAdmin: 'Remove admin role',
+    appointAdminConfirmTitle: 'Make this staff member an admin?',
+    appointAdminConfirmBody: 'They will be able to do everything the owner can except billing, including appointing managers, managing staff information (including hourly wages and contacts) and store settings. Their staff access stays as it is.',
+    revokeAdminConfirmTitle: 'Remove the admin role?',
+    revokeAdminConfirmBody: 'They keep their staff (or manager) access but lose admin rights.',
+    adminAppointed: 'Admin role given.',
+    adminRevoked: 'Admin role removed.',
+    adminNeedsAccountHint: 'Staff who have not accepted their invitation cannot be made admins.',
+    adminInactiveHint: 'Inactive staff cannot be made admins. Reactivate them first.',
+    adminOwnRoleHint: 'You cannot change your own role.',
+    adminRoleErrorPermission: 'Only the owner can appoint or remove admins.',
+    adminRoleErrorSession: 'Your session has expired. Please sign in again.',
+    adminRoleErrorNotFound: 'This staff member was not found. Refresh the page and try again.',
+    adminRoleErrorModule: 'Shift management is turned off for this workspace.',
+    adminRoleErrorUnexpected: 'Could not change the role. Please try again.',
     inviteButton: 'Invite',
     resendButton: 'Resend',
     sendingStatus: 'Sending…',
@@ -565,7 +604,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmRevokeInvitationBody: 'The revoked invitation becomes invalid. You can resend it later if needed.',
     inviteErrorNotFound: 'Staff member not found.',
     inviteErrorDuplicate: 'This staff member already has account access.',
-    inviteErrorGeneric: 'Could not send the invitation. Please try again.',
+    inviteErrorUserHasOtherEmployeeRecord: 'This email is already linked to an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.',
+    inviteErrorGeneric:'Could not send the invitation. Please try again.',
     revokeErrorNotFound: 'This invitation no longer exists.',
     revokeErrorGeneric: 'Could not revoke the invitation. Please try again.',
     recoverErrorGeneric: 'Could not send the recovery email. Please try again.',
@@ -921,6 +961,24 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     managerRoleErrorNotFound: 'スタッフが見つかりません。画面を更新して、もう一度お試しください。',
     managerRoleErrorModule: 'このワークスペースではシフト管理機能が無効です。',
     managerRoleErrorUnexpected: '役割を変更できませんでした。もう一度お試しください。',
+    adminBadge: '管理者',
+    adminRoleIsAdmin: '管理者：請求を除き、オーナーと同じ操作（店長の任命・解除、スタッフ情報、店舗設定など）ができます。',
+    appointAdmin: '管理者にする',
+    revokeAdmin: '管理者から外す',
+    appointAdminConfirmTitle: 'このスタッフを管理者にしますか？',
+    appointAdminConfirmBody: '請求を除き、オーナーと同じ操作（店長の任命・解除、スタッフ情報（時給・連絡先を含む）、店舗設定など）ができるようになります。スタッフとしての利用はそのままです。',
+    revokeAdminConfirmTitle: '管理者から外しますか？',
+    revokeAdminConfirmBody: 'スタッフ（店長の場合は店長）としては引き続き利用できますが、管理者の権限はなくなります。',
+    adminAppointed: '管理者にしました。',
+    adminRevoked: '管理者から外しました。',
+    adminNeedsAccountHint: '招待を承認していないスタッフは管理者にできません。',
+    adminInactiveHint: '無効のスタッフは管理者にできません。先に有効にしてください。',
+    adminOwnRoleHint: 'ご自身の役割は変更できません。',
+    adminRoleErrorPermission: '管理者の任命はオーナーだけができます。',
+    adminRoleErrorSession: 'ログインの有効期限が切れました。もう一度ログインしてください。',
+    adminRoleErrorNotFound: 'スタッフが見つかりません。画面を更新して、もう一度お試しください。',
+    adminRoleErrorModule: 'このワークスペースではシフト管理機能が無効です。',
+    adminRoleErrorUnexpected: '役割を変更できませんでした。もう一度お試しください。',
     inviteButton: '招待する',
     resendButton: '再送信',
     sendingStatus: '送信中…',
@@ -936,7 +994,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmRevokeInvitationBody: '取り消した招待は無効になります。必要であれば再送信できます。',
     inviteErrorNotFound: '従業員が見つかりません。',
     inviteErrorDuplicate: 'この従業員はすでにアクセス権を持っています。',
-    inviteErrorGeneric: '招待を送信できませんでした。もう一度お試しください。',
+    inviteErrorUserHasOtherEmployeeRecord: 'このメールアドレスは、以前のスタッフ登録（無効を含む）にすでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+    inviteErrorGeneric:'招待を送信できませんでした。もう一度お試しください。',
     revokeErrorNotFound: 'この招待はすでに存在しません。',
     revokeErrorGeneric: '取り消せませんでした。もう一度お試しください。',
     recoverErrorGeneric: '復旧メールを送信できませんでした。もう一度お試しください。',
