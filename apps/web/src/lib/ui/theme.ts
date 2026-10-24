@@ -45,6 +45,7 @@ export const colors = {
   warning: token.warning,
   // Text-safe warning colour (gold-700): `warning` (gold-500) on white is ~2.6:1, fails AA for text.
   warningText: token['warning-text'],
+  warningMuted: token['warning-muted'],
   // Semantic info pair (blue-600, already AA as text) -- e.g. the 店長 role badge (DEBT-119 e).
   infoText: token['info-text'],
   infoMuted: token['info-muted'],
@@ -202,7 +203,7 @@ export const tableCell: CSSProperties = {
   padding: '10px',
 };
 
-export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning' | 'info';
+export type BadgeTone = 'active' | 'inactive' | 'neutral' | 'warning' | 'info' | 'gold';
 
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const tones: Record<BadgeTone, { background: string; color: string; border: string }> = {
@@ -216,6 +217,9 @@ export function badgeStyle(tone: BadgeTone): CSSProperties {
     warning: { background: colors.dangerMuted, color: colors.dangerText, border: colors.danger },
     // Role marker (店長), DEBT-119 e: must not share `neutral` with status badges such as 「LINE未連携」.
     info: { background: colors.infoMuted, color: colors.infoText, border: colors.infoText },
+    // Role marker (管理者), 4B-4b: existing warning-* gold tokens (AA-safe `warning-text`), distinct from 店長's `info`.
+    // Named for the colour, not "warning": it is a role badge, not an alert.
+    gold: { background: colors.warningMuted, color: colors.warningText, border: colors.warning },
   };
   const t = tones[tone];
   return {

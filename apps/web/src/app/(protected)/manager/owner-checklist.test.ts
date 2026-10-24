@@ -8,7 +8,7 @@ import {
   type OwnerChecklistInput,
   type OwnerChecklistStaffInput,
 } from './owner-checklist.js';
-import { ownerChecklistCopy } from './manager-dashboard-i18n.js';
+import { adminRoleSectionCopy, ownerChecklistCopy } from './manager-dashboard-i18n.js';
 
 const STEP_IDS = ['add_staff', 'invite_staff', 'appoint_manager', 'first_shift'] as const;
 
@@ -24,15 +24,35 @@ function doneMap(state: ReturnType<typeof deriveOwnerChecklist>) {
   return Object.fromEntries(state.steps.map((s) => [s.id, s.done]));
 }
 
-test('a brand-new tenant (only the Owner row) has 0 / 4 done, in the fixed step order', () => {
+test('a brand-new tenant (only the Owner row) has 0 / 3 done; all four steps shown in the fixed order', () => {
   const state = deriveOwnerChecklist(input({ staff: [staff({ staffId: 'owner', hasAccountAccess: true, isManager: true })] }));
   assert.deepEqual(
     state.steps.map((s) => s.id),
     [...STEP_IDS],
   );
   assert.equal(state.doneCount, 0);
-  assert.equal(state.total, 4);
+  assert.equal(state.total, 3);
   assert.equal(state.allDone, false);
+});
+
+test('only 店長を決める is optional', () => {
+  const state = deriveOwnerChecklist(input());
+  assert.deepEqual(
+    state.steps.filter((s) => s.optional).map((s) => s.id),
+    ['appoint_manager'],
+  );
+});
+
+test('the optional manager step never changes progress or completion', () => {
+  const base = { staff: [staff({ staffId: 'a', hasAccountAccess: true })], assignments: [{ employeeId: 'a', published: true }] };
+  const withoutManager = deriveOwnerChecklist(input(base));
+  assert.equal(doneMap(withoutManager).appoint_manager, false);
+  assert.equal(withoutManager.doneCount, 3);
+  assert.equal(withoutManager.allDone, true, 'the 3 required steps done -> the card hides even without a 店長');
+
+  const onlyManager = deriveOwnerChecklist(input({ staff: [staff({ staffId: 'a', isManager: true })] }));
+  assert.equal(doneMap(onlyManager).appoint_manager, true);
+  assert.equal(onlyManager.doneCount, 1, 'only add_staff counts; the done optional step adds nothing');
 });
 
 test('there is no business-days / staffing step (CTO decision: provisioned tenants already have it)', () => {
@@ -79,21 +99,24 @@ test('invite and manager steps are independent: any other active staff can satis
   assert.equal(done.appoint_manager, true);
 });
 
-test('first shift needs an assignment with an assignee; null assignments read as not done', () => {
-  assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: [] }))).first_shift, false);
-  assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: null }))).first_shift, false);
-  assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: [{ employeeId: null }] }))).first_shift, false);
-  assert.equal(doneMap(deriveOwnerChecklist(input({ assignments: [{ employeeId: 'a' }] }))).first_shift, true);
+test('first shift needs a PUBLISHED assignment with an assignee; drafts and null assignments read as not done', () => {
+  const firstShift = (assignments: OwnerChecklistInput['assignments']) => doneMap(deriveOwnerChecklist(input({ assignments }))).first_shift;
+  assert.equal(firstShift([]), false);
+  assert.equal(firstShift(null), false);
+  assert.equal(firstShift([{ employeeId: null, published: true }]), false);
+  assert.equal(firstShift([{ employeeId: 'a', published: false }]), false, 'a draft is invisible to staff');
+  assert.equal(firstShift([{ employeeId: 'a', published: false }, { employeeId: 'b', published: true }]), true);
 });
 
-test('all four done -> allDone (the card is then not rendered)', () => {
+test('all steps done -> allDone, progress 3 / 3 (the card is then not rendered)', () => {
   const state = deriveOwnerChecklist(
     input({
       staff: [staff({ staffId: 'owner' }), staff({ staffId: 'a', hasAccountAccess: true, isManager: true })],
-      assignments: [{ employeeId: 'a' }],
+      assignments: [{ employeeId: 'a', published: true }],
     }),
   );
-  assert.equal(state.doneCount, 4);
+  assert.equal(state.doneCount, 3);
+  assert.equal(state.total, 3);
   assert.equal(state.allDone, true);
 });
 
@@ -123,7 +146,7 @@ test('hidden flag: per-tenant key, survives missing or throwing storage', () => 
 test('checklist copy exists in JA and EN for every step and differs by language', () => {
   for (const lang of ['ja', 'en'] as const) {
     const c = ownerChecklistCopy[lang];
-    for (const value of [c.heading, c.close, c.closeAriaLabel, c.statusDone, c.statusTodo]) assert.ok(value.length > 0);
+    for (const value of [c.heading, c.close, c.closeAriaLabel, c.statusDone, c.statusTodo, c.optionalTag]) assert.ok(value.length > 0);
     assert.deepEqual(Object.keys(c.steps).sort(), [...STEP_IDS].sort());
     for (const id of STEP_IDS) {
       assert.ok(c.steps[id].title.length > 0);
@@ -134,6 +157,16 @@ test('checklist copy exists in JA and EN for every step and differs by language'
   }
   assert.equal(ownerChecklistCopy.ja.heading, 'はじめにやること');
   assert.equal(ownerChecklistCopy.en.heading, 'Getting started');
-  assert.equal(ownerChecklistCopy.ja.progress(3, 4), '3 / 4 完了');
+  assert.equal(ownerChecklistCopy.ja.progress(2, 3), '2 / 3 完了');
   assert.equal(ownerChecklistCopy.ja.steps.appoint_manager.title, '店長を決める');
+  assert.equal(ownerChecklistCopy.ja.optionalTag, '（任意）');
+  assert.match(ownerChecklistCopy.ja.steps.first_shift.hint, /公開/);
+  assert.match(ownerChecklistCopy.en.steps.first_shift.hint, /publish/i);
+});
+
+test('admin section copy (JA/EN) explains the rights: almost owner, except billing', () => {
+  assert.match(adminRoleSectionCopy.ja.isNotAdmin, /請求を除き/);
+  assert.match(adminRoleSectionCopy.ja.isNotAdmin, /店長の任命/);
+  assert.match(adminRoleSectionCopy.en.isNotAdmin, /except billing/);
+  assert.notEqual(adminRoleSectionCopy.ja.heading, adminRoleSectionCopy.en.heading);
 });

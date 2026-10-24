@@ -587,7 +587,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     taskCompletedNote: 'このタスクは完了済みのため変更できません。',
     numericRangeHint: '目安の範囲',
     thresholdNotConfiguredManager: 'しきい値未設定',
-    thresholdNotConfiguredStaff: '管理者による基準値の設定が必要です',
+    thresholdNotConfiguredStaff: '店長による基準値の設定が必要です',
     outOfRangeStaffWarning: '目安の範囲外の値です。店長に通知されました。異常がある場合は「この項目の問題を報告」から詳しく伝えてください。',
     backToTaskList: 'タスク一覧へ戻る',
     sectionTemplatesTab: 'テンプレート',

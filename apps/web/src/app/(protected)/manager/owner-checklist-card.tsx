@@ -15,8 +15,10 @@ import {
 export interface OwnerChecklistCardProps {
   tenantId: string;
   state: OwnerChecklistState;
-  /** Opens the existing place for each step (staff popup / settings section / schedule) -- the dashboard's own handlers. */
+  /** Opens the existing place for each step (staff popup / schedule) -- the dashboard's own handlers. */
   onAction: (step: OwnerChecklistStepId) => void;
+  /** Called right after 「閉じる」 hid the card, so the dashboard can move keyboard focus somewhere sensible (the focused button is gone). */
+  onClosed?: () => void;
   lang: Lang;
 }
 
@@ -30,13 +32,14 @@ function browserStorage(): Storage | null {
 
 /**
  * 4B-4b 「はじめにやること」: rendered by the dashboard only for a caller with
- * core.role.manage (Owner/Admin). Not rendered when every step is done, or
+ * core.role.manage (Owner/Admin). Not rendered when every REQUIRED step is
+ * done (the optional 店長 step is shown but never counted), or
  * after 「閉じる」 in this browser (see owner-checklist.ts for the rules).
  * The hidden flag lives in localStorage, so the first server render cannot
  * know it: the card renders nothing until mounted, which avoids flashing a
  * card the Owner already closed (it appears right after hydration instead).
  */
-export function OwnerChecklistCard({ tenantId, state, onAction, lang }: OwnerChecklistCardProps) {
+export function OwnerChecklistCard({ tenantId, state, onAction, onClosed, lang }: OwnerChecklistCardProps) {
   const copy = ownerChecklistCopy[lang];
   const headingId = useId();
   const [hidden, setHidden] = useState<boolean | null>(null);
@@ -64,6 +67,7 @@ export function OwnerChecklistCard({ tenantId, state, onAction, lang }: OwnerChe
           onClick={() => {
             writeOwnerChecklistHidden(browserStorage(), tenantId);
             setHidden(true);
+            onClosed?.();
           }}
         >
           {copy.close}
@@ -130,6 +134,7 @@ export function OwnerChecklistCard({ tenantId, state, onAction, lang }: OwnerChe
               <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: step.done ? colors.textMuted : colors.textPrimary, overflowWrap: 'anywhere' }}>
                   {stepCopy.title}
+                  {step.optional ? <span style={{ fontWeight: 400, ...mutedText }}>{copy.optionalTag}</span> : null}
                 </div>
                 {step.done ? null : (
                   <div style={{ fontSize: 12, marginTop: 2, overflowWrap: 'anywhere', ...mutedText }}>{stepCopy.hint}</div>

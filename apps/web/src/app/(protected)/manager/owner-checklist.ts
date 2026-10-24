@@ -9,18 +9,26 @@
  * 2. invite_staff      -- at least one active staff (not self) whose account
  *                         is bound (`hasAccountAccess`, i.e. accepted an
  *                         invitation). A pending invitation does not count.
- * 3. appoint_manager   -- at least one active staff (not self) holding the
- *                         店長 role (`isManager`).
- * 4. first_shift       -- at least one shift assignment with an assignee in
- *                         the loaded window (the -8..+8 week window, or the
- *                         current week if that window failed to load).
+ * 3. appoint_manager   -- OPTIONAL (CTO decision 2026-10-24: a small store
+ *                         may be run by the Owner alone). At least one active
+ *                         staff (not self) holding the 店長 role
+ *                         (`isManager`). Shown, but never counted in
+ *                         `doneCount` / `total` / `allDone`.
+ * 4. first_shift       -- at least one PUBLISHED shift assignment with an
+ *                         assignee in the loaded window (the -8..+8 week
+ *                         window, or the current week if that window failed
+ *                         to load). A draft is invisible to staff, so it does
+ *                         not count.
+ *
+ * Progress is "n / 3" over the required steps; the card hides once those
+ * three are done, whether or not the optional step is.
  *
  * No "business days / staffing" step (CTO decision 2026-10-24): every
  * provisioned tenant (0133) already gets the package template's schedule
  * settings, so such a step would be either auto-done or misleading.
  *
  * `null` staff (the roster read failed) means nothing can be derived: the
- * caller renders no card at all rather than a wrong "0 / 4".
+ * caller renders no card at all rather than a wrong "0 / 3".
  */
 
 export type OwnerChecklistStepId = 'add_staff' | 'invite_staff' | 'appoint_manager' | 'first_shift';
@@ -43,18 +51,25 @@ export interface OwnerChecklistInput {
   staff: readonly OwnerChecklistStaffInput[];
   selfStaffId: string | null;
   /** Loaded shift assignments; `null` when the read failed (step stays not done). */
-  assignments: readonly { employeeId: string | null }[] | null;
+  assignments: readonly { employeeId: string | null; published: boolean }[] | null;
 }
+
+/** Steps shown but not counted toward progress / completion. */
+export const OWNER_CHECKLIST_OPTIONAL_STEPS: ReadonlySet<OwnerChecklistStepId> = new Set<OwnerChecklistStepId>(['appoint_manager']);
 
 export interface OwnerChecklistStep {
   id: OwnerChecklistStepId;
   done: boolean;
+  optional: boolean;
 }
 
 export interface OwnerChecklistState {
   steps: OwnerChecklistStep[];
+  /** Done REQUIRED steps only. */
   doneCount: number;
+  /** Number of REQUIRED steps. */
   total: number;
+  /** Every required step done (the optional step does not matter). */
   allDone: boolean;
 }
 
@@ -64,11 +79,12 @@ export function deriveOwnerChecklist(input: OwnerChecklistInput): OwnerChecklist
     add_staff: others.length > 0,
     invite_staff: others.some((s) => s.hasAccountAccess),
     appoint_manager: others.some((s) => s.isManager),
-    first_shift: (input.assignments ?? []).some((a) => a.employeeId !== null),
+    first_shift: (input.assignments ?? []).some((a) => a.employeeId !== null && a.published),
   };
-  const steps = OWNER_CHECKLIST_STEP_ORDER.map((id) => ({ id, done: doneById[id] }));
-  const doneCount = steps.filter((s) => s.done).length;
-  return { steps, doneCount, total: steps.length, allDone: doneCount === steps.length };
+  const steps = OWNER_CHECKLIST_STEP_ORDER.map((id) => ({ id, done: doneById[id], optional: OWNER_CHECKLIST_OPTIONAL_STEPS.has(id) }));
+  const required = steps.filter((s) => !s.optional);
+  const doneCount = required.filter((s) => s.done).length;
+  return { steps, doneCount, total: required.length, allDone: doneCount === required.length };
 }
 
 /**

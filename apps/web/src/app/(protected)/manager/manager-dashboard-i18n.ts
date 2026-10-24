@@ -752,9 +752,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     draftCellAriaSuffix: ' (draft, not published)',
     correctPastScheduleAriaLabelPrefix: 'Correct past schedule',
     shiftRequestsCardTitle: 'Shift preferences',
-    viewRequestsButton: 'View requests',
-    shiftRequestsPopupHelpAriaLabel: 'About shift requests',
-    shiftRequestsPopupHelpTitle: 'About shift requests',
+    viewRequestsButton: 'View preferences',
+    shiftRequestsPopupHelpAriaLabel: 'About shift preferences',
+    shiftRequestsPopupHelpTitle: 'About shift preferences',
     shiftRequestsPopupHelpBody:
       'See the shift preferences your staff sent for a month. Staff send preferences for next month, so "Next month" is shown first.\n\nEach day shows one of:\n• A shift name: the shift they would like to work.\n• "Off": they cannot work that day. Automatic scheduling will not place them on it (you can still assign a shift by hand).\n• "—": no preference for that day. Automatic scheduling may still place them if needed.\n\nA name with a red "!" has not sent anything for that month yet ("submitted" means at least one day was sent). In the "Next month" view, tap the name to email them a reminder.\n\nTap a shift or "Off" to mark it as reviewed (✓). This is saved, but it is only a note for you: it does not change the schedule. Staff cannot change a day after sending it; if they need a change, edit the schedule directly.',
     submittedPreferencesEmpty: 'No active staff to show.',
@@ -1709,6 +1709,8 @@ export interface OwnerChecklistCopy {
   closeAriaLabel: string;
   statusDone: string;
   statusTodo: string;
+  /** Appended to an optional step's title; not counted in progress. */
+  optionalTag: string;
   steps: Record<OwnerChecklistStepCopyId, { title: string; hint: string; action: string }>;
 }
 
@@ -1720,11 +1722,12 @@ export const ownerChecklistCopy: Record<Lang, OwnerChecklistCopy> = {
     closeAriaLabel: '「はじめにやること」を閉じる（この端末では再表示されません）',
     statusDone: '完了',
     statusTodo: '未完了',
+    optionalTag: '（任意）',
     steps: {
       add_staff: { title: 'スタッフを登録する', hint: '一緒に働くスタッフを追加します。', action: 'スタッフを追加' },
       invite_staff: { title: 'スタッフをアプリに招待する', hint: '招待メールから登録すると、スタッフがシフトや勤怠を使えます。', action: '招待する' },
       appoint_manager: { title: '店長を決める', hint: 'スタッフの詳細から「店長にする」を選びます。', action: '店長を選ぶ' },
-      first_shift: { title: '最初のシフトを作る', hint: 'シフト表のマスをタップするか、「自動でシフトを作成」を使います。', action: 'シフト表へ' },
+      first_shift: { title: '最初のシフトを作る', hint: 'シフトを作って公開すると、スタッフに表示されます。マスのタップか「自動でシフトを作成」で作れます。', action: 'シフト表へ' },
     },
   },
   en: {
@@ -1734,11 +1737,24 @@ export const ownerChecklistCopy: Record<Lang, OwnerChecklistCopy> = {
     closeAriaLabel: 'Close “Getting started” (it will not come back on this device)',
     statusDone: 'Done',
     statusTodo: 'Not done',
+    optionalTag: ' (optional)',
     steps: {
       add_staff: { title: 'Add your staff', hint: 'Add the people who work with you.', action: 'Add staff' },
       invite_staff: { title: 'Invite staff to the app', hint: 'Once they sign up from the invitation email, staff can use shifts and attendance.', action: 'Invite' },
       appoint_manager: { title: 'Choose a manager', hint: 'Open a staff member and choose “Make manager”.', action: 'Choose' },
-      first_shift: { title: 'Create your first shift', hint: 'Tap a cell in the schedule, or use “Create schedule automatically”.', action: 'Go to schedule' },
+      first_shift: { title: 'Create your first shift', hint: 'Staff see a shift once it is published. Tap a cell, or use “Create schedule automatically”.', action: 'Go to schedule' },
     },
+  },
+};
+
+/** 4B-4b: Owner-only 管理者 section in the staff detail view (admin-role-section.tsx). The other admin* keys live in the dictionary above (#645). */
+export const adminRoleSectionCopy: Record<Lang, { heading: string; isNotAdmin: string }> = {
+  ja: {
+    heading: '管理者権限',
+    isNotAdmin: '管理者ではありません。管理者にすると、請求を除きオーナーとほぼ同じ操作（店長の任命・スタッフ管理・設定）ができます。',
+  },
+  en: {
+    heading: 'Admin rights',
+    isNotAdmin: 'Not an admin. An admin can do almost everything the owner can except billing: appoint managers, manage staff and change settings.',
   },
 };

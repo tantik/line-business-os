@@ -18,6 +18,7 @@ import { StaffForm, localizedFormError } from './staff-form';
 import { LineLinkForm } from './line-link-form';
 import { InvitationCell } from './invitation-cell';
 import { ManagerRoleSection } from './manager-role-section';
+import { AdminRoleSection } from './admin-role-section';
 
 export interface ManageStaffPopupProps {
   open: boolean;
@@ -32,6 +33,8 @@ export interface ManageStaffPopupProps {
   onChange: () => void;
   /** 4B-4a: Owner/Admin only (server-resolved core.role.manage) -- appoint/revoke section. The 店長 badge itself is shown to every caller (DEBT-119 e). */
   canAppointManagers?: boolean;
+  /** 4B-4b: Owner only (server-resolved tenant_owner role) -- appoint/revoke 管理者 section. The 管理者 badge itself is shown to every caller. */
+  canAppointAdmins?: boolean;
   selfStaffId?: string | null;
   lang: Lang;
 }
@@ -112,6 +115,7 @@ export function ManageStaffPopup({
   onSetActive,
   onChange,
   canAppointManagers = false,
+  canAppointAdmins = false,
   selfStaffId = null,
   lang,
 }: ManageStaffPopupProps) {
@@ -212,6 +216,7 @@ export function ManageStaffPopup({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <StaffAvatar name={detailStaff.name} />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {detailStaff.isAdmin ? <span style={badgeStyle('gold')}>{t('adminBadge')}</span> : null}
               {detailStaff.isManager ? <span style={badgeStyle('info')}>{t('managerBadge')}</span> : null}
               <span style={badgeStyle(detailStaff.isActive ? 'active' : 'inactive')}>{detailStaff.isActive ? t('statusActive') : t('statusInactive')}</span>
               <span style={badgeStyle(isLineLinkedByEmployeeId.get(detailStaff.staffId) ? 'active' : 'neutral')}>
@@ -256,6 +261,8 @@ export function ManageStaffPopup({
           </section>
 
           {canAppointManagers ? <ManagerRoleSection key={detailStaff.staffId} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
+
+          {canAppointAdmins ? <AdminRoleSection key={`admin-${detailStaff.staffId}`} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
 
           <section style={{ paddingTop: 4, borderTop: `1px solid ${colors.border}` }}>
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
@@ -439,6 +446,7 @@ export function ManageStaffPopup({
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                       {/* DEBT-119 e: every staff.manage holder sees who is 店長 (is_manager comes from api.workforce_staff_manage); only appoint/revoke stays Owner/Admin. */}
+                      {s.isAdmin ? <span style={badgeStyle('gold')}>{t('adminBadge')}</span> : null}
                       {s.isManager ? <span style={badgeStyle('info')}>{t('managerBadge')}</span> : null}
                       <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
                       <span style={badgeStyle(isLineLinkedByEmployeeId.get(s.staffId) ? 'active' : 'neutral')}>
