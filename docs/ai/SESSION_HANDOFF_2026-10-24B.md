@@ -38,3 +38,39 @@ Use only the v2 set in `.claude/qa-accounts.local.md`: `oruwa.jp+manager` (松�
 - The Chrome session is shared with the Founder's browser — signing in as another QA user signs the Founder out there; restore `oruwa.jp+manager` afterwards.
 - `scripts/ai-dev-merge.sh <PR> --db-review-pass` is required when a migration recreates policies (`drop policy`).
 - Local `apps/web` dev server does not point at Cloud DEV (`.env.local` unreadable) — do live QA on preview.oruwa.jp after merge.
+- Deploy status of a `dev` commit: `gh api repos/tantik/line-business-os/commits/<sha>/status` (context `Vercel`).
+- Cloud DEV reads: `npx supabase db query --linked "<sql>"`; apply: `npx supabase db push --dry-run` then `npx supabase db push --yes` from `dev`.
+- DEBT-111: the Preview/DEV pepper stays as is (rotating it orphans DEV email hashes); production gets one value in both runtimes.
+
+## 6. Bootstrap prompt (paste into the new chat; run `/chrome` first if Chrome tools are not loaded)
+
+```
+Продолжи по docs/ai/SESSION_HANDOFF_2026-10-24B.md §4 и памяти.
+Chrome — личный профиль, только свои новые вкладки, закрывать после работы
+(feedback_chrome_personal_profile_ok, feedback_close_preview_tabs_vercel_cpu).
+Сессия Chrome общая с моим браузером: если входишь под другим QA-пользователем,
+в конце верни вход oruwa.jp+manager@gmail.com.
+QA только на preview.oruwa.jp и только учётками v2 из .claude/qa-accounts.local.md
+(oruwa.jp+manager, +staffa/b/c/d/i); почта — oruwa.jp@gmail.com (Gmail /mail/u/3).
+
+Состояние: dev = #631–#640 слиты и проверены вживую; 0139 (DEBT-121) применена на Cloud DEV.
+
+Порядок работы:
+0. DEBT-098: Supabase Log Ingestion 2,53 ГБ / 1 ГБ (Free). В Logs Explorer найти,
+   какой источник даёт основной объём (edge_logs / postgres_logs / auth / realtime),
+   уменьшить именно его, не отключая логи целиком; записать «до/после» в DEBT-098.
+1. 4B-4b: чек-лист Owner «はじめにやること» на /manager (3–5 шагов, прогресс из данных);
+   назначение/снятие tenant_admin («старший менеджер») — только Owner, по образцу 0138;
+   DEBT-119 (c)–(f); DEBT-123 (b) запрет самодеактивации менеджера, (c) понятная ошибка при повторном найме.
+2. 4C: тест на 6 кафе (oruwa.jp+owner1..6) + DEBT-097 (замер на кафе), DEBT-114 (max_rows), DEBT-103 (удаление кафе).
+3. 4D: чистое демо-кафе (закрывает DEBT-001..005, 059, 066, 067, 080, 118a).
+4. Пакет перед продакшном (список в §4 п.4), включая DEBT-033: чистка данных уволенных
+   (контакты через 3 месяца, трудовые записи 5 лет по 労働基準法 109条).
+
+Правила: ты CTO — решаешь, делегируешь, проверяешь сам; dev-слияния через
+scripts/ai-dev-merge.sh; миграции/RLS — обязательно oruwa-db-security-reviewer;
+видимый UI — oruwa-ux-i18n-reviewer + живая проверка; ничего не откладывать молча
+(deferred-debt-register). Ко мне — только продакшн, сообщения реальным людям и то,
+что могу дать только я (одним списком). Общение на русском. На ~90% контекста —
+остановиться и сделать handoff.
+```
