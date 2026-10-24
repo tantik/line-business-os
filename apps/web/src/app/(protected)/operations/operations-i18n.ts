@@ -612,7 +612,7 @@ const dictionary: Record<Lang, OperationsDict> = {
     errExceptionAlreadyResolved: 'この問題はすでに解決済みです。',
     confirmAddDuplicateScheduleTitle: 'スケジュールを追加しますか？',
     confirmAddDuplicateScheduleBody: 'このテンプレートにはすでに有効なスケジュールがあります。もう一つ追加しますか？',
-    errScheduleNotFoundStaffTask: 'このタスクのスケジュールはすでに無効になっています。マネージャーに確認してください。',
+    errScheduleNotFoundStaffTask: 'このタスクのスケジュールはすでに無効になっています。店長に確認してください。',
     sectionSwitcherLabel: 'オペレーションのセクション',
     templateFilterLabel: 'テンプレートの状態フィルター',
   },

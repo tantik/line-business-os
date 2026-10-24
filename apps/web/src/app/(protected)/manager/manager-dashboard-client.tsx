@@ -98,6 +98,8 @@ import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { StaffMessagesPopup } from './staff-messages-popup';
 import { SettingsSection } from './settings-section';
+import { OwnerChecklistCard } from './owner-checklist-card';
+import { deriveOwnerChecklist, type OwnerChecklistStepId } from './owner-checklist';
 import type { AutoScheduleRun, WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
@@ -880,6 +882,7 @@ function ManagerDashboardBody({
             // 'exchange' request has nothing to approve into until a
             // colleague has accepted it.
             canApprove: e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId),
+            requestKind: e.requestKind,
           };
         }),
         openIssues: attentionOpenIssues ?? [],
@@ -926,6 +929,28 @@ function ManagerDashboardBody({
     }
     setEditingCell({ staffId: employeeId, date: workDate });
     document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // 4B-4b Owner checklist 「はじめにやること」: Owner/Admin only (the same
+  // server-resolved core.role.manage flag as 店長にする), derived purely from
+  // props this page already has -- no new read. `null` when the roster read
+  // failed (nothing trustworthy to show).
+  const ownerChecklist = useMemo(
+    () =>
+      canAppointManagers && staff !== null
+        ? deriveOwnerChecklist({ staff, selfStaffId, scheduleSettings, assignments: exchangeAssignments ?? assignments })
+        : null,
+    [canAppointManagers, staff, selfStaffId, scheduleSettings, exchangeAssignments, assignments],
+  );
+
+  function handleOwnerChecklistAction(step: OwnerChecklistStepId) {
+    if (step === 'add_staff' || step === 'invite_staff' || step === 'appoint_manager') {
+      markPopupTriggerClick('manage-staff');
+      setStaffPopupOpen(true);
+      return;
+    }
+    const targetId = step === 'schedule_settings' ? 'schedule-settings' : 'weekly-schedule';
+    document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function assignmentFor(staffId: string, date: string) {
@@ -1303,6 +1328,10 @@ function ManagerDashboardBody({
           activeTenantId={tenantId}
         />
       </header>
+
+      {ownerChecklist ? (
+        <OwnerChecklistCard tenantId={tenantId} state={ownerChecklist} onAction={handleOwnerChecklistAction} lang={lang} />
+      ) : null}
 
       <EntryPointsCard
         heading={t('entryPointsHeading')}
@@ -1836,6 +1865,8 @@ function ManagerDashboardBody({
         }}
       />
 
+      {/* Scroll target for the Owner checklist's 「設定を開く」 (no id on the section itself). */}
+      <div id="schedule-settings">
       <SettingsSection
         locationId={locationId}
         settings={scheduleSettings}
@@ -1857,6 +1888,7 @@ function ManagerDashboardBody({
         todayIso={todayIso}
         lang={lang}
       />
+      </div>
 
       <ConfirmDialog
         open={publishWeekConfirmOpen}

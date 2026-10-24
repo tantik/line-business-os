@@ -30,7 +30,7 @@ export interface ManageStaffPopupProps {
   pendingAction: string | null;
   onSetActive: (staffId: string, nextActive: boolean) => void;
   onChange: () => void;
-  /** 4B-4a: Owner/Admin only (server-resolved core.role.manage) -- 店長 badge + appoint/revoke. */
+  /** 4B-4a: Owner/Admin only (server-resolved core.role.manage) -- appoint/revoke section. The 店長 badge itself is shown to every caller (DEBT-119 e). */
   canAppointManagers?: boolean;
   selfStaffId?: string | null;
   lang: Lang;
@@ -212,7 +212,7 @@ export function ManageStaffPopup({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <StaffAvatar name={detailStaff.name} />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {canAppointManagers && detailStaff.isManager ? <span style={badgeStyle('neutral')}>{t('managerBadge')}</span> : null}
+              {detailStaff.isManager ? <span style={badgeStyle('info')}>{t('managerBadge')}</span> : null}
               <span style={badgeStyle(detailStaff.isActive ? 'active' : 'inactive')}>{detailStaff.isActive ? t('statusActive') : t('statusInactive')}</span>
               <span style={badgeStyle(isLineLinkedByEmployeeId.get(detailStaff.staffId) ? 'active' : 'neutral')}>
                 {isLineLinkedByEmployeeId.get(detailStaff.staffId) ? t('lineLinkedShort') : t('lineNotLinkedShort')}
@@ -438,7 +438,8 @@ export function ManageStaffPopup({
                       ) : null}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {canAppointManagers && s.isManager ? <span style={badgeStyle('neutral')}>{t('managerBadge')}</span> : null}
+                      {/* DEBT-119 e: every staff.manage holder sees who is 店長 (is_manager comes from api.workforce_staff_manage); only appoint/revoke stays Owner/Admin. */}
+                      {s.isManager ? <span style={badgeStyle('info')}>{t('managerBadge')}</span> : null}
                       <span style={badgeStyle(s.isActive ? 'active' : 'inactive')}>{s.isActive ? t('statusActive') : t('statusInactive')}</span>
                       <span style={badgeStyle(isLineLinkedByEmployeeId.get(s.staffId) ? 'active' : 'neutral')}>
                         {isLineLinkedByEmployeeId.get(s.staffId) ? t('lineLinkedShort') : t('lineNotLinkedShort')}

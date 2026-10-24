@@ -72,7 +72,7 @@ export function ManagerRoleSection({ staff, selfStaffId, onChange, lang }: Manag
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {staff.isManager ? (
           <>
-            <span style={badgeStyle('neutral')}>{t('managerBadge')}</span>
+            <span style={badgeStyle('info')}>{t('managerBadge')}</span>
             <span style={{ fontSize: 13, ...mutedText }}>{t('managerRoleIsManager')}</span>
           </>
         ) : (

@@ -182,7 +182,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     popupHelpAriaLabel: '申し送り・問題報告について',
     popupHelpTitle: '申し送り・問題報告について',
     popupHelpBody:
-      '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを残せます。「要対応」の問題は、マネージャーが確認または解決するまで表示され続けます。解決済みの項目は履歴に移動し、削除されることはありません。',
+      '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを残せます。「要対応」の問題は、店長が確認または解決するまで表示され続けます。解決済みの項目は履歴に移動し、削除されることはありません。',
     backToManager: '戻る',
     backToStaff: '戻る',
     formCancel: 'キャンセル',
@@ -220,7 +220,7 @@ const dictionary: Record<Lang, IssuesDict> = {
     emptyHistoryDescription: '解決済みの問題や申し送りメモはここに表示されます。',
 
     staffPopupHelpBody:
-      '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを数秒で残せます。重要な内容はマネージャーが対応するまでここに表示され続けるので、チーム全員が状況を把握できます。',
+      '設備の不具合などの問題を報告したり、次のシフトへの申し送りメモを数秒で残せます。重要な内容は店長が対応するまでここに表示され続けるので、チーム全員が状況を把握できます。',
     staffReportButton: '報告する',
     staffReportHeading: '問題・申し送りを報告',
     staffSeverityToggleLabel: '重要（すぐの対応が必要）',
@@ -234,7 +234,7 @@ const dictionary: Record<Lang, IssuesDict> = {
 
     reportedByLabel: '報告者',
     reportedByStaff: 'スタッフ',
-    reportedByManager: 'マネージャー',
+    reportedByManager: '店長',
     businessDateLabel: '営業日',
     reportedAtLabel: '報告日時',
     acknowledgedAtLabel: '確認日時',

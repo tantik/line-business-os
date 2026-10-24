@@ -226,6 +226,8 @@ export interface AttentionExchangeQueueInput {
   workDate: string | null;
   /** Mirrors the popup's own `canApprove` (an 'exchange' request with no accepted candidate yet cannot be approved) -- the queue item surfaces the same disabled-reason text, does not invent a new rule. */
   canApprove: boolean;
+  /** DEBT-119 f: the request kind, so the queue row can say what was asked (cancel / change / exchange) instead of calling every request an exchange. Optional; passed through unchanged. */
+  requestKind?: 'exchange' | 'change' | 'cancel';
 }
 
 /** Minimal shape an unavailable/schedule conflict needs for the Level-3 attention queue. */
@@ -244,7 +246,7 @@ export interface AttentionInventoryItemInput {
 
 export type ManagerAttentionQueueItem =
   | { id: string; category: 'correction'; severity: 'action_required'; requestId: string; employeeId: string; workDate: string }
-  | { id: string; category: 'exchange'; severity: 'action_required'; exchangeId: string; employeeId: string; workDate: string | null; canApprove: boolean }
+  | { id: string; category: 'exchange'; severity: 'action_required'; exchangeId: string; employeeId: string; workDate: string | null; canApprove: boolean; requestKind?: 'exchange' | 'change' | 'cancel' }
   | { id: string; category: 'issue'; severity: ManagerAttentionSeverity; issueId: string; businessDate: string; note: string }
   | {
       id: string;
@@ -318,7 +320,7 @@ export function buildManagerAttentionQueue(input: BuildManagerAttentionQueueInpu
     (a, b) => (a.workDate ?? '9999-99-99').localeCompare(b.workDate ?? '9999-99-99') || a.exchangeId.localeCompare(b.exchangeId),
   );
   for (const e of exchanges) {
-    items.push({ id: `exchange:${e.exchangeId}`, category: 'exchange', severity: 'action_required', exchangeId: e.exchangeId, employeeId: e.employeeId, workDate: e.workDate, canApprove: e.canApprove });
+    items.push({ id: `exchange:${e.exchangeId}`, category: 'exchange', severity: 'action_required', exchangeId: e.exchangeId, employeeId: e.employeeId, workDate: e.workDate, canApprove: e.canApprove, ...(e.requestKind ? { requestKind: e.requestKind } : {}) });
   }
 
   const severityRank = (s: ManagerAttentionSeverity) => (s === 'action_required' ? 0 : 1);
