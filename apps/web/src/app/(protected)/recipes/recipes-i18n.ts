@@ -247,7 +247,7 @@ const dictionary: Record<Lang, RecipesDict> = {
     popupHelpAriaLabel: 'レシピについて',
     popupHelpTitle: 'レシピについて',
     popupHelpBody:
-      'レシピと手順書は、スタッフが同じ手順で作業するための共有資料です。下書きはマネージャーだけに表示され、公開するとスタッフも確認できます。後で使う可能性がある場合はアーカイブし、完全削除は不要になった内容にのみ使用してください。',
+      'レシピと手順書は、スタッフが同じ手順で作業するための共有資料です。下書きは店長だけに表示され、公開するとスタッフも確認できます。後で使う可能性がある場合はアーカイブし、完全削除は不要になった内容にのみ使用してください。',
     formIngredientLabelPlaceholder: '材料名',
     formRemoveIngredient: '材料を削除',
     formAddIngredient: '+ 材料を追加',

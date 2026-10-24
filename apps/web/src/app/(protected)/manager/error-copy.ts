@@ -35,7 +35,7 @@ export function describeWriteError(
         : 'Only an archived recipe can be permanently deleted.';
     case 'stale_reference':
       return lang === 'ja'
-        ? 'このリクエストは最新の状態ではありません。シフトが変更されたか、別のマネージャーがすでに対応した可能性があります。最新の状態を確認してください。'
+        ? 'このリクエストは最新の状態ではありません。シフトが変更されたか、別の店長がすでに対応した可能性があります。最新の状態を確認してください。'
         : 'This request is no longer up to date — the shift may have changed, or another manager may have already decided it. Refresh to see the latest state.';
     case 'language_change_requires_confirmation':
       return lang === 'ja'

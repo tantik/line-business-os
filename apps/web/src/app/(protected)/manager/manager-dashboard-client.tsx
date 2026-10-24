@@ -98,6 +98,8 @@ import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { StaffMessagesPopup } from './staff-messages-popup';
 import { SettingsSection } from './settings-section';
+import { OwnerChecklistCard } from './owner-checklist-card';
+import { deriveOwnerChecklist, type OwnerChecklistStepId } from './owner-checklist';
 import type { AutoScheduleRun, WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
 import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design-kit';
 import { markPopupTriggerClick } from '@/lib/ui/popup-timing';
@@ -312,6 +314,8 @@ export interface ManagerDashboardClientProps {
   recipeCanManage: boolean;
   /** 4B-4a (0138): caller holds core.role.manage (Owner/Admin), resolved server-side -- offers 店長にする / 店長から外す. The RPC re-checks. */
   canAppointManagers: boolean;
+  /** 4B-4b (0140): caller holds the tenant_owner role, resolved server-side (`isTenantOwner`) -- offers 管理者にする / 管理者から外す. The RPC re-checks. */
+  canAppointAdmins: boolean;
   /** The caller's own employee row id (null when they have none) -- their own row never offers a role change. */
   selfStaffId: string | null;
   /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
@@ -432,6 +436,7 @@ function ManagerDashboardBody({
   recipeMediaUrlByRecipeId,
   recipeCanManage,
   canAppointManagers,
+  canAppointAdmins,
   selfStaffId,
   scheduleSettings,
   autoScheduleRuns,
@@ -880,6 +885,7 @@ function ManagerDashboardBody({
             // 'exchange' request has nothing to approve into until a
             // colleague has accepted it.
             canApprove: e.requestKind !== 'exchange' || Boolean(e.replacementEmployeeId),
+            requestKind: e.requestKind,
           };
         }),
         openIssues: attentionOpenIssues ?? [],
@@ -926,6 +932,35 @@ function ManagerDashboardBody({
     }
     setEditingCell({ staffId: employeeId, date: workDate });
     document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // 4B-4b Owner checklist 「はじめにやること」: Owner/Admin only (the same
+  // server-resolved core.role.manage flag as 店長にする), derived purely from
+  // props this page already has -- no new read. `null` when the roster read
+  // failed (nothing trustworthy to show).
+  const ownerChecklist = useMemo(
+    () =>
+      canAppointManagers && staff !== null
+        ? deriveOwnerChecklist({ staff, selfStaffId, assignments: exchangeAssignments ?? assignments })
+        : null,
+    [canAppointManagers, staff, selfStaffId, exchangeAssignments, assignments],
+  );
+
+  function handleOwnerChecklistAction(step: OwnerChecklistStepId) {
+    if (step === 'first_shift') {
+      document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Keyboard/screen-reader users land on the schedule too, not just the viewport.
+      document.getElementById('weekly-schedule-heading')?.focus({ preventScroll: true });
+      return;
+    }
+    markPopupTriggerClick('manage-staff');
+    setStaffPopupOpen(true);
+  }
+
+  // After 「閉じる」 the focused button is gone: continue from the page's main
+  // landmark (page.tsx gives it tabIndex=-1) instead of dropping focus to <body>.
+  function handleOwnerChecklistClosed() {
+    document.getElementById('manager-main')?.focus({ preventScroll: true });
   }
 
   function assignmentFor(staffId: string, date: string) {
@@ -1304,6 +1339,10 @@ function ManagerDashboardBody({
         />
       </header>
 
+      {ownerChecklist ? (
+        <OwnerChecklistCard tenantId={tenantId} state={ownerChecklist} onAction={handleOwnerChecklistAction} onClosed={handleOwnerChecklistClosed} lang={lang} />
+      ) : null}
+
       <EntryPointsCard
         heading={t('entryPointsHeading')}
         subtitle={staff === null ? t('staffUnavailable') : staff.length === 0 ? t('staffEmpty') : staffSummaryLabel[lang](staff.filter((s) => s.isActive).length, staff.length)}
@@ -1458,6 +1497,7 @@ function ManagerDashboardBody({
         onSetActive={handleSetActive}
         onChange={() => router.refresh()}
         canAppointManagers={canAppointManagers}
+        canAppointAdmins={canAppointAdmins}
         selfStaffId={selfStaffId}
         lang={lang}
       />
@@ -1577,7 +1617,7 @@ function ManagerDashboardBody({
       <section id="weekly-schedule" style={primaryCard}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</h2>
+            <h2 id="weekly-schedule-heading" tabIndex={-1} style={{ margin: 0, fontSize: 16 }}>{scheduleHeadingValue[lang](activePeriodStart, activePeriodEnd)}</h2>
             <HelpIconButton ariaLabel={t('scheduleHelpAriaLabel')} onClick={() => setScheduleHelpOpen(true)} />
           </div>
           {/* Founder Review Round 2 (2026-08-22), section 21: compact icon

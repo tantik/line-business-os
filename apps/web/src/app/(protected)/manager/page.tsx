@@ -32,6 +32,7 @@ import { listAllIssues, listOpenIssues, withReporterNames } from '@/lib/issues/i
 import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { hasRoleManageAccess } from '@/lib/workforce/manager-role';
+import { isTenantOwner } from '@/lib/workforce/admin-role';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
@@ -276,6 +277,7 @@ export default async function WorkforceManagerPage({
         issuesAllResult,
         autoScheduleRunsResult,
         canAppointManagers,
+        canAppointAdmins,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -375,6 +377,10 @@ export default async function WorkforceManagerPage({
         // is offered 「店長にする / 店長から外す」. UI gate only --
         // api.set_employee_manager_role re-checks the same permission.
         hasRoleManageAccess(supabase, activeTenant.tenantId),
+        // 4B-4b (0140): only the Owner (tenant_owner role) is offered
+        // 「管理者にする / 管理者から外す」. UI gate only --
+        // api.set_employee_admin_role re-checks the same role.
+        isTenantOwner(supabase, activeTenant.tenantId),
       ]);
 
       // The corrections popup shows each request's current attendance row
@@ -475,7 +481,8 @@ export default async function WorkforceManagerPage({
           : null;
 
       return (
-        <main style={pageStyle(1180)}>
+        // id + tabIndex=-1: programmatic focus target after the Owner checklist is closed (not in the Tab order).
+        <main id="manager-main" tabIndex={-1} style={{ ...pageStyle(1180), outline: 'none' }}>
           <ManagerDashboardClient
             key={activeTenant.tenantId}
             tenantId={activeTenant.tenantId}
@@ -531,6 +538,7 @@ export default async function WorkforceManagerPage({
             recipeMediaUrlByRecipeId={recipeMediaUrlByRecipeId}
             recipeCanManage={recipeCanManage}
             canAppointManagers={canAppointManagers}
+            canAppointAdmins={canAppointAdmins}
             selfStaffId={myProfile?.staffId ?? null}
             scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
             autoScheduleRuns={autoScheduleRunsResult.status === 'success' ? autoScheduleRunsResult.data : null}

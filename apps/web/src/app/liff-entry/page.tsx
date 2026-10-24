@@ -111,7 +111,7 @@ function describeProgress(phase: Exclude<EntryState, { phase: 'error' }>['phase'
 /** Deliberately generic, user-facing copy -- never surfaces the raw error code from the Edge Function. */
 function describeError(code: string): string {
   if (code === 'not_linked' || code === 'employee_not_onboarded') {
-    return 'このLINEアカウントはまだ連携されていません。担当マネージャーにご確認ください。';
+    return 'このLINEアカウントはまだ連携されていません。店長にご確認ください。';
   }
   return 'ログインに失敗しました。もう一度お試しいただくか、通常のログインページをご利用ください。';
 }

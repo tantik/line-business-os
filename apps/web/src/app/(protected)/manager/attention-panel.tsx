@@ -238,7 +238,13 @@ export function AttentionPanel({
     return (
       <div key={qi.id} style={queueItemStyle}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('attentionItemExchangeTitle')}</div>
+          {/* DEBT-119 f: 「シフト申請 · キャンセル / シフト変更 / 交換」 -- names the actual kind, never calls a cancel an exchange. */}
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {t('attentionItemExchangeTitle')}
+            {qi.requestKind
+              ? ` · ${t(qi.requestKind === 'cancel' ? 'requestKindCancellation' : qi.requestKind === 'change' ? 'requestKindChange' : 'requestKindExchange')}`
+              : ''}
+          </div>
           <div style={{ fontSize: 13 }}>{staffName(qi.employeeId)}{qi.workDate ? ` · ${qi.workDate}` : ''}</div>
           <div style={{ ...mutedText, fontSize: 12 }}>{qi.canApprove ? t('attentionWaitingDecision') : t('attentionReplacementNotSelected')}</div>
         </div>
