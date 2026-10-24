@@ -31,8 +31,18 @@ export function useRestoreFocusOnClose(open: boolean): void {
     }
     const opener = openerRef.current;
     openerRef.current = null;
-    if (!opener || !opener.isConnected) return;
-    if ('disabled' in opener && (opener as HTMLButtonElement).disabled) return;
-    opener.focus();
+    restoreFocusTo(opener);
   }, [open]);
+}
+
+/**
+ * The restore step on its own, with no DOM-global dependency, so it can be
+ * unit-tested under plain `node --test` (DEBT-119 c). Declared after the hook
+ * on purpose (function hoisting) - the hook's source-text tests check that the
+ * ref is cleared before `opener.focus()` appears.
+ */
+export function restoreFocusTo(opener: Pick<HTMLElement, 'isConnected' | 'focus'> | null): void {
+  if (!opener || !opener.isConnected) return;
+  if ('disabled' in opener && (opener as HTMLButtonElement).disabled) return;
+  opener.focus();
 }

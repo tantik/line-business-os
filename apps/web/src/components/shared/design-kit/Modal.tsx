@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { colors } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { useOverlayEscape } from './overlayStack';
 import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 interface ModalProps {
@@ -84,14 +85,10 @@ export function Modal({ open, onClose, title, children, footer, titleAdornment, 
     return () => panel?.removeEventListener('focusout', onFocusOut);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  // DEBT-119 (c): Escape goes through the shared overlay stack, so with a
+  // `ConfirmDialog` open on top of this Modal, Escape closes only the
+  // confirmation; the next Escape closes this Modal.
+  useOverlayEscape(open, onClose);
 
   if (!open) return null;
 
