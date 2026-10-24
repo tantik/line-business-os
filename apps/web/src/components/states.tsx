@@ -21,18 +21,21 @@ function StateBody({
   children,
   homeLink,
   setDocumentTitle = true,
+  centered = false,
 }: {
   title: AuthCopyKey;
   body?: AuthCopyKey;
   children?: ReactNode;
   homeLink?: boolean;
+  /** Centers the headline, body and actions (the no-store screen, Founder 2026-10-24). */
+  centered?: boolean;
   /** QA3 (2026-10-14): the tab title follows the state headline (e.g. "アクセスできません | ORUWA" instead of the route's "Manager | ORUWA"). Off for the transient loading state, which must not race the next page's own title. */
   setDocumentTitle?: boolean;
 }) {
   const { lang } = useLang();
   useDocumentTitle(setDocumentTitle ? tAuth(lang, title) : null);
   return (
-    <main style={pageStyle(720)}>
+    <main style={centered ? { ...pageStyle(720), textAlign: 'center' } : pageStyle(720)}>
       <h1>{tAuth(lang, title)}</h1>
       {body ? <p style={mutedText}>{tAuth(lang, body)}</p> : null}
       {children}
@@ -45,7 +48,7 @@ function StateBody({
   );
 }
 
-function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean; setDocumentTitle?: boolean }) {
+function StateShell(props: { title: AuthCopyKey; body?: AuthCopyKey; children?: ReactNode; homeLink?: boolean; setDocumentTitle?: boolean; centered?: boolean }) {
   return (
     <LangProvider>
       <StateBody {...props} />
@@ -75,7 +78,7 @@ export function NoTenantState() {
   // A signed-in user with no active store (new, or deactivated -- DEBT-121)
   // must be able to end the session; this screen used to have no control at all.
   return (
-    <StateShell title="noTenantTitle" body="noTenantBody">
+    <StateShell title="noTenantTitle" body="noTenantBody" centered>
       <NoTenantSignOut />
     </StateShell>
   );
@@ -83,7 +86,11 @@ export function NoTenantState() {
 
 function NoTenantSignOut() {
   const { lang } = useLang();
-  return <SignOutButton label={tAuth(lang, 'noTenantSignOut')} />;
+  return (
+    <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center' }}>
+      <SignOutButton label={tAuth(lang, 'noTenantSignOut')} />
+    </div>
+  );
 }
 
 export function MissingConfigState() {
