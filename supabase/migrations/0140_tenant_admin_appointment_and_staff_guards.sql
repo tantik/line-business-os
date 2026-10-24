@@ -51,8 +51,16 @@
 --    deactivate (is_active true -> false; P0001 cannot_deactivate_self) or
 --    delete (P0001 cannot_delete_self) the employee row bound to their own
 --    account. Never fires without a signed-in identity
---    (core.current_user_id() NULL: system / service / migrations) and is
---    skipped during a tenant cascade.
+--    (core.current_user_id() NULL: system / service / migrations), is
+--    skipped during a tenant cascade, and exempts a caller holding
+--    tenant_owner in that tenant (core.caller_is_tenant_owner): the Owner
+--    keeps access through tenant_owner, so the guard would only get in the
+--    way.
+-- 5b. (review P2) workforce.upsert_employee_invitation additionally requires
+--    workforce.staff.manage at the employee row's location (42501
+--    permission_denied) — the wf_employees_staff_manage RLS boundary; before,
+--    staff.manage anywhere in the tenant was enough. The invite-employee Edge
+--    Function maps it to 403 not_authorized.
 -- 6. DEBT-123 (c): re-hire on a NEW employee row while the old (usually
 --    inactive) row is still bound to the same account failed at accept with a
 --    raw 23505 on wf_employees_one_per_tenant_per_user (0063) — reproduced
@@ -442,23 +450,26 @@ declare
 begin
   if tg_op = 'DELETE' then
     -- system / service / migration contexts have no identity: never blocked;
-    -- tenant cascade (the tenant row is already gone): never blocked
+    -- tenant cascade (the tenant row is already gone): never blocked;
+    -- an Owner keeps access through tenant_owner (0139 never touches it): exempt
     if v_uid is not null and old.user_id = v_uid
-       and exists (select 1 from core.tenants where id = old.tenant_id) then
+       and exists (select 1 from core.tenants where id = old.tenant_id)
+       and not core.caller_is_tenant_owner(old.tenant_id) then
       raise exception 'cannot_delete_self' using errcode = 'P0001';
     end if;
     return old;
   end if;
 
   -- UPDATE (trigger WHEN: is_active true -> false on a bound row)
-  if v_uid is not null and old.user_id = v_uid then
+  if v_uid is not null and old.user_id = v_uid
+     and not core.caller_is_tenant_owner(old.tenant_id) then
     raise exception 'cannot_deactivate_self' using errcode = 'P0001';
   end if;
   return new;
 end;
 $$;
 comment on function workforce.guard_employee_self_offboarding() is
-  '0140 (DEBT-123 b): BEFORE trigger body for workforce.employees. A signed-in user cannot deactivate (is_active true -> false: cannot_deactivate_self) or delete (cannot_delete_self) the employee row bound to their own account — they would lock themselves out (0139). No-op without an identity (core.current_user_id() NULL) and during a tenant cascade. Ask the Owner instead.';
+  '0140 (DEBT-123 b): BEFORE trigger body for workforce.employees. A signed-in user cannot deactivate (is_active true -> false: cannot_deactivate_self) or delete (cannot_delete_self) the employee row bound to their own account — they would lock themselves out (0139). No-op without an identity (core.current_user_id() NULL), during a tenant cascade, and for a caller holding tenant_owner in that tenant (core.caller_is_tenant_owner: the Owner keeps access through that role). Ask the Owner instead.';
 revoke all on function workforce.guard_employee_self_offboarding() from public, anon, authenticated;
 
 drop trigger if exists employees_guard_self_deactivate on workforce.employees;
@@ -476,7 +487,9 @@ create trigger employees_guard_self_delete
   execute function workforce.guard_employee_self_offboarding();
 
 -- --- 6a. DEBT-123 (c): invite refuses an account bound to another employee row ------
--- Live body from 0097: statements verbatim, plus the "0140" check.
+-- Live body from 0097: statements verbatim, plus the two "0140" checks
+-- (location boundary; account bound to another row) and location_id in the
+-- employee read.
 create or replace function workforce.upsert_employee_invitation(
   p_tenant_id uuid,
   p_employee_id uuid,
@@ -494,6 +507,7 @@ set search_path = core, workforce, public
 as $$
 declare
   v_employee_user_id uuid;
+  v_employee_location_id uuid;
   v_existing_id uuid;
   v_expires_at timestamptz := now() + interval '7 days';
 begin
@@ -505,12 +519,19 @@ begin
     raise exception 'not_authorized' using errcode = '42501';
   end if;
 
-  select user_id into v_employee_user_id
+  -- (0140: location_id is read too, for the location check below)
+  select user_id, location_id into v_employee_user_id, v_employee_location_id
     from workforce.employees
    where tenant_id = p_tenant_id and id = p_employee_id;
 
   if not found then
     raise exception 'employee_not_found' using errcode = 'P0001';
+  end if;
+  -- 0140 (review P2): staff.manage must cover the employee row's location --
+  -- the same boundary as the wf_employees_staff_manage RLS (a Manager of L2
+  -- cannot invite an L1 employee). Tenant-wide holders pass everywhere.
+  if not core.has_permission(p_tenant_id, 'workforce.staff.manage', v_employee_location_id) then
+    raise exception 'permission_denied' using errcode = '42501';
   end if;
   if v_employee_user_id is not null then
     raise exception 'employee_already_bound' using errcode = 'P0001';
@@ -553,7 +574,7 @@ end;
 $$;
 
 comment on function workforce.upsert_employee_invitation(uuid, uuid, uuid, uuid) is
-  'The only path that creates/refreshes an employee_invitations row (invite AND resend). Now also requires core.has_module_access(p_tenant_id, ''workforce'') (WP-S5) -- a Manager should not be able to invite new staff into, or resend an invitation for, a tenant whose Workforce module is OFF. SECURITY DEFINER because there is deliberately no INSERT policy and no target_user_id/expires_at UPDATE policy for authenticated (0064); re-verifies core.has_permission_in_tenant(workforce.staff.manage) itself rather than trusting the caller already checked. Since 0140 (DEBT-123 c) refuses with user_has_other_employee_record when the target account is already bound to another employee row in the tenant (active or not).';
+  'The only path that creates/refreshes an employee_invitations row (invite AND resend). Now also requires core.has_module_access(p_tenant_id, ''workforce'') (WP-S5) -- a Manager should not be able to invite new staff into, or resend an invitation for, a tenant whose Workforce module is OFF. SECURITY DEFINER because there is deliberately no INSERT policy and no target_user_id/expires_at UPDATE policy for authenticated (0064); re-verifies core.has_permission_in_tenant(workforce.staff.manage) itself rather than trusting the caller already checked. Since 0140 also requires workforce.staff.manage at the employee row''s location (42501 permission_denied; same boundary as wf_employees_staff_manage RLS) and (DEBT-123 c) refuses with user_has_other_employee_record when the target account is already bound to another employee row in the tenant (active or not).';
 -- (create or replace keeps the 0065 grants: execute to authenticated)
 
 -- --- 6b. DEBT-123 (c): accept refuses the same situation before any write -----------

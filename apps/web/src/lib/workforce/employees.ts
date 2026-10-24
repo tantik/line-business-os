@@ -373,7 +373,7 @@ export async function upsertWorkforceEmployee(
         .maybeSingle();
 
       // an edit may carry is_active = false for the caller's own row (0140 guard)
-      if (error) return mapSelfOffboardingError(error) ?? mapWorkforceWriteError(error, 'update this staff profile');
+      if (error) return mapSelfOffboardingError(error) ?? mapEmployeeEmailConflict(error) ?? mapWorkforceWriteError(error, 'update this staff profile');
       if (!data) return { status: 'not_found' };
       // Not recomputed here (an update doesn't change history) - the
       // list query (`listWorkforceStaffForManager`) is the source of
@@ -403,7 +403,7 @@ export async function upsertWorkforceEmployee(
       .select(MANAGE_SELECT)
       .single();
 
-    if (error) return mapWorkforceWriteError(error, 'create this staff profile');
+    if (error) return mapEmployeeEmailConflict(error) ?? mapWorkforceWriteError(error, 'create this staff profile');
     // A brand-new employee has no shifts/attendance/requests yet.
     return { status: 'success', data: decryptManageRow(data as ApiWorkforceStaffManageRow, pii.config.encryptionKey, false) };
   } catch (err) {
@@ -415,7 +415,29 @@ export async function upsertWorkforceEmployee(
 }
 
 /** English server sentence for the 0140 self-guards (localized by `localizeServerMessage`). */
-export const SELF_OFFBOARDING_MESSAGE = 'You cannot deactivate or delete yourself. Ask the owner.';
+export const SELF_OFFBOARDING_MESSAGE = 'You cannot deactivate or delete your own staff record. Ask the owner.';
+
+/** English server sentence for an email already on another staff record (localized by `localizeServerMessage`). */
+export const EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE =
+  'This email is already used by an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.';
+
+/** The 0049 unique index on (tenant_id, email_hash). */
+const EMAIL_HASH_UNIQUE_INDEX = 'workforce_employees_tenant_email_hash_key';
+
+/**
+ * A create / edit whose email is already on another workforce.employees row
+ * of the tenant (often the inactive record of a returning employee) hits the
+ * 0049 unique index with a 23505. Recognised by the index name in the
+ * PostgREST message / details; any other 23505 stays the generic duplicate.
+ */
+export function mapEmployeeEmailConflict(
+  error: { code?: string | null; message?: string | null; details?: string | null } | null | undefined,
+): { status: 'duplicate'; code: 'email_used_by_other_employee_record'; message: string } | null {
+  if (error?.code !== '23505') return null;
+  const text = `${error.message ?? ''} ${error.details ?? ''}`;
+  if (!text.includes(EMAIL_HASH_UNIQUE_INDEX)) return null;
+  return { status: 'duplicate', code: 'email_used_by_other_employee_record', message: EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE };
+}
 
 /**
  * 0140 (DEBT-123 b): the BEFORE triggers on workforce.employees refuse a

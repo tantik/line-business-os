@@ -28,6 +28,10 @@ test('an account already bound to another employee row maps to a 409 with its ow
   assert.match(SOURCE, /jsonResponse\(409, \{ error: 'user_has_other_employee_record' \}\)/);
 });
 
+test('the 0140 location refusal (permission_denied) maps to 403 not_authorized, not a 500', () => {
+  assert.match(SOURCE, /message\.includes\('permission_denied'\)\) return jsonResponse\(403, \{ error: 'not_authorized' \}\)/);
+});
+
 test('success is never reported when the upserted row id differs from the id in the link', () => {
   assert.match(SOURCE, /out_invitation_id !== invitationId/);
   assert.match(SOURCE, /invitation_changed_concurrently/);

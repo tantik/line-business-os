@@ -5,6 +5,8 @@ import {
   getWorkforceStaffDirectoryEntryById,
   listWorkforceStaffDirectory,
   listWorkforceStaffForManager,
+  EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE,
+  mapEmployeeEmailConflict,
   mapSelfOffboardingError,
   permanentlyDeleteEmployee,
   SELF_OFFBOARDING_MESSAGE,
@@ -255,8 +257,51 @@ test('0140 (DEBT-123 b): deactivating / deleting oneself maps to the fixed, loca
   assert.deepEqual(await setWorkforceEmployeeActive(deactivate.client, TENANT_ID, 's-self', false), { status: 'unexpected_error', message: SELF_OFFBOARDING_MESSAGE });
   const del = recordingClient({ data: null, error: { code: 'P0001', message: 'cannot_delete_self' } });
   assert.deepEqual(await permanentlyDeleteEmployee(del.client, TENANT_ID, 's-self'), { status: 'unexpected_error', message: SELF_OFFBOARDING_MESSAGE });
-  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'ja'), '自分自身を無効化・削除することはできません。オーナーに依頼してください。');
-  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'en'), 'You cannot deactivate or delete yourself. Ask the owner.');
+  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'ja'), '自分自身のスタッフ登録は無効化・削除できません。オーナーに依頼してください。');
+  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'en'), 'You cannot deactivate or delete your own staff record. Ask the owner.');
+});
+
+const EMAIL_INDEX_23505 = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "workforce_employees_tenant_email_hash_key"',
+  details: 'Key (tenant_id, email_hash)=(t, h) already exists.',
+};
+
+test('rehire via the same email: the 0049 email_hash index 23505 maps to its own code + localizable copy (create)', async () => {
+  const { client } = recordingClient({ data: null, error: EMAIL_INDEX_23505 });
+  const result = await upsertWorkforceEmployee(client, TENANT_ID, {
+    locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.deepEqual(result, { status: 'duplicate', code: 'email_used_by_other_employee_record', message: EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE });
+  assert.equal(
+    localizeServerMessage('duplicate', EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE, 'ja'),
+    'このメールアドレスは、以前のスタッフ登録（無効を含む）ですでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+  );
+  assert.equal(
+    localizeServerMessage('duplicate', EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE, 'en'),
+    'This email is already used by an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.',
+  );
+});
+
+test('the same mapping applies when an edit changes the email to one already in use', async () => {
+  const { client } = recordingClient({ data: null, error: EMAIL_INDEX_23505 });
+  const result = await upsertWorkforceEmployee(client, TENANT_ID, {
+    id: 's2', locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.equal(result.status === 'duplicate' ? result.code : result.status, 'email_used_by_other_employee_record');
+});
+
+test('mapEmployeeEmailConflict: only the 0049 index, found in message or details; other 23505s stay generic', async () => {
+  assert.equal(mapEmployeeEmailConflict({ code: '23505', message: 'duplicate key value', details: 'constraint workforce_employees_tenant_email_hash_key' })?.code, 'email_used_by_other_employee_record');
+  assert.equal(mapEmployeeEmailConflict({ code: '23505', message: 'duplicate key value violates unique constraint "wf_employees_one_per_tenant_per_user"' }), null);
+  assert.equal(mapEmployeeEmailConflict({ code: '42501', message: 'workforce_employees_tenant_email_hash_key' }), null);
+  assert.equal(mapEmployeeEmailConflict(null), null);
+  const other = recordingClient({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "some_other_key"' } });
+  const result = await upsertWorkforceEmployee(other.client, TENANT_ID, {
+    locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.equal(result.status, 'duplicate');
+  assert.equal(result.status === 'duplicate' ? result.code : 'x', undefined);
 });
 
 test('mapSelfOffboardingError ignores every other error', () => {

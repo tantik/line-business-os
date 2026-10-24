@@ -5,7 +5,8 @@
 --   B  refusals: Admin / Manager / Employee callers (42501 -- an Admin holds
 --      every permission an Owner uses, the check is the Owner ROLE), other
 --      tenant, other tenant's employee, no account, inactive, own row, null,
---      module OFF -- nothing written
+--      module OFF -- nothing written; an Admin cannot INSERT into
+--      core.role_assignments directly
 --   C  Owner appoints: one tenant-wide tenant_admin row, employee role kept,
 --      audit; idempotent; a second Owner sees the same state
 --   D  read: api.workforce_staff_manage.is_admin; helper silent for others;
@@ -15,8 +16,10 @@
 --   F  deactivation / deletion removes the Admin role (+ audit) before the
 --      0139 "no role left -> suspend" step; reactivation does not restore it;
 --      tenant_owner kept
---   G  DEBT-123 b: no self-deactivate / self-delete; system context and
---      tenant cascade unaffected; others still can
+--   G  DEBT-123 b: no self-deactivate / self-delete (Manager); Owners exempt
+--      (keep tenant_owner); system context and tenant cascade unaffected;
+--      others still can
+--   H0 review P2: invite needs staff.manage at the employee row's location
 --   H  DEBT-123 c: invite refuses an account bound to another employee row;
 --      accept refuses a legacy invitation for it (generic), nothing written
 --   I  backfill of legacy inactive Admins; idempotent; suspends role-less users
@@ -62,7 +65,8 @@ end $$;
 -- T1 = ...a1 (L1 ...01, L2 ...02), T2 = ...a2, T3 = ...a3 (cascade test only).
 -- Users: 01 O owner, 02 O2 second owner, 03 M manager, 04 E1 employee, 05 A admin,
 -- 06 X (T2 employee), 07 AO admin-only employee, 08 Z legacy inactive admin,
--- 09 R ex-employee (inactive row, suspended), 0a N new hire
+-- 09 R ex-employee (inactive row, suspended), 0a N new hire, 0b ML1 / 0c ML2 location-scoped
+-- Managers of L1 / L2 (no employee row); 0d is only an invite target (H0)
 insert into core.tenants (id, slug, name) values
   ('a7900000-0000-0000-0000-0000000000a1', 'pgtap-0140-t1', 'pgTAP 0140 T1'),
   ('a7900000-0000-0000-0000-0000000000a2', 'pgtap-0140-t2', 'pgTAP 0140 T2'),
@@ -86,13 +90,16 @@ insert into core.users (id, display_name) values
   ('a7990000-0000-0000-0000-000000000007', 'AO'),
   ('a7990000-0000-0000-0000-000000000008', 'Z'),
   ('a7990000-0000-0000-0000-000000000009', 'R'),
-  ('a7990000-0000-0000-0000-00000000000a', 'N');
+  ('a7990000-0000-0000-0000-00000000000a', 'N'),
+  ('a7990000-0000-0000-0000-00000000000b', 'ML1 manager of L1 only'),
+  ('a7990000-0000-0000-0000-00000000000c', 'ML2 manager of L2 only');
 insert into core.tenant_memberships (tenant_id, user_id, status)
 select 'a7900000-0000-0000-0000-0000000000a1', u::uuid, 'active'
   from unnest(array['a7990000-0000-0000-0000-000000000001', 'a7990000-0000-0000-0000-000000000002',
                     'a7990000-0000-0000-0000-000000000003', 'a7990000-0000-0000-0000-000000000004',
                     'a7990000-0000-0000-0000-000000000005', 'a7990000-0000-0000-0000-000000000007',
-                    'a7990000-0000-0000-0000-000000000008']) u;
+                    'a7990000-0000-0000-0000-000000000008', 'a7990000-0000-0000-0000-00000000000b',
+                    'a7990000-0000-0000-0000-00000000000c']) u;
 insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-000000000009', 'suspended'),
   ('a7900000-0000-0000-0000-0000000000a2', 'a7990000-0000-0000-0000-000000000006', 'active');
@@ -106,6 +113,8 @@ insert into core.role_assignments (tenant_id, user_id, role_id, location_id) val
   ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000004', null),
   ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000006', 'a7910000-0000-0000-0000-000000000001'),
   ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000004', null),
+  ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000005', 'a7910000-0000-0000-0000-000000000001'),
+  ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-000000000005', 'a7910000-0000-0000-0000-000000000002'),
   ('a7900000-0000-0000-0000-0000000000a2', 'a7990000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'a7910000-0000-0000-0000-000000000003');
 -- employees (T1 / L1 unless noted): ...01 O, ...02 O2, ...03 M, ...04 E1, ...05 A, ...06 X (T2),
 -- ...07 AO, ...08 Z (inactive, bound; admin added in I), ...09 R (inactive, bound),
@@ -183,6 +192,11 @@ select matches(pg_temp.set_admin('a7990000-0000-0000-0000-000000000005', 'a79200
   '^ERR 42501 permission_denied', 'B: an Admin cannot appoint an Admin');
 select matches(pg_temp.set_admin('a7990000-0000-0000-0000-000000000005', 'a7920000-0000-0000-0000-000000000007', false),
   '^ERR 42501 permission_denied', 'B: an Admin cannot revoke an Admin');
+select matches(pg_temp.as_user('a7990000-0000-0000-0000-000000000005',
+  $$ with i as (insert into core.role_assignments (tenant_id, user_id, role_id, location_id)
+                values ('a7900000-0000-0000-0000-0000000000a1', 'a7990000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004', null)
+                returning 1) select count(*)::text from i $$),
+  '^ERR 42501 .*permission denied', 'B: an Admin cannot INSERT into core.role_assignments directly (0007 policy unreachable)');
 select matches(pg_temp.set_admin('a7990000-0000-0000-0000-000000000003', 'a7920000-0000-0000-0000-000000000004', true),
   '^ERR 42501 permission_denied', 'B: a Manager cannot appoint');
 select matches(pg_temp.set_admin('a7990000-0000-0000-0000-000000000004', 'a7920000-0000-0000-0000-00000000000a', true),
@@ -343,25 +357,59 @@ select is(pg_temp.set_active('a7990000-0000-0000-0000-000000000003', 'a7920000-0
   'ERR P0001 cannot_deactivate_self', 'G: a Manager cannot deactivate their own row');
 select is((select is_active from workforce.employees where id = 'a7920000-0000-0000-0000-000000000003'), true, 'G: ... the row stays active');
 select is(pg_temp.role_rows('a7990000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005'), 1, 'G: ... and M keeps the manager role');
+select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000003',
+  $$ select deleted::text from api.permanently_delete_employee('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-000000000003') $$),
+  'ERR P0001 cannot_delete_self', 'G: a Manager cannot permanently delete their own row');
+select is((select count(*)::int from workforce.employees where id = 'a7920000-0000-0000-0000-000000000003'), 1, 'G: ... the row still exists');
+-- Owners are exempt: tenant_owner keeps their access, the guard would only get in the way
 select is(pg_temp.set_active('a7990000-0000-0000-0000-000000000001', 'a7920000-0000-0000-0000-000000000001', false),
-  'ERR P0001 cannot_deactivate_self', 'G: the Owner cannot deactivate their own row either');
+  '1', 'G: the Owner may deactivate their own row');
+select is(pg_temp.role_rows('a7990000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003')::text
+          || '/' || pg_temp.mem('a7990000-0000-0000-0000-000000000001'),
+  '1/active', 'G: ... and keeps tenant_owner and an active membership');
 select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000001',
-  $$ select deleted::text from api.permanently_delete_employee('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-000000000001') $$),
-  'ERR P0001 cannot_delete_self', 'G: the Owner cannot permanently delete their own row');
-select is((select count(*)::int from workforce.employees where id = 'a7920000-0000-0000-0000-000000000001'), 1, 'G: ... the row still exists');
+  $$ select core.has_permission('a7900000-0000-0000-0000-0000000000a1', 'core.role.manage', null)::text $$),
+  'true', 'G: ... with owner rights intact');
+update workforce.employees set is_active = true where id = 'a7920000-0000-0000-0000-000000000001';
+select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000002',
+  $$ select deleted::text from api.permanently_delete_employee('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-000000000002') $$),
+  'true', 'G: a (co-)Owner may permanently delete their own row');
+select is(pg_temp.role_rows('a7990000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003')::text
+          || '/' || pg_temp.mem('a7990000-0000-0000-0000-000000000002'),
+  '1/active', 'G: ... and keeps tenant_owner and an active membership');
 select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000003',
   $$ with u as (update api.workforce_staff_manage set position_label = 'Lead' where staff_id = 'a7920000-0000-0000-0000-000000000003' returning 1) select count(*)::text from u $$),
   '1', 'G: editing one''s own row otherwise still works');
 -- others still can; the system context (no identity) is never blocked
 select is(pg_temp.set_active('a7990000-0000-0000-0000-000000000001', 'a7920000-0000-0000-0000-000000000003', false), '1', 'G: the Owner can deactivate the Manager');
 update workforce.employees set is_active = true where id = 'a7920000-0000-0000-0000-000000000003';
-select lives_ok($$ update workforce.employees set is_active = false where id = 'a7920000-0000-0000-0000-000000000001' $$, 'G: no identity (system / service): deactivation not blocked');
-select lives_ok($$ update workforce.employees set is_active = true where id = 'a7920000-0000-0000-0000-000000000001' $$, 'G: ... reactivation fine');
+select lives_ok($$ update workforce.employees set is_active = false where id = 'a7920000-0000-0000-0000-000000000003' $$, 'G: no identity (system / service): deactivating a bound row not blocked');
+select is((select is_active from workforce.employees where id = 'a7920000-0000-0000-0000-000000000003'), false, 'G: ... it is inactive');
+select lives_ok($$ update workforce.employees set is_active = true where id = 'a7920000-0000-0000-0000-000000000003' $$, 'G: ... reactivation fine');
 -- tenant cascade while signed in as the user whose row it contains
 select set_config('request.jwt.claim.sub', 'a7990000-0000-0000-0000-000000000001', true);
 select lives_ok($$ delete from core.tenants where id = 'a7900000-0000-0000-0000-0000000000a3' $$, 'G: tenant cascade with the user''s own row is not blocked');
 select set_config('request.jwt.claim.sub', '', true);
 select is((select count(*)::int from workforce.employees where tenant_id = 'a7900000-0000-0000-0000-0000000000a3'), 0, 'G: ... and the row is gone');
+
+-- H0: review P2 -- invite respects the employee row's location (wf_employees_staff_manage boundary) ------
+select is(pg_temp.as_user('a7990000-0000-0000-0000-00000000000c',
+  $$ select out_invitation_id::text from api.upsert_employee_invitation('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-00000000000a',
+       'a7990000-0000-0000-0000-00000000000d', 'a7930000-0000-0000-0000-000000000004') $$),
+  'ERR 42501 permission_denied', 'H0: a Manager of L2 cannot invite an L1 employee');
+select is((select count(*)::int from workforce.employee_invitations where employee_id = 'a7920000-0000-0000-0000-00000000000a'), 0, 'H0: ... nothing written');
+select is(pg_temp.as_user('a7990000-0000-0000-0000-00000000000b',
+  $$ select out_invitation_id::text from api.upsert_employee_invitation('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-00000000000a',
+       'a7990000-0000-0000-0000-00000000000d', 'a7930000-0000-0000-0000-000000000004') $$),
+  'a7930000-0000-0000-0000-000000000004', 'H0: a Manager of L1 can invite the L1 employee');
+select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000001',
+  $$ select out_invitation_id::text || '/' || out_was_resend::text from api.upsert_employee_invitation('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-00000000000a',
+       'a7990000-0000-0000-0000-00000000000d', 'a7930000-0000-0000-0000-000000000005') $$),
+  'a7930000-0000-0000-0000-000000000004/true', 'H0: the Owner (tenant-wide) can too (resend of the same invitation)');
+select is(pg_temp.as_user('a7990000-0000-0000-0000-00000000000c',
+  $$ select out_invitation_id::text from api.upsert_employee_invitation('a7900000-0000-0000-0000-0000000000a1', 'a7920000-0000-0000-0000-00000000000b',
+       'a7990000-0000-0000-0000-000000000009', 'a7930000-0000-0000-0000-000000000006') $$),
+  'ERR P0001 user_has_other_employee_record', 'H0: the L2 Manager passes the location check for an L2 employee (then hits the next rule)');
 
 -- H: DEBT-123 c -- rehire while the old row is still bound -----------------------------------------
 select is(pg_temp.as_user('a7990000-0000-0000-0000-000000000001',
