@@ -120,7 +120,6 @@ export function ManageStaffPopup({
   const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('active');
   const [query, setQuery] = useState('');
   const [view, setView] = useState<View>({ kind: 'list' });
-  const [confirmToggleActiveId, setConfirmToggleActiveId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // Lifted from `StaffForm`: the actual Save button now lives in this
   // popup's own bottom action bar (see the `formId`/`form=` doc comment on
@@ -286,7 +285,10 @@ export function ManageStaffPopup({
                   className={hoverStyles.buttonSecondary}
                   style={pendingAction === `active-${detailStaff.staffId}` ? buttonDisabled : buttonSecondary}
                   disabled={isPending}
-                  onClick={() => setConfirmToggleActiveId(detailStaff.staffId)}
+                  // DEBT-122: the dashboard's `handleSetActive` already asks
+                  // 「無効化しますか？」 -- a second confirmation here made the first
+                  // click look ignored.
+                  onClick={() => onSetActive(detailStaff.staffId, false)}
                 >
                   {pendingAction === `active-${detailStaff.staffId}` ? t('saving') : t('deactivate')}
                 </button>
@@ -451,21 +453,6 @@ export function ManageStaffPopup({
         </>
       )}
 
-      <ConfirmDialog
-        open={confirmToggleActiveId !== null}
-        title={t('confirmDeactivate')}
-        confirmLabel={t('deactivate')}
-        cancelLabel={t('cancel')}
-        pending={isPending}
-        danger
-        onCancel={() => setConfirmToggleActiveId(null)}
-        onConfirm={() => {
-          if (confirmToggleActiveId) onSetActive(confirmToggleActiveId, false);
-          setConfirmToggleActiveId(null);
-        }}
-      >
-        {staff?.find((s) => s.staffId === confirmToggleActiveId)?.name ?? ''}
-      </ConfirmDialog>
 
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title={t('staffPopupHelpTitle')} closeLabel={t('cancel')} width="min(480px, 94vw)">
         <div style={{ whiteSpace: 'pre-line' }}>{t('staffPopupHelpBody')}</div>
