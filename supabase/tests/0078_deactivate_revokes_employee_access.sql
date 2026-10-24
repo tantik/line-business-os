@@ -16,6 +16,8 @@
 --   G3 revoked membership + invitation -> accept refused, nothing written
 --   H  tenant cascade delete still works
 --   I  backfill of legacy inactive employees; idempotent
+--   J  staff messages: a deactivated employee can no longer insert / update
+--      (review P2); an active one still can
 -- ============================================================================
 begin;
 
@@ -323,6 +325,33 @@ select is((select count(*)::int from core.role_assignments ra
              join core.roles r on r.id = ra.role_id and r.tenant_id is null and r.key = 'employee'
             where not e.is_active), 0,
   'I: no inactive employee holds the employee role anywhere');
+
+-- J: staff messages: writes need an ACTIVE employee (0139 review P2; 0062 rule) ---------------
+-- E is active again (E) and works at L2
+select is(pg_temp.as_user('a7890000-0000-0000-0000-000000000002',
+  $$ with i as (insert into api.workforce_staff_messages (tenant_id, location_id, employee_id, sender_role, body)
+                values ('a7800000-0000-0000-0000-0000000000a1', 'a7810000-0000-0000-0000-000000000002', 'a7820000-0000-0000-0000-000000000002', 'staff', 'hello')
+                returning 1) select count(*)::text from i $$),
+  '1', 'J: an active employee can send a message (no regression)');
+insert into workforce.staff_messages (id, tenant_id, location_id, employee_id, sender_role, sender_user_id, body) values
+  ('a7840000-0000-0000-0000-000000000001', 'a7800000-0000-0000-0000-0000000000a1', 'a7810000-0000-0000-0000-000000000002',
+   'a7820000-0000-0000-0000-000000000002', 'manager', 'a7890000-0000-0000-0000-000000000001', 'reply');
+select is(pg_temp.as_user('a7890000-0000-0000-0000-000000000002',
+  $$ with u as (update api.workforce_staff_messages set is_read = true where message_id = 'a7840000-0000-0000-0000-000000000001' returning 1) select count(*)::text from u $$),
+  '1', 'J: an active employee can mark a message in their thread read (no regression)');
+update workforce.staff_messages set is_read = false where id = 'a7840000-0000-0000-0000-000000000001';
+-- deactivate E again
+update workforce.employees set is_active = false where id = 'a7820000-0000-0000-0000-000000000002';
+select matches(pg_temp.as_user('a7890000-0000-0000-0000-000000000002',
+  $$ with i as (insert into api.workforce_staff_messages (tenant_id, location_id, employee_id, sender_role, body)
+                values ('a7800000-0000-0000-0000-0000000000a1', 'a7810000-0000-0000-0000-000000000002', 'a7820000-0000-0000-0000-000000000002', 'staff', 'still here')
+                returning 1) select count(*)::text from i $$),
+  '^ERR 42501', 'J: a deactivated employee cannot send a message (RLS)');
+select is(pg_temp.as_user('a7890000-0000-0000-0000-000000000002',
+  $$ with u as (update api.workforce_staff_messages set is_read = true where message_id = 'a7840000-0000-0000-0000-000000000001' returning 1) select count(*)::text from u $$),
+  '0', 'J: a deactivated employee cannot update a message in their thread');
+select is((select is_read from workforce.staff_messages where id = 'a7840000-0000-0000-0000-000000000001'), false, 'J: the message is unchanged');
+select is((select count(*)::int from workforce.staff_messages where employee_id = 'a7820000-0000-0000-0000-000000000002'), 2, 'J: no message was added by the deactivated employee');
 
 select * from finish();
 rollback;

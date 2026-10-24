@@ -61,6 +61,15 @@
 --    generic invitation_not_acceptable (no new error surface; nothing is
 --    written), so support's cut-off stays final. Grants / comment of 0064
 --    unchanged (CREATE OR REPLACE keeps them).
+-- 5. (DB/security review P2) workforce.staff_messages self-scope WRITE
+--    policies wf_staff_messages_self_insert / wf_staff_messages_self_update
+--    (live: 0097) used workforce.is_own_employee (user_id only), so a
+--    deactivated ex-employee could still send and mark messages via
+--    api.workforce_staff_messages — against the 0062 rule "Staff self-service
+--    writes only for an active employee". Recreated with
+--    workforce.is_own_active_employee (0062); every other predicate verbatim
+--    from 0097. The own-thread READ (wf_staff_messages_self_select,
+--    is_own_employee) is unchanged: 0062's history-read decision.
 --
 -- Security: SECURITY DEFINER functions live in core / workforce with a pinned
 -- search_path; identity is core.current_user_id() (never an argument); the
@@ -455,11 +464,43 @@ end;
 $$;
 -- (create or replace keeps the 0064 comment and grants: execute to authenticated only)
 
+-- --- 5. staff messages: self-service writes need an active employee (review P2) ------
+-- Same predicates as 0097:663-688, only is_own_employee -> is_own_active_employee.
+drop policy if exists wf_staff_messages_self_insert on workforce.staff_messages;
+create policy wf_staff_messages_self_insert on workforce.staff_messages
+  for insert
+  with check (
+    core.has_module_access(tenant_id, 'workforce')
+    and workforce.is_own_active_employee(employee_id)
+    and sender_role = 'staff'
+    and sender_user_id = core.current_user_id()
+    and is_read = false
+    and read_at is null
+    and read_by is null
+    and archived_at is null
+    and deleted_at is null
+  );
+
+drop policy if exists wf_staff_messages_self_update on workforce.staff_messages;
+create policy wf_staff_messages_self_update on workforce.staff_messages
+  for update
+  using (
+    core.has_module_access(tenant_id, 'workforce')
+    and workforce.is_own_active_employee(employee_id)
+  )
+  with check (
+    core.has_module_access(tenant_id, 'workforce')
+    and workforce.is_own_active_employee(employee_id)
+  );
+
 -- ============================================================================
 -- Rollback (suspended memberships and removed employee roles are NOT
 -- restored automatically; every change is in audit.audit_logs with action
 -- revoke_employee / suspend and reason employee_deactivated / employee_deleted
 -- / backfill_inactive — restore by hand from there if wanted):
+--   -- staff messages: re-run 0097 lines 663-688 verbatim (drop policy if
+--   -- exists + create for wf_staff_messages_self_insert / _self_update with
+--   -- workforce.is_own_employee).
 --   -- previous workforce.accept_employee_invitation body: 0138 section "3b"
 --   -- verbatim, i.e. this file's section 4 body WITHOUT the "0b. (0139)" block
 --   -- and with step 2's update back to `and status = 'invited'`.
