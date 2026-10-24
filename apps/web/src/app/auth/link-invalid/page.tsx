@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AuthLink, AuthShell, AuthText } from '@/components/auth/AuthShell';
 import type { AuthCopyKey } from '@/lib/auth/auth-copy';
+import { SUPPORT_MAILTO } from '@/lib/support-contact';
 
 /**
  * Landing page for any invalid, expired, revoked or already-used email link
@@ -26,13 +27,19 @@ export default async function LinkInvalidPage({ searchParams }: { searchParams: 
   const { reason } = await searchParams;
   const body = (reason && BODY_BY_REASON[reason]) || 'linkInvalidBody';
   // Invitations (staff or owner) cannot be revived by a reset email.
-  const offerReset = reason !== 'invite' && !reason?.startsWith('owner');
+  const isOwner = Boolean(reason?.startsWith('owner'));
+  const offerReset = reason !== 'invite' && !isOwner;
 
   return (
     <AuthShell title="linkInvalidTitle" documentTitle="linkInvalidTitle">
       <AuthText k={body} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {offerReset ? <AuthLink href="/forgot-password" k="requestNewLink" asButton /> : null}
+        {isOwner ? (
+          <div style={{ textAlign: 'center' }}>
+            <AuthLink href={SUPPORT_MAILTO} k="contactSupport" />
+          </div>
+        ) : null}
         <div style={{ textAlign: 'center' }}>
           <AuthLink href="/sign-in" k="backToSignIn" />
         </div>
