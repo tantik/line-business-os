@@ -10,10 +10,13 @@ export interface TenantSwitchOption {
  * Account-menu switcher entries from the memberships `requireTenantContext`
  * already read -- no extra request per render. Only ids and display names
  * reach the client; the switch itself is revalidated server-side by
- * `setActiveTenant`.
+ * `setActiveTenant`. One entry per tenant even when the caller holds
+ * several membership rows (one per location) in the same cafe.
  */
 export function toTenantSwitchOptions(memberships: TenantMembership[]): TenantSwitchOption[] {
-  return memberships
-    .map((m) => ({ tenantId: m.tenantId, tenantName: m.tenantName }))
-    .sort((a, b) => a.tenantName.localeCompare(b.tenantName, 'ja'));
+  const byId = new Map<string, TenantSwitchOption>();
+  for (const m of memberships) {
+    if (!byId.has(m.tenantId)) byId.set(m.tenantId, { tenantId: m.tenantId, tenantName: m.tenantName });
+  }
+  return [...byId.values()].sort((a, b) => a.tenantName.localeCompare(b.tenantName, 'ja'));
 }

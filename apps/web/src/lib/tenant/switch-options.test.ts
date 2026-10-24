@@ -15,6 +15,14 @@ test('toTenantSwitchOptions keeps only id and name, sorted by name', () => {
   ]);
 });
 
+test('toTenantSwitchOptions lists a cafe once even with several location memberships', () => {
+  const options = toTenantSwitchOptions([membership('a', 'Cafe Aoi'), membership('a', 'Cafe Aoi'), membership('b', 'ORUWA Cafe')]);
+  assert.deepEqual(options, [
+    { tenantId: 'a', tenantName: 'Cafe Aoi' },
+    { tenantId: 'b', tenantName: 'ORUWA Cafe' },
+  ]);
+});
+
 test('toTenantSwitchOptions returns an empty list for no memberships', () => {
   assert.deepEqual(toTenantSwitchOptions([]), []);
 });
