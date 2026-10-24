@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, useFormStatus } from 'react-dom';
 import { BrandBadge } from './brand-badge';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -10,11 +10,19 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tAuth } from '@/lib/auth/auth-copy';
 import { buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { setActiveTenant } from '@/lib/tenant/actions';
+import { TENANT_SELECT_FIELD } from '@/lib/tenant/selection';
+import type { TenantSwitchOption } from '@/lib/tenant/switch-options';
+
+export type { TenantSwitchOption };
 
 export interface AccountMenuProps {
   displayName: string;
   positionLabel: string;
   signOutLabel: string;
+  /** Every cafe the caller belongs to (F13); the switcher shows only with two or more. */
+  tenantOptions?: TenantSwitchOption[];
+  activeTenantId?: string;
 }
 
 /**
@@ -33,7 +41,7 @@ export interface AccountMenuProps {
  * one's content (a name/position block, a two-button language toggle, a
  * sign-out form) doesn't fit that shape.
  */
-export function AccountMenu({ displayName, positionLabel, signOutLabel }: AccountMenuProps) {
+export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOptions = [], activeTenantId }: AccountMenuProps) {
   const { lang } = useLang();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
@@ -147,6 +155,9 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.textPrimary }}>{displayName}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 13, ...mutedText }}>{positionLabel}</p>
                 </div>
+                {tenantOptions.length > 1 ? (
+                  <TenantSwitchList options={tenantOptions} activeTenantId={activeTenantId} heading={tAuth(lang, 'tenantSwitchHeading')} />
+                ) : null}
                 <PreviewLanguageToggle fullWidth />
                 <Link
                   href="/account"
@@ -163,6 +174,75 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel }: Accoun
             document.body,
           )
         : null}
+    </>
+  );
+}
+
+/**
+ * Cafe switcher (F13): one form posting to `setActiveTenant` -- each cafe is
+ * a submit button carrying its id as the submitter value -- which
+ * revalidates the id against live memberships, writes the active-tenant
+ * cookie and lands on the caller's own workspace in that cafe. The current
+ * cafe is marked `aria-current` and does not submit; while a switch is in
+ * flight every entry is locked so a second click cannot race the first.
+ */
+function TenantSwitchList({ options, activeTenantId, heading }: { options: TenantSwitchOption[]; activeTenantId?: string; heading: string }) {
+  return (
+    <form action={setActiveTenant} role="group" aria-label={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, ...mutedText }}>{heading}</p>
+      <TenantSwitchButtons options={options} activeTenantId={activeTenantId} />
+      <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 4 }} />
+    </form>
+  );
+}
+
+function TenantSwitchButtons({ options, activeTenantId }: { options: TenantSwitchOption[]; activeTenantId?: string }) {
+  const { pending, data } = useFormStatus();
+  const pendingTenantId = pending ? data?.get(TENANT_SELECT_FIELD) : null;
+  return (
+    <>
+      {options.map((option) => {
+        const isActive = option.tenantId === activeTenantId;
+        const isPendingTarget = pendingTenantId === option.tenantId;
+        const isLocked = isActive || pending;
+        return (
+          <button
+            key={option.tenantId}
+            type={isActive ? 'button' : 'submit'}
+            name={isActive ? undefined : TENANT_SELECT_FIELD}
+            value={isActive ? undefined : option.tenantId}
+            aria-current={isActive ? 'true' : undefined}
+            aria-disabled={isLocked || undefined}
+            aria-busy={isPendingTarget || undefined}
+            onClick={(event) => {
+              if (pending) event.preventDefault();
+            }}
+            className={isLocked ? undefined : hoverStyles.buttonSecondary}
+            style={{
+              width: '100%',
+              minHeight: 44,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              textAlign: 'left',
+              fontSize: 14,
+              fontWeight: isActive ? 700 : 500,
+              color: colors.textPrimary,
+              background: isActive ? colors.accentMuted : colors.surface,
+              border: `1px solid ${isActive ? colors.accent : colors.border}`,
+              borderRadius: 8,
+              cursor: isActive ? 'default' : pending ? 'progress' : 'pointer',
+              opacity: pending && !isActive && !isPendingTarget ? 0.6 : 1,
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 14, color: colors.accent }}>
+              {isActive ? '✓' : isPendingTarget ? '…' : ''}
+            </span>
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{option.tenantName}</span>
+          </button>
+        );
+      })}
     </>
   );
 }

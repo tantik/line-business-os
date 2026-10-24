@@ -8,6 +8,7 @@ import { listTenantMemberships } from './membership';
 import { selectActiveTenant } from './select';
 import { setActiveTenantCookie } from './active-tenant-cookie.server';
 import { parseSelectedTenantId } from './selection';
+import { resolvePostLoginPath } from '@/lib/auth/post-login-redirect';
 
 /**
  * Server Action for the tenant switcher.
@@ -23,6 +24,11 @@ import { parseSelectedTenantId } from './selection';
  * - Any failure (missing/malformed selection, unauthenticated, non-member,
  *   read error) results in a safe redirect to `/dashboard` with NO cookie write
  *   and no internal error surfaced to the UI.
+ * - On success the caller lands on their own workspace in the new tenant
+ *   (`resolvePostLoginPath`: Manager -> `/manager`, Staff -> `/staff`, else
+ *   `/dashboard`). Known gap: a Manager of a multi-location cafe without a
+ *   staff profile still lands on `/dashboard`, because `resolvePostLoginPath`
+ *   checks Manager access only for a sole active location.
  * - Uses only the request-scoped anon-key server client (RLS is the boundary);
  *   the service-role key is never imported or used here.
  */
@@ -47,5 +53,5 @@ export async function setActiveTenant(formData: FormData): Promise<void> {
 
   // Authority confirmed: persist the canonical tenant id from the membership.
   await setActiveTenantCookie(selected.tenant.tenantId);
-  redirect(DASHBOARD_PATH);
+  redirect(await resolvePostLoginPath(supabase, selected.tenant.tenantId));
 }

@@ -81,7 +81,7 @@ import { EntryPointsCard, type EntryPointsCardButton } from '../_ui/entry-points
 import { orderByModule } from '@/lib/tenant/module-nav';
 import { resolveVocabulary, vocabularyWord, type VocabularyKey } from '@/lib/packages/vocabulary';
 import { BrandBadge } from '../_ui/brand-badge';
-import { AccountMenu } from '../_ui/account-menu';
+import { AccountMenu, type TenantSwitchOption } from '../_ui/account-menu';
 import { ManageStaffPopup } from './manage-staff-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
@@ -236,6 +236,8 @@ export interface ManagerDashboardClientProps {
   displayName: string | null;
   /** The caller's own position label, for the header account menu -- `null` if unset. */
   positionLabel: string | null;
+  /** Every cafe the caller belongs to, for the account-menu switcher (F13); shown only with two or more. */
+  tenantOptions: TenantSwitchOption[];
   timeZone: string;
   periodStart: string;
   periodEnd: string;
@@ -383,6 +385,7 @@ function ManagerDashboardBody({
   locationId,
   displayName,
   positionLabel,
+  tenantOptions,
   timeZone,
   periodStart,
   periodEnd,
@@ -1296,6 +1299,8 @@ function ManagerDashboardBody({
           displayName={displayName ?? t('pageTitle')}
           positionLabel={positionLabel ?? t('notSetLabel')}
           signOutLabel={t('signOut')}
+          tenantOptions={tenantOptions}
+          activeTenantId={tenantId}
         />
       </header>
 

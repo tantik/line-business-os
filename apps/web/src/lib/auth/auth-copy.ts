@@ -73,6 +73,7 @@ const authCopy = {
 
     accountTitle: 'アカウント設定',
     accountMenuLink: 'アカウント設定',
+    tenantSwitchHeading: 'お店を切り替え',
     accountEmail: 'ログイン用メールアドレス',
     accountPasswordHeading: 'パスワードの変更',
     currentPassword: '現在のパスワード',
@@ -170,6 +171,7 @@ const authCopy = {
 
     accountTitle: 'Account settings',
     accountMenuLink: 'Account settings',
+    tenantSwitchHeading: 'Switch store',
     accountEmail: 'Sign-in email',
     accountPasswordHeading: 'Change password',
     currentPassword: 'Current password',
