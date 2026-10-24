@@ -197,7 +197,7 @@ const authCopy = {
     loadingBody: 'Preparing your workspace.',
     accessDeniedTitle: 'Access denied',
     accessDeniedBody: 'You do not have permission to view this page.',
-    noTenantTitle: 'No store yet',
+    noTenantTitle: 'Not in any store',
     noTenantBody: 'Your account does not belong to any store right now. Ask your manager for an invitation.',
     noTenantSignOut: 'Sign out',
     configTitle: 'Configuration required',
