@@ -519,9 +519,10 @@ deleted a record shared with Production); `git push --force` / `-f` /
 restore --worktree`, `git branch -d|-D`, `git filter-branch|filter-repo`,
 `git update-ref`, `git reflog delete|expire`, `git clean -f|-d|-x`;
 `rm -rf`, `Remove-Item -Recurse -Force`; the raw `gh pr merge` command,
-`gh release`, `gh secret`, `gh variable`, and **all** `gh api` (no
-read-only `gh api` use is allow-listed, and its `-F|--field|--input`
-forms mutate); `rg --pre|--pre-glob` (external preprocessor); any command
+`gh release`, `gh secret`, `gh variable`, and every mutating `gh api`
+form (`-X|--method`, `-f|-F|--field|--raw-field`, `--input`, `graphql`);
+only read-only `gh api repos/tantik/line-business-os/...` is allow-listed
+(Founder 2026-10-24, to watch deploy/commit status); `rg --pre|--pre-glob` (external preprocessor); any command
 containing `--amend` or the long-form `--no-verify` in any argument
 position.
 

@@ -70,7 +70,14 @@
       "Bash(gh release*)",
       "Bash(gh secret*)",
       "Bash(gh variable*)",
-      "Bash(gh api*)",
+      "Bash(gh api*-X*)",
+      "Bash(gh api*--method*)",
+      "Bash(gh api*-f *)",
+      "Bash(gh api*-F*)",
+      "Bash(gh api*--field*)",
+      "Bash(gh api*--raw-field*)",
+      "Bash(gh api*--input*)",
+      "Bash(gh api graphql*)",
 
       "Bash(rg*--pre*)",
       "Bash(rg*--pre-glob*)",
@@ -94,6 +101,7 @@
       "Bash(wget*)"
     ],
     "allow": [
+      "Bash(gh api repos/tantik/line-business-os/*)",
       "Bash(supabase db reset)",
       "Bash(pnpm exec supabase db reset)",
       "Bash(pnpm db:reset)",
