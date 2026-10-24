@@ -1,8 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encryptPII, blindIndex, bufferToBytea } from '@line-os/db/crypto';
-import { getWorkforceStaffDirectoryEntryById, listWorkforceStaffDirectory, listWorkforceStaffForManager, permanentlyDeleteEmployee, setWorkforceEmployeeActive, upsertWorkforceEmployee } from './employees.js';
+import {
+  getWorkforceStaffDirectoryEntryById,
+  listWorkforceStaffDirectory,
+  listWorkforceStaffForManager,
+  EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE,
+  mapEmployeeEmailConflict,
+  mapSelfOffboardingError,
+  permanentlyDeleteEmployee,
+  SELF_OFFBOARDING_MESSAGE,
+  setWorkforceEmployeeActive,
+  upsertWorkforceEmployee,
+} from './employees.js';
 import { recordingClient } from './test-helpers.js';
+import { localizeServerMessage } from '../ui/server-message-copy.js';
 
 const TENANT_ID = 'tenant-a';
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
@@ -238,6 +250,78 @@ test('setWorkforceEmployeeActive succeeds', async () => {
   const { client } = recordingClient({ data: { staff_id: 's2', is_active: false }, error: null });
   const result = await setWorkforceEmployeeActive(client, TENANT_ID, 's2', false);
   assert.deepEqual(result, { status: 'success', data: { staffId: 's2', isActive: false } });
+});
+
+test('0140 (DEBT-123 b): deactivating / deleting oneself maps to the fixed, localizable self-guard message', async () => {
+  const deactivate = recordingClient({ data: null, error: { code: 'P0001', message: 'cannot_deactivate_self' } });
+  assert.deepEqual(await setWorkforceEmployeeActive(deactivate.client, TENANT_ID, 's-self', false), { status: 'unexpected_error', message: SELF_OFFBOARDING_MESSAGE });
+  const del = recordingClient({ data: null, error: { code: 'P0001', message: 'cannot_delete_self' } });
+  assert.deepEqual(await permanentlyDeleteEmployee(del.client, TENANT_ID, 's-self'), { status: 'unexpected_error', message: SELF_OFFBOARDING_MESSAGE });
+  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'ja'), '自分自身のスタッフ登録は無効化・削除できません。オーナーに依頼してください。');
+  assert.equal(localizeServerMessage('unexpected_error', SELF_OFFBOARDING_MESSAGE, 'en'), 'You cannot deactivate or delete your own staff record. Ask the owner.');
+});
+
+const EMAIL_INDEX_23505 = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "workforce_employees_tenant_email_hash_key"',
+  details: 'Key (tenant_id, email_hash)=(t, h) already exists.',
+};
+
+test('rehire via the same email: the 0049 email_hash index 23505 maps to its own code + localizable copy (create)', async () => {
+  const { client } = recordingClient({ data: null, error: EMAIL_INDEX_23505 });
+  const result = await upsertWorkforceEmployee(client, TENANT_ID, {
+    locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.deepEqual(result, { status: 'duplicate', code: 'email_used_by_other_employee_record', message: EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE });
+  assert.equal(
+    localizeServerMessage('duplicate', EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE, 'ja'),
+    'このメールアドレスは、以前のスタッフ登録（無効を含む）ですでに使われています。スタッフ一覧で以前の登録を「有効にする」で戻してください。',
+  );
+  assert.equal(
+    localizeServerMessage('duplicate', EMAIL_USED_BY_OTHER_EMPLOYEE_RECORD_MESSAGE, 'en'),
+    'This email is already used by an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.',
+  );
+});
+
+test('the same mapping applies when an edit changes the email to one already in use', async () => {
+  const { client } = recordingClient({ data: null, error: EMAIL_INDEX_23505 });
+  const result = await upsertWorkforceEmployee(client, TENANT_ID, {
+    id: 's2', locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.equal(result.status === 'duplicate' ? result.code : result.status, 'email_used_by_other_employee_record');
+});
+
+test('mapEmployeeEmailConflict: only the 0049 index, found in message or details; other 23505s stay generic', async () => {
+  assert.equal(mapEmployeeEmailConflict({ code: '23505', message: 'duplicate key value', details: 'constraint workforce_employees_tenant_email_hash_key' })?.code, 'email_used_by_other_employee_record');
+  assert.equal(mapEmployeeEmailConflict({ code: '23505', message: 'duplicate key value violates unique constraint "wf_employees_one_per_tenant_per_user"' }), null);
+  assert.equal(mapEmployeeEmailConflict({ code: '42501', message: 'workforce_employees_tenant_email_hash_key' }), null);
+  assert.equal(mapEmployeeEmailConflict(null), null);
+  const other = recordingClient({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "some_other_key"' } });
+  const result = await upsertWorkforceEmployee(other.client, TENANT_ID, {
+    locationId: 'loc-1', name: 'Kenji Sato', familyName: 'Sato', givenName: 'Kenji', email: 'kenji@example.com',
+  });
+  assert.equal(result.status, 'duplicate');
+  assert.equal(result.status === 'duplicate' ? result.code : 'x', undefined);
+});
+
+test('mapSelfOffboardingError ignores every other error', () => {
+  assert.equal(mapSelfOffboardingError({ code: '42501', message: 'permission denied' }), null);
+  assert.equal(mapSelfOffboardingError(null), null);
+  assert.equal(mapSelfOffboardingError({ code: 'P0001', message: 'cannot_change_own_role' }), null);
+});
+
+test('listWorkforceStaffForManager selects is_admin and maps it to isAdmin (absent -> false)', async () => {
+  const row = { ...EDIT_ROW, is_manager: false, is_admin: true };
+  const { client, calls } = recordingClient({ data: [row, { ...row, staff_id: 's3', is_admin: undefined }], error: null });
+  const result = await listWorkforceStaffForManager(client, TENANT_ID);
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') {
+    const byId = new Map(result.data.map((e) => [e.staffId, e]));
+    assert.equal(byId.get('s2')!.isAdmin, true);
+    assert.equal(byId.get('s3')!.isAdmin, false);
+  }
+  const select = calls.find((c) => c.method === 'select' && typeof c.args[0] === 'string' && String(c.args[0]).includes('has_account_access'));
+  assert.ok(select && String(select.args[0]).includes('is_admin'), 'the staff list read selects is_admin');
 });
 
 // Regression coverage for the founder-reported "Delete permanently -> error"

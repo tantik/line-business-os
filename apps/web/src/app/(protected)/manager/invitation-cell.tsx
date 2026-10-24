@@ -8,24 +8,16 @@ import { ConfirmDialog } from '@/components/shared/design-kit';
 import { badgeStyle, buttonDisabled, buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { tManagerDashboard } from './manager-dashboard-i18n';
+import { inviteErrorCopyKey } from './invite-error-copy';
 
 type T = (key: Parameters<typeof tManagerDashboard>[1]) => string;
 
 // Never passes through the underlying result's own `message` (shared infra
 // text, written in English across this codebase's existing screens;
 // surfacing it here would produce mixed-language errors) -- always one of
-// this fixed, localized set instead.
-function describeInviteError(result: { status: string }, t: T): string {
-  switch (result.status) {
-    case 'not_found':
-      return t('inviteErrorNotFound');
-    case 'duplicate':
-      return t('inviteErrorDuplicate');
-    case 'unauthorized':
-      return t('errorUnauthorizedAction');
-    default:
-      return t('inviteErrorGeneric');
-  }
+// this fixed, localized set instead (see invite-error-copy.ts).
+function describeInviteError(result: { status: string; code?: string }, t: T): string {
+  return t(inviteErrorCopyKey(result));
 }
 
 function describeRevokeError(result: { status: string }, t: T): string {

@@ -24,6 +24,7 @@ import {
 } from './employee-line-links';
 import type { WorkforceWriteResult } from './result-types';
 import { parseSetManagerRoleInput, setEmployeeManagerRole as setEmployeeManagerRoleWrite, type ManagerRoleResult } from './manager-role';
+import { parseSetAdminRoleInput, setEmployeeAdminRole as setEmployeeAdminRoleWrite, type AdminRoleResult } from './admin-role';
 
 /**
  * Server Actions for staff profile management + LINE binding (manager-only;
@@ -93,6 +94,20 @@ export async function setEmployeeManagerRole(formData: FormData): Promise<Manage
 
   const supabase = await createClient();
   return setEmployeeManagerRoleWrite(supabase, tenantContext.data.activeTenant.tenantId, input);
+}
+
+/** Owner only (4B-4b, 0140): appoint (`isAdmin=true`) or revoke (`false`) the Admin (管理者) role. Tenant from the session, never the form; `api.set_employee_admin_role` enforces the Owner role and every other rule. */
+export async function setEmployeeAdminRole(formData: FormData): Promise<AdminRoleResult> {
+  const input = parseSetAdminRoleInput(formData);
+  if (!input) return { status: 'error', code: 'invalid_input' };
+
+  const tenantContext = await requireTenantContext();
+  if (tenantContext.status !== 'success') {
+    return { status: 'error', code: tenantContext.status === 'unauthorized' || tenantContext.status === 'no_membership' ? 'permission_denied' : 'unexpected' };
+  }
+
+  const supabase = await createClient();
+  return setEmployeeAdminRoleWrite(supabase, tenantContext.data.activeTenant.tenantId, input);
 }
 
 export async function bindEmployeeLineUser(formData: FormData): Promise<WorkforceWriteResult<WorkforceEmployeeLineLinkBinding>> {

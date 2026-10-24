@@ -415,8 +415,16 @@ Deno.serve(async (req: Request) => {
   if (upsertErr) {
     const message = upsertErr.message ?? '';
     if (message.includes('not_authorized')) return jsonResponse(403, { error: 'not_authorized' });
+    // 0140: staff.manage does not cover the employee row's location
+    if (message.includes('permission_denied')) return jsonResponse(403, { error: 'not_authorized' });
     if (message.includes('employee_not_found')) return jsonResponse(404, { error: 'employee_not_found' });
     if (message.includes('employee_already_bound')) return jsonResponse(409, { error: 'employee_already_bound' });
+    // 0140 (DEBT-123 c): the target account is already bound to another
+    // (usually inactive) employee row in this tenant -- the Manager should
+    // reactivate that row instead of re-hiring on a new one.
+    if (message.includes('user_has_other_employee_record')) {
+      return jsonResponse(409, { error: 'user_has_other_employee_record' });
+    }
     return jsonResponse(500, { error: 'invitation_write_failed' });
   }
   if (!upserted) return jsonResponse(500, { error: 'invitation_write_failed' });
