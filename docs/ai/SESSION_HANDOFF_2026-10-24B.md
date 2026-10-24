@@ -20,7 +20,7 @@ Use only the v2 set in `.claude/qa-accounts.local.md`: `oruwa.jp+manager` (松�
 ## 3. Founder decisions
 
 - Roles: Owner (provisioned at launch) appoints Managers; Managers add staff but never appoint Managers; add a `tenant_admin` ("senior manager") appoint button in 4B-4b.
-- Removed-employee data: keep 3 months, then delete (DEBT-033). Lead proposal pending Founder OK: purge contact PII at 3 months, keep the minimal labour record for the 労働基準法 109条 period.
+- Removed-employee data: keep 3 months, then delete (DEBT-033). Founder OK: purge contact PII at 3 months; keep the minimal labour record 5 years (労働基準法 109条, transitional 3), then delete.
 - Native JA copy review (DEBT-018/053): after development is complete, before the admin/site phase (oruwa site + client cabinet).
 
 ## 4. Next (order)
