@@ -64,7 +64,7 @@ import { TransportForm } from './transport-form';
 import { StaffMailPopup } from './staff-mail-popup';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { useIsCompactSchedule } from './use-compact-schedule';
-import { AccountMenu } from '../_ui/account-menu';
+import { AccountMenu, type TenantSwitchOption } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
@@ -131,6 +131,8 @@ export interface StaffDashboardClientProps {
   profile: WorkforceMyStaffProfile;
   /** The caller's own real display name, decrypted server-side via `api.workforce_staff_roster` (0061). `null` only if the roster read itself failed -- falls back to no name shown, never a placeholder. */
   displayName: string | null;
+  /** Every cafe the caller belongs to, for the account-menu switcher (F13); shown only with two or more. */
+  tenantOptions: TenantSwitchOption[];
   /** Every visible coworker's (plus the caller's own) real display name, keyed by employee id -- same source as `displayName`, threaded through to the schedule grid so it can show real names instead of synthesized "Staff N" labels. */
   staffNameById: Record<string, string>;
   shiftTypes: WorkforceShiftType[] | null;
@@ -245,6 +247,7 @@ function StaffDashboardBody({
   weekOffset,
   profile,
   displayName,
+  tenantOptions,
   staffNameById,
   shiftTypes,
   requests,
@@ -632,6 +635,8 @@ function StaffDashboardBody({
           displayName={displayName ?? t('pageTitle')}
           positionLabel={profile.positionLabel ?? t('notSetLabel')}
           signOutLabel={t('signOut')}
+          tenantOptions={tenantOptions}
+          activeTenantId={tenantId}
         />
       </header>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
+import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
@@ -482,6 +483,7 @@ export default async function WorkforceManagerPage({
             locationId={location.locationId}
             displayName={myDisplayName}
             positionLabel={myProfile?.positionLabel ?? null}
+            tenantOptions={toTenantSwitchOptions(result.data.memberships)}
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}

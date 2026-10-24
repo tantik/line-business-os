@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireTenantContext } from '@/lib/tenant/context';
+import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
@@ -425,6 +426,7 @@ export default async function WorkforceStaffPage({
             weekOffset={weekOffset}
             profile={profile}
             displayName={staffNameById[profile.staffId] ?? null}
+            tenantOptions={toTenantSwitchOptions(result.data.memberships)}
             staffNameById={staffNameById}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
