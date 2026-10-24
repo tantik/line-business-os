@@ -6,6 +6,7 @@ import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
 import { tAuth, type AuthCopyKey } from '@/lib/auth/auth-copy';
 import { backLink, mutedText, pageStyle } from '@/lib/ui/theme';
 import { useDocumentTitle } from '@/lib/ui/document-title';
+import { SignOutButton } from './sign-out-button';
 
 /**
  * Minimal, reusable "safe state" components for authenticated/tenant-aware
@@ -71,7 +72,18 @@ export function UnauthorizedState() {
 }
 
 export function NoTenantState() {
-  return <StateShell title="noTenantTitle" body="noTenantBody" />;
+  // A signed-in user with no active store (new, or deactivated -- DEBT-121)
+  // must be able to end the session; this screen used to have no control at all.
+  return (
+    <StateShell title="noTenantTitle" body="noTenantBody">
+      <NoTenantSignOut />
+    </StateShell>
+  );
+}
+
+function NoTenantSignOut() {
+  const { lang } = useLang();
+  return <SignOutButton label={tAuth(lang, 'noTenantSignOut')} />;
 }
 
 export function MissingConfigState() {
