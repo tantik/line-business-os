@@ -135,8 +135,9 @@ export function TemplateDetailModal({
   const [confirmAddScheduleOpen, setConfirmAddScheduleOpen] = useState(false);
   // The design-kit `ConfirmDialog`s below aren't migrated to the Radix-based
   // `Dialog`/`ConfirmDialog` in this pilot (out of the bounded Task
-  // detail/Attention scope, mission §19) -- they still listen for Escape on
-  // `document` directly, unaware of the outer `Dialog`'s Radix layer stack.
+  // detail/Attention scope, mission §19) -- they take Escape from the
+  // design-kit overlay stack (`overlayStack.ts`, a `document` listener), which
+  // is separate from and unaware of the outer `Dialog`'s Radix layer stack.
   // Nested inside a Radix `Dialog` (below), one Escape press would otherwise
   // close BOTH this confirm and the outer template modal at once. Making the
   // outer `Dialog` non-dismissible while any of these is open routes Escape

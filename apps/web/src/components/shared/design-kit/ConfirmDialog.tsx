@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { buttonPrimary, buttonSecondary, colors } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { useOverlayEscape } from './overlayStack';
 import { useRestoreFocusOnClose } from './useRestoreFocusOnClose';
 
 /**
@@ -39,14 +40,12 @@ export function ConfirmDialog({
   // of them, including a nested confirmation opened from inside an
   // already-open `Modal` (it restores to its own opener, not the Modal's).
   useRestoreFocusOnClose(open);
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !pending) onCancel();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open, pending, onCancel]);
+  // DEBT-119 (c): Escape goes through the shared overlay stack, so it closes
+  // only this dialog when it is open on top of a `Modal` - not both. While
+  // `pending`, the Escape is still consumed here (the Modal below stays open).
+  useOverlayEscape(open, () => {
+    if (!pending) onCancel();
+  });
 
   // Focus management: give focus back to whatever opened this dialog
   // (Cancel, Escape, and backdrop close all route through `onCancel`/state
