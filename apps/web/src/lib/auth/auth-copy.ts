@@ -73,7 +73,7 @@ const authCopy = {
 
     accountTitle: 'アカウント設定',
     accountMenuLink: 'アカウント設定',
-    tenantSwitchHeading: '店舗を切り替え',
+    tenantSwitchHeading: 'お店を切り替え',
     accountEmail: 'ログイン用メールアドレス',
     accountPasswordHeading: 'パスワードの変更',
     currentPassword: '現在のパスワード',

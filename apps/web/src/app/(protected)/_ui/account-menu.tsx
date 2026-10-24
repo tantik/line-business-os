@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, useFormStatus } from 'react-dom';
 import { BrandBadge } from './brand-badge';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -179,52 +179,70 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOp
 }
 
 /**
- * Cafe switcher (F13): one form per cafe posting to `setActiveTenant`, which
+ * Cafe switcher (F13): one form posting to `setActiveTenant` -- each cafe is
+ * a submit button carrying its id as the submitter value -- which
  * revalidates the id against live memberships, writes the active-tenant
  * cookie and lands on the caller's own workspace in that cafe. The current
- * cafe is shown checked and disabled.
+ * cafe is marked `aria-current` and does not submit; while a switch is in
+ * flight every entry is locked so a second click cannot race the first.
  */
 function TenantSwitchList({ options, activeTenantId, heading }: { options: TenantSwitchOption[]; activeTenantId?: string; heading: string }) {
   return (
-    <div role="group" aria-label={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <form action={setActiveTenant} role="group" aria-label={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <p style={{ margin: 0, fontSize: 12, fontWeight: 600, ...mutedText }}>{heading}</p>
+      <TenantSwitchButtons options={options} activeTenantId={activeTenantId} />
+      <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 4 }} />
+    </form>
+  );
+}
+
+function TenantSwitchButtons({ options, activeTenantId }: { options: TenantSwitchOption[]; activeTenantId?: string }) {
+  const { pending, data } = useFormStatus();
+  const pendingTenantId = pending ? data?.get(TENANT_SELECT_FIELD) : null;
+  return (
+    <>
       {options.map((option) => {
         const isActive = option.tenantId === activeTenantId;
+        const isPendingTarget = pendingTenantId === option.tenantId;
+        const isLocked = isActive || pending;
         return (
-          <form key={option.tenantId} action={setActiveTenant}>
-            <input type="hidden" name={TENANT_SELECT_FIELD} value={option.tenantId} />
-            <button
-              type="submit"
-              role="menuitemradio"
-              aria-checked={isActive}
-              disabled={isActive}
-              className={isActive ? undefined : hoverStyles.buttonSecondary}
-              style={{
-                width: '100%',
-                minHeight: 44,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                textAlign: 'left',
-                fontSize: 14,
-                fontWeight: isActive ? 700 : 500,
-                color: colors.textPrimary,
-                background: isActive ? colors.accentMuted : colors.surface,
-                border: `1px solid ${isActive ? colors.accent : colors.border}`,
-                borderRadius: 8,
-                cursor: isActive ? 'default' : 'pointer',
-              }}
-            >
-              <span aria-hidden="true" style={{ width: 14, color: colors.accent }}>
-                {isActive ? '✓' : ''}
-              </span>
-              <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{option.tenantName}</span>
-            </button>
-          </form>
+          <button
+            key={option.tenantId}
+            type={isActive ? 'button' : 'submit'}
+            name={isActive ? undefined : TENANT_SELECT_FIELD}
+            value={isActive ? undefined : option.tenantId}
+            aria-current={isActive ? 'true' : undefined}
+            aria-disabled={isLocked || undefined}
+            aria-busy={isPendingTarget || undefined}
+            onClick={(event) => {
+              if (pending) event.preventDefault();
+            }}
+            className={isLocked ? undefined : hoverStyles.buttonSecondary}
+            style={{
+              width: '100%',
+              minHeight: 44,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              textAlign: 'left',
+              fontSize: 14,
+              fontWeight: isActive ? 700 : 500,
+              color: colors.textPrimary,
+              background: isActive ? colors.accentMuted : colors.surface,
+              border: `1px solid ${isActive ? colors.accent : colors.border}`,
+              borderRadius: 8,
+              cursor: isActive ? 'default' : pending ? 'progress' : 'pointer',
+              opacity: pending && !isActive && !isPendingTarget ? 0.6 : 1,
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 14, color: colors.accent }}>
+              {isActive ? '✓' : isPendingTarget ? '…' : ''}
+            </span>
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{option.tenantName}</span>
+          </button>
         );
       })}
-      <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 4 }} />
-    </div>
+    </>
   );
 }

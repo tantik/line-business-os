@@ -417,6 +417,7 @@ export default async function WorkforceStaffPage({
       return (
         <main style={pageStyle(1000)}>
           <StaffDashboardClient
+            key={activeTenant.tenantId}
             tenantId={activeTenant.tenantId}
             tenantName={activeTenant.tenantName}
             locationName={location.locationName}

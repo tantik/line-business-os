@@ -26,8 +26,9 @@ import { resolvePostLoginPath } from '@/lib/auth/post-login-redirect';
  *   and no internal error surfaced to the UI.
  * - On success the caller lands on their own workspace in the new tenant
  *   (`resolvePostLoginPath`: Manager -> `/manager`, Staff -> `/staff`, else
- *   `/dashboard`), so the account-menu switcher (F13) never drops a Manager
- *   or Staff member on the legacy shell.
+ *   `/dashboard`). Known gap: a Manager of a multi-location cafe without a
+ *   staff profile still lands on `/dashboard`, because `resolvePostLoginPath`
+ *   checks Manager access only for a sole active location.
  * - Uses only the request-scoped anon-key server client (RLS is the boundary);
  *   the service-role key is never imported or used here.
  */

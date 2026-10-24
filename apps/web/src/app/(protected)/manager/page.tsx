@@ -477,6 +477,7 @@ export default async function WorkforceManagerPage({
       return (
         <main style={pageStyle(1180)}>
           <ManagerDashboardClient
+            key={activeTenant.tenantId}
             tenantId={activeTenant.tenantId}
             tenantName={activeTenant.tenantName}
             locationName={location.locationName}
