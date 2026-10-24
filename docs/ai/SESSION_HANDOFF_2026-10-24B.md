@@ -20,9 +20,12 @@ Use only the v2 set in `.claude/qa-accounts.local.md`: `oruwa.jp+manager` (松�
 ## 3. Founder decisions
 
 - Roles: Owner (provisioned at launch) appoints Managers; Managers add staff but never appoint Managers; add a `tenant_admin` ("senior manager") appoint button in 4B-4b.
+- Removed-employee data: keep 3 months, then delete (DEBT-033). Founder OK: purge contact PII at 3 months; keep the minimal labour record 5 years (労働基準法 109条, transitional 3), then delete.
+- Native JA copy review (DEBT-018/053): after development is complete, before the admin/site phase (oruwa site + client cabinet).
 
 ## 4. Next (order)
 
+0. **DEBT-098 first (Founder 2026-10-24):** Supabase Log Ingestion 2.53 GB / 1 GB — find the dominant log source in Logs Explorer (edge_logs vs postgres_logs vs auth), reduce that source (no full disable), record before/after.
 1. **4B-4b**: Owner checklist 「はじめにやること」 on `/manager`; `tenant_admin` appoint/revoke (Owner only, mirror 0138 manager appointment); DEBT-119 (c)–(f); DEBT-123 (b) self-deactivate guard, (c) friendly rehire error.
 2. **4C** 6-tenant test (`oruwa.jp+owner1..6`) with DEBT-097 (measure per tenant), DEBT-114 (max_rows), DEBT-103 (tenant delete).
 3. **4D** clean demo tenant — closes DEBT-001..005, 059, 066, 067, 080, 118(a).
