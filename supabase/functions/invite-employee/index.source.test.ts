@@ -23,6 +23,11 @@ test('the link is never sent before the invitation id is known (no unconditional
   assert.doesNotMatch(SOURCE, /const invitationId = crypto\.randomUUID\(\);/);
 });
 
+test('an account already bound to another employee row maps to a 409 with its own code (0140, DEBT-123 c)', () => {
+  assert.match(SOURCE, /message\.includes\('user_has_other_employee_record'\)/);
+  assert.match(SOURCE, /jsonResponse\(409, \{ error: 'user_has_other_employee_record' \}\)/);
+});
+
 test('success is never reported when the upserted row id differs from the id in the link', () => {
   assert.match(SOURCE, /out_invitation_id !== invitationId/);
   assert.match(SOURCE, /invitation_changed_concurrently/);
