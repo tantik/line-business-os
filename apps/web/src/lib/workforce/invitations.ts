@@ -157,6 +157,10 @@ export type InviteEmployeeOutcome =
   | 'resent_existing_user_no_email'
   | 'recovery_email_sent';
 
+/** English server sentence for `user_has_other_employee_record` (localized via `localizeServerMessage` / the invite dictionary key). */
+export const USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE =
+  'This email is already linked to an earlier staff record (possibly inactive). Reactivate that record in the staff list instead.';
+
 export interface InviteEmployeeResult {
   outcome: InviteEmployeeOutcome;
   invitationId: string;
@@ -223,6 +227,11 @@ export async function inviteOrResendWorkforceEmployee(
   }
   if (response.status === 404 || code === 'employee_not_found') return { status: 'not_found' };
   if (code === 'employee_already_bound') return { status: 'duplicate', message: 'This employee is already bound to an account.' };
+  // 0140 (DEBT-123 c): the email's account already belongs to an earlier
+  // (usually inactive) staff record in this tenant -- reactivate that one.
+  if (code === 'user_has_other_employee_record') {
+    return { status: 'duplicate', code: 'user_has_other_employee_record', message: USER_HAS_OTHER_EMPLOYEE_RECORD_MESSAGE };
+  }
   if (code === 'employee_inactive') return { status: 'unexpected_error', message: 'This employee is deactivated and cannot be invited.' };
   if (code === 'employee_missing_email') return { status: 'unexpected_error', message: 'This employee has no contact email on file.' };
   if (code === 'employee_not_yet_invited') {

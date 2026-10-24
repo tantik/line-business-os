@@ -12,7 +12,10 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *     reported as `not_found`, never as an error.
  *   - `duplicate`: a unique-constraint violation (Postgres `23505`), e.g.
  *     rebinding a LINE user id already bound elsewhere, or a second
- *     `preference`-kind shift request for the same employee/day.
+ *     `preference`-kind shift request for the same employee/day. Optional
+ *     `code` names a specific, user-actionable conflict (today only
+ *     `user_has_other_employee_record` from the invite flow, 0140 /
+ *     DEBT-123 c) so the UI can show targeted copy instead of the generic one.
  *   - `blocked_by_history`: only ever returned by `permanentlyDeleteEmployee`
  *     -- the employee has one or more historical references (shifts,
  *     attendance, requests, exchanges) and the guarded
@@ -50,7 +53,7 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
 export type WorkforceWriteResult<T> =
   | TenantAccessResult<T>
   | { status: 'not_found' }
-  | { status: 'duplicate'; message: string }
+  | { status: 'duplicate'; message: string; code?: 'user_has_other_employee_record' }
   | { status: 'blocked_by_history' }
   | { status: 'blocked_not_archived' }
   | { status: 'stale_reference' }

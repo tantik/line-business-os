@@ -47,6 +47,8 @@ interface ApiWorkforceStaffManageRow {
   has_account_access: boolean;
   /** 0138: derived, read-only. Absent (undefined) on write-path responses that do not select it. */
   is_manager?: boolean;
+  /** 0140: derived, read-only. Absent (undefined) on write-path responses that do not select it. */
+  is_admin?: boolean;
 }
 
 /** Manager-facing staff entry with the name already decrypted server-side. Never re-serialize `nameEncrypted`/`nameHash` back to a client. */
@@ -69,6 +71,8 @@ export interface WorkforceStaffManageEntry {
   hasAccountAccess: boolean;
   /** 0138: this employee's account holds the tenant's `manager` role (店長). Derived boolean from `api.workforce_staff_manage.is_manager`; never role rows or user ids. */
   isManager: boolean;
+  /** 0140: this employee's account holds the tenant's `tenant_admin` role (管理者). Derived boolean from `api.workforce_staff_manage.is_admin`; never role rows or user ids. */
+  isAdmin: boolean;
   /**
    * True when this employee has any shift/attendance/request/exchange row,
    * mirroring the exact guard `workforce.permanently_delete_employee`
@@ -118,7 +122,7 @@ async function getEmployeeIdsWithProtectedHistory(
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
 const MANAGE_SELECT =
-  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen, has_account_access, is_manager';
+  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen, has_account_access, is_manager, is_admin';
 
 function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDirectoryEntry {
   return {
@@ -150,6 +154,7 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     hourlyWageYen: row.hourly_wage_yen,
     hasAccountAccess: row.has_account_access,
     isManager: row.is_manager === true,
+    isAdmin: row.is_admin === true,
     hasProtectedHistory,
   };
 }
@@ -367,7 +372,8 @@ export async function upsertWorkforceEmployee(
         .select(MANAGE_SELECT)
         .maybeSingle();
 
-      if (error) return mapWorkforceWriteError(error, 'update this staff profile');
+      // an edit may carry is_active = false for the caller's own row (0140 guard)
+      if (error) return mapSelfOffboardingError(error) ?? mapWorkforceWriteError(error, 'update this staff profile');
       if (!data) return { status: 'not_found' };
       // Not recomputed here (an update doesn't change history) - the
       // list query (`listWorkforceStaffForManager`) is the source of
@@ -408,6 +414,24 @@ export async function upsertWorkforceEmployee(
   }
 }
 
+/** English server sentence for the 0140 self-guards (localized by `localizeServerMessage`). */
+export const SELF_OFFBOARDING_MESSAGE = 'You cannot deactivate or delete yourself. Ask the owner.';
+
+/**
+ * 0140 (DEBT-123 b): the BEFORE triggers on workforce.employees refuse a
+ * signed-in user deactivating (`cannot_deactivate_self`) or deleting
+ * (`cannot_delete_self`) their own employee row (P0001). Null for any other error.
+ */
+export function mapSelfOffboardingError(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+): { status: 'unexpected_error'; message: string } | null {
+  const message = error?.message ?? '';
+  if (message.includes('cannot_deactivate_self') || message.includes('cannot_delete_self')) {
+    return { status: 'unexpected_error', message: SELF_OFFBOARDING_MESSAGE };
+  }
+  return null;
+}
+
 export interface WorkforceEmployeeActiveState {
   staffId: string;
   isActive: boolean;
@@ -430,7 +454,7 @@ export async function setWorkforceEmployeeActive(
       .select('staff_id, is_active')
       .maybeSingle();
 
-    if (error) return mapWorkforceWriteError(error, "change this staff member's active status");
+    if (error) return mapSelfOffboardingError(error) ?? mapWorkforceWriteError(error, "change this staff member's active status");
     if (!data) return { status: 'not_found' };
     return { status: 'success', data: { staffId: data.staff_id as string, isActive: data.is_active as boolean } };
   } catch (err) {
@@ -464,7 +488,7 @@ export async function permanentlyDeleteEmployee(
       .schema('api')
       .rpc('permanently_delete_employee', { p_tenant_id: tenantId, p_employee_id: staffId });
 
-    if (error) return mapWorkforceWriteError(error, 'permanently delete this staff member');
+    if (error) return mapSelfOffboardingError(error) ?? mapWorkforceWriteError(error, 'permanently delete this staff member');
 
     const row = (Array.isArray(data) ? data[0] : data) as ApiPermanentDeleteEmployeeRow | undefined;
     if (!row) return { status: 'not_found' };
