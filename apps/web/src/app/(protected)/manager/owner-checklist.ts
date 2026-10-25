@@ -4,7 +4,8 @@
  * already loads (page.tsx); nothing here triggers a new read.
  *
  * Step rules ("self" = the caller's own employee row, `selfStaffId`; an
- * Owner/Admin without an employee row has no self, so every row counts):
+ * Owner without an employee row has no self, so every row counts; shown to
+ * the Owner only, see manager-dashboard-client.tsx):
  * 1. add_staff         -- at least one ACTIVE staff row other than self.
  * 2. invite_staff      -- at least one active staff (not self) whose account
  *                         is bound (`hasAccountAccess`, i.e. accepted an
