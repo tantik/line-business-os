@@ -101,6 +101,8 @@
       "Bash(wget*)"
     ],
     "allow": [
+      "WebSearch",
+      "WebFetch",
       "Edit(/.claude/worktrees/**)",
       "Write(/.claude/worktrees/**)",
       "Bash(gh api repos/tantik/line-business-os/*)",
