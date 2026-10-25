@@ -934,16 +934,18 @@ function ManagerDashboardBody({
     document.getElementById('weekly-schedule')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // 4B-4b Owner checklist 「はじめにやること」: Owner/Admin only (the same
-  // server-resolved core.role.manage flag as 店長にする), derived purely from
-  // props this page already has -- no new read. `null` when the roster read
-  // failed (nothing trustworthy to show).
+  // 4B-4b Owner checklist 「はじめにやること」: Owner only (the server-resolved
+  // tenant_owner flag, `canAppointAdmins`). Not for an Admin (4C live QA
+  // 2026-10-25): an Admin is usually an employee row itself, so "every staff
+  // row except self" showed 0 / 3 where the Owner saw 2 / 3 for the same store.
+  // Derived purely from props this page already has -- no new read. `null`
+  // when the roster read failed (nothing trustworthy to show).
   const ownerChecklist = useMemo(
     () =>
-      canAppointManagers && staff !== null
+      canAppointAdmins && staff !== null
         ? deriveOwnerChecklist({ staff, selfStaffId, assignments: exchangeAssignments ?? assignments })
         : null,
-    [canAppointManagers, staff, selfStaffId, exchangeAssignments, assignments],
+    [canAppointAdmins, staff, selfStaffId, exchangeAssignments, assignments],
   );
 
   function handleOwnerChecklistAction(step: OwnerChecklistStepId) {

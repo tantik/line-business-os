@@ -31,8 +31,8 @@ function browserStorage(): Storage | null {
 }
 
 /**
- * 4B-4b 「はじめにやること」: rendered by the dashboard only for a caller with
- * core.role.manage (Owner/Admin). Not rendered when every REQUIRED step is
+ * 4B-4b 「はじめにやること」: rendered by the dashboard only for the Owner
+ * (tenant_owner, `canAppointAdmins`). Not rendered when every REQUIRED step is
  * done (the optional 店長 step is shown but never counted), or
  * after 「閉じる」 in this browser (see owner-checklist.ts for the rules).
  * The hidden flag lives in localStorage, so the first server render cannot
