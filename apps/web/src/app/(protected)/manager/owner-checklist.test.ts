@@ -164,8 +164,8 @@ test('checklist copy exists in JA and EN for every step and differs by language'
   assert.match(ownerChecklistCopy.en.steps.first_shift.hint, /publish/i);
 });
 
-test('admin section copy (JA/EN) explains the rights: almost owner, except billing', () => {
-  assert.match(adminRoleSectionCopy.ja.isNotAdmin, /請求を除き/);
+test('admin section copy (JA/EN) explains the rights: same as owner except billing', () => {
+  assert.match(adminRoleSectionCopy.ja.isNotAdmin, /請求以外/);
   assert.match(adminRoleSectionCopy.ja.isNotAdmin, /店長の任命/);
   assert.match(adminRoleSectionCopy.en.isNotAdmin, /except billing/);
   assert.notEqual(adminRoleSectionCopy.ja.heading, adminRoleSectionCopy.en.heading);

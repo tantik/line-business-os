@@ -63,7 +63,10 @@ test('4B-4b: the 管理者 action is offered only to the Owner, resolved in the 
   assert.ok(ownerCall > batchStart && batchEnd !== -1, 'isTenantOwner must be part of the main Promise.all');
   assert.ok(/canAppointAdmins=\{canAppointAdmins\}/.test(SOURCE), 'the Owner flag must be passed down as canAppointAdmins');
   const clientSource = readFileSync(new URL('./manage-staff-popup.tsx', import.meta.url), 'utf8');
-  assert.ok(/\{canAppointAdmins \? <AdminRoleSection /.test(clientSource), 'the admin section must render only when canAppointAdmins');
+  assert.ok(
+    /\{canAppointAdmins && detailStaff\.staffId !== selfStaffId \? <AdminRoleSection /.test(clientSource),
+    'the admin section must render only when canAppointAdmins, and never on the Owner\'s own row',
+  );
 });
 
 test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {

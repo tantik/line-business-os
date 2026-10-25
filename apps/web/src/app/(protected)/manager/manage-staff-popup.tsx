@@ -262,7 +262,8 @@ export function ManageStaffPopup({
 
           {canAppointManagers ? <ManagerRoleSection key={detailStaff.staffId} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
 
-          {canAppointAdmins ? <AdminRoleSection key={`admin-${detailStaff.staffId}`} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
+          {/* Hidden on the Owner's own row: the Owner is not an admin candidate. */}
+          {canAppointAdmins && detailStaff.staffId !== selfStaffId ? <AdminRoleSection key={`admin-${detailStaff.staffId}`} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
 
           <section style={{ paddingTop: 4, borderTop: `1px solid ${colors.border}` }}>
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
