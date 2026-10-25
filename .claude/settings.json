@@ -101,6 +101,8 @@
       "Bash(wget*)"
     ],
     "allow": [
+      "Edit(/.claude/worktrees/**)",
+      "Write(/.claude/worktrees/**)",
       "Bash(gh api repos/tantik/line-business-os/*)",
       "Bash(supabase db reset)",
       "Bash(pnpm exec supabase db reset)",
