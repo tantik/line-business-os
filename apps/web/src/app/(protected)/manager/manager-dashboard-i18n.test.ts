@@ -43,7 +43,7 @@ const ALL_KEYS: Parameters<typeof tManagerDashboard>[1][] = [
   'noStaffMatch', 'colName', 'colPosition', 'colEmploymentType',
   'colStatus', 'colLine', 'colActions', 'statusActive', 'statusInactive', 'edit', 'activate', 'deactivate',
   'saving', 'confirmDeactivate', 'deleteStaffButton', 'deletingStaff', 'confirmDeleteStaffTitle', 'confirmDeleteStaffBody',
-  'staffDeleted', 'staffBlockedByHistory',
+  'staffDeleted', 'staffBlockedByHistory', 'staffSelfOffboardingBlocked',
   'lineLinkedShort', 'lineNotLinkedShort', 'accessActiveShort', 'accessPendingShort', 'accessExpiredShort', 'accessNoneShort', 'accessSectionHeading', 'dangerZoneHeading',
   'inviteButton', 'resendButton', 'sendingStatus', 'recoverAccessButton', 'revokeInvitationButton', 'recoveryEmailSentMessage',
   'confirmRecoverAccessTitle', 'confirmRecoverAccessBody', 'confirmSendButton', 'confirmRevokeInvitationTitle', 'confirmRevokeInvitationBody',

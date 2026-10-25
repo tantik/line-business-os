@@ -139,6 +139,8 @@ export function ManageStaffPopup({
 
   const filteredStaff = staff ? filterStaffEntries(staff, { status: statusFilter, query }) : [];
   const detailStaff = view.kind === 'detail' ? (staff ?? []).find((s) => s.staffId === view.staffId) ?? null : null;
+  // 0140 guard mirror: own row, caller not the Owner (`canAppointAdmins` = tenant_owner). The trigger stays the boundary.
+  const selfOffboardingBlocked = detailStaff !== null && selfStaffId !== null && detailStaff.staffId === selfStaffId && !canAppointAdmins;
 
   function openDetail(staffId: string) {
     setFormError(null);
@@ -269,8 +271,19 @@ export function ManageStaffPopup({
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
             {deleteError ? <div style={{ ...alertDanger, marginBottom: 8 }}>{deleteError}</div> : null}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {/* 0140 (DEBT-123 b, 4C live QA 2026-10-25): the server refuses a non-Owner deactivating/deleting their own row, and that refusal landed in the page banner hidden behind this popup -- so the buttons are disabled with the reason below, like 「自分の役割は変更できません」. */}
+              {selfOffboardingBlocked ? (
+                <>
+                  <button type="button" style={buttonDisabled} disabled aria-describedby={`staff-self-blocked-${detailStaff.staffId}`}>
+                    {t('deleteStaffButton')}
+                  </button>
+                  <button type="button" style={buttonDisabled} disabled aria-describedby={`staff-self-blocked-${detailStaff.staffId}`}>
+                    {detailStaff.isActive ? t('deactivate') : t('activate')}
+                  </button>
+                </>
+              ) : null}
               {/* QA3 (2026-10-15): with known history the delete can only fail, so the button is disabled and points at the hint below instead of opening a confirm that ends in the same message twice. */}
-              {detailStaff.hasProtectedHistory ? (
+              {selfOffboardingBlocked ? null : detailStaff.hasProtectedHistory ? (
                 <button type="button" style={buttonDisabled} disabled aria-describedby={`staff-delete-blocked-${detailStaff.staffId}`}>
                   {t('deleteStaffButton')}
                 </button>
@@ -287,7 +300,7 @@ export function ManageStaffPopup({
                   {t('deleteStaffButton')}
                 </LoadingButton>
               )}
-              {detailStaff.isActive ? (
+              {selfOffboardingBlocked ? null : detailStaff.isActive ? (
                 <button
                   type="button"
                   className={hoverStyles.buttonSecondary}
@@ -313,7 +326,11 @@ export function ManageStaffPopup({
               )}
             </div>
             {/* Warn before the click, not just on a failed delete attempt -- same wording the RPC guard produces on an actual blocked attempt, so the two never disagree. */}
-            {detailStaff.hasProtectedHistory ? (
+            {selfOffboardingBlocked ? (
+              <p id={`staff-self-blocked-${detailStaff.staffId}`} style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>
+                {t('staffSelfOffboardingBlocked')}
+              </p>
+            ) : detailStaff.hasProtectedHistory ? (
               <p id={`staff-delete-blocked-${detailStaff.staffId}`} style={{ margin: '6px 0 0', fontSize: 12, ...mutedText }}>
                 {t('staffBlockedByHistory')}
               </p>
