@@ -480,11 +480,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionAllClear: 'Nothing needs your attention right now.',
     attentionReview: 'Review',
     attentionCorrectionTitle: 'Attendance corrections',
-    attentionExchangeTitle: 'Shift exchanges',
+    attentionExchangeTitle: 'Shift requests',
     attentionUnavailableConflictTitle: 'Unavailable conflicts',
     attentionInventoryTitle: 'Inventory shortage',
     attentionItemCorrectionTitle: 'Attendance correction',
-    attentionItemExchangeTitle: 'Shift exchange',
+    attentionItemExchangeTitle: 'Shift request',
     attentionItemConflictTitle: 'Schedule conflict',
     attentionItemInventoryTitle: 'Inventory shortage',
     attentionWaitingDecision: 'Waiting for your decision',
@@ -578,7 +578,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     appointAdminConfirmTitle: 'Make this staff member an admin?',
     appointAdminConfirmBody: 'They will be able to do everything the owner can except billing, including appointing managers, managing staff information (including hourly wages and contacts) and store settings. Their staff access stays as it is.',
     revokeAdminConfirmTitle: 'Remove the admin role?',
-    revokeAdminConfirmBody: 'They keep their staff (or manager) access but lose admin rights.',
+    revokeAdminConfirmBody: 'They can keep using the app as before but lose admin rights.',
     adminAppointed: 'Admin role given.',
     adminRevoked: 'Admin role removed.',
     adminNeedsAccountHint: 'Staff who have not accepted their invitation cannot be made admins.',
@@ -751,10 +751,10 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     editCellAriaLabelPrefix: 'Edit shift',
     draftCellAriaSuffix: ' (draft, not published)',
     correctPastScheduleAriaLabelPrefix: 'Correct past schedule',
-    shiftRequestsCardTitle: 'Shift requests',
-    viewRequestsButton: 'View requests',
-    shiftRequestsPopupHelpAriaLabel: 'About shift requests',
-    shiftRequestsPopupHelpTitle: 'About shift requests',
+    shiftRequestsCardTitle: 'Shift preferences',
+    viewRequestsButton: 'View preferences',
+    shiftRequestsPopupHelpAriaLabel: 'About shift preferences',
+    shiftRequestsPopupHelpTitle: 'About shift preferences',
     shiftRequestsPopupHelpBody:
       'See the shift preferences your staff sent for a month. Staff send preferences for next month, so "Next month" is shown first.\n\nEach day shows one of:\n• A shift name: the shift they would like to work.\n• "Off": they cannot work that day. Automatic scheduling will not place them on it (you can still assign a shift by hand).\n• "—": no preference for that day. Automatic scheduling may still place them if needed.\n\nA name with a red "!" has not sent anything for that month yet ("submitted" means at least one day was sent). In the "Next month" view, tap the name to email them a reminder.\n\nTap a shift or "Off" to mark it as reviewed (✓). This is saved, but it is only a note for you: it does not change the schedule. Staff cannot change a day after sending it; if they need a change, edit the schedule directly.',
     submittedPreferencesEmpty: 'No active staff to show.',
@@ -802,9 +802,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionsPopupHelpTitle: 'About correction requests',
     correctionsPopupHelpBody:
       'Staff send a correction request when their clock-in, clock-out, or break record is wrong. Approving updates the attendance record; rejecting keeps the original record. Use the archive to review older decisions.',
-    exchangesHeading: 'Shift exchange requests',
-    exchangesUnavailable: 'Shift exchange requests are temporarily unavailable.',
-    noPendingExchanges: 'No pending shift exchange requests.',
+    exchangesHeading: 'Shift requests',
+    exchangesUnavailable: 'Shift requests are temporarily unavailable.',
+    noPendingExchanges: 'No pending shift requests.',
     colRequester: 'Requester',
     colShift: 'Shift',
     colRequest: 'Request',
@@ -813,8 +813,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'Shift change',
     requestKindExchange: 'Exchange',
     awaitingCandidate: 'awaiting candidate',
-    exchangesPopupHelpAriaLabel: 'About shift exchange requests',
-    exchangesPopupHelpTitle: 'About shift exchange requests',
+    exchangesPopupHelpAriaLabel: 'About shift requests',
+    exchangesPopupHelpTitle: 'About shift requests',
     exchangesPopupHelpBody:
       'Staff use these requests to change, cancel, or exchange an assigned shift. An exchange can be approved after a replacement accepts it or you select a replacement. Use the archive to review older decisions.',
     exchangeReplacementLabel: 'Replacement',
@@ -870,11 +870,11 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     attentionAllClear: '現在、対応が必要な項目はありません。',
     attentionReview: '確認する',
     attentionCorrectionTitle: '勤怠修正',
-    attentionExchangeTitle: 'シフト交換',
+    attentionExchangeTitle: 'シフト申請',
     attentionUnavailableConflictTitle: '不可との重複',
     attentionInventoryTitle: '在庫不足',
     attentionItemCorrectionTitle: '勤怠修正',
-    attentionItemExchangeTitle: 'シフト交換',
+    attentionItemExchangeTitle: 'シフト申請',
     attentionItemConflictTitle: 'スケジュールの重複',
     attentionItemInventoryTitle: '在庫不足',
     attentionWaitingDecision: 'あなたの判断を待っています',
@@ -962,19 +962,19 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     managerRoleErrorModule: 'このワークスペースではシフト管理機能が無効です。',
     managerRoleErrorUnexpected: '役割を変更できませんでした。もう一度お試しください。',
     adminBadge: '管理者',
-    adminRoleIsAdmin: '管理者：請求を除き、オーナーと同じ操作（店長の任命・解除、スタッフ情報、店舗設定など）ができます。',
+    adminRoleIsAdmin: '管理者：請求以外はオーナーと同じ操作（店長の任命・解除、スタッフ情報、店舗設定など）ができます。',
     appointAdmin: '管理者にする',
     revokeAdmin: '管理者から外す',
     appointAdminConfirmTitle: 'このスタッフを管理者にしますか？',
-    appointAdminConfirmBody: '請求を除き、オーナーと同じ操作（店長の任命・解除、スタッフ情報（時給・連絡先を含む）、店舗設定など）ができるようになります。スタッフとしての利用はそのままです。',
+    appointAdminConfirmBody: '店長の任命・解除、スタッフ情報（時給・連絡先を含む）の管理、店舗設定など、請求以外はオーナーと同じ操作ができるようになります。スタッフとしての利用はそのままです。',
     revokeAdminConfirmTitle: '管理者から外しますか？',
-    revokeAdminConfirmBody: 'スタッフ（店長の場合は店長）としては引き続き利用できますが、管理者の権限はなくなります。',
+    revokeAdminConfirmBody: 'これまでどおりアプリは使えますが、管理者の権限はなくなります。',
     adminAppointed: '管理者にしました。',
     adminRevoked: '管理者から外しました。',
     adminNeedsAccountHint: '招待を承認していないスタッフは管理者にできません。',
     adminInactiveHint: '無効のスタッフは管理者にできません。先に有効にしてください。',
     adminOwnRoleHint: 'ご自身の役割は変更できません。',
-    adminRoleErrorPermission: '管理者の任命はオーナーだけができます。',
+    adminRoleErrorPermission: '管理者の任命・解除はオーナーのみ行えます。',
     adminRoleErrorSession: 'ログインの有効期限が切れました。もう一度ログインしてください。',
     adminRoleErrorNotFound: 'スタッフが見つかりません。画面を更新して、もう一度お試しください。',
     adminRoleErrorModule: 'このワークスペースではシフト管理機能が無効です。',
@@ -1015,7 +1015,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     errorNotFound: '見つかりませんでした。',
     errorNotAuthenticated: 'もう一度ログインしてください。',
     errorNoMembership: 'このワークスペースのメンバーではありません。',
-    errorStaleReference: 'この依頼は最新の状態ではありません。シフトが変更されたか、別のマネージャーが既に対応した可能性があります。最新の状態を確認するには更新してください。',
+    errorStaleReference: 'この依頼は最新の状態ではありません。シフトが変更されたか、別の店長が既に対応した可能性があります。最新の状態を確認するには更新してください。',
     prevWeek: '前週',
     thisWeek: '今週',
     nextWeek: '次週',
@@ -1191,9 +1191,9 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     correctionsPopupHelpTitle: '修正依頼について',
     correctionsPopupHelpBody:
       '出勤・退勤・休憩の記録に誤りがある場合、スタッフから修正依頼が届きます。承認すると勤怠記録が更新され、却下すると元の記録が残ります。過去の対応はアーカイブから確認できます。',
-    exchangesHeading: 'シフト交換リクエスト',
-    exchangesUnavailable: 'シフト交換リクエストは一時的に利用できません。',
-    noPendingExchanges: '保留中のシフト交換リクエストはありません。',
+    exchangesHeading: 'シフト申請',
+    exchangesUnavailable: 'シフト申請は一時的に利用できません。',
+    noPendingExchanges: '保留中のシフト申請はありません。',
     colRequester: '申請者',
     colShift: 'シフト',
     colRequest: '申請内容',
@@ -1202,8 +1202,8 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     requestKindChange: 'シフト変更',
     requestKindExchange: '交換',
     awaitingCandidate: '交換相手を待っています',
-    exchangesPopupHelpAriaLabel: 'シフト交換リクエストについて',
-    exchangesPopupHelpTitle: 'シフト交換リクエストについて',
+    exchangesPopupHelpAriaLabel: 'シフト申請について',
+    exchangesPopupHelpTitle: 'シフト申請について',
     exchangesPopupHelpBody:
       '割り当て済みのシフトについて、変更・キャンセル・同僚との交換申請を確認できます。交換は、代わりのスタッフが承諾するか、店長が担当者を選ぶと承認できます。過去の対応はアーカイブから確認できます。',
     exchangeReplacementLabel: '交換相手',
@@ -1309,8 +1309,8 @@ export const attentionCorrectionLabel: Record<Lang, (count: number) => string> =
 };
 
 export const attentionExchangeLabel: Record<Lang, (count: number) => string> = {
-  en: (count) => `${count} shift exchange request(s) waiting on your decision`,
-  ja: (count) => `${count}件のシフト交換リクエストがあなたの判断を待っています`,
+  en: (count) => `${count} shift request(s) waiting on your decision`,
+  ja: (count) => `${count}件のシフト申請があなたの判断を待っています`,
 };
 
 /**
@@ -1693,4 +1693,68 @@ export const publishWeekConfirmBody: Record<Lang, (count: number) => string> = {
 export const publishWeekDoneMessage: Record<Lang, (count: number) => string> = {
   en: (count) => `Published ${count} shift(s). Staff can now see them.`,
   ja: (count) => `${count}件のシフトを公開しました。スタッフに表示されます。`,
+};
+
+// ---------------------------------------------------------------------------
+// 4B-4b: Owner checklist 「はじめにやること」 (owner-checklist.ts / owner-checklist-card.tsx).
+// Kept as one self-contained block (not in `ManagerDashboardDict`) so it
+// merges independently of other key additions to the dictionary above.
+// ---------------------------------------------------------------------------
+type OwnerChecklistStepCopyId = 'add_staff' | 'invite_staff' | 'appoint_manager' | 'first_shift';
+
+export interface OwnerChecklistCopy {
+  heading: string;
+  progress: (done: number, total: number) => string;
+  close: string;
+  closeAriaLabel: string;
+  statusDone: string;
+  statusTodo: string;
+  /** Appended to an optional step's title; not counted in progress. */
+  optionalTag: string;
+  steps: Record<OwnerChecklistStepCopyId, { title: string; hint: string; action: string }>;
+}
+
+export const ownerChecklistCopy: Record<Lang, OwnerChecklistCopy> = {
+  ja: {
+    heading: 'はじめにやること',
+    progress: (done, total) => `${done} / ${total} 完了`,
+    close: '閉じる',
+    closeAriaLabel: '「はじめにやること」を閉じる（この端末では再表示されません）',
+    statusDone: '完了',
+    statusTodo: '未完了',
+    optionalTag: '（任意）',
+    steps: {
+      add_staff: { title: 'スタッフを登録する', hint: '一緒に働くスタッフを追加します。', action: 'スタッフを追加' },
+      invite_staff: { title: 'スタッフをアプリに招待する', hint: '招待メールから登録すると、スタッフがシフトや勤怠を使えます。', action: '招待する' },
+      appoint_manager: { title: '店長を決める', hint: 'スタッフの詳細から「店長にする」を選びます。', action: '店長を選ぶ' },
+      first_shift: { title: '最初のシフトを作る', hint: 'シフトを作って公開すると、スタッフに表示されます。マスのタップか「自動でシフトを作成」で作れます。', action: 'シフト表へ' },
+    },
+  },
+  en: {
+    heading: 'Getting started',
+    progress: (done, total) => `${done} / ${total} done`,
+    close: 'Close',
+    closeAriaLabel: 'Close “Getting started” (it will not come back on this device)',
+    statusDone: 'Done',
+    statusTodo: 'Not done',
+    optionalTag: ' (optional)',
+    steps: {
+      add_staff: { title: 'Add your staff', hint: 'Add the people who work with you.', action: 'Add staff' },
+      invite_staff: { title: 'Invite staff to the app', hint: 'Once they sign up from the invitation email, staff can use shifts and attendance.', action: 'Invite' },
+      appoint_manager: { title: 'Choose a manager', hint: 'Open a staff member and choose “Make manager”.', action: 'Choose' },
+      first_shift: { title: 'Create your first shift', hint: 'Staff see a shift once it is published. Tap a cell, or use “Create schedule automatically”.', action: 'Go to schedule' },
+    },
+  },
+};
+
+/** 4B-4b: Owner-only 管理者 section in the staff detail view (admin-role-section.tsx). The other admin* keys live in the dictionary above (#645). */
+export const adminRoleSectionCopy: Record<Lang, { heading: string; isNotAdmin: string }> = {
+  ja: {
+    heading: '管理者権限',
+    isNotAdmin: '管理者ではありません。管理者にすると、請求以外はオーナーと同じ操作（店長の任命・スタッフ管理・設定）ができます。',
+  },
+  en: {
+    heading: 'Admin rights',
+    isNotAdmin: 'Not an admin. An admin can do everything the owner can except billing: appoint managers, manage staff and change settings.',
+  },
 };

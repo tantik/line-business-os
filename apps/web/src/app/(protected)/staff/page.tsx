@@ -127,7 +127,7 @@ export default async function WorkforceStaffPage({
             <section style={card}>
               {/* Rendered before StaffDashboardClient/LangProvider mounts (no lang context yet); LangProvider's own default is 'ja' (lib/demo/cafe/i18n.tsx), so this shows JA first with EN underneath rather than defaulting to English-only. */}
               <p style={{ margin: 0, ...mutedText }}>
-                このテナントのスタッフプロフィールがまだ登録されていません。マネージャーに追加を依頼してください。
+                このテナントのスタッフプロフィールがまだ登録されていません。店長に追加を依頼してください。
               </p>
               <p style={{ margin: '8px 0 0', ...mutedText, fontSize: 13 }}>
                 You do not have a staff profile for this tenant yet. Ask your manager to add you.
@@ -156,7 +156,7 @@ export default async function WorkforceStaffPage({
         const jaMessage =
           tenantLocations.length === 0
             ? 'このワークスペースにはまだ店舗が設定されていません。'
-            : '割り当てられた店舗を利用できません。マネージャーにご確認ください。';
+            : '割り当てられた店舗を利用できません。店長にご確認ください。';
         const enMessage =
           tenantLocations.length === 0
             ? 'No location is configured for this workspace yet.'

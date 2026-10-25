@@ -125,8 +125,8 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
 
     sectionTeam: 'Team',
     labelShiftAssignments: 'Shift assignments in the week shown',
-    labelShiftExchanges: 'Shift exchanges/corrections created in the week shown',
-    labelUnresolvedShiftRequests: 'Still-unresolved shift requests (any date)',
+    labelShiftExchanges: 'Shift requests created in the week shown',
+    labelUnresolvedShiftRequests: 'Still-unresolved shift preferences (any date)',
     labelAttendance: 'Clock-ins in the week shown',
     labelLateArrivals: 'Late arrivals in the week shown',
     labelNoShows: 'Possible no-shows in the week shown',
@@ -165,8 +165,8 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     categoryOperations: 'Operations',
     categoryOther: 'Other',
 
-    viewShiftRequests: 'View shift requests',
-    viewShiftExchanges: 'View shift exchanges',
+    viewShiftRequests: 'View shift preferences',
+    viewShiftExchanges: 'View shift requests',
     viewOperations: 'View Operations',
     viewIssues: 'View Issues & Handover',
     viewPurchases: 'View Purchases',
@@ -203,7 +203,7 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     sectionTeam: 'チーム',
     // QA3 (2026-10-17): 「この週」, not 「今週」 -- the review pages to past weeks.
     labelShiftAssignments: 'この週のシフト件数',
-    labelShiftExchanges: 'この週に作成された交代・修正申請',
+    labelShiftExchanges: 'この週に作成されたシフト申請',
     labelUnresolvedShiftRequests: '未対応のシフト希望（日付を問わず）',
     labelAttendance: 'この週の出勤',
     labelLateArrivals: 'この週の遅刻',
@@ -244,7 +244,7 @@ const dictionary: Record<Lang, WeeklyReviewDict> = {
     categoryOther: 'その他',
 
     viewShiftRequests: 'シフト希望を見る',
-    viewShiftExchanges: '交代申請を見る',
+    viewShiftExchanges: 'シフト申請を見る',
     viewOperations: '業務チェックを見る',
     viewIssues: '申し送り・問題を見る',
     viewPurchases: '仕入れを見る',

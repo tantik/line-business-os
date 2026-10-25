@@ -59,7 +59,7 @@ test('every error code has non-empty JA and EN copy, and the agreed JA texts', (
     assert.ok(tManagerDashboard('en', key).length > 0, `en copy for ${code}`);
     assert.notEqual(tManagerDashboard('ja', key), tManagerDashboard('en', key), `ja and en differ for ${code}`);
   }
-  assert.equal(tManagerDashboard('ja', adminRoleErrorCopyKey('permission_denied')), '管理者の任命はオーナーだけができます。');
+  assert.equal(tManagerDashboard('ja', adminRoleErrorCopyKey('permission_denied')), '管理者の任命・解除はオーナーのみ行えます。');
   assert.equal(tManagerDashboard('ja', 'adminBadge'), '管理者');
   assert.equal(tManagerDashboard('en', 'adminBadge'), 'Admin');
   assert.equal(tManagerDashboard('ja', 'appointAdmin'), '管理者にする');
