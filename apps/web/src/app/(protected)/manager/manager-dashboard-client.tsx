@@ -470,6 +470,7 @@ function ManagerDashboardBody({
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [activeResult, setActiveResult] = useState<{ staffId: string; tone: 'success' | 'error'; message: string } | null>(null);
   // Add/Edit-staff state, focus-restore ref-maps, and their Escape handling
   // now live inside `ManageStaffPopup` (WP A4) -- this button just opens the
   // popup; `useRestoreFocusOnClose` (via the design-kit `Modal` it wraps)
@@ -1115,17 +1116,23 @@ function ManagerDashboardBody({
 
   function performSetActive(staffId: string, nextActive: boolean) {
     setBanner(null);
+    setActiveResult(null);
     setPendingAction(`active-${staffId}`);
     startTransition(async () => {
       const formData = new FormData();
       formData.set('staffId', staffId);
       if (nextActive) formData.set('isActive', 'true');
       const result = await setEmployeeActive(formData);
+      // The page banner sits behind the open staff popup (4C live QA
+      // 2026-10-25), so the popup also gets the outcome for this row.
+      const outcome =
+        result.status === 'success'
+          ? { tone: 'success' as const, message: nextActive ? t('staffActivated') : t('staffDeactivated') }
+          : { tone: 'error' as const, message: describeWriteError(result, lang) };
+      setBanner(outcome);
+      setActiveResult({ staffId, ...outcome });
       if (result.status === 'success') {
-        setBanner({ tone: 'success', message: nextActive ? t('staffActivated') : t('staffDeactivated') });
         router.refresh();
-      } else {
-        setBanner({ tone: 'error', message: describeWriteError(result, lang) });
       }
       setPendingAction(null);
     });
@@ -1495,6 +1502,7 @@ function ManagerDashboardBody({
         isPending={isPending}
         pendingAction={pendingAction}
         onSetActive={handleSetActive}
+        activeResult={activeResult}
         onChange={() => router.refresh()}
         canAppointManagers={canAppointManagers}
         canAppointAdmins={canAppointAdmins}

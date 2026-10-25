@@ -8,6 +8,16 @@ import { ConfirmDialog, HelpIconButton, Modal } from '@/components/shared/design
 import { LoadingButton } from '@/components/ui/loading';
 import type { BadgeTone } from '@/lib/ui/theme';
 import { alertDanger, badgeStyle, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
+
+// Same look as the dashboard's success banner (manager-dashboard-client.tsx).
+const alertSuccess = {
+  border: `1px solid ${colors.success}`,
+  background: colors.successMuted,
+  color: colors.success,
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 14,
+} as const;
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { usePopupOpenTiming } from '@/lib/ui/popup-timing';
 import { buttonDanger } from '../_ui/workforce-theme';
@@ -30,6 +40,8 @@ export interface ManageStaffPopupProps {
   isPending: boolean;
   pendingAction: string | null;
   onSetActive: (staffId: string, nextActive: boolean) => void;
+  /** Outcome of the last Activate/Deactivate; shown inside the popup for that row (the page banner is hidden behind it). */
+  activeResult?: { staffId: string; tone: 'success' | 'error'; message: string } | null;
   onChange: () => void;
   /** 4B-4a: Owner/Admin only (server-resolved core.role.manage) -- appoint/revoke section. The 店長 badge itself is shown to every caller (DEBT-119 e). */
   canAppointManagers?: boolean;
@@ -113,6 +125,7 @@ export function ManageStaffPopup({
   isPending,
   pendingAction,
   onSetActive,
+  activeResult = null,
   onChange,
   canAppointManagers = false,
   canAppointAdmins = false,
@@ -270,6 +283,11 @@ export function ManageStaffPopup({
           <section style={{ paddingTop: 4, borderTop: `1px solid ${colors.border}` }}>
             <h3 style={{ margin: '14px 0 8px', fontSize: 14, color: colors.dangerText }}>{t('dangerZoneHeading')}</h3>
             {deleteError ? <div style={{ ...alertDanger, marginBottom: 8 }}>{deleteError}</div> : null}
+            {activeResult && activeResult.staffId === detailStaff.staffId ? (
+              <div role={activeResult.tone === 'error' ? 'alert' : 'status'} style={{ ...(activeResult.tone === 'error' ? alertDanger : alertSuccess), marginBottom: 8 }}>
+                {activeResult.message}
+              </div>
+            ) : null}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {/* 0140 (DEBT-123 b, 4C live QA 2026-10-25): the server refuses a non-Owner deactivating/deleting their own row, and that refusal landed in the page banner hidden behind this popup -- so the buttons are disabled with the reason below, like 「自分の役割は変更できません」. */}
               {selfOffboardingBlocked ? (
