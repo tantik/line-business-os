@@ -32,6 +32,7 @@ Routes:
 
 Schema: `supabase/migrations/0010_booking.sql`. Contracts: `@line-os/booking`.
 Reminders: `apps/worker/src/jobs/booking-reminders.ts`.
+Salon package plan (draft): [salon-booking-package-plan.md](salon-booking-package-plan.md).
 
 ## Planned
 
