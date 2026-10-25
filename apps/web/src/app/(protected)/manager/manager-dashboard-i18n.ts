@@ -99,6 +99,8 @@ interface ManagerDashboardDict {
   confirmDeleteStaffBody: string;
   staffDeleted: string;
   staffBlockedByHistory: string;
+  /** 0140 (DEBT-123 b): own staff row, non-Owner -- same wording as the server refusal (server-message-copy.ts). */
+  staffSelfOffboardingBlocked: string;
   // 2026-08-21 redesign: compact row summary badges (LINE/access), read-only.
   lineLinkedShort: string;
   lineNotLinkedShort: string;
@@ -543,6 +545,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmDeleteStaffBody: 'This cannot be undone — their profile will be permanently removed.',
     staffDeleted: 'Staff member permanently deleted.',
     staffBlockedByHistory: 'This staff member has shift, attendance, or request history, so they cannot be permanently deleted. Use Deactivate instead.',
+    staffSelfOffboardingBlocked: 'You cannot deactivate or delete your own staff record. Ask the owner.',
     lineLinkedShort: 'LINE linked',
     lineNotLinkedShort: 'LINE not linked',
     accessActiveShort: 'Access active',
@@ -933,6 +936,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     confirmDeleteStaffBody: 'この操作は取り消せません。プロフィールは完全に削除されます。',
     staffDeleted: 'スタッフを完全に削除しました。',
     staffBlockedByHistory: 'このスタッフにはシフト・勤怠・申請などの履歴があるため完全に削除できません。「無効化」をご利用ください。',
+    staffSelfOffboardingBlocked: '自分自身のスタッフ登録は無効化・削除できません。オーナーに依頼してください。',
     lineLinkedShort: 'LINE連携済み',
     lineNotLinkedShort: 'LINE未連携',
     accessActiveShort: 'アクセス有効',
