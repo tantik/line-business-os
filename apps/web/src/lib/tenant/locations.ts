@@ -2,7 +2,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from './types';
 
 /** Flat row shape returned by `api.my_tenant_locations`. */
-interface ApiTenantLocationRow {
+export interface ApiTenantLocationRow {
   tenant_id: string;
   location_id: string;
   location_name: string;
@@ -36,6 +36,19 @@ function compareTenantLocations(a: TenantLocation, b: TenantLocation): number {
   return a.locationId.localeCompare(b.locationId);
 }
 
+/** Rows of `api.my_tenant_locations` (direct read or `api.my_page_context`) -> sorted locations. */
+export function mapTenantLocationRows(rows: ApiTenantLocationRow[]): TenantLocation[] {
+  const locations = rows.map((row) => ({
+    tenantId: row.tenant_id,
+    locationId: row.location_id,
+    locationName: row.location_name,
+    timezone: row.timezone,
+    isActive: row.is_active,
+  }));
+  locations.sort(compareTenantLocations);
+  return locations;
+}
+
 /**
  * Read current-user tenant locations through the app-facing API facade.
  *
@@ -54,17 +67,7 @@ export async function listTenantLocations(
 
     if (error) return mapPostgrestError(error);
 
-    const rows = (data ?? []) as ApiTenantLocationRow[];
-    const locations = rows.map((row) => ({
-      tenantId: row.tenant_id,
-      locationId: row.location_id,
-      locationName: row.location_name,
-      timezone: row.timezone,
-      isActive: row.is_active,
-    }));
-
-    locations.sort(compareTenantLocations);
-    return { status: 'success', data: locations };
+    return { status: 'success', data: mapTenantLocationRows((data ?? []) as ApiTenantLocationRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

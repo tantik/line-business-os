@@ -4,10 +4,9 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
+import { loadPageContext } from '@/lib/tenant/page-context';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
-import { listTenantLocations } from '@/lib/tenant/locations';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
 import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
@@ -88,10 +87,12 @@ export default async function WorkforceStaffPage({
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const [navigationResult, packageCodes] = await Promise.all([
-        listTenantNavigation(supabase),
-        listTenantPackageCodes(supabase, activeTenant.tenantId),
-      ]);
+      // DEBT-135: navigation, packages and locations come from the same
+      // request-scoped page context `requireTenantContext` already loaded
+      // (one `api.my_page_context` RPC) -- no further round trip here.
+      const pageContext = await loadPageContext();
+      const navigationResult = pageContext.navigation;
+      const packageCodes = pageContext.packageCodes(activeTenant.tenantId);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4), same as `manager/page.tsx`. The flags below gate only this
       // page's entry points and their reads; RLS / RPCs
@@ -141,7 +142,7 @@ export default async function WorkforceStaffPage({
       }
       const profile = profileResult.data;
 
-      const locationsResult = await listTenantLocations(supabase);
+      const locationsResult = pageContext.locations;
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)

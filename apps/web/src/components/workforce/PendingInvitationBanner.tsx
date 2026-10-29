@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
-import { listMyPendingWorkforceInvitations } from '@/lib/workforce/invitations';
+import { loadPageContext } from '@/lib/tenant/page-context';
 import { AcceptInvitationButton } from './AcceptInvitationButton';
 
 /**
@@ -9,11 +8,11 @@ import { AcceptInvitationButton } from './AcceptInvitationButton';
  * new email -- this banner, visible on any authenticated session anywhere
  * in ORUWA, is the only surface that lets them accept. Self-scoped read
  * (`wf_employee_invitations_self_read`, 0064): a caller with no pending
- * invitation targeting them renders nothing.
+ * invitation targeting them renders nothing. Read through the request-scoped
+ * page context (one RPC per request, DEBT-135).
  */
 export async function PendingInvitationBanner() {
-  const supabase = await createClient();
-  const result = await listMyPendingWorkforceInvitations(supabase);
+  const result = (await loadPageContext()).employeeInvitations;
   if (result.status !== 'success' || result.data.length === 0) return null;
 
   return (

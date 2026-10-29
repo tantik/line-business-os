@@ -40,7 +40,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   // `getUser()` did but verifies the JWT locally against the cached JWKS
   // (asymmetric signing keys) instead of one Auth server call per request
   // (DEBT-124).
-  await supabase.auth.getClaims();
+  // A malformed token can make getClaims throw (not return an error); fail
+  // closed here -- pages then see no verified user and redirect to sign-in.
+  try {
+    await supabase.auth.getClaims();
+  } catch {
+    // ignored on purpose
+  }
 
   return response;
 }

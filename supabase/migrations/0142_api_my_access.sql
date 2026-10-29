@@ -79,3 +79,6 @@ comment on function api.my_access(uuid, uuid, text[], text[], text[]) is
 
 revoke all on function api.my_access(uuid, uuid, text[], text[], text[]) from public, anon;
 grant execute on function api.my_access(uuid, uuid, text[], text[], text[]) to authenticated;
+
+-- ROLLBACK (manual, if ever needed; the app falls back to all-false = Manager page shows Unauthorized):
+--   drop function api.my_access(uuid, uuid, text[], text[], text[]);

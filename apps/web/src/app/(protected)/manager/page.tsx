@@ -4,10 +4,9 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
+import { loadPageContext } from '@/lib/tenant/page-context';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
-import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
@@ -106,11 +105,13 @@ export default async function WorkforceManagerPage({
       // pass; see this file's own note further down for why the deeper fix
       // (not re-running the *whole* page's unrelated data on a week change)
       // is out of scope for this pass.
-      const [navigationResult, locationsResult, packageCodes] = await Promise.all([
-        listTenantNavigation(supabase),
-        listTenantLocations(supabase),
-        listTenantPackageCodes(supabase, activeTenant.tenantId),
-      ]);
+      // DEBT-135: navigation, locations and packages now come from the same
+      // request-scoped page context `requireTenantContext` already loaded
+      // (one `api.my_page_context` RPC) -- no further round trip here.
+      const pageContext = await loadPageContext();
+      const navigationResult = pageContext.navigation;
+      const locationsResult = pageContext.locations;
+      const packageCodes = pageContext.packageCodes(activeTenant.tenantId);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4). The flags below gate only this dashboard's entry points and
       // their reads; RLS / RPCs (`core.has_module_access`) remain the real

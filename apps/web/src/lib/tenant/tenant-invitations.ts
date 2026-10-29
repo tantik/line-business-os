@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { mapAcceptTenantInvitationError, type PendingTenantInvitation } from './tenant-invite-decision';
 
 /** Row of `api.my_pending_tenant_invitations()` (0134). */
-interface ApiPendingTenantInvitationRow {
+export interface ApiPendingTenantInvitationRow {
   invitation_id: string;
   tenant_id: string;
   tenant_name: string;
@@ -25,22 +25,23 @@ export async function listMyPendingTenantInvitations(supabase: SupabaseClient): 
   try {
     const { data, error } = await supabase.schema('api').rpc('my_pending_tenant_invitations');
     if (error) return { status: 'error' };
-    const rows = (Array.isArray(data) ? data : []) as ApiPendingTenantInvitationRow[];
-    return {
-      status: 'success',
-      data: rows.map((row) => ({
-        invitationId: row.invitation_id,
-        tenantId: row.tenant_id,
-        tenantName: row.tenant_name,
-        roleKey: row.role_key,
-        expiresAt: row.expires_at,
-        isExpired: row.is_expired === true,
-        createdAt: row.created_at,
-      })),
-    };
+    return { status: 'success', data: mapPendingTenantInvitationRows((Array.isArray(data) ? data : []) as ApiPendingTenantInvitationRow[]) };
   } catch {
     return { status: 'error' };
   }
+}
+
+/** Rows of `api.my_pending_tenant_invitations()` (direct call or `api.my_page_context`) -> invitations. */
+export function mapPendingTenantInvitationRows(rows: ApiPendingTenantInvitationRow[]): PendingTenantInvitation[] {
+  return rows.map((row) => ({
+    invitationId: row.invitation_id,
+    tenantId: row.tenant_id,
+    tenantName: row.tenant_name,
+    roleKey: row.role_key,
+    expiresAt: row.expires_at,
+    isExpired: row.is_expired === true,
+    createdAt: row.created_at,
+  }));
 }
 
 export type AcceptTenantInvitationResult =

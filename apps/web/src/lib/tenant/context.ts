@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { readPublicSupabaseEnv } from '@/lib/supabase/env';
 import { getVerifiedUserId } from '@/lib/auth/user';
 import { SIGN_IN_PATH } from '@/lib/auth/require-user';
-import { listTenantMemberships } from './membership';
+import { loadPageContext } from './page-context';
 import { selectActiveTenant } from './select';
 import { getActiveTenantCookieValue } from './active-tenant-cookie.server';
 import type { ActiveTenantContext, TenantAccessResult, TenantMembership } from './types';
@@ -61,9 +61,12 @@ export async function getActiveTenantContext(
   const userId = opts.user?.id ?? (await getVerifiedUserId(supabase));
   if (!userId) return { status: 'not_authenticated' };
 
+  // Memberships come from the request-scoped page context (one RPC shared
+  // with the layout and the page, DEBT-135); same rows and outcomes as a
+  // direct `api.my_tenant_memberships` read, RLS-scoped to the same user.
   const membershipsResult = opts.memberships
     ? ({ status: 'success', data: opts.memberships } as const)
-    : await listTenantMemberships(supabase, userId);
+    : (await loadPageContext()).memberships;
   if (membershipsResult.status !== 'success') return membershipsResult;
 
   // Explicit request stays strict; only read the cookie hint when none is given.

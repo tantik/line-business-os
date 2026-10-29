@@ -25,15 +25,14 @@ test('getActiveTenantContext accepts an optional pre-resolved user and only veri
   assert.ok(!/getUserFromClient\(/.test(SOURCE), 'no network getUser round trip in the page tenant context');
 });
 
-test('getActiveTenantContext accepts optional pre-resolved memberships and only calls listTenantMemberships when none were supplied', () => {
+test('getActiveTenantContext accepts optional pre-resolved memberships and only reads the page context when none were supplied', () => {
+  // DEBT-135: memberships come from the request-scoped page context (api.my_page_context).
   assert.ok(
-    /opts\.memberships\s*\n?\s*\?\s*\(\{ status: 'success', data: opts\.memberships \} as const\)\s*\n?\s*:\s*await listTenantMemberships\(supabase, userId\)/.test(
-      SOURCE,
-    ),
-    'getActiveTenantContext must reuse opts.memberships instead of unconditionally calling listTenantMemberships',
+    /opts\.memberships\s*\n?\s*\?\s*\(\{ status: 'success', data: opts\.memberships \} as const\)\s*\n?\s*:\s*\(await loadPageContext\(\)\)\.memberships/.test(SOURCE),
+    'getActiveTenantContext must reuse opts.memberships instead of unconditionally reading the page context',
   );
-  const calls = SOURCE.match(/listTenantMemberships\(/g) ?? [];
-  assert.equal(calls.length, 1, 'listTenantMemberships must be called from exactly one place in context.ts');
+  const calls = SOURCE.match(/loadPageContext\(/g) ?? [];
+  assert.equal(calls.length, 1, 'loadPageContext must be called from exactly one place in context.ts');
 });
 
 test('requireTenantContext forwards user/memberships through to getActiveTenantContext (does not drop the caller-supplied reuse values)', () => {

@@ -5,7 +5,7 @@ import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 import { requirePublicSupabaseEnv } from '@/lib/supabase/env';
 
 /** Flat row shape returned by `api.workforce_employee_invitations` (0065). No target_user_id/invited_by -- no raw user id reaches the client. */
-interface ApiWorkforceEmployeeInvitationRow {
+export interface ApiWorkforceEmployeeInvitationRow {
   invitation_id: string;
   tenant_id: string;
   employee_id: string;
@@ -113,17 +113,18 @@ export async function getWorkforceEmployeeInvitationById(
  * unconditionally, so this can never leak another identity's invitation
  * again regardless of what other permissions the caller holds.
  */
+/** Rows of `api.my_pending_employee_invitations()` (direct call or `api.my_page_context`) -> unexpired invitations. */
+export function mapMyPendingWorkforceInvitationRows(rows: ApiWorkforceEmployeeInvitationRow[]): WorkforceEmployeeInvitation[] {
+  return rows.map(mapRow).filter((inv) => !inv.isExpired);
+}
+
 export async function listMyPendingWorkforceInvitations(
   supabase: SupabaseClient,
 ): Promise<TenantAccessResult<WorkforceEmployeeInvitation[]>> {
   try {
     const { data, error } = await supabase.schema('api').rpc('my_pending_employee_invitations');
     if (error) return mapWorkforceReadError(error, 'read your pending invitations');
-    const rows = (data ?? []) as ApiWorkforceEmployeeInvitationRow[];
-    return {
-      status: 'success',
-      data: rows.map(mapRow).filter((inv) => !inv.isExpired),
-    };
+    return { status: 'success', data: mapMyPendingWorkforceInvitationRows((data ?? []) as ApiWorkforceEmployeeInvitationRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading your pending invitations.' };
   }

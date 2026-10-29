@@ -26,7 +26,7 @@ import { compareTenantMemberships } from './select';
  */
 
 /** Flat row shape returned by `api.my_tenant_memberships`. */
-interface ApiMembershipRow {
+export interface ApiMembershipRow {
   tenant_id: string;
   tenant_slug: string;
   tenant_name: string;
@@ -35,12 +35,30 @@ interface ApiMembershipRow {
   status: MembershipStatus;
 }
 
-function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
+export function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
   // 42501 = insufficient_privilege; PostgREST also surfaces "permission denied".
   if (error.code === '42501' || /permission denied/i.test(error.message)) {
     return { status: 'unauthorized', message: 'Not permitted to read tenant membership.' };
   }
   return { status: 'unexpected_error', message: error.message };
+}
+
+/** Rows of `api.my_tenant_memberships` (direct read or `api.my_page_context`) -> sorted memberships, or `no_membership`. */
+export function mapMembershipRows(rows: ApiMembershipRow[]): TenantAccessResult<TenantMembership[]> {
+  const memberships: TenantMembership[] = rows.map((row) => ({
+    tenantId: row.tenant_id,
+    tenantSlug: row.tenant_slug,
+    tenantName: row.tenant_name,
+    tenantKind: row.tenant_kind,
+    locationId: row.location_id,
+    status: row.status,
+  }));
+
+  if (memberships.length === 0) return { status: 'no_membership' };
+  // Return a deterministic order (shared comparator) so the default active
+  // tenant and any future membership list are stable, not DB-order dependent.
+  memberships.sort(compareTenantMemberships);
+  return { status: 'success', data: memberships };
 }
 
 export async function listTenantMemberships(
@@ -59,21 +77,7 @@ export async function listTenantMemberships(
 
     if (error) return mapPostgrestError(error);
 
-    const rows = (data ?? []) as ApiMembershipRow[];
-    const memberships: TenantMembership[] = rows.map((row) => ({
-      tenantId: row.tenant_id,
-      tenantSlug: row.tenant_slug,
-      tenantName: row.tenant_name,
-      tenantKind: row.tenant_kind,
-      locationId: row.location_id,
-      status: row.status,
-    }));
-
-    if (memberships.length === 0) return { status: 'no_membership' };
-    // Return a deterministic order (shared comparator) so the default active
-    // tenant and any future membership list are stable, not DB-order dependent.
-    memberships.sort(compareTenantMemberships);
-    return { status: 'success', data: memberships };
+    return mapMembershipRows((data ?? []) as ApiMembershipRow[]);
   } catch (err) {
     return {
       status: 'unexpected_error',
