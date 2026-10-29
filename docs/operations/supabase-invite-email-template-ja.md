@@ -45,7 +45,7 @@ Body:
 <p>店舗のスタッフとしてORUWAに招待されました。</p>
 <p>下のボタンからパスワードを設定すると、シフトの確認や勤怠の記録ができるようになります。</p>
 {{ end }}
-<p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite" style="display:inline-block;padding:12px 20px;background:#4F7A4F;color:#ffffff;text-decoration:none;border-radius:8px;">招待を受けてパスワードを設定する</a></p>
+<p><a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=invite" style="display:inline-block;padding:12px 20px;background:#4F7A4F;color:#ffffff;text-decoration:none;border-radius:8px;">招待を受けてパスワードを設定する</a></p>
 {{ if eq .Data.invite_kind "tenant_owner" }}
 <p style="color:#666;font-size:13px;">このリンクには有効期限があります。期限が切れた場合は、ログイン画面の「パスワードをお忘れですか？」からもう一度お手続きいただくか、ORUWAの担当者に再送信を依頼してください。<br>
 お心当たりのない場合は、このメールを破棄してください。</p>
