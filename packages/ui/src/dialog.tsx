@@ -77,10 +77,12 @@ export function Dialog({
             onInteractOutside={(event) => {
               if (!dismissible) event.preventDefault();
             }}
-            className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-md bg-surface shadow-overlay outline-none sm:rounded-md"
-            style={{ maxWidth: sizeMaxWidth[size] }}
+            // Phones: a full-width bottom sheet with 12px inner padding, so
+            // nested gutters do not eat the screen (Founder, 2026-10-29).
+            className="flex max-h-[90vh] w-full max-w-full flex-col overflow-hidden rounded-t-md bg-surface shadow-overlay outline-none sm:max-w-[var(--dialog-max-width)] sm:rounded-md"
+            style={{ '--dialog-max-width': sizeMaxWidth[size] } as React.CSSProperties}
           >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-4 sm:px-5">
               <div className="flex min-w-0 items-center gap-2">
                 <RadixDialog.Title className="truncate text-lg font-bold text-text-primary">
                   {title}
@@ -101,9 +103,9 @@ export function Dialog({
                 </RadixDialog.Close>
               ) : null}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-5">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5">{children}</div>
             {footer ? (
-              <div className="flex shrink-0 justify-end gap-2.5 border-t border-border px-5 py-3.5">{footer}</div>
+              <div className="flex shrink-0 justify-end gap-2.5 border-t border-border px-3 py-3.5 sm:px-5">{footer}</div>
             ) : null}
           </RadixDialog.Content>
         </div>

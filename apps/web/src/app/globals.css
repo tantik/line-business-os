@@ -163,6 +163,9 @@ a:focus-visible,
   /* Self-hosted Noto Sans JP (@fontsource-variable/noto-sans-jp, imported in app/layout.tsx). */
   --font-noto-sans-jp: 'Noto Sans JP Variable';
   --page-padding: 32px;
+  /* `card` in lib/ui/theme.ts; narrowed on phones like --page-padding
+     (Founder, 2026-10-29: more usable width on mobile). */
+  --card-padding: 18px;
   /* Needs Attention chip row (attention-panel.tsx): a flex row, not a fixed
      grid -- Founder direction, 2026-08-22 (two rounds: first "4 chips +
      Review all all in one row on desktop", then "but 4 single-column
@@ -182,7 +185,23 @@ a:focus-visible,
 @media (max-width: 640px) {
   :root {
     --page-padding: 4px;
+    --card-padding: 12px;
     --attention-chip-basis: 45%;
     --attention-reviewall-basis: 100%;
+  }
+}
+
+/*
+ * iOS Safari zooms the whole page in when a form control with a font size
+ * below 16px gets focus, and does not zoom back out (2026-10-29: tapping an
+ * Inventory quantity field left the popup zoomed and clipped). Every input
+ * here was 14px, many through inline styles, hence !important. Pinch-zoom
+ * stays allowed (WCAG 1.4.4; iOS ignores user-scalable=no anyway).
+ */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
