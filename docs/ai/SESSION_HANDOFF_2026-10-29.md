@@ -19,18 +19,21 @@ Cloud DEV: Invite template saved; `provision-tenant` deployed; **0141 applied** 
 
 - Translation infrastructure already exists (`content.translations` 0039–0047, providers Google/OpenAI on Vercel Preview); recipes covered, inventory items not. No new API key.
 - Cost per Manager page view (1,464 scripted views): ~110 ms Vercel Active CPU, ~45 Supabase API requests. Capacity model in DEBT-097.
-- Load script: scratchpad `load/run.mjs` (signs in Owners with `@supabase/ssr` cookies; Supabase URL/key found in authenticated-page chunks, pass paths without a leading `/` — Git Bash rewrites them).
+- Load script: `scripts/load/manager-page-views.mjs` (usage in its header; signs in Owners with `@supabase/ssr` cookies; Supabase URL/key found in authenticated-page chunks, pass paths without a leading `/` — Git Bash rewrites them).
 - `postgres` can delete `auth.users` on Cloud via `db query --linked`.
 - CI never ran pgTAP before #666; 11 drifted assertions on `dev`. Inventory delete with history: Lead decision = keep refuse + Deactivate (DEBT-134).
 - Permission prompts come from compound Bash (`cd && …`, `$(…)`, `curl`); one allow-listed command per call. `npx supabase db query --linked -f *` allowed in settings.local.
 
-## 3. Next (order)
+## 3. Next (order) — revised with the Founder 2026-10-29
 
-1. Founder: approve/merge #666; then make `pgTAP (supabase test db)` a required check on `dev` (Lead) and `main` (Founder).
-2. **DEBT-128 = Phase B-0** (class A): remove the platform-staff short-circuit from `core.is_member_of` / `core.has_permission` (35 uses in 15 migrations; `is_platform_staff()` also gates catalogs 0106/0107/0129/0134/0135 — keep catalog writes, remove tenant-data bypass); `api.platform_*` RPCs with aal2 for what `/admin/tenants` needs; platform audit log; pgTAP: a staff JWT sees zero tenant rows. DB/security review mandatory.
-3. DEBT-103 (b): orphan rule for invited-never-accepted users (test case `oruwa.jp+o7staff1` still in auth.users); (c) purge mame-to-cha.
-4. 4D clean demo tenant: DEBT-001..005, 059, 066, 067, 080, 118a + DEBT-131, 132, 133, 114 (a).
-5. Production pack: DEBT-124 + DEBT-135, DEBT-033, DEBT-130 smoke, env/key gate.
+Founder inputs: one Russian checklist `docs/ai/founder-inputs-2026-10-29.md` (A: merge #666 + `main` required check; B: price, Stripe test keys, grace period, **Vercel Pro at the first paying client** — Hobby is non-commercial; C: legal; D: site/DNS/support mail). Founder said "yes" to #666 in chat; it must be merged by the Founder's button (script blocks workflows, `gh pr merge` is denied for the agent).
+
+1. After #666 is on `dev`: Lead adds `pgTAP (supabase test db)` as a required check on `dev` branch protection (`gh api` PUT). `main` only after the Founder's "да, включи для main" (A2).
+2. **DEBT-124 + DEBT-135 together (Founder + Lead decision 2026-10-29: next, before DEBT-128)** — same code path (server auth + permission checks + per-page reads). Steps: re-run the load script for a baseline; inventory every Supabase call made by `/manager` and `/staff` render (and which popups' data are fetched eagerly); `getClaims()` where a network `getUser()` is not needed (check asymmetric JWT signing keys on Cloud DEV first); one `api.my_permissions` RPC per page; popup data on open; consolidate the rest into a few RPCs/views; target ≤ 10 Supabase requests per view; re-measure with the same script and record in DEBT-097. Auth-sensitive → DB/security review; visible behaviour → UX review + live check. Why before B-0: it is measurable now, touches every page, and moves the Vercel Pro threshold; B-0 is an isolated DB change with no production exposure until a platform-staff account exists in production.
+3. **DEBT-128 = Phase B-0** (class A): remove the platform-staff short-circuit from `core.is_member_of` / `core.has_permission` (35 uses in 15 migrations; `is_platform_staff()` also gates catalogs 0106/0107/0129/0134/0135 — keep catalog writes, remove tenant-data bypass); `api.platform_*` RPCs with aal2 for what `/admin/tenants` needs; platform audit log; pgTAP: a staff JWT sees zero tenant rows. DB/security review mandatory.
+4. DEBT-103 (b): orphan rule for invited-never-accepted users (test case `oruwa.jp+o7staff1` still in auth.users); (c) purge mame-to-cha.
+5. 4D clean demo tenant: DEBT-001..005, 059, 066, 067, 080, 118a + DEBT-131, 132, 133, 114 (a).
+6. Production pack: DEBT-033, DEBT-130 smoke, env/key gate (+ Founder inputs B/C).
 
 ## 4. Bootstrap prompt
 
@@ -42,7 +45,10 @@ Chrome — личный профиль, только свои новые вкл�
 в конце верни вход oruwa.jp+manager@gmail.com.
 QA только на preview.oruwa.jp; учётки в .claude/qa-accounts.local.md; почта — oruwa.jp@gmail.com (Gmail /mail/u/3).
 
-Порядок: #666 (если я одобрил) → DEBT-128 (B-0) → DEBT-103 (b)(c) → 4D → пакет перед продакшном.
+Порядок: required check pgTAP на dev (если #666 уже слит мной) →
+DEBT-124 + DEBT-135 (≤ 10 запросов к Supabase на страницу, замер до/после тем же скриптом) →
+DEBT-128 (B-0) → DEBT-103 (b)(c) → 4D → пакет перед продакшном.
+Мои задачи — docs/ai/founder-inputs-2026-10-29.md; что я отметил там [x] — учитывай.
 
 Кто решает: ты — главный ИИ-агент (CTO/архитектор), все решения по разработке,
 слияния в dev, миграции и деплой на Cloud DEV — твои, с обоснованием и ссылками.
