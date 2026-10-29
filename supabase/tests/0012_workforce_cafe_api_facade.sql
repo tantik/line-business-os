@@ -204,20 +204,34 @@ select ok(has_table_privilege('authenticated', 'api.workforce_attendance', 'SELE
 
 -- As of 0031 (Slice 1C), authenticated also holds INSERT/UPDATE on these 4
 -- views (the write facade Server Actions use, since PostgREST never exposes
--- `workforce` directly) -- but still never DELETE, and still nothing beyond
--- SELECT/INSERT/UPDATE.
+-- `workforce` directly) -- but never DELETE, and nothing beyond
+-- SELECT/INSERT/UPDATE. Sole exception: 0084_workforce_shift_types_api_view_
+-- delete_grant.sql deliberately granted DELETE on api.workforce_shift_types
+-- (Manager Settings "Delete" for a deactivated shift type; the base-table
+-- DELETE came from 0083, gated by the existing wf_shift_types_write RLS
+-- policy, and referenced types stay undeletable via non-cascading FKs).
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'api'
       and table_name in (
-        'workforce_shift_types', 'workforce_shift_assignments',
+        'workforce_shift_assignments',
         'workforce_shift_requests', 'workforce_attendance'
       )
       and privilege_type = 'DELETE'),
   0,
-  'authenticated has no DELETE on any of the 4 workforce cafe api views'
+  'authenticated has no DELETE on the shift_assignments/shift_requests/attendance workforce cafe api views'
+);
+select is(
+  (select count(*)::int
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'api'
+      and table_name = 'workforce_shift_types'
+      and privilege_type = 'DELETE'),
+  1,
+  'authenticated has DELETE on api.workforce_shift_types (0084, deliberate)'
 );
 select is(
   (select count(*)::int
@@ -228,9 +242,10 @@ select is(
         'workforce_shift_types', 'workforce_shift_assignments',
         'workforce_shift_requests', 'workforce_attendance'
       )
-      and privilege_type not in ('SELECT', 'INSERT', 'UPDATE')),
+      and privilege_type not in ('SELECT', 'INSERT', 'UPDATE')
+      and not (table_name = 'workforce_shift_types' and privilege_type = 'DELETE')),
   0,
-  'authenticated has no grant beyond SELECT/INSERT/UPDATE on any of the 4 workforce cafe api views'
+  'authenticated has no grant beyond SELECT/INSERT/UPDATE (+ 0084''s shift_types DELETE) on any of the 4 workforce cafe api views'
 );
 
 -- ============================================================================

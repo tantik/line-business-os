@@ -103,10 +103,9 @@ insert into inventory.stock_counts (tenant_id, location_id, item_id, actual_quan
   ('9c000000-0000-0000-0000-00000000000c', '9c200000-0000-0000-0000-000000000001',
    '9c100000-0000-0000-0000-000000000002', 3, '9c900000-0000-0000-0000-000000000002');
 
--- Second FK-bound reference to the same item (0045), so the 0082 delete path
--- is exercised against both tables that point at inventory.items, not just
--- stock_counts -- a real (non-cascading) FK here would otherwise turn a
--- permanent-delete attempt into an unhandled constraint-violation error.
+-- Second FK-bound reference to the same item (0045), so the history-guard
+-- path is checked against both tables that point at inventory.items, not
+-- just stock_counts (see the 0082 vs 0085/0095 note below).
 insert into inventory.check_sessions (id, tenant_id, location_id, business_date, check_type, started_by) values
   ('9c300000-0000-0000-0000-000000000001', '9c000000-0000-0000-0000-00000000000c',
    '9c200000-0000-0000-0000-000000000001', current_date, 'opening', '9c900000-0000-0000-0000-000000000002');
@@ -143,30 +142,36 @@ select ok(
   'item still exists after a cross-location permanent-delete attempt'
 );
 
--- 0082 (Founder decision, 2026-08-23): manager at Location A CAN permanently
--- delete an item WITH stock-count history too -- the history goes with it.
+-- History guard -- CURRENT behaviour. 0082 (Founder decision, 2026-08-23)
+-- allowed deleting an item WITH stock-count history (history deleted along
+-- with it), but 0085_inventory_item_media.sql dropped/recreated the function
+-- with 0055's block-on-history logic, and 0095_inventory_module_access_gate.sql
+-- explicitly kept that ("pre-existing discrepancy ... stays exactly as it
+-- already behaves on dev today"). The web app also still maps this to
+-- `blocked_by_history` ("Use Deactivate instead"). Until a deliberate
+-- migration re-applies 0082, the function refuses and keeps all history.
 select results_eq(
   $$ select deleted, blocked_by_history from pg_temp.as_auth_permadelete('9c900000-0000-0000-0000-000000000002',
        '9c000000-0000-0000-0000-00000000000c', '9c100000-0000-0000-0000-000000000002') $$,
-  $$ values (true, false) $$,
-  'manager permanently deletes an item WITH stock-count history (0082 -- no longer refused)'
+  $$ values (false, true) $$,
+  'manager permanent delete of an item WITH stock-count history is refused (blocked_by_history; 0085/0095 behaviour)'
 );
 reset role;
 select ok(
-  not exists(select 1 from inventory.items where id = '9c100000-0000-0000-0000-000000000002'),
-  'the item with history is actually gone'
+  exists(select 1 from inventory.items where id = '9c100000-0000-0000-0000-000000000002'),
+  'the item with history still exists after the refused delete'
 );
 select ok(
-  not exists(select 1 from inventory.stock_counts where item_id = '9c100000-0000-0000-0000-000000000002'),
-  'its stock-count history is gone too -- deleted along with the item, not orphaned'
+  exists(select 1 from inventory.stock_counts where item_id = '9c100000-0000-0000-0000-000000000002'),
+  'its stock-count history is untouched'
 );
 select ok(
-  not exists(select 1 from inventory.check_session_items where item_id = '9c100000-0000-0000-0000-000000000002'),
-  'its check_session_items reference is gone too -- the other FK-bound table pointing at inventory.items'
+  exists(select 1 from inventory.check_session_items where item_id = '9c100000-0000-0000-0000-000000000002'),
+  'its check_session_items reference is untouched'
 );
 select ok(
   exists(select 1 from inventory.check_sessions where id = '9c300000-0000-0000-0000-000000000001'),
-  'the check_sessions row itself is untouched (only the item-scoped snapshot row was cleaned up)'
+  'the check_sessions row itself is untouched'
 );
 
 -- Manager at Location A can permanently delete the item with zero history.
