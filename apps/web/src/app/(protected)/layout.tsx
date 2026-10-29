@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { requireUser } from '@/lib/auth/require-user';
+import { requireUserId } from '@/lib/auth/require-user';
 import { PendingInvitationBanner } from '@/components/workforce/PendingInvitationBanner';
 import { PendingTenantInvitationBanner } from '@/components/tenant/PendingTenantInvitationBanner';
 import { ToastProvider } from '@/components/shared/design-kit/Toast';
@@ -14,11 +14,13 @@ export const dynamic = 'force-dynamic';
 /**
  * Protected route group. Every segment under `(protected)` requires an
  * authenticated session; unauthenticated requests are redirected to sign-in by
- * `requireUser` (server-side). This is the single place auth is enforced for
- * the group — child pages then resolve tenant context.
+ * `requireUserId` (server-side, verified JWT -- DEBT-124). This is the single
+ * place auth is enforced for the group — child pages then resolve tenant
+ * context. Pages that must see a revoked session at once (account settings,
+ * platform admin console) call the network-validated `requireUser` themselves.
  */
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
-  await requireUser();
+  await requireUserId();
   return (
     <ToastProvider>
       <PendingTenantInvitationBanner />

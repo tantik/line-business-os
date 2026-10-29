@@ -16,15 +16,16 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
-import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
+import { loadMyAccess } from '@/lib/auth/my-access';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
 import { listOperationsTemplateItems } from '@/lib/operations/templates';
-import { listExpectedTasks, listItemResponses, type OperationsItemResponse } from '@/lib/operations/tasks';
+import { listExpectedTasks, listItemResponsesForInstances, type OperationsItemResponse } from '@/lib/operations/tasks';
 import { listOpenIssues, withReporterNames } from '@/lib/issues/issues';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, listWorkforceRecipes, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
@@ -38,6 +39,8 @@ import {
 } from '@/components/states';
 import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { StaffDashboardClient } from './staff-dashboard-client';
+
+const INVENTORY_MANAGE_PERMISSION = 'inventory.item.manage';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';
@@ -225,18 +228,17 @@ export default async function WorkforceStaffPage({
         exchangesResult,
         staffMessagesResult,
         inventoryItemsResult,
-        inventoryCanManage,
         purchasesItemsResult,
         purchaseHistoryResult,
         purchasesAwaitingResult,
         rosterResult,
         recipeCategoriesResult,
         recipesResult,
-        recipeCanManage,
         recipeTitleTranslationsResult,
         operationsTasksResult,
         operationsItemsResult,
         issuesOpenResult,
+        access,
       ] = await Promise.all([
         listWorkforceShiftTypes(supabase, activeTenant.tenantId),
         listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
@@ -257,13 +259,6 @@ export default async function WorkforceStaffPage({
         inventoryEnabled
           ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
           : Promise.resolve(null),
-        // Pure UX affordance (RLS is the real boundary regardless): almost
-        // always false for a plain staff account, but resolved from the real
-        // permission rather than hardcoded so a staff member who does hold
-        // `inventory.item.manage` still sees catalog-management controls.
-        inventoryEnabled
-          ? hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId)
-          : Promise.resolve(false),
         // Purchases' entire read surface -- also the exact data the
         // Purchases popup below renders (no separate fetch), same pattern
         // Inventory's own popup uses. Gated on the `purchases` module (0131;
@@ -293,7 +288,6 @@ export default async function WorkforceStaffPage({
         // fetched lazily, client-side, only once a specific recipe opens.
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
         listWorkforceRecipes(supabase, activeTenant.tenantId),
-        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
         listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
         // Also the exact data the Staff Operations popup below renders (no
         // separate fetch), same pattern the Manager dashboard's own
@@ -308,7 +302,20 @@ export default async function WorkforceStaffPage({
         // uses. Staff has no manage rights in this MVP, so only the open
         // (`api.issues_open`) feed is fetched here -- no full-history read.
         issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
+        // This page's permission checks in ONE `api.my_access` RPC (0142,
+        // DEBT-124) instead of one round trip each. Fails closed.
+        loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {
+          location: [INVENTORY_MANAGE_PERMISSION],
+          anyLocation: [RECIPE_MANAGE_PERMISSION],
+        }),
       ]);
+
+      // Pure UX affordance (RLS is the real boundary regardless): almost
+      // always false for a plain staff account, but resolved from the real
+      // permission rather than hardcoded so a staff member who does hold
+      // `inventory.item.manage` still sees catalog-management controls.
+      const inventoryCanManage = inventoryEnabled && access.location(INVENTORY_MANAGE_PERMISSION);
+      const recipeCanManage = access.anyLocation(RECIPE_MANAGE_PERMISSION);
 
       const staffNameById: Record<string, string> =
         rosterResult.status === 'success'
@@ -383,20 +390,20 @@ export default async function WorkforceStaffPage({
           : null;
 
       // Every already-materialised task's recorded responses, fetched once
-      // up-front (server-side) and keyed by `instanceId` -- same pattern
-      // `/operations/page.tsx`'s own Staff branch used. Any write action
-      // calls `router.refresh()`, which re-runs this whole page and
-      // refetches it.
+      // up-front (server-side) and keyed by `instanceId` -- one request for
+      // all instances (DEBT-135), not one per task. Any write action calls
+      // `router.refresh()`, which re-runs this whole page and refetches it.
       const operationsInstanceIds = (operationsTasks ?? [])
         .map((task) => task.instanceId)
         .filter((id): id is string => id !== null);
-      const operationsResponseEntries = await Promise.all(
-        operationsInstanceIds.map(async (instanceId): Promise<[string, OperationsItemResponse[]]> => {
-          const result = await listItemResponses(supabase, activeTenant.tenantId, instanceId);
-          return [instanceId, result.status === 'success' ? result.data : []];
-        }),
-      );
-      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(operationsResponseEntries);
+      const operationsResponsesResult =
+        operationsInstanceIds.length > 0
+          ? await listItemResponsesForInstances(supabase, activeTenant.tenantId, operationsInstanceIds)
+          : null;
+      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> =
+        operationsResponsesResult?.status === 'success'
+          ? operationsResponsesResult.data
+          : Object.fromEntries(operationsInstanceIds.map((id) => [id, []]));
 
       // `issues.report` may be tenant-wide for some roles -- narrow to this
       // Staff member's own location here, same convention as the Operations

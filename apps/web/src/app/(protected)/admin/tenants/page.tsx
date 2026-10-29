@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { requireUser } from '@/lib/auth/require-user';
 import { createClient } from '@/lib/supabase/server';
 import { isPlatformStaff } from '@/lib/platform/platform-staff';
 import { listPlatformTenantProvisioning } from '@/lib/platform/provisioning-list';
@@ -23,6 +24,9 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  * an action (`router.refresh`) -- staff-only, so no Realtime cost.
  */
 export default async function AdminTenantsPage() {
+  // Network-validated session (the layout only verifies the JWT locally,
+  // DEBT-124): a revoked or deleted staff account is refused at once here.
+  await requireUser();
   const supabase = await createClient();
   if (!(await isPlatformStaff(supabase))) notFound();
 

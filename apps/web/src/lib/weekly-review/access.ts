@@ -13,6 +13,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Any RPC error (network, config, unexpected shape) fails closed to `false`,
  * never `true`.
  */
+export const WEEKLY_REVIEW_PERMISSION = 'core.weekly_review.view';
+
 export async function hasWeeklyReviewAccess(
   supabase: SupabaseClient,
   tenantId: string,
@@ -21,7 +23,7 @@ export async function hasWeeklyReviewAccess(
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission', {
       p_tenant_id: tenantId,
-      p_permission: 'core.weekly_review.view',
+      p_permission: WEEKLY_REVIEW_PERMISSION,
       p_location_id: locationId,
     });
     if (error) return false;

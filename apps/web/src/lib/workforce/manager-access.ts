@@ -19,6 +19,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * still enforce their own policies regardless of this result. Any RPC error
  * (network, config, unexpected shape) fails closed to `false`, never `true`.
  */
+export const MANAGER_ACCESS_PERMISSION = 'workforce.staff.manage';
+
 export async function hasManagerAccess(
   supabase: SupabaseClient,
   tenantId: string,
@@ -27,7 +29,7 @@ export async function hasManagerAccess(
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission', {
       p_tenant_id: tenantId,
-      p_permission: 'workforce.staff.manage',
+      p_permission: MANAGER_ACCESS_PERMISSION,
       p_location_id: locationId,
     });
     if (error) return false;

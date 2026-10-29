@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { readPublicSupabaseEnv } from '@/lib/supabase/env';
-import { getUserFromClient } from '@/lib/auth/user';
+import { getVerifiedUserId } from '@/lib/auth/user';
 import { SIGN_IN_PATH } from '@/lib/auth/require-user';
 import { listTenantMemberships } from './membership';
 import { selectActiveTenant } from './select';
@@ -56,12 +56,14 @@ export async function getActiveTenantContext(
     };
   }
 
-  const user = opts.user ?? (await getUserFromClient(supabase));
-  if (!user) return { status: 'not_authenticated' };
+  // Verified JWT, no Auth round trip (DEBT-124): only the id is needed here,
+  // and the membership read below is RLS-scoped to that same verified user.
+  const userId = opts.user?.id ?? (await getVerifiedUserId(supabase));
+  if (!userId) return { status: 'not_authenticated' };
 
   const membershipsResult = opts.memberships
     ? ({ status: 'success', data: opts.memberships } as const)
-    : await listTenantMemberships(supabase, user.id);
+    : await listTenantMemberships(supabase, userId);
   if (membershipsResult.status !== 'success') return membershipsResult;
 
   // Explicit request stays strict; only read the cookie hint when none is given.
@@ -78,7 +80,7 @@ export async function getActiveTenantContext(
   return {
     status: 'success',
     data: {
-      userId: user.id,
+      userId,
       activeTenant: selected.tenant,
       memberships: membershipsResult.data,
     },

@@ -177,6 +177,41 @@ export async function listItemResponses(
   }
 }
 
+/** Ids per request in `listItemResponsesForInstances` -- keeps the PostgREST `in.(...)` URL well under gateway limits (36-char UUIDs). */
+const RESPONSE_INSTANCE_CHUNK = 100;
+
+/**
+ * Same rows as `listItemResponses`, for many task instances at once, keyed by
+ * `instanceId` (every requested id present, `[]` when it has no responses).
+ * One request per 100 ids instead of one per instance (DEBT-135).
+ */
+export async function listItemResponsesForInstances(
+  supabase: SupabaseClient,
+  tenantId: string,
+  instanceIds: readonly string[],
+): Promise<TenantAccessResult<Record<string, OperationsItemResponse[]>>> {
+  const byInstance: Record<string, OperationsItemResponse[]> = Object.fromEntries(instanceIds.map((id) => [id, []]));
+  const ids = [...new Set(instanceIds)];
+  try {
+    for (let i = 0; i < ids.length; i += RESPONSE_INSTANCE_CHUNK) {
+      const { data, error } = await supabase
+        .schema('api')
+        .from('operations_item_responses')
+        .select(ITEM_RESPONSE_SELECT)
+        .eq('tenant_id', tenantId)
+        .in('instance_id', ids.slice(i, i + RESPONSE_INSTANCE_CHUNK));
+      if (error) return mapOperationsReadError(error, 'read Operations item responses');
+      for (const row of (data ?? []) as ApiOperationsItemResponseRow[]) {
+        const response = mapItemResponseRow(row);
+        (byInstance[response.instanceId] ??= []).push(response);
+      }
+    }
+    return { status: 'success', data: byInstance };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading Operations item responses.' };
+  }
+}
+
 export interface RecordResponseInput {
   scheduleId: string;
   itemId: string;

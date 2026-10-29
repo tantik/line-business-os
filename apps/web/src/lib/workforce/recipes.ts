@@ -208,11 +208,13 @@ export async function upsertWorkforceRecipe(
  * `workforce.recipe.manage` permission regardless of this result). Any RPC
  * error fails closed to `false`, never `true`.
  */
+export const RECIPE_MANAGE_PERMISSION = 'workforce.recipe.manage';
+
 export async function hasRecipeManagerAccess(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission_in_tenant', {
       p_tenant_id: tenantId,
-      p_permission: 'workforce.recipe.manage',
+      p_permission: RECIPE_MANAGE_PERMISSION,
     });
     if (error) return false;
     return data === true;

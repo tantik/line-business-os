@@ -34,10 +34,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     },
   });
 
-  // Touch the user so an expired token is refreshed and re-persisted via the
-  // cookie setters above. Do not run logic between client creation and this
-  // call (per Supabase SSR guidance).
-  await supabase.auth.getUser();
+  // Touch the session so an expired token is refreshed and re-persisted via
+  // the cookie setters above. Do not run logic between client creation and
+  // this call (per Supabase SSR guidance). `getClaims()` refreshes like
+  // `getUser()` did but verifies the JWT locally against the cached JWKS
+  // (asymmetric signing keys) instead of one Auth server call per request
+  // (DEBT-124).
+  await supabase.auth.getClaims();
 
   return response;
 }

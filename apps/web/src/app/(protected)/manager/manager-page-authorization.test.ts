@@ -13,19 +13,28 @@ import { readFileSync } from 'node:fs';
  */
 const SOURCE = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
-test('WorkforceManagerPage calls hasManagerAccess with the resolved tenant and location', () => {
+// DEBT-124: the gate is `workforce.staff.manage` at the resolved location,
+// answered by the one batched `api.my_access` call (loadMyAccess).
+const ACCESS_CALL = 'loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {';
+const GATE = 'const managerAccess = access.location(MANAGER_ACCESS_PERMISSION);';
+
+test('WorkforceManagerPage checks workforce.staff.manage at the resolved tenant and location', () => {
+  const callIndex = SOURCE.indexOf(ACCESS_CALL);
+  assert.ok(callIndex !== -1, 'the Manager page must call loadMyAccess with the resolved tenant and location');
+  const specEnd = SOURCE.indexOf('});', callIndex);
   assert.ok(
-    /hasManagerAccess\(supabase, activeTenant\.tenantId, location\.locationId\)/.test(SOURCE),
-    'the Manager page must call hasManagerAccess(supabase, activeTenant.tenantId, location.locationId)',
+    /location: \[MANAGER_ACCESS_PERMISSION/.test(SOURCE.slice(callIndex, specEnd)),
+    'workforce.staff.manage must be asked location-scoped',
   );
+  assert.ok(SOURCE.indexOf(GATE) > callIndex, 'the gate must read the batched answer');
 });
 
-test('WorkforceManagerPage returns UnauthorizedState when hasManagerAccess denies, before the Manager-only data fetch', () => {
-  const gateIndex = SOURCE.indexOf('const managerAccess = await hasManagerAccess(');
+test('WorkforceManagerPage returns UnauthorizedState when the manager check denies, before the Manager-only data fetch', () => {
+  const gateIndex = SOURCE.indexOf(GATE);
   const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");
   const fetchIndex = SOURCE.indexOf('listWorkforceStaffForManager(supabase, activeTenant.tenantId)');
 
-  assert.ok(gateIndex !== -1, 'hasManagerAccess must be called and its result held');
+  assert.ok(gateIndex !== -1, 'the manager check must run and its result be held');
   assert.ok(denyIndex !== -1, 'a denied managerAccess must render UnauthorizedState');
   assert.ok(fetchIndex !== -1, 'the Manager-only staff fetch must still exist');
   assert.ok(
@@ -36,7 +45,7 @@ test('WorkforceManagerPage returns UnauthorizedState when hasManagerAccess denie
 
 test('the manager-access gate runs after location resolution (workforce.staff.manage is location-scoped)', () => {
   const locationIndex = SOURCE.indexOf('const activeTenantLocations = tenantLocations.filter');
-  const gateIndex = SOURCE.indexOf('hasManagerAccess(supabase, activeTenant.tenantId, location.locationId)');
+  const gateIndex = SOURCE.indexOf(ACCESS_CALL);
   assert.ok(locationIndex !== -1 && gateIndex !== -1 && locationIndex < gateIndex);
 });
 
@@ -55,12 +64,9 @@ test('LOC-1: location resolution fails closed on 0 or more than 1 active locatio
   );
 });
 
-test('4B-4b: the 管理者 action is offered only to the Owner, resolved in the main Promise.all (no extra round trip)', () => {
-  const batchStart = SOURCE.search(/await Promise\.all\(\[\s*listWorkforceStaffForManager/);
-  const ownerCall = SOURCE.indexOf('isTenantOwner(supabase, activeTenant.tenantId)');
-  const batchEnd = SOURCE.indexOf(']);', ownerCall);
-  assert.ok(batchStart !== -1, 'the main data batch must exist');
-  assert.ok(ownerCall > batchStart && batchEnd !== -1, 'isTenantOwner must be part of the main Promise.all');
+test('4B-4b: the 管理者 action is offered only to the Owner, from the batched access answer (no extra round trip)', () => {
+  assert.ok(/const canAppointAdmins = access\.isTenantOwner;/.test(SOURCE), 'the Owner flag must come from api.my_access');
+  assert.ok(!SOURCE.includes('isTenantOwner(supabase'), 'no separate is_tenant_owner round trip');
   assert.ok(/canAppointAdmins=\{canAppointAdmins\}/.test(SOURCE), 'the Owner flag must be passed down as canAppointAdmins');
   const clientSource = readFileSync(new URL('./manage-staff-popup.tsx', import.meta.url), 'utf8');
   assert.ok(
@@ -70,7 +76,7 @@ test('4B-4b: the 管理者 action is offered only to the Owner, resolved in the 
 });
 
 test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {
-  const gateIndex = SOURCE.indexOf('const managerAccess = await hasManagerAccess(');
+  const gateIndex = SOURCE.indexOf(GATE);
   const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");
   const exchangeFetchIndex = SOURCE.indexOf('listShiftExchanges(supabase, activeTenant.tenantId, location.locationId)');
   assert.ok(exchangeFetchIndex !== -1, 'expected a listShiftExchanges(supabase, activeTenant.tenantId, location.locationId) call in the Manager page');
