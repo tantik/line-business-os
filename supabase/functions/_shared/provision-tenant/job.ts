@@ -55,7 +55,7 @@ export interface AdminUser {
 export interface AuthAdmin {
   inviteUserByEmail(
     email: string,
-    options: { redirectTo: string },
+    options: { redirectTo: string; data?: Record<string, unknown> },
   ): Promise<{ data: { user?: AdminUser | null } | null; error: { message?: string } | null }>;
   listUsers(params: { page: number; perPage: number }): Promise<{
     data: { users?: AdminUser[] } | null;
@@ -155,7 +155,10 @@ export async function resolveOwnerAuthUser(
   email: string,
   redirectTo: string,
 ): Promise<{ userId: string; wasNewUser: boolean }> {
-  const invited = await authAdmin.inviteUserByEmail(email, { redirectTo });
+  // invite_kind only selects the Owner wording in the Auth "Invite user"
+  // template (`{{ if eq .Data.invite_kind "tenant_owner" }}`, DEBT-129 a). It is
+  // user_metadata (user-editable) and must never be used for authorization.
+  const invited = await authAdmin.inviteUserByEmail(email, { redirectTo, data: { invite_kind: 'tenant_owner' } });
   if (invited.error === null) {
     const user = invited.data?.user;
     if (!user?.id) throw new InviteStepError('auth_invite_no_user');

@@ -22,25 +22,45 @@ screen because the Reset password template still used it).
 
 ## 1. Invite user
 
+One template serves two senders: `invite-employee` (staff, Manager screen)
+and `provision-tenant` (a new tenant's Owner, admin console). The Owner
+invite passes `data: { invite_kind: "tenant_owner" }`, so the body branches
+on `{{ .Data.invite_kind }}` (DEBT-129 a). The subject stays neutral because
+it is shared. `invite_kind` is user_metadata: wording only, never authorization.
+
 Subject:
 
 ```
-【ORUWA】スタッフアカウントへの招待 / You're invited to ORUWA
+【ORUWA】アカウントへの招待 / You're invited to ORUWA
 ```
 
 Body:
 
 ```html
 <h2>ORUWAへようこそ</h2>
+{{ if eq .Data.invite_kind "tenant_owner" }}
+<p>店舗のオーナーとしてORUWAに招待されました。</p>
+<p>下のボタンからパスワードを設定すると、店舗の設定やスタッフの招待を始められます。</p>
+{{ else }}
 <p>店舗のスタッフとしてORUWAに招待されました。</p>
 <p>下のボタンからパスワードを設定すると、シフトの確認や勤怠の記録ができるようになります。</p>
+{{ end }}
 <p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite" style="display:inline-block;padding:12px 20px;background:#4F7A4F;color:#ffffff;text-decoration:none;border-radius:8px;">招待を受けてパスワードを設定する</a></p>
+{{ if eq .Data.invite_kind "tenant_owner" }}
+<p style="color:#666;font-size:13px;">このリンクには有効期限があります。期限が切れた場合は、ログイン画面の「パスワードをお忘れですか？」からもう一度お手続きいただくか、ORUWAの担当者に再送信を依頼してください。<br>
+お心当たりのない場合は、このメールを破棄してください。</p>
+<hr>
+<p style="color:#666;font-size:13px;">You have been invited to ORUWA as the owner of your store.
+Use the button above to set your password, then set up your store and invite your staff. The link expires after a while; if it expires, ask your ORUWA contact to resend it.
+If you did not expect this email, you can ignore it.</p>
+{{ else }}
 <p style="color:#666;font-size:13px;">このリンクには有効期限があります。期限が切れた場合は、ログイン画面の「パスワードをお忘れですか？」からもう一度お手続きいただくか、店長に再送信を依頼してください。<br>
 お心当たりのない場合は、このメールを破棄してください。</p>
 <hr>
 <p style="color:#666;font-size:13px;">You have been invited to ORUWA as a staff member of your store.
 Use the button above to set your password. The link expires after a while; if it expires, ask your manager to resend it.
 If you did not expect this email, you can ignore it.</p>
+{{ end }}
 ```
 
 ## 2. Reset password (used by the Manager's "アクセスを回復" and by the sign-in page's "パスワードをお忘れですか？")
@@ -74,6 +94,13 @@ Manager is already signed in).
    Staff screen. Then 完全に削除 the test employee.
 2. Reset password: Manager → スタッフ管理 → 佐藤 陽介 → アクセスを回復 →
    email in Japanese → button → password screen → set password → Staff screen.
+3. Owner invite (after `provision-tenant` with `invite_kind` is deployed):
+   admin console → 新しい店舗 → Owner e-mail (Founder alias) → email reads
+   「店舗のオーナーとして」 → button → password screen → Manager screen.
+
+Order: save the template before deploying `provision-tenant`. A missing
+`invite_kind` falls into the staff branch, so the template is safe with the
+old function and with `invite-employee`.
 
 If a button opens the sign-in page with an error or a page with
 `#access_token=` in the address, the `href` is not exactly as above.

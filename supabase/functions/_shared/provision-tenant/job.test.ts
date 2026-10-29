@@ -25,10 +25,10 @@ interface Call {
 }
 
 function fakeAuth(opts: { registered?: AdminUser[]; inviteError?: string; listError?: boolean } = {}) {
-  const calls: { invite: { email: string; redirectTo: string }[]; list: number } = { invite: [], list: 0 };
+  const calls: { invite: { email: string; redirectTo: string; data?: Record<string, unknown> }[]; list: number } = { invite: [], list: 0 };
   const admin: AuthAdmin = {
     async inviteUserByEmail(email, options) {
-      calls.invite.push({ email, redirectTo: options.redirectTo });
+      calls.invite.push({ email, redirectTo: options.redirectTo, data: options.data });
       if (opts.inviteError) return { data: null, error: { message: opts.inviteError } };
       if (opts.registered?.some((u) => u.email === email)) return { data: null, error: { message: 'A user with this email address has already been registered' } };
       return { data: { user: { id: OWNER_ID, email } }, error: null };
@@ -107,7 +107,9 @@ test('happy path: provision -> protect email -> invite -> owner invitation; acto
     [inv.p_request_id, inv.p_tenant_id, inv.p_target_user_id, inv.p_email_encrypted, inv.p_actor_id],
     [REQUEST_ID, TENANT_ID, OWNER_ID, '\\xabcdef', ACTOR_ID],
   );
-  assert.deepEqual(auth.calls.invite, [{ email: EMAIL, redirectTo: 'https://app.example/auth/accept-invite?flow=tenant_invite' }]);
+  assert.deepEqual(auth.calls.invite, [
+    { email: EMAIL, redirectTo: 'https://app.example/auth/accept-invite?flow=tenant_invite', data: { invite_kind: 'tenant_owner' } },
+  ]);
   noPii(out.body);
   noPii(logs);
 });
