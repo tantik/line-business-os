@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { InventoryWriteResult } from './result-types';
 import { mapInventoryReadError, mapInventoryWriteError } from './pg-error';
 
@@ -67,15 +68,17 @@ export async function listInventoryCheckSessions(
   businessDate?: string,
 ): Promise<TenantAccessResult<InventoryCheckSession[]>> {
   try {
-    let query = supabase
-      .schema('api')
-      .from('inventory_check_sessions')
-      .select('session_id, tenant_id, location_id, business_date, check_type, status, started_at, completed_at, item_count, counted_item_count')
-      .eq('tenant_id', tenantId)
-      .eq('location_id', locationId)
-      .order('business_date', { ascending: false });
-    if (businessDate) query = query.eq('business_date', businessDate);
-    const { data, error } = await query;
+    // Paged (DEBT-114): without `businessDate` this is the location's whole history (~2 sessions/day).
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase
+        .schema('api')
+        .from('inventory_check_sessions')
+        .select('session_id, tenant_id, location_id, business_date, check_type, status, started_at, completed_at, item_count, counted_item_count')
+        .eq('tenant_id', tenantId)
+        .eq('location_id', locationId);
+      if (businessDate) query = query.eq('business_date', businessDate);
+      return query.order('business_date', { ascending: false }).order('session_id', { ascending: true }).range(from, to);
+    });
     if (error) return mapInventoryReadError(error, 'read inventory check sessions');
     return {
       status: 'success',

@@ -59,6 +59,73 @@ test('listAttendanceForManager by ids: empty id list makes no query', async () =
   assert.ok(calls.some((c) => c.method === 'in' && c.args[0] === 'attendance_id'));
 });
 
+/**
+ * Fake client that behaves like PostgREST under `max_rows = 1000`: every
+ * awaited query returns at most 1000 rows, honouring `.range(from, to)`.
+ * Without paging the caller would only ever see the first 1000 rows.
+ */
+function maxRowsCappedClient(totalRows: unknown[]) {
+  const ranges: Array<[number, number]> = [];
+  const orders: unknown[][] = [];
+  const makeBuilder = () => {
+    let range: [number, number] = [0, Number.MAX_SAFE_INTEGER];
+    const builder: Record<string, unknown> = {};
+    for (const method of ['schema', 'from', 'select', 'eq', 'gte', 'lte', 'in']) builder[method] = () => builder;
+    builder.order = (...args: unknown[]) => {
+      orders.push(args);
+      return builder;
+    };
+    builder.range = (from: number, to: number) => {
+      range = [from, to];
+      ranges.push([from, to]);
+      return builder;
+    };
+    builder.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
+      const [from, to] = range;
+      const data = totalRows.slice(from, Math.min(to + 1, from + 1000));
+      return Promise.resolve({ data, error: null }).then(resolve, reject);
+    };
+    return builder;
+  };
+  const client = { schema: () => makeBuilder() } as unknown as Parameters<typeof listAttendanceForManager>[0];
+  return { client, ranges, orders };
+}
+
+function manyAttendanceRows(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    ...attendanceRow,
+    attendance_id: `att-${String(i).padStart(5, '0')}`,
+    employee_id: `emp-${i % 40}`,
+    work_date: `2026-09-${String((i % 30) + 1).padStart(2, '0')}`,
+  }));
+}
+
+test('listAttendanceForManager returns every row above the PostgREST 1000-row cap (DEBT-114)', async () => {
+  const total = 2_437; // ~40 staff x 2 months
+  const { client, ranges, orders } = maxRowsCappedClient(manyAttendanceRows(total));
+  const result = await listAttendanceForManager(client, TENANT_ID, { fromDate: '2026-08-01', toDate: '2026-09-30' });
+  assert.equal(result.status, 'success');
+  if (result.status !== 'success') return;
+  assert.equal(result.data.length, total);
+  assert.equal(new Set(result.data.map((r) => r.attendanceId)).size, total);
+  assert.deepEqual(ranges, [
+    [0, 999],
+    [1000, 1999],
+    [2000, 2999],
+  ]);
+  // Deterministic paging needs a unique tiebreaker after work_date.
+  assert.ok(orders.some((args) => args[0] === 'attendance_id'));
+});
+
+test('listMyAttendance returns every row above the PostgREST 1000-row cap (DEBT-114)', async () => {
+  const total = 1_200;
+  const { client, ranges } = maxRowsCappedClient(manyAttendanceRows(total));
+  const result = await listMyAttendance(client, TENANT_ID);
+  assert.equal(result.status, 'success');
+  if (result.status === 'success') assert.equal(result.data.length, total);
+  assert.equal(ranges.length, 2);
+});
+
 test('submitWorkReport inserts when no existing row is found for (employee, work_date)', async () => {
   const { client, calls } = recordingClient([
     { data: null, error: null }, // find: no existing row

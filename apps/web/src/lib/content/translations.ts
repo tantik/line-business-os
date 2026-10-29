@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 
 /**
  * Reusable, cross-module user-generated-content translation service layer
@@ -202,17 +203,20 @@ export async function listContentTranslationsForField(
   targetLanguage?: ContentTargetLanguage,
 ): Promise<TenantAccessResult<ContentTranslation[]>> {
   try {
-    let query = supabase
-      .schema('api')
-      .from('content_translations')
-      .select(
-        'translation_id, tenant_id, source_entity_type, source_entity_id, source_field, source_language, target_language, translated_text, translation_status, translation_provider, source_content_hash, machine_generated, reviewed_at, translated_at, updated_at',
-      )
-      .eq('tenant_id', tenantId)
-      .eq('source_entity_type', sourceEntityType)
-      .eq('source_field', sourceField);
-    if (targetLanguage) query = query.eq('target_language', targetLanguage);
-    const { data, error } = await query;
+    // Paged (DEBT-114): tenant-wide, one row per entity per language -- grows with the catalog past max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase
+        .schema('api')
+        .from('content_translations')
+        .select(
+          'translation_id, tenant_id, source_entity_type, source_entity_id, source_field, source_language, target_language, translated_text, translation_status, translation_provider, source_content_hash, machine_generated, reviewed_at, translated_at, updated_at',
+        )
+        .eq('tenant_id', tenantId)
+        .eq('source_entity_type', sourceEntityType)
+        .eq('source_field', sourceField);
+      if (targetLanguage) query = query.eq('target_language', targetLanguage);
+      return query.order('translation_id', { ascending: true }).range(from, to);
+    });
 
     if (error) {
       if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import { listTenantLocations } from '@/lib/tenant/locations';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
@@ -70,10 +71,12 @@ export async function listMyShiftRequests(
   opts: { kind?: string } = {},
 ): Promise<TenantAccessResult<WorkforceShiftRequest[]>> {
   try {
-    let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
-    if (opts.kind) query = query.eq('kind', opts.kind);
-
-    const { data, error } = await query;
+    // Paged (DEBT-114): unbounded own history (one preference per day) outgrows max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
+      if (opts.kind) query = query.eq('kind', opts.kind);
+      return query.order('work_date', { ascending: true }).order('request_id', { ascending: true }).range(from, to);
+    });
     if (error) return mapWorkforceReadError(error, 'read your shift requests');
 
     const rows = (data ?? []) as ApiWorkforceShiftRequestRow[];
@@ -95,13 +98,15 @@ export async function listShiftRequestsForManager(
   opts: { kind?: string; status?: string; fromDate?: string; toDate?: string } = {},
 ): Promise<TenantAccessResult<WorkforceShiftRequest[]>> {
   try {
-    let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
-    if (opts.kind) query = query.eq('kind', opts.kind);
-    if (opts.status) query = query.eq('status', opts.status);
-    if (opts.fromDate) query = query.gte('work_date', opts.fromDate);
-    if (opts.toDate) query = query.lte('work_date', opts.toDate);
-
-    const { data, error } = await query;
+    // Paged (DEBT-114): every employee's per-day preferences in a window can exceed max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase.schema('api').from('workforce_shift_requests').select(REQUEST_SELECT).eq('tenant_id', tenantId);
+      if (opts.kind) query = query.eq('kind', opts.kind);
+      if (opts.status) query = query.eq('status', opts.status);
+      if (opts.fromDate) query = query.gte('work_date', opts.fromDate);
+      if (opts.toDate) query = query.lte('work_date', opts.toDate);
+      return query.order('work_date', { ascending: true }).order('request_id', { ascending: true }).range(from, to);
+    });
     if (error) return mapWorkforceReadError(error, 'read shift requests');
 
     const rows = (data ?? []) as ApiWorkforceShiftRequestRow[];

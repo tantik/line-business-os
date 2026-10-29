@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { OperationsWriteResult } from './result-types';
 import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
 
@@ -83,11 +84,17 @@ export async function listOpenOperationsExceptions(
   tenantId: string,
 ): Promise<TenantAccessResult<OperationsOpenException[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('operations_open_exceptions')
-      .select(OPEN_EXCEPTION_SELECT)
-      .eq('tenant_id', tenantId);
+    // Paged (DEBT-114): unresolved exceptions accumulate daily; never drop rows silently at max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('operations_open_exceptions')
+        .select(OPEN_EXCEPTION_SELECT)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .order('exception_id', { ascending: true })
+        .range(from, to),
+    );
     if (error) return mapOperationsReadError(error, 'read open Operations exceptions');
 
     const rows = (data ?? []) as ApiOperationsOpenExceptionRow[];

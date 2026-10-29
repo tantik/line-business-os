@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { IssuesWriteResult } from './result-types';
 import type { IssueCategory, IssueKind, IssueSeverity } from './validation';
 import { mapIssuesReadError, mapIssuesWriteError } from './pg-error';
@@ -118,7 +119,17 @@ const ISSUE_FULL_SELECT =
 /** Read every currently-open (`open` or `acknowledged`) issue/handover the caller may see, via `api.issues_open` (RLS-scoped: module ON + `issues.report`/`issues.manage`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listOpenOperationsExceptions`. */
 export async function listOpenIssues(supabase: SupabaseClient, tenantId: string): Promise<TenantAccessResult<Issue[]>> {
   try {
-    const { data, error } = await supabase.schema('api').from('issues_open').select(ISSUE_OPEN_SELECT).eq('tenant_id', tenantId);
+    // Paged (DEBT-114): unresolved auto-raised items can pile up; never drop rows silently at max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('issues_open')
+        .select(ISSUE_OPEN_SELECT)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .order('issue_id', { ascending: true })
+        .range(from, to),
+    );
     if (error) return mapIssuesReadError(error, 'read open issues');
     const rows = (data ?? []) as ApiIssueRow[];
     const issues = rows.map(mapIssueRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.issueId.localeCompare(b.issueId));
@@ -131,7 +142,17 @@ export async function listOpenIssues(supabase: SupabaseClient, tenantId: string)
 /** Read every issue/handover (including resolved) the caller may see, via `api.issues` -- for the History view. */
 export async function listAllIssues(supabase: SupabaseClient, tenantId: string): Promise<TenantAccessResult<Issue[]>> {
   try {
-    const { data, error } = await supabase.schema('api').from('issues').select(ISSUE_FULL_SELECT).eq('tenant_id', tenantId);
+    // Paged (DEBT-114): full issue/handover history outgrows max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('issues')
+        .select(ISSUE_FULL_SELECT)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .order('issue_id', { ascending: true })
+        .range(from, to),
+    );
     if (error) return mapIssuesReadError(error, 'read issue history');
     const rows = (data ?? []) as ApiIssueRow[];
     const issues = rows.map(mapIssueRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.issueId.localeCompare(b.issueId));

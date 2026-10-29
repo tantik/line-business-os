@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 
@@ -78,12 +79,18 @@ export async function listMyStaffMessages(
   employeeId: string,
 ): Promise<TenantAccessResult<WorkforceStaffMessage[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('workforce_staff_messages')
-      .select(MESSAGE_SELECT)
-      .eq('tenant_id', tenantId)
-      .eq('employee_id', employeeId);
+    // Paged (DEBT-114): a thread's whole history is read and can exceed max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('workforce_staff_messages')
+        .select(MESSAGE_SELECT)
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: true })
+        .order('message_id', { ascending: true })
+        .range(from, to),
+    );
 
     if (error) return mapWorkforceReadError(error, 'read your messages');
 
@@ -104,11 +111,17 @@ export async function listStaffMessagesForManager(
   tenantId: string,
 ): Promise<TenantAccessResult<WorkforceStaffMessage[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('workforce_staff_messages')
-      .select(MESSAGE_SELECT)
-      .eq('tenant_id', tenantId);
+    // Paged (DEBT-114): every thread's whole history exceeds max_rows (1000) quickly.
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('workforce_staff_messages')
+        .select(MESSAGE_SELECT)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true })
+        .order('message_id', { ascending: true })
+        .range(from, to),
+    );
 
     if (error) return mapWorkforceReadError(error, 'read staff messages');
 

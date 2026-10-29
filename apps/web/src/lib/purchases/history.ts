@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { InventoryUnit } from '@/lib/inventory/validation';
 import { mapPurchasesReadError } from './pg-error';
 
@@ -62,15 +63,20 @@ export async function listPurchaseHistory(
   locationId: string,
 ): Promise<TenantAccessResult<PurchaseHistoryEntry[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('purchase_history')
-      .select(
-        'action_id, tenant_id, location_id, item_id, item_name, unit, action_type, ordered_quantity, received_quantity, actioned_at, actioned_by_staff_id',
-      )
-      .eq('tenant_id', tenantId)
-      .eq('location_id', locationId)
-      .order('actioned_at', { ascending: false });
+    // Paged (DEBT-114): the append-only log outgrows max_rows (1000) within months.
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('purchase_history')
+        .select(
+          'action_id, tenant_id, location_id, item_id, item_name, unit, action_type, ordered_quantity, received_quantity, actioned_at, actioned_by_staff_id',
+        )
+        .eq('tenant_id', tenantId)
+        .eq('location_id', locationId)
+        .order('actioned_at', { ascending: false })
+        .order('action_id', { ascending: true })
+        .range(from, to),
+    );
 
     if (error) return mapPurchasesReadError(error, 'read purchase history');
 
