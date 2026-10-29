@@ -128,6 +128,11 @@ select is(
           table_name = 'employee_invitations'
           and privilege_type in ('SELECT', 'UPDATE')
         )
+        -- Later, separate migrations: 0083 (shift_types DELETE),
+        -- 0090 (staff_messages SELECT/INSERT/UPDATE), 0125 (auto_schedule_runs SELECT).
+        or (table_name = 'shift_types' and privilege_type = 'DELETE')
+        or (table_name = 'staff_messages' and privilege_type in ('SELECT', 'INSERT', 'UPDATE'))
+        or (table_name = 'auto_schedule_runs' and privilege_type = 'SELECT')
       )),
   0,
   'baseline: authenticated has no workforce grants beyond the 0023 SELECTs + Slice 1A write-grant foundation + 0034''s schedule_settings grant, before this file''s own test-only grants'

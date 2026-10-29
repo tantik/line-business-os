@@ -170,7 +170,23 @@ select is(
         'workforce_employee_invitations',
         -- Staff-safe coworker roster (0061_workforce_staff_roster_visibility.sql):
         -- 1 new read-only view, added in a later, separate migration.
-        'workforce_staff_roster'
+        'workforce_staff_roster',
+        -- Later, separate module/platform migrations (each a deliberate new
+        -- api view; this file only asserts has_permission added none):
+        -- 0089/0120/0137 purchases, 0090 staff messages,
+        -- 0100/0101/0115/0116 operations, 0106 entitlements (plan),
+        -- 0118/0128 issues, 0125 auto-schedule runs, 0129 packages,
+        -- 0132 navigation.
+        'purchases_needed', 'purchase_history', 'purchases_awaiting_delivery',
+        'workforce_staff_messages',
+        'operations_templates', 'operations_template_items',
+        'operations_task_instances', 'operations_item_responses',
+        'operations_open_exceptions', 'operations_schedules',
+        'my_tenant_plan',
+        'issues', 'issues_open',
+        'workforce_auto_schedule_runs',
+        'my_tenant_packages',
+        'my_tenant_navigation'
       )),
   0,
   'no new api view was introduced by the has_permission migration, beyond Phase 1L-3/Slice 1A/Slice 1C''s later workforce facades'

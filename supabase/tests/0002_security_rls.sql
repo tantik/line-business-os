@@ -200,9 +200,42 @@ select is(
           and table_name = 'employee_invitations'
           and privilege_type in ('SELECT', 'UPDATE')
         )
+        -- Later, separate migrations -- each grant below is deliberate and
+        -- RLS-gated on its table (RLS-enabled is asserted at the top of
+        -- this file for every core/workforce base table):
+        or (
+          -- SELECT-only, read under RLS:
+          -- 0106 entitlements (tenant_plans, entitlement_plans),
+          -- 0107 module registry (module_registry, module_dependencies),
+          -- 0109 notifications, 0110 event bus (events),
+          -- 0129 packages (packages, package_modules, tenant_packages,
+          --   tenant_module_overrides), 0134 owner invitation (tenant_invitations).
+          table_schema = 'core'
+          and table_name in (
+            'tenant_plans', 'entitlement_plans',
+            'module_registry', 'module_dependencies',
+            'notifications', 'events',
+            'packages', 'package_modules', 'tenant_packages', 'tenant_module_overrides',
+            'tenant_invitations'
+          )
+          and privilege_type = 'SELECT'
+        )
+        or (
+          -- 0108: tenant_settings is written by a tenant admin under the
+          -- tenant_settings_write RLS policy (core.settings.manage).
+          table_schema = 'core'
+          and table_name = 'tenant_settings'
+          and privilege_type in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+        )
+        -- 0083: DELETE on workforce.shift_types (gated by wf_shift_types_write).
+        or (table_schema = 'workforce' and table_name = 'shift_types' and privilege_type = 'DELETE')
+        -- 0090: staff messages (SELECT/INSERT/UPDATE, no DELETE).
+        or (table_schema = 'workforce' and table_name = 'staff_messages' and privilege_type in ('SELECT', 'INSERT', 'UPDATE'))
+        -- 0125: auto-schedule run log, read-only.
+        or (table_schema = 'workforce' and table_name = 'auto_schedule_runs' and privilege_type = 'SELECT')
       )),
   0,
-  'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
+  'authenticated has no business-table grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and later migrations'' explicitly-listed grants'
 );
 
 -- Product schemas (booking/ai) and audit expose no client grants at all.
@@ -271,15 +304,18 @@ select is(
 
 -- No DELETE, and no grant on leave_requests anywhere -- neither is opened by
 -- this slice (retirement/decisions stay UPDATE-only; leave_requests is
--- untouched).
+-- untouched). Exceptions: recipe child rows (recipe management) and
+-- shift_types (0083_workforce_shift_types_delete_grant.sql: Manager Settings
+-- "Delete" for a deactivated type; referenced types stay undeletable via
+-- non-cascading FKs).
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'workforce'
-      and ((privilege_type = 'DELETE' and table_name not in ('recipe_ingredients', 'recipe_steps', 'recipe_notes')) or table_name = 'leave_requests')),
+      and ((privilege_type = 'DELETE' and table_name not in ('recipe_ingredients', 'recipe_steps', 'recipe_notes', 'shift_types')) or table_name = 'leave_requests')),
   0,
-  'authenticated has no DELETE grant anywhere in workforce, and no grant at all on leave_requests'
+  'authenticated has no DELETE grant anywhere in workforce (beyond recipe child rows + 0083 shift_types), and no grant at all on leave_requests'
 );
 
 -- Full accounting: the two counts above plus the 5 recipe/category SELECTs
@@ -315,9 +351,15 @@ select is(
           table_name = 'employee_invitations'
           and privilege_type in ('SELECT', 'UPDATE')
         )
+        -- 0083: DELETE on shift_types.
+        or (table_name = 'shift_types' and privilege_type = 'DELETE')
+        -- 0090: staff messages (SELECT/INSERT/UPDATE, no DELETE).
+        or (table_name = 'staff_messages' and privilege_type in ('SELECT', 'INSERT', 'UPDATE'))
+        -- 0125: auto-schedule run log, read-only.
+        or (table_name = 'auto_schedule_runs' and privilege_type = 'SELECT')
       )),
   0,
-  'authenticated has no workforce grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and 0034''s schedule_settings grant'
+  'authenticated has no workforce grants beyond the intended read SELECTs, Slice 1A write-grant foundation, and later migrations'' explicitly-listed grants'
 );
 
 select * from finish();
