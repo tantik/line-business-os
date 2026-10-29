@@ -67,7 +67,8 @@ export function pageStyle(maxWidth: number): CSSProperties {
 export const card: CSSProperties = {
   border: `1px solid ${colors.border}`,
   borderRadius: 8,
-  padding: 18,
+  // 18px, 12px on phones (globals.css).
+  padding: 'var(--card-padding)',
   marginTop: 16,
   background: colors.surface,
   boxShadow: '0 1px 2px rgba(54, 43, 31, 0.04), 0 10px 24px rgba(54, 43, 31, 0.05)',
