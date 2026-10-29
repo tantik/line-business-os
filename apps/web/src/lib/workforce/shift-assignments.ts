@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { AutoDistributeExistingAssignment, DraftAssignment } from './auto-distribute';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
@@ -77,11 +78,13 @@ export async function listShiftAssignments(
   opts: ListShiftAssignmentsOptions = {},
 ): Promise<TenantAccessResult<WorkforceShiftAssignment[]>> {
   try {
-    let query = supabase.schema('api').from('workforce_shift_assignments').select(ASSIGNMENT_SELECT).eq('tenant_id', tenantId);
-    if (opts.fromIso) query = query.gte('starts_at', opts.fromIso);
-    if (opts.toIsoExclusive) query = query.lt('starts_at', opts.toIsoExclusive);
-
-    const { data, error } = await query;
+    // Paged (DEBT-114): a -8..+8 week window for a full staff exceeds max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase.schema('api').from('workforce_shift_assignments').select(ASSIGNMENT_SELECT).eq('tenant_id', tenantId);
+      if (opts.fromIso) query = query.gte('starts_at', opts.fromIso);
+      if (opts.toIsoExclusive) query = query.lt('starts_at', opts.toIsoExclusive);
+      return query.order('starts_at', { ascending: true }).order('assignment_id', { ascending: true }).range(from, to);
+    });
     if (error) return mapWorkforceReadError(error, 'read shift assignments');
 
     const rows = (data ?? []) as ApiWorkforceShiftAssignmentRow[];

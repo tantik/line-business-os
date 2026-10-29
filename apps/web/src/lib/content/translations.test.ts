@@ -61,7 +61,7 @@ interface RecordedCall {
 function recordingClient(result: { data: unknown; error: unknown }): { client: SupabaseClient; calls: RecordedCall[] } {
   const calls: RecordedCall[] = [];
   const builder: Record<string, unknown> = {};
-  for (const method of ['schema', 'from', 'select', 'eq', 'in']) {
+  for (const method of ['schema', 'from', 'select', 'eq', 'in', 'order', 'range']) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return builder;

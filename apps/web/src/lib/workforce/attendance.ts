@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 
@@ -66,7 +67,17 @@ export async function listMyAttendance(
   tenantId: string,
 ): Promise<TenantAccessResult<WorkforceAttendance[]>> {
   try {
-    const { data, error } = await supabase.schema('api').from('workforce_attendance').select(ATTENDANCE_SELECT).eq('tenant_id', tenantId);
+    // Paged (DEBT-114): one row per worked day grows past max_rows over a few years.
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('workforce_attendance')
+        .select(ATTENDANCE_SELECT)
+        .eq('tenant_id', tenantId)
+        .order('work_date', { ascending: true })
+        .order('attendance_id', { ascending: true })
+        .range(from, to),
+    );
     if (error) return mapWorkforceReadError(error, 'read your attendance');
 
     const rows = (data ?? []) as ApiWorkforceAttendanceRow[];
@@ -101,14 +112,16 @@ export async function listAttendanceForManager(
 ): Promise<TenantAccessResult<WorkforceAttendance[]>> {
   try {
     if (filter.attendanceIds && filter.attendanceIds.length === 0) return { status: 'success', data: [] };
-    let query = supabase.schema('api').from('workforce_attendance').select(ATTENDANCE_SELECT).eq('tenant_id', tenantId);
-    if (filter.fromDate) query = query.gte('work_date', filter.fromDate);
-    if (filter.toDate) query = query.lte('work_date', filter.toDate);
-    if (filter.employeeId) query = query.eq('employee_id', filter.employeeId);
-    if (filter.attendanceIds) query = query.in('attendance_id', [...filter.attendanceIds]);
-    // Newest first: if the PostgREST row cap (max_rows 1000, DEBT-114) ever
-    // truncates the window, the oldest days drop out, not the current month.
-    const { data, error } = await query.order('work_date', { ascending: false });
+    // Paged (DEBT-114): previous + current month for ~16+ staff exceeds the
+    // PostgREST max_rows (1000) cap, which used to drop rows silently.
+    const { data, error } = await fetchAllRows((from, to) => {
+      let query = supabase.schema('api').from('workforce_attendance').select(ATTENDANCE_SELECT).eq('tenant_id', tenantId);
+      if (filter.fromDate) query = query.gte('work_date', filter.fromDate);
+      if (filter.toDate) query = query.lte('work_date', filter.toDate);
+      if (filter.employeeId) query = query.eq('employee_id', filter.employeeId);
+      if (filter.attendanceIds) query = query.in('attendance_id', [...filter.attendanceIds]);
+      return query.order('work_date', { ascending: false }).order('attendance_id', { ascending: true }).range(from, to);
+    });
     if (error) return mapWorkforceReadError(error, 'read attendance');
 
     const rows = (data ?? []) as ApiWorkforceAttendanceRow[];

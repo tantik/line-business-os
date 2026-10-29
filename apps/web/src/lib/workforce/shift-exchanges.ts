@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 
@@ -68,13 +69,18 @@ export async function listShiftExchanges(
   locationId: string,
 ): Promise<TenantAccessResult<WorkforceShiftExchange[]>> {
   try {
-    const { data, error } = await supabase
-      .schema('api')
-      .from('workforce_shift_exchanges')
-      .select(SELECT)
-      .eq('tenant_id', tenantId)
-      .eq('location_id', locationId)
-      .order('created_at', { ascending: false });
+    // Paged (DEBT-114): the location's whole request history outgrows max_rows (1000).
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .schema('api')
+        .from('workforce_shift_exchanges')
+        .select(SELECT)
+        .eq('tenant_id', tenantId)
+        .eq('location_id', locationId)
+        .order('created_at', { ascending: false })
+        .order('exchange_id', { ascending: true })
+        .range(from, to),
+    );
     if (error) return mapWorkforceReadError(error, 'read shift exchanges');
     return { status: 'success', data: ((data ?? []) as ExchangeRow[]).map(mapRow) };
   } catch (error) {
