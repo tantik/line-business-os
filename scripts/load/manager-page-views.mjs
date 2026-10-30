@@ -11,12 +11,16 @@
 // leading "/" -- Git Bash rewrites leading-slash arguments into Windows paths.
 // Then read Vercel Observability (Preview, Functions) and Supabase
 // Observability -> API Gateway for the same window and divide by the 200 count.
+// Optional env: LOAD_PAGES (comma-separated paths, default the /manager set)
+// and LOAD_ACCOUNTS (local-part regex of the accounts, default "owner[1-9]"),
+// e.g. LOAD_PAGES=/staff LOAD_ACCOUNTS="staff[a-i]|o1staff1" for the Staff page.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createServerClient } from '@supabase/ssr';
 
 const [minutes = '60', intervalMs = '2400', accountsPath, outPath = 'result.json', chunkArg = ''] = process.argv.slice(2);
 const BASE = 'https://preview.oruwa.jp';
-const PAGES = ['/manager', '/manager?weekOffset=1', '/manager?weekOffset=-1'];
+const PAGES = process.env.LOAD_PAGES ? process.env.LOAD_PAGES.split(',') : ['/manager', '/manager?weekOffset=1', '/manager?weekOffset=-1'];
+const ACCOUNTS = process.env.LOAD_ACCOUNTS ?? 'owner[1-9]';
 
 async function discoverSupabase() {
   const chunks = chunkArg.split(',').filter(Boolean);
@@ -33,7 +37,7 @@ async function discoverSupabase() {
 
 function owners() {
   const md = readFileSync(accountsPath, 'utf8');
-  const rows = [...md.matchAll(/\|\s*(oruwa\.jp\+owner[1-9]@gmail\.com)\s*\|\s*(\S+)\s*\|/g)];
+  const rows = [...md.matchAll(new RegExp(String.raw`\|\s*(oruwa\.jp\+(?:${ACCOUNTS})@gmail\.com)\s*\|\s*(\S+)\s*\|`, 'g'))];
   return rows.map((m) => ({ email: m[1], password: m[2] }));
 }
 
@@ -46,7 +50,7 @@ async function signIn(sb, o) {
     },
   });
   const { error } = await client.auth.signInWithPassword({ email: o.email, password: o.password });
-  if (error) throw new Error(`sign-in failed for an owner (${error.message})`);
+  if (error) throw new Error(`sign-in failed for an account (${error.message})`);
   return { jar, at: Date.now() };
 }
 
@@ -55,7 +59,7 @@ const cookieHeader = (jar) => [...jar].map(([n, v]) => `${n}=${v}`).join('; ');
 const sb = await discoverSupabase();
 const sessions = [];
 for (const o of owners()) sessions.push({ o, s: await signIn(sb, o) });
-if (sessions.length === 0) throw new Error('no owner rows found');
+if (sessions.length === 0) throw new Error('no account rows found');
 
 const stats = { started: new Date().toISOString(), requests: 0, byStatus: {}, byPage: {}, latencyMsSum: 0, bytes: 0, relogins: 0, errors: 0 };
 const end = Date.now() + Number(minutes) * 60_000;
