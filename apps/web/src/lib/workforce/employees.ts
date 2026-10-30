@@ -262,7 +262,7 @@ export async function listWorkforceStaffForManager(
 }
 
 /** Flat row shape returned by `api.workforce_staff_roster` (0061). `name_encrypted` arrives as PostgREST's hex bytea text (`\x...`), same convention as `ApiWorkforceStaffManageRow`. */
-interface ApiWorkforceStaffRosterRow {
+export interface ApiWorkforceStaffRosterRow {
   employee_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -277,6 +277,21 @@ export interface WorkforceStaffRosterEntry {
   locationId: string | null;
   name: string;
   isActive: boolean;
+}
+
+/** Rows of `api.workforce_staff_roster` (direct read or `api.staff_dashboard`) -> entries with decrypted names, read order. */
+export function mapWorkforceStaffRosterRows(rows: ApiWorkforceStaffRosterRow[], encryptionKey: string): WorkforceStaffRosterEntry[] {
+  return rows.map((row) => ({
+    employeeId: row.employee_id,
+    tenantId: row.tenant_id,
+    locationId: row.location_id,
+    name: decryptPII(byteaToBuffer(row.name_encrypted), encryptionKey),
+    isActive: row.is_active,
+  }));
+}
+
+export function mapStaffRosterReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read the staff roster');
 }
 
 /**
@@ -304,17 +319,9 @@ export async function listWorkforceStaffRoster(
       .select('employee_id, tenant_id, location_id, name_encrypted, is_active')
       .eq('tenant_id', tenantId);
 
-    if (error) return mapWorkforceReadError(error, 'read the staff roster');
+    if (error) return mapStaffRosterReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceStaffRosterRow[];
-    const entries = rows.map((row) => ({
-      employeeId: row.employee_id,
-      tenantId: row.tenant_id,
-      locationId: row.location_id,
-      name: decryptPII(byteaToBuffer(row.name_encrypted), pii.config.encryptionKey),
-      isActive: row.is_active,
-    }));
-    return { status: 'success', data: entries };
+    return { status: 'success', data: mapWorkforceStaffRosterRows((data ?? []) as ApiWorkforceStaffRosterRow[], pii.config.encryptionKey) };
   } catch (err) {
     return {
       status: 'unexpected_error',

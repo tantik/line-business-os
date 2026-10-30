@@ -8,24 +8,13 @@ import { loadPageContext } from '@/lib/tenant/page-context';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { listWorkforceStaffForManager, listWorkforceStaffRoster } from '@/lib/workforce/employees';
-import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
-import { listMyShiftRequests } from '@/lib/workforce/shift-requests';
-import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
-import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { listMyAttendance } from '@/lib/workforce/attendance';
-import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
-import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION, listInventoryItemStatus } from '@/lib/inventory/items';
+import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
+import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION } from '@/lib/inventory/items';
 import { loadMyAccess } from '@/lib/auth/my-access';
-import { listPurchasesNeeded } from '@/lib/purchases/items';
-import { listPurchaseHistory } from '@/lib/purchases/history';
-import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
-import { listOperationsTemplateItems } from '@/lib/operations/templates';
-import { listExpectedTasks, listItemResponsesForInstances, type OperationsItemResponse } from '@/lib/operations/tasks';
-import { listOpenIssues, withReporterNames } from '@/lib/issues/issues';
-import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { createRecipeMediaUrlMap, groupRecipesByCategory, listWorkforceRecipes, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
-import { listContentTranslationsForField } from '@/lib/content/translations';
+import { loadStaffDashboard, type StaffDashboardPart } from '@/lib/staff/dashboard';
+import type { OperationsItemResponse } from '@/lib/operations/tasks';
+import { withReporterNames } from '@/lib/issues/issues';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import { getWeekOffsetWindow, getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
@@ -218,89 +207,53 @@ export default async function WorkforceStaffPage({
       const assignmentFromIso = localDateTimeToUtcIso(assignmentWindow.periodStart, '00:00', location.timezone);
       const assignmentToIsoExclusive = localDateTimeToUtcIso(addIsoDays(assignmentWindow.periodEnd, 1), '00:00', location.timezone);
 
-      const [
-        shiftTypesResult,
-        requestsResult,
-        assignmentsResult,
-        attendanceResult,
-        correctionRequestsResult,
-        exchangesResult,
-        staffMessagesResult,
-        inventoryItemsResult,
-        purchasesItemsResult,
-        purchaseHistoryResult,
-        purchasesAwaitingResult,
-        rosterResult,
-        recipeCategoriesResult,
-        recipesResult,
-        recipeTitleTranslationsResult,
-        operationsTasksResult,
-        operationsItemsResult,
-        issuesOpenResult,
-        access,
-      ] = await Promise.all([
-        listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-        listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'preference' }),
-        listShiftAssignments(supabase, activeTenant.tenantId, {
+      // Every read of this page in ONE `api.staff_dashboard` RPC (0145,
+      // DEBT-135) -- each part is the same read the named lib function made
+      // (see `lib/staff/dashboard.ts`), and the exact data its popup renders
+      // (no separate fetch, same pattern as the Manager page):
+      //   * myStaffMessages -- Staff<->Manager Mail (0090), the caller's own
+      //     single thread (`StaffMailPopup`).
+      //   * staffRoster -- real display names for the caller's own profile
+      //     header and the coworker schedule grid (Cafe v2.1 QA audit P2-7,
+      //     `api.workforce_staff_roster`, 0061); RLS narrows it to the
+      //     caller's own row plus active coworkers in their schedule scope.
+      //   * recipes -- the Staff Recipes popup list (Founder direction,
+      //     2026-08-24: matches Manager's popup); recipe detail is fetched
+      //     lazily, client-side, once a specific recipe opens.
+      //   * Module-gated parts are requested only when the module is on:
+      //     Inventory, Purchases (needed / History tab 0120 / 「入荷待ち」 0137;
+      //     0131, depends on `inventory`), Operations (today's tasks, template
+      //     items and their recorded responses -- `operations.task.read` may be
+      //     tenant-wide for some roles, narrowed to this location below,
+      //     mirroring `/operations/page.tsx`'s Staff branch), Issues &
+      //     Handover (Cafe v2.2 WP2, Slice C; Staff has no manage rights in
+      //     this MVP, so only the open `api.issues_open` feed).
+      const dashboardParts: StaffDashboardPart[] = [
+        'shiftTypes',
+        'myPreferenceRequests',
+        'assignments',
+        'myAttendance',
+        'myCorrectionRequests',
+        'shiftExchanges',
+        'myStaffMessages',
+        'staffRoster',
+        'recipeCategories',
+        'recipes',
+        'recipeTitleTranslations',
+      ];
+      if (inventoryEnabled) dashboardParts.push('inventoryItems');
+      if (purchasesEnabled) dashboardParts.push('purchasesNeeded', 'purchaseHistory', 'purchasesAwaiting');
+      if (operationsEnabled) dashboardParts.push('operationsTodayTasks', 'operationsItems', 'operationsResponses');
+      if (issuesEnabled) dashboardParts.push('issuesOpen');
+
+      const [dashboard, access] = await Promise.all([
+        loadStaffDashboard(supabase, activeTenant.tenantId, location.locationId, {
+          parts: dashboardParts,
           fromIso: assignmentFromIso,
           toIsoExclusive: assignmentToIsoExclusive,
+          today: operationsToday,
+          employeeId: profile.staffId,
         }),
-        listMyAttendance(supabase, activeTenant.tenantId),
-        listMyShiftRequests(supabase, activeTenant.tenantId, { kind: 'correction' }),
-        listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-        // Staff<->Manager Mail (0090) -- the caller's own single thread
-        // (self-scoped by RLS `wf_staff_messages_self_select`). Also the
-        // exact data `StaffMailPopup` renders (no separate fetch).
-        listMyStaffMessages(supabase, activeTenant.tenantId, profile.staffId),
-        // Also the exact data the Inventory popup below renders -- no
-        // separate fetch, same pattern the Manager dashboard's own
-        // `InventoryPopup` uses.
-        inventoryEnabled
-          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Purchases' entire read surface -- also the exact data the
-        // Purchases popup below renders (no separate fetch), same pattern
-        // Inventory's own popup uses. Gated on the `purchases` module (0131;
-        // it depends on `inventory`).
-        purchasesEnabled
-          ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Purchases' History tab read surface (0120) -- same
-        // tenant/location scope as `purchasesItemsResult` above, also the
-        // exact data the Staff Purchases popup's History tab renders.
-        purchasesEnabled
-          ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Purchases' 「入荷待ち」 (awaiting delivery, 0137) read surface --
-        // open orders, same tenant/location scope, rendered by the same popup.
-        purchasesEnabled
-          ? listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Real display names for the caller's own profile header and the
-        // coworker schedule grid (Cafe v2.1 QA audit P2-7, `api.workforce_staff_roster`,
-        // 0061) -- RLS narrows this to the caller's own row plus active
-        // coworkers in the caller's own tenant/location schedule scope.
-        listWorkforceStaffRoster(supabase, activeTenant.tenantId),
-        // Recipes list for the Staff Recipes popup (Founder direction,
-        // 2026-08-24: matches Manager's popup, same reads `/recipes/page.tsx`
-        // and `manager/page.tsx` both already make) -- recipe detail is
-        // fetched lazily, client-side, only once a specific recipe opens.
-        listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
-        listWorkforceRecipes(supabase, activeTenant.tenantId),
-        listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
-        // Also the exact data the Staff Operations popup below renders (no
-        // separate fetch), same pattern the Manager dashboard's own
-        // Operations popup uses. `operations.task.read` may be tenant-wide
-        // for some roles -- narrowed to this Staff member's own location
-        // below, mirroring `/operations/page.tsx`'s own Staff branch.
-        operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, operationsToday) : Promise.resolve(null),
-        operationsEnabled ? listOperationsTemplateItems(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        // Issues & Handover popup's read surface (Cafe v2.2 WP2, Slice C) --
-        // also the exact data `IssuesStaffPopup` renders (no separate
-        // fetch), same pattern the Manager dashboard's own Issues popup
-        // uses. Staff has no manage rights in this MVP, so only the open
-        // (`api.issues_open`) feed is fetched here -- no full-history read.
-        issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
         // This page's permission checks in ONE `api.my_access` RPC (0142,
         // DEBT-124) instead of one round trip each. Fails closed.
         loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {
@@ -308,6 +261,24 @@ export default async function WorkforceStaffPage({
           anyLocation: [RECIPE_MANAGE_PERMISSION],
         }),
       ]);
+      const shiftTypesResult = dashboard.shiftTypes;
+      const requestsResult = dashboard.myPreferenceRequests;
+      const assignmentsResult = dashboard.assignments;
+      const attendanceResult = dashboard.myAttendance;
+      const correctionRequestsResult = dashboard.myCorrectionRequests;
+      const exchangesResult = dashboard.shiftExchanges;
+      const staffMessagesResult = dashboard.myStaffMessages;
+      const inventoryItemsResult = inventoryEnabled ? dashboard.inventoryItems : null;
+      const purchasesItemsResult = purchasesEnabled ? dashboard.purchasesNeeded : null;
+      const purchaseHistoryResult = purchasesEnabled ? dashboard.purchaseHistory : null;
+      const purchasesAwaitingResult = purchasesEnabled ? dashboard.purchasesAwaiting : null;
+      const rosterResult = dashboard.staffRoster;
+      const recipeCategoriesResult = dashboard.recipeCategories;
+      const recipesResult = dashboard.recipes;
+      const recipeTitleTranslationsResult = dashboard.recipeTitleTranslations;
+      const operationsTasksResult = operationsEnabled ? dashboard.operationsTodayTasks : null;
+      const operationsItemsResult = operationsEnabled ? dashboard.operationsItems : null;
+      const issuesOpenResult = issuesEnabled ? dashboard.issuesOpen : null;
 
       // Pure UX affordance (RLS is the real boundary regardless): almost
       // always false for a plain staff account, but resolved from the real
@@ -388,21 +359,21 @@ export default async function WorkforceStaffPage({
           ? operationsTasksResult.data.filter((task) => task.locationId === location.locationId)
           : null;
 
-      // Every already-materialised task's recorded responses, fetched once
-      // up-front (server-side) and keyed by `instanceId` -- one request for
-      // all instances (DEBT-135), not one per task. Any write action calls
-      // `router.refresh()`, which re-runs this whole page and refetches it.
+      // Every already-materialised task's recorded responses, read in the
+      // same RPC (`operationsResponses`: responses of today's task instances
+      // at this location) and keyed by `instanceId`, every instance present.
+      // Any write action calls `router.refresh()`, which re-runs this whole
+      // page and refetches it.
       const operationsInstanceIds = (operationsTasks ?? [])
         .map((task) => task.instanceId)
         .filter((id): id is string => id !== null);
-      const operationsResponsesResult =
-        operationsInstanceIds.length > 0
-          ? await listItemResponsesForInstances(supabase, activeTenant.tenantId, operationsInstanceIds)
-          : null;
-      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> =
-        operationsResponsesResult?.status === 'success'
-          ? operationsResponsesResult.data
-          : Object.fromEntries(operationsInstanceIds.map((id) => [id, []]));
+      const operationsResponsesResult = operationsEnabled ? dashboard.operationsResponses : null;
+      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(
+        operationsInstanceIds.map((id) => [
+          id,
+          operationsResponsesResult?.status === 'success' ? (operationsResponsesResult.data[id] ?? []) : [],
+        ]),
+      );
 
       // `issues.report` may be tenant-wide for some roles -- narrow to this
       // Staff member's own location here, same convention as the Operations

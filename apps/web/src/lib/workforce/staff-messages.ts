@@ -71,6 +71,10 @@ function mapMessageRow(row: ApiWorkforceStaffMessageRow): WorkforceStaffMessage 
   };
 }
 
+export function mapMyStaffMessagesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read your messages');
+}
+
 /** Read the caller's own single thread (self-scoped by RLS, `wf_staff_messages_self_select`). */
 export async function listMyStaffMessages(
   supabase: SupabaseClient,
@@ -92,11 +96,9 @@ export async function listMyStaffMessages(
         .range(from, to),
     );
 
-    if (error) return mapWorkforceReadError(error, 'read your messages');
+    if (error) return mapMyStaffMessagesReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceStaffMessageRow[];
-    const messages = rows.map(mapMessageRow).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    return { status: 'success', data: messages };
+    return { status: 'success', data: mapManagerStaffMessageRows((data ?? []) as ApiWorkforceStaffMessageRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',
@@ -105,7 +107,7 @@ export async function listMyStaffMessages(
   }
 }
 
-/** Rows of `api.workforce_staff_messages` (Manager read or `api.manager_dashboard`) -> messages, oldest first. */
+/** Rows of `api.workforce_staff_messages` (Manager / own read, `api.manager_dashboard` / `api.staff_dashboard`) -> messages, oldest first. */
 export function mapManagerStaffMessageRows(rows: ApiWorkforceStaffMessageRow[]): WorkforceStaffMessage[] {
   return rows.map(mapMessageRow).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

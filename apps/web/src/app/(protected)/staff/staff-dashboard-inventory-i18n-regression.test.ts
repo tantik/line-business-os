@@ -24,7 +24,8 @@ const CLIENT_SOURCE = readFileSync(new URL('./staff-dashboard-client.tsx', impor
 const EXCHANGE_FORM_SOURCE = readFileSync(new URL('./shift-exchange-request-form.tsx', import.meta.url), 'utf8');
 
 test('staff page.tsx reads Inventory item status (read-only) for the entry-point card', () => {
-  assert.match(PAGE_SOURCE, /listInventoryItemStatus/, 'must read inventory item status for the shortage summary');
+  // DEBT-135 (0145): the read is the `inventoryItems` part of `api.staff_dashboard` (listInventoryItemStatus's read).
+  assert.match(PAGE_SOURCE, /dashboardParts\.push\('inventoryItems'\)/, 'must read inventory item status for the shortage summary');
 });
 
 test('staff page.tsx never imports an Inventory write/mutation action -- writes stay on the canonical /inventory page', () => {

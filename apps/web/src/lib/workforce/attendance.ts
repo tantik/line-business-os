@@ -61,6 +61,15 @@ function mapAttendanceRow(row: ApiWorkforceAttendanceRow): WorkforceAttendance {
   };
 }
 
+/** Rows of `api.workforce_attendance` (own read or `api.staff_dashboard`) -> entries by work date (stable on the read's attendance_id order). */
+export function mapMyAttendanceRows(rows: ApiWorkforceAttendanceRow[]): WorkforceAttendance[] {
+  return rows.map(mapAttendanceRow).sort((a, b) => a.workDate.localeCompare(b.workDate));
+}
+
+export function mapMyAttendanceReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read your attendance');
+}
+
 /** Read the caller's own attendance/work-report rows (self-scoped by RLS, `wf_attendance_self_select`). */
 export async function listMyAttendance(
   supabase: SupabaseClient,
@@ -78,11 +87,9 @@ export async function listMyAttendance(
         .order('attendance_id', { ascending: true })
         .range(from, to),
     );
-    if (error) return mapWorkforceReadError(error, 'read your attendance');
+    if (error) return mapMyAttendanceReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceAttendanceRow[];
-    const entries = rows.map(mapAttendanceRow).sort((a, b) => a.workDate.localeCompare(b.workDate));
-    return { status: 'success', data: entries };
+    return { status: 'success', data: mapMyAttendanceRows((data ?? []) as ApiWorkforceAttendanceRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',
