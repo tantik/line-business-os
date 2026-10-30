@@ -501,6 +501,28 @@ select ok(
   'E: staff still returns rows when one protected-history source fails');
 grant select on api.workforce_attendance to authenticated;
 
+-- a part of a disabled module equals the direct read of its source with the module off
+-- (the app does not request it then, but a direct RPC call must not see more than the view)
+update core.tenant_modules set is_enabled = false
+ where tenant_id = 'a8400000-0000-0000-0000-0000000000a1' and module = 'inventory';
+select ok(
+  pg_temp.same_set(
+    pg_temp.bundle('a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001',
+      pg_temp.params('["inventoryItems"]')) #> '{inventoryItems,rows}',
+    pg_temp.direct('a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001', 'inventoryItems')),
+  'E: inventory module off -- inventoryItems equals the direct read of the view');
+update core.tenant_modules set is_enabled = true
+ where tenant_id = 'a8400000-0000-0000-0000-0000000000a1' and module = 'inventory';
+
+-- a non-paged part keeps the PostgREST max_rows cap (1000), silently, as the app's single read did
+insert into workforce.shift_types (tenant_id, location_id, code, label_ja, starts_at_local, ends_at_local)
+select 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001', 'BULK' || g, 'bulk', '09:00', '17:00'
+  from generate_series(1, 1001) g;
+select is(
+  jsonb_array_length(pg_temp.bundle('a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001',
+    '{"parts": ["shiftTypes"]}') #> '{shiftTypes,rows}'),
+  1000, 'E: a non-paged part is capped at 1000 rows (PostgREST max_rows), no error');
+
 -- 20000 rows of a paged part -> LBO_ROW_CAP (as the app's fetchAllRows refused at 20 full pages)
 insert into workforce.staff_messages (tenant_id, location_id, employee_id, sender_role, sender_user_id, body)
 select 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000001',
