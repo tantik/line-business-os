@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Session, User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { getUserFromClient } from './user';
+import { getUserFromClient, getVerifiedUserId } from './user';
 
 /**
  * Server-side auth/session baseline. These helpers are the single place pages,
@@ -13,6 +13,12 @@ import { getUserFromClient } from './user';
 export async function getCurrentUser(): Promise<User | null> {
   const supabase = await createClient();
   return getUserFromClient(supabase);
+}
+
+/** Returns the authenticated user's id from a verified JWT (no Auth round trip), or `null`. */
+export async function getCurrentUserId(): Promise<string | null> {
+  const supabase = await createClient();
+  return getVerifiedUserId(supabase);
 }
 
 /**

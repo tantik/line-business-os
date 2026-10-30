@@ -66,10 +66,15 @@ export async function listTenantModules(
 }
 
 /** Flat row shape returned by `api.my_tenant_navigation` (0132). */
-interface ApiTenantNavigationRow {
+export interface ApiTenantNavigationRow {
   tenant_id: string;
   module: string;
   nav_order: number;
+}
+
+/** Rows of `api.my_tenant_navigation` (direct read or `api.my_page_context`) -> nav rows. */
+export function mapTenantNavigationRows(rows: ApiTenantNavigationRow[]): TenantNavRow[] {
+  return rows.map((row) => ({ tenantId: row.tenant_id, module: row.module, navOrder: Number(row.nav_order) }));
 }
 
 /**
@@ -85,11 +90,7 @@ export async function listTenantNavigation(supabase: SupabaseClient): Promise<Te
 
     if (error) return mapPostgrestError(error);
 
-    const rows = (data ?? []) as ApiTenantNavigationRow[];
-    return {
-      status: 'success',
-      data: rows.map((row) => ({ tenantId: row.tenant_id, module: row.module, navOrder: Number(row.nav_order) })),
-    };
+    return { status: 'success', data: mapTenantNavigationRows((data ?? []) as ApiTenantNavigationRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',
@@ -99,7 +100,7 @@ export async function listTenantNavigation(supabase: SupabaseClient): Promise<Te
 }
 
 /** Flat row shape returned by `api.my_tenant_packages` (0129). */
-interface ApiTenantPackageRow {
+export interface ApiTenantPackageRow {
   tenant_id: string;
   package_code: string;
   status: string;
@@ -122,11 +123,16 @@ export async function listTenantPackageCodes(supabase: SupabaseClient, tenantId:
       .eq('tenant_id', tenantId)
       .eq('status', 'active');
     if (error) return [];
-    return ((data ?? []) as ApiTenantPackageRow[])
-      .slice()
-      .sort((a, b) => a.sort_order - b.sort_order || a.package_code.localeCompare(b.package_code))
-      .map((row) => row.package_code);
+    return mapTenantPackageCodes((data ?? []) as ApiTenantPackageRow[], tenantId);
   } catch {
     return [];
   }
+}
+
+/** Active package codes of one tenant from `api.my_tenant_packages` rows (direct read or `api.my_page_context`), in package order. */
+export function mapTenantPackageCodes(rows: ApiTenantPackageRow[], tenantId: string): string[] {
+  return rows
+    .filter((row) => row.tenant_id === tenantId && row.status === 'active')
+    .sort((a, b) => a.sort_order - b.sort_order || a.package_code.localeCompare(b.package_code))
+    .map((row) => row.package_code);
 }

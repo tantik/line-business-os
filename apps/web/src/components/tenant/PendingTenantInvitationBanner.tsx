@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
-import { listMyPendingTenantInvitations } from '@/lib/tenant/tenant-invitations';
+import { loadPageContext } from '@/lib/tenant/page-context';
 import { partitionBannerInvitations } from '@/lib/tenant/tenant-invite-decision';
 import { AcceptTenantInvitationButton } from './AcceptTenantInvitationButton';
 
@@ -11,10 +10,10 @@ import { AcceptTenantInvitationButton } from './AcceptTenantInvitationButton';
  * accepts. Self-scoped read (`api.my_pending_tenant_invitations`, 0134,
  * `core.current_user_id()` from the JWT); renders nothing when there is
  * nothing open. Expired invitations are not offered (accepting would fail).
+ * Read through the request-scoped page context (one RPC per request, DEBT-135).
  */
 export async function PendingTenantInvitationBanner() {
-  const supabase = await createClient();
-  const result = await listMyPendingTenantInvitations(supabase);
+  const result = (await loadPageContext()).tenantInvitations;
   if (result.status !== 'success') return null;
   const { open } = partitionBannerInvitations(result.data);
   if (open.length === 0) return null;

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export const MANAGER_ACCESS_PERMISSION = 'workforce.staff.manage';
+
 /**
  * Server-side gate for the Manager operational surface
  * (`/manager`). `workforce.staff.manage` is the existing
@@ -27,7 +29,7 @@ export async function hasManagerAccess(
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission', {
       p_tenant_id: tenantId,
-      p_permission: 'workforce.staff.manage',
+      p_permission: MANAGER_ACCESS_PERMISSION,
       p_location_id: locationId,
     });
     if (error) return false;

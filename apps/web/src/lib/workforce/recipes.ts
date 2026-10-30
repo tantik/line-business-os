@@ -197,6 +197,8 @@ export async function upsertWorkforceRecipe(
   }
 }
 
+export const RECIPE_MANAGE_PERMISSION = 'workforce.recipe.manage';
+
 /**
  * Server-side gate for recipe management UI affordances (Add/Edit/Archive/
  * Delete). Recipes are tenant-wide, not location-scoped (unlike Staff/
@@ -212,7 +214,7 @@ export async function hasRecipeManagerAccess(supabase: SupabaseClient, tenantId:
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission_in_tenant', {
       p_tenant_id: tenantId,
-      p_permission: 'workforce.recipe.manage',
+      p_permission: RECIPE_MANAGE_PERMISSION,
     });
     if (error) return false;
     return data === true;

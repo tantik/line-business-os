@@ -4,10 +4,9 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantNavigation, listTenantPackageCodes } from '@/lib/tenant/modules';
+import { loadPageContext } from '@/lib/tenant/page-context';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
-import { listTenantLocations } from '@/lib/tenant/locations';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
@@ -29,14 +28,14 @@ import { listOperationsSchedules } from '@/lib/operations/schedules';
 import { listExpectedTasks } from '@/lib/operations/tasks';
 import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
 import { listAllIssues, listOpenIssues, withReporterNames } from '@/lib/issues/issues';
-import { hasWeeklyReviewAccess } from '@/lib/weekly-review/access';
-import { hasManagerAccess } from '@/lib/workforce/manager-access';
-import { hasRoleManageAccess } from '@/lib/workforce/manager-role';
-import { isTenantOwner } from '@/lib/workforce/admin-role';
+import { loadMyAccess } from '@/lib/auth/my-access';
+import { WEEKLY_REVIEW_PERMISSION } from '@/lib/weekly-review/access';
+import { MANAGER_ACCESS_PERMISSION } from '@/lib/workforce/manager-access';
+import { ROLE_MANAGE_PERMISSION } from '@/lib/workforce/manager-role';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, listWorkforceRecipes, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { listContentTranslationsForField } from '@/lib/content/translations';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
@@ -106,11 +105,13 @@ export default async function WorkforceManagerPage({
       // pass; see this file's own note further down for why the deeper fix
       // (not re-running the *whole* page's unrelated data on a week change)
       // is out of scope for this pass.
-      const [navigationResult, locationsResult, packageCodes] = await Promise.all([
-        listTenantNavigation(supabase),
-        listTenantLocations(supabase),
-        listTenantPackageCodes(supabase, activeTenant.tenantId),
-      ]);
+      // DEBT-135: navigation, locations and packages now come from the same
+      // request-scoped page context `requireTenantContext` already loaded
+      // (one `api.my_page_context` RPC) -- no further round trip here.
+      const pageContext = await loadPageContext();
+      const navigationResult = pageContext.navigation;
+      const locationsResult = pageContext.locations;
+      const packageCodes = pageContext.packageCodes(activeTenant.tenantId);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4). The flags below gate only this dashboard's entry points and
       // their reads; RLS / RPCs (`core.has_module_access`) remain the real
@@ -163,6 +164,15 @@ export default async function WorkforceManagerPage({
         );
       }
 
+      // Every permission check this page needs, in ONE `api.my_access` RPC
+      // (0142, DEBT-124) instead of five round trips; same answers as the
+      // single-check RPCs (pgTAP 0081). Fails closed to all-false.
+      const access = await loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {
+        location: [MANAGER_ACCESS_PERMISSION, WEEKLY_REVIEW_PERMISSION],
+        tenant: [ROLE_MANAGE_PERMISSION],
+        anyLocation: [RECIPE_MANAGE_PERMISSION],
+      });
+
       // Authorization boundary for the Manager operational surface: a plain
       // Staff (employee-role) tenant member passes `requireTenantContext`
       // above (they are a valid member) and the module-enabled check, but
@@ -171,13 +181,24 @@ export default async function WorkforceManagerPage({
       // Manager-only capability in this module -- see `hasManagerAccess`.
       // Denial happens here, before any Manager-only Supabase read, so no
       // protected row ever reaches the RSC payload for an unauthorized caller.
-      const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, location.locationId);
+      const managerAccess = access.location(MANAGER_ACCESS_PERMISSION);
       if (!managerAccess) return <UnauthorizedState />;
 
       // Owner Weekly Review (Cafe v2.2 WP3, migration 0119) -- gates only
       // this dashboard's own entry-point card; `api.weekly_review_summary`
       // re-checks the same `core.weekly_review.view` permission itself.
-      const weeklyReviewEnabled = await hasWeeklyReviewAccess(supabase, activeTenant.tenantId, location.locationId);
+      const weeklyReviewEnabled = access.location(WEEKLY_REVIEW_PERMISSION);
+      // Recipes popup edit controls (tenant-wide or any location). UI gate
+      // only -- the recipe write RPCs re-check.
+      const recipeCanManage = access.anyLocation(RECIPE_MANAGE_PERMISSION);
+      // 4B-4a (0138): only an Owner/Admin (core.role.manage, tenant-wide)
+      // is offered 「店長にする / 店長から外す」. UI gate only --
+      // api.set_employee_manager_role re-checks the same permission.
+      const canAppointManagers = access.tenant(ROLE_MANAGE_PERMISSION);
+      // 4B-4b (0140): only the Owner (tenant_owner role) is offered
+      // 「管理者にする / 管理者から外す」. UI gate only --
+      // api.set_employee_admin_role re-checks the same role.
+      const canAppointAdmins = access.isTenantOwner;
 
       const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
@@ -264,7 +285,6 @@ export default async function WorkforceManagerPage({
         purchasesAwaitingResult,
         recipeCategoriesResult,
         recipesResult,
-        recipeCanManage,
         scheduleSettingsResult,
         recipeTitleTranslationsResult,
         myProfileResult,
@@ -276,8 +296,6 @@ export default async function WorkforceManagerPage({
         issuesOpenResult,
         issuesAllResult,
         autoScheduleRunsResult,
-        canAppointManagers,
-        canAppointAdmins,
       ] = await Promise.all([
         listWorkforceStaffForManager(supabase, activeTenant.tenantId),
         listEmployeeLineLinks(supabase, activeTenant.tenantId),
@@ -330,7 +348,6 @@ export default async function WorkforceManagerPage({
         // once the caller actually opens a specific recipe.
         listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
         listWorkforceRecipes(supabase, activeTenant.tenantId),
-        hasRecipeManagerAccess(supabase, activeTenant.tenantId),
         // Settings section (WP A8) -- per-weekday staffing requirements + max
         // monthly hours. Already had full schema/read/write support
         // (schedule-settings.ts); no migration needed.
@@ -373,14 +390,6 @@ export default async function WorkforceManagerPage({
         // for this location; the Settings section's automation block shows
         // up to 3 after dropping problems superseded by a generated run.
         listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
-        // 4B-4a (0138): only an Owner/Admin (core.role.manage, tenant-wide)
-        // is offered 「店長にする / 店長から外す」. UI gate only --
-        // api.set_employee_manager_role re-checks the same permission.
-        hasRoleManageAccess(supabase, activeTenant.tenantId),
-        // 4B-4b (0140): only the Owner (tenant_owner role) is offered
-        // 「管理者にする / 管理者から外す」. UI gate only --
-        // api.set_employee_admin_role re-checks the same role.
-        isTenantOwner(supabase, activeTenant.tenantId),
       ]);
 
       // The corrections popup shows each request's current attendance row

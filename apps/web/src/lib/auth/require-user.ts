@@ -1,7 +1,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { getCurrentUser } from './session';
+import { getCurrentUser, getCurrentUserId } from './session';
 
 /** Where unauthenticated users are sent. Foundation placeholder route. */
 export const SIGN_IN_PATH = '/sign-in';
@@ -15,4 +15,15 @@ export async function requireUser(redirectTo: string = SIGN_IN_PATH): Promise<Us
   const user = await getCurrentUser();
   if (!user) redirect(redirectTo);
   return user;
+}
+
+/**
+ * Like `requireUser`, but only proves the session (verified JWT, no Auth
+ * server round trip -- see `getVerifiedUserId`) and returns the user id. For
+ * layouts/pages that need no `User` fields and where RLS guards the data.
+ */
+export async function requireUserId(redirectTo: string = SIGN_IN_PATH): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (!userId) redirect(redirectTo);
+  return userId;
 }
