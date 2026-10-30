@@ -15,7 +15,7 @@ import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
 import { listMyAttendance } from '@/lib/workforce/attendance';
 import { listMyStaffMessages } from '@/lib/workforce/staff-messages';
-import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION, listInventoryItemStatus } from '@/lib/inventory/items';
 import { loadMyAccess } from '@/lib/auth/my-access';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
@@ -38,8 +38,6 @@ import {
 } from '@/components/states';
 import { backLink, card, mutedText, pageStyle } from '@/lib/ui/theme';
 import { StaffDashboardClient } from './staff-dashboard-client';
-
-const INVENTORY_MANAGE_PERMISSION = 'inventory.item.manage';
 
 // Authenticated, session-dependent page: render per request, never prerender.
 export const dynamic = 'force-dynamic';

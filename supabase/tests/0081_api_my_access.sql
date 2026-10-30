@@ -2,12 +2,14 @@
 -- DB test: migration 0142 (api.my_access, DEBT-124/135).
 -- Run with:  supabase db reset && supabase test db
 --   A  grants / ADR 0008
---   B  equivalence: for Owner, Manager, Employee and another tenant's user,
---      every answer equals the single-check RPC it replaces
---      (api.has_permission loc / null, api.has_permission_in_tenant,
---      api.is_tenant_owner)
---   C  a user of another tenant gets only false; empty lists -> {}
---   D  more than 64 entries in a list -> 22023; anon refused
+--   B  equivalence: for Owner, Manager, Employee, another tenant's user, a
+--      Manager of another location and platform staff, every answer equals
+--      the single-check RPC it replaces (api.has_permission loc / null,
+--      api.has_permission_in_tenant, api.is_tenant_owner); location-scoped
+--      Employee permission vs the tenant group
+--   C  a user of another tenant gets only false; empty / null lists -> {};
+--      null elements skipped; null tenant -> all false
+--   D  64 entries accepted, more -> 22023; anon refused
 -- ============================================================================
 begin;
 
@@ -58,23 +60,31 @@ insert into core.tenant_modules (tenant_id, module, is_enabled) values
 insert into core.locations (id, tenant_id, name) values
   ('a8110000-0000-0000-0000-000000000001', 'a8100000-0000-0000-0000-0000000000a1', 'T1 / L1'),
   ('a8110000-0000-0000-0000-000000000002', 'a8100000-0000-0000-0000-0000000000a2', 'T2 / L1');
+insert into core.locations (id, tenant_id, name) values
+  ('a8110000-0000-0000-0000-000000000003', 'a8100000-0000-0000-0000-0000000000a1', 'T1 / L2');
 insert into core.users (id, display_name) values
   ('a8190000-0000-0000-0000-000000000001', 'O'),
   ('a8190000-0000-0000-0000-000000000002', 'M'),
   ('a8190000-0000-0000-0000-000000000003', 'E'),
-  ('a8190000-0000-0000-0000-000000000004', 'X');
+  ('a8190000-0000-0000-0000-000000000004', 'X'),
+  ('a8190000-0000-0000-0000-000000000005', 'M2');
+insert into core.users (id, display_name, is_platform_staff) values
+  ('a8190000-0000-0000-0000-000000000006', 'P', true);
 insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000001', 'active'),
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000002', 'active'),
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000003', 'active'),
-  ('a8100000-0000-0000-0000-0000000000a2', 'a8190000-0000-0000-0000-000000000004', 'active');
+  ('a8100000-0000-0000-0000-0000000000a2', 'a8190000-0000-0000-0000-000000000004', 'active'),
+  ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000005', 'active');
 -- role ids: tenant_owner=...003, manager=...005, employee=...006
 insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000003', null),
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000005', null),
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000006', 'a8110000-0000-0000-0000-000000000001'),
   ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000006', 'a8110000-0000-0000-0000-000000000001'),
-  ('a8100000-0000-0000-0000-0000000000a2', 'a8190000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000006', 'a8110000-0000-0000-0000-000000000002');
+  ('a8100000-0000-0000-0000-0000000000a2', 'a8190000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000006', 'a8110000-0000-0000-0000-000000000002'),
+  -- M2: Manager of L2 only (location-scoped)
+  ('a8100000-0000-0000-0000-0000000000a1', 'a8190000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'a8110000-0000-0000-0000-000000000003');
 
 -- my_access for the checks /manager makes, as one jsonb
 create function pg_temp.batch(p_uid text) returns jsonb language sql as $$
@@ -114,6 +124,8 @@ select is(pg_temp.batch('a8190000-0000-0000-0000-000000000001'), pg_temp.single(
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000002'), pg_temp.single('a8190000-0000-0000-0000-000000000002'), 'B: Manager -- batch equals single checks');
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000003'), pg_temp.single('a8190000-0000-0000-0000-000000000003'), 'B: Employee -- batch equals single checks');
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000004'), pg_temp.single('a8190000-0000-0000-0000-000000000004'), 'B: other tenant user -- batch equals single checks');
+select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005'), pg_temp.single('a8190000-0000-0000-0000-000000000005'), 'B: Manager of L2 only, asked at L1 -- batch equals single checks');
+select is(pg_temp.batch('a8190000-0000-0000-0000-000000000006'), pg_temp.single('a8190000-0000-0000-0000-000000000006'), 'B: platform staff -- batch equals single checks');
 
 -- spot values, so equivalence cannot pass with both sides wrong
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000001') -> 'isTenantOwner', 'true'::jsonb, 'B: Owner is tenant owner');
@@ -121,6 +133,22 @@ select is(pg_temp.batch('a8190000-0000-0000-0000-000000000001') #> '{tenant,core
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000002') #> '{location,workforce.staff.manage}', 'true'::jsonb, 'B: Manager holds workforce.staff.manage at L1');
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000002') -> 'isTenantOwner', 'false'::jsonb, 'B: Manager is not tenant owner');
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000003') #> '{location,workforce.staff.manage}', 'false'::jsonb, 'B: Employee lacks workforce.staff.manage');
+select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005') #> '{location,workforce.staff.manage}', 'false'::jsonb, 'B: Manager of L2 lacks workforce.staff.manage at L1');
+select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005') #> '{tenant,core.role.manage}', 'false'::jsonb, 'B: Manager of L2 has no tenant-wide core.role.manage');
+select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005') #> '{anyLocation,workforce.recipe.manage}', 'true'::jsonb, 'B: Manager of L2 holds workforce.recipe.manage somewhere in T1');
+select is(
+  pg_temp.batch('a8190000-0000-0000-0000-000000000006'),
+  '{"location": {"workforce.staff.manage": true, "core.weekly_review.view": true, "inventory.item.manage": true},
+    "tenant": {"core.role.manage": true}, "anyLocation": {"workforce.recipe.manage": true}, "isTenantOwner": false}'::jsonb,
+  'B: platform staff -- every permission true, but not tenant owner (no bypass)');
+-- Employee holds workforce.recipe.read at L1 only: true at L1 / anywhere, false tenant-wide
+select is(
+  pg_temp.as_user('a8190000-0000-0000-0000-000000000003', $q$
+    select api.my_access('a8100000-0000-0000-0000-0000000000a1', 'a8110000-0000-0000-0000-000000000001',
+      array['workforce.recipe.read'], array['workforce.recipe.read'], array['workforce.recipe.read'])::text $q$)::jsonb,
+  '{"location": {"workforce.recipe.read": true}, "tenant": {"workforce.recipe.read": false},
+    "anyLocation": {"workforce.recipe.read": true}, "isTenantOwner": false}'::jsonb,
+  'B: Employee location-scoped permission -- true at L1 and anyLocation, false in the tenant group');
 
 -- C: another tenant's user gets only false; empty lists ------------------------------------------
 select is(
@@ -132,6 +160,23 @@ select is(
   pg_temp.as_user('a8190000-0000-0000-0000-000000000001', $q$ select api.my_access('a8100000-0000-0000-0000-0000000000a1')::text $q$)::jsonb,
   '{"location": {}, "tenant": {}, "anyLocation": {}, "isTenantOwner": true}'::jsonb,
   'C: no lists -> empty objects, owner flag still answered');
+select is(
+  pg_temp.as_user('a8190000-0000-0000-0000-000000000001', $q$
+    select api.my_access('a8100000-0000-0000-0000-0000000000a1', null, null, null, null)::text $q$)::jsonb,
+  '{"location": {}, "tenant": {}, "anyLocation": {}, "isTenantOwner": true}'::jsonb,
+  'C: null lists -> empty objects');
+select is(
+  pg_temp.as_user('a8190000-0000-0000-0000-000000000001', $q$
+    select api.my_access('a8100000-0000-0000-0000-0000000000a1', null,
+      array[null, 'core.role.manage', null], array[null]::text[], array[null]::text[])::text $q$)::jsonb,
+  '{"location": {"core.role.manage": true}, "tenant": {}, "anyLocation": {}, "isTenantOwner": true}'::jsonb,
+  'C: null elements are skipped');
+select is(
+  pg_temp.as_user('a8190000-0000-0000-0000-000000000001', $q$
+    select api.my_access(null, null, array['core.role.manage'], array['core.role.manage'], array['core.role.manage'])::text $q$)::jsonb,
+  '{"location": {"core.role.manage": false}, "tenant": {"core.role.manage": false},
+    "anyLocation": {"core.role.manage": false}, "isTenantOwner": false}'::jsonb,
+  'C: null tenant -> all false');
 
 -- D: cap and anon -----------------------------------------------------------------------------
 select ok(
@@ -139,6 +184,14 @@ select ok(
     select api.my_access('a8100000-0000-0000-0000-0000000000a1', null,
       (select array_agg('p' || g) from generate_series(1, 65) g))::text $q$) like 'ERR 22023%',
   'D: 65 entries in a list -> 22023');
+select is(
+  (select count(*)::int from jsonb_object_keys(pg_temp.as_user('a8190000-0000-0000-0000-000000000001', $q$
+    select api.my_access('a8100000-0000-0000-0000-0000000000a1', null,
+      (select array_agg('p' || g) from generate_series(1, 64) g),
+      (select array_agg('p' || g) from generate_series(1, 64) g),
+      (select array_agg('p' || g) from generate_series(1, 64) g))::text $q$)::jsonb -> 'location')),
+  64,
+  'D: 64 entries in every list accepted');
 select is(pg_temp.anon_err($$ select api.my_access('a8100000-0000-0000-0000-0000000000a1') $$), '42501', 'D: anon call refused');
 
 select * from finish();

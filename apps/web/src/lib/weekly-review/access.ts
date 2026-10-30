@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export const WEEKLY_REVIEW_PERMISSION = 'core.weekly_review.view';
+
 /**
  * Server-side gate for the Owner Weekly Review entry point/popup on the
  * Manager dashboard (Cafe v2.2 WP3). `core.weekly_review.view` (migration
@@ -13,8 +15,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Any RPC error (network, config, unexpected shape) fails closed to `false`,
  * never `true`.
  */
-export const WEEKLY_REVIEW_PERMISSION = 'core.weekly_review.view';
-
 export async function hasWeeklyReviewAccess(
   supabase: SupabaseClient,
   tenantId: string,

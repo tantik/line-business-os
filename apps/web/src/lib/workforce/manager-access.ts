@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export const MANAGER_ACCESS_PERMISSION = 'workforce.staff.manage';
+
 /**
  * Server-side gate for the Manager operational surface
  * (`/manager`). `workforce.staff.manage` is the existing
@@ -19,8 +21,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * still enforce their own policies regardless of this result. Any RPC error
  * (network, config, unexpected shape) fails closed to `false`, never `true`.
  */
-export const MANAGER_ACCESS_PERMISSION = 'workforce.staff.manage';
-
 export async function hasManagerAccess(
   supabase: SupabaseClient,
   tenantId: string,

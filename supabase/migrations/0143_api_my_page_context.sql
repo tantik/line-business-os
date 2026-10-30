@@ -19,7 +19,9 @@
 --   employeeInvitations  <- api.my_pending_employee_invitations()
 --   tenantInvitations    <- api.my_pending_tenant_invitations()
 -- Ordering and per-page filtering stay in the app (same mappers/comparators
--- as before).
+-- as before), except the two invitation lists, which the app does not sort:
+-- they are aggregated oldest first explicitly (the SRF's own ORDER BY is not
+-- guaranteed to survive jsonb_agg).
 --
 -- SECURITY MODEL: NOT SECURITY DEFINER (ADR 0008). `anon` gets no grant.
 -- ============================================================================
@@ -51,9 +53,11 @@ as $$
         from api.my_tenant_packages p
        where p.status = 'active'), '[]'::jsonb),
     'employeeInvitations', coalesce((
-      select jsonb_agg(to_jsonb(e)) from api.my_pending_employee_invitations() e), '[]'::jsonb),
+      select jsonb_agg(to_jsonb(e) order by e.created_at, e.invitation_id)
+        from api.my_pending_employee_invitations() e), '[]'::jsonb),
     'tenantInvitations', coalesce((
-      select jsonb_agg(to_jsonb(t)) from api.my_pending_tenant_invitations() t), '[]'::jsonb)
+      select jsonb_agg(to_jsonb(t) order by t.created_at, t.invitation_id)
+        from api.my_pending_tenant_invitations() t), '[]'::jsonb)
   );
 $$;
 

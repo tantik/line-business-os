@@ -119,9 +119,9 @@ export async function setEmployeeManagerRole(
   }
 }
 
-/** Server-side pre-check: does the caller hold `core.role.manage` tenant-wide (Owner/Admin)? Same check the RPC makes; fails closed. */
 export const ROLE_MANAGE_PERMISSION = 'core.role.manage';
 
+/** Server-side pre-check: does the caller hold `core.role.manage` tenant-wide (Owner/Admin)? Same check the RPC makes; fails closed. */
 export async function hasRoleManageAccess(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
   try {
     const { data, error } = await supabase.schema('api').rpc('has_permission', {

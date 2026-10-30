@@ -413,6 +413,8 @@ export async function setInventoryItemAllergens(
   }
 }
 
+export const INVENTORY_MANAGE_PERMISSION = 'inventory.item.manage';
+
 /**
  * Boolean permission check delegating to `api.has_permission` (0019), which
  * forwards to `core.has_permission`. Used to decide whether to render

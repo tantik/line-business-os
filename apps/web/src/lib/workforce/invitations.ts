@@ -97,6 +97,11 @@ export async function getWorkforceEmployeeInvitationById(
   }
 }
 
+/** Rows of `api.my_pending_employee_invitations()` (direct call or `api.my_page_context`) -> unexpired invitations. */
+export function mapMyPendingWorkforceInvitationRows(rows: ApiWorkforceEmployeeInvitationRow[]): WorkforceEmployeeInvitation[] {
+  return rows.map(mapRow).filter((inv) => !inv.isExpired);
+}
+
 /**
  * Self-scoped, any tenant: powers the "you have a pending invitation"
  * banner. Calls `api.my_pending_employee_invitations()` (0069) rather than
@@ -113,11 +118,6 @@ export async function getWorkforceEmployeeInvitationById(
  * unconditionally, so this can never leak another identity's invitation
  * again regardless of what other permissions the caller holds.
  */
-/** Rows of `api.my_pending_employee_invitations()` (direct call or `api.my_page_context`) -> unexpired invitations. */
-export function mapMyPendingWorkforceInvitationRows(rows: ApiWorkforceEmployeeInvitationRow[]): WorkforceEmployeeInvitation[] {
-  return rows.map(mapRow).filter((inv) => !inv.isExpired);
-}
-
 export async function listMyPendingWorkforceInvitations(
   supabase: SupabaseClient,
 ): Promise<TenantAccessResult<WorkforceEmployeeInvitation[]>> {
