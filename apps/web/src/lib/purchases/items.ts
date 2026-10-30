@@ -1,10 +1,10 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { InventoryUnit } from '@/lib/inventory/validation';
 import { mapPurchasesReadError } from './pg-error';
 
 /** Flat row shape returned by `api.purchases_needed` (0089). */
-interface ApiPurchasesNeededRow {
+export interface ApiPurchasesNeededRow {
   item_id: string;
   tenant_id: string;
   location_id: string;
@@ -74,6 +74,15 @@ function compareItems(a: PurchaseNeededItem, b: PurchaseNeededItem): number {
   return a.name.localeCompare(b.name) || a.itemId.localeCompare(b.itemId);
 }
 
+/** Rows of `api.purchases_needed` (direct read or `api.manager_dashboard`) -> shopping list, pending first. */
+export function mapPurchasesNeededRows(rows: ApiPurchasesNeededRow[]): PurchaseNeededItem[] {
+  return rows.map(mapRow).sort(compareItems);
+}
+
+export function mapPurchasesNeededReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapPurchasesReadError(error, 'read purchases items');
+}
+
 /**
  * Read the current shopping list through the app-facing API facade,
  * narrowed to the active tenant and location. `api.purchases_needed` already
@@ -97,11 +106,9 @@ export async function listPurchasesNeeded(
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
 
-    if (error) return mapPurchasesReadError(error, 'read purchases items');
+    if (error) return mapPurchasesNeededReadError(error);
 
-    const items = ((data ?? []) as ApiPurchasesNeededRow[]).map(mapRow);
-    items.sort(compareItems);
-    return { status: 'success', data: items };
+    return { status: 'success', data: mapPurchasesNeededRows((data ?? []) as ApiPurchasesNeededRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

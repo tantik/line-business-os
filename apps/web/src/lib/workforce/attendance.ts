@@ -1,11 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 
 /** Flat row shape returned by `api.workforce_attendance`. */
-interface ApiWorkforceAttendanceRow {
+export interface ApiWorkforceAttendanceRow {
   attendance_id: string;
   tenant_id: string;
   location_id: string;
@@ -104,6 +104,15 @@ export interface ManagerAttendanceFilter {
   attendanceIds?: readonly string[];
 }
 
+/** Rows of `api.workforce_attendance` (Manager read or `api.manager_dashboard`) -> entries by work date, then employee. */
+export function mapManagerAttendanceRows(rows: ApiWorkforceAttendanceRow[]): WorkforceAttendance[] {
+  return rows.map(mapAttendanceRow).sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
+}
+
+export function mapManagerAttendanceReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read attendance');
+}
+
 /** Manager read of attendance (RLS `wf_attendance_manage`, `workforce.attendance.manage`, unchanged -- every employee's rows, not self-scoped). Always pass a filter on hot paths: the unfiltered read grows with the tenant's whole history. */
 export async function listAttendanceForManager(
   supabase: SupabaseClient,
@@ -122,13 +131,9 @@ export async function listAttendanceForManager(
       if (filter.attendanceIds) query = query.in('attendance_id', [...filter.attendanceIds]);
       return query.order('work_date', { ascending: false }).order('attendance_id', { ascending: true }).range(from, to);
     });
-    if (error) return mapWorkforceReadError(error, 'read attendance');
+    if (error) return mapManagerAttendanceReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceAttendanceRow[];
-    const entries = rows
-      .map(mapAttendanceRow)
-      .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
-    return { status: 'success', data: entries };
+    return { status: 'success', data: mapManagerAttendanceRows((data ?? []) as ApiWorkforceAttendanceRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

@@ -2,7 +2,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 
 /** Flat row shape returned by `api.workforce_recipe_categories`. */
-interface ApiWorkforceRecipeCategoryRow {
+export interface ApiWorkforceRecipeCategoryRow {
   category_id: string;
   tenant_id: string;
   label_ja: string;
@@ -20,7 +20,7 @@ export interface WorkforceRecipeCategory {
   isActive: boolean;
 }
 
-function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
+export function mapWorkforceRecipeCategoriesReadError(error: PostgrestError): TenantAccessResult<never> {
   // 42501 = insufficient_privilege; PostgREST also surfaces "permission denied".
   if (error.code === '42501' || /permission denied/i.test(error.message)) {
     return { status: 'unauthorized', message: 'Not permitted to read workforce recipe categories.' };
@@ -33,6 +33,20 @@ function compareCategories(a: WorkforceRecipeCategory, b: WorkforceRecipeCategor
   if (bySort !== 0) return bySort;
 
   return a.labelJa.localeCompare(b.labelJa);
+}
+
+/** Rows of `api.workforce_recipe_categories` (direct read or `api.manager_dashboard`) -> categories in display order. */
+export function mapWorkforceRecipeCategoryRows(rows: ApiWorkforceRecipeCategoryRow[]): WorkforceRecipeCategory[] {
+  const categories = rows.map((row) => ({
+    categoryId: row.category_id,
+    tenantId: row.tenant_id,
+    labelJa: row.label_ja,
+    labelEn: row.label_en,
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+  }));
+  categories.sort(compareCategories);
+  return categories;
 }
 
 /**
@@ -54,20 +68,9 @@ export async function listWorkforceRecipeCategories(
       .select('category_id, tenant_id, label_ja, label_en, sort_order, is_active')
       .eq('tenant_id', tenantId);
 
-    if (error) return mapPostgrestError(error);
+    if (error) return mapWorkforceRecipeCategoriesReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceRecipeCategoryRow[];
-    const categories = rows.map((row) => ({
-      categoryId: row.category_id,
-      tenantId: row.tenant_id,
-      labelJa: row.label_ja,
-      labelEn: row.label_en,
-      sortOrder: row.sort_order,
-      isActive: row.is_active,
-    }));
-
-    categories.sort(compareCategories);
-    return { status: 'success', data: categories };
+    return { status: 'success', data: mapWorkforceRecipeCategoryRows((data ?? []) as ApiWorkforceRecipeCategoryRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { AutoDistributeExistingAssignment, DraftAssignment } from './auto-distribute';
@@ -7,7 +7,7 @@ import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 import { localDateTimeToUtcIso, utcIsoToLocalDateTime } from './timezone';
 
 /** Flat row shape returned by `api.workforce_shift_assignments`. */
-interface ApiWorkforceShiftAssignmentRow {
+export interface ApiWorkforceShiftAssignmentRow {
   assignment_id: string;
   tenant_id: string;
   location_id: string;
@@ -67,6 +67,15 @@ export interface ListShiftAssignmentsOptions {
   toIsoExclusive?: string;
 }
 
+/** Rows of `api.workforce_shift_assignments` (direct read or `api.manager_dashboard`) -> assignments by start, then id. */
+export function mapShiftAssignmentRows(rows: ApiWorkforceShiftAssignmentRow[]): WorkforceShiftAssignment[] {
+  return rows.map(mapAssignmentRow).sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.assignmentId.localeCompare(b.assignmentId));
+}
+
+export function mapShiftAssignmentsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read shift assignments');
+}
+
 /**
  * Read shift assignments through `api.workforce_shift_assignments`. Staff see
  * published rows only, managers see draft + published (RLS, unchanged) --
@@ -85,13 +94,9 @@ export async function listShiftAssignments(
       if (opts.toIsoExclusive) query = query.lt('starts_at', opts.toIsoExclusive);
       return query.order('starts_at', { ascending: true }).order('assignment_id', { ascending: true }).range(from, to);
     });
-    if (error) return mapWorkforceReadError(error, 'read shift assignments');
+    if (error) return mapShiftAssignmentsReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceShiftAssignmentRow[];
-    const assignments = rows
-      .map(mapAssignmentRow)
-      .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.assignmentId.localeCompare(b.assignmentId));
-    return { status: 'success', data: assignments };
+    return { status: 'success', data: mapShiftAssignmentRows((data ?? []) as ApiWorkforceShiftAssignmentRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

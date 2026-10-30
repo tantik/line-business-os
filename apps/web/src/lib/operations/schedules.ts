@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { OperationsWriteResult } from './result-types';
 import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
@@ -17,7 +17,7 @@ import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
 export type OperationsRecurrenceKind = 'daily' | 'weekdays';
 
 /** Flat row shape returned by `api.operations_schedules` (0115). */
-interface ApiOperationsScheduleRow {
+export interface ApiOperationsScheduleRow {
   schedule_id: string;
   tenant_id: string;
   location_id: string;
@@ -73,6 +73,15 @@ function mapScheduleRow(row: ApiOperationsScheduleRow): OperationsSchedule {
 const SCHEDULE_SELECT =
   'schedule_id, tenant_id, location_id, template_id, schedule_group_id, recurrence_kind, weekdays, due_time, window_end_time, effective_from, effective_to, is_active, created_at, updated_at';
 
+/** Rows of `api.operations_schedules` (direct read or `api.manager_dashboard`) -> schedules by effective date. */
+export function mapOperationsScheduleRows(rows: ApiOperationsScheduleRow[]): OperationsSchedule[] {
+  return rows.map(mapScheduleRow).sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || a.scheduleId.localeCompare(b.scheduleId));
+}
+
+export function mapOperationsSchedulesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, 'read Operations schedules');
+}
+
 /**
  * Read every task schedule the caller may see (RLS-scoped: module ON +
  * `operations.task.read`/`operations.template.manage`, tenant/location
@@ -86,13 +95,9 @@ export async function listOperationsSchedules(
 ): Promise<TenantAccessResult<OperationsSchedule[]>> {
   try {
     const { data, error } = await supabase.schema('api').from('operations_schedules').select(SCHEDULE_SELECT).eq('tenant_id', tenantId);
-    if (error) return mapOperationsReadError(error, 'read Operations schedules');
+    if (error) return mapOperationsSchedulesReadError(error);
 
-    const rows = (data ?? []) as ApiOperationsScheduleRow[];
-    const schedules = rows
-      .map(mapScheduleRow)
-      .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom) || a.scheduleId.localeCompare(b.scheduleId));
-    return { status: 'success', data: schedules };
+    return { status: 'success', data: mapOperationsScheduleRows((data ?? []) as ApiOperationsScheduleRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading Operations schedules.' };
   }

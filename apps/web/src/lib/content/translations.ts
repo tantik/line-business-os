@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 
@@ -33,7 +33,7 @@ export type ContentTargetLanguage = 'ja' | 'en';
 export type ContentTranslationStatus = 'machine' | 'reviewed' | 'stale' | 'failed';
 
 /** Flat row shape returned by `api.content_translations`. */
-interface ApiContentTranslationRow {
+export interface ApiContentTranslationRow {
   translation_id: string;
   tenant_id: string;
   source_entity_type: ContentSourceEntityType;
@@ -87,6 +87,19 @@ function mapRow(row: ApiContentTranslationRow): ContentTranslation {
     translatedAt: row.translated_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Rows of `api.content_translations` (direct read or `api.manager_dashboard`) -> translations, DB order. */
+export function mapContentTranslationRows(rows: ApiContentTranslationRow[]): ContentTranslation[] {
+  return rows.map(mapRow);
+}
+
+/** Read-error mapping shared by the translation list reads. */
+export function mapContentTranslationsReadError(error: PostgrestError): TenantAccessResult<never> {
+  if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {
+    return { status: 'unauthorized', message: 'Not permitted to read this content translation.' };
+  }
+  return { status: 'unexpected_error', message: 'Unable to load content translations right now.' };
 }
 
 /** Deterministic hash of a source field's current text, used for staleness comparison. Never trusted as a client-supplied "still fresh" flag -- always recomputed server-side from the actual source text before comparing/storing. */
@@ -218,14 +231,9 @@ export async function listContentTranslationsForField(
       return query.order('translation_id', { ascending: true }).range(from, to);
     });
 
-    if (error) {
-      if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {
-        return { status: 'unauthorized', message: 'Not permitted to read this content translation.' };
-      }
-      return { status: 'unexpected_error', message: 'Unable to load content translations right now.' };
-    }
+    if (error) return mapContentTranslationsReadError(error);
 
-    return { status: 'success', data: (data ?? []).map((row) => mapRow(row as ApiContentTranslationRow)) };
+    return { status: 'success', data: mapContentTranslationRows((data ?? []) as ApiContentTranslationRow[]) };
   } catch {
     return {
       status: 'unexpected_error',

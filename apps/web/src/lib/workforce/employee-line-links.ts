@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { encryptPII, blindIndex, bufferToBytea } from '@line-os/db/crypto';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { WorkforceWriteResult } from './result-types';
@@ -6,7 +6,7 @@ import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 import { readPiiEnv } from './pii-env';
 
 /** Flat row shape returned by `api.workforce_employee_line_links` (0031, read-only, no PII columns). */
-interface ApiWorkforceEmployeeLineLinkRow {
+export interface ApiWorkforceEmployeeLineLinkRow {
   link_id: string;
   tenant_id: string;
   employee_id: string;
@@ -56,6 +56,15 @@ function mapLinkRow(row: ApiWorkforceEmployeeLineLinkRow): WorkforceEmployeeLine
   };
 }
 
+/** Rows of `api.workforce_employee_line_links` (direct read or `api.manager_dashboard`) -> links sorted by employee. */
+export function mapEmployeeLineLinkRows(rows: ApiWorkforceEmployeeLineLinkRow[]): WorkforceEmployeeLineLink[] {
+  return rows.map(mapLinkRow).sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+}
+
+export function mapEmployeeLineLinksReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read LINE bindings');
+}
+
 /** Read LINE binding status per employee through `api.workforce_employee_line_links`. Never returns line_user_id_encrypted/line_user_id_hash -- that column doesn't exist on this view. */
 export async function listEmployeeLineLinks(
   supabase: SupabaseClient,
@@ -68,11 +77,9 @@ export async function listEmployeeLineLinks(
       .select(LINK_SELECT)
       .eq('tenant_id', tenantId);
 
-    if (error) return mapWorkforceReadError(error, 'read LINE bindings');
+    if (error) return mapEmployeeLineLinksReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceEmployeeLineLinkRow[];
-    const links = rows.map(mapLinkRow).sort((a, b) => a.employeeId.localeCompare(b.employeeId));
-    return { status: 'success', data: links };
+    return { status: 'success', data: mapEmployeeLineLinkRows((data ?? []) as ApiWorkforceEmployeeLineLinkRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

@@ -1,11 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { InventoryWriteResult } from './result-types';
 import { mapInventoryReadError, mapInventoryWriteError } from './pg-error';
 import type { InventoryUnit } from './validation';
 
 /** Flat row shape returned by `api.inventory_item_status`. */
-interface ApiInventoryItemStatusRow {
+export interface ApiInventoryItemStatusRow {
   item_id: string;
   tenant_id: string;
   location_id: string;
@@ -65,6 +65,15 @@ function compareItems(a: InventoryItemStatus, b: InventoryItemStatus): number {
   return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name) || a.itemId.localeCompare(b.itemId);
 }
 
+/** Rows of `api.inventory_item_status` (direct read or `api.manager_dashboard`) -> items in catalog order. */
+export function mapInventoryItemStatusRows(rows: ApiInventoryItemStatusRow[]): InventoryItemStatus[] {
+  return rows.map(mapItemStatusRow).sort(compareItems);
+}
+
+export function mapInventoryItemStatusReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapInventoryReadError(error, 'read inventory items');
+}
+
 /**
  * Read current inventory status (catalog + latest count + derived
  * shortage/status) through the app-facing API facade, narrowed to the active
@@ -96,11 +105,9 @@ export async function listInventoryItemStatus(
     if (!options.includeInactive) query = query.eq('is_active', true);
 
     const { data, error } = await query;
-    if (error) return mapInventoryReadError(error, 'read inventory items');
+    if (error) return mapInventoryItemStatusReadError(error);
 
-    const items = ((data ?? []) as ApiInventoryItemStatusRow[]).map(mapItemStatusRow);
-    items.sort(compareItems);
-    return { status: 'success', data: items };
+    return { status: 'success', data: mapInventoryItemStatusRows((data ?? []) as ApiInventoryItemStatusRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

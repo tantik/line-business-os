@@ -6,7 +6,7 @@ import type { WorkforceRecipeCategory } from './recipe-categories';
 import type { UpsertRecipeInput } from './recipe-input';
 
 /** Flat row shape returned by `api.workforce_recipes`. */
-interface ApiWorkforceRecipeRow {
+export interface ApiWorkforceRecipeRow {
   recipe_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -231,6 +231,14 @@ function compareRecipes(a: WorkforceRecipe, b: WorkforceRecipe): number {
   return (a.titleJa ?? a.titleEn ?? '').localeCompare(b.titleJa ?? b.titleEn ?? '') || a.recipeId.localeCompare(b.recipeId);
 }
 
+/** Rows of `api.workforce_recipes` (direct read or `api.manager_dashboard`) -> recipes in list order. */
+export function mapWorkforceRecipeRows(rows: ApiWorkforceRecipeRow[]): WorkforceRecipe[] {
+  return rows.map(mapRecipeRow).sort(compareRecipes);
+}
+
+/** Read-error mapping of the recipe list read (also used for the `api.manager_dashboard` recipes part). */
+export const mapWorkforceRecipesReadError = mapPostgrestError;
+
 /**
  * Read workforce recipes through the app-facing API facade, narrowed to the
  * active tenant.
@@ -253,10 +261,7 @@ export async function listWorkforceRecipes(
 
     if (error) return mapPostgrestError(error);
 
-    const rows = (data ?? []) as ApiWorkforceRecipeRow[];
-    const recipes = rows.map(mapRecipeRow);
-    recipes.sort(compareRecipes);
-    return { status: 'success', data: recipes };
+    return { status: 'success', data: mapWorkforceRecipeRows((data ?? []) as ApiWorkforceRecipeRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',
