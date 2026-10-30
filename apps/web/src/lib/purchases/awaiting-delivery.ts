@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { InventoryUnit } from '@/lib/inventory/validation';
 import { mapPurchasesReadError } from './pg-error';
@@ -109,6 +109,15 @@ export function splitAwaitingDelivery(
   return { openOrderByItemId, awaitingOnly };
 }
 
+/** Rows of `api.purchases_awaiting_delivery` (direct read or `api.manager_dashboard`) -> open orders, oldest first. */
+export function mapPurchasesAwaitingDeliveryRows(rows: ApiPurchasesAwaitingDeliveryRow[]): PurchaseAwaitingDeliveryItem[] {
+  return rows.map(mapAwaitingDeliveryRow).sort(compareAwaiting);
+}
+
+export function mapPurchasesAwaitingDeliveryReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapPurchasesReadError(error, 'read awaiting deliveries');
+}
+
 /**
  * Read the open ("awaiting delivery") orders through the app-facing API
  * facade, narrowed to the active tenant and location. Mirrors
@@ -130,11 +139,9 @@ export async function listPurchasesAwaitingDelivery(
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
 
-    if (error) return mapPurchasesReadError(error, 'read awaiting deliveries');
+    if (error) return mapPurchasesAwaitingDeliveryReadError(error);
 
-    const items = ((data ?? []) as unknown as ApiPurchasesAwaitingDeliveryRow[]).map(mapAwaitingDeliveryRow);
-    items.sort(compareAwaiting);
-    return { status: 'success', data: items };
+    return { status: 'success', data: mapPurchasesAwaitingDeliveryRows((data ?? []) as unknown as ApiPurchasesAwaitingDeliveryRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

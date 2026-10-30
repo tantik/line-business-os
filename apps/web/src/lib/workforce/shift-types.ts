@@ -1,11 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { mapWorkforceReadError } from './pg-error';
 import { mapWorkforceWriteError } from './pg-error';
 import type { WorkforceWriteResult } from './result-types';
 
 /** Flat row shape returned by `api.workforce_shift_types`. */
-interface ApiWorkforceShiftTypeRow {
+export interface ApiWorkforceShiftTypeRow {
   shift_type_id: string;
   tenant_id: string;
   location_id: string;
@@ -106,6 +106,15 @@ function mapShiftTypeRow(row: ApiWorkforceShiftTypeRow): WorkforceShiftType {
   };
 }
 
+/** Rows of `api.workforce_shift_types` (direct read or `api.manager_dashboard`) -> shift types in legend order. */
+export function mapWorkforceShiftTypeRows(rows: ApiWorkforceShiftTypeRow[]): WorkforceShiftType[] {
+  return rows.map(mapShiftTypeRow).sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+}
+
+export function mapShiftTypesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read shift types');
+}
+
 /**
  * Read shift-type templates through `api.workforce_shift_types`. Visible to
  * both `workforce.shift.read` and `workforce.shift.write` holders (RLS,
@@ -122,11 +131,9 @@ export async function listWorkforceShiftTypes(
       .select(SHIFT_TYPE_SELECT)
       .eq('tenant_id', tenantId);
 
-    if (error) return mapWorkforceReadError(error, 'read shift types');
+    if (error) return mapShiftTypesReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceShiftTypeRow[];
-    const shiftTypes = rows.map(mapShiftTypeRow).sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
-    return { status: 'success', data: shiftTypes };
+    return { status: 'success', data: mapWorkforceShiftTypeRows((data ?? []) as ApiWorkforceShiftTypeRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

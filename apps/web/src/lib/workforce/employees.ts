@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { encryptPII, decryptPII, blindIndex, bufferToBytea, byteaToBuffer } from '@line-os/db/crypto';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { WorkforceWriteResult } from './result-types';
@@ -27,7 +27,7 @@ export interface WorkforceStaffDirectoryEntry {
 }
 
 /** Flat row shape returned by `api.workforce_staff_manage`. `name_encrypted` arrives as PostgREST's hex bytea text (`\x...`). */
-interface ApiWorkforceStaffManageRow {
+export interface ApiWorkforceStaffManageRow {
   staff_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -208,6 +208,22 @@ export async function getWorkforceStaffDirectoryEntryById(
   }
 }
 
+/** Read-error mapping of `listWorkforceStaffForManager` (also used for the `api.manager_dashboard` staff part). */
+export function mapStaffListReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read the staff list');
+}
+
+/** Rows of `api.workforce_staff_manage` (direct read or `api.manager_dashboard`) -> decrypted entries, sorted by name. Server-only (decrypts PII). */
+export function mapWorkforceStaffForManagerRows(
+  rows: ApiWorkforceStaffManageRow[],
+  protectedHistoryIds: ReadonlySet<string>,
+  encryptionKey: string,
+): WorkforceStaffManageEntry[] {
+  return rows
+    .map((row) => decryptManageRow(row, encryptionKey, protectedHistoryIds.has(row.staff_id)))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.staffId.localeCompare(b.staffId));
+}
+
 /**
  * Manager-only staff list WITH decrypted names, through `api.workforce_staff_manage`
  * (0031). The view itself never exposes a decrypted name -- `name_encrypted`
@@ -230,14 +246,13 @@ export async function listWorkforceStaffForManager(
       .select(MANAGE_SELECT)
       .eq('tenant_id', tenantId);
 
-    if (error) return mapWorkforceReadError(error, 'read the staff list');
+    if (error) return mapStaffListReadError(error);
 
     const protectedHistoryIds = await getEmployeeIdsWithProtectedHistory(supabase, tenantId);
-    const rows = (data ?? []) as ApiWorkforceStaffManageRow[];
-    const entries = rows
-      .map((row) => decryptManageRow(row, pii.config.encryptionKey, protectedHistoryIds.has(row.staff_id)))
-      .sort((a, b) => a.name.localeCompare(b.name) || a.staffId.localeCompare(b.staffId));
-    return { status: 'success', data: entries };
+    return {
+      status: 'success',
+      data: mapWorkforceStaffForManagerRows((data ?? []) as ApiWorkforceStaffManageRow[], protectedHistoryIds, pii.config.encryptionKey),
+    };
   } catch (err) {
     return {
       status: 'unexpected_error',

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import { listTenantLocations } from '@/lib/tenant/locations';
@@ -8,7 +8,7 @@ import { applyApprovedCorrection } from './attendance';
 import { localDateTimeToUtcIso } from './timezone';
 
 /** Flat row shape returned by `api.workforce_shift_requests`. Never includes `decided_by`/`decided_at` (0030/0031). */
-interface ApiWorkforceShiftRequestRow {
+export interface ApiWorkforceShiftRequestRow {
   request_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -90,6 +90,15 @@ export async function listMyShiftRequests(
   }
 }
 
+/** Rows of `api.workforce_shift_requests` (Manager read or `api.manager_dashboard`) -> requests by work date, then employee. */
+export function mapManagerShiftRequestRows(rows: ApiWorkforceShiftRequestRow[]): WorkforceShiftRequest[] {
+  return rows.map(mapRequestRow).sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
+}
+
+export function mapManagerShiftRequestsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read shift requests');
+}
+
 /** Manager read of shift requests (RLS `wf_shift_requests_write`, `workforce.request.manage`, unchanged -- returns every employee's requests, not self-scoped). */
 export async function listShiftRequestsForManager(
   supabase: SupabaseClient,
@@ -107,13 +116,9 @@ export async function listShiftRequestsForManager(
       if (opts.toDate) query = query.lte('work_date', opts.toDate);
       return query.order('work_date', { ascending: true }).order('request_id', { ascending: true }).range(from, to);
     });
-    if (error) return mapWorkforceReadError(error, 'read shift requests');
+    if (error) return mapManagerShiftRequestsReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceShiftRequestRow[];
-    const requests = rows
-      .map(mapRequestRow)
-      .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.employeeId.localeCompare(b.employeeId));
-    return { status: 'success', data: requests };
+    return { status: 'success', data: mapManagerShiftRequestRows((data ?? []) as ApiWorkforceShiftRequestRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

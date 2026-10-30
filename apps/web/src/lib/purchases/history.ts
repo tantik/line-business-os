@@ -1,11 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { InventoryUnit } from '@/lib/inventory/validation';
 import { mapPurchasesReadError } from './pg-error';
 
 /** Flat row shape returned by `api.purchase_history` (0120). */
-interface ApiPurchaseHistoryRow {
+export interface ApiPurchaseHistoryRow {
   action_id: string;
   tenant_id: string;
   location_id: string;
@@ -50,6 +50,15 @@ function mapRow(row: ApiPurchaseHistoryRow): PurchaseHistoryEntry {
   };
 }
 
+/** Rows of `api.purchase_history` (direct read or `api.manager_dashboard`) -> entries in DB order (newest first). */
+export function mapPurchaseHistoryRows(rows: ApiPurchaseHistoryRow[]): PurchaseHistoryEntry[] {
+  return rows.map(mapRow);
+}
+
+export function mapPurchaseHistoryReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapPurchasesReadError(error, 'read purchase history');
+}
+
 /**
  * Read the full append-only purchase action log through the app-facing API
  * facade, narrowed to the active tenant and location, newest first. Mirrors
@@ -78,10 +87,9 @@ export async function listPurchaseHistory(
         .range(from, to),
     );
 
-    if (error) return mapPurchasesReadError(error, 'read purchase history');
+    if (error) return mapPurchaseHistoryReadError(error);
 
-    const entries = ((data ?? []) as ApiPurchaseHistoryRow[]).map(mapRow);
-    return { status: 'success', data: entries };
+    return { status: 'success', data: mapPurchaseHistoryRows((data ?? []) as ApiPurchaseHistoryRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

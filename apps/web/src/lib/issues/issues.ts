@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { IssuesWriteResult } from './result-types';
@@ -23,7 +23,7 @@ export type IssueReportedByRole = 'staff' | 'manager';
 export type IssueSource = 'manual' | 'operations';
 
 /** Flat row shape shared by `api.issues_open` and `api.issues` (0118) -- the full-history-only columns are `null` when read from `api.issues_open` (that view never selects them). */
-interface ApiIssueRow {
+export interface ApiIssueRow {
   issue_id: string;
   tenant_id: string;
   location_id: string;
@@ -116,6 +116,19 @@ const ISSUE_OPEN_SELECT =
 const ISSUE_FULL_SELECT =
   'issue_id, tenant_id, location_id, kind, category, severity, status, note, business_date, reported_by, reported_by_role, acknowledged_by, acknowledged_at, resolved_by, resolved_at, resolution_note, source, operations_exception_id, created_at, updated_at, reporter_employee_id';
 
+/** Rows of `api.issues_open` / `api.issues` (direct read or `api.manager_dashboard`) -> issues, newest first. */
+export function mapIssueRows(rows: ApiIssueRow[]): Issue[] {
+  return rows.map(mapIssueRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.issueId.localeCompare(b.issueId));
+}
+
+export function mapOpenIssuesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapIssuesReadError(error, 'read open issues');
+}
+
+export function mapIssueHistoryReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapIssuesReadError(error, 'read issue history');
+}
+
 /** Read every currently-open (`open` or `acknowledged`) issue/handover the caller may see, via `api.issues_open` (RLS-scoped: module ON + `issues.report`/`issues.manage`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listOpenOperationsExceptions`. */
 export async function listOpenIssues(supabase: SupabaseClient, tenantId: string): Promise<TenantAccessResult<Issue[]>> {
   try {
@@ -130,10 +143,8 @@ export async function listOpenIssues(supabase: SupabaseClient, tenantId: string)
         .order('issue_id', { ascending: true })
         .range(from, to),
     );
-    if (error) return mapIssuesReadError(error, 'read open issues');
-    const rows = (data ?? []) as ApiIssueRow[];
-    const issues = rows.map(mapIssueRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.issueId.localeCompare(b.issueId));
-    return { status: 'success', data: issues };
+    if (error) return mapOpenIssuesReadError(error);
+    return { status: 'success', data: mapIssueRows((data ?? []) as ApiIssueRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading open issues.' };
   }
@@ -153,10 +164,8 @@ export async function listAllIssues(supabase: SupabaseClient, tenantId: string):
         .order('issue_id', { ascending: true })
         .range(from, to),
     );
-    if (error) return mapIssuesReadError(error, 'read issue history');
-    const rows = (data ?? []) as ApiIssueRow[];
-    const issues = rows.map(mapIssueRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.issueId.localeCompare(b.issueId));
-    return { status: 'success', data: issues };
+    if (error) return mapIssueHistoryReadError(error);
+    return { status: 'success', data: mapIssueRows((data ?? []) as ApiIssueRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading issue history.' };
   }

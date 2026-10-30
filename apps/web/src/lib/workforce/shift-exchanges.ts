@@ -1,10 +1,10 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 
-interface ExchangeRow {
+export interface ExchangeRow {
   exchange_id: string;
   tenant_id: string;
   location_id: string;
@@ -63,6 +63,15 @@ function mapRow(row: ExchangeRow): WorkforceShiftExchange {
   };
 }
 
+/** Rows of `api.workforce_shift_exchanges` (direct read or `api.manager_dashboard`) -> exchanges in DB order (newest first). */
+export function mapShiftExchangeRows(rows: ExchangeRow[]): WorkforceShiftExchange[] {
+  return rows.map(mapRow);
+}
+
+export function mapShiftExchangesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read shift exchanges');
+}
+
 export async function listShiftExchanges(
   supabase: SupabaseClient,
   tenantId: string,
@@ -81,8 +90,8 @@ export async function listShiftExchanges(
         .order('exchange_id', { ascending: true })
         .range(from, to),
     );
-    if (error) return mapWorkforceReadError(error, 'read shift exchanges');
-    return { status: 'success', data: ((data ?? []) as ExchangeRow[]).map(mapRow) };
+    if (error) return mapShiftExchangesReadError(error);
+    return { status: 'success', data: mapShiftExchangeRows((data ?? []) as ExchangeRow[]) };
   } catch (error) {
     return { status: 'unexpected_error', message: error instanceof Error ? error.message : 'Unable to read shift exchanges.' };
   }

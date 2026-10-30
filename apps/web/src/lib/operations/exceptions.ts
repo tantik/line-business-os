@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { OperationsWriteResult } from './result-types';
@@ -26,7 +26,7 @@ export type OperationsExceptionSeverity = 'warning' | 'action_required';
 export type OperationsExceptionSource = 'threshold' | 'reported' | 'critical_missed';
 
 /** Flat row shape returned by `api.operations_open_exceptions` (0101, + schedule_id/business_date in 0116). Only ever `status = 'open'` -- the view has no "resolved" rows, so a resolved exception simply disappears from a subsequent read. */
-interface ApiOperationsOpenExceptionRow {
+export interface ApiOperationsOpenExceptionRow {
   exception_id: string;
   tenant_id: string;
   location_id: string;
@@ -78,6 +78,15 @@ function mapOpenExceptionRow(row: ApiOperationsOpenExceptionRow): OperationsOpen
 const OPEN_EXCEPTION_SELECT =
   'exception_id, tenant_id, location_id, instance_id, schedule_id, business_date, item_id, severity, source, note, created_at, template_name';
 
+/** Rows of `api.operations_open_exceptions` (direct read or `api.manager_dashboard`) -> exceptions, newest first. */
+export function mapOpenOperationsExceptionRows(rows: ApiOperationsOpenExceptionRow[]): OperationsOpenException[] {
+  return rows.map(mapOpenExceptionRow).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.exceptionId.localeCompare(b.exceptionId));
+}
+
+export function mapOpenOperationsExceptionsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, 'read open Operations exceptions');
+}
+
 /** Read every currently-open Operations exception the caller may see (RLS-scoped: module ON + `operations.task.read`/`operations.exception.resolve`, tenant/location isolated). Not scoped to one location -- callers that need only the Manager's own location must filter client-side, same convention as `listExpectedTasks`. */
 export async function listOpenOperationsExceptions(
   supabase: SupabaseClient,
@@ -95,13 +104,9 @@ export async function listOpenOperationsExceptions(
         .order('exception_id', { ascending: true })
         .range(from, to),
     );
-    if (error) return mapOperationsReadError(error, 'read open Operations exceptions');
+    if (error) return mapOpenOperationsExceptionsReadError(error);
 
-    const rows = (data ?? []) as ApiOperationsOpenExceptionRow[];
-    const exceptions = rows
-      .map(mapOpenExceptionRow)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.exceptionId.localeCompare(b.exceptionId));
-    return { status: 'success', data: exceptions };
+    return { status: 'success', data: mapOpenOperationsExceptionRows((data ?? []) as ApiOperationsOpenExceptionRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading open Operations exceptions.' };
   }

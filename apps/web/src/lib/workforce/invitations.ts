@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
@@ -48,6 +48,15 @@ function mapRow(row: ApiWorkforceEmployeeInvitationRow): WorkforceEmployeeInvita
   };
 }
 
+/** Rows of `api.workforce_employee_invitations` (Manager read or `api.manager_dashboard`) -> invitations, DB order. */
+export function mapWorkforceEmployeeInvitationRows(rows: ApiWorkforceEmployeeInvitationRow[]): WorkforceEmployeeInvitation[] {
+  return rows.map(mapRow);
+}
+
+export function mapWorkforceEmployeeInvitationsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read staff invitations');
+}
+
 /** Manager-only: every invitation in the tenant (RLS: wf_employee_invitations_manager_read). */
 export async function listWorkforceEmployeeInvitations(
   supabase: SupabaseClient,
@@ -59,9 +68,8 @@ export async function listWorkforceEmployeeInvitations(
       .from('workforce_employee_invitations')
       .select(SELECT)
       .eq('tenant_id', tenantId);
-    if (error) return mapWorkforceReadError(error, 'read staff invitations');
-    const rows = (data ?? []) as ApiWorkforceEmployeeInvitationRow[];
-    return { status: 'success', data: rows.map(mapRow) };
+    if (error) return mapWorkforceEmployeeInvitationsReadError(error);
+    return { status: 'success', data: mapWorkforceEmployeeInvitationRows((data ?? []) as ApiWorkforceEmployeeInvitationRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading staff invitations.' };
   }

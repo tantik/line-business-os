@@ -17,6 +17,18 @@ const SOURCE = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 // answered by the one batched `api.my_access` call (loadMyAccess).
 const ACCESS_CALL = 'loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {';
 const GATE = 'const managerAccess = access.location(MANAGER_ACCESS_PERMISSION);';
+// DEBT-135: every Manager-only list read is one `api.manager_dashboard` RPC (loadManagerDashboard).
+const DASHBOARD_READ = 'loadManagerDashboard(supabase, activeTenant.tenantId, location.locationId, {';
+const PARTS_DECL = 'const managerParts: ManagerDashboardPart[] = [';
+
+/** Index of a part name inside the `managerParts` list (or a later `managerParts.push(...)`), -1 if never requested. */
+function partIndex(part: string): number {
+  const declIndex = SOURCE.indexOf(PARTS_DECL);
+  const readIndex = SOURCE.indexOf(DASHBOARD_READ);
+  if (declIndex === -1 || readIndex === -1) return -1;
+  const at = SOURCE.slice(declIndex, readIndex).indexOf(`'${part}'`);
+  return at === -1 ? -1 : declIndex + at;
+}
 
 test('WorkforceManagerPage checks workforce.staff.manage at the resolved tenant and location', () => {
   const callIndex = SOURCE.indexOf(ACCESS_CALL);
@@ -32,15 +44,18 @@ test('WorkforceManagerPage checks workforce.staff.manage at the resolved tenant 
 test('WorkforceManagerPage returns UnauthorizedState when the manager check denies, before the Manager-only data fetch', () => {
   const gateIndex = SOURCE.indexOf(GATE);
   const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");
-  const fetchIndex = SOURCE.indexOf('listWorkforceStaffForManager(supabase, activeTenant.tenantId)');
+  const fetchIndex = SOURCE.indexOf(DASHBOARD_READ);
+  const followUpIndex = SOURCE.indexOf('listAttendanceForManager(supabase, activeTenant.tenantId, { attendanceIds');
 
   assert.ok(gateIndex !== -1, 'the manager check must run and its result be held');
   assert.ok(denyIndex !== -1, 'a denied managerAccess must render UnauthorizedState');
-  assert.ok(fetchIndex !== -1, 'the Manager-only staff fetch must still exist');
+  assert.ok(fetchIndex !== -1, 'the Manager-only dashboard read must still exist');
+  assert.ok(partIndex('staff') !== -1, 'the Manager-only staff list must be one of its parts');
   assert.ok(
-    gateIndex < denyIndex && denyIndex < fetchIndex,
-    'the permission check and its denial must both run strictly before any Manager-only Supabase read (listWorkforceStaffForManager and its siblings), so no protected row ever reaches an unauthorized caller\'s RSC payload',
+    gateIndex < denyIndex && denyIndex < fetchIndex && denyIndex < followUpIndex,
+    'the permission check and its denial must both run strictly before any Manager-only Supabase read (the api.manager_dashboard read and the attendance follow-up), so no protected row ever reaches an unauthorized caller\'s RSC payload',
   );
+  assert.ok(!SOURCE.includes('listWorkforceStaffForManager('), 'no separate staff read bypasses the batched read');
 });
 
 test('the manager-access gate runs after location resolution (workforce.staff.manage is location-scoped)', () => {
@@ -78,10 +93,11 @@ test('4B-4b: the 管理者 action is offered only to the Owner, from the batched
 test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {
   const gateIndex = SOURCE.indexOf(GATE);
   const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");
-  const exchangeFetchIndex = SOURCE.indexOf('listShiftExchanges(supabase, activeTenant.tenantId, location.locationId)');
-  assert.ok(exchangeFetchIndex !== -1, 'expected a listShiftExchanges(supabase, activeTenant.tenantId, location.locationId) call in the Manager page');
+  const exchangePartIndex = partIndex('shiftExchanges');
+  assert.ok(exchangePartIndex !== -1, 'expected the shiftExchanges part (location-scoped, api.manager_dashboard) in the Manager page');
   assert.ok(
-    gateIndex < denyIndex && denyIndex < exchangeFetchIndex,
+    gateIndex < denyIndex && denyIndex < exchangePartIndex && denyIndex < SOURCE.indexOf(DASHBOARD_READ),
     'no shift-exchange row (which can include another employee\'s reason text) may reach an unauthorized caller\'s RSC payload',
   );
+  assert.ok(!SOURCE.includes('listShiftExchanges('), 'no separate shift-exchange read bypasses the batched read');
 });

@@ -7,36 +7,19 @@ import { createClient } from '@/lib/supabase/server';
 import { loadPageContext } from '@/lib/tenant/page-context';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
-import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
-import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
-import { listEmployeeLineLinks } from '@/lib/workforce/employee-line-links';
-import { listWorkforceEmployeeInvitations } from '@/lib/workforce/invitations';
-import { listWorkforceShiftTypes } from '@/lib/workforce/shift-types';
-import { getWorkforceScheduleSettings, listRecentAutoScheduleRuns } from '@/lib/workforce/schedule-settings';
-import { listShiftRequestsForManager } from '@/lib/workforce/shift-requests';
-import { listShiftAssignments } from '@/lib/workforce/shift-assignments';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { correctionAttendanceIdsToShow, managerAttendanceLoadRange } from '@/lib/workforce/attendance-month';
-import { listShiftExchanges } from '@/lib/workforce/shift-exchanges';
-import { listStaffMessagesForManager } from '@/lib/workforce/staff-messages';
-import { createInventoryMediaUrlMap, listInventoryItemStatus } from '@/lib/inventory/items';
-import { listPurchasesNeeded } from '@/lib/purchases/items';
-import { listPurchaseHistory } from '@/lib/purchases/history';
-import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
-import { listOperationsTemplateItems, listOperationsTemplates } from '@/lib/operations/templates';
-import { listOperationsSchedules } from '@/lib/operations/schedules';
-import { listExpectedTasks } from '@/lib/operations/tasks';
-import { flagMissedCriticalExceptions, listOpenOperationsExceptions } from '@/lib/operations/exceptions';
-import { listAllIssues, listOpenIssues, withReporterNames } from '@/lib/issues/issues';
+import { createInventoryMediaUrlMap } from '@/lib/inventory/items';
+import { flagMissedCriticalExceptions } from '@/lib/operations/exceptions';
+import { withReporterNames } from '@/lib/issues/issues';
+import { loadManagerDashboard, type ManagerDashboardPart } from '@/lib/manager/dashboard';
 import { loadMyAccess } from '@/lib/auth/my-access';
 import { WEEKLY_REVIEW_PERMISSION } from '@/lib/weekly-review/access';
 import { MANAGER_ACCESS_PERMISSION } from '@/lib/workforce/manager-access';
 import { ROLE_MANAGE_PERMISSION } from '@/lib/workforce/manager-role';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
-import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
-import { createRecipeMediaUrlMap, groupRecipesByCategory, listWorkforceRecipes, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
-import { listContentTranslationsForField } from '@/lib/content/translations';
+import { createRecipeMediaUrlMap, groupRecipesByCategory, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
 import {
   ErrorState,
@@ -261,136 +244,112 @@ export default async function WorkforceManagerPage({
       // time a Manager evaluates Operations. Idempotent; best-effort -- a
       // failure here must never break the dashboard (the transient
       // `isOverdueCritical` projection flag still covers the state), and it
-      // must run BEFORE `listOpenOperationsExceptions` below so the feed
+      // must run BEFORE the dashboard read below (its `operationsOpenExceptions`
+      // part) so the feed
       // reflects it on this same load.
       if (operationsEnabled) {
         await flagMissedCriticalExceptions(supabase, activeTenant.tenantId);
       }
 
-      const [
-        staffResult,
-        lineLinksResult,
-        shiftTypesResult,
-        requestsResult,
-        assignmentsResult,
-        correctionRequestsResult,
-        attendanceResult,
-        invitationsResult,
-        shiftExchangesResult,
-        exchangeAssignmentsResult,
-        staffMessagesResult,
-        inventoryItemsResult,
-        purchasesItemsResult,
-        purchaseHistoryResult,
-        purchasesAwaitingResult,
-        recipeCategoriesResult,
-        recipesResult,
-        scheduleSettingsResult,
-        recipeTitleTranslationsResult,
-        myProfileResult,
-        operationsTemplatesResult,
-        operationsItemsResult,
-        operationsSchedulesResult,
-        operationsTodayTasksResult,
-        operationsOpenExceptionsResult,
-        issuesOpenResult,
-        issuesAllResult,
-        autoScheduleRunsResult,
-      ] = await Promise.all([
-        listWorkforceStaffForManager(supabase, activeTenant.tenantId),
-        listEmployeeLineLinks(supabase, activeTenant.tenantId),
-        listWorkforceShiftTypes(supabase, activeTenant.tenantId),
-        listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'preference', fromDate: exchangeWindow.periodStart }),
-        listShiftAssignments(supabase, activeTenant.tenantId, { fromIso, toIsoExclusive }),
-        listShiftRequestsForManager(supabase, activeTenant.tenantId, { kind: 'correction' }),
-        listAttendanceForManager(supabase, activeTenant.tenantId, attendanceRange),
-        listWorkforceEmployeeInvitations(supabase, activeTenant.tenantId),
-        listShiftExchanges(supabase, activeTenant.tenantId, location.locationId),
-        listShiftAssignments(supabase, activeTenant.tenantId, { fromIso: exchangeFromIso, toIsoExclusive: exchangeToIsoExclusive }),
+      // DEBT-135: every read-only list this dashboard needs comes from ONE
+      // `api.manager_dashboard` RPC (0144) instead of ~32 PostgREST requests.
+      // Each part is the same read the named lib function made (same view,
+      // filters, order and row cap -- pgTAP 0083) mapped by that function's
+      // own mappers, so each `*Result` below is the value the lib function
+      // would have returned (`loadManagerDashboard` lists them). Module-gated
+      // parts are only requested when the module is enabled, and stay `null`
+      // otherwise, as before.
+      const managerParts: ManagerDashboardPart[] = [
+        'staff',
+        'lineLinks',
+        'shiftTypes',
+        'preferenceRequests',
+        'assignments',
+        'correctionRequests',
+        'attendance',
+        'invitations',
+        'shiftExchanges',
+        'exchangeAssignments',
         // Staff<->Manager Mail (0090) -- every non-deleted employee thread's
         // messages, tenant-scoped (RLS `wf_staff_messages_manage_select`
         // narrows this to the caller's manage-permission location). Also the
         // exact data the Mail popup renders below (no separate fetch).
-        listStaffMessagesForManager(supabase, activeTenant.tenantId),
-        // Read-only, for the Manager Attention layer's shortage count
-        // (Mission 2) -- the actual Inventory catalog/count-entry UI is not
-        // duplicated here; it stays on its own canonical `/dashboard/inventory`
-        // page (shared Staff+Manager, RLS-scoped), which the Attention item
-        // links to. Mirrors the identical fetch already on the Staff page.
-        // `includeInactive: true` -- this is the Manager's own catalog view
-        // (the Inventory popup's "Deactivated" tab), which needs to be able
-        // to find and reactivate a deactivated item, not just the daily
-        // count view the Staff page's identical fetch stays scoped to
-        // (`includeInactive` defaults false there, correctly).
-        inventoryEnabled
-          ? listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId, { includeInactive: true })
-          : Promise.resolve(null),
-        // Purchases' entire read surface -- also the exact data the
-        // Manager's Purchases popup below renders (no separate fetch).
-        // Gated on the `purchases` module (0131; it depends on `inventory`).
-        purchasesEnabled
-          ? listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Purchases' History tab read surface (0120) -- same
-        // tenant/location scope as `purchasesItemsResult` above, also the
-        // exact data the Manager's Purchases popup's History tab renders.
-        purchasesEnabled
-          ? listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
-        // Purchases' 「入荷待ち」 (awaiting delivery, 0137) read surface --
-        // open orders, same tenant/location scope, rendered by the same popup.
-        purchasesEnabled
-          ? listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId)
-          : Promise.resolve(null),
+        'staffMessages',
         // Recipes list for the Manager Recipes popup (WP A5b) -- same reads
         // `/recipes/page.tsx` itself makes; recipe detail (ingredients/
         // steps/notes/translations) is fetched lazily, client-side, only
-        // once the caller actually opens a specific recipe.
-        listWorkforceRecipeCategories(supabase, activeTenant.tenantId),
-        listWorkforceRecipes(supabase, activeTenant.tenantId),
+        // once the caller actually opens a specific recipe. The title
+        // translations are only *used* below when the recipe list succeeded.
+        'recipeCategories',
+        'recipes',
+        'recipeTitleTranslations',
         // Settings section (WP A8) -- per-weekday staffing requirements + max
-        // monthly hours. Already had full schema/read/write support
-        // (schedule-settings.ts); no migration needed.
-        getWorkforceScheduleSettings(supabase, activeTenant.tenantId, location.locationId),
-        // Week-navigation performance (Founder Review Round 2, 2026-08-22):
-        // this used to be a separate `await` AFTER the batch above, gated on
-        // `recipesResult.status === 'success'` -- but it only ever needs
-        // `tenantId`/entity-type/field (see `listContentTranslationsForField`),
-        // never the resolved recipe list itself, so there was never a real
-        // ordering dependency -- just an unnecessary extra sequential round
-        // trip on every request. Its result is still only *used* below when
-        // `recipesResult` succeeded, same as before.
-        listContentTranslationsForField(supabase, activeTenant.tenantId, 'workforce_recipe', 'title'),
+        // monthly hours, and the scheduled monthly auto-create run log
+        // (DEBT-074): latest rows for this location; the automation block
+        // shows up to 3 after dropping problems superseded by a generated run.
+        'scheduleSettings',
+        'autoScheduleRuns',
         // The caller's own employee profile, for the header account menu's
-        // name/position -- same `getMyWorkforceStaffProfile` Staff's page
-        // uses. `staffResult` above already carries every employee's
-        // decrypted `name` (Manager-level roster read), so no second
-        // roster fetch is needed here -- just match this profile's
-        // `staffId` against `staffResult.data` below.
-        getMyWorkforceStaffProfile(supabase, activeTenant.tenantId),
-        // Operations popup's entire read surface (Cafe v2.2 WP1, all
-        // Manager-facing UI slices) -- also the exact data
-        // `OperationsManagerPopup` renders (no separate fetch), same
-        // consolidated-Promise.all pattern every other domain on this page
-        // already follows (avoids reintroducing the sequential-round-trip
-        // perf problem `/operations/page.tsx`'s own recent fix addressed).
-        operationsEnabled ? listOperationsTemplates(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        operationsEnabled ? listOperationsTemplateItems(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        operationsEnabled ? listOperationsSchedules(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        operationsEnabled ? listExpectedTasks(supabase, activeTenant.tenantId, managerToday) : Promise.resolve(null),
-        operationsEnabled ? listOpenOperationsExceptions(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        // Issues & Handover popup's entire read surface (Cafe v2.2 WP2,
-        // Manager frontend slice) -- also the exact data
-        // `IssuesManagerPopup` renders (no separate fetch), same
-        // consolidated-Promise.all pattern every other domain on this page
-        // already follows.
-        issuesEnabled ? listOpenIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        issuesEnabled ? listAllIssues(supabase, activeTenant.tenantId) : Promise.resolve(null),
-        // Scheduled monthly auto-create run log (DEBT-074) -- latest rows
-        // for this location; the Settings section's automation block shows
-        // up to 3 after dropping problems superseded by a generated run.
-        listRecentAutoScheduleRuns(supabase, activeTenant.tenantId, location.locationId),
-      ]);
+        // name/position -- same read Staff's page uses. `staffResult` already
+        // carries every employee's decrypted `name` (Manager-level roster
+        // read), so its `staffId` is matched against `staffResult.data` below.
+        'myProfile',
+      ];
+      // Read-only Inventory catalog for the Attention shortage count and the
+      // Inventory popup, `includeInactive: true` (the popup's "Deactivated"
+      // tab must find and reactivate a deactivated item; the Staff page's
+      // daily count view stays active-only).
+      if (inventoryEnabled) managerParts.push('inventoryItems');
+      // Purchases' read surface (shopping list, History tab 0120,
+      // 「入荷待ち」 awaiting delivery 0137) -- the exact data the Purchases
+      // popup renders. Gated on the `purchases` module (0131).
+      if (purchasesEnabled) managerParts.push('purchasesNeeded', 'purchaseHistory', 'purchasesAwaiting');
+      // Operations popup's entire read surface (Cafe v2.2 WP1).
+      if (operationsEnabled) {
+        managerParts.push('operationsTemplates', 'operationsItems', 'operationsSchedules', 'operationsTodayTasks', 'operationsOpenExceptions');
+      }
+      // Issues & Handover popup's entire read surface (Cafe v2.2 WP2).
+      if (issuesEnabled) managerParts.push('issuesOpen', 'issuesAll');
+
+      const dashboard = await loadManagerDashboard(supabase, activeTenant.tenantId, location.locationId, {
+        parts: managerParts,
+        preferenceFromDate: exchangeWindow.periodStart,
+        fromIso,
+        toIsoExclusive,
+        exchangeFromIso,
+        exchangeToIsoExclusive,
+        attendanceFromDate: attendanceRange.fromDate,
+        attendanceToDate: attendanceRange.toDate,
+        today: managerToday,
+      });
+      const staffResult = dashboard.staff;
+      const lineLinksResult = dashboard.lineLinks;
+      const shiftTypesResult = dashboard.shiftTypes;
+      const requestsResult = dashboard.preferenceRequests;
+      const assignmentsResult = dashboard.assignments;
+      const correctionRequestsResult = dashboard.correctionRequests;
+      const attendanceResult = dashboard.attendance;
+      const invitationsResult = dashboard.invitations;
+      const shiftExchangesResult = dashboard.shiftExchanges;
+      const exchangeAssignmentsResult = dashboard.exchangeAssignments;
+      const staffMessagesResult = dashboard.staffMessages;
+      const inventoryItemsResult = inventoryEnabled ? dashboard.inventoryItems : null;
+      const purchasesItemsResult = purchasesEnabled ? dashboard.purchasesNeeded : null;
+      const purchaseHistoryResult = purchasesEnabled ? dashboard.purchaseHistory : null;
+      const purchasesAwaitingResult = purchasesEnabled ? dashboard.purchasesAwaiting : null;
+      const recipeCategoriesResult = dashboard.recipeCategories;
+      const recipesResult = dashboard.recipes;
+      const scheduleSettingsResult = dashboard.scheduleSettings;
+      const recipeTitleTranslationsResult = dashboard.recipeTitleTranslations;
+      const myProfileResult = dashboard.myProfile;
+      const operationsTemplatesResult = operationsEnabled ? dashboard.operationsTemplates : null;
+      const operationsItemsResult = operationsEnabled ? dashboard.operationsItems : null;
+      const operationsSchedulesResult = operationsEnabled ? dashboard.operationsSchedules : null;
+      const operationsTodayTasksResult = operationsEnabled ? dashboard.operationsTodayTasks : null;
+      const operationsOpenExceptionsResult = operationsEnabled ? dashboard.operationsOpenExceptions : null;
+      const issuesOpenResult = issuesEnabled ? dashboard.issuesOpen : null;
+      const issuesAllResult = issuesEnabled ? dashboard.issuesAll : null;
+      const autoScheduleRunsResult = dashboard.autoScheduleRuns;
 
       // The corrections popup shows each request's current attendance row
       // (looked up by id). A pending request -- or one of the 50 most
@@ -415,7 +374,7 @@ export default async function WorkforceManagerPage({
       // Title-only translation lookup, same as `/recipes/page.tsx` -- bounded
       // to one field across every recipe rather than loading each recipe's
       // full content just to show a list row. (`recipeTitleTranslationsResult`
-      // is now fetched inside the main Promise.all batch above -- only
+      // is fetched in the dashboard batch above -- only
       // *used* here when `recipesResult` succeeded, same gating as before.)
       const recipeTitleTranslations =
         recipesResult.status === 'success' && recipeTitleTranslationsResult.status === 'success' ? recipeTitleTranslationsResult.data : [];

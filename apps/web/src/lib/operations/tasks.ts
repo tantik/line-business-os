@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { OperationsWriteResult } from './result-types';
 import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
@@ -23,7 +23,7 @@ export type OperationsInstanceStatus = 'in_progress' | 'completed';
 export type OperationsTaskState = 'not_started' | 'in_progress' | 'overdue' | 'completed';
 
 /** Flat row shape returned by `api.operations_expected_tasks` (0101). */
-interface ApiOperationsExpectedTaskRow {
+export interface ApiOperationsExpectedTaskRow {
   schedule_id: string;
   schedule_group_id: string | null;
   tenant_id: string;
@@ -85,6 +85,15 @@ function mapExpectedTaskRow(row: ApiOperationsExpectedTaskRow): OperationsExpect
   };
 }
 
+/** Rows of `api.operations_expected_tasks` (direct call or `api.manager_dashboard`) -> this tenant's tasks, DB order. */
+export function mapExpectedTaskRows(rows: ApiOperationsExpectedTaskRow[], tenantId: string): OperationsExpectedTask[] {
+  return rows.filter((row) => row.tenant_id === tenantId).map(mapExpectedTaskRow);
+}
+
+export function mapExpectedTasksReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, "read today's Operations tasks");
+}
+
 /**
  * Read every Operations task expected on `date` the caller may see
  * (RLS-scoped via `operations.task_schedules`: module ON +
@@ -101,11 +110,9 @@ export async function listExpectedTasks(
 ): Promise<TenantAccessResult<OperationsExpectedTask[]>> {
   try {
     const { data, error } = await supabase.schema('api').rpc('operations_expected_tasks', { p_start: date, p_end: date });
-    if (error) return mapOperationsReadError(error, "read today's Operations tasks");
+    if (error) return mapExpectedTasksReadError(error);
 
-    const rows = (data ?? []) as ApiOperationsExpectedTaskRow[];
-    const tasks = rows.filter((row) => row.tenant_id === tenantId).map(mapExpectedTaskRow);
-    return { status: 'success', data: tasks };
+    return { status: 'success', data: mapExpectedTaskRows((data ?? []) as ApiOperationsExpectedTaskRow[], tenantId) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : "Unexpected error reading today's Operations tasks." };
   }

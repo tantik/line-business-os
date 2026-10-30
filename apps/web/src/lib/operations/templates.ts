@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { OperationsWriteResult } from './result-types';
 import { mapOperationsReadError, mapOperationsWriteError } from './pg-error';
@@ -16,7 +16,7 @@ import type { OperationsResponseType } from './validation';
  */
 
 /** Flat row shape returned by `api.operations_templates` (0100). NOTE: the view does not expose `retired_on` (only the base `operations.checklist_templates` table column added by 0104 does) -- `isActive` is the only client-visible retirement signal in this slice. This is a documented view/brief discrepancy, not a bug in this code; the atomic `api.operations_retire_template` RPC guarantees `is_active=false` iff retired, so `isActive` alone is a reliable active/retired split even without the exact `retired_on` date. */
-interface ApiOperationsTemplateRow {
+export interface ApiOperationsTemplateRow {
   template_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -56,6 +56,15 @@ function mapTemplateRow(row: ApiOperationsTemplateRow): OperationsTemplate {
 
 const TEMPLATE_SELECT = 'template_id, tenant_id, location_id, name, category, description, is_active, created_at, updated_at';
 
+/** Rows of `api.operations_templates` (direct read or `api.manager_dashboard`) -> templates by name. */
+export function mapOperationsTemplateRows(rows: ApiOperationsTemplateRow[]): OperationsTemplate[] {
+  return rows.map(mapTemplateRow).sort((a, b) => a.name.localeCompare(b.name) || a.templateId.localeCompare(b.templateId));
+}
+
+export function mapOperationsTemplatesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, 'read Operations templates');
+}
+
 /** Read every operational checklist template the caller may see (RLS-scoped: module ON + `operations.task.read`/`operations.template.manage`, tenant/location isolated). */
 export async function listOperationsTemplates(
   supabase: SupabaseClient,
@@ -63,18 +72,16 @@ export async function listOperationsTemplates(
 ): Promise<TenantAccessResult<OperationsTemplate[]>> {
   try {
     const { data, error } = await supabase.schema('api').from('operations_templates').select(TEMPLATE_SELECT).eq('tenant_id', tenantId);
-    if (error) return mapOperationsReadError(error, 'read Operations templates');
+    if (error) return mapOperationsTemplatesReadError(error);
 
-    const rows = (data ?? []) as ApiOperationsTemplateRow[];
-    const templates = rows.map(mapTemplateRow).sort((a, b) => a.name.localeCompare(b.name) || a.templateId.localeCompare(b.templateId));
-    return { status: 'success', data: templates };
+    return { status: 'success', data: mapOperationsTemplateRows((data ?? []) as ApiOperationsTemplateRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading Operations templates.' };
   }
 }
 
 /** Flat row shape returned by `api.operations_template_items` (0100). */
-interface ApiOperationsTemplateItemRow {
+export interface ApiOperationsTemplateItemRow {
   item_id: string;
   tenant_id: string;
   template_id: string;
@@ -130,6 +137,15 @@ function mapItemRow(row: ApiOperationsTemplateItemRow): OperationsTemplateItem {
 const ITEM_SELECT =
   'item_id, tenant_id, template_id, label, response_type, is_critical, is_required, is_active, numeric_min, numeric_max, numeric_unit, sort_order, created_at, updated_at';
 
+/** Rows of `api.operations_template_items` (direct read or `api.manager_dashboard`) -> items by sort order. */
+export function mapOperationsTemplateItemRows(rows: ApiOperationsTemplateItemRow[]): OperationsTemplateItem[] {
+  return rows.map(mapItemRow).sort((a, b) => a.sortOrder - b.sortOrder || a.itemId.localeCompare(b.itemId));
+}
+
+export function mapOperationsTemplateItemsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, 'read Operations checklist items');
+}
+
 /** Read every checklist item for templates the caller may see (visibility mirrors `listOperationsTemplates` via RLS). Not scoped to one template -- the caller groups by `templateId` client-side, same shape as this slice's template list. */
 export async function listOperationsTemplateItems(
   supabase: SupabaseClient,
@@ -137,11 +153,9 @@ export async function listOperationsTemplateItems(
 ): Promise<TenantAccessResult<OperationsTemplateItem[]>> {
   try {
     const { data, error } = await supabase.schema('api').from('operations_template_items').select(ITEM_SELECT).eq('tenant_id', tenantId);
-    if (error) return mapOperationsReadError(error, 'read Operations checklist items');
+    if (error) return mapOperationsTemplateItemsReadError(error);
 
-    const rows = (data ?? []) as ApiOperationsTemplateItemRow[];
-    const items = rows.map(mapItemRow).sort((a, b) => a.sortOrder - b.sortOrder || a.itemId.localeCompare(b.itemId));
-    return { status: 'success', data: items };
+    return { status: 'success', data: mapOperationsTemplateItemRows((data ?? []) as ApiOperationsTemplateItemRow[]) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading Operations checklist items.' };
   }

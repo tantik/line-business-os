@@ -1,5 +1,6 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { maybeSingleTooManyRowsError } from '@/lib/db/maybe-single';
 
 /** DB defaults of `workforce.schedule_settings.max_weekly_hours` / `max_days_per_week` (migration 0126). Also used when a location has no settings row yet, so the weekly labour limits are never silently off. */
 export const DEFAULT_MAX_WEEKLY_HOURS = 40;
@@ -22,11 +23,52 @@ export interface WorkforceScheduleSettings {
   autoCreateLastGeneratedMonth: string | null;
 }
 
-function mapError(error: PostgrestError): TenantAccessResult<never> {
+/** Read/write-error mapping of the schedule-settings and auto-schedule-run reads (also used for their `api.manager_dashboard` parts). */
+export function mapScheduleSettingsError(error: PostgrestError): TenantAccessResult<never> {
   if (error.code === '42501' || /permission denied|row-level security/i.test(error.message)) {
     return { status: 'unauthorized', message: 'Not permitted to access schedule settings.' };
   }
   return { status: 'unexpected_error', message: error.message };
+}
+const mapError = mapScheduleSettingsError;
+
+/** Flat row shape returned by `api.workforce_schedule_settings`. */
+export interface ApiWorkforceScheduleSettingsRow {
+  tenant_id: string;
+  location_id: string;
+  required_headcount_by_weekday: number[];
+  max_monthly_hours: number;
+  max_weekly_hours: number;
+  max_days_per_week: number;
+  auto_create_day_of_month: number;
+  auto_create_enabled: boolean;
+  auto_create_last_generated_month: string | null;
+}
+
+function mapScheduleSettingsRow(data: ApiWorkforceScheduleSettingsRow): WorkforceScheduleSettings {
+  return {
+    tenantId: data.tenant_id as string,
+    locationId: data.location_id as string,
+    requiredHeadcountByWeekday: data.required_headcount_by_weekday as number[],
+    maxMonthlyHours: data.max_monthly_hours as number,
+    maxWeeklyHours: data.max_weekly_hours as number,
+    maxDaysPerWeek: data.max_days_per_week as number,
+    autoCreateDayOfMonth: data.auto_create_day_of_month as number,
+    autoCreateEnabled: data.auto_create_enabled as boolean,
+    autoCreateLastGeneratedMonth: (data.auto_create_last_generated_month as string | null) ?? null,
+  };
+}
+
+/**
+ * Rows of `api.workforce_schedule_settings` for one location, as returned by
+ * `api.manager_dashboard` (at most 2) -> the same outcome as the
+ * `.maybeSingle()` read: none -> `null`, one -> mapped, more than one -> the
+ * PGRST116 error postgrest-js raises for `maybeSingle`.
+ */
+export function mapWorkforceScheduleSettingsRows(rows: ApiWorkforceScheduleSettingsRow[]): TenantAccessResult<WorkforceScheduleSettings | null> {
+  if (rows.length > 1) return mapError(maybeSingleTooManyRowsError(rows.length));
+  const row = rows[0];
+  return { status: 'success', data: row ? mapScheduleSettingsRow(row) : null };
 }
 
 export async function getWorkforceScheduleSettings(
@@ -45,20 +87,7 @@ export async function getWorkforceScheduleSettings(
     .maybeSingle();
   if (error) return mapError(error);
   if (!data) return { status: 'success', data: null };
-  return {
-    status: 'success',
-    data: {
-      tenantId: data.tenant_id as string,
-      locationId: data.location_id as string,
-      requiredHeadcountByWeekday: data.required_headcount_by_weekday as number[],
-      maxMonthlyHours: data.max_monthly_hours as number,
-      maxWeeklyHours: data.max_weekly_hours as number,
-      maxDaysPerWeek: data.max_days_per_week as number,
-      autoCreateDayOfMonth: data.auto_create_day_of_month as number,
-      autoCreateEnabled: data.auto_create_enabled as boolean,
-      autoCreateLastGeneratedMonth: (data.auto_create_last_generated_month as string | null) ?? null,
-    },
-  };
+  return { status: 'success', data: mapScheduleSettingsRow(data as ApiWorkforceScheduleSettingsRow) };
 }
 
 export type AutoScheduleRunOutcome = 'generated' | 'config_error' | 'failed';
@@ -100,19 +129,33 @@ export async function listRecentAutoScheduleRuns(
     .order('last_seen_at', { ascending: false })
     .limit(limit);
   if (error) return mapError(error);
-  return {
-    status: 'success',
-    data: (data ?? []).map((row) => ({
-      runId: row.run_id as string,
-      targetMonth: row.target_month as string,
-      outcome: row.outcome as AutoScheduleRunOutcome,
-      createdCount: row.created_count as number,
-      shortageCount: row.shortage_count as number,
-      errorCode: (row.error_code as string | null) ?? null,
-      attemptCount: row.attempt_count as number,
-      lastSeenAt: row.last_seen_at as string,
-    })),
-  };
+  return { status: 'success', data: mapAutoScheduleRunRows((data ?? []) as ApiAutoScheduleRunRow[]) };
+}
+
+/** Flat row shape returned by `api.workforce_auto_schedule_runs` (selected columns). */
+export interface ApiAutoScheduleRunRow {
+  run_id: string;
+  target_month: string;
+  outcome: string;
+  created_count: number;
+  shortage_count: number;
+  error_code: string | null;
+  attempt_count: number;
+  last_seen_at: string;
+}
+
+/** Rows of `api.workforce_auto_schedule_runs` (direct read or `api.manager_dashboard`) -> runs, in DB order (newest first). */
+export function mapAutoScheduleRunRows(rows: ApiAutoScheduleRunRow[]): AutoScheduleRun[] {
+  return rows.map((row) => ({
+    runId: row.run_id as string,
+    targetMonth: row.target_month as string,
+    outcome: row.outcome as AutoScheduleRunOutcome,
+    createdCount: row.created_count as number,
+    shortageCount: row.shortage_count as number,
+    errorCode: (row.error_code as string | null) ?? null,
+    attemptCount: row.attempt_count as number,
+    lastSeenAt: row.last_seen_at as string,
+  }));
 }
 
 /**

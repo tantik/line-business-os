@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { fetchAllRows } from '@/lib/db/fetch-all-rows';
 import type { WorkforceWriteResult } from './result-types';
@@ -13,7 +13,7 @@ import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
  */
 
 /** Flat row shape returned by `api.workforce_staff_messages`. */
-interface ApiWorkforceStaffMessageRow {
+export interface ApiWorkforceStaffMessageRow {
   message_id: string;
   tenant_id: string;
   location_id: string;
@@ -105,6 +105,15 @@ export async function listMyStaffMessages(
   }
 }
 
+/** Rows of `api.workforce_staff_messages` (Manager read or `api.manager_dashboard`) -> messages, oldest first. */
+export function mapManagerStaffMessageRows(rows: ApiWorkforceStaffMessageRow[]): WorkforceStaffMessage[] {
+  return rows.map(mapMessageRow).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function mapManagerStaffMessagesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read staff messages');
+}
+
 /** Manager read of every employee's thread at this tenant (RLS `wf_staff_messages_manage_select`, `workforce.attendance.manage` -- location scoping is enforced by that same RLS policy). */
 export async function listStaffMessagesForManager(
   supabase: SupabaseClient,
@@ -123,11 +132,9 @@ export async function listStaffMessagesForManager(
         .range(from, to),
     );
 
-    if (error) return mapWorkforceReadError(error, 'read staff messages');
+    if (error) return mapManagerStaffMessagesReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceStaffMessageRow[];
-    const messages = rows.map(mapMessageRow).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    return { status: 'success', data: messages };
+    return { status: 'success', data: mapManagerStaffMessageRows((data ?? []) as ApiWorkforceStaffMessageRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

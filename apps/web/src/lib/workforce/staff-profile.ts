@@ -1,8 +1,9 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
+import { maybeSingleTooManyRowsError } from '@/lib/db/maybe-single';
 
 /** Flat row shape returned by `api.workforce_my_staff_profile`. */
-interface ApiWorkforceMyStaffProfileRow {
+export interface ApiWorkforceMyStaffProfileRow {
   staff_id: string;
   tenant_id: string;
   location_id: string | null;
@@ -27,12 +28,24 @@ export interface WorkforceMyStaffProfile {
 const MY_STAFF_PROFILE_SELECT =
   'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at, hourly_wage_yen';
 
-function mapPostgrestError(error: PostgrestError): TenantAccessResult<never> {
+export function mapMyWorkforceStaffProfileReadError(error: PostgrestError): TenantAccessResult<never> {
   // 42501 = insufficient_privilege; PostgREST also surfaces "permission denied".
   if (error.code === '42501' || /permission denied/i.test(error.message)) {
     return { status: 'unauthorized', message: 'Not permitted to read your workforce staff profile.' };
   }
   return { status: 'unexpected_error', message: error.message };
+}
+const mapPostgrestError = mapMyWorkforceStaffProfileReadError;
+
+/**
+ * Rows of `api.workforce_my_staff_profile` for one tenant, as returned by
+ * `api.manager_dashboard` (at most 2) -> the same outcome as the
+ * `.maybeSingle()` read: none -> `null`, one -> mapped, more -> PGRST116.
+ */
+export function mapMyWorkforceStaffProfileRows(rows: ApiWorkforceMyStaffProfileRow[]): TenantAccessResult<WorkforceMyStaffProfile | null> {
+  if (rows.length > 1) return mapPostgrestError(maybeSingleTooManyRowsError(rows.length));
+  const row = rows[0];
+  return { status: 'success', data: row ? mapProfileRow(row) : null };
 }
 
 function mapProfileRow(row: ApiWorkforceMyStaffProfileRow): WorkforceMyStaffProfile {
