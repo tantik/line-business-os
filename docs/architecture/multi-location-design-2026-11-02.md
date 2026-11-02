@@ -1,6 +1,6 @@
 # DEBT-139 — Several locations per client: design (2026-11-02)
 
-Status: **design, Founder decisions F1–F5 open**. Debt entry:
+Status: **design approved, Founder decisions F1–F5 answered 2026-11-02 (§5)**. Debt entry:
 `docs/operations/deferred-debt-register.md` DEBT-139 (also closes / absorbs
 DEBT-091 a-rest, DEBT-120 d, DEBT-129 "two locations").
 
@@ -144,14 +144,18 @@ only on request.
 
 Total ≈ 2 weeks with reviews, as estimated in DEBT-139.
 
-## 5. Founder decisions (F)
+## 5. Founder decisions (F) — answered 2026-11-02
 
-- **F1** Who may add a store: Owner in the cabinet **and** ORUWA in the
-  console (recommended), or console only (sales-controlled)?
-- **F2** Tier S / M: per store by that store's staff count (recommended,
-  matches "per location" pricing), or one tier for the whole client?
-- **F3** May one person work at two stores in v1? Recommended: no — one home
-  store, moving allowed; "help shifts" later.
-- **F4** Store limit per plan: e.g. 飲食店プラン up to 3 stores self-service,
-  more via sales — or no limit?
-- **F5** LINE: one Official Account per client (recommended) or per store?
+- **F1 = yes:** the Owner adds / renames / archives stores in the cabinet,
+  ORUWA can do the same in the console.
+- **F2 = per store:** tier S / M per store by that store's staff count.
+- **F3 = no (v1):** one home store per person; the Owner can move a person to
+  another store; "help shifts" (ヘルプ) at another store are a follow-up.
+- **F4 = up to 3 stores self-service**, more via sales; from the 3rd store
+  on, a surcharge (as for headcount). Amounts belong to the pricing documents
+  (Founder); the system provides active store count and per-store staff
+  count for billing, and `max_locations = 3` as the self-service limit.
+- **F5 = one LINE Official Account per client**; the store is chosen inside
+  the app; a per-store OA only on request.
+
+Status: decisions closed, build starts with L1.
