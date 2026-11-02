@@ -247,6 +247,12 @@ select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', format(
   'D: ... but cannot move it to another date outside the window');
 select is(coalesce(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', format('select api.cancel_spend_receipt(%L, %L, %L)::text',
   'a8600000-0000-0000-0000-0000000000a1', (select v from ids where k = 'r2'), '間違い')), 'ok'), 'ok', 'D: the buyer cancels their own receipt the same day');
+select is(left(pg_temp.update('a8690000-0000-0000-0000-000000000002', 'r4', '820', '{a86c0000-0000-0000-0000-000000000001,a86c0000-0000-0000-0000-000000000006,a86c0000-0000-0000-0000-000000000002}'), 9), 'ERR 42501',
+  'D: an edit cannot link a purchase that is on another receipt');
+-- E's receipt with a photo (for the photo-mode edit checks below)
+insert into storage.objects (bucket_id, name) values ('purchase-receipts', replace(pg_temp.photo('a8690000-0000-0000-0000-000000000003'), '0001.jpg', '0003.jpg'));
+insert into ids values ('r6', pg_temp.create('a8690000-0000-0000-0000-000000000003', '400', 'food', '卵', replace(pg_temp.photo('a8690000-0000-0000-0000-000000000003'), '0001.jpg', '0003.jpg'), '{}'));
+select ok((select v from ids where k = 'r6') ~ '^[0-9a-f-]{36}$', 'D: a receipt with an uploaded own photo');
 select is((select before -> 'action_ids' from audit.audit_logs where entity = 'spend_receipt' and action = 'cancel'
             and entity_id = (select v from ids where k = 'r1')), '["a86c0000-0000-0000-0000-000000000001"]'::jsonb,
   'D: the cancel audit row keeps the freed purchases');
@@ -270,14 +276,25 @@ select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', 'select photo_
 select is(left(pg_temp.create('a8690000-0000-0000-0000-000000000003', '100', 'other', 'x', null, '{}'), 9), 'ERR P0011', 'F: photo required -> a receipt without photo is refused');
 select is(coalesce(pg_temp.update('a8690000-0000-0000-0000-000000000002', 'r4', '800', '{a86c0000-0000-0000-0000-000000000001,a86c0000-0000-0000-0000-000000000006}'), 'ok'), 'ok',
   'F: ... but an existing receipt without photo can still be corrected');
+select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', format(
+  'select api.update_spend_receipt(%L, %L, current_date, 400, %L, %L, null, %L::uuid[])::text',
+  'a8600000-0000-0000-0000-0000000000a1', (select v from ids where k = 'r6'), 'food', '卵', '{}')), 9), 'ERR P0011',
+  'F: ... and removing the photo of a receipt is refused while photos are required');
 select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000001', $$select api.set_spend_receipt_settings('a8600000-0000-0000-0000-0000000000a1', 'a8610000-0000-0000-0000-000000000003', true, 'off')::text$$), 9),
   'ERR 22023', 'F: an Owner cannot set settings for a location of another tenant');
 select is(coalesce(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', $$select api.set_spend_receipt_settings('a8600000-0000-0000-0000-0000000000a1', 'a8610000-0000-0000-0000-000000000001', true, 'off')::text$$), 'ok'), 'ok', 'F: photo off');
 select is(left(pg_temp.create('a8690000-0000-0000-0000-000000000003', '100', 'other', 'x', pg_temp.photo('a8690000-0000-0000-0000-000000000003'), '{}'), 9), 'ERR P0011', 'F: photo off -> a photo is refused');
+select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', format(
+  'select api.update_spend_receipt(%L, %L, current_date, 820, null, null, %L, %L::uuid[])::text',
+  'a8600000-0000-0000-0000-0000000000a1', (select v from ids where k = 'r4'), pg_temp.photo('a8690000-0000-0000-0000-000000000003'),
+  '{a86c0000-0000-0000-0000-000000000001,a86c0000-0000-0000-0000-000000000006}')), 9), 'ERR P0011',
+  'F: photo off -> adding a new photo in an edit is refused');
 select is(coalesce(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', $$select api.set_spend_receipt_settings('a8600000-0000-0000-0000-0000000000a1', 'a8610000-0000-0000-0000-000000000001', false, 'optional')::text$$), 'ok'), 'ok', 'F: receipts off');
 select is(left(pg_temp.create('a8690000-0000-0000-0000-000000000003', '100', 'other', 'x', null, '{}'), 9), 'ERR P0010', 'F: receipts off -> refused');
 select is(coalesce(pg_temp.update('a8690000-0000-0000-0000-000000000002', 'r4', '820', '{a86c0000-0000-0000-0000-000000000001,a86c0000-0000-0000-0000-000000000006}'), 'ok'), 'ok',
   'F: receipts off -> the Manager can still correct an existing receipt');
+select is(left(pg_temp.update('a8690000-0000-0000-0000-000000000003', 'r4', '830', '{a86c0000-0000-0000-0000-000000000001,a86c0000-0000-0000-0000-000000000006}'), 9), 'ERR P0010',
+  'F: ... but the buyer cannot (receipts off stops staff input)');
 select is((select count(*)::int from audit.audit_logs where entity = 'spend_receipt_settings'), 3, 'F: every settings change is audited');
 
 -- G: photo storage ---------------------------------------------------------------------------------
@@ -288,10 +305,10 @@ select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', format(
   $$insert into storage.objects (bucket_id, name) values ('purchase-receipts', %L) returning 'ok'$$,
   replace(pg_temp.photo('a8690000-0000-0000-0000-000000000004'), '0001.jpg', '0002.jpg'))), 9),
   'ERR 42501', 'G: ... but not into another user''s folder');
-select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', $$select count(*)::text from storage.objects where bucket_id = 'purchase-receipts'$$), '2',
-  'G: the Manager reads both employees'' photos');
-select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', $$select string_agg(name, ',') from storage.objects where bucket_id = 'purchase-receipts'$$),
-  pg_temp.photo('a8690000-0000-0000-0000-000000000003'), 'G: the buyer reads only their own photo');
+select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000002', $$select count(*)::text from storage.objects where bucket_id = 'purchase-receipts'$$), '3',
+  'G: the Manager reads both employees'' photos (2 of E, 1 of F)');
+select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000003', $$select count(*)::text || ':' || bool_and(name like '%/a8690000-0000-0000-0000-000000000003/%')::text from storage.objects where bucket_id = 'purchase-receipts'$$),
+  '2:true', 'G: the buyer reads only their own photos');
 select is(pg_temp.as_user('a8690000-0000-0000-0000-000000000004', $$select string_agg(name, ',') from storage.objects where bucket_id = 'purchase-receipts'$$),
   pg_temp.photo('a8690000-0000-0000-0000-000000000004'), 'G: another employee reads only their own, not the buyer''s');
 select is(left(pg_temp.as_user('a8690000-0000-0000-0000-000000000001', format(

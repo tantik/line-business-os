@@ -187,7 +187,8 @@ begin
     into v_enabled, v_photo_mode
     from (select 1) one
     left join purchases.receipt_settings s on s.tenant_id = p_tenant_id and s.location_id = p_location_id;
-  if not v_is_edit and not v_enabled then
+  -- receipts off: no new receipts; only a manage holder still corrects existing ones
+  if not v_enabled and (not v_is_edit or not p_is_manager) then
     raise exception 'receipts_disabled' using errcode = 'P0010';
   end if;
   if p_media_path is null and v_photo_mode = 'required' and (not v_is_edit or p_old.media_path is not null) then
@@ -199,6 +200,11 @@ begin
   if v_new_photo then
     if p_media_path !~ ('^' || p_tenant_id || '/' || p_location_id
          || '/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|png|webp)$') then
+      raise exception 'invalid_argument: media_path' using errcode = '22023';
+    end if;
+    -- a new photo is always the caller's own upload (checked before existence, so another
+    -- user's folder never reveals whether a file exists)
+    if split_part(p_media_path, '/', 3) <> core.current_user_id()::text then
       raise exception 'invalid_argument: media_path' using errcode = '22023';
     end if;
     -- the photo must really be uploaded (else "amount or photo" could be met by a fake path)
@@ -295,9 +301,6 @@ begin
   end if;
   perform purchases.check_spend_receipt_input(p_tenant_id, p_location_id, null::purchases.spend_receipts, v_manager,
     p_purchased_on, p_amount_jpy, nullif(btrim(p_category), ''), nullif(btrim(p_note), ''), p_media_path, v_ids);
-  if p_media_path is not null and split_part(p_media_path, '/', 3) <> v_user::text then
-    raise exception 'invalid_argument: media_path' using errcode = '22023';
-  end if;
 
   insert into purchases.spend_receipts (tenant_id, location_id, purchased_on, amount_jpy, category, note,
                                         media_path, created_by, created_on, client_request_id)
@@ -379,11 +382,6 @@ begin
   v_manager := core.has_permission(p_tenant_id, 'purchases.receipt.manage', v_old.location_id);
   perform purchases.check_spend_receipt_input(p_tenant_id, v_old.location_id, v_old, v_manager,
     p_purchased_on, p_amount_jpy, nullif(btrim(p_category), ''), nullif(btrim(p_note), ''), p_media_path, v_ids);
-  -- a new photo must be the caller's own upload; the existing one may be kept by anyone who may edit
-  if p_media_path is not null and p_media_path is distinct from v_old.media_path
-     and split_part(p_media_path, '/', 3) <> core.current_user_id()::text then
-    raise exception 'invalid_argument: media_path' using errcode = '22023';
-  end if;
 
   select array_agg(i.action_id order by i.action_id) into v_old_ids
     from purchases.spend_receipt_items i where i.receipt_id = v_old.id;

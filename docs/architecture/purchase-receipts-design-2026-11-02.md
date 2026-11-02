@@ -53,7 +53,11 @@ Purchases module = capability: every package that includes `purchases`
   `api.update_spend_receipt`, `api.cancel_spend_receipt`,
   `api.set_receipt_settings`), each audited in `audit.audit_logs`.
   Buyer may edit until the end of the location-local day of creation;
-  afterwards only `purchases.receipt.manage`.
+  afterwards only `purchases.receipt.manage`. Edits check only what changes
+  (date window for a new date, photo mode for a new / removed photo, ownership
+  for newly linked purchases), so a Manager can complete an old receipt;
+  receipts switched off stop new receipts and staff edits, the Manager can
+  still correct. Create is idempotent (`client_request_id` per form open).
 - Reads: `api.spend_receipts` (own rows, or all with manage; amounts never
   reach other staff) and `api.spend_summary(month)` (manage only: totals by
   person and by category; receipts linked to purchased items and without a
