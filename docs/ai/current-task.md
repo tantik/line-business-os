@@ -238,7 +238,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-02B.md` (DEBT-128 a: 0146; DEBT-136 part 1: 0147 on Cloud DEV; next = receipts UI).
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-02C.md` (DEBT-136 receipts DONE #676/#678/#679, live-checked; next = DEBT-103 (b)(c)).
 
 Where everything else lives:
 
