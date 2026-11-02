@@ -19,6 +19,8 @@ import { ReceiveForm } from './receive-form';
 import { CancelRestMenu } from './cancel-rest-menu';
 import { formatAwaitingLabel } from './awaiting-copy';
 import { tPurchasesDashboard } from './purchases-i18n';
+import { tReceipts } from './receipts-i18n';
+import { ReceiptPrompt, ReceiptsTab } from './receipts-tab';
 
 export interface PurchasesDashboardClientProps {
   tenantName: string;
@@ -44,7 +46,7 @@ export interface PurchasesDashboardClientProps {
 }
 
 type T = (key: Parameters<typeof tPurchasesDashboard>[1]) => string;
-type Filter = 'all' | 'pending' | 'bought' | 'ordered' | 'received' | 'history';
+type Filter = 'all' | 'pending' | 'bought' | 'ordered' | 'received' | 'history' | 'receipts';
 
 function formatTimestamp(iso: string, lang: ReturnType<typeof useLang>['lang'], locationTimezone: string) {
   return new Date(iso).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US', { timeZone: locationTimezone });
@@ -63,6 +65,8 @@ interface RowProps {
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
+  /** A purchase was just marked bought / received -- offers 「レシートを追加」 (DEBT-136). */
+  onPurchased: () => void;
   /** The item's open order (0137), when it has one -- rendered inline on this row (one place per item). */
   openOrder?: PurchaseAwaitingDeliveryItem;
 }
@@ -84,7 +88,7 @@ function AwaitingLine({ openOrder, unit, lang }: { openOrder: PurchaseAwaitingDe
  * an open order (0137) its 「入荷待ち」 line is added (or, for 'ordered',
  * replaces the plain "Ordered: N" line, which it already contains).
  */
-function StatusInfo({ item, locationTimezone, staffNameById, lang, t, openOrder }: Omit<RowProps, 'onChanged' | 'locationId'>) {
+function StatusInfo({ item, locationTimezone, staffNameById, lang, t, openOrder }: Omit<RowProps, 'onChanged' | 'onPurchased' | 'locationId'>) {
   const actionedAt = formatActionedAt(item, lang, locationTimezone);
   const actorSuffix =
     item.actionedByStaffId && staffNameById[item.actionedByStaffId] ? ` · ${t('boughtByPrefix')} ${staffNameById[item.actionedByStaffId]}` : '';
@@ -178,12 +182,21 @@ function StatusBlock({
  * (0137) Receive is pre-filled with the open quantity and the row's •••
  * menu offers "Cancel the rest".
  */
-function ActionControls({ item, locationId, lang, onChanged, openOrder }: Omit<RowProps, 'locationTimezone' | 'staffNameById' | 't'>) {
+function ActionControls({ item, locationId, lang, onChanged, onPurchased, openOrder }: Omit<RowProps, 'locationTimezone' | 'staffNameById' | 't'>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
       {item.purchaseStatus === 'pending' ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-          <MarkBoughtButton locationId={locationId} itemId={item.itemId} itemName={item.name} lang={lang} onSuccess={onChanged} />
+          <MarkBoughtButton
+            locationId={locationId}
+            itemId={item.itemId}
+            itemName={item.name}
+            lang={lang}
+            onSuccess={() => {
+              onChanged();
+              onPurchased();
+            }}
+          />
           <OrderForm locationId={locationId} itemId={item.itemId} itemName={item.name} unit={item.unit} lang={lang} onSuccess={onChanged} />
         </div>
       ) : null}
@@ -196,6 +209,7 @@ function ActionControls({ item, locationId, lang, onChanged, openOrder }: Omit<R
         openOrder={openOrder}
         lang={lang}
         onChanged={onChanged}
+        onPurchased={onPurchased}
       />
     </div>
   );
@@ -216,6 +230,7 @@ function ReceiveRow({
   openOrder,
   lang,
   onChanged,
+  onPurchased,
 }: {
   locationId: string;
   itemId: string;
@@ -225,6 +240,7 @@ function ReceiveRow({
   openOrder?: PurchaseAwaitingDeliveryItem;
   lang: ReturnType<typeof useLang>['lang'];
   onChanged: () => void;
+  onPurchased: () => void;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, justifyContent: 'flex-end' }}>
@@ -237,7 +253,10 @@ function ReceiveRow({
         expectedStockCountId={expectedStockCountId}
         defaultQuantity={openOrder?.openOrderQuantity}
         lang={lang}
-        onSuccess={onChanged}
+        onSuccess={() => {
+          onChanged();
+          onPurchased();
+        }}
       />
       {openOrder ? (
         <CancelRestMenu
@@ -271,6 +290,7 @@ function AwaitingDeliverySection({
   lang,
   t,
   onChanged,
+  onPurchased,
 }: {
   entries: PurchaseAwaitingDeliveryItem[];
   locationId: string;
@@ -279,6 +299,7 @@ function AwaitingDeliverySection({
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
+  onPurchased: () => void;
 }) {
   return (
     <section aria-labelledby="purchases-awaiting-delivery-title" style={{ marginTop: 20 }}>
@@ -315,6 +336,7 @@ function AwaitingDeliverySection({
                     openOrder={entry}
                     lang={lang}
                     onChanged={onChanged}
+                    onPurchased={onPurchased}
                   />
                 </div>
               </div>
@@ -326,7 +348,7 @@ function AwaitingDeliverySection({
   );
 }
 
-function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, openOrder }: RowProps) {
+function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, onPurchased, openOrder }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
   return (
     <tr>
@@ -344,14 +366,14 @@ function TableRow({ item, locationId, locationTimezone, staffNameById, lang, t, 
       <td style={{ ...tableCell, textAlign: 'right' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} openOrder={openOrder} />
-          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} openOrder={openOrder} />
+          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} onPurchased={onPurchased} openOrder={openOrder} />
         </div>
       </td>
     </tr>
   );
 }
 
-function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, openOrder }: RowProps) {
+function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, onChanged, onPurchased, openOrder }: RowProps) {
   const settled = item.purchaseStatus !== 'pending';
   // Founder Acceptance QA1 2026-09-22 (Staff, 375px): a settled card used to also
   // get `opacity: 0.85` on top of `colors.textMuted` text -- stacking the two
@@ -372,7 +394,7 @@ function ItemCard({ item, locationId, locationTimezone, staffNameById, lang, t, 
         </div>
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <StatusInfo item={item} locationTimezone={locationTimezone} staffNameById={staffNameById} lang={lang} t={t} openOrder={openOrder} />
-          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} openOrder={openOrder} />
+          <ActionControls item={item} locationId={locationId} lang={lang} onChanged={onChanged} onPurchased={onPurchased} openOrder={openOrder} />
         </div>
       </div>
     </div>
@@ -518,6 +540,9 @@ export function PurchasesDashboardBody({
   const t: T = (key) => tPurchasesDashboard(lang, key);
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
+  // increments on every bought/received success: offers 「レシートを追加」 (DEBT-136)
+  const [purchaseCount, setPurchaseCount] = useState(0);
+  const [promptDismissed, setPromptDismissed] = useState(0);
 
   function refresh() {
     router.refresh();
@@ -528,7 +553,7 @@ export function PurchasesDashboardBody({
   const orderedCount = items.filter((i) => i.purchaseStatus === 'ordered').length;
   const receivedCount = items.filter((i) => i.purchaseStatus === 'received').length;
   const visibleItems =
-    filter === 'history'
+    filter === 'history' || filter === 'receipts'
       ? []
       : items
           .filter((item) => (filter === 'all' ? true : item.purchaseStatus === filter))
@@ -538,7 +563,15 @@ export function PurchasesDashboardBody({
             return a.name.localeCompare(b.name);
           });
 
-  const rowProps = { locationId, locationTimezone, staffNameById, lang, t, onChanged: refresh };
+  const rowProps = {
+    locationId,
+    locationTimezone,
+    staffNameById,
+    lang,
+    t,
+    onChanged: refresh,
+    onPurchased: () => setPurchaseCount((n) => n + 1),
+  };
 
   // One place per item: still-short items carry their open order inline on
   // their own row; only not-short ones go to the 「入荷待ち」 section, which
@@ -570,7 +603,7 @@ export function PurchasesDashboardBody({
       ) : null}
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: embedded ? 0 : 16 }}>
-        {(['all', 'pending', 'bought', 'ordered', 'received', 'history'] as const).map((value) => {
+        {(['all', 'pending', 'bought', 'ordered', 'received', 'history', 'receipts'] as const).map((value) => {
           const label =
             value === 'all'
               ? t('filterAll')
@@ -582,7 +615,9 @@ export function PurchasesDashboardBody({
                     ? t('filterOrdered')
                     : value === 'received'
                       ? t('filterReceived')
-                      : t('filterHistory');
+                      : value === 'history'
+                        ? t('filterHistory')
+                        : tReceipts(lang, 'filterReceipts');
           // "All" and "Ordered" also list the 「入荷待ち」 section, so their
           // counts include it (a chip count must match what the view shows).
           const count =
@@ -596,7 +631,9 @@ export function PurchasesDashboardBody({
                     ? orderedCount + awaitingOnly.length
                     : value === 'received'
                       ? receivedCount
-                      : (history?.length ?? 0);
+                      : value === 'history'
+                        ? (history?.length ?? 0)
+                        : null;
           return (
             <button
               key={value}
@@ -612,13 +649,25 @@ export function PurchasesDashboardBody({
               }}
               onClick={() => setFilter(value)}
             >
-              {label} ({count})
+              {count === null ? label : `${label} (${count})`}
             </button>
           );
         })}
       </div>
 
-      {filter === 'history' ? (
+      {filter !== 'receipts' && purchaseCount > promptDismissed ? (
+        <ReceiptPrompt
+          lang={lang}
+          locationId={locationId}
+          locationTimezone={locationTimezone}
+          trigger={purchaseCount}
+          onDismiss={() => setPromptDismissed(purchaseCount)}
+        />
+      ) : null}
+
+      {filter === 'receipts' ? (
+        <ReceiptsTab lang={lang} locationId={locationId} locationTimezone={locationTimezone} staffNameById={staffNameById} />
+      ) : filter === 'history' ? (
         <HistoryList history={history} staffNameById={staffNameById} locationTimezone={locationTimezone} lang={lang} t={t} />
       ) : items.length === 0 ? (
         <section style={{ ...card, marginTop: 12 }}>
@@ -684,6 +733,7 @@ export function PurchasesDashboardBody({
           lang={lang}
           t={t}
           onChanged={refresh}
+          onPurchased={rowProps.onPurchased}
         />
       ) : null}
     </>

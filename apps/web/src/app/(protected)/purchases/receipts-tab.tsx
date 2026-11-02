@@ -1,0 +1,650 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  Card,
+  Checkbox,
+  ConfirmDialog,
+  Dialog,
+  EmptyState,
+  Field,
+  FormActions,
+  IconButton,
+  ImageViewer,
+  InlineAlert,
+  Input,
+  Menu,
+  MetadataText,
+  SegmentedControl,
+  SkeletonLines,
+  StatusBadge,
+} from '@line-os/ui';
+import type { Lang } from '@/lib/demo/cafe/i18n';
+import { formatYen } from '@/lib/demo/cafe/format';
+import {
+  cancelSpendReceiptAction,
+  loadSpendReceiptsAction,
+  setSpendReceiptSettingsAction,
+  type SpendReceiptsTabData,
+} from '@/lib/purchases/spend-receipt-actions';
+import {
+  MAX_RECEIPT_NOTE_LENGTH,
+  shiftMonth,
+  summarizeSpend,
+  type ReceiptPhotoMode,
+  type SpendReceipt,
+} from '@/lib/purchases/spend-receipts';
+import { describeReceiptWriteError } from './receipts-copy';
+import { tReceiptError, tReceipts } from './receipts-i18n';
+import { CATEGORY_LABEL_KEY, ReceiptSheet } from './receipt-sheet';
+
+type T = (key: Parameters<typeof tReceipts>[1]) => string;
+
+function formatMonth(month: string, lang: Lang) {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  return lang === 'ja'
+    ? `${y}年${m}月`
+    : new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** `YYYY-MM-DD` -> `11/2` (same in both languages). */
+function formatDay(date: string) {
+  return `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+}
+
+/** Can the caller still change this receipt? Mirrors `purchases.lock_editable_spend_receipt` (the RPC decides). */
+export function canEditReceipt(receipt: SpendReceipt, data: Pick<SpendReceiptsTabData, 'canManage' | 'today' | 'settings'>) {
+  if (receipt.status !== 'active') return false;
+  if (data.canManage) return true;
+  return receipt.isMine && receipt.createdOn === data.today && data.settings.receiptsEnabled;
+}
+
+/** Loads the tab's data on demand (server action), never with the dashboard page. */
+export function useSpendReceipts(locationId: string, locationTimezone: string, month: string | null, token: number) {
+  const [loaded, setLoaded] = useState<{ data: SpendReceiptsTabData; token: number } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (token < 0) return;
+    let alive = true;
+    setFailed(false);
+    loadSpendReceiptsAction(locationId, month, locationTimezone)
+      .then((result) => {
+        if (!alive) return;
+        if (result.status === 'success') setLoaded({ data: result.data, token });
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [locationId, locationTimezone, month, token, reloadKey]);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+  return { data: loaded?.data ?? null, loadedToken: loaded?.token ?? null, failed, reload };
+}
+
+export interface ReceiptsTabProps {
+  lang: Lang;
+  locationId: string;
+  locationTimezone: string;
+  /** Manager-only employee id -> name (empty for staff). */
+  staffNameById: Record<string, string>;
+}
+
+/**
+ * 「レシート」 tab of the Purchases popup (DEBT-136). Staff: own receipts of
+ * the month (edit / cancel on the day). Manager (`purchases.receipt.manage`):
+ * every receipt of the store, the monthly spend (total, by person, by
+ * category, count 「金額未入力」) and the receipt settings in the ••• menu.
+ */
+export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById }: ReceiptsTabProps) {
+  const t: T = (key) => tReceipts(lang, key);
+  const [month, setMonth] = useState<string | null>(null);
+  const { data, failed, reload } = useSpendReceipts(locationId, locationTimezone, month, 0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<SpendReceipt | null>(null);
+  const [canceling, setCanceling] = useState<SpendReceipt | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  if (failed && !data) {
+    return (
+      <div className="mt-3">
+        <InlineAlert
+          tone="critical"
+          action={
+            <Button variant="secondary" size="sm" onClick={reload}>
+              {t('retryButton')}
+            </Button>
+          }
+        >
+          {t('loadFailed')}
+        </InlineAlert>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="mt-3">
+        <SkeletonLines lines={4} label={t('loading')} />
+      </div>
+    );
+  }
+
+  const currentMonth = data.today.slice(0, 7);
+  const canAdd = data.canManage || data.settings.receiptsEnabled;
+  const summary = data.canManage ? summarizeSpend(data.receipts) : null;
+  const personName = (employeeId: string | null) =>
+    (employeeId && staffNameById[employeeId]) || t('unknownPerson');
+
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <IconButton size="md" variant="ghost" aria-label={t('monthPrevAria')} icon={<span aria-hidden>‹</span>} onClick={() => setMonth(shiftMonth(data.month, -1))} />
+          <h2 className="m-0 min-w-[7.5rem] text-center text-base font-semibold text-text-primary">{formatMonth(data.month, lang)}</h2>
+          <IconButton
+            size="md"
+            variant="ghost"
+            aria-label={t('monthNextAria')}
+            icon={<span aria-hidden>›</span>}
+            disabled={data.month >= currentMonth}
+            onClick={() => setMonth(shiftMonth(data.month, 1))}
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          {canAdd ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => {
+                setEditing(null);
+                setSheetOpen(true);
+              }}
+            >
+              {t('newReceiptButton')}
+            </Button>
+          ) : null}
+          {data.canManage ? (
+            <Menu label={t('moreActionsAria')} items={[{ key: 'settings', label: t('settingsAction'), onSelect: () => setSettingsOpen(true) }]} />
+          ) : null}
+        </div>
+      </div>
+
+      {!data.settings.receiptsEnabled ? <InlineAlert tone="info">{t('receiptsOffNotice')}</InlineAlert> : null}
+      {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
+
+      {summary ? <SpendSummaryCard t={t} summary={summary} personName={personName} /> : null}
+
+      <h3 className="m-0 text-sm font-semibold text-text-primary">{data.canManage ? t('allReceiptsTitle') : t('myReceiptsTitle')}</h3>
+      {!data.canManage ? <MetadataText>{t('editableTodayHint')}</MetadataText> : null}
+
+      {data.receipts.length === 0 ? (
+        <EmptyState title={data.canManage ? t('emptyAll') : t('emptyMine')} />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {data.receipts.map((receipt) => (
+            <ReceiptRow
+              key={receipt.receiptId}
+              t={t}
+              lang={lang}
+              receipt={receipt}
+              showPerson={data.canManage}
+              personName={personName(receipt.createdByEmployeeId)}
+              photoUrl={data.photoUrlByReceiptId[receipt.receiptId] ?? null}
+              editable={canEditReceipt(receipt, data)}
+              onViewPhoto={setViewingPhoto}
+              onEdit={() => {
+                setEditing(receipt);
+                setSheetOpen(true);
+              }}
+              onCancel={() => setCanceling(receipt)}
+            />
+          ))}
+        </div>
+      )}
+
+      <ReceiptSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSaved={() => {
+          setSheetOpen(false);
+          setNotice(t('savedNotice'));
+          reload();
+        }}
+        lang={lang}
+        locationId={locationId}
+        today={data.today}
+        settings={data.settings}
+        candidates={data.candidates}
+        receipt={editing}
+        photoUrl={editing ? (data.photoUrlByReceiptId[editing.receiptId] ?? null) : null}
+      />
+
+      <CancelReceiptDialog
+        t={t}
+        lang={lang}
+        receipt={canceling}
+        onClose={() => setCanceling(null)}
+        onDone={() => {
+          setCanceling(null);
+          reload();
+        }}
+      />
+
+      {data.canManage ? (
+        <ReceiptSettingsDialog
+          t={t}
+          lang={lang}
+          open={settingsOpen}
+          locationId={locationId}
+          receiptsEnabled={data.settings.receiptsEnabled}
+          photoMode={data.settings.photoMode}
+          onClose={() => setSettingsOpen(false)}
+          onSaved={() => {
+            setSettingsOpen(false);
+            reload();
+          }}
+        />
+      ) : null}
+
+      <ImageViewer open={viewingPhoto !== null} onClose={() => setViewingPhoto(null)} src={viewingPhoto ?? ''} alt="" closeLabel={t('closeButton')} />
+    </div>
+  );
+}
+
+function SpendSummaryCard({
+  t,
+  summary,
+  personName,
+}: {
+  t: T;
+  summary: ReturnType<typeof summarizeSpend>;
+  personName: (employeeId: string | null) => string;
+}) {
+  return (
+    <Card>
+      <h3 className="m-0 text-sm font-semibold text-text-primary">{t('summaryTitle')}</h3>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <strong className="text-2xl font-semibold text-text-primary">{formatYen(summary.totalJpy)}</strong>
+        <MetadataText>
+          {summary.receiptCount} {t('summaryReceipts')}
+        </MetadataText>
+        {summary.missingAmountCount > 0 ? (
+          <StatusBadge tone="warning">
+            {summary.missingAmountCount} {t('summaryMissing')}
+          </StatusBadge>
+        ) : null}
+      </div>
+      {summary.receiptCount > 0 ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <SummaryList
+            title={t('summaryByPerson')}
+            rows={summary.byPerson.map((p) => ({ key: p.employeeId || 'unknown', label: personName(p.employeeId || null), totalJpy: p.totalJpy, count: p.count }))}
+            t={t}
+          />
+          <SummaryList
+            title={t('summaryByCategory')}
+            rows={summary.byCategory.map((c) => ({ key: c.category, label: t(CATEGORY_LABEL_KEY[c.category]), totalJpy: c.totalJpy, count: c.count }))}
+            t={t}
+          />
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function SummaryList({ title, rows, t }: { title: string; rows: Array<{ key: string; label: string; totalJpy: number; count: number }>; t: T }) {
+  return (
+    <div>
+      <p className="m-0 text-xs font-medium text-text-muted">{title}</p>
+      <ul className="m-0 mt-1 list-none p-0">
+        {rows.map((row) => (
+          <li key={row.key} className="flex items-baseline justify-between gap-2 border-b border-border py-1.5 text-sm last:border-b-0">
+            <span className="min-w-0 truncate text-text-primary">{row.label}</span>
+            <span className="shrink-0 tabular-nums text-text-primary">
+              {formatYen(row.totalJpy)} <span className="text-xs text-text-muted">· {row.count} {t('summaryReceipts')}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReceiptRow({
+  t,
+  lang,
+  receipt,
+  showPerson,
+  personName,
+  photoUrl,
+  editable,
+  onViewPhoto,
+  onEdit,
+  onCancel,
+}: {
+  t: T;
+  lang: Lang;
+  receipt: SpendReceipt;
+  showPerson: boolean;
+  personName: string;
+  photoUrl: string | null;
+  editable: boolean;
+  onViewPhoto: (url: string) => void;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  const canceled = receipt.status === 'canceled';
+  const what =
+    receipt.items.length > 0
+      ? receipt.items.map((i) => i.itemName ?? '—').join(lang === 'ja' ? '、' : ', ')
+      : receipt.category
+        ? t(CATEGORY_LABEL_KEY[receipt.category])
+        : '';
+  return (
+    <div className={`rounded-md border border-border bg-surface p-3 shadow-card ${canceled ? 'opacity-80' : ''}`}>
+      <div className="flex items-start gap-3">
+        {photoUrl ? (
+          <button
+            type="button"
+            className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-surface-muted p-0"
+            aria-label={t('viewPhotoAria')}
+            onClick={() => onViewPhoto(photoUrl)}
+          >
+            <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {receipt.amountJpy !== null ? (
+              <strong className={`text-base font-semibold tabular-nums ${canceled ? 'text-text-muted line-through' : 'text-text-primary'}`}>
+                {formatYen(receipt.amountJpy)}
+              </strong>
+            ) : (
+              <StatusBadge tone="warning">{t('amountMissing')}</StatusBadge>
+            )}
+            {canceled ? (
+              <StatusBadge tone="neutral" showIcon={false}>
+                {t('canceledBadge')}
+              </StatusBadge>
+            ) : null}
+            <MetadataText>{formatDay(receipt.purchasedOn)}</MetadataText>
+          </div>
+          {what ? <p className="m-0 mt-1 break-words text-sm text-text-primary">{what}</p> : null}
+          {receipt.note ? <p className="m-0 mt-0.5 break-words text-sm text-text-muted">{receipt.note}</p> : null}
+          <div className="mt-1 flex flex-wrap gap-x-3">
+            {showPerson ? <MetadataText>{personName}</MetadataText> : null}
+            {canceled && receipt.cancelReason ? (
+              <MetadataText>
+                {t('canceledReasonPrefix')} {receipt.cancelReason}
+              </MetadataText>
+            ) : null}
+          </div>
+        </div>
+        {editable ? (
+          <Menu
+            label={t('moreActionsAria')}
+            items={[
+              { key: 'edit', label: t('editAction'), onSelect: onEdit },
+              { key: 'cancel', label: t('cancelReceiptAction'), onSelect: onCancel, destructive: true },
+            ]}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CancelReceiptDialog({
+  t,
+  lang,
+  receipt,
+  onClose,
+  onDone,
+}: {
+  t: T;
+  lang: Lang;
+  receipt: SpendReceipt | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (receipt) {
+      setReason('');
+      setError(null);
+      setIsPending(false);
+    }
+  }, [receipt]);
+
+  function handleConfirm() {
+    if (!receipt || isPending) return;
+    if (reason.trim() === '') {
+      setError(tReceiptError(lang, 'invalid_input'));
+      return;
+    }
+    setIsPending(true);
+    const formData = new FormData();
+    formData.set('receiptId', receipt.receiptId);
+    formData.set('reason', reason);
+    cancelSpendReceiptAction(formData)
+      .then((result) => {
+        setIsPending(false);
+        if (result.status === 'success') onDone();
+        else setError(describeReceiptWriteError(result, lang));
+      })
+      .catch(() => {
+        setIsPending(false);
+        setError(tReceiptError(lang, 'generic'));
+      });
+  }
+
+  return (
+    <ConfirmDialog
+      open={receipt !== null}
+      onOpenChange={(next) => (!next && !isPending ? onClose() : undefined)}
+      title={t('cancelDialogTitle')}
+      description={
+        <span className="flex flex-col gap-3">
+          <span>{t('cancelDialogBody')}</span>
+          <Field label={t('cancelReasonLabel')} required>
+            {(fieldProps) => (
+              <Input {...fieldProps} maxLength={MAX_RECEIPT_NOTE_LENGTH} value={reason} onChange={(event) => setReason(event.target.value)} />
+            )}
+          </Field>
+          {error ? (
+            <span role="alert" className="block text-sm text-danger-text">
+              {error}
+            </span>
+          ) : null}
+        </span>
+      }
+      confirmLabel={t('cancelConfirmButton')}
+      cancelLabel={t('keepButton')}
+      pending={isPending}
+      confirmVariant="destructive"
+      onConfirm={handleConfirm}
+    />
+  );
+}
+
+function ReceiptSettingsDialog({
+  t,
+  lang,
+  open,
+  locationId,
+  receiptsEnabled,
+  photoMode,
+  onClose,
+  onSaved,
+}: {
+  t: T;
+  lang: Lang;
+  open: boolean;
+  locationId: string;
+  receiptsEnabled: boolean;
+  photoMode: ReceiptPhotoMode;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [enabled, setEnabled] = useState(receiptsEnabled);
+  const [mode, setMode] = useState<ReceiptPhotoMode>(photoMode);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setEnabled(receiptsEnabled);
+      setMode(photoMode);
+      setError(null);
+      setIsPending(false);
+    }
+  }, [open, receiptsEnabled, photoMode]);
+
+  function handleSave() {
+    if (isPending) return;
+    setIsPending(true);
+    setError(null);
+    const formData = new FormData();
+    formData.set('locationId', locationId);
+    formData.set('receiptsEnabled', String(enabled));
+    formData.set('photoMode', mode);
+    setSpendReceiptSettingsAction(formData)
+      .then((result) => {
+        setIsPending(false);
+        if (result.status === 'success') onSaved();
+        else setError(describeReceiptWriteError(result, lang));
+      })
+      .catch(() => {
+        setIsPending(false);
+        setError(tReceiptError(lang, 'generic'));
+      });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => (isPending ? undefined : onClose())}
+      title={t('settingsTitle')}
+      size="form"
+      closeLabel={t('cancelButton')}
+      footer={
+        <FormActions
+          primary={
+            <Button variant="primary" loading={isPending} onClick={handleSave}>
+              {isPending ? t('savingButton') : t('saveButton')}
+            </Button>
+          }
+          secondary={
+            <Button variant="secondary" disabled={isPending} onClick={onClose}>
+              {t('cancelButton')}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Checkbox checked={enabled} onCheckedChange={setEnabled} label={t('settingsEnabledLabel')} />
+        <div className="flex flex-col gap-1.5">
+          <p className="m-0 text-sm font-medium text-text-primary">{t('settingsPhotoLabel')}</p>
+          <SegmentedControl
+            value={mode}
+            onValueChange={(value) => setMode(value as ReceiptPhotoMode)}
+            aria-label={t('settingsPhotoLabel')}
+            options={[
+              { value: 'off', label: t('photoModeOff') },
+              { value: 'optional', label: t('photoModeOptional') },
+              { value: 'required', label: t('photoModeRequired') },
+            ]}
+          />
+        </div>
+        {error ? <InlineAlert tone="critical">{error}</InlineAlert> : null}
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * After 「購入済み」/「入荷」: a small bar offering 「レシートを追加」 with the
+ * day's own purchases pre-ticked (DEBT-136). Hidden when receipts are off for
+ * staff. Data is loaded only when a purchase was just recorded.
+ */
+export function ReceiptPrompt({
+  lang,
+  locationId,
+  locationTimezone,
+  trigger,
+  onDismiss,
+}: {
+  lang: Lang;
+  locationId: string;
+  locationTimezone: string;
+  /** Increments on every bought/received success; 0 = nothing recorded yet. */
+  trigger: number;
+  onDismiss: () => void;
+}) {
+  const t: T = (key) => tReceipts(lang, key);
+  // -1 = nothing recorded yet, no load
+  const { data, loadedToken } = useSpendReceipts(locationId, locationTimezone, null, trigger > 0 ? trigger : -1);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [savedFor, setSavedFor] = useState<number | null>(null);
+  const candidates = data?.candidates;
+  const preselected = useMemo(() => (candidates ?? []).map((c) => c.actionId), [candidates]);
+
+  // only data loaded after the latest purchase (it contains that purchase)
+  if (trigger === 0 || !data || loadedToken !== trigger) return null;
+  if (!data.canManage && !data.settings.receiptsEnabled) return null;
+  if (savedFor === trigger) {
+    return (
+      <div className="mt-3">
+        <InlineAlert tone="success">{t('savedNotice')}</InlineAlert>
+      </div>
+    );
+  }
+  if (data.candidates.length === 0) return null;
+
+  return (
+    <div className="mt-3">
+      <InlineAlert
+        tone="info"
+        action={
+          <div className="flex gap-2">
+            <Button variant="primary" size="sm" onClick={() => setSheetOpen(true)}>
+              {t('addReceiptButton')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDismiss}>
+              {t('closeButton')}
+            </Button>
+          </div>
+        }
+      >
+        {t('addReceiptPrompt')}
+      </InlineAlert>
+      <ReceiptSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSaved={() => {
+          setSheetOpen(false);
+          setSavedFor(trigger);
+        }}
+        lang={lang}
+        locationId={locationId}
+        today={data.today}
+        settings={data.settings}
+        candidates={data.candidates}
+        preselectedActionIds={preselected}
+      />
+    </div>
+  );
+}
