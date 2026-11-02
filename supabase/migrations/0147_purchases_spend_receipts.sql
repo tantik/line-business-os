@@ -73,7 +73,7 @@ create table purchases.spend_receipts (
   tenant_id      uuid not null references core.tenants(id) on delete cascade,
   location_id    uuid not null,
   purchased_on   date not null,
-  amount_jpy     integer check (amount_jpy is null or amount_jpy between 0 and 100000000),
+  amount_jpy     integer check (amount_jpy is null or amount_jpy between 1 and 100000000),
   category       text check (category is null or category in ('food', 'supplies', 'equipment', 'other')),
   note           text check (note is null or char_length(note) between 1 and 200),
   media_path     text check (media_path is null or char_length(media_path) <= 300),
@@ -86,6 +86,9 @@ create table purchases.spend_receipts (
   updated_at     timestamptz not null default now(),
   canceled_by    uuid references core.users(id),
   canceled_at    timestamptz,
+  -- idempotency key from the client form: a double submit returns the same receipt
+  client_request_id uuid not null,
+  constraint spend_receipts_client_request_key unique (tenant_id, created_by, client_request_id),
   constraint spend_receipts_amount_or_photo check (amount_jpy is not null or media_path is not null),
   constraint spend_receipts_cancel_shape check (
     (status = 'active' and cancel_reason is null and canceled_by is null and canceled_at is null)
@@ -149,10 +152,15 @@ as $$
 $$;
 revoke all on function purchases.location_today(uuid, uuid) from public;
 
--- validates and normalises one receipt payload; raises on bad input. p_receipt_id is the
--- receipt being edited (its own linked actions are not "taken"), null on create.
+-- validates one receipt payload; raises on bad input. p_old is the receipt being edited
+-- (null on create). On create every rule applies. On edit (review 2026-11-02) only what
+-- changes is checked, so a Manager can still complete an old receipt (add the amount later,
+-- Founder 2026-11-02) after the date window, a settings change or receipts being switched off:
+--   date        checked only when it changes
+--   photo mode  a NEW photo needs mode <> off; removing a photo is refused when mode = required
+--   items       ownership / "not on another receipt" checked only for newly added actions
 create or replace function purchases.check_spend_receipt_input(
-  p_tenant_id uuid, p_location_id uuid, p_receipt_id uuid, p_is_manager boolean,
+  p_tenant_id uuid, p_location_id uuid, p_old purchases.spend_receipts, p_is_manager boolean,
   p_purchased_on date, p_amount_jpy integer, p_category text, p_note text, p_media_path text,
   p_action_ids uuid[]
 )
@@ -160,12 +168,14 @@ returns void
 language plpgsql
 stable
 security definer
-set search_path = purchases, core, public
+set search_path = purchases, core, storage, public
 as $$
 declare
   v_today       date := purchases.location_today(p_tenant_id, p_location_id);
+  v_is_edit     boolean := p_old.id is not null;
   v_enabled     boolean;
   v_photo_mode  text;
+  v_new_photo   boolean := p_media_path is not null and p_media_path is distinct from p_old.media_path;
   v_bad         int;
 begin
   -- the location must belong to the tenant (a tenant-wide role would otherwise pass
@@ -177,23 +187,40 @@ begin
     into v_enabled, v_photo_mode
     from (select 1) one
     left join purchases.receipt_settings s on s.tenant_id = p_tenant_id and s.location_id = p_location_id;
-  if not v_enabled then
+  if not v_is_edit and not v_enabled then
     raise exception 'receipts_disabled' using errcode = 'P0010';
   end if;
-  if p_media_path is null and v_photo_mode = 'required' then
+  if p_media_path is null and v_photo_mode = 'required' and (not v_is_edit or p_old.media_path is not null) then
     raise exception 'receipt_photo_required' using errcode = 'P0011';
   end if;
-  if p_media_path is not null and v_photo_mode = 'off' then
+  if v_new_photo and v_photo_mode = 'off' then
     raise exception 'receipt_photo_off' using errcode = 'P0011';
   end if;
-  if p_media_path is not null and p_media_path !~ ('^' || p_tenant_id || '/' || p_location_id
-       || '/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|png|webp)$') then
-    raise exception 'invalid_argument: media_path' using errcode = '22023';
+  if v_new_photo then
+    if p_media_path !~ ('^' || p_tenant_id || '/' || p_location_id
+         || '/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|png|webp)$') then
+      raise exception 'invalid_argument: media_path' using errcode = '22023';
+    end if;
+    -- the photo must really be uploaded (else "amount or photo" could be met by a fake path)
+    if not exists (select 1 from storage.objects o where o.bucket_id = 'purchase-receipts' and o.name = p_media_path) then
+      raise exception 'invalid_argument: media_path not uploaded' using errcode = '22023';
+    end if;
+  end if;
+  if p_amount_jpy is not null and (p_amount_jpy < 1 or p_amount_jpy > 100000000) then
+    raise exception 'invalid_argument: amount_jpy' using errcode = '22023';
+  end if;
+  if p_category is not null and p_category not in ('food', 'supplies', 'equipment', 'other') then
+    raise exception 'invalid_argument: category' using errcode = '22023';
+  end if;
+  if p_note is not null and char_length(p_note) > 200 then
+    raise exception 'invalid_argument: note' using errcode = '22023';
   end if;
   if p_amount_jpy is null and p_media_path is null then
     raise exception 'receipt_amount_or_photo_required' using errcode = '22023';
   end if;
-  if p_purchased_on is null or p_purchased_on > v_today or p_purchased_on < v_today - 90 then
+  if p_purchased_on is null
+     or ((not v_is_edit or p_purchased_on is distinct from p_old.purchased_on)
+         and (p_purchased_on > v_today or p_purchased_on < v_today - 90)) then
     raise exception 'invalid_argument: purchased_on' using errcode = '22023';
   end if;
   if coalesce(cardinality(p_action_ids), 0) = 0 and (p_category is null or p_note is null) then
@@ -203,24 +230,25 @@ begin
     raise exception 'invalid_argument: too many items' using errcode = '22023';
   end if;
 
-  -- every linked action: this tenant + location, bought/received, the caller's own (unless
-  -- manager), not linked to another receipt
+  -- every NEWLY linked action: this tenant + location, bought/received, the caller's own
+  -- (unless manager), not on another receipt. Actions already on this receipt stay valid.
   select count(*) into v_bad
     from unnest(coalesce(p_action_ids, '{}')) as x(action_id)
     left join purchases.purchase_actions a on a.id = x.action_id
-   where a.id is null
-      or a.tenant_id <> p_tenant_id
-      or a.location_id <> p_location_id
-      or a.action_type not in ('bought', 'received')
-      or (not p_is_manager and a.actioned_by is distinct from core.current_user_id())
-      or exists (select 1 from purchases.spend_receipt_items i
-                  where i.action_id = x.action_id and i.receipt_id is distinct from p_receipt_id);
+   where not (v_is_edit and exists (select 1 from purchases.spend_receipt_items k
+                                     where k.receipt_id = p_old.id and k.action_id = x.action_id))
+     and (a.id is null
+          or a.tenant_id <> p_tenant_id
+          or a.location_id <> p_location_id
+          or a.action_type not in ('bought', 'received')
+          or (not p_is_manager and a.actioned_by is distinct from core.current_user_id())
+          or exists (select 1 from purchases.spend_receipt_items i where i.action_id = x.action_id));
   if v_bad > 0 then
     raise exception 'receipt_item_not_allowed' using errcode = '42501';
   end if;
 end;
 $$;
-revoke all on function purchases.check_spend_receipt_input(uuid, uuid, uuid, boolean, date, integer, text, text, text, uuid[]) from public;
+revoke all on function purchases.check_spend_receipt_input(uuid, uuid, purchases.spend_receipts, boolean, date, integer, text, text, text, uuid[]) from public;
 
 create or replace function purchases.spend_receipt_audit_row(r purchases.spend_receipts)
 returns jsonb
@@ -234,7 +262,7 @@ $$;
 -- ---- writes -------------------------------------------------------------------------------
 create or replace function purchases.create_spend_receipt(
   p_tenant_id uuid, p_location_id uuid, p_purchased_on date, p_amount_jpy integer,
-  p_category text, p_note text, p_media_path text, p_action_ids uuid[]
+  p_category text, p_note text, p_media_path text, p_action_ids uuid[], p_client_request_id uuid
 )
 returns uuid
 language plpgsql
@@ -245,6 +273,7 @@ declare
   v_user     uuid := core.current_user_id();
   v_manager  boolean;
   v_row      purchases.spend_receipts;
+  v_existing uuid;
   v_ids      uuid[] := array(select distinct x from unnest(coalesce(p_action_ids, '{}')) x);
 begin
   if v_user is null or not core.has_module_access(p_tenant_id, 'purchases') then
@@ -254,16 +283,27 @@ begin
   if not (v_manager or core.has_permission(p_tenant_id, 'purchases.action.write', p_location_id)) then
     raise exception 'permission_denied' using errcode = '42501';
   end if;
-  perform purchases.check_spend_receipt_input(p_tenant_id, p_location_id, null, v_manager,
+  if p_client_request_id is null then
+    raise exception 'invalid_argument: client_request_id' using errcode = '22023';
+  end if;
+  -- double submit of the same form: return the receipt the first submit created
+  perform pg_advisory_xact_lock(hashtextextended(v_user::text || p_client_request_id::text, 0));
+  select s.id into v_existing from purchases.spend_receipts s
+   where s.tenant_id = p_tenant_id and s.created_by = v_user and s.client_request_id = p_client_request_id;
+  if v_existing is not null then
+    return v_existing;
+  end if;
+  perform purchases.check_spend_receipt_input(p_tenant_id, p_location_id, null::purchases.spend_receipts, v_manager,
     p_purchased_on, p_amount_jpy, nullif(btrim(p_category), ''), nullif(btrim(p_note), ''), p_media_path, v_ids);
   if p_media_path is not null and split_part(p_media_path, '/', 3) <> v_user::text then
     raise exception 'invalid_argument: media_path' using errcode = '22023';
   end if;
 
   insert into purchases.spend_receipts (tenant_id, location_id, purchased_on, amount_jpy, category, note,
-                                        media_path, created_by, created_on)
+                                        media_path, created_by, created_on, client_request_id)
   values (p_tenant_id, p_location_id, p_purchased_on, p_amount_jpy, nullif(btrim(p_category), ''),
-          nullif(btrim(p_note), ''), p_media_path, v_user, purchases.location_today(p_tenant_id, p_location_id))
+          nullif(btrim(p_note), ''), p_media_path, v_user, purchases.location_today(p_tenant_id, p_location_id),
+          p_client_request_id)
   returning * into v_row;
 
   insert into purchases.spend_receipt_items (tenant_id, receipt_id, action_id)
@@ -292,10 +332,15 @@ begin
   if core.current_user_id() is null then
     raise exception 'permission_denied' using errcode = '42501';
   end if;
-  select * into r from purchases.spend_receipts s where s.tenant_id = p_tenant_id and s.id = p_receipt_id for update;
-  if r.id is null or not core.has_module_access(p_tenant_id, 'purchases') then
+  -- rights first (no row lock for a caller who may not edit), then lock and re-read
+  select * into r from purchases.spend_receipts s where s.tenant_id = p_tenant_id and s.id = p_receipt_id;
+  if r.id is null or not core.has_module_access(p_tenant_id, 'purchases')
+     or not (core.has_permission(p_tenant_id, 'purchases.receipt.manage', r.location_id)
+             or (r.created_by = core.current_user_id()
+                 and core.has_permission(p_tenant_id, 'purchases.action.write', r.location_id))) then
     raise exception 'receipt_not_found' using errcode = 'P0002';
   end if;
+  select * into r from purchases.spend_receipts s where s.id = p_receipt_id for update;
   is_manager := core.has_permission(p_tenant_id, 'purchases.receipt.manage', r.location_id);
   if not is_manager then
     if r.created_by <> core.current_user_id()
@@ -332,7 +377,7 @@ declare
 begin
   v_old := purchases.lock_editable_spend_receipt(p_tenant_id, p_receipt_id);
   v_manager := core.has_permission(p_tenant_id, 'purchases.receipt.manage', v_old.location_id);
-  perform purchases.check_spend_receipt_input(p_tenant_id, v_old.location_id, v_old.id, v_manager,
+  perform purchases.check_spend_receipt_input(p_tenant_id, v_old.location_id, v_old, v_manager,
     p_purchased_on, p_amount_jpy, nullif(btrim(p_category), ''), nullif(btrim(p_note), ''), p_media_path, v_ids);
   -- a new photo must be the caller's own upload; the existing one may be kept by anyone who may edit
   if p_media_path is not null and p_media_path is distinct from v_old.media_path
@@ -373,6 +418,7 @@ declare
   v_old      purchases.spend_receipts;
   v_manager  boolean;
   v_new      purchases.spend_receipts;
+  v_freed    uuid[];
 begin
   if p_reason is null or char_length(btrim(p_reason)) not between 1 and 200 then
     raise exception 'invalid_argument: reason' using errcode = '22023';
@@ -386,12 +432,14 @@ begin
    where s.id = v_old.id
   returning * into v_new;
 
-  -- the purchases are free to be put on another receipt again
-  delete from purchases.spend_receipt_items i where i.receipt_id = v_old.id;
+  -- the purchases are free to be put on another receipt again (kept in the audit row)
+  with freed as (delete from purchases.spend_receipt_items i where i.receipt_id = v_old.id returning i.action_id)
+  select coalesce(array_agg(action_id order by action_id), '{}') into v_freed from freed;
 
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
   values (p_tenant_id, core.current_user_id(), 'user', 'purchases', 'spend_receipt', v_old.id::text, 'cancel',
-          purchases.spend_receipt_audit_row(v_old), purchases.spend_receipt_audit_row(v_new),
+          purchases.spend_receipt_audit_row(v_old) || jsonb_build_object('action_ids', to_jsonb(v_freed)),
+          purchases.spend_receipt_audit_row(v_new),
           jsonb_build_object('location_id', v_old.location_id, 'by_manager', v_manager));
 end;
 $$;
@@ -413,6 +461,9 @@ begin
   if not core.has_permission(p_tenant_id, 'purchases.receipt.manage', p_location_id) then
     raise exception 'permission_denied' using errcode = '42501';
   end if;
+  if purchases.location_today(p_tenant_id, p_location_id) is null then
+    raise exception 'invalid_argument: location' using errcode = '22023';
+  end if;
   if p_receipts_enabled is null or p_photo_mode is null or p_photo_mode not in ('off', 'optional', 'required') then
     raise exception 'invalid_argument: settings' using errcode = '22023';
   end if;
@@ -433,11 +484,11 @@ begin
 end;
 $$;
 
-revoke all on function purchases.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) from public;
+revoke all on function purchases.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[], uuid) from public;
 revoke all on function purchases.update_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) from public;
 revoke all on function purchases.cancel_spend_receipt(uuid, uuid, text) from public;
 revoke all on function purchases.set_spend_receipt_settings(uuid, uuid, boolean, text) from public;
-grant execute on function purchases.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) to authenticated;
+grant execute on function purchases.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[], uuid) to authenticated;
 grant execute on function purchases.update_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) to authenticated;
 grant execute on function purchases.cancel_spend_receipt(uuid, uuid, text) to authenticated;
 grant execute on function purchases.set_spend_receipt_settings(uuid, uuid, boolean, text) to authenticated;
@@ -445,10 +496,10 @@ grant execute on function purchases.set_spend_receipt_settings(uuid, uuid, boole
 -- ---- api facade (invoker passthroughs + views) --------------------------------------------------
 create or replace function api.create_spend_receipt(
   p_tenant_id uuid, p_location_id uuid, p_purchased_on date, p_amount_jpy integer,
-  p_category text, p_note text, p_media_path text, p_action_ids uuid[]
+  p_category text, p_note text, p_media_path text, p_action_ids uuid[], p_client_request_id uuid
 )
 returns uuid language sql security invoker set search_path = api, purchases, public as $$
-  select purchases.create_spend_receipt(p_tenant_id, p_location_id, p_purchased_on, p_amount_jpy, p_category, p_note, p_media_path, p_action_ids);
+  select purchases.create_spend_receipt(p_tenant_id, p_location_id, p_purchased_on, p_amount_jpy, p_category, p_note, p_media_path, p_action_ids, p_client_request_id);
 $$;
 create or replace function api.update_spend_receipt(
   p_tenant_id uuid, p_receipt_id uuid, p_purchased_on date, p_amount_jpy integer,
@@ -466,11 +517,11 @@ returns void language sql security invoker set search_path = api, purchases, pub
   select purchases.set_spend_receipt_settings(p_tenant_id, p_location_id, p_receipts_enabled, p_photo_mode);
 $$;
 
-revoke all on function api.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) from public, anon;
+revoke all on function api.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[], uuid) from public, anon;
 revoke all on function api.update_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) from public, anon;
 revoke all on function api.cancel_spend_receipt(uuid, uuid, text) from public, anon;
 revoke all on function api.set_spend_receipt_settings(uuid, uuid, boolean, text) from public, anon;
-grant execute on function api.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) to authenticated;
+grant execute on function api.create_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[], uuid) to authenticated;
 grant execute on function api.update_spend_receipt(uuid, uuid, date, integer, text, text, text, uuid[]) to authenticated;
 grant execute on function api.cancel_spend_receipt(uuid, uuid, text) to authenticated;
 grant execute on function api.set_spend_receipt_settings(uuid, uuid, boolean, text) to authenticated;
@@ -486,11 +537,13 @@ select
   (select e.id from workforce.employees e
     where e.tenant_id = r.tenant_id and e.user_id = r.created_by
     order by e.is_active desc, e.created_at limit 1) as created_by_employee_id,
-  coalesce((select jsonb_agg(jsonb_build_object('action_id', a.id, 'item_id', a.item_id, 'item_name', it.name,
-                 'action_type', a.action_type, 'actioned_at', a.actioned_at) order by a.actioned_at)
+  -- left joins: a link row never disappears from the list because the caller cannot read the
+  -- action or item (the UI must not drop it on save); unreadable parts come back as nulls
+  coalesce((select jsonb_agg(jsonb_build_object('action_id', i.action_id, 'item_id', a.item_id, 'item_name', it.name,
+                 'action_type', a.action_type, 'actioned_at', a.actioned_at) order by a.actioned_at, i.action_id)
               from purchases.spend_receipt_items i
-              join purchases.purchase_actions a on a.id = i.action_id
-              join inventory.items it on it.tenant_id = a.tenant_id and it.id = a.item_id
+              left join purchases.purchase_actions a on a.id = i.action_id
+              left join inventory.items it on it.tenant_id = a.tenant_id and it.id = a.item_id
              where i.receipt_id = r.id), '[]'::jsonb) as items
 from purchases.spend_receipts r;
 
@@ -527,7 +580,14 @@ with check (
   and core.has_module_access((storage.foldername(name))[1]::uuid, 'purchases')
   and (core.has_permission((storage.foldername(name))[1]::uuid, 'purchases.action.write', (storage.foldername(name))[2]::uuid)
        or core.has_permission((storage.foldername(name))[1]::uuid, 'purchases.receipt.manage', (storage.foldername(name))[2]::uuid))
+  -- the location must be one of the tenant's (a tenant-wide role passes has_permission for any id)
+  and purchases.location_today((storage.foldername(name))[1]::uuid, (storage.foldername(name))[2]::uuid) is not null
 );
+-- the insert policy runs as the caller: allow it to evaluate the location check
+grant execute on function purchases.location_today(uuid, uuid) to authenticated;
+-- Accepted (review 2026-11-02): no delete policy -- an abandoned upload stays until the tenant
+-- is purged (the purge lists every object under the tenant prefix); a receipt can only point
+-- at an uploaded object (check_spend_receipt_input).
 
 -- ROLLBACK (manual; revert the app first):
 --   drop view api.spend_receipts, api.spend_receipt_settings;
