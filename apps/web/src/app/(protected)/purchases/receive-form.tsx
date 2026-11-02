@@ -32,7 +32,8 @@ export interface ReceiveFormProps {
    */
   defaultQuantity?: number;
   lang: Lang;
-  onSuccess: () => void;
+  /** Gets the recorded purchase action id (offers it on a receipt, DEBT-136). */
+  onSuccess: (actionId: string) => void;
 }
 
 /**
@@ -61,7 +62,7 @@ export function ReceiveForm({ locationId, itemId, itemName, unit, expectedStockC
       setIsPending(false);
       if (result.status === 'success') {
         setQuantity('');
-        onSuccess();
+        onSuccess(result.data.actionId);
       } else {
         setError(describePurchasesWriteError(result, lang));
       }

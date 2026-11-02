@@ -13,7 +13,8 @@ export interface MarkBoughtButtonProps {
   itemId: string;
   itemName: string;
   lang: Lang;
-  onSuccess: () => void;
+  /** Gets the recorded purchase action id (offers it on a receipt, DEBT-136). */
+  onSuccess: (actionId: string) => void;
 }
 
 /**
@@ -41,7 +42,7 @@ export function MarkBoughtButton({ locationId, itemId, itemName, lang, onSuccess
     markPurchaseBoughtAction(formData).then((result) => {
       setIsPending(false);
       if (result.status === 'success') {
-        onSuccess();
+        onSuccess(result.data.actionId);
       } else {
         setError(describePurchasesWriteError(result, lang));
       }
