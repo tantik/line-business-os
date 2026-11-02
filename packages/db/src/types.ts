@@ -35,7 +35,6 @@ export interface TenantContext {
   /** Optional active location scope. */
   locationId?: string;
   permissions: string[];
-  isPlatformStaff: boolean;
 }
 
 export interface AuditEntry {

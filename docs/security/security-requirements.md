@@ -8,8 +8,19 @@ Every table with `tenant_id` has RLS enabled and policies that gate access via
 `core.is_member_of` / `core.has_permission`. Tenant isolation must not depend on
 frontend filtering.
 
+**Platform staff get no tenant data through RLS.** Since 0146 (DEBT-128),
+`core.is_member_of` / `core.has_permission` / `core.has_permission_in_tenant`
+have no platform-staff short-circuit and no RLS policy references
+`core.is_platform_staff()`: a staff user sees a tenant only through its own
+membership and roles, like anyone else (pgTAP 0085: zero rows in every `api`
+view). Staff act only through explicit staff-only functions that check
+`core.is_platform_staff()` themselves and return no tenant PII (console gate
+`api.is_platform_staff`, `api.platform_tenant_provisioning_list`,
+`provision-tenant`). MFA (aal2) on those, staff roles and a platform audit log
+come with the console (plan Phase B, DEBT-128 b).
+
 **Platform-staff privilege is not self-mutable.** `core.users.is_platform_staff`
-grants cross-tenant access through `core.is_platform_staff()`, so tenant users
+opens the console and its provisioning actions, so tenant users
 must never be able to promote themselves. The `users_self_update` policy lets a
 user edit their own row, but a `BEFORE UPDATE` trigger
 (`supabase/migrations/0012_protect_platform_staff.sql`) blocks the `anon` /

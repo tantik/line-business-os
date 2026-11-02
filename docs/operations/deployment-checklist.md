@@ -63,6 +63,10 @@ repo.
       env values.
 - [ ] Supabase target is confirmed: local, Cloud dev, or production.
 - [ ] If database changes exist, migration review and approval were completed.
+- [ ] Production: no user with `core.users.is_platform_staff = true` exists
+      until the console has MFA (aal2), staff roles and the platform audit log
+      (DEBT-128 b). Check: `select count(*) from core.users where is_platform_staff`
+      must be 0.
 
 ## Supabase Migration Safety
 

@@ -140,11 +140,11 @@ select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-0000000000f2',
     $$ with u as (update core.tenant_plans set status = 'suspended' where tenant_id = '0a110000-0000-0000-0000-00000000f001' returning 1) select count(*)::int from u $$),
   0, 'entitlements: A owner (tenant_owner, not platform staff) cannot change A''s plan status (RLS)');
--- platform staff: RLS allows
+-- platform staff: no RLS bypass either (0146, DEBT-128); plan changes go through service_role / definer RPCs
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-0000000000f1',
     $$ with u as (update core.tenant_plans set status = 'active' where tenant_id = '0a110000-0000-0000-0000-00000000f001' returning 1) select count(*)::int from u $$),
-  1, 'entitlements: platform staff CAN change a tenant plan (RLS)');
+  0, 'entitlements: platform staff cannot change a tenant plan through RLS (no staff bypass)');
 select ok(
   pg_temp.as_auth_throws('0a900000-0000-0000-0000-0000000000f2',
     $$ insert into core.entitlement_plans (code, name) values ('pgtap-x','X') $$),
@@ -183,7 +183,7 @@ select is(
   (select core.has_module_access('0b220000-0000-0000-0000-00000000f002', 'workforce')::text),
   'false', 'registry is not the runtime gate: B (no tenant_modules row) fails has_module_access despite a ga registry row');
 
--- registry write is platform-staff-only (RLS; no authenticated grant normally)
+-- registry write: nobody through RLS (0146 dropped the staff-only policy; migrations / service_role only)
 grant update on core.module_registry to authenticated;
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-0000000000f2',
@@ -192,7 +192,7 @@ select is(
 select is(
   pg_temp.as_auth_count('0a900000-0000-0000-0000-0000000000f1',
     $$ with u as (update core.module_registry set version = version where module = 'workforce' returning 1) select count(*)::int from u $$),
-  1, 'registry: platform staff CAN mutate module_registry (RLS)');
+  0, 'registry: platform staff cannot mutate module_registry through RLS (no staff bypass)');
 revoke update on core.module_registry from authenticated;
 
 -- ============================================================================

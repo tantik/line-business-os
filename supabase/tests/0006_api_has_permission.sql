@@ -257,18 +257,18 @@ select ok(
   'location-scoped manager gets false for a different location'
 );
 
--- Platform staff bypasses role_assignments entirely.
+-- Platform staff has no bypass (0146, DEBT-128): only its own role assignments count.
 select ok(
-  pg_temp.as_auth_bool('1d1d1d1d-0000-0000-0000-000000000004',
+  not pg_temp.as_auth_bool('1d1d1d1d-0000-0000-0000-000000000004',
     $q$ select api.has_permission(
           'e5555555-5555-5555-5555-555555555555', 'core.audit.read') $q$),
-  'platform staff gets true regardless of role assignment'
+  'platform staff without a role assignment gets false (no staff bypass)'
 );
 select ok(
-  pg_temp.as_auth_bool('1d1d1d1d-0000-0000-0000-000000000004',
+  not pg_temp.as_auth_bool('1d1d1d1d-0000-0000-0000-000000000004',
     $q$ select api.has_permission(
           'f6666666-6666-6666-6666-666666666666', 'nonexistent.permission.key') $q$),
-  'platform staff gets true even for an unrecognized permission key in any tenant'
+  'platform staff gets false for an unrecognized permission key in any tenant'
 );
 
 -- Unrecognized permission key never matches any role_permissions row.
