@@ -228,7 +228,7 @@ duplicated here.
 - **2026-10-21:** QA4 fixes merged and live-verified on preview: HACCP one-sided label (#619), F3 Weekly Review attendance/lateness/out-of-range (#620, **0136 on Cloud DEV**), F11+F2 presence / off-shift clock-ins / staff report months (#621, #623), F12 lateness in the presence marker (#624), F9 awaiting delivery + cancel the rest (#622, **0137 on Cloud DEV**), monthly hour cap counts drafts (#625). QA4 §5 done; §13 cost needs dashboard access (Founder). Detail: `docs/ai/SESSION_HANDOFF_2026-10-21B.md`.
 - **2026-10-24..29:** 4B-4a/4B-4b, QA accounts v2, 4C (6 tenants `qa-4c-cafe-1..6`), DEBT-097 measured (≈45 Supabase requests per Manager view), pgTAP in CI (#666). Handoffs `SESSION_HANDOFF_2026-10-24B/25/25B/29/29C.md`.
 - **2026-10-30..11-02: DEBT-124 + DEBT-135 DONE** — local JWT check, `api.my_access`, `api.my_page_context` (#670, 0142–0143), `api.manager_dashboard` (#671, 0144), `api.staff_dashboard` (#673, **0145 on Cloud DEV**). PostgREST requests per view: `/manager` 35 → 4, `/staff` 21.0 → 4.0 (`pg_stat_statements` delta). Live-checked on preview: `/staff` as staffa and as a Manager, every popup. Handoff `SESSION_HANDOFF_2026-11-02.md`.
-- **Next** (Founder order 2026-11-02): DEBT-128 (a) done (0146) → DEBT-136 receipts (in progress) → DEBT-103 (b)(c) → DEBT-139 several locations per client (before release) → 4D → production pack. **DEBT-136 (purchase receipts) must be done before the 飲食店プラン is closed for launch.** Commercial stages 4–5 (legal drafts + site) resume with the Founder after DEBT-135.
+- **Next** (Founder order 2026-11-02): DEBT-128 (a) done (0146) → DEBT-136 receipts (data layer done #676, UI next) → DEBT-103 (b)(c) → DEBT-139 several locations per client (before release) → 4D → production pack. **DEBT-136 (purchase receipts) must be done before the 飲食店プラン is closed for launch.** Commercial stages 4–5 (legal drafts + site) resume with the Founder after DEBT-135.
 - **Founder inputs open** (bundle; table in the roadmap doc):
   a dedicated QA mailbox the CTO can read (Founder's personal Gmail is not
   readable by the agent browser and should not be); QA4 aliases; native/
@@ -238,7 +238,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-02.md` (DEBT-135 closed, 0145 on Cloud DEV).
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-02B.md` (DEBT-128 a: 0146; DEBT-136 part 1: 0147 on Cloud DEV; next = receipts UI).
 
 Where everything else lives:
 
