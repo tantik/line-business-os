@@ -176,8 +176,9 @@ select is(
         -- 0089/0120/0137 purchases, 0090 staff messages,
         -- 0100/0101/0115/0116 operations, 0106 entitlements (plan),
         -- 0118/0128 issues, 0125 auto-schedule runs, 0129 packages,
-        -- 0132 navigation.
+        -- 0132 navigation, 0147 purchase receipts.
         'purchases_needed', 'purchase_history', 'purchases_awaiting_delivery',
+        'spend_receipts', 'spend_receipt_settings',
         'workforce_staff_messages',
         'operations_templates', 'operations_template_items',
         'operations_task_instances', 'operations_item_responses',
