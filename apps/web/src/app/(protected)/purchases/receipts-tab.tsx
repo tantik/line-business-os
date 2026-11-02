@@ -74,7 +74,7 @@ export function useSpendReceipts(
   token: number,
 ) {
   const key = `${locationId}|${locationTimezone}|${month ?? ''}|${scope}|${token}`;
-  const [loaded, setLoaded] = useState<{ data: SpendReceiptsTabData; key: string } | null>(null);
+  const [loaded, setLoaded] = useState<{ data: SpendReceiptsTabData; key: string; reloadKey: number } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -85,7 +85,7 @@ export function useSpendReceipts(
     loadSpendReceiptsAction(locationId, month, locationTimezone, scope)
       .then((result) => {
         if (!alive) return;
-        if (result.status === 'success') setLoaded({ data: result.data, key });
+        if (result.status === 'success') setLoaded({ data: result.data, key, reloadKey });
         else setFailedKey(key);
       })
       .catch(() => {
@@ -97,7 +97,10 @@ export function useSpendReceipts(
   }, [locationId, locationTimezone, month, scope, token, key, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  return { data: loaded?.key === key ? loaded.data : null, failed: failedKey === key, reload };
+  const data = loaded?.key === key ? loaded.data : null;
+  // true while a reload() of the same data is in flight (the old data stays on screen)
+  const refreshing = data !== null && loaded?.reloadKey !== reloadKey;
+  return { data, refreshing, failed: failedKey === key, reload };
 }
 
 export interface ReceiptsTabProps {
@@ -117,7 +120,7 @@ export interface ReceiptsTabProps {
 export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById }: ReceiptsTabProps) {
   const t: T = (key) => tReceipts(lang, key);
   const [month, setMonth] = useState<string | null>(null);
-  const { data, failed, reload } = useSpendReceipts(locationId, locationTimezone, month, 'tab', 0);
+  const { data, refreshing, failed, reload } = useSpendReceipts(locationId, locationTimezone, month, 'tab', 0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<SpendReceipt | null>(null);
   const [canceling, setCanceling] = useState<SpendReceipt | null>(null);
@@ -197,7 +200,8 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
       {!data.settings.receiptsEnabled ? (
         <InlineAlert tone="info">{data.canManage ? t('receiptsOffManagerNotice') : t('receiptsOffNotice')}</InlineAlert>
       ) : null}
-      {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
+      {/* shown once the list includes the change, never next to the old list */}
+      {notice && !refreshing ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
       {summary ? <SpendSummaryCard t={t} lang={lang} summary={summary} personName={personName} /> : null}
 
@@ -269,6 +273,7 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
           onClose={() => setSettingsOpen(false)}
           onSaved={() => {
             setSettingsOpen(false);
+            setNotice(null);
             reload();
           }}
         />
@@ -565,7 +570,7 @@ function ReceiptSettingsDialog({
         <FormActions
           primary={
             <Button variant="primary" loading={isPending} onClick={handleSave}>
-              {isPending ? t('savingButton') : t('saveButton')}
+              {isPending ? t('savingButton') : t('settingsSaveButton')}
             </Button>
           }
           secondary={
