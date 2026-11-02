@@ -10,13 +10,16 @@
 -- WHAT: one invoker-only function. Parts the Staff page shares with the
 -- Manager page are read by ONE call to api.manager_dashboard (0144) with the
 -- same inputs -- the same reads, not a copy of them:
---   shiftTypes, assignments, shiftExchanges, inventoryItems, purchasesNeeded,
+--   shiftTypes, assignments, shiftExchanges, purchasesNeeded,
 --   purchaseHistory, purchasesAwaiting, recipeCategories, recipes,
 --   recipeTitleTranslations, operationsTodayTasks, operationsItems, issuesOpen
 -- Staff-only parts are read here, each the SAME read as the TS lib function
 -- it replaces (same api view, filters, order, row cap):
 --
 --   part                   source                              filter / order / cap
+--   inventoryActiveItems   api.inventory_item_status           tenant, location, is_active = true; 1000
+--                                                              (0144's inventoryItems reads active + inactive;
+--                                                              the Staff view reads active only)
 --   myPreferenceRequests   api.workforce_shift_requests        tenant, kind=preference; work_date, request_id; paged
 --   myCorrectionRequests   api.workforce_shift_requests        tenant, kind=correction; work_date, request_id; paged
 --   myAttendance           api.workforce_attendance            tenant; work_date, attendance_id; paged
@@ -33,7 +36,11 @@
 -- operationsResponses requires operationsTodayTasks in the same call (it reads
 -- that part's rows; the app read responses only for those tasks). If that
 -- part errored, operationsResponses is {"rows": []} -- as the app, which read
--- no responses when the task read failed.
+-- no responses when the task read failed. Accepted difference (review
+-- 2026-10-30): the 20000-row cap applies to all of today's responses at once;
+-- the app capped each chunk of 100 instances. One location's tasks for one day
+-- stay far below 20000 responses; past the cap the part fails closed
+-- (LBO_ROW_CAP), it never returns a partial list.
 --
 -- The "my*" names follow the lib functions they replace: as before, RLS (not
 -- this function) decides whose rows those are -- a self-scoped employee sees
@@ -67,11 +74,11 @@ set search_path = api, public, pg_temp
 as $$
 declare
   c_shared_parts constant text[] := array[
-    'shiftTypes', 'assignments', 'shiftExchanges', 'inventoryItems', 'purchasesNeeded', 'purchaseHistory',
+    'shiftTypes', 'assignments', 'shiftExchanges', 'purchasesNeeded', 'purchaseHistory',
     'purchasesAwaiting', 'recipeCategories', 'recipes', 'recipeTitleTranslations', 'operationsTodayTasks',
     'operationsItems', 'issuesOpen'];
   c_own_parts constant text[] := array[
-    'myPreferenceRequests', 'myCorrectionRequests', 'myAttendance', 'myStaffMessages', 'staffRoster',
+    'inventoryActiveItems', 'myPreferenceRequests', 'myCorrectionRequests', 'myAttendance', 'myStaffMessages', 'staffRoster',
     'operationsResponses'];
   -- app: FETCH_ALL_PAGE_SIZE (1000) x FETCH_ALL_MAX_PAGES (20), PostgREST max_rows (1000)
   c_paged_cap constant int := 20000;
@@ -123,6 +130,22 @@ begin
   select array_agg(p) into v_shared from unnest(v_parts) p where p = any (c_shared_parts);
   if v_shared is not null then
     v_out := api.manager_dashboard(p_tenant_id, p_location_id, jsonb_set(p_params, '{parts}', to_jsonb(v_shared)));
+  end if;
+
+  -- ---- inventoryActiveItems (listInventoryItemStatus without includeInactive) ---------------
+  if 'inventoryActiveItems' = any (v_parts) then
+    begin
+      v_rows := (select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from (
+        select i.item_id, i.tenant_id, i.location_id, i.name, i.unit, i.required_quantity, i.reorder_point,
+               i.sort_order, i.is_active, i.actual_quantity, i.counted_at, i.counted_by_staff_id,
+               i.shortage_quantity, i.status, i.media_path
+          from api.inventory_item_status i
+         where i.tenant_id = p_tenant_id and i.location_id = p_location_id and i.is_active = true
+         limit c_max_rows) x);
+      v_out := v_out || jsonb_build_object('inventoryActiveItems', jsonb_build_object('rows', v_rows));
+    exception when others then
+      v_out := v_out || jsonb_build_object('inventoryActiveItems', jsonb_build_object('error', jsonb_build_object('code', sqlstate, 'message', sqlerrm)));
+    end;
   end if;
 
   -- ---- myPreferenceRequests / myCorrectionRequests -----------------------------------------

@@ -11,8 +11,7 @@ import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION } from '@/lib/inventory/items';
 import { loadMyAccess } from '@/lib/auth/my-access';
-import { loadStaffDashboard, type StaffDashboardPart } from '@/lib/staff/dashboard';
-import type { OperationsItemResponse } from '@/lib/operations/tasks';
+import { loadStaffDashboard, responsesForInstances, type StaffDashboardPart } from '@/lib/staff/dashboard';
 import { withReporterNames } from '@/lib/issues/issues';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
@@ -241,7 +240,7 @@ export default async function WorkforceStaffPage({
         'recipes',
         'recipeTitleTranslations',
       ];
-      if (inventoryEnabled) dashboardParts.push('inventoryItems');
+      if (inventoryEnabled) dashboardParts.push('inventoryActiveItems');
       if (purchasesEnabled) dashboardParts.push('purchasesNeeded', 'purchaseHistory', 'purchasesAwaiting');
       if (operationsEnabled) dashboardParts.push('operationsTodayTasks', 'operationsItems', 'operationsResponses');
       if (issuesEnabled) dashboardParts.push('issuesOpen');
@@ -268,7 +267,7 @@ export default async function WorkforceStaffPage({
       const correctionRequestsResult = dashboard.myCorrectionRequests;
       const exchangesResult = dashboard.shiftExchanges;
       const staffMessagesResult = dashboard.myStaffMessages;
-      const inventoryItemsResult = inventoryEnabled ? dashboard.inventoryItems : null;
+      const inventoryItemsResult = inventoryEnabled ? dashboard.inventoryActiveItems : null;
       const purchasesItemsResult = purchasesEnabled ? dashboard.purchasesNeeded : null;
       const purchaseHistoryResult = purchasesEnabled ? dashboard.purchaseHistory : null;
       const purchasesAwaitingResult = purchasesEnabled ? dashboard.purchasesAwaiting : null;
@@ -367,12 +366,9 @@ export default async function WorkforceStaffPage({
       const operationsInstanceIds = (operationsTasks ?? [])
         .map((task) => task.instanceId)
         .filter((id): id is string => id !== null);
-      const operationsResponsesResult = operationsEnabled ? dashboard.operationsResponses : null;
-      const operationsResponsesByInstanceId: Record<string, OperationsItemResponse[]> = Object.fromEntries(
-        operationsInstanceIds.map((id) => [
-          id,
-          operationsResponsesResult?.status === 'success' ? (operationsResponsesResult.data[id] ?? []) : [],
-        ]),
+      const operationsResponsesByInstanceId = responsesForInstances(
+        operationsEnabled ? dashboard.operationsResponses : null,
+        operationsInstanceIds,
       );
 
       // `issues.report` may be tenant-wide for some roles -- narrow to this

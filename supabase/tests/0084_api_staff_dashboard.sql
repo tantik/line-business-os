@@ -8,7 +8,8 @@
 --      caller and inputs; staff-only parts equal the direct read of their
 --      source with the same filters, order and limit: Employee, Manager and
 --      Owner of T1 (each with an employee id), Manager of T2 asked for T1
---   C  isolation: a T2 user sees no T1 row in any part
+--   C  isolation: a T2 user sees no T1 row in any part; a foreign employeeId,
+--      another location, a non-member and modules OFF return no rows
 --   D  input validation (22023); unrequested parts are omitted
 --   E  a failing part is isolated; 20000+ rows of a paged part -> LBO_ROW_CAP
 -- ============================================================================
@@ -232,12 +233,12 @@ insert into operations.item_responses (id, tenant_id, location_id, instance_id, 
 
 -- helpers ---------------------------------------------------------------------------------------
 create function pg_temp.shared_parts() returns jsonb language sql as $$
-  select '["shiftTypes", "assignments", "shiftExchanges", "inventoryItems", "purchasesNeeded", "purchaseHistory",
+  select '["shiftTypes", "assignments", "shiftExchanges", "purchasesNeeded", "purchaseHistory",
            "purchasesAwaiting", "recipeCategories", "recipes", "recipeTitleTranslations", "operationsTodayTasks",
            "operationsItems", "issuesOpen"]'::jsonb;
 $$;
 create function pg_temp.own_parts() returns jsonb language sql as $$
-  select '["myPreferenceRequests", "myCorrectionRequests", "myAttendance", "myStaffMessages", "staffRoster",
+  select '["inventoryActiveItems", "myPreferenceRequests", "myCorrectionRequests", "myAttendance", "myStaffMessages", "staffRoster",
            "operationsResponses"]'::jsonb;
 $$;
 
@@ -260,6 +261,7 @@ end $$;
 -- direct reads of each staff-only source, written from the TS lib functions (same columns, filters, order, limit)
 create temp table direct_sql (part text primary key, q text not null, ordered boolean not null);
 insert into direct_sql values
+  ('inventoryActiveItems', $q$ select coalesce(jsonb_agg(to_jsonb(x)), '[]') from (select item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status, media_path from api.inventory_item_status where tenant_id = %1$L and location_id = %2$L and is_active = true) x $q$, false),
   ('myPreferenceRequests', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by work_date, request_id), '[]') from (select request_id, tenant_id, location_id, employee_id, shift_id, shift_type_id, work_date, kind, is_unavailable, status, details, attendance_id, created_at, updated_at from api.workforce_shift_requests where tenant_id = %1$L and kind = 'preference') x $q$, true),
   ('myCorrectionRequests', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by work_date, request_id), '[]') from (select request_id, tenant_id, location_id, employee_id, shift_id, shift_type_id, work_date, kind, is_unavailable, status, details, attendance_id, created_at, updated_at from api.workforce_shift_requests where tenant_id = %1$L and kind = 'correction') x $q$, true),
   ('myAttendance', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by work_date, attendance_id), '[]') from (select attendance_id, tenant_id, location_id, employee_id, shift_id, work_date, clock_in, clock_out, actual_break_minutes, status, transportation_cost, daily_message, created_at, updated_at from api.workforce_attendance where tenant_id = %1$L) x $q$, true),
@@ -360,6 +362,9 @@ select is(pg_temp.ids('owner T1/L1 as e1', 'operationsResponses', 'response_id')
   'B: operationsResponses = responses of today''s tasks at this location only (not L2, not yesterday)');
 select is(pg_temp.ids('employee T1/L1', 'operationsResponses', 'response_id'),
   '["a8550000-0000-0000-0000-000000000001"]'::jsonb, 'B: employee sees today''s L1 response');
+select is(pg_temp.ids('employee T1/L1', 'inventoryActiveItems', 'item_id'),
+  '["a84a0000-0000-0000-0000-000000000001"]'::jsonb,
+  'B: inventoryActiveItems = active items of this location only (not the inactive one, not L2)');
 select ok(pg_temp.ids('employee T1/L1', 'staffRoster', 'employee_id') @> '["a8430000-0000-0000-0000-000000000001"]'::jsonb,
   'B: staffRoster includes the caller''s own row');
 select is(
@@ -383,6 +388,53 @@ select is(
     where b.label in ('employee T1/L1', 'manager T1/L1') and r ->> 'location_id' = 'a8410000-0000-0000-0000-000000000003'),
   0, 'C: L1 employee / manager see no T1/L2 row in any part');
 
+-- rows of every part of one staff_dashboard call
+create function pg_temp.row_count(p_uid text, p_location text, p_employee text) returns int language sql as $$
+  select count(*)::int
+    from jsonb_each(pg_temp.call('staff_dashboard', p_uid, 'a8400000-0000-0000-0000-0000000000a1', p_location,
+           pg_temp.params(pg_temp.shared_parts() || pg_temp.own_parts(), p_employee))) kv,
+         jsonb_array_elements(kv.value -> 'rows') r;
+$$;
+-- parts of one staff_dashboard call that returned an error (so "no rows" above means empty, not failed)
+create function pg_temp.error_parts(p_uid text, p_location text, p_employee text) returns int language sql as $$
+  select count(*)::int
+    from jsonb_each(pg_temp.call('staff_dashboard', p_uid, 'a8400000-0000-0000-0000-0000000000a1', p_location,
+           pg_temp.params(pg_temp.shared_parts() || pg_temp.own_parts(), p_employee))) kv
+   where kv.value ? 'error';
+$$;
+select is(
+  pg_temp.call('staff_dashboard', 'a8490000-0000-0000-0000-000000000003', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001',
+    pg_temp.params('["myStaffMessages"]', 'a8430000-0000-0000-0000-000000000002')) -> 'myStaffMessages',
+  '{"rows": []}'::jsonb, 'C: an employee passing another employee''s id (with messages) gets no messages');
+select is(
+  pg_temp.call('staff_dashboard', 'a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000001',
+    pg_temp.params('["myStaffMessages"]', 'a8430000-0000-0000-0000-000000000002')) #>> '{myStaffMessages,rows,0,body}',
+  'l2', 'C: ... while the Owner, same call with that id, sees that message (the empty result above is RLS)');
+select is(
+  pg_temp.call('staff_dashboard', 'a8490000-0000-0000-0000-000000000003', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000003',
+    pg_temp.params('["operationsTodayTasks", "operationsResponses"]', null)) - 'operationsTodayTasks',
+  '{"operationsResponses": {"rows": []}}'::jsonb, 'C: an L1 employee asking for L2 gets no Operations responses (L2 has one today)');
+select ok(
+  pg_temp.call('staff_dashboard', 'a8490000-0000-0000-0000-000000000003', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000003',
+    pg_temp.params('["operationsTodayTasks", "operationsResponses"]', null)) -> 'operationsTodayTasks' ? 'rows',
+  'C: ... and its operationsTodayTasks is rows, not an error (the empty responses are not the task-failure path)');
+select is(
+  pg_temp.call('staff_dashboard', 'a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000003',
+    pg_temp.params('["operationsTodayTasks", "operationsResponses"]', null)) #>> '{operationsResponses,rows,0,response_id}',
+  'a8550000-0000-0000-0000-000000000002', 'C: ... while the Owner asking for L2 gets that L2 response');
+select is(pg_temp.row_count('a8490000-0000-0000-0000-000000000005', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000002'),
+  0, 'C: a non-member (pending invitee) gets no row in any part');
+select is(pg_temp.error_parts('a8490000-0000-0000-0000-000000000005', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000002'),
+  0, 'C: ... and no part error (empty lists, as the RLS views give a non-member)');
+update core.tenant_modules set is_enabled = false where tenant_id = 'a8400000-0000-0000-0000-0000000000a1';
+select is(pg_temp.row_count('a8490000-0000-0000-0000-000000000003', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000001'),
+  0, 'C: every module OFF -> the employee gets no row in any part');
+select is(pg_temp.error_parts('a8490000-0000-0000-0000-000000000003', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000001'),
+  0, 'C: ... and no part error (module gate yields empty lists)');
+update core.tenant_modules set is_enabled = true where tenant_id = 'a8400000-0000-0000-0000-0000000000a1';
+select ok(pg_temp.row_count('a8490000-0000-0000-0000-000000000003', 'a8410000-0000-0000-0000-000000000001', 'a8430000-0000-0000-0000-000000000001') > 0,
+  'C: ... and modules back ON -> rows again (the zero above is the module gate, not the fixture)');
+
 -- D: input validation ---------------------------------------------------------------------------
 create function pg_temp.call_err(p_params text, p_tenant text default 'a8400000-0000-0000-0000-0000000000a1', p_location text default 'a8410000-0000-0000-0000-000000000001') returns text language sql as $$
   select left(pg_temp.as_user('a8490000-0000-0000-0000-000000000003',
@@ -390,6 +442,7 @@ create function pg_temp.call_err(p_params text, p_tenant text default 'a8400000-
 $$;
 select is(pg_temp.call_err('{"parts": ["nope"]}'), 'ERR 22023', 'D: unknown part -> 22023');
 select is(pg_temp.call_err('{"parts": ["staff"]}'), 'ERR 22023', 'D: a Manager-only part is unknown here -> 22023');
+select is(pg_temp.call_err('{"parts": ["inventoryItems"]}'), 'ERR 22023', 'D: inventoryItems (active + inactive, Manager) is unknown here -> 22023');
 select is(pg_temp.call_err('{"parts": [1]}'), 'ERR 22023', 'D: non-string part -> 22023');
 select is(pg_temp.call_err('{}'), 'ERR 22023', 'D: missing parts -> 22023');
 select is(pg_temp.call_err('[]'), 'ERR 22023', 'D: params not an object -> 22023');

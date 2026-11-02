@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { encryptPII, bufferToBytea } from '@line-os/db/crypto';
-import { loadStaffDashboard, STAFF_DASHBOARD_PARTS } from './dashboard';
+import { loadStaffDashboard, responsesForInstances, STAFF_DASHBOARD_PARTS } from './dashboard';
 import { recordingClient } from '../workforce/test-helpers';
 import { listWorkforceStaffRoster } from '../workforce/employees';
 import { listWorkforceShiftTypes } from '../workforce/shift-types';
@@ -79,7 +79,7 @@ function bundle(): Record<string, unknown> {
     myAttendance: { rows: attendanceRows },
     myStaffMessages: { rows: messageRows },
     staffRoster: { rows: rosterRows },
-    inventoryItems: { rows: inventoryRows },
+    inventoryActiveItems: { rows: inventoryRows.filter((row) => row.is_active) },
     issuesOpen: { rows: issueRows },
     operationsResponses: { rows: responseRows },
   };
@@ -112,11 +112,22 @@ test('staff-only and shared parts map to exactly what their lib function returns
   if (result.myAttendance.status === 'success') assert.deepEqual(result.myAttendance.data.map((r) => r.attendanceId), ['att1', 'att2']);
 });
 
-test('inventoryItems keeps only active items, as the Staff view\'s listInventoryItemStatus read', async () => {
-  const result = await loadStaffDashboard(rpcClient({ data: bundle() }), T, L, { parts: ['inventoryItems'], ...PARAMS });
+test('inventoryActiveItems maps the RPC rows (active only, filtered in SQL) as the Staff view\'s listInventoryItemStatus read', async () => {
+  const result = await loadStaffDashboard(rpcClient({ data: bundle() }), T, L, { parts: ['inventoryActiveItems'], ...PARAMS });
   const activeOnly = inventoryRows.filter((row) => row.is_active);
-  assert.deepEqual(result.inventoryItems, await listInventoryItemStatus(recordingClient({ data: activeOnly, error: null }).client, T, L));
-  if (result.inventoryItems.status === 'success') assert.deepEqual(result.inventoryItems.data.map((i) => i.itemId), ['it1']);
+  assert.deepEqual(result.inventoryActiveItems, await listInventoryItemStatus(recordingClient({ data: activeOnly, error: null }).client, T, L));
+  if (result.inventoryActiveItems.status === 'success') assert.deepEqual(result.inventoryActiveItems.data.map((i) => i.itemId), ['it1']);
+});
+
+test('responsesForInstances: every instance present, [] without responses or when the part failed', async () => {
+  const result = await loadStaffDashboard(rpcClient({ data: bundle() }), T, L, { parts: ['operationsTodayTasks', 'operationsResponses'], ...PARAMS });
+  const byInstance = responsesForInstances(result.operationsResponses, ['in1', 'in3']);
+  assert.deepEqual(Object.keys(byInstance), ['in1', 'in3']);
+  assert.deepEqual(byInstance.in1?.map((r) => r.responseId), ['rs1', 'rs3']);
+  assert.deepEqual(byInstance.in3, []);
+  const failed = { status: 'unexpected_error', message: 'x' } as const;
+  assert.deepEqual(responsesForInstances(failed, ['in1']), { in1: [] });
+  assert.deepEqual(responsesForInstances(null, ['in1']), { in1: [] });
 });
 
 test('operationsResponses groups rows by instance, as listItemResponsesForInstances', async () => {

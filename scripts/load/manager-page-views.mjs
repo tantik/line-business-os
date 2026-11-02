@@ -13,13 +13,18 @@
 // Observability -> API Gateway for the same window and divide by the 200 count.
 // Optional env: LOAD_PAGES (comma-separated paths, default the /manager set)
 // and LOAD_ACCOUNTS (local-part regex of the accounts, default "owner[1-9]"),
-// e.g. LOAD_PAGES=/staff LOAD_ACCOUNTS="staff[a-i]|o1staff1" for the Staff page.
+// e.g. LOAD_PAGES=staff LOAD_ACCOUNTS="staff[a-i]|o1staff1" for the Staff page
+// (no leading "/" from Git Bash, as for <chunks>). Exceptions are counted in
+// `errorsByReason`.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createServerClient } from '@supabase/ssr';
 
 const [minutes = '60', intervalMs = '2400', accountsPath, outPath = 'result.json', chunkArg = ''] = process.argv.slice(2);
 const BASE = 'https://preview.oruwa.jp';
-const PAGES = process.env.LOAD_PAGES ? process.env.LOAD_PAGES.split(',') : ['/manager', '/manager?weekOffset=1', '/manager?weekOffset=-1'];
+// Pages may be given without the leading "/" (Git Bash rewrites "/staff" into a Windows path).
+const PAGES = process.env.LOAD_PAGES
+  ? process.env.LOAD_PAGES.split(',').map((p) => `/${p.replace(/^\/+/, '')}`)
+  : ['/manager', '/manager?weekOffset=1', '/manager?weekOffset=-1'];
 const ACCOUNTS = process.env.LOAD_ACCOUNTS ?? 'owner[1-9]';
 
 async function discoverSupabase() {
@@ -61,7 +66,7 @@ const sessions = [];
 for (const o of owners()) sessions.push({ o, s: await signIn(sb, o) });
 if (sessions.length === 0) throw new Error('no account rows found');
 
-const stats = { started: new Date().toISOString(), requests: 0, byStatus: {}, byPage: {}, latencyMsSum: 0, bytes: 0, relogins: 0, errors: 0 };
+const stats = { started: new Date().toISOString(), requests: 0, byStatus: {}, byPage: {}, latencyMsSum: 0, bytes: 0, relogins: 0, errors: 0, errorsByReason: {} };
 const end = Date.now() + Number(minutes) * 60_000;
 let i = 0;
 while (Date.now() < end) {
@@ -79,8 +84,10 @@ while (Date.now() < end) {
     const k = res.status >= 300 && res.status < 400 ? `${res.status}->${res.headers.get('location')}` : String(res.status);
     stats.byStatus[k] = (stats.byStatus[k] ?? 0) + 1;
     stats.byPage[page] = (stats.byPage[page] ?? 0) + 1;
-  } catch {
+  } catch (err) {
     stats.errors += 1;
+    const reason = String(err?.cause?.code ?? err?.message ?? err).slice(0, 120);
+    stats.errorsByReason[reason] = (stats.errorsByReason[reason] ?? 0) + 1;
   }
   if (stats.requests % 100 === 0) writeFileSync(outPath, JSON.stringify({ ...stats, now: new Date().toISOString() }, null, 2));
   await new Promise((r) => setTimeout(r, Number(intervalMs)));

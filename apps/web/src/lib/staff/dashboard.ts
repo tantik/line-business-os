@@ -10,7 +10,12 @@ import {
   type ApiWorkforceStaffMessageRow,
 } from '@/lib/workforce/staff-messages';
 import { mapStaffRosterReadError, mapWorkforceStaffRosterRows, type ApiWorkforceStaffRosterRow } from '@/lib/workforce/employees';
-import { groupItemResponsesByInstance, mapItemResponsesReadError, type ApiOperationsItemResponseRow } from '@/lib/operations/tasks';
+import {
+  groupItemResponsesByInstance,
+  mapItemResponsesReadError,
+  type ApiOperationsItemResponseRow,
+  type OperationsItemResponse,
+} from '@/lib/operations/tasks';
 
 /**
  * The Staff page's read-only data batch from ONE `api.staff_dashboard` RPC
@@ -23,17 +28,14 @@ import { groupItemResponsesByInstance, mapItemResponsesReadError, type ApiOperat
  *   myStaffMessages          listMyStaffMessages(employeeId)
  *   staffRoster              listWorkforceStaffRoster
  *   operationsResponses      listItemResponsesForInstances(instance ids of today's tasks at this location),
- *                            grouped by instanceId (the page adds `[]` for instances without responses)
- *   inventoryItems           listInventoryItemStatus(location) -- active items only (the Staff view's
- *                            default); the RPC reads active + inactive, capped at 1000 rows, as on Manager
+ *                            grouped by instanceId (`responsesForInstances` adds `[]` for instances without responses)
+ *   inventoryActiveItems     listInventoryItemStatus(location) -- active items only (the Staff view's default)
  */
 const STAFF_DASHBOARD_PART_SPECS = {
   shiftTypes: MANAGER_DASHBOARD_PART_SPECS.shiftTypes,
   assignments: MANAGER_DASHBOARD_PART_SPECS.assignments,
   shiftExchanges: MANAGER_DASHBOARD_PART_SPECS.shiftExchanges,
-  inventoryItems: spec(mapInventoryItemStatusReadError, (p) =>
-    ok(mapInventoryItemStatusRows(rows<ApiInventoryItemStatusRow>(p).filter((row) => row.is_active))),
-  ),
+  inventoryActiveItems: spec(mapInventoryItemStatusReadError, (p) => ok(mapInventoryItemStatusRows(rows<ApiInventoryItemStatusRow>(p)))),
   purchasesNeeded: MANAGER_DASHBOARD_PART_SPECS.purchasesNeeded,
   purchaseHistory: MANAGER_DASHBOARD_PART_SPECS.purchaseHistory,
   purchasesAwaiting: MANAGER_DASHBOARD_PART_SPECS.purchasesAwaiting,
@@ -82,4 +84,16 @@ export async function loadStaffDashboard(
   params: StaffDashboardParams,
 ): Promise<StaffDashboardResults> {
   return loadDashboardRpc(supabase, 'staff_dashboard', 'staff dashboard', STAFF_DASHBOARD_PART_SPECS, tenantId, locationId, { ...params });
+}
+
+/**
+ * Responses per task instance for the Operations popup: every id of
+ * `instanceIds` present, `[]` when it has no responses or the part failed
+ * (as the page did before 0145).
+ */
+export function responsesForInstances(
+  result: StaffDashboardResults['operationsResponses'] | null,
+  instanceIds: readonly string[],
+): Record<string, OperationsItemResponse[]> {
+  return Object.fromEntries(instanceIds.map((id) => [id, result?.status === 'success' ? (result.data[id] ?? []) : []]));
 }
