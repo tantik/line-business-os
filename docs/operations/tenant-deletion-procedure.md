@@ -1,9 +1,10 @@
 # Tenant deletion procedure
 
-Closes DEBT-103. Migrations `supabase/migrations/0141_core_tenant_purge.sql`
-and `0148_core_purge_orphan_users.sql` (orphan rule, unreferenced users),
-tests `supabase/tests/0080_core_tenant_purge.sql` and
-`0087_core_purge_orphan_users.sql`.
+Closes DEBT-103. Migrations `supabase/migrations/0141_core_tenant_purge.sql`,
+`0148_core_purge_orphan_users.sql` (orphan rule, unreferenced users) and
+`0149_core_purge_tenant_uncascaded_rows.sql` (rows the cascade cannot
+reach), tests `supabase/tests/0080_core_tenant_purge.sql`,
+`0087_core_purge_orphan_users.sql` and `0088_core_purge_uncascaded_rows.sql`.
 
 A tenant is physically deleted only through `core.purge_tenant`. Plain
 `delete from core.tenants` still fails as soon as the tenant has audit or
@@ -46,7 +47,12 @@ let the purge cascade through.
   invitation in any status, so also invitees who never accepted) that
   nothing outside this tenant references (no row of any table with a
   foreign key to `core.users`, found from the catalog), not platform staff.
-- Real run: writes the tombstone, deletes the tenant (FK cascade), fails
+- Real run: writes the tombstone, first deletes the tenant's rows of tables
+  that have `tenant_id` but no cascading FK to `core.tenants` (e.g.
+  `inventory.stock_counts`, `purchases.purchase_actions`; found from the
+  catalog, listed as `uncascaded_tables` in the dry run, several passes;
+  a table that stays blocked stops the purge with `purge_blocked`), then
+  deletes the tenant (FK cascade), fails
   with `purge_incomplete` and rolls everything back if any row with that
   `tenant_id` is left, and only with `p_delete_orphan_auth_users = true`
   deletes from `core.users` and `auth.users` those candidates that nothing
@@ -58,6 +64,10 @@ let the purge cascade through.
   so the result lists every object of the tenant in any bucket.
 - `core.tenant_provisioning` rows keep their slug (`tenant_id` becomes
   null), so the slug of a purged tenant stays reserved.
+- Schema rule: every row with the tenant's `tenant_id` is deleted. A future
+  table whose rows must outlive the tenant (e.g. billing kept for legal
+  retention) needs `on delete set null` on its `tenant_id` FK or an explicit
+  exclusion in `core.purge_tenant`.
 
 ## Steps on Cloud DEV
 

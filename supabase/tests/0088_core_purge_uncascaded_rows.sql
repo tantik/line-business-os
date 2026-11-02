@@ -25,6 +25,17 @@ begin
   return v;
 end $$;
 
+create function pg_temp.svc_err(p_sql text) returns text language plpgsql as $$
+begin
+  set local role service_role;
+  execute p_sql;
+  reset role;
+  return 'ok';
+exception when others then
+  reset role;
+  return sqlstate || ' ' || sqlerrm;
+end $$;
+
 -- fixtures ------------------------------------------------------------------------------------
 insert into core.users (id, display_name) values ('b1690000-0000-0000-0000-000000000001', 'counter');
 insert into auth.users (id, aud, role, email)
@@ -72,6 +83,27 @@ insert into res select 'dry', pg_temp.svc($$ select core.purge_tenant('b1600000-
 select is((select r -> 'row_counts' ->> 'inventory.stock_counts' from res where label = 'dry'), '2', 'A: dry run counts stock_counts');
 select is((select r -> 'row_counts' ->> 'purchases.purchase_actions' from res where label = 'dry'), '1', 'A: dry run counts purchase_actions');
 select is((select r -> 'row_counts' ->> 'workforce.recipe_ingredients' from res where label = 'dry'), '1', 'A: dry run counts recipe_ingredients');
+select ok((select r -> 'uncascaded_tables' from res where label = 'dry')
+          @> '["inventory.stock_counts", "purchases.purchase_actions", "purchases.spend_receipt_items", "workforce.recipe_ingredients"]'::jsonb,
+  'A: dry run lists the tables deleted before the cascade');
+select ok(not ((select r -> 'uncascaded_tables' from res where label = 'dry')
+               ?| array['core.tenant_provisioning', 'audit.tenant_purge_log', 'audit.audit_logs', 'core.events', 'core.locations']),
+  'A: provisioning, tombstones, audit, events and cascaded tables are not in that list');
+
+-- A2: a blocker that never clears -> purge_blocked, nothing written ------------------------------
+-- (a cascaded table with a NO ACTION FK into stock_counts; real table, the test rolls back)
+create table public.pgtap_0149_blocker (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references core.tenants(id) on delete cascade,
+  stock_count_id uuid not null,
+  foreign key (tenant_id, stock_count_id) references inventory.stock_counts(tenant_id, id));
+insert into public.pgtap_0149_blocker (tenant_id, stock_count_id)
+values ('b1600000-0000-0000-0000-0000000000a0', 'b1630000-0000-0000-0000-0000000000a1');
+select is(pg_temp.svc_err($$ select core.purge_tenant('b1600000-0000-0000-0000-0000000000a0', 'pgtap-0149-r', false, false) $$),
+  'P0001 purge_blocked: inventory.stock_counts', 'A2: a permanently blocked table stops the purge and is named');
+select is((select count(*)::int from audit.tenant_purge_log where tenant_id = 'b1600000-0000-0000-0000-0000000000a0'), 0, 'A2: no tombstone after the refusal');
+select is((select count(*)::int from inventory.stock_counts where tenant_id = 'b1600000-0000-0000-0000-0000000000a0'), 2, 'A2: rows rolled back');
+drop table public.pgtap_0149_blocker;
 
 -- B: real run ----------------------------------------------------------------------------------
 insert into res select 'real', pg_temp.svc($$ select core.purge_tenant('b1600000-0000-0000-0000-0000000000a0', 'pgtap-0149-r', false, false) $$);

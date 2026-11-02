@@ -17,13 +17,19 @@
 -- real run and right before the tenant row, the tenant's rows of every table
 -- that has a uuid tenant_id and no ON DELETE CASCADE / SET NULL / SET DEFAULT
 -- FK to core.tenants (discovered from the catalog, so a future table of that
--- shape is covered). Several passes, each delete in its own subtransaction:
--- one blocked by an FK from another such table (23503 / 23001) is retried in
--- the next pass; the loop stops when all succeed or a pass makes no
--- progress, and the cascade then raises the real error, rolling back
--- everything. Tables reached by the cascade are left to it on purpose (their
--- triggers, e.g. workforce.employees' 0138 / 0140 ones, treat "tenant row
--- gone" as the purge case). audit.tenant_purge_log is never touched.
+-- shape is covered; the dry run lists them as uncascaded_tables). Several
+-- passes, each delete in its own subtransaction: one blocked by an FK from
+-- another such table (23503 / 23001) is retried in the next pass; a pass
+-- without progress that leaves a table blocked raises P0001
+-- purge_blocked: <tables> and everything rolls back. Only those two
+-- SQLSTATEs are caught; a DEFERRABLE FK (none today) would fail at commit,
+-- still rolling back. Tables reached by the cascade are left to it on
+-- purpose (their triggers, e.g. workforce.employees' 0138 / 0140 ones, treat
+-- "tenant row gone" as the purge case). audit.tenant_purge_log is never
+-- touched.
+-- Rule: a future table whose rows must OUTLIVE the tenant (e.g. billing kept
+-- for legal retention) must not carry a plain tenant_id without an FK, or be
+-- added to the exclusions of every catalog loop in this function.
 --
 -- Rollback: re-run section 2 of 0148_core_purge_orphan_users.sql.
 -- ============================================================================
@@ -56,7 +62,9 @@ declare
   v_deleted int := 0;
   v_purge_id bigint;
   v_progress boolean;
-  v_blocked int;
+  v_uncascaded text[];
+  v_blocked text[];
+  v_tbl text;
 begin
   if p_tenant_id is null or p_confirm_slug is null or p_dry_run is null or p_delete_orphan_auth_users is null then
     raise exception 'invalid_argument: tenant id, confirm slug and flags are required' using errcode = '22004';
@@ -97,6 +105,24 @@ begin
     end if;
   end loop;
   v_counts := v_counts || jsonb_build_object('core.tenants', 1);
+
+  -- tables the cascade cannot reach: uuid tenant_id, no CASCADE / SET NULL /
+  -- SET DEFAULT FK to core.tenants (deleted before the cascade in the real run)
+  select coalesce(array_agg(format('%I.%I', n.nspname, c.relname) order by n.nspname, c.relname), '{}'::text[])
+    into v_uncascaded
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    join pg_catalog.pg_attribute a on a.attrelid = c.oid
+   where a.attname = 'tenant_id' and not a.attisdropped
+     and a.atttypid = 'pg_catalog.uuid'::pg_catalog.regtype
+     and c.relkind in ('r', 'p') and not c.relispartition
+     and n.nspname <> all (c_excluded_schemas)
+     and n.nspname not like 'pg\_%'
+     and not (n.nspname = 'audit' and c.relname = 'tenant_purge_log')
+     and not exists (select 1 from pg_catalog.pg_constraint k
+                      where k.conrelid = c.oid and k.contype = 'f'
+                        and k.confrelid = 'core.tenants'::pg_catalog.regclass
+                        and k.confdeltype in ('c', 'n', 'd'));
 
   select count(*),
          encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(al) order by al.id), '[]'::jsonb)::text, 'UTF8')), 'hex')
@@ -139,6 +165,7 @@ begin
       'tenant_id', p_tenant_id,
       'tenant_slug', v_tenant.slug::text,
       'row_counts', v_counts,
+      'uncascaded_tables', to_jsonb(v_uncascaded),
       'audit_row_count', v_audit_n,
       'audit_digest', v_audit_digest,
       'event_row_count', v_event_n,
@@ -161,40 +188,27 @@ begin
      v_counts, v_audit_n, v_audit_digest, v_event_n, 0)
   returning id into v_purge_id;
 
-  -- rows the cascade cannot reach: tenant_id without a CASCADE / SET NULL /
-  -- SET DEFAULT FK to core.tenants; passes, each delete in a subtransaction
+  -- rows the cascade cannot reach (v_uncascaded); passes, each delete in a
+  -- subtransaction; a table still blocked after a pass without progress stops
+  -- the purge (everything rolls back)
   loop
     v_progress := false;
-    v_blocked := 0;
-    for r in
-      select n.nspname as schema_name, c.relname as table_name
-        from pg_catalog.pg_class c
-        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-        join pg_catalog.pg_attribute a on a.attrelid = c.oid
-       where a.attname = 'tenant_id' and not a.attisdropped
-         and a.atttypid = 'pg_catalog.uuid'::pg_catalog.regtype
-         and c.relkind in ('r', 'p') and not c.relispartition
-         and n.nspname <> all (c_excluded_schemas)
-         and n.nspname not like 'pg\_%'
-         and not (n.nspname = 'audit' and c.relname = 'tenant_purge_log')
-         and not exists (select 1 from pg_catalog.pg_constraint k
-                          where k.conrelid = c.oid and k.contype = 'f'
-                            and k.confrelid = 'core.tenants'::pg_catalog.regclass
-                            and k.confdeltype in ('c', 'n', 'd'))
-       order by 1, 2
-    loop
+    v_blocked := '{}'::text[];
+    foreach v_tbl in array v_uncascaded loop
       begin
-        execute format('delete from %I.%I where tenant_id = $1', r.schema_name, r.table_name)
-          using p_tenant_id;
+        execute format('delete from %s where tenant_id = $1', v_tbl) using p_tenant_id;
         get diagnostics v_n = row_count;
         if v_n > 0 then
           v_progress := true;
         end if;
       exception when foreign_key_violation or restrict_violation then
-        v_blocked := v_blocked + 1;
+        v_blocked := v_blocked || v_tbl;
       end;
     end loop;
-    exit when v_blocked = 0 or not v_progress;
+    exit when cardinality(v_blocked) = 0;
+    if not v_progress then
+      raise exception 'purge_blocked: %', array_to_string(v_blocked, ', ') using errcode = 'P0001';
+    end if;
   end loop;
 
   perform set_config('oruwa.purge_tenant_id', p_tenant_id::text, true);
@@ -254,6 +268,7 @@ begin
     'tenant_id', p_tenant_id,
     'tenant_slug', v_tenant.slug::text,
     'row_counts', v_counts,
+    'uncascaded_tables', to_jsonb(v_uncascaded),
     'audit_row_count', v_audit_n,
     'audit_digest', v_audit_digest,
     'event_row_count', v_event_n,
