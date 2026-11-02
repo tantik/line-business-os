@@ -186,7 +186,7 @@ duplicated here.
 
 ## 5. Current stage and exact next gate
 
-**As of 2026-10-19** (checked against git; see `git log -1` on `dev`):
+**As of 2026-11-02** (checked against git; see `git log -1` on `dev`):
 
 - **2026-10-10..12:** account screens (#568–#572: sign-in JA/EN, forgot/
   reset password, invalid-link, 404/error, `/account`); Copy Audit A-01..A-08;
@@ -226,10 +226,9 @@ duplicated here.
 - **2026-10-19:** platform/modules/packages model approved (#599); **P1 packages live** (#600, **0129 on Cloud DEV**); Mame To Cha + smoke tenants archived on Cloud DEV (R0a). In flight: R0b code removal (branch chore/r0b-remove-mame-to-cha), P3 WIP (branch feat/p3-purchases-recipes-modules, not verified).
 - **2026-10-20:** P3–P7 + 4B-1/4B-2 (0130–0134) and **4B-3** (#617, 0135, `provision-tenant` deployed) on Cloud DEV; **new client in ≈70 s proven live**; font self-hosted (#616); HACCP −15 °C step done.
 - **2026-10-21:** QA4 fixes merged and live-verified on preview: HACCP one-sided label (#619), F3 Weekly Review attendance/lateness/out-of-range (#620, **0136 on Cloud DEV**), F11+F2 presence / off-shift clock-ins / staff report months (#621, #623), F12 lateness in the presence marker (#624), F9 awaiting delivery + cancel the rest (#622, **0137 on Cloud DEV**), monthly hour cap counts drafts (#625). QA4 §5 done; §13 cost needs dashboard access (Founder). Detail: `docs/ai/SESSION_HANDOFF_2026-10-21B.md`.
-- **Next**: Founder QA4 final review (phone §12) → 4B-4 Owner first-run
-  wizard + Manager appointment (DEBT-091, DEBT-110c) → 4C 6-tenant test →
-  LINE → demo tenant → JA copy → SaaS hardening → production (order:
-  `docs/strategy/oruwa-roadmap-v2-2-close-to-production-2026-10-08.md`).
+- **2026-10-24..29:** 4B-4a/4B-4b, QA accounts v2, 4C (6 tenants `qa-4c-cafe-1..6`), DEBT-097 measured (≈45 Supabase requests per Manager view), pgTAP in CI (#666). Handoffs `SESSION_HANDOFF_2026-10-24B/25/25B/29/29C.md`.
+- **2026-10-30..11-02: DEBT-124 + DEBT-135 DONE** — local JWT check, `api.my_access`, `api.my_page_context` (#670, 0142–0143), `api.manager_dashboard` (#671, 0144), `api.staff_dashboard` (#673, **0145 on Cloud DEV**). PostgREST requests per view: `/manager` 35 → 4, `/staff` 21.0 → 4.0 (`pg_stat_statements` delta). Live-checked on preview: `/staff` as staffa and as a Manager, every popup. Handoff `SESSION_HANDOFF_2026-11-02.md`.
+- **Next** (Founder order 2026-11-02): DEBT-128 (B-0, platform-staff RLS bypass) → DEBT-103 (b)(c) → 4D → production pack. **DEBT-136 (purchase receipts) must be done before the 飲食店プラン is closed for launch.** Commercial stages 4–5 (legal drafts + site) resume with the Founder after DEBT-135.
 - **Founder inputs open** (bundle; table in the roadmap doc):
   a dedicated QA mailbox the CTO can read (Founder's personal Gmail is not
   readable by the agent browser and should not be); QA4 aliases; native/
@@ -239,7 +238,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-10-24.md` (4B-4a live, 0138 on Cloud DEV; mailbox oruwa.jp@gmail.com; Claude in Chrome).
+- Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-02.md` (DEBT-135 closed, 0145 on Cloud DEV).
 
 Where everything else lives:
 
