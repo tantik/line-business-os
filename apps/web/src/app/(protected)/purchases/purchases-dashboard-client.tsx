@@ -66,7 +66,7 @@ interface RowProps {
   t: T;
   onChanged: () => void;
   /** A purchase was just marked bought / received -- offers 「レシートを追加」 (DEBT-136). */
-  onPurchased: () => void;
+  onPurchased: (actionId: string) => void;
   /** The item's open order (0137), when it has one -- rendered inline on this row (one place per item). */
   openOrder?: PurchaseAwaitingDeliveryItem;
 }
@@ -192,9 +192,9 @@ function ActionControls({ item, locationId, lang, onChanged, onPurchased, openOr
             itemId={item.itemId}
             itemName={item.name}
             lang={lang}
-            onSuccess={() => {
+            onSuccess={(actionId) => {
               onChanged();
-              onPurchased();
+              onPurchased(actionId);
             }}
           />
           <OrderForm locationId={locationId} itemId={item.itemId} itemName={item.name} unit={item.unit} lang={lang} onSuccess={onChanged} />
@@ -240,7 +240,7 @@ function ReceiveRow({
   openOrder?: PurchaseAwaitingDeliveryItem;
   lang: ReturnType<typeof useLang>['lang'];
   onChanged: () => void;
-  onPurchased: () => void;
+  onPurchased: (actionId: string) => void;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, justifyContent: 'flex-end' }}>
@@ -253,9 +253,9 @@ function ReceiveRow({
         expectedStockCountId={expectedStockCountId}
         defaultQuantity={openOrder?.openOrderQuantity}
         lang={lang}
-        onSuccess={() => {
+        onSuccess={(actionId) => {
           onChanged();
-          onPurchased();
+          onPurchased(actionId);
         }}
       />
       {openOrder ? (
@@ -299,7 +299,7 @@ function AwaitingDeliverySection({
   lang: ReturnType<typeof useLang>['lang'];
   t: T;
   onChanged: () => void;
-  onPurchased: () => void;
+  onPurchased: (actionId: string) => void;
 }) {
   return (
     <section aria-labelledby="purchases-awaiting-delivery-title" style={{ marginTop: 20 }}>
@@ -540,9 +540,10 @@ export function PurchasesDashboardBody({
   const t: T = (key) => tPurchasesDashboard(lang, key);
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
-  // increments on every bought/received success: offers 「レシートを追加」 (DEBT-136)
-  const [purchaseCount, setPurchaseCount] = useState(0);
+  // purchases recorded in this popup session, newest last: offers 「レシートを追加」 with them pre-ticked (DEBT-136)
+  const [recordedActionIds, setRecordedActionIds] = useState<string[]>([]);
   const [promptDismissed, setPromptDismissed] = useState(0);
+  const purchaseCount = recordedActionIds.length;
 
   function refresh() {
     router.refresh();
@@ -570,7 +571,7 @@ export function PurchasesDashboardBody({
     lang,
     t,
     onChanged: refresh,
-    onPurchased: () => setPurchaseCount((n) => n + 1),
+    onPurchased: (actionId: string) => setRecordedActionIds((ids) => [...ids, actionId]),
   };
 
   // One place per item: still-short items carry their open order inline on
@@ -642,7 +643,7 @@ export function PurchasesDashboardBody({
               className={hoverStyles.buttonSecondary}
               style={{
                 ...(filter === value ? { ...buttonSecondary, background: colors.accentMuted, color: colors.accent } : buttonSecondary),
-                flex: '1 1 84px',
+                flex: '1 1 80px',
                 textAlign: 'center',
                 justifyContent: 'center',
                 whiteSpace: 'nowrap',
@@ -661,6 +662,7 @@ export function PurchasesDashboardBody({
           locationId={locationId}
           locationTimezone={locationTimezone}
           trigger={purchaseCount}
+          recordedActionIds={recordedActionIds}
           onDismiss={() => setPromptDismissed(purchaseCount)}
         />
       ) : null}

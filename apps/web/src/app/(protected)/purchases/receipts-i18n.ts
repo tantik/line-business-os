@@ -50,7 +50,6 @@ interface ReceiptsDict {
   amountMissing: string;
   canceledBadge: string;
   canceledReasonPrefix: string;
-  photoBadge: string;
   viewPhotoAria: string;
   editAction: string;
   cancelReceiptAction: string;
@@ -65,9 +64,6 @@ interface ReceiptsDict {
   monthPrevAria: string;
   monthNextAria: string;
   summaryTitle: string;
-  summaryTotal: string;
-  summaryReceipts: string;
-  summaryMissing: string;
   summaryByPerson: string;
   summaryByCategory: string;
   settingsAction: string;
@@ -78,9 +74,9 @@ interface ReceiptsDict {
   photoModeOptional: string;
   photoModeRequired: string;
   receiptsOffNotice: string;
-  itemsCount: string;
+  receiptsOffManagerNotice: string;
   closeButton: string;
-  errors: Record<ReceiptErrorCode | 'generic' | 'photo_too_large' | 'needs_amount_or_photo' | 'needs_category_note' | 'needs_photo', string>;
+  errors: Record<ReceiptErrorCode | 'generic' | 'photo_too_large' | 'photo_unreadable' | 'needs_amount_or_photo' | 'needs_amount' | 'needs_category_note' | 'needs_photo' | 'cancel_reason_required', string>;
 }
 
 const dictionary: Record<Lang, ReceiptsDict> = {
@@ -102,7 +98,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     amountHint: 'As printed. You can leave it empty if you add a photo — the manager fills it in later.',
     dateLabel: 'Purchase date',
     itemsLabel: 'What this receipt covers',
-    itemsHint: 'Items you marked bought or received today.',
+    itemsHint: 'Items marked bought or received today.',
     noCandidateItems: 'No items marked today. Choose a category and add a note instead.',
     categoryLabel: 'Category',
     categoryHintNoItems: 'Required when no item is ticked.',
@@ -123,12 +119,11 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     loading: 'Loading receipts…',
     loadFailed: 'Receipts could not be loaded.',
     retryButton: 'Try again',
-    emptyMine: 'No receipts this month. Add one after you buy something.',
-    emptyAll: 'No receipts this month.',
+    emptyMine: 'No receipts in this month. Add one after you buy something.',
+    emptyAll: 'No receipts in this month.',
     amountMissing: 'No amount yet',
     canceledBadge: 'Canceled',
     canceledReasonPrefix: 'Reason:',
-    photoBadge: 'Photo',
     viewPhotoAria: 'Open the receipt photo',
     editAction: 'Edit',
     cancelReceiptAction: 'Cancel receipt',
@@ -142,10 +137,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     unknownPerson: 'Unknown',
     monthPrevAria: 'Previous month',
     monthNextAria: 'Next month',
-    summaryTitle: 'Spend this month',
-    summaryTotal: 'Total',
-    summaryReceipts: 'receipts',
-    summaryMissing: 'without amount',
+    summaryTitle: 'Spend',
     summaryByPerson: 'By person',
     summaryByCategory: 'By category',
     settingsAction: 'Receipt settings',
@@ -156,12 +148,15 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     photoModeOptional: 'Optional',
     photoModeRequired: 'Required',
     receiptsOffNotice: 'Receipts are switched off at this store.',
-    itemsCount: 'items',
+    receiptsOffManagerNotice: 'Receipts are switched off. Existing receipts can still be corrected.',
     closeButton: 'Close',
     errors: {
       generic: 'Something went wrong. Please try again.',
-      photo_too_large: 'This photo cannot be used. Please take it again.',
+      photo_too_large: 'This photo is too large. Please take it again at a lower resolution.',
+      photo_unreadable: 'This image format cannot be used. Choose a JPEG or PNG photo.',
       needs_amount_or_photo: 'Add the total or a photo.',
+      needs_amount: 'Enter the total.',
+      cancel_reason_required: 'Enter a reason.',
       needs_category_note: 'Without items, choose a category and write a note.',
       needs_photo: 'A photo of the receipt is required.',
       module_disabled: 'Purchases are not enabled for this workspace.',
@@ -198,7 +193,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     amountHint: 'レシートに印字された金額です。写真があれば空欄でも保存でき、あとで店長が入力します。',
     dateLabel: '購入日',
     itemsLabel: 'このレシートの品目',
-    itemsHint: '今日「購入済み」「入荷」にした品目です。',
+    itemsHint: '今日「購入済み」「入荷」になった品目です。',
     noCandidateItems: '今日記録した品目はありません。カテゴリとメモを入力してください。',
     categoryLabel: 'カテゴリ',
     categoryHintNoItems: '品目を選ばない場合は必須です。',
@@ -219,12 +214,11 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     loading: 'レシートを読み込み中…',
     loadFailed: 'レシートを読み込めませんでした。',
     retryButton: '再読み込み',
-    emptyMine: '今月のレシートはありません。購入したら追加してください。',
-    emptyAll: '今月のレシートはありません。',
+    emptyMine: 'この月のレシートはありません。購入したら追加してください。',
+    emptyAll: 'この月のレシートはありません。',
     amountMissing: '金額未入力',
     canceledBadge: '取消',
     canceledReasonPrefix: '理由：',
-    photoBadge: '写真',
     viewPhotoAria: 'レシートの写真を開く',
     editAction: '編集',
     cancelReceiptAction: 'レシートを取り消す',
@@ -238,10 +232,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     unknownPerson: '不明',
     monthPrevAria: '前の月',
     monthNextAria: '次の月',
-    summaryTitle: '今月の支出',
-    summaryTotal: '合計',
-    summaryReceipts: '件',
-    summaryMissing: '件 金額未入力',
+    summaryTitle: '支出',
     summaryByPerson: '担当者別',
     summaryByCategory: 'カテゴリ別',
     settingsAction: 'レシートの設定',
@@ -252,15 +243,18 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     photoModeOptional: '任意',
     photoModeRequired: '必須',
     receiptsOffNotice: 'この店舗ではレシート機能がオフです。',
-    itemsCount: '品目',
+    receiptsOffManagerNotice: 'レシート機能はオフです（既存のレシートの修正のみ可能）。',
     closeButton: '閉じる',
     errors: {
       generic: 'エラーが発生しました。もう一度お試しください。',
-      photo_too_large: 'この写真は使えません。撮り直してください。',
+      photo_too_large: '写真が大きすぎます。解像度を下げて撮り直してください。',
+      photo_unreadable: 'この画像形式は使えません。JPEGかPNGの写真を選んでください。',
       needs_amount_or_photo: '合計金額か写真を入力してください。',
+      needs_amount: '合計金額を入力してください。',
+      cancel_reason_required: '理由を入力してください。',
       needs_category_note: '品目を選ばない場合は、カテゴリとメモを入力してください。',
       needs_photo: 'レシートの写真が必要です。',
-      module_disabled: 'このワークスペースでは発注・購入機能が有効ではありません。',
+      module_disabled: 'このワークスペースでは仕入れ機能が有効ではありません。',
       receipts_disabled: 'この店舗ではレシート機能がオフです。',
       photo_required: 'レシートの写真が必要です。',
       photo_off: 'この店舗では写真をオフにしています。',
@@ -287,4 +281,14 @@ export function tReceipts(lang: Lang, key: ScalarKey): string {
 
 export function tReceiptError(lang: Lang, key: keyof ReceiptsDict['errors']): string {
   return dictionary[lang].errors[key];
+}
+
+/** 「5件」 / "5 receipts". */
+export function formatReceiptCount(lang: Lang, count: number): string {
+  return lang === 'ja' ? `${count}件` : `${count} ${count === 1 ? 'receipt' : 'receipts'}`;
+}
+
+/** 「金額未入力 3件」 / "3 without amount". */
+export function formatMissingAmountCount(lang: Lang, count: number): string {
+  return lang === 'ja' ? `金額未入力 ${count}件` : `${count} without amount`;
 }

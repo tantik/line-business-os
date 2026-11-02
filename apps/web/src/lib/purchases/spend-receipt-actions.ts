@@ -76,14 +76,20 @@ async function canManageReceipts(supabase: Awaited<ReturnType<typeof createClien
   return !error && data === true;
 }
 
+/**
+ * `scope = 'tab'`: everything the 「レシート」 tab shows. `scope = 'prompt'` (after each
+ * 購入済み/入荷): settings + today's candidates only -- no month list, no signed photo URLs,
+ * so a run of purchases stays cheap.
+ */
 export async function loadSpendReceiptsAction(
   locationIdRaw: string,
   monthRaw: string | null,
   timeZoneRaw: string,
+  scope: 'tab' | 'prompt' = 'tab',
 ): Promise<TenantAccessResult<SpendReceiptsTabData>> {
   const locationId = parseUuid(locationIdRaw);
   const timeZone = typeof timeZoneRaw === 'string' && isValidTimeZone(timeZoneRaw) ? timeZoneRaw : null;
-  if (!locationId || !timeZone) return INVALID_INPUT_RESULT;
+  if (!locationId || !timeZone || (scope !== 'tab' && scope !== 'prompt')) return INVALID_INPUT_RESULT;
 
   const tenantContext = await requireTenantContext();
   if (tenantContext.status !== 'success') return tenantContext;
@@ -96,9 +102,9 @@ export async function loadSpendReceiptsAction(
   const [canManage, settingsResult, receiptsResult, profileResult, todayLinksResult, historyResult] = await Promise.all([
     canManageReceipts(supabase, tenantId, locationId),
     getSpendReceiptSettings(supabase, tenantId, locationId),
-    listSpendReceipts(supabase, tenantId, locationId, month),
+    scope === 'tab' ? listSpendReceipts(supabase, tenantId, locationId, month) : Promise.resolve(null),
     getMyWorkforceStaffProfile(supabase, tenantId),
-    // purchases already on a receipt made today (any purchase date) -- not offered again
+    // a purchase made today can only be on a receipt created today -- those are not offered again
     supabase
       .schema('api')
       .from('spend_receipts')
@@ -119,35 +125,40 @@ export async function loadSpendReceiptsAction(
       .limit(200),
   ]);
 
-  if (receiptsResult.status !== 'success') return receiptsResult;
+  if (receiptsResult && receiptsResult.status !== 'success') return receiptsResult;
   if (settingsResult.status !== 'success') return settingsResult;
+  if (todayLinksResult.error || historyResult.error) return { status: 'unexpected_error', message: 'Unable to load receipts right now.' };
 
   const linked = new Set<string>();
-  for (const r of receiptsResult.data) for (const item of r.items) linked.add(item.actionId);
   for (const row of (todayLinksResult.data ?? []) as Array<Pick<ApiSpendReceiptRow, 'items'>>) {
     for (const item of row.items ?? []) linked.add(item.action_id);
   }
+  // DEBT-132: a user with several employee rows gets no staff profile -> only a manager sees candidates then
   const myStaffId = profileResult.status === 'success' ? (profileResult.data?.staffId ?? null) : null;
-  const candidates: ReceiptCandidate[] = (
-    (historyResult.data ?? []) as Array<{
-      action_id: string;
-      item_name: string;
-      action_type: 'bought' | 'received';
-      actioned_at: string;
-      actioned_by_staff_id: string | null;
-    }>
-  )
-    .filter((row) => localDate(new Date(row.actioned_at), timeZone) === today)
-    .filter((row) => canManage || (myStaffId !== null && row.actioned_by_staff_id === myStaffId))
-    .filter((row) => !linked.has(row.action_id))
-    .map((row) => ({
+  const seen = new Set<string>();
+  const candidates: ReceiptCandidate[] = [];
+  for (const row of (historyResult.data ?? []) as Array<{
+    action_id: string;
+    item_name: string;
+    action_type: 'bought' | 'received';
+    actioned_at: string;
+    actioned_by_staff_id: string | null;
+  }>) {
+    if (seen.has(row.action_id) || linked.has(row.action_id)) continue;
+    if (localDate(new Date(row.actioned_at), timeZone) !== today) continue;
+    const isMine = myStaffId !== null && row.actioned_by_staff_id === myStaffId;
+    if (!canManage && !isMine) continue;
+    seen.add(row.action_id);
+    candidates.push({
       actionId: row.action_id,
       itemName: row.item_name,
       actionType: row.action_type,
       actionedAt: row.actioned_at,
       actionedByStaffId: row.actioned_by_staff_id,
-    }));
+    });
+  }
 
+  const receipts = receiptsResult?.data ?? [];
   return {
     status: 'success',
     data: {
@@ -155,8 +166,8 @@ export async function loadSpendReceiptsAction(
       settings: settingsResult.data,
       today,
       month,
-      receipts: receiptsResult.data,
-      photoUrlByReceiptId: await createReceiptMediaUrlMap(supabase, receiptsResult.data),
+      receipts,
+      photoUrlByReceiptId: scope === 'tab' ? await createReceiptMediaUrlMap(supabase, receipts) : {},
       candidates,
     },
   };

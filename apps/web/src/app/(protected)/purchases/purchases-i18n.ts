@@ -96,7 +96,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpAriaLabel: 'About purchases',
     popupHelpTitle: 'About purchases',
     popupHelpBody:
-      'Shows items that need restocking and the quantity to buy. Marking an item as Bought records the purchase but does not change its stock count. After the actual quantity is updated in Inventory, items with enough stock disappear and any remaining shortage returns to Pending.',
+      'Shows items that need restocking and the quantity to buy. Marking an item as Bought records the purchase but does not change its stock count. After the actual quantity is updated in Inventory, items with enough stock disappear and any remaining shortage returns to Pending.\n\nReceipts: after Bought or Received you can add the receipt — a photo and/or the total. You see your own receipts and can edit them until the end of the day; the manager sees all receipts and the spend of the month.',
     notShortError: 'This item no longer needs buying.',
     invalidQuantityError: 'Enter a quantity greater than 0.',
     staleSnapshotError: 'Stock levels changed since this was loaded. Please try again.',
@@ -158,7 +158,7 @@ const dictionary: Record<Lang, PurchasesDashboardDict> = {
     popupHelpAriaLabel: '仕入れについて',
     popupHelpTitle: '仕入れについて',
     popupHelpBody:
-      '補充が必要な商品と購入数を表示します。「購入済み」は購入したことを記録するだけで、在庫数は変わりません。在庫画面で実数を更新すると、十分な商品は一覧から消え、不足が残る商品は新しい数量で「未購入」に戻ります。',
+      '補充が必要な商品と購入数を表示します。「購入済み」は購入したことを記録するだけで、在庫数は変わりません。在庫画面で実数を更新すると、十分な商品は一覧から消え、不足が残る商品は新しい数量で「未購入」に戻ります。\n\nレシート：「購入済み」「入荷」のあとにレシート（写真・合計金額のどちらか、または両方）を追加できます。自分のレシートは当日中なら編集できます。店長はすべてのレシートと今月の支出を確認できます。',
     notShortError: 'この商品はもう購入する必要がありません。',
     invalidQuantityError: '数量は1以上を入力してください。',
     staleSnapshotError: '在庫状況が更新されました。もう一度お試しください。',

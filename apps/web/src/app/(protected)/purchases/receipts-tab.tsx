@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Checkbox,
-  ConfirmDialog,
   Dialog,
   EmptyState,
   Field,
@@ -36,7 +35,7 @@ import {
   type SpendReceipt,
 } from '@/lib/purchases/spend-receipts';
 import { describeReceiptWriteError } from './receipts-copy';
-import { tReceiptError, tReceipts } from './receipts-i18n';
+import { formatMissingAmountCount, formatReceiptCount, tReceiptError, tReceipts } from './receipts-i18n';
 import { CATEGORY_LABEL_KEY, ReceiptSheet } from './receipt-sheet';
 
 type T = (key: Parameters<typeof tReceipts>[1]) => string;
@@ -61,32 +60,44 @@ export function canEditReceipt(receipt: SpendReceipt, data: Pick<SpendReceiptsTa
   return receipt.isMine && receipt.createdOn === data.today && data.settings.receiptsEnabled;
 }
 
-/** Loads the tab's data on demand (server action), never with the dashboard page. */
-export function useSpendReceipts(locationId: string, locationTimezone: string, month: string | null, token: number) {
-  const [loaded, setLoaded] = useState<{ data: SpendReceiptsTabData; token: number } | null>(null);
-  const [failed, setFailed] = useState(false);
+/**
+ * Loads the tab's data on demand (server action), never with the dashboard
+ * page. Data is returned only for the current (location, month, scope, token)
+ * -- after a switch the caller sees "loading", never the previous month/store.
+ * `token < 0` = do not load.
+ */
+export function useSpendReceipts(
+  locationId: string,
+  locationTimezone: string,
+  month: string | null,
+  scope: 'tab' | 'prompt',
+  token: number,
+) {
+  const key = `${locationId}|${locationTimezone}|${month ?? ''}|${scope}|${token}`;
+  const [loaded, setLoaded] = useState<{ data: SpendReceiptsTabData; key: string } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (token < 0) return;
     let alive = true;
-    setFailed(false);
-    loadSpendReceiptsAction(locationId, month, locationTimezone)
+    setFailedKey(null);
+    loadSpendReceiptsAction(locationId, month, locationTimezone, scope)
       .then((result) => {
         if (!alive) return;
-        if (result.status === 'success') setLoaded({ data: result.data, token });
-        else setFailed(true);
+        if (result.status === 'success') setLoaded({ data: result.data, key });
+        else setFailedKey(key);
       })
       .catch(() => {
-        if (alive) setFailed(true);
+        if (alive) setFailedKey(key);
       });
     return () => {
       alive = false;
     };
-  }, [locationId, locationTimezone, month, token, reloadKey]);
+  }, [locationId, locationTimezone, month, scope, token, key, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  return { data: loaded?.data ?? null, loadedToken: loaded?.token ?? null, failed, reload };
+  return { data: loaded?.key === key ? loaded.data : null, failed: failedKey === key, reload };
 }
 
 export interface ReceiptsTabProps {
@@ -106,7 +117,7 @@ export interface ReceiptsTabProps {
 export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById }: ReceiptsTabProps) {
   const t: T = (key) => tReceipts(lang, key);
   const [month, setMonth] = useState<string | null>(null);
-  const { data, failed, reload } = useSpendReceipts(locationId, locationTimezone, month, 0);
+  const { data, failed, reload } = useSpendReceipts(locationId, locationTimezone, month, 'tab', 0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<SpendReceipt | null>(null);
   const [canceling, setCanceling] = useState<SpendReceipt | null>(null);
@@ -114,7 +125,7 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  if (failed && !data) {
+  if (failed) {
     return (
       <div className="mt-3">
         <InlineAlert
@@ -139,31 +150,36 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
   }
 
   const currentMonth = data.today.slice(0, 7);
-  const canAdd = data.canManage || data.settings.receiptsEnabled;
+  // receipts off: nobody creates new ones (0147); a manager can still correct existing ones
+  const canAdd = data.settings.receiptsEnabled;
+  const changeMonth = (delta: number) => {
+    setNotice(null);
+    setMonth(shiftMonth(data.month, delta));
+  };
   const summary = data.canManage ? summarizeSpend(data.receipts) : null;
   const personName = (employeeId: string | null) =>
     (employeeId && staffNameById[employeeId]) || t('unknownPerson');
 
   return (
     <div className="mt-3 flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <IconButton size="md" variant="ghost" aria-label={t('monthPrevAria')} icon={<span aria-hidden>‹</span>} onClick={() => setMonth(shiftMonth(data.month, -1))} />
-          <h2 className="m-0 min-w-[7.5rem] text-center text-base font-semibold text-text-primary">{formatMonth(data.month, lang)}</h2>
+          <IconButton size="lg" variant="ghost" aria-label={t('monthPrevAria')} icon={<span aria-hidden>‹</span>} onClick={() => changeMonth(-1)} />
+          <h2 className="m-0 whitespace-nowrap text-center text-base font-semibold text-text-primary">{formatMonth(data.month, lang)}</h2>
           <IconButton
-            size="md"
+            size="lg"
             variant="ghost"
             aria-label={t('monthNextAria')}
             icon={<span aria-hidden>›</span>}
             disabled={data.month >= currentMonth}
-            onClick={() => setMonth(shiftMonth(data.month, 1))}
+            onClick={() => changeMonth(1)}
           />
         </div>
         <div className="flex items-center gap-1">
           {canAdd ? (
             <Button
               variant="primary"
-              size="md"
+              size="lg"
               onClick={() => {
                 setEditing(null);
                 setSheetOpen(true);
@@ -178,10 +194,12 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
         </div>
       </div>
 
-      {!data.settings.receiptsEnabled ? <InlineAlert tone="info">{t('receiptsOffNotice')}</InlineAlert> : null}
+      {!data.settings.receiptsEnabled ? (
+        <InlineAlert tone="info">{data.canManage ? t('receiptsOffManagerNotice') : t('receiptsOffNotice')}</InlineAlert>
+      ) : null}
       {notice ? <InlineAlert tone="success">{notice}</InlineAlert> : null}
 
-      {summary ? <SpendSummaryCard t={t} summary={summary} personName={personName} /> : null}
+      {summary ? <SpendSummaryCard t={t} lang={lang} summary={summary} personName={personName} /> : null}
 
       <h3 className="m-0 text-sm font-semibold text-text-primary">{data.canManage ? t('allReceiptsTitle') : t('myReceiptsTitle')}</h3>
       {!data.canManage ? <MetadataText>{t('editableTodayHint')}</MetadataText> : null}
@@ -235,6 +253,7 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
         onClose={() => setCanceling(null)}
         onDone={() => {
           setCanceling(null);
+          setNotice(null);
           reload();
         }}
       />
@@ -255,17 +274,19 @@ export function ReceiptsTab({ lang, locationId, locationTimezone, staffNameById 
         />
       ) : null}
 
-      <ImageViewer open={viewingPhoto !== null} onClose={() => setViewingPhoto(null)} src={viewingPhoto ?? ''} alt="" closeLabel={t('closeButton')} />
+      <ImageViewer open={viewingPhoto !== null} onClose={() => setViewingPhoto(null)} src={viewingPhoto ?? ''} alt={t('photoLabel')} closeLabel={t('closeButton')} />
     </div>
   );
 }
 
 function SpendSummaryCard({
   t,
+  lang,
   summary,
   personName,
 }: {
   t: T;
+  lang: Lang;
   summary: ReturnType<typeof summarizeSpend>;
   personName: (employeeId: string | null) => string;
 }) {
@@ -274,13 +295,9 @@ function SpendSummaryCard({
       <h3 className="m-0 text-sm font-semibold text-text-primary">{t('summaryTitle')}</h3>
       <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <strong className="text-2xl font-semibold text-text-primary">{formatYen(summary.totalJpy)}</strong>
-        <MetadataText>
-          {summary.receiptCount} {t('summaryReceipts')}
-        </MetadataText>
+        <MetadataText>{formatReceiptCount(lang, summary.receiptCount)}</MetadataText>
         {summary.missingAmountCount > 0 ? (
-          <StatusBadge tone="warning">
-            {summary.missingAmountCount} {t('summaryMissing')}
-          </StatusBadge>
+          <StatusBadge tone="warning">{formatMissingAmountCount(lang, summary.missingAmountCount)}</StatusBadge>
         ) : null}
       </div>
       {summary.receiptCount > 0 ? (
@@ -288,12 +305,12 @@ function SpendSummaryCard({
           <SummaryList
             title={t('summaryByPerson')}
             rows={summary.byPerson.map((p) => ({ key: p.employeeId || 'unknown', label: personName(p.employeeId || null), totalJpy: p.totalJpy, count: p.count }))}
-            t={t}
+            lang={lang}
           />
           <SummaryList
             title={t('summaryByCategory')}
             rows={summary.byCategory.map((c) => ({ key: c.category, label: t(CATEGORY_LABEL_KEY[c.category]), totalJpy: c.totalJpy, count: c.count }))}
-            t={t}
+            lang={lang}
           />
         </div>
       ) : null}
@@ -301,7 +318,7 @@ function SpendSummaryCard({
   );
 }
 
-function SummaryList({ title, rows, t }: { title: string; rows: Array<{ key: string; label: string; totalJpy: number; count: number }>; t: T }) {
+function SummaryList({ title, rows, lang }: { title: string; rows: Array<{ key: string; label: string; totalJpy: number; count: number }>; lang: Lang }) {
   return (
     <div>
       <p className="m-0 text-xs font-medium text-text-muted">{title}</p>
@@ -310,7 +327,7 @@ function SummaryList({ title, rows, t }: { title: string; rows: Array<{ key: str
           <li key={row.key} className="flex items-baseline justify-between gap-2 border-b border-border py-1.5 text-sm last:border-b-0">
             <span className="min-w-0 truncate text-text-primary">{row.label}</span>
             <span className="shrink-0 tabular-nums text-text-primary">
-              {formatYen(row.totalJpy)} <span className="text-xs text-text-muted">· {row.count} {t('summaryReceipts')}</span>
+              {formatYen(row.totalJpy)} <span className="text-xs text-text-muted">· {formatReceiptCount(lang, row.count)}</span>
             </span>
           </li>
         ))}
@@ -431,7 +448,7 @@ function CancelReceiptDialog({
   function handleConfirm() {
     if (!receipt || isPending) return;
     if (reason.trim() === '') {
-      setError(tReceiptError(lang, 'invalid_input'));
+      setError(tReceiptError(lang, 'cancel_reason_required'));
       return;
     }
     setIsPending(true);
@@ -451,31 +468,36 @@ function CancelReceiptDialog({
   }
 
   return (
-    <ConfirmDialog
+    <Dialog
       open={receipt !== null}
-      onOpenChange={(next) => (!next && !isPending ? onClose() : undefined)}
+      onClose={() => (isPending ? undefined : onClose())}
       title={t('cancelDialogTitle')}
-      description={
-        <span className="flex flex-col gap-3">
-          <span>{t('cancelDialogBody')}</span>
-          <Field label={t('cancelReasonLabel')} required>
-            {(fieldProps) => (
-              <Input {...fieldProps} maxLength={MAX_RECEIPT_NOTE_LENGTH} value={reason} onChange={(event) => setReason(event.target.value)} />
-            )}
-          </Field>
-          {error ? (
-            <span role="alert" className="block text-sm text-danger-text">
-              {error}
-            </span>
-          ) : null}
-        </span>
+      size="form"
+      closeLabel={t('keepButton')}
+      footer={
+        <FormActions
+          primary={
+            <Button variant="destructive" loading={isPending} onClick={handleConfirm}>
+              {t('cancelConfirmButton')}
+            </Button>
+          }
+          secondary={
+            <Button variant="secondary" disabled={isPending} onClick={onClose}>
+              {t('keepButton')}
+            </Button>
+          }
+        />
       }
-      confirmLabel={t('cancelConfirmButton')}
-      cancelLabel={t('keepButton')}
-      pending={isPending}
-      confirmVariant="destructive"
-      onConfirm={handleConfirm}
-    />
+    >
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-sm text-text-primary">{t('cancelDialogBody')}</p>
+        <Field label={t('cancelReasonLabel')} required error={error ?? undefined}>
+          {(fieldProps) => (
+            <Input {...fieldProps} maxLength={MAX_RECEIPT_NOTE_LENGTH} value={reason} onChange={(event) => setReason(event.target.value)} />
+          )}
+        </Field>
+      </div>
+    </Dialog>
   );
 }
 
@@ -577,14 +599,17 @@ function ReceiptSettingsDialog({
 
 /**
  * After 「購入済み」/「入荷」: a small bar offering 「レシートを追加」 with the
- * day's own purchases pre-ticked (DEBT-136). Hidden when receipts are off for
- * staff. Data is loaded only when a purchase was just recorded.
+ * purchases recorded in this popup session pre-ticked (DEBT-136) -- never
+ * other people's purchases, even for a manager. Hidden when receipts are off.
+ * Loads the light `prompt` scope (settings + today's candidates) only after a
+ * purchase was recorded.
  */
 export function ReceiptPrompt({
   lang,
   locationId,
   locationTimezone,
   trigger,
+  recordedActionIds,
   onDismiss,
 }: {
   lang: Lang;
@@ -592,44 +617,52 @@ export function ReceiptPrompt({
   locationTimezone: string;
   /** Increments on every bought/received success; 0 = nothing recorded yet. */
   trigger: number;
+  /** Action ids recorded in this session (from the bought/received results). */
+  recordedActionIds: string[];
   onDismiss: () => void;
 }) {
   const t: T = (key) => tReceipts(lang, key);
-  // -1 = nothing recorded yet, no load
-  const { data, loadedToken } = useSpendReceipts(locationId, locationTimezone, null, trigger > 0 ? trigger : -1);
+  // -1 = nothing recorded yet, no load; data only for the latest purchase (it contains it)
+  const { data } = useSpendReceipts(locationId, locationTimezone, null, 'prompt', trigger > 0 ? trigger : -1);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [savedFor, setSavedFor] = useState<number | null>(null);
   const candidates = data?.candidates;
-  const preselected = useMemo(() => (candidates ?? []).map((c) => c.actionId), [candidates]);
+  const preselected = useMemo(
+    () => (candidates ?? []).filter((c) => recordedActionIds.includes(c.actionId)).map((c) => c.actionId),
+    [candidates, recordedActionIds],
+  );
 
-  // only data loaded after the latest purchase (it contains that purchase)
-  if (trigger === 0 || !data || loadedToken !== trigger) return null;
-  if (!data.canManage && !data.settings.receiptsEnabled) return null;
+  if (trigger === 0 || !data || !data.settings.receiptsEnabled) return null;
   if (savedFor === trigger) {
     return (
-      <div className="mt-3">
-        <InlineAlert tone="success">{t('savedNotice')}</InlineAlert>
+      <div className="sticky bottom-0 z-10 mt-3">
+        <InlineAlert
+          tone="success"
+          action={
+            <Button variant="ghost" size="lg" onClick={onDismiss}>
+              {t('closeButton')}
+            </Button>
+          }
+        >
+          {t('savedNotice')}
+        </InlineAlert>
       </div>
     );
   }
-  if (data.candidates.length === 0) return null;
+  if (preselected.length === 0) return null;
 
   return (
-    <div className="mt-3">
-      <InlineAlert
-        tone="info"
-        action={
-          <div className="flex gap-2">
-            <Button variant="primary" size="sm" onClick={() => setSheetOpen(true)}>
-              {t('addReceiptButton')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onDismiss}>
-              {t('closeButton')}
-            </Button>
-          </div>
-        }
-      >
-        {t('addReceiptPrompt')}
+    <div className="sticky bottom-0 z-10 mt-3 rounded-md shadow-card">
+      <InlineAlert tone="info">
+        <p className="m-0">{t('addReceiptPrompt')}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button variant="primary" size="lg" onClick={() => setSheetOpen(true)}>
+            {t('addReceiptButton')}
+          </Button>
+          <Button variant="ghost" size="lg" onClick={onDismiss}>
+            {t('closeButton')}
+          </Button>
+        </div>
       </InlineAlert>
       <ReceiptSheet
         open={sheetOpen}

@@ -4,29 +4,59 @@
  * limit (`next.config.mjs`). Draws the image at most `maxDimension` px on the
  * long side and re-encodes it as JPEG. The server still re-encodes it with
  * `optimizeImageForWeb`, which also strips metadata (location data in EXIF).
- * Falls back to the original file when the browser cannot decode it.
+ * Decodes with `createImageBitmap`, falling back to an `<img>` element (older
+ * iOS Safari); returns the original file only when neither can decode it.
  */
 export async function shrinkImageForUpload(file: File, maxDimension = 2000, quality = 0.85): Promise<File> {
-  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
-  let bitmap: ImageBitmap;
+  if (typeof document === 'undefined') return file;
+  const source = await decode(file);
+  if (!source) return file;
   try {
-    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch {
-    return file;
-  }
-  try {
-    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxDimension / Math.max(source.width, source.height));
     if (scale === 1 && file.size <= 1.5 * 1024 * 1024 && file.type === 'image/jpeg') return file;
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
+    canvas.width = Math.round(source.width * scale);
+    canvas.height = Math.round(source.height * scale);
     const context = canvas.getContext('2d');
     if (!context) return file;
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    context.drawImage(source.image, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
     if (!blob) return file;
     return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
   } finally {
-    bitmap.close();
+    source.release();
+  }
+}
+
+interface DecodedImage {
+  image: CanvasImageSource;
+  width: number;
+  height: number;
+  release: () => void;
+}
+
+async function decode(file: File): Promise<DecodedImage | null> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      return { image: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+    } catch {
+      // fall through to <img>
+    }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = 'async';
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('decode'));
+      img.src = url;
+    });
+    // <img> applies EXIF orientation by default (`image-orientation: from-image`)
+    return { image: img, width: img.naturalWidth, height: img.naturalHeight, release: () => URL.revokeObjectURL(url) };
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
   }
 }

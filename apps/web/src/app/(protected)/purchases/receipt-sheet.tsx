@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, Checkbox, Dialog, Field, FormActions, InlineAlert, Input, MetadataText, Select, Textarea } from '@line-os/ui';
+import { Button, Checkbox, Dialog, Field, FormActions, ImageViewer, InlineAlert, Input, MetadataText, Select, Textarea } from '@line-os/ui';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { saveSpendReceiptAction, type ReceiptCandidate } from '@/lib/purchases/spend-receipt-actions';
 import { parseYenAmount } from '@/lib/purchases/spend-receipt-input';
@@ -28,6 +28,8 @@ export const CATEGORY_LABEL_KEY = {
 
 /** Server Action body limit is 3 MB; `shrinkImageForUpload` normally lands far below this. */
 const MAX_UPLOAD_BYTES = 2.5 * 1024 * 1024;
+/** Radix Select has no empty value: this option stands for "no category". */
+const NO_CATEGORY = 'none';
 
 export interface ReceiptSheetProps {
   open: boolean;
@@ -81,6 +83,8 @@ export function ReceiptSheet({
   const [removePhoto, setRemovePhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   // (re)seed the form every time the sheet opens
   useEffect(() => {
@@ -96,6 +100,8 @@ export function ReceiptSheet({
     setRemovePhoto(false);
     setError(null);
     setIsPending(false);
+    setPhotoProcessing(false);
+    setViewerOpen(false);
   }, [open, receipt, today, preselectedActionIds]);
 
   useEffect(() => () => {
@@ -118,24 +124,36 @@ export function ReceiptSheet({
   async function handlePhotoPicked(file: File | undefined) {
     if (!file) return;
     setError(null);
-    const shrunk = await shrinkImageForUpload(file);
-    if (shrunk.size > MAX_UPLOAD_BYTES || !['image/jpeg', 'image/png', 'image/webp'].includes(shrunk.type)) {
-      setError(tReceiptError(lang, 'photo_too_large'));
-      return;
+    setPhotoProcessing(true);
+    try {
+      const shrunk = await shrinkImageForUpload(file);
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(shrunk.type)) {
+        setError(tReceiptError(lang, 'photo_unreadable'));
+        return;
+      }
+      if (shrunk.size > MAX_UPLOAD_BYTES) {
+        setError(tReceiptError(lang, 'photo_too_large'));
+        return;
+      }
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhoto(shrunk);
+      setPhotoPreview(URL.createObjectURL(shrunk));
+      setRemovePhoto(false);
+    } finally {
+      setPhotoProcessing(false);
     }
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhoto(shrunk);
-    setPhotoPreview(URL.createObjectURL(shrunk));
-    setRemovePhoto(false);
   }
 
   function handleSave() {
-    if (isPending) return;
+    if (isPending || photoProcessing) return;
     setError(null);
     const parsedAmount = parseYenAmount(amount);
     if (parsedAmount === undefined) return setError(tReceiptError(lang, 'invalid_amount'));
-    if (photoRequired && !hasPhoto) return setError(tReceiptError(lang, 'needs_photo'));
-    if (parsedAmount === null && !hasPhoto) return setError(tReceiptError(lang, 'needs_amount_or_photo'));
+    // an old receipt that never had a photo may still be completed (0147 checks the same)
+    if (photoRequired && !hasPhoto && (!isEdit || receipt?.mediaPath)) return setError(tReceiptError(lang, 'needs_photo'));
+    if (parsedAmount === null && !hasPhoto) {
+      return setError(tReceiptError(lang, photoAllowed ? 'needs_amount_or_photo' : 'needs_amount'));
+    }
     if (actionIds.length === 0 && (!category || note.trim() === '')) {
       return setError(tReceiptError(lang, 'needs_category_note'));
     }
@@ -178,7 +196,7 @@ export function ReceiptSheet({
         <FormActions
           sticky
           primary={
-            <Button variant="primary" loading={isPending} onClick={handleSave}>
+            <Button variant="primary" loading={isPending} disabled={photoProcessing} onClick={handleSave}>
               {isPending ? t('savingButton') : t('saveButton')}
             </Button>
           }
@@ -198,13 +216,20 @@ export function ReceiptSheet({
               {photoRequired ? <span className="text-danger-text"> *</span> : null}
             </p>
             {currentPhotoUrl ? (
-              <img src={currentPhotoUrl} alt="" className="max-h-56 w-full rounded-md border border-border object-contain" />
+              <button
+                type="button"
+                className="w-full rounded-md border border-border bg-surface-muted p-0"
+                aria-label={t('viewPhotoAria')}
+                onClick={() => setViewerOpen(true)}
+              >
+                <img src={currentPhotoUrl} alt="" className="max-h-56 w-full rounded-md object-contain" />
+              </button>
             ) : null}
+            {/* no `capture`: the phone offers camera AND gallery (a receipt may be photographed already) */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={(event) => {
                 void handlePhotoPicked(event.target.files?.[0]);
@@ -212,11 +237,17 @@ export function ReceiptSheet({
               }}
             />
             <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" size="md" onClick={() => fileInputRef.current?.click()} disabled={isPending}>
+              <Button
+                variant="secondary"
+                size="lg"
+                loading={photoProcessing}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isPending || photoProcessing}
+              >
                 {currentPhotoUrl ? t('replacePhotoButton') : t('takePhotoButton')}
               </Button>
               {isEdit && receipt?.mediaPath && !removePhoto && !photo && !photoRequired ? (
-                <Button variant="ghost" size="md" onClick={() => setRemovePhoto(true)} disabled={isPending}>
+                <Button variant="ghost" size="lg" onClick={() => setRemovePhoto(true)} disabled={isPending}>
                   {t('removePhotoButton')}
                 </Button>
               ) : null}
@@ -225,7 +256,7 @@ export function ReceiptSheet({
           </div>
         ) : null}
 
-        <Field label={t('amountLabel')} hint={t('amountHint')}>
+        <Field label={t('amountLabel')} hint={photoAllowed ? t('amountHint') : undefined} required={!photoAllowed}>
           {(fieldProps) => (
             <Input
               {...fieldProps}
@@ -276,10 +307,12 @@ export function ReceiptSheet({
           {(fieldProps) => (
             <Select
               {...fieldProps}
-              value={category}
-              onValueChange={(value) => setCategory(value as SpendReceiptCategory)}
-              placeholder={t('categoryNone')}
-              options={SPEND_RECEIPT_CATEGORIES.map((value) => ({ value, label: t(CATEGORY_LABEL_KEY[value]) }))}
+              value={category || NO_CATEGORY}
+              onValueChange={(value) => setCategory(value === NO_CATEGORY ? '' : (value as SpendReceiptCategory))}
+              options={[
+                { value: NO_CATEGORY, label: t('categoryNone') },
+                ...SPEND_RECEIPT_CATEGORIES.map((value) => ({ value, label: t(CATEGORY_LABEL_KEY[value]) })),
+              ]}
             />
           )}
         </Field>
@@ -299,6 +332,7 @@ export function ReceiptSheet({
 
         {error ? <InlineAlert tone="critical">{error}</InlineAlert> : null}
       </div>
+      <ImageViewer open={viewerOpen && Boolean(currentPhotoUrl)} onClose={() => setViewerOpen(false)} src={currentPhotoUrl ?? ''} alt={t('photoLabel')} closeLabel={t('closeButton')} />
     </Dialog>
   );
 }
