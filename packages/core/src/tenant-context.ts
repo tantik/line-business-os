@@ -13,7 +13,8 @@ import { PermissionError, type PermissionKey } from './permissions.js';
  *
  * `db` should be a service-role client (server only). We still verify the
  * membership row exists and is active; we do NOT trust a tenant_id supplied by
- * the client without this check.
+ * the client without this check. Platform staff get no bypass here either
+ * (DEBT-128, 0146): they need their own membership like anyone else.
  */
 export async function resolveTenantContext(
   db: SupabaseClient,
@@ -21,34 +22,23 @@ export async function resolveTenantContext(
 ): Promise<TenantContext> {
   const { userId, tenantId, locationId } = params;
 
-  const { data: user } = await db
+  const { data: membership, error } = await db
     .schema('core')
-    .from('users')
-    .select('is_platform_staff')
-    .eq('id', userId)
+    .from('tenant_memberships')
+    .select('id, status')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId)
+    .eq('status', 'active')
     .maybeSingle();
 
-  const isPlatformStaff = Boolean(user?.is_platform_staff);
-
-  if (!isPlatformStaff) {
-    const { data: membership, error } = await db
-      .schema('core')
-      .from('tenant_memberships')
-      .select('id, status')
-      .eq('tenant_id', tenantId)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!membership) {
-      throw new PermissionError(`user ${userId} is not an active member of tenant ${tenantId}`);
-    }
+  if (error) throw error;
+  if (!membership) {
+    throw new PermissionError(`user ${userId} is not an active member of tenant ${tenantId}`);
   }
 
   const permissions = await loadPermissions(db, { userId, tenantId, locationId });
 
-  return { tenantId, userId, locationId, permissions, isPlatformStaff };
+  return { tenantId, userId, locationId, permissions };
 }
 
 async function loadPermissions(
@@ -78,7 +68,7 @@ async function loadPermissions(
 }
 
 export function can(ctx: TenantContext, permission: PermissionKey | string): boolean {
-  return ctx.isPlatformStaff || ctx.permissions.includes(permission);
+  return ctx.permissions.includes(permission);
 }
 
 export function requirePermission(ctx: TenantContext, permission: PermissionKey | string): void {

@@ -138,9 +138,9 @@ select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005') #> '{tenant,core
 select is(pg_temp.batch('a8190000-0000-0000-0000-000000000005') #> '{anyLocation,workforce.recipe.manage}', 'true'::jsonb, 'B: Manager of L2 holds workforce.recipe.manage somewhere in T1');
 select is(
   pg_temp.batch('a8190000-0000-0000-0000-000000000006'),
-  '{"location": {"workforce.staff.manage": true, "core.weekly_review.view": true, "inventory.item.manage": true},
-    "tenant": {"core.role.manage": true}, "anyLocation": {"workforce.recipe.manage": true}, "isTenantOwner": false}'::jsonb,
-  'B: platform staff -- every permission true, but not tenant owner (no bypass)');
+  '{"location": {"workforce.staff.manage": false, "core.weekly_review.view": false, "inventory.item.manage": false},
+    "tenant": {"core.role.manage": false}, "anyLocation": {"workforce.recipe.manage": false}, "isTenantOwner": false}'::jsonb,
+  'B: platform staff without roles -- every permission false (no staff bypass, 0146 / DEBT-128)');
 -- Employee holds workforce.recipe.read at L1 only: true at L1 / anywhere, false tenant-wide
 select is(
   pg_temp.as_user('a8190000-0000-0000-0000-000000000003', $q$

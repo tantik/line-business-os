@@ -346,8 +346,8 @@ select is(
 select is(
   pg_temp.as_auth_count('0d0d0d0d-0000-0000-0000-000000000004',
     'select count(*)::int from core.tenant_memberships'),
-  12,
-  'platform staff reads all memberships via managed policy, not the self policy'
+  0,
+  'platform staff without a membership reads no memberships (no staff bypass, 0146 / DEBT-128)'
 );
 
 -- --- Manager/admin with core.member.invite reads managed memberships -------
