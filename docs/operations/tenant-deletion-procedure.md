@@ -1,7 +1,9 @@
 # Tenant deletion procedure
 
-Closes DEBT-103. Migration `supabase/migrations/0141_core_tenant_purge.sql`,
-test `supabase/tests/0080_core_tenant_purge.sql`.
+Closes DEBT-103. Migrations `supabase/migrations/0141_core_tenant_purge.sql`
+and `0148_core_purge_orphan_users.sql` (orphan rule, unreferenced users),
+tests `supabase/tests/0080_core_tenant_purge.sql` and
+`0087_core_purge_orphan_users.sql`.
 
 A tenant is physically deleted only through `core.purge_tenant`. Plain
 `delete from core.tenants` still fails as soon as the tenant has audit or
@@ -39,13 +41,17 @@ let the purge cascade through.
   `row_counts` (every application table with a `tenant_id` column, non-zero
   only, plus `core.tenants`), `audit_row_count`, `audit_digest`,
   `event_row_count`, `storage_objects` (`bucket` + `name`) and
-  `storage_object_count`, `orphan_user_ids` / `orphan_user_count` (members
-  of this tenant with no membership and no role in any other tenant, not
-  platform staff).
+  `storage_object_count`, `orphan_user_ids` / `orphan_user_count`: people
+  of this tenant (membership, role, employee link, employee or Owner
+  invitation in any status, so also invitees who never accepted) that
+  nothing outside this tenant references (no row of any table with a
+  foreign key to `core.users`, found from the catalog), not platform staff.
 - Real run: writes the tombstone, deletes the tenant (FK cascade), fails
   with `purge_incomplete` and rolls everything back if any row with that
   `tenant_id` is left, and only with `p_delete_orphan_auth_users = true`
-  deletes the orphan users from `core.users` and `auth.users`.
+  deletes from `core.users` and `auth.users` those candidates that nothing
+  references any more after the cascade (`deleted_user_ids`; a candidate
+  still referenced, e.g. by a provisioning row, is kept, not an error).
 - Storage objects are **not** deleted by the function (Supabase requires
   the Storage API). Every tenant media path starts with `<tenant_id>/`
   (`recipe-media`, `inventory-media`: `<tenant>/<location>/<entity>/<file>`),
@@ -125,7 +131,35 @@ to a file outside the repo (for example the session scratchpad).
    select count(*) from auth.users where id = any ('{<orphan ids>}'::uuid[]);      -- 0
    ```
 
-6. Record the purge (tenant, date, tombstone id, storage cleanup done) in
+6. Unreferenced users. Users whose memberships were removed when the
+   tenant was archived by hand are no longer linked to it at purge time,
+   so the purge cannot see them. List every user nothing references
+   (`users-dry.sql`):
+
+   ```sql
+   select core.purge_unreferenced_users('{}'::uuid[]);
+   ```
+
+   The result has ids, `auth_created_at` and `last_sign_in_at` only (look
+   up the email in `auth.users` if needed). Pick the ids to delete, check
+   them, then delete (`users-real.sql`):
+
+   ```sql
+   select core.purge_unreferenced_users('{<ids>}'::uuid[], true);   -- check
+   select core.purge_unreferenced_users('{<ids>}'::uuid[], false);  -- delete
+   ```
+
+   The call refuses the whole list if one id is unknown, platform staff or
+   still referenced. Each deleted user gets one `audit.user_purge_log` row
+   (orphans deleted by the purge itself get one too, with the tombstone id).
+   Run it when nobody is inviting these people (the functions lock the
+   user rows, but `core.users` has no FK to `auth.users`, so an invite that
+   resolves an auth-only user at the same moment is not blocked). The
+   listing checks every FK column for every user: fine on Cloud DEV, slow
+   on a large database. On production the user list needs Founder approval
+   like the purge.
+
+7. Record the purge (tenant, date, tombstone id, storage cleanup done) in
    `docs/ai/current-task.md` or the relevant debt / QA entry.
 
 ## Production
