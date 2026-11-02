@@ -64,6 +64,15 @@ function mapRequestRow(row: ApiWorkforceShiftRequestRow): WorkforceShiftRequest 
   };
 }
 
+/** Rows of `api.workforce_shift_requests` (own read or `api.staff_dashboard`) -> requests by work date (stable on the read's request_id order). */
+export function mapMyShiftRequestRows(rows: ApiWorkforceShiftRequestRow[]): WorkforceShiftRequest[] {
+  return rows.map(mapRequestRow).sort((a, b) => a.workDate.localeCompare(b.workDate));
+}
+
+export function mapMyShiftRequestsReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapWorkforceReadError(error, 'read your shift requests');
+}
+
 /** Read the caller's own shift requests (self-scoped by RLS, `wf_shift_requests_self_select`). */
 export async function listMyShiftRequests(
   supabase: SupabaseClient,
@@ -77,11 +86,9 @@ export async function listMyShiftRequests(
       if (opts.kind) query = query.eq('kind', opts.kind);
       return query.order('work_date', { ascending: true }).order('request_id', { ascending: true }).range(from, to);
     });
-    if (error) return mapWorkforceReadError(error, 'read your shift requests');
+    if (error) return mapMyShiftRequestsReadError(error);
 
-    const rows = (data ?? []) as ApiWorkforceShiftRequestRow[];
-    const requests = rows.map(mapRequestRow).sort((a, b) => a.workDate.localeCompare(b.workDate));
-    return { status: 'success', data: requests };
+    return { status: 'success', data: mapMyShiftRequestRows((data ?? []) as ApiWorkforceShiftRequestRow[]) };
   } catch (err) {
     return {
       status: 'unexpected_error',

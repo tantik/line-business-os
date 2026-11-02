@@ -1,6 +1,5 @@
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
-import type { TenantAccessResult } from '@/lib/tenant/types';
-import { readPiiEnv } from '@/lib/workforce/pii-env';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadDashboardRpc, ok, rows, spec, type DashboardResults } from '@/lib/db/dashboard-rpc';
 import {
   mapStaffListReadError,
   mapWorkforceStaffForManagerRows,
@@ -115,40 +114,20 @@ import { mapIssueHistoryReadError, mapIssueRows, mapOpenIssuesReadError, type Ap
  *   autoScheduleRuns         listRecentAutoScheduleRuns(location)
  * Module gating stays with the caller: only `params.parts` are read; any
  * other part comes back as an `unexpected_error` ("not requested").
+ * `api.staff_dashboard` (0145) reads its shared parts through this function,
+ * so `lib/staff/dashboard.ts` reuses these specs for them.
  */
 
-interface PartPayload {
-  rows: unknown[];
-  protectedHistoryIds?: unknown;
-}
-
-interface MapContext {
-  tenantId: string;
-  encryptionKey: string;
-}
-
-interface PartSpec<T> {
-  error: (error: PostgrestError) => TenantAccessResult<never>;
-  map: (payload: PartPayload, ctx: MapContext) => TenantAccessResult<T>;
-}
-
-function rows<T>(payload: PartPayload): T[] {
-  return payload.rows as T[];
-}
-
-function ok<T>(data: T): TenantAccessResult<T> {
-  return { status: 'success', data };
-}
-
-function spec<T>(error: PartSpec<T>['error'], map: PartSpec<T>['map']): PartSpec<T> {
-  return { error, map };
-}
-
-const PART_SPECS = {
-  staff: spec(mapStaffListReadError, (p, ctx) => {
-    const ids = Array.isArray(p.protectedHistoryIds) ? (p.protectedHistoryIds as unknown[]).filter((id): id is string => typeof id === 'string') : [];
-    return ok(mapWorkforceStaffForManagerRows(rows<ApiWorkforceStaffManageRow>(p), new Set(ids), ctx.encryptionKey));
-  }),
+export const MANAGER_DASHBOARD_PART_SPECS = {
+  // listWorkforceStaffForManager checks the PII env before reading; keep that outcome.
+  staff: spec(
+    mapStaffListReadError,
+    (p, ctx) => {
+      const ids = Array.isArray(p.protectedHistoryIds) ? (p.protectedHistoryIds as unknown[]).filter((id): id is string => typeof id === 'string') : [];
+      return ok(mapWorkforceStaffForManagerRows(rows<ApiWorkforceStaffManageRow>(p), new Set(ids), ctx.encryptionKey));
+    },
+    { needsPii: true },
+  ),
   lineLinks: spec(mapEmployeeLineLinksReadError, (p) => ok(mapEmployeeLineLinkRows(rows<ApiWorkforceEmployeeLineLinkRow>(p)))),
   shiftTypes: spec(mapShiftTypesReadError, (p) => ok(mapWorkforceShiftTypeRows(rows<ApiWorkforceShiftTypeRow>(p)))),
   preferenceRequests: spec(mapManagerShiftRequestsReadError, (p) => ok(mapManagerShiftRequestRows(rows<ApiWorkforceShiftRequestRow>(p)))),
@@ -184,11 +163,11 @@ const PART_SPECS = {
   autoScheduleRuns: spec(mapScheduleSettingsError, (p) => ok(mapAutoScheduleRunRows(rows<ApiAutoScheduleRunRow>(p)))),
 };
 
-type PartSpecs = typeof PART_SPECS;
+type PartSpecs = typeof MANAGER_DASHBOARD_PART_SPECS;
 export type ManagerDashboardPart = keyof PartSpecs;
-export type ManagerDashboardResults = { [K in ManagerDashboardPart]: ReturnType<PartSpecs[K]['map']> };
+export type ManagerDashboardResults = DashboardResults<PartSpecs>;
 
-export const MANAGER_DASHBOARD_PARTS = Object.keys(PART_SPECS) as ManagerDashboardPart[];
+export const MANAGER_DASHBOARD_PARTS = Object.keys(MANAGER_DASHBOARD_PART_SPECS) as ManagerDashboardPart[];
 
 /** Inputs of `api.manager_dashboard`; a requested part's inputs are required (else the RPC raises 22023). */
 export interface ManagerDashboardParams {
@@ -208,24 +187,6 @@ export interface ManagerDashboardParams {
   today?: string;
 }
 
-const NOT_REQUESTED = { status: 'unexpected_error', message: 'Not requested in this manager dashboard load.' } as const;
-const BAD_SHAPE = 'Unexpected manager dashboard response.';
-
-function toPostgrestError(value: unknown): PostgrestError {
-  const e = (value && typeof value === 'object' ? value : {}) as { code?: unknown; message?: unknown };
-  return {
-    name: 'PostgrestError',
-    code: typeof e.code === 'string' ? e.code : '',
-    message: typeof e.message === 'string' ? e.message : 'Unexpected error.',
-    details: '',
-    hint: '',
-  } as PostgrestError;
-}
-
-function allParts(fill: (part: ManagerDashboardPart) => TenantAccessResult<unknown>): ManagerDashboardResults {
-  return Object.fromEntries(MANAGER_DASHBOARD_PARTS.map((part) => [part, fill(part)])) as ManagerDashboardResults;
-}
-
 /**
  * Loads the requested parts with one RPC. Fails closed: an RPC error maps to
  * each requested part's own error result (as if its single read had failed
@@ -238,44 +199,5 @@ export async function loadManagerDashboard(
   locationId: string,
   params: ManagerDashboardParams,
 ): Promise<ManagerDashboardResults> {
-  const requested = new Set<ManagerDashboardPart>(params.parts);
-  const pii = readPiiEnv();
-  // listWorkforceStaffForManager checks the PII env before reading; keep that outcome.
-  const staffConfigError: TenantAccessResult<never> | null = pii.ok
-    ? null
-    : { status: 'config_error', message: `Missing PII protection env: ${pii.missing.join(', ')}` };
-  const ctx: MapContext = { tenantId, encryptionKey: pii.ok ? pii.config.encryptionKey : '' };
-
-  const finish = (fill: (part: ManagerDashboardPart) => TenantAccessResult<unknown>): ManagerDashboardResults =>
-    allParts((part) => {
-      if (!requested.has(part)) return NOT_REQUESTED;
-      if (part === 'staff' && staffConfigError) return staffConfigError;
-      return fill(part);
-    });
-
-  try {
-    const { data, error } = await supabase.schema('api').rpc('manager_dashboard', {
-      p_tenant_id: tenantId,
-      p_location_id: locationId,
-      p_params: { ...params, parts: [...requested] },
-    });
-    if (error) return finish((part) => PART_SPECS[part].error(error));
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      return finish(() => ({ status: 'unexpected_error', message: BAD_SHAPE }));
-    }
-    const bundle = data as Record<string, unknown>;
-    return finish((part) => {
-      const value = bundle[part] as { rows?: unknown; error?: unknown; protectedHistoryIds?: unknown } | undefined;
-      if (value && typeof value === 'object' && 'error' in value) return PART_SPECS[part].error(toPostgrestError(value.error));
-      if (!value || typeof value !== 'object' || !Array.isArray(value.rows)) return { status: 'unexpected_error', message: BAD_SHAPE };
-      try {
-        return PART_SPECS[part].map({ rows: value.rows, protectedHistoryIds: value.protectedHistoryIds }, ctx);
-      } catch (err) {
-        return { status: 'unexpected_error', message: err instanceof Error ? err.message : BAD_SHAPE };
-      }
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unexpected error reading the manager dashboard.';
-    return finish(() => ({ status: 'unexpected_error', message }));
-  }
+  return loadDashboardRpc(supabase, 'manager_dashboard', 'manager dashboard', MANAGER_DASHBOARD_PART_SPECS, tenantId, locationId, { ...params });
 }

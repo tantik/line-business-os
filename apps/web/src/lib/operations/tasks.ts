@@ -119,7 +119,7 @@ export async function listExpectedTasks(
 }
 
 /** Flat row shape returned by `api.operations_item_responses` (0101). */
-interface ApiOperationsItemResponseRow {
+export interface ApiOperationsItemResponseRow {
   response_id: string;
   tenant_id: string;
   location_id: string;
@@ -185,6 +185,27 @@ export async function listItemResponses(
   }
 }
 
+export function mapItemResponsesReadError(error: PostgrestError): TenantAccessResult<never> {
+  return mapOperationsReadError(error, 'read Operations item responses');
+}
+
+/**
+ * Responses grouped by `instanceId`, every id of `instanceIds` present (`[]`
+ * when it has none) -- the shape `listItemResponsesForInstances` returns,
+ * also used for the rows of `api.staff_dashboard`'s `operationsResponses`.
+ */
+export function groupItemResponsesByInstance(
+  rows: ApiOperationsItemResponseRow[],
+  instanceIds: readonly string[],
+): Record<string, OperationsItemResponse[]> {
+  const byInstance: Record<string, OperationsItemResponse[]> = Object.fromEntries(instanceIds.map((id) => [id, []]));
+  for (const row of rows) {
+    const response = mapItemResponseRow(row);
+    (byInstance[response.instanceId] ??= []).push(response);
+  }
+  return byInstance;
+}
+
 /** Ids per request in `listItemResponsesForInstances` -- keeps the PostgREST `in.(...)` URL well under gateway limits (36-char UUIDs). */
 const RESPONSE_INSTANCE_CHUNK = 100;
 
@@ -198,8 +219,8 @@ export async function listItemResponsesForInstances(
   tenantId: string,
   instanceIds: readonly string[],
 ): Promise<TenantAccessResult<Record<string, OperationsItemResponse[]>>> {
-  const byInstance: Record<string, OperationsItemResponse[]> = Object.fromEntries(instanceIds.map((id) => [id, []]));
   const ids = [...new Set(instanceIds)];
+  const allRows: ApiOperationsItemResponseRow[] = [];
   try {
     for (let i = 0; i < ids.length; i += RESPONSE_INSTANCE_CHUNK) {
       const chunk = ids.slice(i, i + RESPONSE_INSTANCE_CHUNK);
@@ -215,12 +236,9 @@ export async function listItemResponsesForInstances(
           .range(from, to),
       );
       if (error) return mapOperationsReadError(error, 'read Operations item responses');
-      for (const row of data ?? []) {
-        const response = mapItemResponseRow(row);
-        (byInstance[response.instanceId] ??= []).push(response);
-      }
+      allRows.push(...(data ?? []));
     }
-    return { status: 'success', data: byInstance };
+    return { status: 'success', data: groupItemResponsesByInstance(allRows, instanceIds) };
   } catch (err) {
     return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading Operations item responses.' };
   }
