@@ -68,6 +68,7 @@ interface ReceiptsDict {
   summaryByCategory: string;
   settingsAction: string;
   settingsTitle: string;
+  settingsSaveButton: string;
   settingsEnabledLabel: string;
   settingsPhotoLabel: string;
   photoModeOff: string;
@@ -142,6 +143,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     summaryByCategory: 'By category',
     settingsAction: 'Receipt settings',
     settingsTitle: 'Receipt settings',
+    settingsSaveButton: 'Save',
     settingsEnabledLabel: 'Staff can add receipts',
     settingsPhotoLabel: 'Receipt photo',
     photoModeOff: 'Off',
@@ -237,6 +239,7 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     summaryByCategory: 'カテゴリ別',
     settingsAction: 'レシートの設定',
     settingsTitle: 'レシートの設定',
+    settingsSaveButton: '保存',
     settingsEnabledLabel: 'スタッフがレシートを追加できる',
     settingsPhotoLabel: 'レシートの写真',
     photoModeOff: 'なし',
