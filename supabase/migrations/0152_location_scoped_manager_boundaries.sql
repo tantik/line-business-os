@@ -89,6 +89,9 @@ create policy wf_employee_invitations_manager_revoke on workforce.employee_invit
   with check (
     status = 'revoked'
     and revoked_at is not null
+    -- the revoked row must still belong to an employee the caller manages
+    -- (no re-pointing employee_id to another store in the same UPDATE)
+    and workforce.caller_can_manage_employee(tenant_id, employee_id)
   );
 
 -- target-user role flags (0138 / 0140): only for an employee the caller manages
@@ -123,6 +126,11 @@ language sql stable security definer set search_path = core, public, pg_temp as 
           and ra.user_id = p_user_id
           and ra.role_id = '00000000-0000-0000-0000-000000000004');
 $$;
+
+comment on function core.employee_user_is_manager(uuid, uuid) is
+  '0138, 0152: true iff p_user_id holds the manager role in the tenant AND the caller holds workforce.staff.manage at that user''s employee home location (tenant-wide holders: everyone; store Manager: own store only). Feeds api.workforce_staff_manage.is_manager.';
+comment on function core.employee_user_is_admin(uuid, uuid) is
+  '0140, 0152: true iff p_user_id holds the tenant_admin role in the tenant AND the caller holds workforce.staff.manage at that user''s employee home location. Feeds api.workforce_staff_manage.is_admin.';
 
 -- --- 2. tenant-wide recipes / categories / media -----------------------------------
 drop policy if exists wf_recipe_categories_insert on workforce.recipe_categories;
@@ -286,7 +294,8 @@ create policy operations_templates_update on operations.checklist_templates
     )
   );
 
--- items / schedules write through this
+-- checklist items write through this (a store Manager still schedules a
+-- tenant-wide template at their own store: schedules check the location)
 create or replace function operations.can_manage_template(p_tenant_id uuid, p_template_id uuid)
 returns boolean
 language sql stable as $$

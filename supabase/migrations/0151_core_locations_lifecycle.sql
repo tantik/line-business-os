@@ -438,6 +438,7 @@ declare
   v_n_ss int := 0;
   v_n_sched int := 0;
   v_n int;
+  v_today date;
 begin
   if p_location_id is null or p_is_active is null or p_actor_id is null then
     raise exception 'invalid_argument: location_id, is_active and actor are required' using errcode = '22004';
@@ -449,7 +450,7 @@ begin
   perform core.assert_tenant_active(v_tenant);
 
   perform core.lock_tenant_locations(v_tenant);
-  select l.id, l.name, l.is_active into v_loc from core.locations l where l.id = p_location_id for update;
+  select l.id, l.name, l.is_active, l.timezone into v_loc from core.locations l where l.id = p_location_id for update;
 
   if v_loc.is_active = p_is_active then
     return jsonb_build_object('location_id', p_location_id, 'is_active', p_is_active, 'changed', false);
@@ -478,17 +479,19 @@ begin
     update workforce.schedule_settings set auto_create_enabled = false
      where tenant_id = v_tenant and location_id = p_location_id and auto_create_enabled;
     get diagnostics v_n_ss = row_count;
-    -- same rule as api.operations_deactivate_schedule: a started version ends
-    -- today (an already set end is kept: the 0102 guard never pulls it back);
-    -- a version that has not started yet has no history and is removed
+    -- same rule as api.operations_deactivate_schedule, with "today" in the
+    -- store's own calendar: a version started by then ends today (an end
+    -- already set is kept: the 0102 guard never pulls it back); a version
+    -- starting later has no history and is removed
+    v_today := (now() at time zone v_loc.timezone)::date;
     update operations.task_schedules
-       set is_active = false, effective_to = coalesce(effective_to, current_date), updated_at = now()
+       set is_active = false, effective_to = coalesce(effective_to, greatest(v_today, effective_from)), updated_at = now()
      where tenant_id = v_tenant and location_id = p_location_id and is_active
-       and effective_from <= current_date;
+       and effective_from <= v_today;
     get diagnostics v_n_sched = row_count;
     delete from operations.task_schedules
      where tenant_id = v_tenant and location_id = p_location_id and is_active
-       and effective_from > current_date;
+       and effective_from > v_today;
     get diagnostics v_n = row_count;
     v_n_sched := v_n_sched + v_n;
   end if;
@@ -904,6 +907,9 @@ comment on view api.my_locations is
   'DEBT-139 L1 (0151): the caller''s locations per tenant with an ACTIVE membership, with access = all (tenant-wide role holding workforce.staff.manage: Owner / Admin / tenant-wide Manager; inactive locations included), manage (that role at this location) or staff (own active employee row with this home location). Strongest access wins; unrelated locations are not listed; inactive ones only for all. security_invoker; no address, metadata, timestamps or user ids. UI source only: RLS stays the boundary. api.my_tenant_locations (0017) is unchanged.';
 
 -- --- grants ----------------------------------------------------------------------------
+-- (location_name_key is an index expression: only public / anon revoked)
+revoke all on function core.location_name_key(text) from public, anon;
+revoke all on function core.location_actor_kind(uuid) from public, anon, authenticated, service_role;
 revoke all on function core.assert_location_name(text) from public, anon, authenticated, service_role;
 revoke all on function core.assert_tenant_active(uuid) from public, anon, authenticated, service_role;
 revoke all on function core.assert_location_name_free(uuid, text, uuid) from public, anon, authenticated, service_role;

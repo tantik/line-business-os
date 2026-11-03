@@ -661,5 +661,183 @@ select is(pg_temp.seen('a8990000-0000-0000-0000-000000000001', 'a8910000-0000-00
 select is(pg_temp.seen('a8990000-0000-0000-0000-000000000007', 'a8910000-0000-0000-0000-000000000002'),
   '0,0,0,0,0,0,0,0,0,0,0', 'J: the Owner of another tenant reads nothing of LB');
 
+-- J2: more store-B rows (requests, attendance, messages) + writes of store-B rows touch 0 rows
+insert into workforce.shift_requests (tenant_id, location_id, employee_id, work_date, status) values
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000006', current_date + 3, 'pending');
+insert into workforce.attendance (tenant_id, location_id, employee_id, work_date, clock_in) values
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000006', current_date - 1, now() - interval '1 day');
+insert into workforce.staff_messages (tenant_id, location_id, employee_id, sender_role, sender_user_id, body) values
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000006', 'staff', 'a8990000-0000-0000-0000-000000000006', 'B msg');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select concat_ws(',',
+    (select count(*) from workforce.shift_requests where location_id = 'a8910000-0000-0000-0000-000000000002'),
+    (select count(*) from api.workforce_shift_requests where location_id = 'a8910000-0000-0000-0000-000000000002'),
+    (select count(*) from workforce.attendance where location_id = 'a8910000-0000-0000-0000-000000000002'),
+    (select count(*) from workforce.staff_messages where location_id = 'a8910000-0000-0000-0000-000000000002')) $q$),
+  '0,0,0,0', 'J2: store-A Manager reads no LB requests (table + api), attendance, messages');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  select concat_ws(',',
+    (select count(*) from workforce.shift_requests where location_id = 'a8910000-0000-0000-0000-000000000002'),
+    (select count(*) from workforce.attendance where location_id = 'a8910000-0000-0000-0000-000000000002'),
+    (select count(*) from workforce.staff_messages where location_id = 'a8910000-0000-0000-0000-000000000002')) $q$),
+  '1,1,1', 'J2: ... the tenant-wide Manager does');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  with u1 as (update workforce.shift_requests set work_date = work_date where location_id = 'a8910000-0000-0000-0000-000000000002' returning 1),
+       u2 as (update workforce.attendance set clock_in = clock_in where location_id = 'a8910000-0000-0000-0000-000000000002' returning 1),
+       u3 as (update inventory.items set name = 'hacked' where location_id = 'a8910000-0000-0000-0000-000000000002' returning 1),
+       u4 as (update workforce.shifts set published = false where location_id = 'a8910000-0000-0000-0000-000000000002' returning 1)
+  select concat_ws(',', (select count(*) from u1), (select count(*) from u2), (select count(*) from u3), (select count(*) from u4)) $q$),
+  '0,0,0,0', 'J2: store-A Manager UPDATEs of LB requests / attendance / items / shifts touch 0 rows');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  with d as (delete from workforce.shifts where location_id = 'a8910000-0000-0000-0000-000000000002' returning 1)
+  select count(*)::text from d $q$),
+  '^(0|ERR 42501 permission denied for table shifts)$', 'J2: store-A Manager cannot DELETE LB shifts (no grant / 0 rows)');
+
+-- K: 0152 boundaries + 0151 review fixes --------------------------------------------------------------------
+-- fixtures: LINE links + pending invitations for SA (LA) and SB (LB); SB is a store Manager at LB
+insert into workforce.employee_line_links (tenant_id, employee_id, line_user_id_encrypted, line_user_id_hash, is_active) values
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000005', '\x01', 'pgtap-0151-la', true),
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000006', '\x02', 'pgtap-0151-lb', true);
+insert into workforce.employee_invitations (id, tenant_id, employee_id, target_user_id, status, invited_by) values
+  ('a89b0000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000005', 'a8990000-0000-0000-0000-000000000009', 'pending', 'a8990000-0000-0000-0000-000000000001'),
+  ('a89b0000-0000-0000-0000-000000000002', 'a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000006', 'a8990000-0000-0000-0000-000000000009', 'pending', 'a8990000-0000-0000-0000-000000000001');
+insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
+  ('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000005', 'a8910000-0000-0000-0000-000000000002');
+
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select concat_ws(',',
+    (select count(*) from workforce.employee_line_links where employee_id = 'a8920000-0000-0000-0000-000000000005'),
+    (select count(*) from workforce.employee_line_links where employee_id = 'a8920000-0000-0000-0000-000000000006'),
+    (select count(*) from api.workforce_employee_line_links where employee_id = 'a8920000-0000-0000-0000-000000000006'),
+    (select count(*) from workforce.employee_invitations where employee_id = 'a8920000-0000-0000-0000-000000000005'),
+    (select count(*) from workforce.employee_invitations where employee_id = 'a8920000-0000-0000-0000-000000000006'),
+    (select count(*) from api.workforce_employee_invitations where employee_id = 'a8920000-0000-0000-0000-000000000006')) $q$),
+  '1,0,0,1,0,0', 'K: store-A Manager sees LINE links / invitations of LA staff only (table + api)');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  select concat_ws(',',
+    (select count(*) from workforce.employee_line_links where employee_id = 'a8920000-0000-0000-0000-000000000006'),
+    (select count(*) from workforce.employee_invitations where employee_id = 'a8920000-0000-0000-0000-000000000006')) $q$),
+  '1,1', 'K: the tenant-wide Manager sees LB staff links and invitations');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  with u as (update workforce.employee_line_links set is_active = false where employee_id = 'a8920000-0000-0000-0000-000000000006' returning 1)
+  select count(*)::text from u $q$),
+  '0', 'K: store-A Manager cannot deactivate an LB LINE link (0 rows)');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  insert into workforce.employee_line_links (tenant_id, employee_id, line_user_id_encrypted, line_user_id_hash, is_active)
+  values ('a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000006', '\x03', 'pgtap-0151-lb2', false) returning 'ok' $q$),
+  '^ERR 42501', 'K: store-A Manager cannot bind a LINE link to an LB employee');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  with u as (update workforce.employee_invitations set status = 'revoked', revoked_at = now()
+              where id = 'a89b0000-0000-0000-0000-000000000002' returning 1)
+  select count(*)::text from u $q$),
+  '0', 'K: store-A Manager cannot revoke an LB invitation (0 rows)');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  update workforce.employee_invitations set status = 'revoked', revoked_at = now(), employee_id = 'a8920000-0000-0000-0000-000000000006'
+   where id = 'a89b0000-0000-0000-0000-000000000001' returning 'ok' $q$),
+  '^ERR 42501', 'K: revoking an LA invitation cannot re-point it to an LB employee');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  update workforce.employee_invitations set status = 'revoked', revoked_at = now()
+   where id = 'a89b0000-0000-0000-0000-000000000001' returning 'ok' $q$),
+  'ok', 'K: store-A Manager revokes an LA invitation');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select core.employee_user_is_manager('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006')::text $q$),
+  'false', 'K: store-A Manager cannot learn that an LB employee is a Manager');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  select core.employee_user_is_manager('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006')::text $q$),
+  'true', 'K: the tenant-wide Manager can');
+
+-- K: tenant-wide Operations templates / recipes need a tenant-wide grant
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select api.operations_create_template('a8900000-0000-0000-0000-0000000000a1', 'Shared', null)::text $q$),
+  '^ERR P0001 operations_permission_denied', 'K: store-A Manager cannot create a tenant-wide template');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select api.operations_create_template('a8900000-0000-0000-0000-0000000000a1', 'Mine', 'a8910000-0000-0000-0000-000000000001')::text $q$),
+  '^[0-9a-f-]{36}$', 'K: ... but creates one at LA');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  select api.operations_create_template('a8900000-0000-0000-0000-0000000000a1', 'Shared', null)::text $q$),
+  '^[0-9a-f-]{36}$', 'K: the tenant-wide Manager creates a tenant-wide template');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  with u as (update operations.checklist_templates set description = 'x' where id = 'a8940000-0000-0000-0000-000000000003' returning 1)
+  select count(*)::text from u $q$),
+  '0', 'K: store-A Manager cannot edit the tenant-wide template (0 rows)');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  insert into operations.checklist_items (tenant_id, template_id, label, response_type)
+  values ('a8900000-0000-0000-0000-0000000000a1', 'a8940000-0000-0000-0000-000000000003', 'x', 'boolean') returning 'ok' $q$),
+  '^ERR 42501', 'K: store-A Manager cannot add an item to the tenant-wide template');
+insert into core.tenant_modules (tenant_id, module, is_enabled) values ('a8900000-0000-0000-0000-0000000000a1', 'recipes', true)
+on conflict (tenant_id, module) do update set is_enabled = true;
+insert into workforce.recipes (id, tenant_id, location_id, title_ja, status) values
+  ('a89c0000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', null, 'Shared recipe', 'draft');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  insert into workforce.recipe_categories (tenant_id, label_ja) values ('a8900000-0000-0000-0000-0000000000a1', 'Cat') returning 'ok' $q$),
+  '^ERR 42501', 'K: store-A Manager cannot create a recipe category (tenant-wide; also no direct table grant)');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select count(*)::text from workforce.recipes where id = 'a89c0000-0000-0000-0000-000000000001' $q$),
+  '0', 'K: store-A Manager does not see a tenant-wide recipe draft');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  insert into storage.objects (bucket_id, name) values ('recipe-media',
+    'a8900000-0000-0000-0000-0000000000a1/a8910000-0000-0000-0000-000000000001/a89c0000-0000-0000-0000-000000000001/a89d0000-0000-0000-0000-000000000001.jpg') returning 'ok' $q$),
+  '^ERR 42501', 'K: store-A Manager cannot upload media for a tenant-wide recipe');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  insert into storage.objects (bucket_id, name) values ('recipe-media',
+    'a8900000-0000-0000-0000-0000000000a1/a8910000-0000-0000-0000-000000000001/a89c0000-0000-0000-0000-000000000001/a89d0000-0000-0000-0000-000000000001.jpg') returning 'ok' $q$),
+  'ok', 'K: the tenant-wide Manager can');
+
+-- K: home location changes only through move_employee_location (0151 guard)
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  update api.workforce_staff_manage set location_id = 'a8910000-0000-0000-0000-000000000002'
+   where staff_id = 'a8920000-0000-0000-0000-000000000005' returning 'ok' $q$),
+  '^ERR 42501 employee_location_change_requires_move', 'K: a direct location_id change through the staff view is refused');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  update api.workforce_staff_manage set location_id = 'a8910000-0000-0000-0000-000000000001', position_label = 'barista'
+   where staff_id = 'a8920000-0000-0000-0000-000000000005' returning 'ok' $q$),
+  'ok', 'K: an edit that sends the same location_id still works');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000001', $q$
+  update workforce.employees set location_id = 'a8910000-0000-0000-0000-000000000001'
+   where id = 'a8920000-0000-0000-0000-00000000000c' returning 'ok' $q$),
+  'ok', 'K: a first home location (NULL -> LA) can still be set');
+
+-- K: module off / other tenant on the new entry points
+update core.tenant_modules set is_enabled = false where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' and module = 'workforce';
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000001', $q$
+  select api.move_employee_location('a8920000-0000-0000-0000-00000000000b', 'a8910000-0000-0000-0000-000000000002')::text $q$),
+  '^ERR P0001 workforce_module_disabled', 'K: move refused while Workforce is off');
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000001', $q$
+  select api.set_employee_manager_role('a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000005', true, 'location')::text $q$),
+  '^ERR P0001 workforce_module_disabled', 'K: scoped appointment refused while Workforce is off');
+update core.tenant_modules set is_enabled = true where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' and module = 'workforce';
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000007', $q$
+  select api.set_employee_manager_role('a8900000-0000-0000-0000-0000000000a1', 'a8920000-0000-0000-0000-000000000005', true, 'location')::text $q$),
+  '^ERR 42501', 'K: another tenant''s Owner cannot appoint in TA');
+
+-- K: archive stops auto-schedule + Operations schedules; console audit actor_kind; name key
+update core.tenant_entitlement_limits set limit_value = 10
+ where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' and module = 'core' and limit_key = 'max_locations';
+create temp table k_res as select pg_temp.svc($$ select api.platform_create_location('a8900000-0000-0000-0000-0000000000a1', 'Store K', 'Asia/Tokyo',
+  'a8910000-0000-0000-0000-000000000001', 'a8990000-0000-0000-0000-000000000008')::text $$)::jsonb as r;
+select is((select actor_kind from audit.audit_logs where entity = 'location' and action = 'create' and entity_id = (select r ->> 'location_id' from k_res)),
+  'platform', 'K: console create is audited as actor_kind platform');
+select is((select actor_kind from audit.audit_logs where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' and entity = 'location' and action = 'rename' limit 1),
+  'user', 'K: cabinet change stays actor_kind user');
+select is((select count(*)::int from operations.task_schedules where location_id = (select (r ->> 'location_id')::uuid from k_res) and is_active),
+  2, 'K: Store K got the two active LA schedules (current + future)');
+update workforce.schedule_settings set auto_create_enabled = true where location_id = (select (r ->> 'location_id')::uuid from k_res);
+select matches(pg_temp.as_user('a8990000-0000-0000-0000-000000000001',
+  $$ select api.create_location('a8900000-0000-0000-0000-0000000000a1', 'ｓｔｏｒｅ　ｋ')::text $$),
+  '^ERR P0001 location_name_taken', 'K: full-width / case variant of an active name is taken (NFKC key)');
+select throws_ok(
+  $$ insert into core.locations (tenant_id, name, timezone) values ('a8900000-0000-0000-0000-0000000000a1', ' STORE K　', 'Asia/Tokyo') $$,
+  '23505', null, 'K: the partial unique index refuses a duplicate active name even outside the RPC');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000001',
+  format($$ select api.set_location_active(%L, false)::text $$, (select r ->> 'location_id' from k_res)))::jsonb ->> 'changed',
+  'true', 'K: Owner archives Store K');
+select is((select auto_create_enabled from workforce.schedule_settings where location_id = (select (r ->> 'location_id')::uuid from k_res)),
+  false, 'K: archive turned auto-create off');
+select is((select count(*)::int from operations.task_schedules where location_id = (select (r ->> 'location_id')::uuid from k_res) and is_active),
+  0, 'K: no active schedule left at the archived store');
+select is((select count(*)::int || ':' || bool_and(effective_to = (now() at time zone 'Asia/Tokyo')::date)::text
+             from operations.task_schedules where location_id = (select (r ->> 'location_id')::uuid from k_res)),
+  '1:true', 'K: the started version ends today (store calendar); the future version is removed');
+
 select * from finish();
 rollback;

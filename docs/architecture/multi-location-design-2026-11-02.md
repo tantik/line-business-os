@@ -77,8 +77,18 @@ One SQL source of truth, `api.my_locations` (new view or a field in
 - `staff` — bound employee row at that location.
 
 A location the user has no relation to is **not listed** (today every member
-sees every location name). RLS on the data tables already enforces this; the
-view only stops the UI from offering it.
+sees every location name). The view only stops the UI from offering it; RLS
+on the data tables is the boundary. L1 review (2026-11-03) found older checks
+that used `core.has_permission_in_tenant` (the permission at ANY location)
+and so let a store-scoped Manager reach another store; 0152 closes them with
+two rules: rows that belong to an employee are checked at the employee's
+home location (`workforce.caller_can_manage_employee`: LINE links,
+invitations, role flags), and **writing a tenant-wide row (location NULL)
+needs a tenant-wide grant** (`core.has_permission(tenant, perm, NULL)`:
+shared recipes, recipe categories, recipe media, shared Operations
+templates). Reading shared published recipes / templates stays open to the
+staff of every store. Home location changes only through
+`api.move_employee_location` (0151 trigger).
 
 ### 3.3 Active location: one resolver, one switcher (web)
 
