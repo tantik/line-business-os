@@ -77,7 +77,7 @@ interface ReceiptsDict {
   receiptsOffNotice: string;
   receiptsOffManagerNotice: string;
   closeButton: string;
-  errors: Record<ReceiptErrorCode | 'generic' | 'photo_too_large' | 'photo_unreadable' | 'needs_amount_or_photo' | 'needs_amount' | 'needs_category_note' | 'needs_photo' | 'cancel_reason_required', string>;
+  errors: Record<ReceiptErrorCode | 'generic' |'needs_amount_or_photo' | 'needs_amount' | 'needs_category_note' | 'needs_photo' | 'cancel_reason_required', string>;
 }
 
 const dictionary: Record<Lang, ReceiptsDict> = {
@@ -154,8 +154,6 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     closeButton: 'Close',
     errors: {
       generic: 'Something went wrong. Please try again.',
-      photo_too_large: 'This photo is too large. Please take it again at a lower resolution.',
-      photo_unreadable: 'This image format cannot be used. Choose a JPEG or PNG photo.',
       needs_amount_or_photo: 'Add the total or a photo.',
       needs_amount: 'Enter the total.',
       cancel_reason_required: 'Enter a reason.',
@@ -250,8 +248,6 @@ const dictionary: Record<Lang, ReceiptsDict> = {
     closeButton: '閉じる',
     errors: {
       generic: 'エラーが発生しました。もう一度お試しください。',
-      photo_too_large: '写真が大きすぎます。解像度を下げて撮り直してください。',
-      photo_unreadable: 'この画像形式は使えません。JPEGかPNGの写真を選んでください。',
       needs_amount_or_photo: '合計金額か写真を入力してください。',
       needs_amount: '合計金額を入力してください。',
       cancel_reason_required: '理由を入力してください。',
