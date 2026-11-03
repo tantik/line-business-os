@@ -6,6 +6,16 @@ function isPermissionError(error: PostgrestError): boolean {
   return error.code === '42501' || /permission denied|row-level security/i.test(error.message);
 }
 
+/**
+ * 23514 = check_violation on `inventory_items_reorder_point_check` (0046:
+ * `reorder_point >= 0 and reorder_point <= required_quantity`). The parser
+ * already rejects negatives, so in practice this is "reorder point above
+ * target quantity" -- a fallback for when the server-side parse is bypassed.
+ */
+export function isReorderPointCheckViolation(error: Pick<PostgrestError, 'code' | 'message'>): boolean {
+  return error.code === '23514' && /inventory_items_reorder_point_check/.test(error.message ?? '');
+}
+
 export function mapInventoryReadError(error: PostgrestError, action: string): TenantAccessResult<never> {
   if (isPermissionError(error)) return { status: 'unauthorized', message: `Not permitted to ${action}.` };
   return { status: 'unexpected_error', message: 'Unable to load inventory data right now.' };

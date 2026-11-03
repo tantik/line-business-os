@@ -17,7 +17,7 @@ import {
   type InventoryItem,
   type InventoryItemReferenceData,
 } from './items';
-import type { InventoryWriteResult } from './result-types';
+import type { InventoryItemWriteResult, InventoryWriteResult } from './result-types';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { optimizeImageForWeb } from '@/lib/media/optimize-image';
 
@@ -75,9 +75,10 @@ async function applyRecipeIntelligenceFields(
   return null;
 }
 
-export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryWriteResult<InventoryItem>> {
-  const input = parseUpsertInventoryItemInput(formData);
-  if (!input) return INVALID_INPUT_RESULT;
+export async function upsertInventoryItemAction(formData: FormData): Promise<InventoryItemWriteResult<InventoryItem>> {
+  const parsed = parseUpsertInventoryItemInput(formData);
+  if (!parsed.ok) return { status: 'invalid_input', reason: parsed.reason };
+  const input = parsed.input;
 
   const photo = formData.get('photo');
   if (photo instanceof File && photo.size > 0 &&
