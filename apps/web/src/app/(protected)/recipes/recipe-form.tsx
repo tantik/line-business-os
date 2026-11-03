@@ -9,6 +9,8 @@ import type { RecipeIngredientMappingContext } from '@/lib/workforce/recipe-acti
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import { IconButton, NumberInput, Select } from '@line-os/ui';
+import { shrinkImageForUpload } from '@/lib/media/shrink-image-client';
+import { PHOTO_ACCEPT, photoFailureMessage, photoPickerHint, photoProcessingLabel } from '@/lib/media/shrink-image-plan';
 import { describeWriteError } from '../manager/error-copy';
 import { tRecipes } from './recipes-i18n';
 
@@ -39,9 +41,6 @@ export interface RecipeFormProps {
 
 const NOTE_TITLE_MAX = 160;
 const NOTE_BODY_MAX = 4000;
-/** Matches the server action's own limit (`MAX_RECIPE_PHOTO_BYTES` in `recipe-actions.ts`) -- client-side check is a fast-fail UX nicety, the server re-checks regardless. */
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-const MAX_PHOTO_DIMENSION = 4096;
 
 /**
  * Manager-only create/edit form for a recipe's source-language content
@@ -68,6 +67,32 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
+  /** The shrunk JPEG (`shrinkImageForUpload`) -- what is uploaded; the server still re-checks type/size and re-encodes. */
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
+
+  async function handlePhotoPicked(file: File | undefined) {
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoProcessing(true);
+    try {
+      const result = await shrinkImageForUpload(file);
+      if (!result.ok) {
+        setPhotoError(photoFailureMessage(lang, result.reason));
+        return;
+      }
+      setPhotoFile(result.file);
+      setPhotoPreview(URL.createObjectURL(result.file));
+      setPhotoName(file.name);
+      setRemovePhoto(false);
+    } finally {
+      setPhotoProcessing(false);
+    }
+  }
 
   const recipe = detail?.recipe;
   // Source language locks at creation (defaults JA) and is never editable
@@ -125,8 +150,10 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (photoProcessing) return;
     setError(null);
     const formData = new FormData(event.currentTarget);
+    if (photoFile && !removePhoto) formData.set('photo', photoFile);
     if (recipe) formData.set('recipeId', recipe.recipeId);
     formData.set(
       'ingredientsJson',
@@ -197,45 +224,19 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
             )}
           </div>
           <div style={{ minWidth: 0, display: 'grid', gap: 6, flex: 1 }}>
+            {/* no `name`: the picked file is never sent as-is, only the shrunk JPEG (`photoFile`, set in handleSubmit) */}
             <input
               ref={photoInputRef}
-              name="photo"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={PHOTO_ACCEPT}
               style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}
-              onChange={async (event) => {
-                const file = event.currentTarget.files?.[0];
-                if (!file) {
-                  setPhotoPreview(null);
-                  setPhotoName(null);
-                  return;
-                }
-                if (file.size > MAX_PHOTO_BYTES) {
-                  event.currentTarget.value = '';
-                  setPhotoError(t('formPhotoTooLarge'));
-                  return;
-                }
-                const objectUrl = URL.createObjectURL(file);
-                const dimensionsOk = await new Promise<boolean>((resolve) => {
-                  const image = new Image();
-                  image.onload = () => resolve(image.width <= MAX_PHOTO_DIMENSION && image.height <= MAX_PHOTO_DIMENSION);
-                  image.onerror = () => resolve(false);
-                  image.src = objectUrl;
-                });
-                if (!dimensionsOk) {
-                  URL.revokeObjectURL(objectUrl);
-                  event.currentTarget.value = '';
-                  setPhotoError(t('formPhotoDimensionsInvalid'));
-                  return;
-                }
-                setPhotoError(null);
-                setPhotoPreview(objectUrl);
-                setPhotoName(file.name);
-                setRemovePhoto(false);
+              onChange={(event) => {
+                void handlePhotoPicked(event.currentTarget.files?.[0]);
+                event.currentTarget.value = '';
               }}
             />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" style={{ ...buttonSecondary, padding: '6px 10px' }} onClick={() => photoInputRef.current?.click()}>
+              <button type="button" style={{ ...buttonSecondary, padding: '6px 10px' }} disabled={photoProcessing} onClick={() => photoInputRef.current?.click()}>
                 {mediaUrl ? t('formReplaceImage') : t('formChooseImage')}
               </button>
               {mediaUrl && !photoPreview ? (
@@ -245,7 +246,7 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
               ) : null}
             </div>
             <span style={{ ...mutedText, fontSize: 11 }}>
-              {photoName ?? (removePhoto ? t('formPhotoWillBeRemoved') : t('formPhotoHint'))}
+              {photoProcessing ? photoProcessingLabel(lang) : (photoName ?? (removePhoto ? t('formPhotoWillBeRemoved') : photoPickerHint(lang)))}
             </span>
             {photoError ? <span style={{ fontSize: 11, color: colors.dangerText }}>{photoError}</span> : null}
           </div>

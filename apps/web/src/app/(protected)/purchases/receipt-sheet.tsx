@@ -15,6 +15,7 @@ import {
   type SpendReceiptSettings,
 } from '@/lib/purchases/spend-receipts';
 import { shrinkImageForUpload } from '@/lib/media/shrink-image-client';
+import { PHOTO_ACCEPT, photoFailureMessage } from '@/lib/media/shrink-image-plan';
 import { describeReceiptWriteError } from './receipts-copy';
 import { tReceiptError, tReceipts } from './receipts-i18n';
 
@@ -26,7 +27,7 @@ export const CATEGORY_LABEL_KEY = {
   stock: 'categoryStock',
 } as const satisfies Record<SpendReceiptCategory | 'stock', Parameters<typeof tReceipts>[1]>;
 
-/** Server Action body limit is 3 MB; `shrinkImageForUpload` normally lands far below this. */
+/** Hard ceiling for the shrunk photo = `MAX_RECEIPT_PHOTO_BYTES` (server); Server Action body limit is 3 MB. `shrinkImageForUpload` aims for 1.5 MB. */
 const MAX_UPLOAD_BYTES = 2.5 * 1024 * 1024;
 /** Radix Select has no empty value: this option stands for "no category". */
 const NO_CATEGORY = 'none';
@@ -126,18 +127,14 @@ export function ReceiptSheet({
     setError(null);
     setPhotoProcessing(true);
     try {
-      const shrunk = await shrinkImageForUpload(file);
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(shrunk.type)) {
-        setError(tReceiptError(lang, 'photo_unreadable'));
-        return;
-      }
-      if (shrunk.size > MAX_UPLOAD_BYTES) {
-        setError(tReceiptError(lang, 'photo_too_large'));
+      const result = await shrinkImageForUpload(file, { maxBytes: MAX_UPLOAD_BYTES });
+      if (!result.ok) {
+        setError(photoFailureMessage(lang, result.reason));
         return;
       }
       if (photoPreview) URL.revokeObjectURL(photoPreview);
-      setPhoto(shrunk);
-      setPhotoPreview(URL.createObjectURL(shrunk));
+      setPhoto(result.file);
+      setPhotoPreview(URL.createObjectURL(result.file));
       setRemovePhoto(false);
     } finally {
       setPhotoProcessing(false);
@@ -229,7 +226,7 @@ export function ReceiptSheet({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={PHOTO_ACCEPT}
               className="hidden"
               onChange={(event) => {
                 void handlePhotoPicked(event.target.files?.[0]);

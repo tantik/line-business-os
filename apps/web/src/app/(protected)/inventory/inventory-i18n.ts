@@ -57,10 +57,7 @@ interface InventoryDashboardDict {
   formReplaceImage: string;
   formRemoveImage: string;
   formUndoRemoveImage: string;
-  formPhotoHint: string;
   formPhotoWillBeRemoved: string;
-  formPhotoTooLarge: string;
-  formPhotoDimensionsInvalid: string;
   targetQuantityLabel: string;
   reorderPointLabel: string;
   unitLabel: string;
@@ -155,10 +152,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     formReplaceImage: 'Replace image',
     formRemoveImage: 'Remove image',
     formUndoRemoveImage: 'Undo remove',
-    formPhotoHint: 'JPEG, PNG or WebP, up to 2 MB and 4096×4096',
     formPhotoWillBeRemoved: 'Will be removed when saved',
-    formPhotoTooLarge: 'Choose an image up to 2 MB.',
-    formPhotoDimensionsInvalid: 'Image dimensions must be at most 4096×4096.',
     targetQuantityLabel: 'Target quantity',
     reorderPointLabel: 'Reorder point',
     unitLabel: 'Unit',
@@ -249,10 +243,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     formReplaceImage: '画像を差し替え',
     formRemoveImage: '画像を削除',
     formUndoRemoveImage: '削除を取り消す',
-    formPhotoHint: 'JPEG・PNG・WebP、最大2MB・4096×4096',
     formPhotoWillBeRemoved: '保存時に削除されます',
-    formPhotoTooLarge: '画像は2MB以下にしてください。',
-    formPhotoDimensionsInvalid: '画像は4096×4096以下にしてください。',
     targetQuantityLabel: '目標数量',
     reorderPointLabel: '発注点',
     unitLabel: '単位',

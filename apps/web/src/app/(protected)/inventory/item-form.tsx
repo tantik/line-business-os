@@ -10,6 +10,8 @@ import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { Checkbox, NumberInput } from '@line-os/ui';
+import { shrinkImageForUpload } from '@/lib/media/shrink-image-client';
+import { PHOTO_ACCEPT, photoFailureMessage, photoPickerHint, photoProcessingLabel } from '@/lib/media/shrink-image-plan';
 import { describeInventoryWriteError } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
 import { ALLERGEN_CODES, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from '@/lib/packages/cafe/allergens';
@@ -32,10 +34,6 @@ export interface ItemFormProps {
   onCancel: () => void;
 }
 
-/** Matches the server action's own limit (`MAX_ITEM_PHOTO_BYTES` in `manager-actions.ts`) -- client-side check is a fast-fail UX nicety, the server re-checks regardless. */
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
-const MAX_PHOTO_DIMENSION = 4096;
-
 /** Manager-only create/edit form for an Inventory catalog item, its reorder policy, and its photo (mirrors `recipes/recipe-form.tsx`'s photo block). */
 export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, onSuccess, onCancel }: ItemFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -47,6 +45,32 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
+  /** The shrunk JPEG (`shrinkImageForUpload`) -- what is uploaded; the server still re-checks type/size and re-encodes. */
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
+
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
+
+  async function handlePhotoPicked(file: File | undefined) {
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoProcessing(true);
+    try {
+      const result = await shrinkImageForUpload(file);
+      if (!result.ok) {
+        setPhotoError(photoFailureMessage(lang, result.reason));
+        return;
+      }
+      setPhotoFile(result.file);
+      setPhotoPreview(URL.createObjectURL(result.file));
+      setPhotoName(file.name);
+      setRemovePhoto(false);
+    } finally {
+      setPhotoProcessing(false);
+    }
+  }
 
   // WP5 (Recipe Intelligence Lite): reference price + allergens. Neither
   // column is exposed by the item list this form's `item` prop comes from
@@ -81,8 +105,10 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (photoProcessing) return;
     setError(null);
     const formData = new FormData(event.currentTarget);
+    if (photoFile && !removePhoto) formData.set('photo', photoFile);
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', item?.locationId ?? locationId);
     formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
@@ -124,45 +150,19 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
             )}
           </div>
           <div style={{ minWidth: 0, display: 'grid', gap: 6, flex: 1 }}>
+            {/* no `name`: the picked file is never sent as-is, only the shrunk JPEG (`photoFile`, set in handleSubmit) */}
             <input
               ref={photoInputRef}
-              name="photo"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={PHOTO_ACCEPT}
               style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}
-              onChange={async (event) => {
-                const file = event.currentTarget.files?.[0];
-                if (!file) {
-                  setPhotoPreview(null);
-                  setPhotoName(null);
-                  return;
-                }
-                if (file.size > MAX_PHOTO_BYTES) {
-                  event.currentTarget.value = '';
-                  setPhotoError(t('formPhotoTooLarge'));
-                  return;
-                }
-                const objectUrl = URL.createObjectURL(file);
-                const dimensionsOk = await new Promise<boolean>((resolve) => {
-                  const image = new Image();
-                  image.onload = () => resolve(image.width <= MAX_PHOTO_DIMENSION && image.height <= MAX_PHOTO_DIMENSION);
-                  image.onerror = () => resolve(false);
-                  image.src = objectUrl;
-                });
-                if (!dimensionsOk) {
-                  URL.revokeObjectURL(objectUrl);
-                  event.currentTarget.value = '';
-                  setPhotoError(t('formPhotoDimensionsInvalid'));
-                  return;
-                }
-                setPhotoError(null);
-                setPhotoPreview(objectUrl);
-                setPhotoName(file.name);
-                setRemovePhoto(false);
+              onChange={(event) => {
+                void handlePhotoPicked(event.currentTarget.files?.[0]);
+                event.currentTarget.value = '';
               }}
             />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, padding: '6px 10px' }} onClick={() => photoInputRef.current?.click()}>
+              <button type="button" className={hoverStyles.buttonSecondary} style={{ ...buttonSecondary, padding: '6px 10px' }} disabled={photoProcessing} onClick={() => photoInputRef.current?.click()}>
                 {mediaUrl ? t('formReplaceImage') : t('formChooseImage')}
               </button>
               {mediaUrl && !photoPreview ? (
@@ -172,7 +172,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
               ) : null}
             </div>
             <span style={{ ...mutedText, fontSize: 11 }}>
-              {photoName ?? (removePhoto ? t('formPhotoWillBeRemoved') : t('formPhotoHint'))}
+              {photoProcessing ? photoProcessingLabel(lang) : (photoName ?? (removePhoto ? t('formPhotoWillBeRemoved') : photoPickerHint(lang)))}
             </span>
             {photoError ? <span style={{ fontSize: 11, color: colors.dangerText }}>{photoError}</span> : null}
           </div>
