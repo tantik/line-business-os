@@ -111,12 +111,14 @@ insert into workforce.recipes (id, tenant_id, location_id, title_ja, content_kin
           '9f200000-0000-0000-0000-000000000001', 'Location A Recipe', 'recipe', 'draft', 'ja',
           '9f900000-0000-0000-0000-000000000002', '9f900000-0000-0000-0000-000000000002');
 
+reset role;
+
+-- 0152: a store-scoped Manager no longer writes tenant-wide recipes; the
+-- tenant-wide fixture is inserted directly
 insert into workforce.recipes (id, tenant_id, location_id, title_ja, content_kind, status, original_language, created_by, updated_by)
   values ('9f300000-0000-0000-0000-000000000002', '9f000000-0000-0000-0000-00000000000a',
           null, 'Tenant-wide Recipe', 'recipe', 'draft', 'ja',
           '9f900000-0000-0000-0000-000000000002', '9f900000-0000-0000-0000-000000000002');
-
-reset role;
 
 select throws_ok(
   $$ insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, quantity)

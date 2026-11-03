@@ -108,14 +108,14 @@ select is(
   (select status || ' / ' || title_ja from workforce.recipes where id = '4ec10000-0000-0000-0000-00000000c0a1'),
   'published / テナント全体v2', '0113: the tenant-wide recipe is published and retitled');
 
--- an L1-scoped Manager can also edit the tenant-wide recipe (RLS already
--- allows this via has_permission_in_tenant — the fix does not change it)
-select isnt(
+-- 0152 (DEBT-139 L1): an L1-scoped (store) Manager can NO LONGER edit the
+-- tenant-wide recipe — a tenant-wide row needs a tenant-wide grant
+select is(
   pg_temp.as_auth('0a900000-0000-0000-0000-00000000c002', $$
     select api.upsert_workforce_recipe('0a110000-0000-0000-0000-00000000c001', '0a100000-0000-0000-0000-00000000c001',
       '4ec10000-0000-0000-0000-00000000c0a1', 'recipe', 'テナント全体v3', null, 'published',
       '[]'::jsonb, '[]'::jsonb, null, null, null, 'ja', false)::text $$),
-  'ERR: recipe_not_found', '0113: an L1-scoped Manager can also edit the tenant-wide recipe');
+  'ERR: recipe_not_found', '0152: an L1-scoped Manager cannot edit the tenant-wide recipe');
 
 -- --- location isolation: the fix must NOT let a Manager touch ANOTHER
 --     location's scoped recipe -----------------------------------------

@@ -1,5 +1,5 @@
 -- ============================================================================
--- DB test: migration 0150 (several locations per client, DEBT-139 L1).
+-- DB test: migration 0151 (several locations per client, DEBT-139 L1).
 -- Run with:  supabase db reset && supabase test db
 --   A  grants / ADR 0008 / definers pin search_path; permission + limit seed
 --   B  create: refusals (permission, args, name, timezone, tenant, source)
@@ -67,9 +67,9 @@ end $$;
 -- fixtures ------------------------------------------------------------------------------------
 -- TA = ...a1 (main), TB = ...a2 (other client), TS = ...a3 (suspended)
 insert into core.tenants (id, slug, name, status) values
-  ('a8900000-0000-0000-0000-0000000000a1', 'pgtap-0150-ta', 'pgTAP 0150 TA', 'active'),
-  ('a8900000-0000-0000-0000-0000000000a2', 'pgtap-0150-tb', 'pgTAP 0150 TB', 'active'),
-  ('a8900000-0000-0000-0000-0000000000a3', 'pgtap-0150-ts', 'pgTAP 0150 TS', 'suspended');
+  ('a8900000-0000-0000-0000-0000000000a1', 'pgtap-0151-ta', 'pgTAP 0151 TA', 'active'),
+  ('a8900000-0000-0000-0000-0000000000a2', 'pgtap-0151-tb', 'pgTAP 0151 TB', 'active'),
+  ('a8900000-0000-0000-0000-0000000000a3', 'pgtap-0151-ts', 'pgTAP 0151 TS', 'suspended');
 insert into core.tenant_modules (tenant_id, module, is_enabled)
 select 'a8900000-0000-0000-0000-0000000000a1', m::core.module_code, true
   from unnest(array['workforce', 'inventory', 'purchases', 'operations', 'issues']) m;

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0150 — Several locations per client, DB layer (DEBT-139 step L1)
+-- 0151 — Several locations per client, DB layer (DEBT-139 step L1)
 -- ----------------------------------------------------------------------------
 -- Design: docs/architecture/multi-location-design-2026-11-02.md §3.1, §3.2,
 -- §3.4, §3.6 and Founder decisions F1-F5 (§5).
@@ -131,11 +131,27 @@ select p.code, 'core', 'max_locations', 3
 on conflict (plan_code, module, limit_key) do nothing;
 
 -- --- 3a. shared checks (internal) -------------------------------------------------
+-- comparison key of a location name: trimmed (ASCII + full-width space), NFKC
+-- (full-width / half-width forms fold together), lower case. Also the key of
+-- the partial unique index below, so a race can never leave two active
+-- locations with the same name.
+create or replace function core.location_name_key(p_name text)
+returns text
+language sql immutable parallel safe set search_path = pg_catalog as $$
+  select lower(normalize(btrim(p_name, ' 　'), NFKC));
+$$;
+comment on function core.location_name_key(text) is
+  '0151: uniqueness key of a location name (btrim ASCII / full-width space, NFKC, lower). Internal; also used by locations_tenant_active_name_key.';
+
+create unique index if not exists locations_tenant_active_name_key
+  on core.locations (tenant_id, core.location_name_key(name))
+  where is_active;
+
 create or replace function core.assert_location_name(p_name text)
 returns text
 language plpgsql immutable set search_path = core, public, pg_temp as $$
 declare
-  v_name text := btrim(p_name);
+  v_name text := btrim(p_name, ' 　');
 begin
   if v_name is null or char_length(v_name) not between 1 and 60 then
     raise exception 'invalid_location_name' using errcode = 'P0001';
@@ -144,7 +160,7 @@ begin
 end;
 $$;
 comment on function core.assert_location_name(text) is
-  '0150: trims a location name and raises invalid_location_name (P0001) unless it is 1-60 characters. Internal.';
+  '0151: trims a location name and raises invalid_location_name (P0001) unless it is 1-60 characters. Internal.';
 
 create or replace function core.assert_tenant_active(p_tenant_id uuid)
 returns void
@@ -156,7 +172,7 @@ begin
 end;
 $$;
 comment on function core.assert_tenant_active(uuid) is
-  '0150: raises tenant_not_active (P0001) unless the tenant exists with status active. Internal.';
+  '0151: raises tenant_not_active (P0001) unless the tenant exists with status active. Internal.';
 
 create or replace function core.assert_location_name_free(p_tenant_id uuid, p_name text, p_except_location_id uuid)
 returns void
@@ -166,14 +182,22 @@ begin
     select 1 from core.locations l
      where l.tenant_id = p_tenant_id and l.is_active
        and l.id is distinct from p_except_location_id
-       and lower(btrim(l.name)) = lower(p_name)
+       and core.location_name_key(l.name) = core.location_name_key(p_name)
   ) then
     raise exception 'location_name_taken' using errcode = 'P0001';
   end if;
 end;
 $$;
 comment on function core.assert_location_name_free(uuid, text, uuid) is
-  '0150: raises location_name_taken (P0001) when another ACTIVE location of the tenant has the same trimmed name, case-insensitively. Internal; callers hold the per-tenant location lock.';
+  '0151: raises location_name_taken (P0001) when another ACTIVE location of the tenant has the same core.location_name_key (trimmed, NFKC, case-insensitive). Internal; callers hold the per-tenant location lock.';
+
+-- audit actor_kind of a location / move change: the console path passes a
+-- platform-staff actor that is not the signed-in user (service_role, no JWT)
+create or replace function core.location_actor_kind(p_actor_id uuid)
+returns text
+language sql stable set search_path = core, public, pg_temp as $$
+  select case when p_actor_id is not distinct from core.current_user_id() then 'user' else 'platform' end;
+$$;
 
 create or replace function core.assert_location_limit(p_tenant_id uuid)
 returns void
@@ -188,7 +212,7 @@ begin
 end;
 $$;
 comment on function core.assert_location_limit(uuid) is
-  '0150: raises location_limit_reached (P0001) when one more ACTIVE location would exceed the tenant''s max_locations entitlement (tenant override, else plan default; no row = unlimited). Internal; callers hold the per-tenant location lock.';
+  '0151: raises location_limit_reached (P0001) when one more ACTIVE location would exceed the tenant''s max_locations entitlement (tenant override, else plan default; no row = unlimited). Internal; callers hold the per-tenant location lock.';
 
 -- one writer per tenant for every location change (name uniqueness + limit)
 create or replace function core.lock_tenant_locations(p_tenant_id uuid)
@@ -335,7 +359,7 @@ begin
   end if;
 
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-  values (p_tenant_id, p_actor_id, 'user', 'core', 'location', v_location::text, 'create', null,
+  values (p_tenant_id, p_actor_id, core.location_actor_kind(p_actor_id), 'core', 'location', v_location::text, 'create', null,
           jsonb_build_object('is_active', true, 'timezone', p_timezone),
           jsonb_build_object(
             'source_location_id', v_source,
@@ -361,7 +385,7 @@ begin
 end;
 $$;
 comment on function core.create_location(uuid, text, text, uuid, uuid) is
-  'DEBT-139 L1 (0150): creates an active location for an active tenant and copies the per-location defaults from the source (given active location, else the oldest active one): schedule settings (auto-create off), active shift types, active location-bound Operations templates + active items, active schedules (effective_from = max(source start, today in the new timezone, current_date)), receipt settings when the source has a row. Serialized per tenant; refuses tenant_not_active, invalid_location_name, invalid_timezone, location_limit_reached (max_locations), location_name_taken, location_not_found. One audit row (counts, no names). Internal: called only by core.caller_create_location / core.platform_create_location.';
+  'DEBT-139 L1 (0151): creates an active location for an active tenant and copies the per-location defaults from the source (given active location, else the oldest active one): schedule settings (auto-create off), active shift types, active location-bound Operations templates + active items, active schedules (effective_from = max(source start, today in the new timezone, current_date)), receipt settings when the source has a row. Serialized per tenant; refuses tenant_not_active, invalid_location_name, invalid_timezone, location_limit_reached (max_locations), location_name_taken, location_not_found. One audit row (counts, no names). Internal: called only by core.caller_create_location / core.platform_create_location.';
 
 -- --- 3c. rename / activate (internal writers) ----------------------------------------
 create or replace function core.rename_location(p_location_id uuid, p_name text, p_actor_id uuid)
@@ -395,7 +419,7 @@ begin
   update core.locations set name = v_name where id = p_location_id;
 
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-  values (v_tenant, p_actor_id, 'user', 'core', 'location', p_location_id::text, 'rename',
+  values (v_tenant, p_actor_id, core.location_actor_kind(p_actor_id), 'core', 'location', p_location_id::text, 'rename',
           jsonb_build_object('name_changed', false), jsonb_build_object('name_changed', true),
           jsonb_build_object('is_active', v_loc.is_active));
 
@@ -403,14 +427,17 @@ begin
 end;
 $$;
 comment on function core.rename_location(uuid, text, uuid) is
-  'DEBT-139 L1 (0150): renames a location (trimmed 1-60, unique among ACTIVE locations of the tenant while it is active). Same name = no-op. Refuses location_not_found, tenant_not_active, invalid_location_name, location_name_taken. One audit row (no names). Internal.';
+  'DEBT-139 L1 (0151): renames a location (trimmed 1-60, unique among ACTIVE locations of the tenant while it is active). Same name = no-op. Refuses location_not_found, tenant_not_active, invalid_location_name, location_name_taken. One audit row (no names). Internal.';
 
 create or replace function core.set_location_active(p_location_id uuid, p_is_active boolean, p_actor_id uuid)
 returns jsonb
-language plpgsql security definer set search_path = core, workforce, audit, public, pg_temp as $$
+language plpgsql security definer set search_path = core, workforce, operations, audit, public, pg_temp as $$
 declare
   v_tenant uuid;
   v_loc record;
+  v_n_ss int := 0;
+  v_n_sched int := 0;
+  v_n int;
 begin
   if p_location_id is null or p_is_active is null or p_actor_id is null then
     raise exception 'invalid_argument: location_id, is_active and actor are required' using errcode = '22004';
@@ -439,22 +466,45 @@ begin
     end if;
   else
     perform core.assert_location_limit(v_tenant);
-    perform core.assert_location_name_free(v_tenant, btrim(v_loc.name), p_location_id);
+    perform core.assert_location_name_free(v_tenant, v_loc.name, p_location_id);
   end if;
 
   update core.locations set is_active = p_is_active where id = p_location_id;
 
+  if not p_is_active then
+    -- an archived store generates nothing: no monthly auto-schedule, no daily
+    -- Operations tasks. Reactivation does not switch them back on (the Owner
+    -- decides again).
+    update workforce.schedule_settings set auto_create_enabled = false
+     where tenant_id = v_tenant and location_id = p_location_id and auto_create_enabled;
+    get diagnostics v_n_ss = row_count;
+    -- same rule as api.operations_deactivate_schedule: a started version ends
+    -- today (an already set end is kept: the 0102 guard never pulls it back);
+    -- a version that has not started yet has no history and is removed
+    update operations.task_schedules
+       set is_active = false, effective_to = coalesce(effective_to, current_date), updated_at = now()
+     where tenant_id = v_tenant and location_id = p_location_id and is_active
+       and effective_from <= current_date;
+    get diagnostics v_n_sched = row_count;
+    delete from operations.task_schedules
+     where tenant_id = v_tenant and location_id = p_location_id and is_active
+       and effective_from > current_date;
+    get diagnostics v_n = row_count;
+    v_n_sched := v_n_sched + v_n;
+  end if;
+
   insert into audit.audit_logs (tenant_id, actor_id, actor_kind, module, entity, entity_id, action, before, after, metadata)
-  values (v_tenant, p_actor_id, 'user', 'core', 'location', p_location_id::text,
+  values (v_tenant, p_actor_id, core.location_actor_kind(p_actor_id), 'core', 'location', p_location_id::text,
           case when p_is_active then 'reactivate' else 'deactivate' end,
           jsonb_build_object('is_active', not p_is_active), jsonb_build_object('is_active', p_is_active),
-          '{}'::jsonb);
+          case when p_is_active then '{}'::jsonb
+               else jsonb_build_object('auto_create_disabled', v_n_ss, 'task_schedules_deactivated', v_n_sched) end);
 
   return jsonb_build_object('location_id', p_location_id, 'is_active', p_is_active, 'changed', true);
 end;
 $$;
 comment on function core.set_location_active(uuid, boolean, uuid) is
-  'DEBT-139 L1 (0150): archive (false) or reactivate (true) a location; never deletes. Archive refuses last_active_location and location_has_active_staff (an active employee has it as home); reactivate re-checks location_limit_reached and location_name_taken. Same state = no-op. One audit row (deactivate / reactivate). Internal.';
+  'DEBT-139 L1 (0151): archive (false) or reactivate (true) a location; never deletes. Archive refuses last_active_location and location_has_active_staff (an active employee has it as home); reactivate re-checks location_limit_reached and location_name_taken. Same state = no-op. One audit row (deactivate / reactivate). Internal.';
 
 -- --- 3d. cabinet entry points (authenticated) ------------------------------------------
 create or replace function core.caller_create_location(
@@ -520,13 +570,13 @@ end;
 $$;
 
 comment on function core.caller_create_location(uuid, text, text, uuid) is
-  '0150: cabinet entry to core.create_location. Actor = core.current_user_id() (28000 when not signed in); requires core.location.manage tenant-wide (42501).';
+  '0151: cabinet entry to core.create_location. Actor = core.current_user_id() (28000 when not signed in); requires core.location.manage tenant-wide (42501).';
 comment on function core.caller_location_tenant(uuid) is
-  '0150: tenant of a location when the caller holds core.location.manage there tenant-wide; else 42501 (also for an unknown id). Internal.';
+  '0151: tenant of a location when the caller holds core.location.manage there tenant-wide; else 42501 (also for an unknown id). Internal.';
 comment on function core.caller_rename_location(uuid, text) is
-  '0150: cabinet entry to core.rename_location (core.location.manage tenant-wide, else 42501).';
+  '0151: cabinet entry to core.rename_location (core.location.manage tenant-wide, else 42501).';
 comment on function core.caller_set_location_active(uuid, boolean) is
-  '0150: cabinet entry to core.set_location_active (core.location.manage tenant-wide, else 42501).';
+  '0151: cabinet entry to core.set_location_active (core.location.manage tenant-wide, else 42501).';
 
 -- --- 3e. console entry points (service_role; actor re-checked) ---------------------------
 create or replace function core.platform_create_location(
@@ -559,11 +609,11 @@ end;
 $$;
 
 comment on function core.platform_create_location(uuid, text, text, uuid, uuid) is
-  '0150: ORUWA console entry to core.create_location (service_role only; p_actor_id must be a platform-staff core.users row, else 42501 actor_not_platform_staff).';
+  '0151: ORUWA console entry to core.create_location (service_role only; p_actor_id must be a platform-staff core.users row, else 42501 actor_not_platform_staff).';
 comment on function core.platform_rename_location(uuid, text, uuid) is
-  '0150: ORUWA console entry to core.rename_location (service_role only; platform-staff actor).';
+  '0151: ORUWA console entry to core.rename_location (service_role only; platform-staff actor).';
 comment on function core.platform_set_location_active(uuid, boolean, uuid) is
-  '0150: ORUWA console entry to core.set_location_active (service_role only; platform-staff actor).';
+  '0151: ORUWA console entry to core.set_location_active (service_role only; platform-staff actor).';
 
 -- --- 5. scoped Manager appointment (new overload; the 0138 3-arg stays as is) -----------
 create or replace function core.set_employee_manager_role(
@@ -669,7 +719,7 @@ begin
 end;
 $$;
 comment on function core.set_employee_manager_role(uuid, uuid, boolean, text) is
-  'DEBT-139 L1 (0150): 0138 appointment with a scope. p_scope tenant = manager role_assignment with location NULL; location = at the employee''s home location (employee_has_no_location when it has none). Same checks and codes as the 3-argument 0138 function (which is unchanged). Appoint with another scope replaces the existing manager assignment(s); same scope = no-op; revoke (p_is_manager false) removes every manager assignment of that user in the tenant, whatever the scope. One audit row per real change. Identity = core.current_user_id().';
+  'DEBT-139 L1 (0151): 0138 appointment with a scope. p_scope tenant = manager role_assignment with location NULL; location = at the employee''s home location (employee_has_no_location when it has none). Same checks and codes as the 3-argument 0138 function (which is unchanged). Appoint with another scope replaces the existing manager assignment(s); same scope = no-op; revoke (p_is_manager false) removes every manager assignment of that user in the tenant, whatever the scope. One audit row per real change. Identity = core.current_user_id().';
 
 -- --- 6. move an employee to another location -----------------------------------------
 create or replace function core.move_employee_location(p_employee_id uuid, p_location_id uuid)
@@ -700,7 +750,13 @@ begin
   if v_tenant is null or not core.has_permission(v_tenant, 'core.location.manage', null) then
     raise exception 'permission_denied' using errcode = '42501';
   end if;
+  if not core.has_module_access(v_tenant, 'workforce') then
+    raise exception 'workforce_module_disabled' using errcode = 'P0001';
+  end if;
 
+  -- FOR UPDATE conflicts with the FOR KEY SHARE lock a concurrent shift insert
+  -- takes on this row through its employee FK: a shift committed first is seen
+  -- by the future-shift check below.
   select e.id, e.tenant_id, e.location_id, e.user_id, e.is_active into v_emp
     from workforce.employees e where e.id = p_employee_id for update;
 
@@ -728,7 +784,7 @@ begin
   update workforce.employees set location_id = p_location_id where id = p_employee_id;
 
   if v_emp.user_id is not null and v_emp.location_id is not null then
-    -- same lock key as the Manager appointment (0138 / 0150)
+    -- same lock key as the Manager appointment (0138 / 0151)
     perform pg_advisory_xact_lock(hashtextextended('core.role_assignments:manager:' || v_emp.tenant_id::text || ':' || v_emp.user_id::text, 0));
     foreach v_role in array array[c_employee_role, c_manager_role] loop
       if exists (select 1 from core.role_assignments
@@ -771,7 +827,38 @@ begin
 end;
 $$;
 comment on function core.move_employee_location(uuid, uuid) is
-  'DEBT-139 L1 (0150, F3): the Owner / Admin (core.location.manage tenant-wide; 42501 also for an unknown employee) moves an employee''s home location to another ACTIVE location of the same tenant (location_not_found). Refuses employee_has_future_shifts (shifts at the old location starting today or later in its calendar). Moves the user''s location-scoped employee / manager role assignments from the old to the new location (a duplicate at the target is dropped instead) and the membership''s default location when it was the old one. Past rows keep their own location. One audit row (workforce / employee / move_location). Identity = core.current_user_id().';
+  'DEBT-139 L1 (0151, F3): the Owner / Admin (core.location.manage tenant-wide; 42501 also for an unknown employee) moves an employee''s home location to another ACTIVE location of the same tenant (location_not_found). Refuses employee_has_future_shifts (shifts at the old location starting today or later in its calendar). Moves the user''s location-scoped employee / manager role assignments from the old to the new location (a duplicate at the target is dropped instead) and the membership''s default location when it was the old one. Past rows keep their own location. One audit row (workforce / employee / move_location). Identity = core.current_user_id().';
+
+-- 6b. the move above is the ONLY way to change an employee's home location.
+-- api.workforce_staff_manage (0031) is an auto-updatable view, so without this a
+-- tenant-wide Manager could set employees.location_id directly (no
+-- core.location.manage, archived target, future shifts and role assignments
+-- left behind, no audit). A signed-in client session runs as authenticated;
+-- SECURITY DEFINER code (core.move_employee_location, owned by postgres) does
+-- not. First assignment of a location to a row that has none stays allowed
+-- (RLS already checks staff.manage at the new location). Same value = no-op
+-- (the staff edit form sends location_id unchanged).
+create or replace function workforce.guard_employee_location_change()
+returns trigger
+language plpgsql set search_path = workforce, public, pg_temp as $$
+begin
+  if old.location_id is not null
+     and new.location_id is distinct from old.location_id
+     and current_user in ('authenticated', 'anon') then
+    raise exception 'employee_location_change_requires_move' using errcode = '42501',
+      hint = 'use api.move_employee_location';
+  end if;
+  return new;
+end;
+$$;
+comment on function workforce.guard_employee_location_change() is
+  '0151 (review P2): BEFORE UPDATE OF location_id on workforce.employees; a client session (authenticated / anon) cannot change a set home location (42501 employee_location_change_requires_move). core.move_employee_location (SECURITY DEFINER) can.';
+revoke all on function workforce.guard_employee_location_change() from public, anon, authenticated;
+
+drop trigger if exists employees_guard_location_change on workforce.employees;
+create trigger employees_guard_location_change
+  before update of location_id on workforce.employees
+  for each row execute function workforce.guard_employee_location_change();
 
 -- --- 4. api.my_locations ---------------------------------------------------------------
 create or replace function core.caller_is_employee_at(p_tenant_id uuid, p_location_id uuid)
@@ -786,7 +873,7 @@ language sql stable security definer set search_path = core, workforce, public, 
           and e.is_active);
 $$;
 comment on function core.caller_is_employee_at(uuid, uuid) is
-  '0150: true iff the CALLER has an active workforce.employees row with that home location in that tenant. Answers only about the caller. Used by api.my_locations (access staff).';
+  '0151: true iff the CALLER has an active workforce.employees row with that home location in that tenant. Answers only about the caller. Used by api.my_locations (access staff).';
 
 create or replace view api.my_locations
   with (security_invoker = true) as
@@ -814,7 +901,7 @@ where exists (
   and (l.is_active or a.access = 'all');
 
 comment on view api.my_locations is
-  'DEBT-139 L1 (0150): the caller''s locations per tenant with an ACTIVE membership, with access = all (tenant-wide role holding workforce.staff.manage: Owner / Admin / tenant-wide Manager; inactive locations included), manage (that role at this location) or staff (own active employee row with this home location). Strongest access wins; unrelated locations are not listed; inactive ones only for all. security_invoker; no address, metadata, timestamps or user ids. UI source only: RLS stays the boundary. api.my_tenant_locations (0017) is unchanged.';
+  'DEBT-139 L1 (0151): the caller''s locations per tenant with an ACTIVE membership, with access = all (tenant-wide role holding workforce.staff.manage: Owner / Admin / tenant-wide Manager; inactive locations included), manage (that role at this location) or staff (own active employee row with this home location). Strongest access wins; unrelated locations are not listed; inactive ones only for all. security_invoker; no address, metadata, timestamps or user ids. UI source only: RLS stays the boundary. api.my_tenant_locations (0017) is unchanged.';
 
 -- --- grants ----------------------------------------------------------------------------
 revoke all on function core.assert_location_name(text) from public, anon, authenticated, service_role;
@@ -885,14 +972,14 @@ returns jsonb language sql security invoker set search_path = core, public as $$
   select core.platform_set_location_active(p_location_id, p_is_active, p_actor_id);
 $$;
 
-comment on function api.create_location(uuid, text, text, uuid) is 'Invoker-only passthrough to core.caller_create_location (0150, ADR 0008).';
-comment on function api.rename_location(uuid, text) is 'Invoker-only passthrough to core.caller_rename_location (0150, ADR 0008).';
-comment on function api.set_location_active(uuid, boolean) is 'Invoker-only passthrough to core.caller_set_location_active (0150, ADR 0008).';
-comment on function api.set_employee_manager_role(uuid, uuid, boolean, text) is 'Invoker-only passthrough to the scoped core.set_employee_manager_role (0150, ADR 0008). The 0138 3-argument overload is unchanged.';
-comment on function api.move_employee_location(uuid, uuid) is 'Invoker-only passthrough to core.move_employee_location (0150, ADR 0008).';
-comment on function api.platform_create_location(uuid, text, text, uuid, uuid) is 'Invoker-only passthrough to core.platform_create_location for the console Edge Function (0150, ADR 0008). service_role only.';
-comment on function api.platform_rename_location(uuid, text, uuid) is 'Invoker-only passthrough to core.platform_rename_location (0150, ADR 0008). service_role only.';
-comment on function api.platform_set_location_active(uuid, boolean, uuid) is 'Invoker-only passthrough to core.platform_set_location_active (0150, ADR 0008). service_role only.';
+comment on function api.create_location(uuid, text, text, uuid) is 'Invoker-only passthrough to core.caller_create_location (0151, ADR 0008).';
+comment on function api.rename_location(uuid, text) is 'Invoker-only passthrough to core.caller_rename_location (0151, ADR 0008).';
+comment on function api.set_location_active(uuid, boolean) is 'Invoker-only passthrough to core.caller_set_location_active (0151, ADR 0008).';
+comment on function api.set_employee_manager_role(uuid, uuid, boolean, text) is 'Invoker-only passthrough to the scoped core.set_employee_manager_role (0151, ADR 0008). The 0138 3-argument overload is unchanged.';
+comment on function api.move_employee_location(uuid, uuid) is 'Invoker-only passthrough to core.move_employee_location (0151, ADR 0008).';
+comment on function api.platform_create_location(uuid, text, text, uuid, uuid) is 'Invoker-only passthrough to core.platform_create_location for the console Edge Function (0151, ADR 0008). service_role only.';
+comment on function api.platform_rename_location(uuid, text, uuid) is 'Invoker-only passthrough to core.platform_rename_location (0151, ADR 0008). service_role only.';
+comment on function api.platform_set_location_active(uuid, boolean, uuid) is 'Invoker-only passthrough to core.platform_set_location_active (0151, ADR 0008). service_role only.';
 
 revoke all on function api.create_location(uuid, text, text, uuid) from public, anon;
 revoke all on function api.rename_location(uuid, text) from public, anon;

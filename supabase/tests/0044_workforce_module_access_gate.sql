@@ -172,7 +172,9 @@ insert into workforce.recipes (id, tenant_id, location_id, title_ja, status) val
   -- (pre-existing 0057 quirk, out of WP-S5's scope, same category as the
   -- 0023/0085 Inventory quirk WP-S3 already documented and declined to fix).
   ('a5700000-0000-0000-0000-000000000002', 'a5000000-0000-0000-0000-00000000000a', 'a5200000-0000-0000-0000-000000000001', 'Archived Recipe (ON delete target)', 'archived'),
-  ('a5700000-0000-0000-0000-000000000003', 'a5000000-0000-0000-0000-00000000000a', 'a5200000-0000-0000-0000-000000000001', 'Archived Recipe (OFF delete target)', 'archived');
+  ('a5700000-0000-0000-0000-000000000003', 'a5000000-0000-0000-0000-00000000000a', 'a5200000-0000-0000-0000-000000000001', 'Archived Recipe (OFF delete target)', 'archived'),
+  -- 0152: a store Manager writes only store-bound recipes (tenant-wide = tenant-wide grant)
+  ('a5700000-0000-0000-0000-000000000004', 'a5000000-0000-0000-0000-00000000000a', 'a5200000-0000-0000-0000-000000000001', 'Store draft', 'draft');
 
 insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja) values
   ('a5000000-0000-0000-0000-00000000000a', 'a5700000-0000-0000-0000-000000000001', 'Coffee beans');
@@ -281,8 +283,15 @@ select is(
 select ok(
   pg_temp.as_auth_exec('a5900000-0000-0000-0000-000000000003',
     $q$insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja)
+       values ('a5000000-0000-0000-0000-00000000000a', 'a5700000-0000-0000-0000-000000000004', 'Milk')$q$),
+  'Workforce ON: manager (recipe.manage) can INSERT a new ingredient into a recipe of their store (workforce.can_manage_recipe)'
+);
+
+select ok(
+  not pg_temp.as_auth_exec('a5900000-0000-0000-0000-000000000003',
+    $q$insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja)
        values ('a5000000-0000-0000-0000-00000000000a', 'a5700000-0000-0000-0000-000000000001', 'Milk')$q$),
-  'Workforce ON: manager (recipe.manage) can INSERT a new ingredient (workforce.can_manage_recipe)'
+  'Workforce ON: a store-scoped manager cannot write a tenant-wide recipe (0152)'
 );
 
 select is(
