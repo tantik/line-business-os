@@ -10,7 +10,7 @@ import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
 import { Checkbox, NumberInput } from '@line-os/ui';
-import { describeInventoryWriteError } from './error-copy';
+import { describeInventoryWriteError, inventoryItemInputErrorField, type InventoryItemFormField } from './error-copy';
 import { tInventoryDashboard } from './inventory-i18n';
 import { ALLERGEN_CODES, ALLERGEN_CODE_GROUPS, allergenGroupHeading, allergenLabel } from '@/lib/packages/cafe/allergens';
 
@@ -40,6 +40,7 @@ const MAX_PHOTO_DIMENSION = 4096;
 export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, onSuccess, onCancel }: ItemFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{ field: InventoryItemFormField; message: string } | null>(null);
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +83,9 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const formData = new FormData(event.currentTarget);
+    setFieldError(null);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', item?.locationId ?? locationId);
     formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
@@ -98,10 +101,34 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
       const result = await upsertInventoryItemAction(formData);
       if (result.status === 'success') {
         onSuccess();
+        return;
+      }
+      const message = describeInventoryWriteError(result, lang);
+      const field = result.status === 'invalid_input' ? inventoryItemInputErrorField(result.reason) : null;
+      if (field) {
+        setFieldError({ field, message });
+        // Bring the offending field into view: Save sits below the long allergen block.
+        const control = form.elements.namedItem(field);
+        if (control instanceof HTMLElement) control.focus();
       } else {
-        setError(describeInventoryWriteError(result, lang));
+        setError(message);
       }
     });
+  }
+
+  /** Inline error under the offending field (same look as the photo error below), wired via aria-describedby. */
+  function fieldErrorProps(field: InventoryItemFormField) {
+    return fieldError?.field === field
+      ? { 'aria-invalid': true as const, 'aria-describedby': `inventory-item-${field}-error` }
+      : {};
+  }
+  function renderFieldError(field: InventoryItemFormField) {
+    if (fieldError?.field !== field) return null;
+    return (
+      <span id={`inventory-item-${field}-error`} role="alert" style={{ display: 'block', marginTop: 4, fontSize: 12, color: colors.dangerText }}>
+        {fieldError.message}
+      </span>
+    );
   }
 
   return (
@@ -110,7 +137,8 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
       {error ? <div style={alertDanger}>{error}</div> : null}
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</span>
-        <input style={input} name="name" defaultValue={item?.name ?? ''} maxLength={120} required />
+        <input style={input} name="name" defaultValue={item?.name ?? ''} maxLength={120} required {...fieldErrorProps('name')} />
+        {renderFieldError('name')}
       </label>
 
       <div style={{ padding: 12, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 8 }}>
@@ -191,7 +219,9 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
             step="0.001"
             defaultValue={quantityInputValue(item?.requiredQuantity ?? 0)}
             required
+            {...fieldErrorProps('requiredQuantity')}
           />
+          {renderFieldError('requiredQuantity')}
         </label>
         <label style={{ flex: 1 }}>
           <span style={{ ...mutedText, fontSize: 13 }}>{t('reorderPointLabel')}</span>
@@ -203,24 +233,28 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
             step="0.001"
             defaultValue={quantityInputValue(item?.reorderPoint ?? 0)}
             required
+            {...fieldErrorProps('reorderPoint')}
           />
+          {renderFieldError('reorderPoint')}
         </label>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <label style={{ flex: 1 }}>
           <span style={{ ...mutedText, fontSize: 13 }}>{t('unitLabel')}</span>
-          <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required>
+          <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required {...fieldErrorProps('unit')}>
             {INVENTORY_UNITS.map((unit) => (
               <option key={unit} value={unit}>
                 {unit}
               </option>
             ))}
           </select>
+          {renderFieldError('unit')}
         </label>
       </div>
       <label>
         <span style={{ ...mutedText, fontSize: 13 }}>{t('sortOrderLabel')}</span>
-        <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} />
+        <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} {...fieldErrorProps('sortOrder')} />
+        {renderFieldError('sortOrder')}
       </label>
 
       <div style={{ padding: 12, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 10 }}>

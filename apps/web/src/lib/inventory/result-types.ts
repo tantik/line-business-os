@@ -18,3 +18,25 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
  *     it rather than losing that history.
  */
 export type InventoryWriteResult<T> = TenantAccessResult<T> | { status: 'not_found' } | { status: 'blocked_by_history' };
+
+/**
+ * Why a catalog item create/edit payload was rejected -- returned by
+ * `parseUpsertInventoryItemInput` and (for `reorder_above_target`) by
+ * `upsertInventoryItem` when the DB CHECK `inventory_items_reorder_point_check`
+ * fires, so the item form can show a specific, actionable message instead of
+ * a generic error. `invalid_request` = a malformed id/locationId the user
+ * cannot fix from the form (shown as the generic error).
+ */
+export type InventoryItemInputError =
+  | 'invalid_request'
+  | 'invalid_name'
+  | 'invalid_unit'
+  | 'invalid_target_quantity'
+  | 'invalid_reorder_point'
+  | 'reorder_above_target'
+  | 'invalid_sort_order';
+
+export type InventoryItemInvalidInputResult = { status: 'invalid_input'; reason: InventoryItemInputError };
+
+/** Result of the catalog item create/edit path (`upsertInventoryItem` / `upsertInventoryItemAction`). */
+export type InventoryItemWriteResult<T> = InventoryWriteResult<T> | InventoryItemInvalidInputResult;

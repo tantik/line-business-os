@@ -1,7 +1,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from '@/lib/tenant/types';
-import type { InventoryWriteResult } from './result-types';
-import { mapInventoryReadError, mapInventoryWriteError } from './pg-error';
+import type { InventoryItemWriteResult, InventoryWriteResult } from './result-types';
+import { isReorderPointCheckViolation, mapInventoryReadError, mapInventoryWriteError } from './pg-error';
 import type { InventoryUnit } from './validation';
 
 /** Flat row shape returned by `api.inventory_item_status`. */
@@ -209,7 +209,7 @@ export async function upsertInventoryItem(
   supabase: SupabaseClient,
   tenantId: string,
   input: UpsertInventoryItemInput,
-): Promise<InventoryWriteResult<InventoryItem>> {
+): Promise<InventoryItemWriteResult<InventoryItem>> {
   try {
     const row = {
       tenant_id: tenantId,
@@ -236,7 +236,10 @@ export async function upsertInventoryItem(
       .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path')
       .maybeSingle();
 
-    if (error) return mapInventoryWriteError(error, 'save this inventory item');
+    if (error) {
+      if (isReorderPointCheckViolation(error)) return { status: 'invalid_input', reason: 'reorder_above_target' };
+      return mapInventoryWriteError(error, 'save this inventory item');
+    }
     if (!data) return { status: 'not_found' };
     return { status: 'success', data: mapItemRow(data as ApiInventoryItemRow) };
   } catch (err) {

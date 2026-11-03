@@ -1,5 +1,6 @@
 import { parseBooleanFlag, parseInventoryUnit, parseItemName, parseQuantity, parseSortOrder, parseUuid } from './validation';
 import type { InventoryUnit } from './validation';
+import type { InventoryItemInputError } from './result-types';
 
 export interface UpsertInventoryItemFormInput {
   id: string | null;
@@ -13,41 +14,58 @@ export interface UpsertInventoryItemFormInput {
   isActive: boolean | undefined;
 }
 
-/** `id` field absent/blank -> create; present -> edit that item. */
-export function parseUpsertInventoryItemInput(formData: FormData): UpsertInventoryItemFormInput | null {
+export type ParseUpsertInventoryItemResult =
+  | { ok: true; input: UpsertInventoryItemFormInput }
+  | { ok: false; reason: InventoryItemInputError };
+
+function invalid(reason: InventoryItemInputError): ParseUpsertInventoryItemResult {
+  return { ok: false, reason };
+}
+
+/**
+ * `id` field absent/blank -> create; present -> edit that item. Fail-closed:
+ * the first invalid field wins and is reported as a specific `reason` so the
+ * form can tell the user what to fix.
+ */
+export function parseUpsertInventoryItemInput(formData: FormData): ParseUpsertInventoryItemResult {
   const rawId = formData.get('id');
   const id = typeof rawId === 'string' && rawId.trim().length > 0 ? parseUuid(rawId) : null;
-  if (typeof rawId === 'string' && rawId.trim().length > 0 && id === null) return null; // malformed, non-blank id
+  if (typeof rawId === 'string' && rawId.trim().length > 0 && id === null) return invalid('invalid_request'); // malformed, non-blank id
 
   const locationId = parseUuid(formData.get('locationId'));
-  if (!locationId) return null;
+  if (!locationId) return invalid('invalid_request');
 
   const name = parseItemName(formData.get('name'));
-  if (!name) return null;
+  if (!name) return invalid('invalid_name');
 
   const unit = parseInventoryUnit(formData.get('unit'));
-  if (!unit) return null;
+  if (!unit) return invalid('invalid_unit');
 
   const requiredQuantity = parseQuantity(formData.get('requiredQuantity'));
-  if (requiredQuantity === null) return null;
+  if (requiredQuantity === null) return invalid('invalid_target_quantity');
 
   const reorderPoint = parseQuantity(formData.get('reorderPoint'));
-  if (reorderPoint === null || reorderPoint > requiredQuantity) return null;
+  if (reorderPoint === null) return invalid('invalid_reorder_point');
+  // Mirrors the DB CHECK `inventory_items_reorder_point_check` (0046).
+  if (reorderPoint > requiredQuantity) return invalid('reorder_above_target');
 
   const sortOrder = formData.has('sortOrder') ? parseSortOrder(formData.get('sortOrder')) : 0;
-  if (sortOrder === null) return null;
+  if (sortOrder === null) return invalid('invalid_sort_order');
 
   const hasActiveField = formData.has('isActive');
 
   return {
-    id,
-    locationId,
-    name,
-    unit,
-    requiredQuantity,
-    reorderPoint,
-    sortOrder,
-    isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,
+    ok: true,
+    input: {
+      id,
+      locationId,
+      name,
+      unit,
+      requiredQuantity,
+      reorderPoint,
+      sortOrder,
+      isActive: hasActiveField ? parseBooleanFlag(formData.get('isActive')) : undefined,
+    },
   };
 }
 

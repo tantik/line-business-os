@@ -37,6 +37,13 @@ interface InventoryDashboardDict {
   notMemberOfWorkspaceError: string;
   blockedByHistoryError: string;
   somethingWentWrongError: string;
+  // Item form validation (`InventoryItemInputError` -> copy, see `error-copy.ts`).
+  itemNameInvalidError: string;
+  itemUnitInvalidError: string;
+  itemTargetQuantityInvalidError: string;
+  itemReorderPointInvalidError: string;
+  itemReorderAboveTargetError: string;
+  itemSortOrderInvalidError: string;
   editButton: string;
   deactivateButton: string;
   reactivateButton: string;
@@ -135,6 +142,13 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     notMemberOfWorkspaceError: 'You are not a member of this workspace.',
     blockedByHistoryError: 'This item has past stock-count history, so it cannot be permanently deleted. Use Deactivate instead.',
     somethingWentWrongError: 'Something went wrong. Please try again.',
+    itemNameInvalidError: 'Enter a name (up to 120 characters).',
+    itemUnitInvalidError: 'Choose a unit.',
+    itemTargetQuantityInvalidError: 'Target quantity must be a number from 0 to 1,000,000 (up to 3 decimal places).',
+    itemReorderPointInvalidError: 'Reorder point must be a number from 0 to 1,000,000 (up to 3 decimal places).',
+    itemReorderAboveTargetError:
+      'Reorder point must not be greater than the target quantity (e.g. target quantity 10, reorder point 5).',
+    itemSortOrderInvalidError: 'Sort order must be a whole number of 0 or more.',
     editButton: 'Edit',
     deactivateButton: 'Deactivate',
     reactivateButton: 'Reactivate',
@@ -229,6 +243,12 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     notMemberOfWorkspaceError: 'このワークスペースのメンバーではありません。',
     blockedByHistoryError: 'この商品には過去の在庫カウント履歴があるため、完全に削除できません。代わりに無効化を使用してください。',
     somethingWentWrongError: 'エラーが発生しました。もう一度お試しください。',
+    itemNameInvalidError: '名前を入力してください（120文字以内）。',
+    itemUnitInvalidError: '単位を選択してください。',
+    itemTargetQuantityInvalidError: '目標数量は0〜1,000,000の数値で入力してください（小数点以下3桁まで）。',
+    itemReorderPointInvalidError: '発注点は0〜1,000,000の数値で入力してください（小数点以下3桁まで）。',
+    itemReorderAboveTargetError: '発注点は目標数量以下にしてください（例：目標数量 10、発注点 5）。',
+    itemSortOrderInvalidError: '表示順は0以上の整数で入力してください。',
     editButton: '編集',
     deactivateButton: '無効化',
     reactivateButton: '再有効化',
