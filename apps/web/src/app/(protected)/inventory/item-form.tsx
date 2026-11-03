@@ -41,6 +41,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<{ field: InventoryItemFormField; message: string } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const t = (key: Parameters<typeof tInventoryDashboard>[1]) => tInventoryDashboard(lang, key);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -84,8 +85,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
     event.preventDefault();
     setError(null);
     setFieldError(null);
-    const form = event.currentTarget;
-    const formData = new FormData(form);
+    const formData = new FormData(event.currentTarget);
     if (item) formData.set('id', item.itemId);
     formData.set('locationId', item?.locationId ?? locationId);
     formData.set('referenceUnitPrice', referenceUnitPrice === '' ? '' : String(referenceUnitPrice));
@@ -107,21 +107,35 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
       const field = result.status === 'invalid_input' ? inventoryItemInputErrorField(result.reason) : null;
       if (field) {
         setFieldError({ field, message });
-        // Bring the offending field into view: Save sits below the long allergen block.
-        const control = form.elements.namedItem(field);
-        if (control instanceof HTMLElement) control.focus();
       } else {
         setError(message);
       }
     });
   }
 
-  /** Inline error under the offending field (same look as the photo error below), wired via aria-describedby. */
-  function fieldErrorProps(field: InventoryItemFormField) {
-    return fieldError?.field === field
-      ? { 'aria-invalid': true as const, 'aria-describedby': `inventory-item-${field}-error` }
-      : {};
+  // Bring the offending field into view (Save sits below the long allergen
+  // block) -- after render, so aria-invalid/aria-describedby are already set
+  // when assistive tech announces the focused control.
+  useEffect(() => {
+    if (!fieldError) return;
+    const control = formRef.current?.elements.namedItem(fieldError.field);
+    if (control instanceof HTMLElement) control.focus();
+  }, [fieldError]);
+
+  /**
+   * Shared props for a validated field: the theme input style (danger border
+   * when invalid), aria wiring to the inline error, and clearing that error as
+   * soon as the user edits the field.
+   */
+  function fieldProps(field: InventoryItemFormField) {
+    const invalid = fieldError?.field === field;
+    return {
+      style: invalid ? { ...input, border: `1px solid ${colors.danger}` } : input,
+      onInput: () => setFieldError((current) => (current?.field === field ? null : current)),
+      ...(invalid ? { 'aria-invalid': true as const, 'aria-describedby': `inventory-item-${field}-error` } : {}),
+    };
   }
+  /** Inline error right under the field, outside its <label> so it is not part of the accessible name. */
   function renderFieldError(field: InventoryItemFormField) {
     if (fieldError?.field !== field) return null;
     return (
@@ -132,14 +146,16 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <form ref={formRef} onSubmit={handleSubmit} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <PendingOverlay visible={isPending} message={t('savingButton')} />
       {error ? <div style={alertDanger}>{error}</div> : null}
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</span>
-        <input style={input} name="name" defaultValue={item?.name ?? ''} maxLength={120} required {...fieldErrorProps('name')} />
+      <div>
+        <label style={{ display: 'block' }}>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</span>
+          <input name="name" defaultValue={item?.name ?? ''} maxLength={120} required {...fieldProps('name')} />
+        </label>
         {renderFieldError('name')}
-      </label>
+      </div>
 
       <div style={{ padding: 12, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 8 }}>
         <strong style={{ fontSize: 13 }}>{t('formPhotoLabel')}</strong>
@@ -209,53 +225,59 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 13 }}>{t('targetQuantityLabel')}</span>
-          <input
-            style={input}
-            name="requiredQuantity"
-            type="number"
-            min={0}
-            step="0.001"
-            defaultValue={quantityInputValue(item?.requiredQuantity ?? 0)}
-            required
-            {...fieldErrorProps('requiredQuantity')}
-          />
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block' }}>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('targetQuantityLabel')}</span>
+            <input
+              name="requiredQuantity"
+              type="number"
+              min={0}
+              step="0.001"
+              defaultValue={quantityInputValue(item?.requiredQuantity ?? 0)}
+              required
+              {...fieldProps('requiredQuantity')}
+            />
+          </label>
           {renderFieldError('requiredQuantity')}
-        </label>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 13 }}>{t('reorderPointLabel')}</span>
-          <input
-            style={input}
-            name="reorderPoint"
-            type="number"
-            min={0}
-            step="0.001"
-            defaultValue={quantityInputValue(item?.reorderPoint ?? 0)}
-            required
-            {...fieldErrorProps('reorderPoint')}
-          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block' }}>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('reorderPointLabel')}</span>
+            <input
+              name="reorderPoint"
+              type="number"
+              min={0}
+              step="0.001"
+              defaultValue={quantityInputValue(item?.reorderPoint ?? 0)}
+              required
+              {...fieldProps('reorderPoint')}
+            />
+          </label>
           {renderFieldError('reorderPoint')}
-        </label>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        <label style={{ flex: 1 }}>
-          <span style={{ ...mutedText, fontSize: 13 }}>{t('unitLabel')}</span>
-          <select style={input} name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required {...fieldErrorProps('unit')}>
-            {INVENTORY_UNITS.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
-              </option>
-            ))}
-          </select>
+        <div style={{ flex: 1 }}>
+          <label style={{ display: 'block' }}>
+            <span style={{ ...mutedText, fontSize: 13 }}>{t('unitLabel')}</span>
+            <select name="unit" defaultValue={item?.unit ?? INVENTORY_UNITS[0]} required {...fieldProps('unit')}>
+              {INVENTORY_UNITS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+          </label>
           {renderFieldError('unit')}
-        </label>
+        </div>
       </div>
-      <label>
-        <span style={{ ...mutedText, fontSize: 13 }}>{t('sortOrderLabel')}</span>
-        <input style={input} name="sortOrder" type="number" min={0} step={1} defaultValue={item?.sortOrder ?? 0} {...fieldErrorProps('sortOrder')} />
+      <div>
+        <label style={{ display: 'block' }}>
+          <span style={{ ...mutedText, fontSize: 13 }}>{t('sortOrderLabel')}</span>
+          <input name="sortOrder" type="number" min={0} max={100000} step={1} defaultValue={item?.sortOrder ?? 0} {...fieldProps('sortOrder')} />
+        </label>
         {renderFieldError('sortOrder')}
-      </label>
+      </div>
 
       <div style={{ padding: 12, border: `1px solid ${colors.border}`, borderRadius: 10, display: 'grid', gap: 10 }}>
         <div>

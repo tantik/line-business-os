@@ -148,7 +148,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     itemReorderPointInvalidError: 'Reorder point must be a number from 0 to 1,000,000 (up to 3 decimal places).',
     itemReorderAboveTargetError:
       'Reorder point must not be greater than the target quantity (e.g. target quantity 10, reorder point 5).',
-    itemSortOrderInvalidError: 'Sort order must be a whole number of 0 or more.',
+    itemSortOrderInvalidError: 'Sort order must be a whole number from 0 to 100,000.',
     editButton: 'Edit',
     deactivateButton: 'Deactivate',
     reactivateButton: 'Reactivate',
@@ -248,7 +248,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     itemTargetQuantityInvalidError: '目標数量は0〜1,000,000の数値で入力してください（小数点以下3桁まで）。',
     itemReorderPointInvalidError: '発注点は0〜1,000,000の数値で入力してください（小数点以下3桁まで）。',
     itemReorderAboveTargetError: '発注点は目標数量以下にしてください（例：目標数量 10、発注点 5）。',
-    itemSortOrderInvalidError: '表示順は0以上の整数で入力してください。',
+    itemSortOrderInvalidError: '表示順は0〜100,000の整数で入力してください。',
     editButton: '編集',
     deactivateButton: '無効化',
     reactivateButton: '再有効化',
