@@ -10,6 +10,11 @@ import { resolvePackageConfig } from '@/lib/packages/config';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { correctionAttendanceIdsToShow, managerAttendanceLoadRange } from '@/lib/workforce/attendance-month';
 import { createInventoryMediaUrlMap } from '@/lib/inventory/items';
+import {
+  loadInventoryNameTranslationRows,
+  scheduleInventoryNameBackfill,
+  toInventoryNameTranslations,
+} from '@/lib/inventory/item-name-translation-jobs';
 import { flagMissedCriticalExceptions } from '@/lib/operations/exceptions';
 import { withReporterNames } from '@/lib/issues/issues';
 import { loadManagerDashboard, type ManagerDashboardPart } from '@/lib/manager/dashboard';
@@ -311,17 +316,23 @@ export default async function WorkforceManagerPage({
       // Issues & Handover popup's entire read surface (Cafe v2.2 WP2).
       if (issuesEnabled) managerParts.push('issuesOpen', 'issuesAll');
 
-      const dashboard = await loadManagerDashboard(supabase, activeTenant.tenantId, location.locationId, {
-        parts: managerParts,
-        preferenceFromDate: exchangeWindow.periodStart,
-        fromIso,
-        toIsoExclusive,
-        exchangeFromIso,
-        exchangeToIsoExclusive,
-        attendanceFromDate: attendanceRange.fromDate,
-        attendanceToDate: attendanceRange.toDate,
-        today: managerToday,
-      });
+      // Inventory item name translations (0153) -- ONE batched read, in
+      // parallel with the dashboard RPC (it needs no ids from it), only when
+      // Inventory is on (the translation RLS requires it anyway).
+      const [dashboard, inventoryNameTranslationRows] = await Promise.all([
+        loadManagerDashboard(supabase, activeTenant.tenantId, location.locationId, {
+          parts: managerParts,
+          preferenceFromDate: exchangeWindow.periodStart,
+          fromIso,
+          toIsoExclusive,
+          exchangeFromIso,
+          exchangeToIsoExclusive,
+          attendanceFromDate: attendanceRange.fromDate,
+          attendanceToDate: attendanceRange.toDate,
+          today: managerToday,
+        }),
+        inventoryEnabled ? loadInventoryNameTranslationRows(supabase, activeTenant.tenantId) : Promise.resolve(null),
+      ]);
       const staffResult = dashboard.staff;
       const lineLinksResult = dashboard.lineLinks;
       const shiftTypesResult = dashboard.shiftTypes;
@@ -402,6 +413,22 @@ export default async function WorkforceManagerPage({
         inventoryItemsResult && inventoryItemsResult.status === 'success'
           ? await createInventoryMediaUrlMap(supabase, inventoryItemsResult.data)
           : {};
+
+      // Every item name shown on this page (Inventory, Purchases, receipts,
+      // Attention) belongs to this location's catalog -- `inventoryItems`
+      // (active + inactive) is the staleness reference for all of them.
+      const inventoryCatalog = inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null;
+      const inventoryNameTranslations = toInventoryNameTranslations(inventoryCatalog, inventoryNameTranslationRows);
+      // Lazy backfill: untranslated active items (max 20 per load) are
+      // translated after the response is sent, as this Manager (RLS-gated
+      // write). No-op without a configured provider or with nothing missing.
+      scheduleInventoryNameBackfill(
+        supabase,
+        activeTenant.tenantId,
+        inventoryCatalog,
+        inventoryNameTranslationRows,
+        resolvePackageConfig(packageCodes).translationDomainHint,
+      );
 
       // `operations.task.read`/exceptions may be tenant-wide for some roles
       // -- narrow to this Manager's own location here, same convention
@@ -485,6 +512,7 @@ export default async function WorkforceManagerPage({
             operationsEnabled={operationsEnabled}
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
+            inventoryNameTranslations={inventoryNameTranslations}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
             purchaseHistory={purchaseHistoryResult && purchaseHistoryResult.status === 'success' ? purchaseHistoryResult.data : null}
             purchasesAwaiting={purchasesAwaitingResult && purchasesAwaitingResult.status === 'success' ? purchasesAwaitingResult.data : null}

@@ -34,6 +34,8 @@ import { ShiftTable } from '@/components/demo/cafe/ShiftTable';
 import { ShiftLegend } from '@/components/demo/cafe/ShiftLegend';
 import { Modal } from '@/components/demo/cafe/Modal';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { InventoryItemNamesProvider } from '@/lib/inventory/item-name-context';
+import type { InventoryNameTranslations } from '@/lib/inventory/item-name-display';
 import { useDocumentTitle } from '@/lib/ui/document-title';
 import {
   customShiftTimeRangeLabel,
@@ -178,6 +180,8 @@ export interface StaffDashboardClientProps {
   inventoryMediaUrlByItemId: Record<string, string>;
   /** Manager-only decrypted staff-id -> display-name map for the Inventory popup's "counted by" line (see page.tsx). Always empty when `inventoryCanManage` is false. */
   inventoryStaffNameById: Record<string, string>;
+  /** Current item name translations (0153, server-built), provided to the Inventory and Purchases popups. */
+  inventoryNameTranslations: InventoryNameTranslations;
   /** This location's Purchases shopping list -- also the exact data the Purchases popup below renders (no separate fetch). `null` when the module is disabled or the read failed. */
   purchasesItems: PurchaseNeededItem[] | null;
   /** Full Purchases action history (0120) -- also the exact data the Purchases popup's History tab renders (no separate fetch). `null` when the module is disabled or the read failed. */
@@ -229,10 +233,12 @@ function hoursBetween(startsAtLocal: string, endsAtLocal: string): number {
  * itself) can call `useLang()`/receive a `lang` prop. Split out because a
  * component cannot call `useLang()` above its own `LangProvider` ancestor.
  */
-export function StaffDashboardClient(props: StaffDashboardClientProps) {
+export function StaffDashboardClient({ inventoryNameTranslations, ...props }: StaffDashboardClientProps) {
   return (
     <LangProvider>
-      <StaffDashboardBody {...props} />
+      <InventoryItemNamesProvider translations={inventoryNameTranslations}>
+        <StaffDashboardBody {...props} />
+      </InventoryItemNamesProvider>
     </LangProvider>
   );
 }
@@ -283,7 +289,7 @@ function StaffDashboardBody({
   recipeCanManage,
   initialPopup,
   locationId,
-}: StaffDashboardClientProps) {
+}: Omit<StaffDashboardClientProps, 'inventoryNameTranslations'>) {
   const router = useRouter();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tStaffDashboard>[1]) => tStaffDashboard(lang, key);

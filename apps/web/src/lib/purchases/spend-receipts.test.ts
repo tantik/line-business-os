@@ -83,12 +83,12 @@ test('mapSpendReceiptRow: maps the view row and its linked items', () => {
   const mapped = mapSpendReceiptRow(row);
   assert.equal(mapped.amountJpy, null);
   assert.equal(mapped.isMine, false);
-  assert.deepEqual(mapped.items, [{ actionId: ACTION_A, itemName: null, actionType: null }]);
+  assert.deepEqual(mapped.items, [{ actionId: ACTION_A, itemId: null, itemName: null, actionType: null }]);
 });
 
 test('summarizeSpend: canceled receipts excluded, missing amounts counted, uncategorized linked receipts = stock', () => {
   const summary = summarizeSpend([
-    receipt({ amountJpy: 1200, createdByEmployeeId: 'emp-a', items: [{ actionId: ACTION_A, itemName: '牛乳', actionType: 'bought' }] }),
+    receipt({ amountJpy: 1200, createdByEmployeeId: 'emp-a', items: [{ actionId: ACTION_A, itemId: 'item-a', itemName: '牛乳', actionType: 'bought' }] }),
     receipt({ receiptId: 'r2', amountJpy: null, mediaPath: 'x', createdByEmployeeId: 'emp-b', category: 'supplies' }),
     receipt({ receiptId: 'r3', amountJpy: 800, createdByEmployeeId: 'emp-a', category: 'supplies' }),
     receipt({ receiptId: 'r4', amountJpy: 5000, status: 'canceled', cancelReason: 'dup' }),

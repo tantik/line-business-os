@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { STATUS_RANK, type PurchaseNeededItem } from '@/lib/purchases/items';
 import type { PurchaseHistoryEntry } from '@/lib/purchases/history';
 import { splitAwaitingDelivery, type PurchaseAwaitingDeliveryItem } from '@/lib/purchases/awaiting-delivery';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { InventoryItemNamesProvider, useInventoryItemName } from '@/lib/inventory/item-name-context';
+import type { InventoryNameTranslations } from '@/lib/inventory/item-name-display';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { backLink, buttonSecondary, card, colors, mutedText, tableCell, tableHeaderCell } from '@/lib/ui/theme';
@@ -517,10 +519,18 @@ function HistoryList({
 }
 
 /** Outer wrapper: mounts the shared `LangProvider`, matching Inventory's own `InventoryDashboardClient`/`InventoryDashboardBody` split. */
-export function PurchasesDashboardClient(props: PurchasesDashboardClientProps) {
+export function PurchasesDashboardClient({
+  nameTranslations,
+  ...props
+}: PurchasesDashboardClientProps & {
+  /** Standalone page only: current item name translations (0153). Embedded popups get them from the host dashboard's `InventoryItemNamesProvider`. */
+  nameTranslations?: InventoryNameTranslations;
+}) {
   return (
     <LangProvider>
-      <PurchasesDashboardBody {...props} />
+      <InventoryItemNamesProvider translations={nameTranslations}>
+        <PurchasesDashboardBody {...props} />
+      </InventoryItemNamesProvider>
     </LangProvider>
   );
 }
@@ -530,14 +540,28 @@ export function PurchasesDashboardBody({
   locationName,
   locationId,
   locationTimezone,
-  items,
+  items: sourceItems,
   staffNameById,
-  history,
-  awaiting,
+  history: sourceHistory,
+  awaiting: sourceAwaiting,
   embedded = false,
 }: PurchasesDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tPurchasesDashboard(lang, key);
+  // 0153: every list below (needed / awaiting / history, incl. sort and aria
+  // labels) shows item names in the UI language when a current machine
+  // translation exists, else the original name. Display only -- no write here
+  // ever sends a name.
+  const itemName = useInventoryItemName();
+  const items = useMemo(() => sourceItems.map((i) => ({ ...i, name: itemName(i.itemId, i.name) })), [sourceItems, itemName]);
+  const history = useMemo(
+    () => sourceHistory?.map((h) => ({ ...h, itemName: itemName(h.itemId, h.itemName) })) ?? sourceHistory,
+    [sourceHistory, itemName],
+  );
+  const awaiting = useMemo(
+    () => sourceAwaiting?.map((w) => ({ ...w, name: itemName(w.itemId, w.name) })) ?? sourceAwaiting,
+    [sourceAwaiting, itemName],
+  );
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   // purchases recorded in this popup session, newest last: offers 「レシートを追加」 with them pre-ticked (DEBT-136)

@@ -10,6 +10,7 @@ import { resolvePackageConfig } from '@/lib/packages/config';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION } from '@/lib/inventory/items';
+import { loadInventoryNameTranslationRows, toInventoryNameTranslations } from '@/lib/inventory/item-name-translation-jobs';
 import { loadMyAccess } from '@/lib/auth/my-access';
 import { loadStaffDashboard, responsesForInstances, type StaffDashboardPart } from '@/lib/staff/dashboard';
 import { withReporterNames } from '@/lib/issues/issues';
@@ -245,7 +246,7 @@ export default async function WorkforceStaffPage({
       if (operationsEnabled) dashboardParts.push('operationsTodayTasks', 'operationsItems', 'operationsResponses');
       if (issuesEnabled) dashboardParts.push('issuesOpen');
 
-      const [dashboard, access] = await Promise.all([
+      const [dashboard, access, inventoryNameTranslationRows] = await Promise.all([
         loadStaffDashboard(supabase, activeTenant.tenantId, location.locationId, {
           parts: dashboardParts,
           fromIso: assignmentFromIso,
@@ -259,6 +260,9 @@ export default async function WorkforceStaffPage({
           location: [INVENTORY_MANAGE_PERMISSION],
           anyLocation: [RECIPE_MANAGE_PERMISSION],
         }),
+        // Inventory item name translations (0153): ONE batched read in
+        // parallel; Staff only reads them (writes are Manager-only by RLS).
+        inventoryEnabled ? loadInventoryNameTranslationRows(supabase, activeTenant.tenantId) : Promise.resolve(null),
       ]);
       const shiftTypesResult = dashboard.shiftTypes;
       const requestsResult = dashboard.myPreferenceRequests;
@@ -350,6 +354,19 @@ export default async function WorkforceStaffPage({
       // second decrypted-staff-directory read.
       const purchasesStaffNameById = inventoryCanManage ? Object.fromEntries(inventoryStaffNameById) : {};
 
+      // Staleness reference for item name translations: every item name this
+      // page shows (active catalog + Purchases lists, which may still name a
+      // since-deactivated item).
+      const inventoryNameTranslations = toInventoryNameTranslations(
+        [
+          ...(inventoryItemsResult?.status === 'success' ? inventoryItemsResult.data : []),
+          ...(purchasesItemsResult?.status === 'success' ? purchasesItemsResult.data : []),
+          ...(purchasesAwaitingResult?.status === 'success' ? purchasesAwaitingResult.data : []),
+          ...(purchaseHistoryResult?.status === 'success' ? purchaseHistoryResult.data.map((h) => ({ itemId: h.itemId, name: h.itemName })) : []),
+        ],
+        inventoryNameTranslationRows,
+      );
+
       // `operations.task.read` may be tenant-wide for some roles -- narrow to
       // this Staff member's own location here, same convention
       // `/operations/page.tsx`'s own Staff branch used.
@@ -419,6 +436,7 @@ export default async function WorkforceStaffPage({
             inventoryItems={inventoryItemsResult && inventoryItemsResult.status === 'success' ? inventoryItemsResult.data : null}
             inventoryCanManage={inventoryCanManage}
             inventoryMediaUrlByItemId={inventoryMediaUrlByItemId}
+            inventoryNameTranslations={inventoryNameTranslations}
             inventoryStaffNameById={Object.fromEntries(inventoryStaffNameById)}
             purchasesItems={purchasesItemsResult && purchasesItemsResult.status === 'success' ? purchasesItemsResult.data : null}
             purchaseHistory={purchaseHistoryResult && purchaseHistoryResult.status === 'success' ? purchaseHistoryResult.data : null}
