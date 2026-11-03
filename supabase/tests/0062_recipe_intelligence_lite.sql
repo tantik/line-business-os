@@ -19,7 +19,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, core, audit, workforce, inventory, purchases, ai;
 
-select plan(44);
+select plan(45);
 
 -- ============================================================================
 -- Section 0: fixtures
@@ -42,13 +42,16 @@ insert into core.locations (id, tenant_id, name) values
 
 insert into core.users (id, display_name) values
   ('9f900000-0000-0000-0000-000000000001', 'Staff A (Location A)'),
-  ('9f900000-0000-0000-0000-000000000002', 'Manager A (Location A)');
+  ('9f900000-0000-0000-0000-000000000002', 'Manager A (Location A)'),
+  ('9f900000-0000-0000-0000-000000000003', 'Manager T (tenant-wide)');
 
 insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
   ('9f000000-0000-0000-0000-00000000000a', '9f900000-0000-0000-0000-000000000001',
    '00000000-0000-0000-0000-000000000006', '9f200000-0000-0000-0000-000000000001'), -- employee
   ('9f000000-0000-0000-0000-00000000000a', '9f900000-0000-0000-0000-000000000002',
-   '00000000-0000-0000-0000-000000000005', '9f200000-0000-0000-0000-000000000001'); -- manager
+   '00000000-0000-0000-0000-000000000005', '9f200000-0000-0000-0000-000000000001'), -- manager
+  ('9f000000-0000-0000-0000-00000000000a', '9f900000-0000-0000-0000-000000000003',
+   '00000000-0000-0000-0000-000000000005', null); -- tenant-wide manager (0152: tenant-wide recipes)
 
 -- Inventory items: Location A (priced, kg) and Location B (unpriced), plus a
 -- cross-tenant item (Tenant B) never reachable from Tenant A.
@@ -111,12 +114,14 @@ insert into workforce.recipes (id, tenant_id, location_id, title_ja, content_kin
           '9f200000-0000-0000-0000-000000000001', 'Location A Recipe', 'recipe', 'draft', 'ja',
           '9f900000-0000-0000-0000-000000000002', '9f900000-0000-0000-0000-000000000002');
 
+reset role;
+
+-- 0152: a store-scoped Manager no longer writes tenant-wide recipes; the
+-- tenant-wide fixture is inserted directly
 insert into workforce.recipes (id, tenant_id, location_id, title_ja, content_kind, status, original_language, created_by, updated_by)
   values ('9f300000-0000-0000-0000-000000000002', '9f000000-0000-0000-0000-00000000000a',
           null, 'Tenant-wide Recipe', 'recipe', 'draft', 'ja',
           '9f900000-0000-0000-0000-000000000002', '9f900000-0000-0000-0000-000000000002');
-
-reset role;
 
 select throws_ok(
   $$ insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, quantity)
@@ -397,7 +402,14 @@ select is(
 );
 
 -- Tenant-wide recipe: mapped to Loc B item (Milk), which has no reference
--- price -> no_price, NULL cost.
+-- price -> no_price, NULL cost. 0152: tenant-wide recipe costs need a
+-- tenant-wide Manager; the store Manager is refused.
+select throws_ok(
+  $$ select * from api.recipe_ingredient_cost_breakdown('9f000000-0000-0000-0000-00000000000a', '9f300000-0000-0000-0000-000000000002') $$,
+  '42501', 'permission_denied',
+  '0152: a store Manager cannot read the cost breakdown of a tenant-wide recipe'
+);
+select pg_temp.as_role('9f900000-0000-0000-0000-000000000003');
 select is(
   (select cost_status from api.recipe_ingredient_cost_breakdown('9f000000-0000-0000-0000-00000000000a', '9f300000-0000-0000-0000-000000000002')),
   'no_price',
@@ -408,6 +420,7 @@ select is(
   null::numeric,
   'no_price estimated_cost is NULL, never 0'
 );
+select pg_temp.as_role('9f900000-0000-0000-0000-000000000002');
 
 -- Unit-incompatible: map an ingredient to the Cups (pcs) item using kg.
 insert into workforce.recipe_ingredients (tenant_id, recipe_id, label_ja, inventory_item_id, quantity, unit)
