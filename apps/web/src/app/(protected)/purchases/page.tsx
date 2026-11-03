@@ -8,6 +8,7 @@ import { listTenantLocations } from '@/lib/tenant/locations';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
+import { loadInventoryNameTranslationRows, toInventoryNameTranslations } from '@/lib/inventory/item-name-translation-jobs';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -95,6 +96,16 @@ export default async function PurchasesPage() {
       const itemsResult = await listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId);
       const historyResult = await listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId);
       const awaitingResult = await listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId);
+      // Item name translations (0153): one batched read; current ones only, keyed to the names shown here.
+      const nameTranslationRows = await loadInventoryNameTranslationRows(supabase, activeTenant.tenantId);
+      const nameTranslations = toInventoryNameTranslations(
+        [
+          ...(itemsResult.status === 'success' ? itemsResult.data : []),
+          ...(awaitingResult.status === 'success' ? awaitingResult.data : []),
+          ...(historyResult.status === 'success' ? historyResult.data.map((h) => ({ itemId: h.itemId, name: h.itemName })) : []),
+        ],
+        nameTranslationRows,
+      );
 
       // "Bought by" only ever resolves to a real display name for managers,
       // reusing the same manager-only decrypted staff directory Inventory's
@@ -116,6 +127,7 @@ export default async function PurchasesPage() {
               locationId={location.locationId}
               locationTimezone={location.timezone}
               items={itemsResult.data}
+              nameTranslations={nameTranslations}
               staffNameById={Object.fromEntries(staffNameById)}
               history={historyResult.status === 'success' ? historyResult.data : null}
               awaiting={awaitingResult.status === 'success' ? awaitingResult.data : null}

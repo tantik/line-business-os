@@ -15,6 +15,8 @@ import {
   type SpendReceiptSettings,
 } from '@/lib/purchases/spend-receipts';
 import { shrinkImageForUpload } from '@/lib/media/shrink-image-client';
+import { displayItemName } from '@/lib/inventory/item-name-display';
+import { useInventoryNameTranslations } from '@/lib/inventory/item-name-context';
 import { describeReceiptWriteError } from './receipts-copy';
 import { tReceiptError, tReceipts } from './receipts-i18n';
 
@@ -70,6 +72,7 @@ export function ReceiptSheet({
   photoUrl,
 }: ReceiptSheetProps) {
   const t = (key: Parameters<typeof tReceipts>[1]) => tReceipts(lang, key);
+  const nameTranslations = useInventoryNameTranslations();
   const isEdit = Boolean(receipt);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientRequestId, setClientRequestId] = useState('');
@@ -114,11 +117,15 @@ export function ReceiptSheet({
   const hasPhoto = Boolean(photo) || (Boolean(receipt?.mediaPath) && !removePhoto);
 
   // linked items: the receipt's own (edit) plus today's free purchases
+  // (names in the UI language when a current translation exists, 0153)
   const itemOptions: Array<{ actionId: string; label: string }> = [
-    ...(receipt?.items ?? []).map((i) => ({ actionId: i.actionId, label: i.itemName ?? '—' })),
+    ...(receipt?.items ?? []).map((i) => ({
+      actionId: i.actionId,
+      label: i.itemId && i.itemName ? displayItemName({ itemId: i.itemId, name: i.itemName }, lang, nameTranslations) : (i.itemName ?? '—'),
+    })),
     ...candidates
       .filter((c) => !(receipt?.items ?? []).some((i) => i.actionId === c.actionId))
-      .map((c) => ({ actionId: c.actionId, label: c.itemName })),
+      .map((c) => ({ actionId: c.actionId, label: displayItemName({ itemId: c.itemId, name: c.itemName }, lang, nameTranslations) })),
   ];
 
   async function handlePhotoPicked(file: File | undefined) {

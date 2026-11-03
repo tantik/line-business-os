@@ -53,6 +53,8 @@ export interface ApiSpendReceiptRow {
 
 export interface SpendReceiptItem {
   actionId: string;
+  /** Inventory item id (null when the item was deleted) -- keys the item name translation (0153). */
+  itemId: string | null;
   itemName: string | null;
   actionType: 'bought' | 'received' | null;
 }
@@ -102,6 +104,7 @@ export function mapSpendReceiptRow(row: ApiSpendReceiptRow): SpendReceipt {
     createdByEmployeeId: row.created_by_employee_id,
     items: (row.items ?? []).map((item) => ({
       actionId: item.action_id,
+      itemId: item.item_id,
       itemName: item.item_name,
       actionType: item.action_type,
     })),

@@ -6,6 +6,7 @@ import type { WorkforceRecipeDetail } from '@/lib/workforce/recipes';
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { getRecipeIngredientMappingContext, upsertRecipe } from '@/lib/workforce/recipe-actions';
 import type { RecipeIngredientMappingContext } from '@/lib/workforce/recipe-actions';
+import { displayItemName } from '@/lib/inventory/item-name-display';
 import { LoadingButton, PendingOverlay } from '@/components/ui/loading';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input, mutedText } from '@/lib/ui/theme';
 import { IconButton, NumberInput, Select } from '@line-os/ui';
@@ -288,12 +289,15 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
                         const item = mappingCandidates.find((candidate) => candidate.itemId === value);
                         updateRow(row.key, { inventoryItemId: value, unit: item?.unit ?? row.unit });
                       }}
-                      options={mappingCandidates.map((item) => ({
-                        value: item.itemId,
-                        label: recipe?.locationId
-                          ? item.name
-                          : `${item.name}${mappingContext?.locationNameById[item.locationId] ? ` (${mappingContext.locationNameById[item.locationId]})` : ''}`,
-                      }))}
+                      options={mappingCandidates.map((item) => {
+                        const itemName = displayItemName(item, lang, mappingContext?.nameTranslations);
+                        return {
+                          value: item.itemId,
+                          label: recipe?.locationId
+                            ? itemName
+                            : `${itemName}${mappingContext?.locationNameById[item.locationId] ? ` (${mappingContext.locationNameById[item.locationId]})` : ''}`,
+                        };
+                      })}
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

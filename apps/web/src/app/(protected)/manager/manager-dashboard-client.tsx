@@ -49,6 +49,8 @@ import {
 import { attendancePresence, lateMinutesToday } from '@/lib/workforce/attendance-presence';
 import { weekOffsetForWorkDate } from '@/lib/workforce/period';
 import { LangProvider, useLang, type Lang } from '@/lib/demo/cafe/i18n';
+import { InventoryItemNamesProvider, useInventoryItemName } from '@/lib/inventory/item-name-context';
+import type { InventoryNameTranslations } from '@/lib/inventory/item-name-display';
 import { useDocumentTitle } from '@/lib/ui/document-title';
 import { createCoalescer, managerTopic, useLiveSignals } from '@/lib/realtime/live-signals';
 import { POLL_SAFETY_INTERVAL_MS, useVisiblePolling } from '@/lib/ui/visible-polling';
@@ -277,6 +279,8 @@ export interface ManagerDashboardClientProps {
   inventoryItems: InventoryItemStatus[] | null;
   /** Signed photo URLs for `inventoryItems`, keyed by `itemId` (see `createInventoryMediaUrlMap`) -- threaded straight to the Inventory popup. */
   inventoryMediaUrlByItemId: Record<string, string>;
+  /** Current item name translations (0153, server-built), provided to every popup that shows an item name. */
+  inventoryNameTranslations: InventoryNameTranslations;
   /** This location's Purchases shopping list, read-only -- also the exact data the Purchases popup renders (no separate fetch). `null` when the module is disabled or the read failed. */
   purchasesItems: PurchaseNeededItem[] | null;
   /** Full Purchases action history (0120), read-only -- also the exact data the Purchases popup's History tab renders (no separate fetch). `null` when the module is disabled or the read failed. */
@@ -374,10 +378,12 @@ function formatWeekday(isoDate: string, lang: Lang): string {
  * Split out because a component cannot call `useLang()` above its own
  * `LangProvider` ancestor.
  */
-export function ManagerDashboardClient(props: ManagerDashboardClientProps) {
+export function ManagerDashboardClient({ inventoryNameTranslations, ...props }: ManagerDashboardClientProps) {
   return (
     <LangProvider>
-      <ManagerDashboardBody {...props} />
+      <InventoryItemNamesProvider translations={inventoryNameTranslations}>
+        <ManagerDashboardBody {...props} />
+      </InventoryItemNamesProvider>
     </LangProvider>
   );
 }
@@ -440,8 +446,9 @@ function ManagerDashboardBody({
   selfStaffId,
   scheduleSettings,
   autoScheduleRuns,
-}: ManagerDashboardClientProps) {
+}: Omit<ManagerDashboardClientProps, 'inventoryNameTranslations'>) {
   const router = useRouter();
+  const inventoryItemName = useInventoryItemName();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
   // Module names come from the package vocabulary (Cafe words by default).
@@ -897,10 +904,10 @@ function ManagerDashboardBody({
           inventoryEnabled && inventoryItems
             ? inventoryItems
                 .filter((i) => i.isActive && i.status === 'shortage')
-                .map((i) => ({ itemId: i.itemId, name: i.name, actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
+                .map((i) => ({ itemId: i.itemId, name: inventoryItemName(i.itemId, i.name), actualQuantity: i.actualQuantity, requiredQuantity: i.requiredQuantity }))
             : [],
       }),
-    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, attentionOpenIssues, attentionOpenExceptions, unavailableConflictRecords, clockInsWithoutShift, inventoryEnabled, inventoryItems],
+    [pendingCorrections, pendingExchanges, exchangeAssignmentById, timeZone, attentionOpenIssues, attentionOpenExceptions, unavailableConflictRecords, clockInsWithoutShift, inventoryEnabled, inventoryItems, inventoryItemName],
   );
 
   // Attention "View shift" deep-link: once the correct week's data has

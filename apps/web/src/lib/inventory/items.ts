@@ -3,6 +3,7 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { InventoryItemWriteResult, InventoryWriteResult } from './result-types';
 import { isReorderPointCheckViolation, mapInventoryReadError, mapInventoryWriteError } from './pg-error';
 import type { InventoryUnit } from './validation';
+import { detectNameLanguage, type ItemNameLanguage } from './item-name-display';
 
 /** Flat row shape returned by `api.inventory_item_status`. */
 export interface ApiInventoryItemStatusRow {
@@ -21,6 +22,8 @@ export interface ApiInventoryItemStatusRow {
   shortage_quantity: string | number;
   status: 'unknown' | 'sufficient' | 'shortage';
   media_path: string | null;
+  /** 0153. Absent from `api.manager_dashboard`/`api.staff_dashboard` rows (their column lists predate it) -- consumers fall back to `detectNameLanguage(name)`, the rule the DB value is set with. */
+  name_language?: ItemNameLanguage;
 }
 
 export interface InventoryItemStatus {
@@ -39,6 +42,8 @@ export interface InventoryItemStatus {
   shortageQuantity: number;
   status: 'unknown' | 'sufficient' | 'shortage';
   mediaPath: string | null;
+  /** Language the name was written in (0153); always set -- read from the row when present, else derived from the name. */
+  nameLanguage: ItemNameLanguage;
 }
 
 function mapItemStatusRow(row: ApiInventoryItemStatusRow): InventoryItemStatus {
@@ -58,6 +63,7 @@ function mapItemStatusRow(row: ApiInventoryItemStatusRow): InventoryItemStatus {
     shortageQuantity: Number(row.shortage_quantity),
     status: row.status,
     mediaPath: row.media_path,
+    nameLanguage: row.name_language ?? detectNameLanguage(row.name),
   };
 }
 
@@ -97,7 +103,7 @@ export async function listInventoryItemStatus(
       .schema('api')
       .from('inventory_item_status')
       .select(
-        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status, media_path',
+        'item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, actual_quantity, counted_at, counted_by_staff_id, shortage_quantity, status, media_path, name_language',
       )
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId);
@@ -143,6 +149,7 @@ interface ApiInventoryItemRow {
   created_at: string;
   updated_at: string;
   media_path: string | null;
+  name_language: ItemNameLanguage;
 }
 
 export interface InventoryItem {
@@ -158,6 +165,7 @@ export interface InventoryItem {
   createdAt: string;
   updatedAt: string;
   mediaPath: string | null;
+  nameLanguage: ItemNameLanguage;
 }
 
 function mapItemRow(row: ApiInventoryItemRow): InventoryItem {
@@ -174,6 +182,7 @@ function mapItemRow(row: ApiInventoryItemRow): InventoryItem {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     mediaPath: row.media_path,
+    nameLanguage: row.name_language,
   };
 }
 
@@ -215,6 +224,9 @@ export async function upsertInventoryItem(
       tenant_id: tenantId,
       location_id: input.locationId,
       name: input.name,
+      // 0153: the language the name is written in, derived here (the only
+      // catalog write path) so it can never drift from the name itself.
+      name_language: detectNameLanguage(input.name),
       unit: input.unit,
       required_quantity: input.requiredQuantity,
       reorder_point: input.reorderPoint,
@@ -233,7 +245,7 @@ export async function upsertInventoryItem(
       : supabase.schema('api').from('inventory_items').insert(row);
 
     const { data, error } = await query
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path, name_language')
       .maybeSingle();
 
     if (error) {
@@ -264,7 +276,7 @@ export async function setInventoryItemActive(
       .update({ is_active: isActive })
       .eq('tenant_id', tenantId)
       .eq('item_id', itemId)
-      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path')
+      .select('item_id, tenant_id, location_id, name, unit, required_quantity, reorder_point, sort_order, is_active, created_at, updated_at, media_path, name_language')
       .maybeSingle();
 
     if (error) return mapInventoryWriteError(error, 'update this inventory item');
