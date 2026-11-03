@@ -32,7 +32,7 @@ import { optimizeImageForWeb } from '@/lib/media/optimize-image';
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
 
-/** Matches the recipe photo action's own limit (`MAX_RECIPE_PHOTO_BYTES` in `recipe-actions.ts`) -- client-side check in `item-form.tsx` is a fast-fail UX nicety, the server re-checks regardless. */
+/** Matches the recipe photo action's own limit (`MAX_RECIPE_PHOTO_BYTES` in `recipe-actions.ts`) -- the client (`item-form.tsx`) always sends a JPEG shrunk under this by `shrinkImageForUpload`; this check is the safety net. */
 const MAX_ITEM_PHOTO_BYTES = 2 * 1024 * 1024;
 const ITEM_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 

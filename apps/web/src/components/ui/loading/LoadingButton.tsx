@@ -26,9 +26,12 @@ export function LoadingButton({
   pendingStyle,
   type = 'button',
   onClick,
+  disabled = false,
   ...rest
 }: {
   pending: boolean;
+  /** Disabled while NOT pending (e.g. a photo is still being prepared); styled with `pendingStyle` too. */
+  disabled?: boolean;
   /** Shown next to the loader while pending, e.g. "Saving...", "Deleting...". Falls back to `children` if omitted. */
   pendingLabel?: ReactNode;
   children: ReactNode;
@@ -39,7 +42,7 @@ export function LoadingButton({
   onClick?: () => void;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style' | 'onClick' | 'type' | 'children' | 'disabled'>) {
   return (
-    <button type={type} style={pending ? (pendingStyle ?? style) : style} disabled={pending} onClick={onClick} {...rest}>
+    <button type={type} style={pending || disabled ? (pendingStyle ?? style) : style} disabled={pending || disabled} onClick={onClick} {...rest}>
       {pending ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <BrandLoader size="xs" label={typeof pendingLabel === 'string' ? pendingLabel : 'Loading'} />
