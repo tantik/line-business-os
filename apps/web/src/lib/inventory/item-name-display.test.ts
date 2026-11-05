@@ -20,7 +20,7 @@ test('displayItemName: shows the translation into the UI language when present',
 });
 
 test('displayItemName: English translations are sentence-case; originals and Japanese untouched', () => {
-  const translations = { a: { en: 'milk' }, b: { en: 'orange juice' }, c: { en: 'Almond milk' }, d: { ja: 'oat' } };
+  const translations = { a: { en: ' milk ' }, b: { en: 'orange juice' }, c: { en: 'Almond milk' }, d: { ja: 'oat' } };
   assert.equal(displayItemName({ itemId: 'a', name: '牛乳' }, 'en', translations), 'Milk');
   assert.equal(displayItemName({ itemId: 'b', name: 'オレンジジュース' }, 'en', translations), 'Orange juice');
   assert.equal(displayItemName({ itemId: 'c', name: 'アーモンドミルク' }, 'en', translations), 'Almond milk');

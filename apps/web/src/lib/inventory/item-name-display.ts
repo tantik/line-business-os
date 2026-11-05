@@ -39,5 +39,6 @@ export function displayItemName(
   // Providers return single words lower-case ("milk", "ice") but phrases
   // capitalised ("Almond milk"); a list mixing both looks broken. English
   // names are shown sentence-case: only a leading a-z is upper-cased.
-  return lang === 'en' ? translated.replace(/^[a-z]/, (c) => c.toUpperCase()) : translated;
+  const shown = translated.trim();
+  return lang === 'en' ? shown.replace(/^[a-z]/, (c) => c.toUpperCase()) : shown;
 }
