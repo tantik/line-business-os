@@ -59,6 +59,8 @@ interface InventoryDashboardDict {
   confirmDeleteItemTitle: string;
   confirmDeleteItemBody: string;
   nameLabel: string;
+  /** Under the name field: the field holds the original; other-language UIs show a machine translation (0153). */
+  nameOriginalHint: string;
   formPhotoLabel: string;
   formChooseImage: string;
   formReplaceImage: string;
@@ -161,6 +163,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     confirmDeleteItemTitle: 'Permanently delete this item?',
     confirmDeleteItemBody: 'This also permanently deletes this item’s entire stock-count history. This cannot be undone.',
     nameLabel: 'Name',
+    nameOriginalHint: 'Original name — shown machine-translated in the other language',
     formPhotoLabel: 'Photo',
     formChooseImage: 'Choose image',
     formReplaceImage: 'Replace image',
@@ -258,6 +261,7 @@ const dictionary: Record<Lang, InventoryDashboardDict> = {
     confirmDeleteItemTitle: 'この商品を完全に削除しますか？',
     confirmDeleteItemBody: 'この商品のカウント履歴もすべて完全に削除されます。この操作は取り消せません。',
     nameLabel: '名前',
+    nameOriginalHint: '元の名前（他の言語では自動翻訳で表示されます）',
     formPhotoLabel: '写真',
     formChooseImage: '画像を選択',
     formReplaceImage: '画像を差し替え',

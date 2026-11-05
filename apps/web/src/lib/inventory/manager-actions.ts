@@ -20,6 +20,7 @@ import {
 import type { InventoryItemWriteResult, InventoryWriteResult } from './result-types';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import { optimizeImageForWeb } from '@/lib/media/optimize-image';
+import { scheduleItemNameTranslation } from './item-name-translation-jobs';
 
 /**
  * Server Actions for the Inventory catalog (manager-only; enforced by RLS --
@@ -119,6 +120,15 @@ export async function upsertInventoryItemAction(formData: FormData): Promise<Inv
     mediaPath,
   });
   if (saved.status !== 'success') return saved;
+
+  // 0153: machine-translate the name into the other language after the
+  // response is sent -- best-effort, never part of this save's result. A
+  // name that already has a current translation costs no provider call.
+  scheduleItemNameTranslation(supabase, tenantId, {
+    itemId: saved.data.itemId,
+    name: saved.data.name,
+    nameLanguage: saved.data.nameLanguage,
+  });
 
   let nextMediaPath = mediaPath;
   if (photo instanceof File && photo.size > 0) {

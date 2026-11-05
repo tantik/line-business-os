@@ -8,6 +8,11 @@ import { listTenantLocations } from '@/lib/tenant/locations';
 import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
+import {
+  loadInventoryNameTranslationRows,
+  scheduleInventoryNameBackfill,
+  toInventoryNameTranslations,
+} from '@/lib/inventory/item-name-translation-jobs';
 import { listWorkforceStaffForManager } from '@/lib/workforce/employees';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -101,7 +106,7 @@ export default async function InventoryPage() {
       const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
       if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=inventory');
 
-      const [itemsResult, canManage, purchasesItemsResult, packageConfig] = await Promise.all([
+      const [itemsResult, canManage, purchasesItemsResult, packageConfig, nameTranslationRows] = await Promise.all([
         listInventoryItemStatus(supabase, activeTenant.tenantId, location.locationId),
         hasInventoryPermission(supabase, activeTenant.tenantId, 'inventory.item.manage', location.locationId),
         // "Bought" reminder icon on shortage items -- see
@@ -109,7 +114,14 @@ export default async function InventoryPage() {
         listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId),
         // Package config (task P6): whether the item form shows allergens.
         loadTenantPackageConfig(supabase, activeTenant.tenantId),
+        // Item name translations (0153): one batched read, display falls back to original names on failure.
+        loadInventoryNameTranslationRows(supabase, activeTenant.tenantId),
       ]);
+      const itemsForNames = itemsResult.status === 'success' ? itemsResult.data : null;
+      const nameTranslations = toInventoryNameTranslations(itemsForNames, nameTranslationRows);
+      if (canManage) {
+        scheduleInventoryNameBackfill(supabase, activeTenant.tenantId, itemsForNames, nameTranslationRows, packageConfig.translationDomainHint);
+      }
       const boughtItemIds =
         purchasesItemsResult.status === 'success'
           ? purchasesItemsResult.data.filter((i) => i.purchaseStatus === 'bought').map((i) => i.itemId)
@@ -145,6 +157,7 @@ export default async function InventoryPage() {
               locationId={location.locationId}
               locationTimezone={location.timezone}
               items={itemsResult.data}
+              nameTranslations={nameTranslations}
               mediaUrlByItemId={mediaUrlByItemId}
               canManage={canManage}
               staffNameById={Object.fromEntries(staffNameById)}

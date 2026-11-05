@@ -43,6 +43,8 @@ const RECEIPT_PHOTO_MAX_DIMENSION = 2000;
 /** A bought/received purchase of today that can still go on a receipt. */
 export interface ReceiptCandidate {
   actionId: string;
+  /** Keys the item name translation (0153). */
+  itemId: string;
   itemName: string;
   actionType: 'bought' | 'received';
   actionedAt: string;
@@ -116,7 +118,7 @@ export async function loadSpendReceiptsAction(
     supabase
       .schema('api')
       .from('purchase_history')
-      .select('action_id, item_name, action_type, actioned_at, actioned_by_staff_id')
+      .select('action_id, item_id, item_name, action_type, actioned_at, actioned_by_staff_id')
       .eq('tenant_id', tenantId)
       .eq('location_id', locationId)
       .in('action_type', ['bought', 'received'])
@@ -139,6 +141,7 @@ export async function loadSpendReceiptsAction(
   const candidates: ReceiptCandidate[] = [];
   for (const row of (historyResult.data ?? []) as Array<{
     action_id: string;
+    item_id: string;
     item_name: string;
     action_type: 'bought' | 'received';
     actioned_at: string;
@@ -151,6 +154,7 @@ export async function loadSpendReceiptsAction(
     seen.add(row.action_id);
     candidates.push({
       actionId: row.action_id,
+      itemId: row.item_id,
       itemName: row.item_name,
       actionType: row.action_type,
       actionedAt: row.actioned_at,

@@ -23,9 +23,11 @@ export type ContentSourceEntityType =
   | 'workforce_recipe'
   | 'workforce_recipe_ingredient'
   | 'workforce_recipe_step'
-  | 'workforce_recipe_note';
+  | 'workforce_recipe_note'
+  /** Inventory catalog item (0153) -- `name` only; direction from `inventory.items.name_language`. */
+  | 'inventory_item';
 
-export type ContentSourceField = 'title' | 'description' | 'label' | 'instruction' | 'note_title' | 'note_body';
+export type ContentSourceField = 'title' | 'description' | 'label' | 'instruction' | 'note_title' | 'note_body' | 'name';
 
 /** A recipe's original/translated content language. Either can be the source or the target depending on the owning recipe's `original_language` -- translation direction is a per-recipe setting, never guessed per field. */
 export type ContentTargetLanguage = 'ja' | 'en';

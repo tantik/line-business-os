@@ -34,6 +34,8 @@ import {
   type ReceiptPhotoMode,
   type SpendReceipt,
 } from '@/lib/purchases/spend-receipts';
+import { displayItemName } from '@/lib/inventory/item-name-display';
+import { useInventoryNameTranslations } from '@/lib/inventory/item-name-context';
 import { describeReceiptWriteError } from './receipts-copy';
 import { formatMissingAmountCount, formatReceiptCount, tReceiptError, tReceipts } from './receipts-i18n';
 import { CATEGORY_LABEL_KEY, ReceiptSheet } from './receipt-sheet';
@@ -365,9 +367,12 @@ function ReceiptRow({
   onCancel: () => void;
 }) {
   const canceled = receipt.status === 'canceled';
+  const nameTranslations = useInventoryNameTranslations();
   const what =
     receipt.items.length > 0
-      ? receipt.items.map((i) => i.itemName ?? '—').join(lang === 'ja' ? '、' : ', ')
+      ? receipt.items
+          .map((i) => (i.itemId && i.itemName ? displayItemName({ itemId: i.itemId, name: i.itemName }, lang, nameTranslations) : (i.itemName ?? '—')))
+          .join(lang === 'ja' ? '、' : ', ')
       : receipt.category
         ? t(CATEGORY_LABEL_KEY[receipt.category])
         : '';

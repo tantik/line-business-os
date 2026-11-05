@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import type { InventoryItemStatus } from '@/lib/inventory/items';
 import { deleteInventoryItemAction, setInventoryItemActiveAction } from '@/lib/inventory/manager-actions';
 import { LangProvider, useLang } from '@/lib/demo/cafe/i18n';
+import { InventoryItemNamesProvider, useInventoryItemName } from '@/lib/inventory/item-name-context';
+import type { InventoryNameTranslations } from '@/lib/inventory/item-name-display';
 import { PreviewLanguageToggle } from '@/lib/preview/preview-language-toggle';
 import { SignOutButton } from '@/components/sign-out-button';
 import { Menu } from '@line-os/ui';
@@ -480,10 +482,18 @@ function ItemCard({ item, mediaUrl, locationId, locationTimezone, canManage, sta
  * dashboard and Admin page use -- a component cannot call `useLang()`
  * above its own `LangProvider` ancestor.
  */
-export function InventoryDashboardClient(props: InventoryDashboardClientProps) {
+export function InventoryDashboardClient({
+  nameTranslations,
+  ...props
+}: InventoryDashboardClientProps & {
+  /** Standalone page only: current item name translations (0153). Embedded popups get them from the host dashboard's `InventoryItemNamesProvider`. */
+  nameTranslations?: InventoryNameTranslations;
+}) {
   return (
     <LangProvider>
-      <InventoryDashboardBody {...props} />
+      <InventoryItemNamesProvider translations={nameTranslations}>
+        <InventoryDashboardBody {...props} />
+      </InventoryItemNamesProvider>
     </LangProvider>
   );
 }
@@ -493,7 +503,7 @@ export function InventoryDashboardBody({
   locationName,
   locationId,
   locationTimezone,
-  items,
+  items: sourceItems,
   mediaUrlByItemId,
   canManage,
   staffNameById,
@@ -504,6 +514,15 @@ export function InventoryDashboardBody({
 }: InventoryDashboardClientProps) {
   const { lang } = useLang();
   const t: T = (key) => tInventoryDashboard(lang, key);
+  // 0153: every row, card, search, sort and aria label below shows the name
+  // in the UI language (machine translation when current, else the original).
+  // The edit form alone keeps editing the ORIGINAL name (`sourceItemById`).
+  const itemName = useInventoryItemName();
+  const items = useMemo(
+    () => sourceItems.map((item) => ({ ...item, name: itemName(item.itemId, item.name) })),
+    [sourceItems, itemName],
+  );
+  const sourceItemById = useMemo(() => new Map(sourceItems.map((item) => [item.itemId, item])), [sourceItems]);
   const router = useRouter();
   // 2026-08-21 redesign: Add/Edit is a real popup (`Modal`), not an inline
   // section pushing the list down -- matches the Recipes module and the
@@ -539,7 +558,13 @@ export function InventoryDashboardBody({
   const okCount = activeItems.filter((i) => i.status === 'sufficient').length;
   const inactiveCount = items.length - activeItems.length;
   const normalizedSearch = search.trim().toLowerCase();
-  const searchFiltered = items.filter((item) => normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch));
+  // Matches the shown (possibly translated) name OR the original one.
+  const searchFiltered = items.filter(
+    (item) =>
+      normalizedSearch === '' ||
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      (sourceItemById.get(item.itemId)?.name ?? '').toLowerCase().includes(normalizedSearch),
+  );
   const visibleItems = searchFiltered
     .filter((item) => {
       switch (statusFilter) {
@@ -569,7 +594,8 @@ export function InventoryDashboardBody({
           itemId: editing.itemId,
           tenantId: editing.tenantId,
           locationId: editing.locationId,
-          name: editing.name,
+          name: sourceItemById.get(editing.itemId)?.name ?? editing.name,
+          nameLanguage: editing.nameLanguage,
           unit: editing.unit,
           requiredQuantity: editing.requiredQuantity,
           reorderPoint: editing.reorderPoint,
@@ -743,7 +769,7 @@ export function InventoryDashboardBody({
       <Modal
         open={editing !== null}
         onClose={closeEditor}
-        title={editing === 'new' ? t('newItemHeading') : `${t('editItemHeading')} — ${editingItem?.name ?? ''}`}
+        title={editing === 'new' ? t('newItemHeading') : `${t('editItemHeading')} — ${editing?.name ?? ''}`}
         /* Founder Acceptance QA3 2026-10-06: 480px (a plain confirm-dialog
            width) was cramped for this form (photo, qty/reorder/unit, price,
            allergen checkboxes, 29 since 0124) -- widened to match other dense add/edit forms'

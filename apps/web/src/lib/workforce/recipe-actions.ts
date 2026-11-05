@@ -37,6 +37,8 @@ import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 import { optimizeImageForWeb } from '@/lib/media/optimize-image';
+import { loadInventoryNameTranslationRows, toInventoryNameTranslations } from '@/lib/inventory/item-name-translation-jobs';
+import type { InventoryNameTranslations } from '@/lib/inventory/item-name-display';
 
 /**
  * Server Actions for Manager recipe CRUD (Cafe v2.1 QA audit P1-2,
@@ -340,6 +342,8 @@ export interface RecipeIngredientMappingContext {
   items: RecipeIngredientMappingCandidate[];
   /** Location display name by id -- lets the form label a tenant-wide recipe's mapping candidates with which location the item (and therefore the resulting cost) actually belongs to. */
   locationNameById: Record<string, string>;
+  /** Current machine/reviewed translations of the candidates' names (0153), for `displayItemName`. */
+  nameTranslations: InventoryNameTranslations;
 }
 
 /**
@@ -356,9 +360,11 @@ export async function getRecipeIngredientMappingContext(): Promise<TenantAccessR
   const supabase = await createClient();
   const { activeTenant } = tenantContext.data;
 
-  const [itemsResult, locationsResult] = await Promise.all([
+  const [itemsResult, locationsResult, nameTranslationRows] = await Promise.all([
     listInventoryItemsForRecipeMapping(supabase, activeTenant.tenantId),
     listTenantLocations(supabase),
+    // Item name translations (0153) for the picker labels -- one batched read; failure = original names.
+    loadInventoryNameTranslationRows(supabase, activeTenant.tenantId),
   ]);
   if (itemsResult.status !== 'success') return itemsResult;
 
@@ -371,7 +377,14 @@ export async function getRecipeIngredientMappingContext(): Promise<TenantAccessR
         )
       : {};
 
-  return { status: 'success', data: { items: itemsResult.data, locationNameById } };
+  return {
+    status: 'success',
+    data: {
+      items: itemsResult.data,
+      locationNameById,
+      nameTranslations: toInventoryNameTranslations(itemsResult.data, nameTranslationRows),
+    },
+  };
 }
 
 /**
