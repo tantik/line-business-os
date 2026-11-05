@@ -10,7 +10,9 @@ import { useLang } from '@/lib/demo/cafe/i18n';
 import { tAuth } from '@/lib/auth/auth-copy';
 import { buttonSecondary, colors, mutedText } from '@/lib/ui/theme';
 import hoverStyles from '@/lib/ui/theme.module.css';
+import { usePathname } from 'next/navigation';
 import { setActiveTenant } from '@/lib/tenant/actions';
+import { setActiveLocation } from '@/lib/tenant/location-actions';
 import { TENANT_SELECT_FIELD } from '@/lib/tenant/selection';
 import type { TenantSwitchOption } from '@/lib/tenant/switch-options';
 
@@ -23,6 +25,14 @@ export interface AccountMenuProps {
   /** Every cafe the caller belongs to (F13); the switcher shows only with two or more. */
   tenantOptions?: TenantSwitchOption[];
   activeTenantId?: string;
+  /** The caller's active stores in this cafe (DEBT-139 L2); the switcher shows only with two or more. */
+  locationOptions?: LocationSwitchOption[];
+  activeLocationId?: string;
+}
+
+export interface LocationSwitchOption {
+  locationId: string;
+  locationName: string;
 }
 
 /**
@@ -41,7 +51,15 @@ export interface AccountMenuProps {
  * one's content (a name/position block, a two-button language toggle, a
  * sign-out form) doesn't fit that shape.
  */
-export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOptions = [], activeTenantId }: AccountMenuProps) {
+export function AccountMenu({
+  displayName,
+  positionLabel,
+  signOutLabel,
+  tenantOptions = [],
+  activeTenantId,
+  locationOptions = [],
+  activeLocationId,
+}: AccountMenuProps) {
   const { lang } = useLang();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
@@ -68,7 +86,10 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOp
         triggerRef.current?.focus();
       }
     }
-    function handleScrollOrResize() {
+    function handleScrollOrResize(event: Event) {
+      // DEBT-120 (b): scrolling INSIDE the panel (many cafes / stores on a
+      // short phone) must not close it; scrolling the page still does.
+      if (event.type === 'scroll' && event.target instanceof Node && panelRef.current?.contains(event.target)) return;
       setOpen(false);
     }
     document.addEventListener('mousedown', handlePointerDown);
@@ -140,6 +161,10 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOp
                   top: coords.top,
                   right: coords.right,
                   minWidth: 220,
+                  maxWidth: 'calc(100vw - 16px)',
+                  maxHeight: `calc(100dvh - ${coords.top + 8}px)`,
+                  overflowY: 'auto',
+                  overscrollBehavior: 'contain',
                   background: colors.surface,
                   border: `1px solid ${colors.border}`,
                   borderRadius: 10,
@@ -157,6 +182,13 @@ export function AccountMenu({ displayName, positionLabel, signOutLabel, tenantOp
                 </div>
                 {tenantOptions.length > 1 ? (
                   <TenantSwitchList options={tenantOptions} activeTenantId={activeTenantId} heading={tAuth(lang, 'tenantSwitchHeading')} />
+                ) : null}
+                {locationOptions.length > 1 ? (
+                  <LocationSwitchList
+                    options={locationOptions}
+                    activeLocationId={activeLocationId}
+                    heading={tAuth(lang, 'locationSwitchHeading')}
+                  />
                 ) : null}
                 <PreviewLanguageToggle fullWidth />
                 <Link
@@ -190,27 +222,54 @@ function TenantSwitchList({ options, activeTenantId, heading }: { options: Tenan
   return (
     <form action={setActiveTenant} role="group" aria-label={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <p style={{ margin: 0, fontSize: 12, fontWeight: 600, ...mutedText }}>{heading}</p>
-      <TenantSwitchButtons options={options} activeTenantId={activeTenantId} />
+      <SwitchButtons
+        field={TENANT_SELECT_FIELD}
+        options={options.map((o) => ({ id: o.tenantId, label: o.tenantName }))}
+        activeId={activeTenantId}
+      />
       <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 4 }} />
     </form>
   );
 }
 
-function TenantSwitchButtons({ options, activeTenantId }: { options: TenantSwitchOption[]; activeTenantId?: string }) {
+/**
+ * Store switcher (DEBT-139 L2): same form pattern as the cafe switcher,
+ * posting to `setActiveLocation`, which re-checks the id against the
+ * caller's live `api.my_locations` rows before writing the `oruwa_location`
+ * cookie, then returns to the current workspace page (`returnTo`, reduced
+ * server-side to an allow-listed path).
+ */
+function LocationSwitchList({ options, activeLocationId, heading }: { options: LocationSwitchOption[]; activeLocationId?: string; heading: string }) {
+  const pathname = usePathname();
+  return (
+    <form action={setActiveLocation} role="group" aria-label={heading} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, ...mutedText }}>{heading}</p>
+      <input type="hidden" name="returnTo" value={pathname ?? '/dashboard'} />
+      <SwitchButtons
+        field="locationId"
+        options={options.map((o) => ({ id: o.locationId, label: o.locationName }))}
+        activeId={activeLocationId}
+      />
+      <div style={{ borderTop: `1px solid ${colors.border}`, marginTop: 4 }} />
+    </form>
+  );
+}
+
+function SwitchButtons({ field, options, activeId }: { field: string; options: { id: string; label: string }[]; activeId?: string }) {
   const { pending, data } = useFormStatus();
-  const pendingTenantId = pending ? data?.get(TENANT_SELECT_FIELD) : null;
+  const pendingId = pending ? data?.get(field) : null;
   return (
     <>
       {options.map((option) => {
-        const isActive = option.tenantId === activeTenantId;
-        const isPendingTarget = pendingTenantId === option.tenantId;
+        const isActive = option.id === activeId;
+        const isPendingTarget = pendingId === option.id;
         const isLocked = isActive || pending;
         return (
           <button
-            key={option.tenantId}
+            key={option.id}
             type={isActive ? 'button' : 'submit'}
-            name={isActive ? undefined : TENANT_SELECT_FIELD}
-            value={isActive ? undefined : option.tenantId}
+            name={isActive ? undefined : field}
+            value={isActive ? undefined : option.id}
             aria-current={isActive ? 'true' : undefined}
             aria-disabled={isLocked || undefined}
             aria-busy={isPendingTarget || undefined}
@@ -239,7 +298,7 @@ function TenantSwitchButtons({ options, activeTenantId }: { options: TenantSwitc
             <span aria-hidden="true" style={{ width: 14, color: colors.accent }}>
               {isActive ? '✓' : isPendingTarget ? '…' : ''}
             </span>
-            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{option.tenantName}</span>
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{option.label}</span>
           </button>
         );
       })}

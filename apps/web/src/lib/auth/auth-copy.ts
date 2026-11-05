@@ -73,7 +73,10 @@ const authCopy = {
 
     accountTitle: 'アカウント設定',
     accountMenuLink: 'アカウント設定',
-    tenantSwitchHeading: 'お店を切り替え',
+    // DEBT-139 L2: a client (tenant) can now have several stores, so the
+    // tenant switch says 事業者 (business) and 店舗 means one store.
+    tenantSwitchHeading: '事業者を切り替え',
+    locationSwitchHeading: '店舗を切り替え',
     accountEmail: 'ログイン用メールアドレス',
     accountPasswordHeading: 'パスワードの変更',
     currentPassword: '現在のパスワード',
@@ -172,7 +175,8 @@ const authCopy = {
 
     accountTitle: 'Account settings',
     accountMenuLink: 'Account settings',
-    tenantSwitchHeading: 'Switch store',
+    tenantSwitchHeading: 'Switch business',
+    locationSwitchHeading: 'Switch store',
     accountEmail: 'Sign-in email',
     accountPasswordHeading: 'Change password',
     currentPassword: 'Current password',

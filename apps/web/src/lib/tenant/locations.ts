@@ -1,5 +1,6 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { TenantAccessResult } from './types';
+import { mapMyLocationRows, type ApiMyLocationRow, type MyLocation } from './active-location';
 
 /** Flat row shape returned by `api.my_tenant_locations`. */
 export interface ApiTenantLocationRow {
@@ -47,6 +48,25 @@ export function mapTenantLocationRows(rows: ApiTenantLocationRow[]): TenantLocat
   }));
   locations.sort(compareTenantLocations);
   return locations;
+}
+
+/**
+ * The caller's locations with access (`api.my_locations`, 0151) through the
+ * given client. Pages use the page context instead (no extra request); this
+ * is for flows that hold a client with a session the cookies do not carry
+ * yet (post-login redirect).
+ */
+export async function listMyLocations(supabase: SupabaseClient): Promise<TenantAccessResult<MyLocation[]>> {
+  try {
+    const { data, error } = await supabase
+      .schema('api')
+      .from('my_locations')
+      .select('tenant_id, location_id, location_name, timezone, is_active, access');
+    if (error) return mapPostgrestError(error);
+    return { status: 'success', data: mapMyLocationRows((data ?? []) as ApiMyLocationRow[]) };
+  } catch (err) {
+    return { status: 'unexpected_error', message: err instanceof Error ? err.message : 'Unexpected error reading locations.' };
+  }
 }
 
 /**

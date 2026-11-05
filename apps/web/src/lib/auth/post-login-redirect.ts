@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { listMyLocations } from '@/lib/tenant/locations';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 
@@ -17,9 +17,7 @@ export const DASHBOARD_PATH = '/dashboard';
  * `/manager`'s own `workforce.staff.manage` gate) -- Manager can already see
  * everything `/staff` offers plus more, so it is the more useful landing
  * spot. Falls back to `/dashboard` for a caller with neither role (Founder/
- * platform-operator accounts, or a tenant with `workforce` disabled), and
- * fails closed (same as `/manager`'s own LOC-1 check) rather than guessing a
- * location when a tenant has zero or more than one active location.
+ * platform-operator accounts, or a tenant with `workforce` disabled).
  *
  * Deliberately re-reads live state on every call instead of trusting a
  * claim/cookie -- this only runs once per sign-in, so the extra reads are
@@ -32,15 +30,18 @@ export async function resolvePostLoginPath(supabase: SupabaseClient, tenantId: s
     modulesResult.data.some((m) => m.tenantId === tenantId && m.module === 'workforce' && m.isEnabled);
   if (!workforceEnabled) return DASHBOARD_PATH;
 
-  const locationsResult = await listTenantLocations(supabase);
-  const activeLocations =
-    locationsResult.status === 'success' ? locationsResult.data.filter((l) => l.tenantId === tenantId && l.isActive) : [];
-
-  const soleActiveLocation = activeLocations.length === 1 ? activeLocations[0] : undefined;
-  if (soleActiveLocation) {
-    const managerAccess = await hasManagerAccess(supabase, tenantId, soleActiveLocation.locationId);
-    if (managerAccess) return '/manager';
-  }
+  // DEBT-139 L2 / DEBT-120 (d): Manager of ANY active store of this cafe ->
+  // /manager (which then opens the active store). `api.my_locations` marks
+  // `all` / `manage` exactly where the caller holds workforce.staff.manage;
+  // the live RPC below re-confirms it at that store (fail closed).
+  // Read with THIS client: it runs right after sign-in in the same request,
+  // where only the passed client carries the fresh session.
+  const myLocations = await listMyLocations(supabase);
+  const managed =
+    myLocations.status === 'success'
+      ? myLocations.data.find((l) => l.tenantId === tenantId && l.isActive && (l.access === 'all' || l.access === 'manage'))
+      : undefined;
+  if (managed && (await hasManagerAccess(supabase, tenantId, managed.locationId))) return '/manager';
 
   const profileResult = await getMyWorkforceStaffProfile(supabase, tenantId);
   if (profileResult.status === 'success' && profileResult.data) return '/staff';
