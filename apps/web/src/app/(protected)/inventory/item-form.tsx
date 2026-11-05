@@ -180,6 +180,7 @@ export function ItemForm({ locationId, allergensEnabled, item, mediaUrl, lang, o
           <span style={{ ...mutedText, fontSize: 13 }}>{t('nameLabel')}</span>
           <input name="name" defaultValue={item?.name ?? ''} maxLength={120} required {...fieldProps('name')} />
         </label>
+        <span style={{ display: 'block', marginTop: 4, ...mutedText, fontSize: 11 }}>{t('nameOriginalHint')}</span>
         {renderFieldError('name')}
       </div>
 

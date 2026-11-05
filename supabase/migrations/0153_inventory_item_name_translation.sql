@@ -36,6 +36,8 @@
 --      api.mark_content_translation_reviewed) work for inventory items
 --      unchanged: source/target language and the trusted source hash are
 --      derived server-side, never client-supplied.
+--   5. inventory.permanently_delete_item also deletes the item's
+--      content.translations rows (one added DELETE, all guards unchanged).
 --
 -- SECURITY POSTURE: unchanged. All four helpers stay SECURITY INVOKER with
 -- their existing search_path, owner and grants (create or replace keeps
@@ -60,7 +62,8 @@
 -- (it is a derived-metadata fix, not a user edit).
 --
 -- Rollback: drop the column (views first re-created without it), restore the
--- 0039/0058 bodies of the four helpers and the previous CHECK lists (after
+-- 0039/0058 bodies of the four helpers, the 0095 body of
+-- inventory.permanently_delete_item and the previous CHECK lists (after
 -- deleting any 'inventory_item' translation rows). No other data changes.
 -- ============================================================================
 
@@ -389,4 +392,76 @@ as $$
       end
   end
   end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 5. inventory.permanently_delete_item (0095 body + translation cleanup)
+--    content.translations.source_entity_id has no FK (0039), so a hard-
+--    deleted item would leave its name translations behind (invisible -- the
+--    read gate resolves the source row -- but dead data). Mirrors the recipe
+--    hard delete (0057): the item's translation rows are deleted in the same
+--    transaction, right before the item row. The ONLY change to the 0095
+--    body is that one DELETE; every guard (module access, not-found,
+--    inventory.item.manage at the location, stock-count history) still runs
+--    first and unchanged. Same signature/return type, so create or replace
+--    keeps the owner and grants (SECURITY DEFINER, search_path unchanged).
+-- ----------------------------------------------------------------------------
+create or replace function inventory.permanently_delete_item(
+  p_tenant_id uuid,
+  p_item_id uuid
+)
+returns table (
+  deleted boolean,
+  blocked_by_history boolean,
+  media_path text
+)
+language plpgsql
+security definer
+set search_path = core, inventory, public
+as $$
+declare
+  v_location_id uuid;
+  v_media_path text;
+  v_has_history boolean;
+begin
+  if not core.has_module_access(p_tenant_id, 'inventory') then
+    -- Zero rows -- same not-found-shaped result as every other guard below.
+    -- This function is SECURITY DEFINER and bypasses RLS entirely, so the
+    -- module check must live here explicitly, not on a table policy.
+    return;
+  end if;
+
+  select i.location_id, i.media_path into v_location_id, v_media_path
+  from inventory.items i
+  where i.tenant_id = p_tenant_id
+    and i.id = p_item_id;
+
+  if v_location_id is null then
+    return;
+  end if;
+
+  if not core.has_permission(p_tenant_id, 'inventory.item.manage', v_location_id) then
+    return;
+  end if;
+
+  select exists (
+    select 1 from inventory.stock_counts sc
+    where sc.tenant_id = p_tenant_id and sc.item_id = p_item_id
+  ) into v_has_history;
+
+  if v_has_history then
+    return query select false, true, v_media_path;
+    return;
+  end if;
+
+  delete from content.translations
+  where tenant_id = p_tenant_id
+    and source_entity_type = 'inventory_item'
+    and source_entity_id = p_item_id;
+
+  delete from inventory.items
+  where tenant_id = p_tenant_id and id = p_item_id;
+
+  return query select true, false, v_media_path;
+end;
 $$;

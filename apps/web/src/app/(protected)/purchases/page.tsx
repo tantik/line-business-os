@@ -93,11 +93,14 @@ export default async function PurchasesPage() {
       const staffProfileResult = await getMyWorkforceStaffProfile(supabase, activeTenant.tenantId);
       if (staffProfileResult.status === 'success' && staffProfileResult.data) redirect('/staff?popup=purchases');
 
-      const itemsResult = await listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId);
-      const historyResult = await listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId);
-      const awaitingResult = await listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId);
-      // Item name translations (0153): one batched read; current ones only, keyed to the names shown here.
-      const nameTranslationRows = await loadInventoryNameTranslationRows(supabase, activeTenant.tenantId);
+      // Independent reads in one parallel batch, incl. the item name
+      // translations (0153) -- no extra sequential round trip.
+      const [itemsResult, historyResult, awaitingResult, nameTranslationRows] = await Promise.all([
+        listPurchasesNeeded(supabase, activeTenant.tenantId, location.locationId),
+        listPurchaseHistory(supabase, activeTenant.tenantId, location.locationId),
+        listPurchasesAwaitingDelivery(supabase, activeTenant.tenantId, location.locationId),
+        loadInventoryNameTranslationRows(supabase, activeTenant.tenantId),
+      ]);
       const nameTranslations = toInventoryNameTranslations(
         [
           ...(itemsResult.status === 'success' ? itemsResult.data : []),

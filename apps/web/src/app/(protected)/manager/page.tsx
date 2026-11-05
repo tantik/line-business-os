@@ -9,7 +9,7 @@ import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav'
 import { resolvePackageConfig } from '@/lib/packages/config';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
 import { correctionAttendanceIdsToShow, managerAttendanceLoadRange } from '@/lib/workforce/attendance-month';
-import { createInventoryMediaUrlMap } from '@/lib/inventory/items';
+import { createInventoryMediaUrlMap, INVENTORY_MANAGE_PERMISSION } from '@/lib/inventory/items';
 import {
   loadInventoryNameTranslationRows,
   scheduleInventoryNameBackfill,
@@ -156,7 +156,7 @@ export default async function WorkforceManagerPage({
       // (0142, DEBT-124) instead of five round trips; same answers as the
       // single-check RPCs (pgTAP 0081). Fails closed to all-false.
       const access = await loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {
-        location: [MANAGER_ACCESS_PERMISSION, WEEKLY_REVIEW_PERMISSION],
+        location: [MANAGER_ACCESS_PERMISSION, WEEKLY_REVIEW_PERMISSION, INVENTORY_MANAGE_PERMISSION],
         tenant: [ROLE_MANAGE_PERMISSION],
         anyLocation: [RECIPE_MANAGE_PERMISSION],
       });
@@ -421,14 +421,19 @@ export default async function WorkforceManagerPage({
       const inventoryNameTranslations = toInventoryNameTranslations(inventoryCatalog, inventoryNameTranslationRows);
       // Lazy backfill: untranslated active items (max 20 per load) are
       // translated after the response is sent, as this Manager (RLS-gated
-      // write). No-op without a configured provider or with nothing missing.
-      scheduleInventoryNameBackfill(
-        supabase,
-        activeTenant.tenantId,
-        inventoryCatalog,
-        inventoryNameTranslationRows,
-        resolvePackageConfig(packageCodes).translationDomainHint,
-      );
+      // write). Only for a caller who can actually write the translation
+      // (inventory.item.manage here, same gate as `/inventory`) -- otherwise
+      // the provider would be paid for writes RLS then refuses. No-op without
+      // a configured provider or with nothing missing.
+      if (access.location(INVENTORY_MANAGE_PERMISSION)) {
+        scheduleInventoryNameBackfill(
+          supabase,
+          activeTenant.tenantId,
+          inventoryCatalog,
+          inventoryNameTranslationRows,
+          resolvePackageConfig(packageCodes).translationDomainHint,
+        );
+      }
 
       // `operations.task.read`/exceptions may be tenant-wide for some roles
       // -- narrow to this Manager's own location here, same convention

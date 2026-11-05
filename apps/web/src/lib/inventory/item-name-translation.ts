@@ -1,4 +1,5 @@
-import { isTranslationStale, type ContentTranslation } from '../content/translations';
+import { createHash } from 'node:crypto';
+import type { ContentTranslation } from '../content/translations';
 import {
   runContentTranslationBatch,
   type AcceptedTranslationField,
@@ -9,13 +10,13 @@ import { detectNameLanguage, type InventoryNameTranslations, type ItemNameLangua
 
 /**
  * Inventory item name translation -- server side, no I/O (0153). Reuses the
- * Recipes machinery unchanged: `content.translations` rows of
+ * Recipes machinery: `content.translations` rows of
  * `source_entity_type = 'inventory_item'`, `source_field = 'name'`, produced
- * by `runContentTranslationBatch` (same reviewed/current/empty/limit rules)
- * and persisted by the caller via `api.set_machine_content_translation_confirmed`,
- * which derives source/target from `inventory.items.name_language` itself.
- * Imports `translations.ts` (node:crypto) -- never import this from a client
- * component; client code uses `item-name-display.ts`.
+ * by `runContentTranslationBatch` and persisted by the caller via
+ * `api.set_machine_content_translation_confirmed`, which derives
+ * source/target from `inventory.items.name_language` itself.
+ * Imports `node:crypto` -- never import this from a client component;
+ * client code uses `item-name-display.ts`.
  */
 
 export interface ItemNameSource {
@@ -28,6 +29,23 @@ export interface ItemNameSource {
 
 /** Max items translated by one lazy backfill pass (one Manager page load). */
 export const ITEM_NAME_BACKFILL_LIMIT = 20;
+
+/**
+ * Hash of an item name exactly as the DB computes `source_content_hash`
+ * (`sha256(btrim(name))`, 0042/0058 -- `btrim` strips ASCII spaces only).
+ * `hashSourceText` (`String.prototype.trim`, all Unicode whitespace) would
+ * disagree for a name with an edge tab/newline/U+3000 written by another path
+ * (the app's own form already trims), making that translation look stale
+ * forever and re-sending it to the provider on every load. Inventory names
+ * therefore compare with the DB's own rule.
+ */
+export function hashItemNameLikeDb(name: string): string {
+  return createHash('sha256').update(name.replace(/^ +| +$/g, '')).digest('hex');
+}
+
+function isCurrentFor(t: ContentTranslation, name: string): boolean {
+  return t.sourceContentHash === hashItemNameLikeDb(name);
+}
 
 function otherLanguage(lang: ItemNameLanguage): ItemNameLanguage {
   return lang === 'ja' ? 'en' : 'ja';
@@ -57,7 +75,7 @@ export function buildInventoryNameTranslations(
     if (!isItemNameTranslation(t) || t.status === 'failed' || t.status === 'stale') continue;
     const item = itemsById.get(t.sourceEntityId);
     if (!item || t.targetLanguage !== otherLanguage(itemNameLanguage(item))) continue;
-    if (isTranslationStale(t, item.name)) continue;
+    if (!isCurrentFor(t, item.name) || t.translatedText.trim() === '') continue;
     (out[item.itemId] ??= {})[t.targetLanguage] = t.translatedText;
   }
   return out;
@@ -71,10 +89,19 @@ function existingFor(item: ItemNameSource, translations: ContentTranslation[]): 
 }
 
 /**
- * Active items with no current translation of their name yet (missing or
- * stale), capped at `limit`. Items whose translation was reviewed by a
- * person are never picked (only a manual edit may replace those).
+ * True when this item's name must NOT go to the provider: a person reviewed
+ * the translation (only a manual edit may replace it), there already is a
+ * current one, or a `failed` row records that exactly this name failed.
  */
+function skipTranslation(item: ItemNameSource, existing: ContentTranslation | null): boolean {
+  if (item.name.trim() === '') return true;
+  if (!existing) return false;
+  if (existing.status === 'reviewed') return true;
+  if (existing.status === 'stale') return false;
+  return isCurrentFor(existing, item.name); // machine (current) or failed for this very name
+}
+
+/** Active items with no current translation of their name yet (missing or stale), capped at `limit`. */
 export function selectItemsNeedingNameTranslation(
   items: ItemNameSource[],
   translations: ContentTranslation[],
@@ -83,24 +110,28 @@ export function selectItemsNeedingNameTranslation(
   const picked: ItemNameSource[] = [];
   for (const item of items) {
     if (picked.length >= limit) break;
-    if (item.isActive === false || item.name.trim() === '') continue;
-    const existing = existingFor(item, translations);
-    if (existing?.status === 'reviewed') continue;
-    if (existing && existing.status !== 'stale' && existing.status !== 'failed' && !isTranslationStale(existing, item.name)) continue;
+    if (item.isActive === false) continue;
+    if (skipTranslation(item, existingFor(item, translations))) continue;
     picked.push(item);
   }
   return picked;
 }
 
 export interface ItemNameTranslationRun {
+  /** Non-empty translations to persist. */
   accepted: AcceptedTranslationField[];
   errors: NonNullable<RunTranslationBatchResult['error']>[];
+  /** Items sent to the provider that produced no usable translation (provider error, empty text, over limit) -- for the caller's cooldown. */
+  failedItemIds: string[];
 }
 
 /**
  * Translates the given item names: one provider batch per direction (ja->en
  * for Japanese names, en->ja for English ones -- never guessed per batch),
- * through the shared orchestrator. Returns what the caller should persist.
+ * through the shared orchestrator. Whether an item still needs a call is
+ * decided here with the DB's hash rule (`skipTranslation`), so the batch is
+ * given `existing: null` and the orchestrator only applies its empty/limit
+ * rules. An empty provider result is never returned as accepted.
  */
 export async function runItemNameTranslation(
   items: ItemNameSource[],
@@ -110,8 +141,10 @@ export async function runItemNameTranslation(
 ): Promise<ItemNameTranslationRun> {
   const accepted: AcceptedTranslationField[] = [];
   const errors: ItemNameTranslationRun['errors'] = [];
+  const failedItemIds: string[] = [];
+  const pending = items.filter((item) => !skipTranslation(item, existingFor(item, translations)));
   for (const sourceLang of ['ja', 'en'] as const) {
-    const group = items.filter((item) => itemNameLanguage(item) === sourceLang);
+    const group = pending.filter((item) => itemNameLanguage(item) === sourceLang);
     if (group.length === 0) continue;
     const result = await runContentTranslationBatch(
       group.map((item) => ({
@@ -119,7 +152,7 @@ export async function runItemNameTranslation(
         sourceEntityId: item.itemId,
         sourceField: 'name' as const,
         sourceText: item.name,
-        existing: existingFor(item, translations),
+        existing: null,
       })),
       provider,
       {
@@ -128,8 +161,45 @@ export async function runItemNameTranslation(
         ...(options.domainHint !== undefined ? { domainHint: options.domainHint } : {}),
       },
     );
-    accepted.push(...result.accepted);
     if (result.error) errors.push(result.error);
+    const usable = new Set<string>();
+    for (const field of result.accepted) {
+      if (field.translatedText.trim() === '') continue;
+      accepted.push(field);
+      usable.add(field.sourceEntityId);
+    }
+    for (const item of group) if (!usable.has(item.itemId)) failedItemIds.push(item.itemId);
   }
-  return { accepted, errors };
+  return { accepted, errors, failedItemIds };
+}
+
+/**
+ * Per-server-instance negative cache: an item whose translation just failed
+ * is not retried for `ttlMs` (default 30 min), so a failing provider is not
+ * re-billed on every dashboard refresh. In memory only -- a cold start
+ * forgets it, which is acceptable (at most one retry per instance). Keyed
+ * by the name too: renaming an item retries it at once.
+ */
+export function createItemNameCooldown(ttlMs: number = 30 * 60 * 1000, now: () => number = Date.now) {
+  const until = new Map<string, number>();
+  const key = (tenantId: string, itemId: string, name: string) => `${tenantId}\u0000${itemId}\u0000${name}`;
+  return {
+    isCooling(tenantId: string, itemId: string, name: string): boolean {
+      const k = key(tenantId, itemId, name);
+      const t = until.get(k);
+      if (t === undefined) return false;
+      if (t <= now()) {
+        until.delete(k);
+        return false;
+      }
+      return true;
+    },
+    mark(tenantId: string, itemId: string, name: string): void {
+      until.set(key(tenantId, itemId, name), now() + ttlMs);
+      if (until.size > 5000) {
+        const t = now();
+        for (const [k, v] of until) if (v <= t) until.delete(k);
+      }
+    },
+  };
 }

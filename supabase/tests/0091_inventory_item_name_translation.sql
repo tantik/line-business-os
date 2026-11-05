@@ -2,7 +2,8 @@
 -- DB test: migration 0153 (inventory item name translation via
 -- content.translations).
 -- Run with:  supabase db reset && supabase test db
---   M manager T1/L1, E employee T1/L1, N manager T1/L2, X manager of T2.
+--   M manager T1/L1, E employee T1/L1, N manager T1/L2, W tenant-wide
+--   manager of T1, X manager of T2.
 --   Items: I1 '牛乳' (ja) at L1, I2 'Milk' (en) at L1, I3 '氷' at L2.
 --   M writes a machine translation of an L1 item (direction derived from
 --   name_language), E reads it, E cannot write, N (other location) and X
@@ -14,7 +15,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, core;
 
-select plan(32);
+select plan(42);
 
 create function pg_temp.as_user(p_uid text, p_sql text) returns text language plpgsql as $$
 declare v text;
@@ -61,17 +62,20 @@ insert into core.users (id, display_name) values
   ('a9190000-0000-0000-0000-000000000001', 'M'),
   ('a9190000-0000-0000-0000-000000000002', 'E'),
   ('a9190000-0000-0000-0000-000000000003', 'N'),
-  ('a9190000-0000-0000-0000-000000000004', 'X');
+  ('a9190000-0000-0000-0000-000000000004', 'X'),
+  ('a9190000-0000-0000-0000-000000000005', 'W');
 insert into core.tenant_memberships (tenant_id, user_id, status) values
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000001', 'active'),
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000002', 'active'),
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000003', 'active'),
-  ('a9100000-0000-0000-0000-0000000000a2', 'a9190000-0000-0000-0000-000000000004', 'active');
+  ('a9100000-0000-0000-0000-0000000000a2', 'a9190000-0000-0000-0000-000000000004', 'active'),
+  ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000005', 'active');
 insert into core.role_assignments (tenant_id, user_id, role_id, location_id) values
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000005', 'a9110000-0000-0000-0000-000000000001'),
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000006', 'a9110000-0000-0000-0000-000000000001'),
   ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000005', 'a9110000-0000-0000-0000-000000000002'),
-  ('a9100000-0000-0000-0000-0000000000a2', 'a9190000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000005', null);
+  ('a9100000-0000-0000-0000-0000000000a2', 'a9190000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000005', null),
+  ('a9100000-0000-0000-0000-0000000000a1', 'a9190000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', null);
 insert into inventory.items (id, tenant_id, location_id, name, unit, required_quantity, reorder_point, name_language) values
   ('a91a0000-0000-0000-0000-000000000001', 'a9100000-0000-0000-0000-0000000000a1', 'a9110000-0000-0000-0000-000000000001', '牛乳', 'L', 10, 3, 'ja'),
   ('a91a0000-0000-0000-0000-000000000002', 'a9100000-0000-0000-0000-0000000000a1', 'a9110000-0000-0000-0000-000000000001', 'Milk', 'L', 10, 3, 'en'),
@@ -143,6 +147,17 @@ select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000002', pg_temp.count_
   '1', 'L1 employee reads the L1 item translation');
 select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000002', pg_temp.machine('a9100000-0000-0000-0000-0000000000a1', 'a91a0000-0000-0000-0000-000000000001', 'Cow milk')),
   'ERR 42501', 'L1 employee (no item.manage) cannot write a translation');
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000002',
+    $$select translation_status from api.set_content_translation('a9100000-0000-0000-0000-0000000000a1'::uuid, 'inventory_item', 'a91a0000-0000-0000-0000-000000000001'::uuid, 'name', 'en', 'Cow milk', 'h', true)$$),
+  'ERR 42501', 'L1 employee cannot write a manual translation (api.set_content_translation)');
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000002',
+    $$select translation_status from api.mark_content_translation_reviewed('a9100000-0000-0000-0000-0000000000a1'::uuid,
+        (select id from content.translations where source_entity_type = 'inventory_item' and source_entity_id = 'a91a0000-0000-0000-0000-000000000001'))$$),
+  null, 'L1 employee cannot mark an item translation reviewed (zero rows)');
+select is(
+  (select translation_status from content.translations
+    where source_entity_type = 'inventory_item' and source_entity_id = 'a91a0000-0000-0000-0000-000000000001'),
+  'machine', 'the item translation is still machine (neither employee write took effect)');
 
 -- --- other location ----------------------------------------------------------------
 select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000001', pg_temp.machine('a9100000-0000-0000-0000-0000000000a1', 'a91a0000-0000-0000-0000-000000000003', 'Ice')),
@@ -164,6 +179,14 @@ select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000004', pg_temp.count_
 select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000004', pg_temp.machine('a9100000-0000-0000-0000-0000000000a1', 'a91a0000-0000-0000-0000-000000000001', 'Milk!')),
   'ERR P0001', 'other-tenant manager cannot translate a T1 item');
 
+-- --- tenant-wide manager (role without location) ---------------------------------------
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000005', pg_temp.count_visible('a91a0000-0000-0000-0000-000000000001')),
+  '1', 'tenant-wide manager reads the L1 item translation');
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000005', pg_temp.machine('a9100000-0000-0000-0000-0000000000a1', 'a91a0000-0000-0000-0000-000000000001', 'Milk')),
+  'machine', 'tenant-wide manager translates an L1 item');
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000005', pg_temp.machine('a9100000-0000-0000-0000-0000000000a1', 'a91a0000-0000-0000-0000-000000000003', 'Ice')),
+  'machine', 'tenant-wide manager translates an L2 item');
+
 -- --- stale on rename -----------------------------------------------------------------
 update inventory.items set name = '豆乳' where id = 'a91a0000-0000-0000-0000-000000000001';
 select isnt(
@@ -181,6 +204,39 @@ select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000002', pg_temp.count_
   '0', 'module off: employee no longer reads item translations');
 update core.tenant_modules set is_enabled = true
  where tenant_id = 'a9100000-0000-0000-0000-0000000000a1' and module = 'inventory';
+
+-- --- permanent delete removes the item's translations (0153 section 5) -----------------
+select is(pg_temp.as_user('a9190000-0000-0000-0000-000000000001',
+    $$select deleted::text from api.permanently_delete_inventory_item('a9100000-0000-0000-0000-0000000000a1'::uuid, 'a91a0000-0000-0000-0000-000000000002'::uuid)$$),
+  'true', 'L1 manager permanently deletes an L1 item with no count history');
+select is(
+  (select count(*)::int from content.translations
+    where source_entity_type = 'inventory_item' and source_entity_id = 'a91a0000-0000-0000-0000-000000000002'),
+  0, 'the deleted item''s name translations are deleted with it');
+select is(
+  (select count(*)::int from content.translations
+    where source_entity_type = 'inventory_item' and source_entity_id = 'a91a0000-0000-0000-0000-000000000001'),
+  1, 'other items'' translations are untouched');
+
+-- --- backfill does not rewrite updated_at / updated_by ----------------------------------
+-- No fixture item exists before 0153 runs (no seed items), so the exact
+-- backfill statements of 0153 section 1 are replayed on a legacy-shaped row.
+insert into inventory.items (id, tenant_id, location_id, name, unit, required_quantity, reorder_point, name_language) values
+  ('a91a0000-0000-0000-0000-000000000009', 'a9100000-0000-0000-0000-0000000000a1', 'a9110000-0000-0000-0000-000000000001', 'Sugar', 'kg', 1, 0, 'ja');
+alter table inventory.items disable trigger set_updated_at;
+alter table inventory.items disable trigger stamp_item_actor;
+update inventory.items set updated_at = '2026-01-01T00:00:00Z', updated_by = 'a9190000-0000-0000-0000-000000000001'
+ where id = 'a91a0000-0000-0000-0000-000000000009';
+update inventory.items
+   set name_language = 'en'
+ where name_language = 'ja'
+   and name !~ '[぀-ヿ㐀-䶿一-鿿々ｦ-ﾟ]';
+alter table inventory.items enable trigger set_updated_at;
+alter table inventory.items enable trigger stamp_item_actor;
+select is(
+  (select name_language || ' ' || updated_at::text || ' ' || updated_by::text from inventory.items where id = 'a91a0000-0000-0000-0000-000000000009'),
+  'en ' || '2026-01-01T00:00:00Z'::timestamptz::text || ' a9190000-0000-0000-0000-000000000001',
+  'backfill sets name_language=en and keeps updated_at / updated_by');
 
 -- --- recipe behaviour unchanged -------------------------------------------------------
 insert into workforce.recipes (id, tenant_id, location_id, title_ja, title_en, status, original_language) values

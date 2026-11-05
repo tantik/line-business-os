@@ -12,6 +12,7 @@ import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import type { TenantAccessResult } from '@/lib/tenant/types';
 import {
   buildInventoryNameTranslations,
+  createItemNameCooldown,
   runItemNameTranslation,
   selectItemsNeedingNameTranslation,
   type ItemNameSource,
@@ -45,6 +46,19 @@ export function toInventoryNameTranslations(
   return buildInventoryNameTranslations(items, rows.data);
 }
 
+/** Failed items are not retried on this server instance for 30 min (provider cost on every refresh otherwise). */
+const cooldown = createItemNameCooldown();
+/** `tenant:item` keys currently being translated on this instance -- concurrent loads/saves never double-send one item. */
+const inFlightItems = new Set<string>();
+/** Tenants with a backfill pass running on this instance -- at most one per tenant at a time. */
+const inFlightBackfills = new Set<string>();
+
+const itemKey = (tenantId: string, itemId: string) => `${tenantId}:${itemId}`;
+
+function isEligible(tenantId: string, item: ItemNameSource): boolean {
+  return !cooldown.isCooling(tenantId, item.itemId, item.name) && !inFlightItems.has(itemKey(tenantId, item.itemId));
+}
+
 async function translateAndPersist(
   supabase: SupabaseClient,
   tenantId: string,
@@ -54,14 +68,24 @@ async function translateAndPersist(
   logContext: string,
 ): Promise<void> {
   const provider = resolveContentTranslationProvider();
-  if (!provider || items.length === 0) return;
+  const claimed = items.filter((item) => isEligible(tenantId, item));
+  if (!provider || claimed.length === 0) return;
+  for (const item of claimed) inFlightItems.add(itemKey(tenantId, item.itemId));
+  const nameById = new Map(claimed.map((item) => [item.itemId, item.name]));
+  const coolDown = (itemId: string) => cooldown.mark(tenantId, itemId, nameById.get(itemId) ?? '');
   try {
     const hint = domainHint ?? (await loadTenantPackageConfig(supabase, tenantId)).translationDomainHint;
-    const run = await runItemNameTranslation(items, existing, provider, { domainHint: hint });
+    const run = await runItemNameTranslation(claimed, existing, provider, { domainHint: hint });
     for (const error of run.errors) {
       console.error(`[inventory-name-translation] ${logContext}: provider error code=${error.code}`);
     }
+    for (const itemId of run.failedItemIds) coolDown(itemId);
     for (const accepted of run.accepted) {
+      // runItemNameTranslation never returns an empty text; re-checked here so '' can never reach the RPC.
+      if (accepted.translatedText.trim() === '') {
+        coolDown(accepted.sourceEntityId);
+        continue;
+      }
       const saved = await setMachineContentTranslation(supabase, tenantId, {
         sourceEntityType: accepted.sourceEntityType,
         sourceEntityId: accepted.sourceEntityId,
@@ -71,11 +95,15 @@ async function translateAndPersist(
         translationProvider: provider.providerId,
       });
       if (saved.status !== 'success' && saved.status !== 'reviewed_conflict') {
+        coolDown(accepted.sourceEntityId);
         console.error(`[inventory-name-translation] ${logContext}: failed to persist item=${accepted.sourceEntityId} status=${saved.status}`);
       }
     }
   } catch (err) {
+    for (const item of claimed) coolDown(item.itemId);
     console.error(`[inventory-name-translation] ${logContext}: unexpected error:`, err instanceof Error ? err.message : err);
+  } finally {
+    for (const item of claimed) inFlightItems.delete(itemKey(tenantId, item.itemId));
   }
 }
 
@@ -85,7 +113,7 @@ async function translateAndPersist(
  * translation is skipped by the orchestrator (no provider call).
  */
 export function scheduleItemNameTranslation(supabase: SupabaseClient, tenantId: string, item: ItemNameSource): void {
-  if (!resolveContentTranslationProvider()) return;
+  if (!isEligible(tenantId, item) || !resolveContentTranslationProvider()) return;
   after(async () => {
     const existing = await listContentTranslationsForEntities(supabase, tenantId, [
       { sourceEntityType: 'inventory_item', sourceEntityId: item.itemId },
@@ -110,9 +138,20 @@ export function scheduleInventoryNameBackfill(
   domainHint?: string,
 ): void {
   if (!items || !rows || rows.status !== 'success') return;
-  if (!resolveContentTranslationProvider()) return;
-  const pending = selectItemsNeedingNameTranslation(items, rows.data);
+  if (inFlightBackfills.has(tenantId) || !resolveContentTranslationProvider()) return;
+  // Cooling-down / in-flight items are dropped BEFORE the cap, so they never take one of the 20 slots.
+  const pending = selectItemsNeedingNameTranslation(
+    items.filter((item) => isEligible(tenantId, item)),
+    rows.data,
+  );
   if (pending.length === 0) return;
   const existing = rows.data;
-  after(() => translateAndPersist(supabase, tenantId, pending, existing, domainHint, `backfill(${pending.length})`));
+  inFlightBackfills.add(tenantId);
+  after(async () => {
+    try {
+      await translateAndPersist(supabase, tenantId, pending, existing, domainHint, `backfill(${pending.length})`);
+    } finally {
+      inFlightBackfills.delete(tenantId);
+    }
+  });
 }

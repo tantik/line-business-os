@@ -558,7 +558,13 @@ export function InventoryDashboardBody({
   const okCount = activeItems.filter((i) => i.status === 'sufficient').length;
   const inactiveCount = items.length - activeItems.length;
   const normalizedSearch = search.trim().toLowerCase();
-  const searchFiltered = items.filter((item) => normalizedSearch === '' || item.name.toLowerCase().includes(normalizedSearch));
+  // Matches the shown (possibly translated) name OR the original one.
+  const searchFiltered = items.filter(
+    (item) =>
+      normalizedSearch === '' ||
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      (sourceItemById.get(item.itemId)?.name ?? '').toLowerCase().includes(normalizedSearch),
+  );
   const visibleItems = searchFiltered
     .filter((item) => {
       switch (statusFilter) {

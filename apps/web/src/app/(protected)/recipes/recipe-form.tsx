@@ -290,15 +290,18 @@ export function RecipeForm({ detail, mediaUrl, lang, onSuccess, onCancel }: Reci
                         const item = mappingCandidates.find((candidate) => candidate.itemId === value);
                         updateRow(row.key, { inventoryItemId: value, unit: item?.unit ?? row.unit });
                       }}
-                      options={mappingCandidates.map((item) => {
-                        const itemName = displayItemName(item, lang, mappingContext?.nameTranslations);
-                        return {
-                          value: item.itemId,
-                          label: recipe?.locationId
-                            ? itemName
-                            : `${itemName}${mappingContext?.locationNameById[item.locationId] ? ` (${mappingContext.locationNameById[item.locationId]})` : ''}`,
-                        };
-                      })}
+                      options={mappingCandidates
+                        .map((item) => {
+                          const itemName = displayItemName(item, lang, mappingContext?.nameTranslations);
+                          return {
+                            value: item.itemId,
+                            label: recipe?.locationId
+                              ? itemName
+                              : `${itemName}${mappingContext?.locationNameById[item.locationId] ? ` (${mappingContext.locationNameById[item.locationId]})` : ''}`,
+                          };
+                        })
+                        // sorted by the label actually shown (the server sorts by the original name)
+                        .sort((a, b) => a.label.localeCompare(b.label, lang) || a.value.localeCompare(b.value))}
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

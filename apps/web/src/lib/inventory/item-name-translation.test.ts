@@ -5,6 +5,8 @@ import type { ContentTranslationProvider, TranslateBatchInput } from '../content
 import {
   ITEM_NAME_BACKFILL_LIMIT,
   buildInventoryNameTranslations,
+  createItemNameCooldown,
+  hashItemNameLikeDb,
   runItemNameTranslation,
   selectItemsNeedingNameTranslation,
 } from './item-name-translation.js';
@@ -123,5 +125,54 @@ test('runItemNameTranslation: a current translation costs no provider call; prov
     translateBatch: async () => ({ ok: false, error: { code: 'translation_provider_unavailable' } }),
   };
   const failed = await runItemNameTranslation([{ itemId: 'i1', name: '牛乳' }], [], failing);
-  assert.deepEqual(failed, { accepted: [], errors: [{ code: 'translation_provider_unavailable' }] });
+  assert.deepEqual(failed, { accepted: [], errors: [{ code: 'translation_provider_unavailable' }], failedItemIds: ['i1'] });
+});
+
+test('runItemNameTranslation: an empty provider result is never accepted (reported as failed instead)', async () => {
+  const blank: ContentTranslationProvider = {
+    providerId: 'fake',
+    translateBatch: async (input) => ({ ok: true, translations: input.texts.map((t) => (t === '牛乳' ? '  ' : `en:${t}`)) }),
+  };
+  const run = await runItemNameTranslation([{ itemId: 'i1', name: '牛乳' }, { itemId: 'i2', name: '氷' }], [], blank);
+  assert.deepEqual(run.accepted.map((a) => a.sourceEntityId), ['i2']);
+  assert.deepEqual(run.failedItemIds, ['i1']);
+});
+
+test('failed row for the SAME name is skipped; a failed row for an older name is retried; reviewed never', async () => {
+  const items = [
+    { itemId: 'same', name: '牛乳' },
+    { itemId: 'renamed', name: '豆乳' },
+    { itemId: 'reviewed', name: '塩' },
+  ];
+  const rows = [
+    translation({ sourceEntityId: 'same', status: 'failed' }),
+    translation({ sourceEntityId: 'renamed', status: 'failed' }),
+    translation({ sourceEntityId: 'reviewed', status: 'reviewed', sourceContentHash: hashSourceText('old') }),
+  ];
+  assert.deepEqual(selectItemsNeedingNameTranslation(items, rows).map((i) => i.itemId), ['renamed']);
+  const calls: TranslateBatchInput[] = [];
+  await runItemNameTranslation(items, rows, recordingProvider(calls));
+  assert.deepEqual(calls.map((c) => c.texts), [['豆乳']]);
+});
+
+test('hashItemNameLikeDb mirrors SQL btrim: only ASCII spaces are trimmed', () => {
+  assert.equal(hashItemNameLikeDb('  牛乳 '), hashSourceText('牛乳'));
+  // JS trim() would also strip U+3000 / tab; the DB keeps them, so must we.
+  assert.notEqual(hashItemNameLikeDb('牛乳　'), hashSourceText('牛乳'));
+  const items = [{ itemId: 'i1', name: '牛乳　' }];
+  const stored = translation({ sourceEntityId: 'i1', sourceContentHash: hashItemNameLikeDb('牛乳　') });
+  assert.deepEqual(buildInventoryNameTranslations(items, [stored]), { i1: { en: 'Milk' } });
+  assert.deepEqual(selectItemsNeedingNameTranslation(items, [stored]), []);
+});
+
+test('createItemNameCooldown: blocks for the ttl, per tenant+item+name, then expires', () => {
+  let now = 1_000;
+  const cooldown = createItemNameCooldown(30 * 60 * 1000, () => now);
+  assert.equal(cooldown.isCooling('t1', 'i1', '牛乳'), false);
+  cooldown.mark('t1', 'i1', '牛乳');
+  assert.equal(cooldown.isCooling('t1', 'i1', '牛乳'), true);
+  assert.equal(cooldown.isCooling('t2', 'i1', '牛乳'), false, 'other tenant unaffected');
+  assert.equal(cooldown.isCooling('t1', 'i1', '豆乳'), false, 'a rename retries at once');
+  now += 30 * 60 * 1000;
+  assert.equal(cooldown.isCooling('t1', 'i1', '牛乳'), false, 'expired after 30 min');
 });
