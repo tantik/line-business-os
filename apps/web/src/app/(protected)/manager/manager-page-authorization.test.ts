@@ -58,25 +58,28 @@ test('WorkforceManagerPage returns UnauthorizedState when the manager check deni
   assert.ok(!SOURCE.includes('listWorkforceStaffForManager('), 'no separate staff read bypasses the batched read');
 });
 
+const ACTIVE_LOCATION_CALL = 'const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);';
+
 test('the manager-access gate runs after location resolution (workforce.staff.manage is location-scoped)', () => {
-  const locationIndex = SOURCE.indexOf('const activeTenantLocations = tenantLocations.filter');
+  const locationIndex = SOURCE.indexOf(ACTIVE_LOCATION_CALL);
   const gateIndex = SOURCE.indexOf(ACCESS_CALL);
   assert.ok(locationIndex !== -1 && gateIndex !== -1 && locationIndex < gateIndex);
 });
 
-test('LOC-1: location resolution fails closed on 0 or more than 1 active location, never silently substitutes an arbitrary one', () => {
+test('DEBT-139 L2: the page works on the ACTIVE store (getActiveLocation) and fails closed without one, never an arbitrary location', () => {
+  const locationIndex = SOURCE.indexOf(ACTIVE_LOCATION_CALL);
+  assert.ok(locationIndex !== -1, 'the store must come from getActiveLocation');
+  const noLocationIndex = SOURCE.indexOf("if (activeLocation.status === 'no_location') {");
+  assert.ok(noLocationIndex > locationIndex && noLocationIndex < SOURCE.indexOf(ACCESS_CALL), 'no active store -> blocked state before any read');
   assert.ok(
-    /const activeTenantLocations = tenantLocations\.filter\(\(l\) => l\.isActive\);/.test(SOURCE),
-    'must compute the active-location set explicitly',
-  );
-  assert.ok(
-    /const location = activeTenantLocations\.length === 1 \? activeTenantLocations\[0\] : undefined;/.test(SOURCE),
-    'must resolve location only when exactly one active location exists, never falling back to tenantLocations[0] regardless of active status',
-  );
-  assert.ok(
-    !SOURCE.includes('tenantLocations.find((l) => l.isActive) ?? tenantLocations[0]'),
+    !SOURCE.includes('tenantLocations.find((l) => l.isActive) ?? tenantLocations[0]') && !SOURCE.includes('pageContext.locations'),
     'the old lenient fallback (first active, else literally any location) must not reappear',
   );
+  assert.ok(
+    SOURCE.includes("locationOptions={toLocationSwitchOptions(locationChoices.filter((l) => l.access !== 'staff'))}"),
+    'the store switcher gets only the MANAGED choices (a staff-only store would dead-end /manager)',
+  );
+  assert.ok(SOURCE.includes('key={`${activeTenant.tenantId}:${location.locationId}`}'), 'switching stores remounts the client');
 });
 
 test('4B-4b: the 管理者 action is offered only to the Owner, from the batched access answer (no extra round trip)', () => {

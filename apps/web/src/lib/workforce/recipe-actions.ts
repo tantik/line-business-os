@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
+import { requireActiveLocation } from '@/lib/tenant/active-location.server';
 import {
   createRecipeMediaUrlMap,
   getRecipeCostSummary,
@@ -60,24 +61,16 @@ const RECIPE_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as con
  * Recipes are tenant-wide content, not per-caller like a staff profile, so
  * there is no "my own recipe location" to resolve the way
  * `submitWorkReport` resolves the caller's staff profile location. Instead
- * this mirrors `/manager` page's own LOC-1 fail-closed rule (exactly one
- * active location) -- required because `upsert_workforce_recipe` (0060)
- * always takes a concrete `p_location_id`, tenant-wide recipes included
- * (its own header: "p_location_id is always the caller's own resolved
- * location"). A multi-location tenant needs a real location picker in the
- * form, out of scope for this MVP slice.
+ * this uses the same ACTIVE store `/manager` shows (`getActiveLocation`,
+ * DEBT-139 L2; fails closed without one) -- required because
+ * `upsert_workforce_recipe` (0060) always takes a concrete `p_location_id`,
+ * tenant-wide recipes included (its own header: "p_location_id is always the
+ * caller's own resolved location"). The RPC re-checks the permission there.
  */
-async function resolveSoleActiveLocationId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  tenantId: string,
-): Promise<WorkforceWriteResult<string>> {
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const activeLocations = locationsResult.data.filter((l) => l.tenantId === tenantId && l.isActive);
-  if (activeLocations.length !== 1) {
-    return { status: 'unexpected_error', message: 'This action requires exactly one active location; multi-location recipe management is not supported yet.' };
-  }
-  return { status: 'success', data: activeLocations[0]!.locationId };
+async function resolveActiveLocationId(tenantId: string, defaultLocationId: string | null): Promise<WorkforceWriteResult<string>> {
+  const activeLocation = await requireActiveLocation(tenantId, defaultLocationId);
+  if (activeLocation.status !== 'success') return activeLocation;
+  return { status: 'success', data: activeLocation.data.location.locationId };
 }
 
 export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteResult<{ recipeId: string }>> {
@@ -96,7 +89,7 @@ export async function upsertRecipe(formData: FormData): Promise<WorkforceWriteRe
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationResult = await resolveSoleActiveLocationId(supabase, tenantId);
+  const locationResult = await resolveActiveLocationId(tenantId, tenantContext.data.activeTenant.locationId);
   if (locationResult.status !== 'success') return locationResult;
 
   // WP-6 (Cafe Manager UI/UX Parity mission): recipe photo. Ported from the

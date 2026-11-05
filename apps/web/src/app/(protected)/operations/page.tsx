@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { loadPageContext } from '@/lib/tenant/page-context';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import {
@@ -45,10 +46,7 @@ export default async function OperationsPage() {
     case 'success': {
       const { activeTenant } = result.data;
       const supabase = await createClient();
-      const [modulesResult, locationsResult] = await Promise.all([
-        listTenantModules(supabase),
-        listTenantLocations(supabase),
-      ]);
+      const modulesResult = await listTenantModules(supabase);
       const operationsEnabled =
         modulesResult.status === 'success' &&
         modulesResult.data.some(
@@ -57,14 +55,16 @@ export default async function OperationsPage() {
 
       if (!operationsEnabled) return <ModuleUnavailableState />;
 
+      // Tenant locations (for the Staff member's own home-store check below)
+      // come from the request-scoped page context -- no extra request.
+      const locationsResult = (await loadPageContext()).locations;
       const tenantLocations =
         locationsResult.status === 'success'
           ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
           : [];
-      const location =
-        tenantLocations.find((l) => l.locationId === activeTenant.locationId) ??
-        tenantLocations.find((l) => l.isActive) ??
-        tenantLocations[0];
+      // DEBT-139 L2: the Manager check runs at the ACTIVE store.
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      const location = activeLocation.status === 'success' ? activeLocation.data.location : undefined;
 
       if (!location) {
         return (

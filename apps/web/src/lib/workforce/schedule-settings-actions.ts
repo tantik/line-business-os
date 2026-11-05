@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { requireLocationChoice } from '@/lib/tenant/active-location.server';
 import { getWorkforceScheduleSettings, upsertWorkforceScheduleSettings, type WorkforceScheduleSettings } from './schedule-settings';
 import {
   listWorkforceShiftTypes,
@@ -21,9 +21,9 @@ import type { WorkforceWriteResult } from './result-types';
  * mission's Surface A reference), but against the canonical service layer
  * and RLS-backed `requireTenantContext()`, not the preview auth stub. A
  * client-supplied `locationId` is never trusted on its own -- every action
- * re-verifies it belongs to the resolved tenant via `listTenantLocations`
- * before using it, same pattern `schedule-actions.ts`'s `runAutoDistribution`
- * already established.
+ * re-verifies it is one of the caller's active stores of the resolved tenant
+ * (`getActiveLocation` choices, DEBT-139 L2) before using it, same pattern as
+ * `schedule-actions.ts`'s `runAutoDistribution`.
  */
 
 const INVALID_INPUT_RESULT = { status: 'unexpected_error', message: 'Invalid input.' } as const;
@@ -38,10 +38,10 @@ async function resolveTenantAndLocation(locationIdRaw: unknown) {
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return { ok: false as const, result: locationsResult };
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === locationId);
-  if (!location) return { ok: false as const, result: { status: 'not_found' as const } };
+  // DEBT-139 L2: the store must be one of the caller's active stores of this
+  // request (`getActiveLocation` choices) -- narrowing only; RLS stays the boundary.
+  const locationResult = await requireLocationChoice(tenantId, tenantContext.data.activeTenant.locationId, locationId);
+  if (locationResult.status !== 'success') return { ok: false as const, result: locationResult };
 
   return { ok: true as const, supabase, tenantId, locationId };
 }

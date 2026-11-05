@@ -4,6 +4,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { mapMembershipRows, mapPostgrestError, type ApiMembershipRow } from './membership';
 import { mapTenantLocationRows, type ApiTenantLocationRow, type TenantLocation } from './locations';
+import { mapMyLocationRows, type ApiMyLocationRow, type MyLocation } from './active-location';
 import { mapTenantNavigationRows, mapTenantPackageCodes, type ApiTenantNavigationRow, type ApiTenantPackageRow } from './modules';
 import { mapPendingTenantInvitationRows, type ApiPendingTenantInvitationRow, type PendingTenantInvitationsResult } from './tenant-invitations';
 import {
@@ -25,6 +26,8 @@ export interface PageContext {
   memberships: TenantAccessResult<TenantMembership[]>;
   navigation: TenantAccessResult<TenantNavRow[]>;
   locations: TenantAccessResult<TenantLocation[]>;
+  /** The caller's locations with access (api.my_locations, 0154) -- source of the active location (DEBT-139 L2). */
+  myLocations: TenantAccessResult<MyLocation[]>;
   /** Active package codes of one tenant, in package order; `[]` on a read failure (screens fall back to the default words). */
   packageCodes: (tenantId: string) => string[];
   employeeInvitations: TenantAccessResult<WorkforceEmployeeInvitation[]>;
@@ -41,6 +44,7 @@ function failed(error: PostgrestError | { message: string; code?: string }): Pag
     memberships: mapped,
     navigation: mapped,
     locations: mapped,
+    myLocations: mapped,
     packageCodes: () => [],
     employeeInvitations: mapped,
     tenantInvitations: { status: 'error' },
@@ -64,6 +68,11 @@ export const loadPageContext = cache(async (): Promise<PageContext> => {
       memberships: mapMembershipRows(rowsOf<ApiMembershipRow>(ctx.memberships)),
       navigation: { status: 'success', data: mapTenantNavigationRows(rowsOf<ApiTenantNavigationRow>(ctx.navigation)) },
       locations: { status: 'success', data: mapTenantLocationRows(rowsOf<ApiTenantLocationRow>(ctx.locations)) },
+      // Absent key (app deployed before 0154 is applied) -> an error, never an
+      // empty list: an empty list would read as "no location" and block pages.
+      myLocations: Array.isArray(ctx.myLocations)
+        ? { status: 'success', data: mapMyLocationRows(ctx.myLocations as ApiMyLocationRow[]) }
+        : { status: 'unexpected_error', message: 'Page context has no myLocations (migration 0154 not applied).' },
       packageCodes: (tenantId) => mapTenantPackageCodes(packages, tenantId),
       employeeInvitations: {
         status: 'success',
