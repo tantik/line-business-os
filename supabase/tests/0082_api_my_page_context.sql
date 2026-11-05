@@ -211,6 +211,11 @@ select is(pg_temp.my_locs('a8290000-0000-0000-0000-000000000002'),
   '', 'D: an employee-role member without a bound employee row gets no location');
 select is(pg_temp.my_locs('a8290000-0000-0000-0000-000000000003'),
   '', 'D: X (T2 employee role, no bound row) gets no location, none of T1');
+-- bind an employee row at L2 to E: E now relates to L2 as staff, and still not to L1
+update workforce.employees set user_id = 'a8290000-0000-0000-0000-000000000002'
+ where id = 'a8230000-0000-0000-0000-000000000003';
+select is(pg_temp.my_locs('a8290000-0000-0000-0000-000000000002'),
+  'T1 / L2=staff', 'D: a bound employee gets their home store with access staff, and only it');
 
 select * from finish();
 rollback;
