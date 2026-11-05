@@ -19,6 +19,15 @@ test('displayItemName: shows the translation into the UI language when present',
   assert.equal(displayItemName({ itemId: 'item-1', name: '牛乳' }, 'en', translations), 'Milk');
 });
 
+test('displayItemName: English translations are sentence-case; originals and Japanese untouched', () => {
+  const translations = { a: { en: 'milk' }, b: { en: 'orange juice' }, c: { en: 'Almond milk' }, d: { ja: 'oat' } };
+  assert.equal(displayItemName({ itemId: 'a', name: '牛乳' }, 'en', translations), 'Milk');
+  assert.equal(displayItemName({ itemId: 'b', name: 'オレンジジュース' }, 'en', translations), 'Orange juice');
+  assert.equal(displayItemName({ itemId: 'c', name: 'アーモンドミルク' }, 'en', translations), 'Almond milk');
+  assert.equal(displayItemName({ itemId: 'd', name: 'oat' }, 'ja', translations), 'oat');
+  assert.equal(displayItemName({ itemId: 'x', name: 'milk' }, 'en', translations), 'milk', 'original name shown exactly as typed');
+});
+
 test('displayItemName: falls back to the original name (other language, missing map, missing item, empty text)', () => {
   const translations = { 'item-1': { en: 'Milk' }, 'item-2': { en: '  ' } };
   assert.equal(displayItemName({ itemId: 'item-1', name: '牛乳' }, 'ja', translations), '牛乳');
