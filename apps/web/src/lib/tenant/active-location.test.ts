@@ -21,8 +21,14 @@ const A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const C = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
-function loc(locationId: string, locationName: string, access: MyLocation['access'], isActive = true): MyLocation {
-  return { tenantId: T, locationId, locationName, timezone: 'Asia/Tokyo', isActive, access };
+function loc(
+  locationId: string,
+  locationName: string,
+  access: MyLocation['access'],
+  isActive = true,
+  createdAt: string | null = null,
+): MyLocation {
+  return { tenantId: T, locationId, locationName, timezone: 'Asia/Tokyo', isActive, access, createdAt };
 }
 
 test('mapMyLocationRows maps rows and drops an unknown access value', () => {
@@ -75,6 +81,56 @@ test('default: membership default location first, else strongest access, then na
     ['Aoyama', 'Bunkyo', 'Chuo'],
     'choices are by name, active only',
   );
+});
+
+test('mapMyLocationRows carries created_at (0156) and tolerates it missing or empty', () => {
+  const rows = [
+    { tenant_id: T, location_id: A, location_name: '本店', timezone: 'Asia/Tokyo', is_active: true, access: 'all', created_at: '2026-01-01T00:00:00+00:00' },
+    { tenant_id: T, location_id: B, location_name: '駅前店', timezone: 'Asia/Tokyo', is_active: true, access: 'all', created_at: '' },
+    { tenant_id: T, location_id: C, location_name: '北口店', timezone: 'Asia/Tokyo', is_active: true, access: 'all', created_at: null },
+  ];
+  assert.deepEqual(
+    mapMyLocationRows(rows).map((l) => l.createdAt),
+    ['2026-01-01T00:00:00+00:00', null, null],
+  );
+});
+
+test('DEBT-139 m: the default is the MAIN store (oldest) among the strongest access, not the first by name', () => {
+  // 駅前店 sorts before 本店 by reading; 本店 is older -> 本店 is the default.
+  const list = [
+    loc(B, '駅前店', 'all', true, '2026-11-04T00:00:00Z'),
+    loc(A, '本店', 'all', true, '2025-04-01T00:00:00Z'),
+  ];
+  const r = resolveActiveLocation(list);
+  assert.equal(r.ok && r.location.locationId, A);
+  assert.deepEqual(r.ok && r.choices.map((l) => l.locationName), ['本店', '駅前店'], 'choices: oldest first');
+});
+
+test('main-store order: oldest first, unknown dates last, then name, then id; access still wins for the default', () => {
+  const list = [
+    loc(C, 'Chuo', 'all', true, null),
+    loc(B, 'Bunkyo', 'staff', true, '2024-01-01T00:00:00Z'),
+    loc(A, 'Aoyama', 'all', true, '2025-01-01T00:00:00Z'),
+  ];
+  const r = resolveActiveLocation(list);
+  assert.ok(r.ok);
+  assert.deepEqual(r.choices.map((l) => l.locationName), ['Bunkyo', 'Aoyama', 'Chuo']);
+  assert.equal(r.location.locationId, A, 'Bunkyo is older but only staff access; Aoyama is the oldest with "all"');
+  const sameDate = resolveActiveLocation([
+    loc(B, 'Bunkyo', 'manage', true, '2025-01-01T00:00:00Z'),
+    loc(A, 'Aoyama', 'manage', true, '2025-01-01T00:00:00Z'),
+  ]);
+  assert.equal(sameDate.ok && sameDate.location.locationId, A, 'same date -> by name');
+  const badDate = resolveActiveLocation([loc(A, 'Aoyama', 'all', true, 'not-a-date'), loc(B, 'Bunkyo', 'all', true, '2025-01-01T00:00:00Z')]);
+  assert.equal(badDate.ok && badDate.location.locationId, B, 'an unparsable date counts as unknown (last)');
+});
+
+test('the membership default and the cookie still win over the main store', () => {
+  const list = [loc(A, '本店', 'all', true, '2025-01-01T00:00:00Z'), loc(B, '駅前店', 'all', true, '2026-01-01T00:00:00Z')];
+  const byDefault = resolveActiveLocation(list, { defaultLocationId: B });
+  assert.equal(byDefault.ok && byDefault.location.locationId, B);
+  const byCookie = resolveActiveLocation(list, { candidateLocationId: B });
+  assert.equal(byCookie.ok && byCookie.location.locationId, B);
 });
 
 test('findLocationChoice: only one of the choices, never another id', () => {

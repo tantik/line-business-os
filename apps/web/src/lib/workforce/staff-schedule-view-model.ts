@@ -149,8 +149,12 @@ export function toStaffViewWorkReports(
   ownStaffId: string,
   timeZone: string,
 ): WorkReport[] {
+  // A cancelled correction (0156: cancelled by a store move) is treated as
+  // absent -- never shown as "pending", never shadowing another row of the day.
   const correctionByDate = new Map(
-    requests.filter((request) => request.kind === 'correction').map((request) => [request.workDate, request] as const),
+    requests
+      .filter((request) => request.kind === 'correction' && request.status !== 'cancelled')
+      .map((request) => [request.workDate, request] as const),
   );
   return attendance
     .filter((entry) => Boolean(entry.clockOut))
@@ -179,6 +183,28 @@ export function toStaffViewWorkReports(
           : undefined,
       };
     });
+}
+
+/**
+ * The caller's submitted shift preference per day (the monthly preference
+ * grid's "already sent" lock): `kind: 'preference'` rows of the given dates,
+ * skipping `cancelled` ones (0156: a store move cancels pending preferences
+ * at the old store -- such a day counts as not submitted) and keeping the
+ * NEWEST row of a day (by `createdAt`), so a cancelled or older row never
+ * hides a newer one regardless of the input order.
+ */
+export function activePreferenceRequestsByDate(
+  requests: readonly WorkforceShiftRequest[],
+  dates: readonly string[],
+): Map<string, WorkforceShiftRequest> {
+  const wanted = new Set(dates);
+  const map = new Map<string, WorkforceShiftRequest>();
+  for (const request of requests) {
+    if (request.kind !== 'preference' || request.status === 'cancelled' || !wanted.has(request.workDate)) continue;
+    const existing = map.get(request.workDate);
+    if (!existing || request.createdAt.localeCompare(existing.createdAt) > 0) map.set(request.workDate, request);
+  }
+  return map;
 }
 
 /** Cell keys (`${staffId}:${date}`) needing the "!" attention indicator: the caller's own pending correction requests, plus any open/accepted shift exchange on one of the caller's own shifts. */

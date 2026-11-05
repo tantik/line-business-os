@@ -24,6 +24,7 @@ import { loadMyAccess } from '@/lib/auth/my-access';
 import { WEEKLY_REVIEW_PERMISSION } from '@/lib/weekly-review/access';
 import { MANAGER_ACCESS_PERMISSION } from '@/lib/workforce/manager-access';
 import { ROLE_MANAGE_PERMISSION } from '@/lib/workforce/manager-role';
+import { LOCATION_MANAGE_PERMISSION, tenantStoreGroups } from '@/lib/tenant/location-manage';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
@@ -151,7 +152,7 @@ export default async function WorkforceManagerPage({
       // single-check RPCs (pgTAP 0081). Fails closed to all-false.
       const access = await loadMyAccess(supabase, activeTenant.tenantId, location.locationId, {
         location: [MANAGER_ACCESS_PERMISSION, WEEKLY_REVIEW_PERMISSION, INVENTORY_MANAGE_PERMISSION],
-        tenant: [ROLE_MANAGE_PERMISSION],
+        tenant: [ROLE_MANAGE_PERMISSION, LOCATION_MANAGE_PERMISSION],
         anyLocation: [RECIPE_MANAGE_PERMISSION],
       });
 
@@ -181,6 +182,20 @@ export default async function WorkforceManagerPage({
       // 「管理者にする / 管理者から外す」. UI gate only --
       // api.set_employee_admin_role re-checks the same role.
       const canAppointAdmins = access.isTenantOwner;
+      // DEBT-139 L3: only a holder of core.location.manage TENANT-WIDE (Owner /
+      // Admin) gets the 「店舗」 section and 「別の店舗へ移動」 -- same check
+      // as hasLocationManageAccess / the store RPCs, from the batched answer
+      // (no extra round trip). UI gate only; the RPCs re-check.
+      const canManageLocations = access.tenant(LOCATION_MANAGE_PERMISSION);
+      // Open stores the caller sees (Owner / Admin: every open store) -- two or
+      // more offer the Manager scope choice and the move dialog.
+      const activeLocationCount = locationChoices.length;
+      // The store list (open + archived for access 'all'), main store first;
+      // never sent to a caller without the permission.
+      const storeGroups =
+        canManageLocations && pageContext.myLocations.status === 'success'
+          ? tenantStoreGroups(pageContext.myLocations.data, activeTenant.tenantId)
+          : { active: [], archived: [] };
 
       const { weekOffset: rawWeekOffset, popup: rawPopup, focusCell: rawFocusCell } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
@@ -540,6 +555,9 @@ export default async function WorkforceManagerPage({
             canAppointManagers={canAppointManagers}
             canAppointAdmins={canAppointAdmins}
             selfStaffId={myProfile?.staffId ?? null}
+            activeLocationCount={activeLocationCount}
+            canManageLocations={canManageLocations}
+            storeGroups={storeGroups}
             scheduleSettings={scheduleSettingsResult.status === 'success' ? scheduleSettingsResult.data : null}
             autoScheduleRuns={autoScheduleRunsResult.status === 'success' ? autoScheduleRunsResult.data : null}
           />

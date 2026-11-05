@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attendanceStatusLabel, correctionStatusLabel, exchangeStatusLabel, formatRequestedCorrectionChange, shiftChipColors } from './workforce-theme.js';
+import { attendanceStatusLabel, correctionStatusBadgeStyle, correctionStatusLabel, exchangeStatusLabel, formatRequestedCorrectionChange, shiftChipColors } from './workforce-theme.js';
 import { colors } from '@/lib/ui/theme';
 
 test('attendanceStatusLabel maps every workforce.attendance_status enum value to an English label by default', () => {
@@ -26,6 +26,13 @@ test('correctionStatusLabel keeps its existing English-only default (call sites 
   assert.equal(correctionStatusLabel('pending'), 'Pending');
   assert.equal(correctionStatusLabel('approved'), 'Approved');
   assert.equal(correctionStatusLabel('rejected'), 'Rejected');
+});
+
+test('0156: a correction cancelled by a store move reads Cancelled / キャンセル済み with a muted badge, never approved / rejected', () => {
+  assert.equal(correctionStatusLabel('cancelled'), 'Cancelled');
+  assert.equal(correctionStatusLabel('cancelled', 'ja'), 'キャンセル済み');
+  assert.deepEqual(correctionStatusBadgeStyle('cancelled'), correctionStatusBadgeStyle('rejected'));
+  assert.notDeepEqual(correctionStatusBadgeStyle('cancelled'), correctionStatusBadgeStyle('approved'));
 });
 
 test('correctionStatusLabel returns Japanese labels when lang is ja', () => {

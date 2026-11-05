@@ -4,6 +4,7 @@ import type { TenantAccessResult } from '@/lib/tenant/types';
 import type { WorkforceWriteResult } from './result-types';
 import { mapWorkforceReadError, mapWorkforceWriteError } from './pg-error';
 import { readPiiEnv } from './pii-env';
+import { parseManagerScope } from './manager-role';
 
 /** Flat row shape returned by `api.workforce_staff_directory` (no PII). */
 interface ApiWorkforceStaffDirectoryRow {
@@ -49,6 +50,8 @@ export interface ApiWorkforceStaffManageRow {
   is_manager?: boolean;
   /** 0140: derived, read-only. Absent (undefined) on write-path responses that do not select it. */
   is_admin?: boolean;
+  /** 0156: scope of the manager role ('tenant' | 'location', null when not a Manager). Absent on older payloads and write paths. */
+  manager_scope?: string | null;
 }
 
 /** Manager-facing staff entry with the name already decrypted server-side. Never re-serialize `nameEncrypted`/`nameHash` back to a client. */
@@ -73,6 +76,8 @@ export interface WorkforceStaffManageEntry {
   isManager: boolean;
   /** 0140: this employee's account holds the tenant's `tenant_admin` role (管理者). Derived boolean from `api.workforce_staff_manage.is_admin`; never role rows or user ids. */
   isAdmin: boolean;
+  /** 0156 (DEBT-139 L3): 'tenant' = Manager of every store, 'location' = Manager of their home store only, null = not a Manager or unknown (older payload). */
+  managerScope: 'tenant' | 'location' | null;
   /**
    * True when this employee has any shift/attendance/request/exchange row,
    * mirroring the exact guard `workforce.permanently_delete_employee`
@@ -155,6 +160,7 @@ function decryptManageRow(row: ApiWorkforceStaffManageRow, encryptionKey: string
     hasAccountAccess: row.has_account_access,
     isManager: row.is_manager === true,
     isAdmin: row.is_admin === true,
+    managerScope: parseManagerScope(row.manager_scope),
     hasProtectedHistory,
   };
 }

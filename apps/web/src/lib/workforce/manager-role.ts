@@ -18,24 +18,58 @@ export type ManagerRoleErrorCode =
   | 'employee_not_found'
   | 'employee_inactive'
   | 'employee_has_no_account'
+  | 'employee_has_no_location'
   | 'cannot_change_own_role'
   | 'unexpected';
 
+/**
+ * DEBT-139 L3 (0151): 'tenant' = Manager of every store (role assignment with
+ * location NULL), 'location' = Manager of the person's home store only.
+ */
+export type ManagerScope = 'tenant' | 'location';
+
+/** Strict: only 'tenant' / 'location'; anything else (missing, unknown) -> null. */
+export function parseManagerScope(value: unknown): ManagerScope | null {
+  return value === 'tenant' || value === 'location' ? value : null;
+}
+
 export type ManagerRoleResult =
-  | { status: 'success'; data: { employeeId: string; isManager: boolean; changed: boolean } }
+  | { status: 'success'; data: { employeeId: string; isManager: boolean; scope: ManagerScope | null; changed: boolean } }
   | { status: 'error'; code: ManagerRoleErrorCode };
 
 export interface SetManagerRoleInput {
   employeeId: string;
   isManager: boolean;
+  scope: ManagerScope;
 }
 
-/** `staffId` must be a UUID; `isManager` must be exactly 'true' or 'false' (no implicit default -- a missing flag must never demote). */
+/**
+ * `staffId` must be a UUID; `isManager` must be exactly 'true' or 'false' (no
+ * implicit default -- a missing flag must never demote); `scope` must be
+ * exactly 'tenant' or 'location' (no default -- a missing scope must never
+ * widen a store Manager to every store). The 4-argument RPC needs a scope on
+ * revoke too (it removes every manager assignment whatever the scope).
+ */
 export function parseSetManagerRoleInput(formData: FormData): SetManagerRoleInput | null {
   const employeeId = parseUuid(formData.get('staffId'));
   const raw = formData.get('isManager');
-  if (!employeeId || (raw !== 'true' && raw !== 'false')) return null;
-  return { employeeId, isManager: raw === 'true' };
+  const scope = parseManagerScope(formData.get('scope'));
+  if (!employeeId || (raw !== 'true' && raw !== 'false') || !scope) return null;
+  return { employeeId, isManager: raw === 'true', scope };
+}
+
+/**
+ * Which scope choice the appoint UI offers (DEBT-139 L3): with one active
+ * store there is nothing to choose (tenant-wide, as before L3); with two or
+ * more, 「この店舗のみ」 (location, the default) / 「全店舗」 (tenant).
+ */
+export function managerScopeChoiceAvailable(activeLocationCount: number): boolean {
+  return activeLocationCount >= 2;
+}
+
+/** Scope sent with an appoint when the UI shows no choice, or the preselected one when it does. */
+export function defaultManagerScope(activeLocationCount: number): ManagerScope {
+  return managerScopeChoiceAvailable(activeLocationCount) ? 'location' : 'tenant';
 }
 
 /** Maps a PostgREST error from `api.set_employee_manager_role` to a stable code (by SQLSTATE + the function's own message identifiers). */
@@ -49,7 +83,8 @@ export function mapManagerRoleError(error: { code?: string | null; message?: str
   if (message.includes('employee_inactive')) return 'employee_inactive';
   if (message.includes('employee_has_no_account')) return 'employee_has_no_account';
   if (message.includes('cannot_change_own_role')) return 'cannot_change_own_role';
-  if (code === '22004' || code === '22P02') return 'invalid_input';
+  if (message.includes('employee_has_no_location')) return 'employee_has_no_location';
+  if (code === '22004' || code === '22P02' || code === '22023') return 'invalid_input';
   return 'unexpected';
 }
 
@@ -61,7 +96,8 @@ type ManagerRoleCopyKey =
   | 'managerRoleErrorUnexpected'
   | 'managerInactiveHint'
   | 'managerNeedsAccountHint'
-  | 'managerOwnRoleHint';
+  | 'managerOwnRoleHint'
+  | 'managerNoLocationHint';
 
 /** Dictionary key (manager-dashboard-i18n.ts) for each error code -- every code has user-facing JA/EN copy. */
 export function managerRoleErrorCopyKey(code: ManagerRoleErrorCode): ManagerRoleCopyKey {
@@ -80,6 +116,8 @@ export function managerRoleErrorCopyKey(code: ManagerRoleErrorCode): ManagerRole
       return 'managerNeedsAccountHint';
     case 'cannot_change_own_role':
       return 'managerOwnRoleHint';
+    case 'employee_has_no_location':
+      return 'managerNoLocationHint';
     case 'invalid_input':
     case 'unexpected':
       return 'managerRoleErrorUnexpected';
@@ -105,15 +143,21 @@ export async function setEmployeeManagerRole(
   input: SetManagerRoleInput,
 ): Promise<ManagerRoleResult> {
   try {
+    // Always the 4-argument overload (0151, DEBT-139 c): the 0138 3-argument
+    // one answers "unchanged" for a store Manager and cannot set a scope.
     const { data, error } = await supabase.schema('api').rpc('set_employee_manager_role', {
       p_tenant_id: tenantId,
       p_employee_id: input.employeeId,
       p_is_manager: input.isManager,
+      p_scope: input.scope,
     });
     if (error) return { status: 'error', code: mapManagerRoleError(error) };
-    const row = data as { employee_id?: string; is_manager?: boolean; changed?: boolean } | null;
+    const row = data as { employee_id?: string; is_manager?: boolean; scope?: unknown; changed?: boolean } | null;
     if (!row || typeof row.is_manager !== 'boolean') return { status: 'error', code: 'unexpected' };
-    return { status: 'success', data: { employeeId: input.employeeId, isManager: row.is_manager, changed: row.changed === true } };
+    return {
+      status: 'success',
+      data: { employeeId: input.employeeId, isManager: row.is_manager, scope: parseManagerScope(row.scope), changed: row.changed === true },
+    };
   } catch {
     return { status: 'error', code: 'unexpected' };
   }

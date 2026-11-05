@@ -29,6 +29,8 @@ import { LineLinkForm } from './line-link-form';
 import { InvitationCell } from './invitation-cell';
 import { ManagerRoleSection } from './manager-role-section';
 import { AdminRoleSection } from './admin-role-section';
+import { MoveStoreSection } from './move-store-section';
+import type { TenantStoreRow } from '@/lib/tenant/location-manage';
 
 export interface ManageStaffPopupProps {
   open: boolean;
@@ -48,6 +50,12 @@ export interface ManageStaffPopupProps {
   /** 4B-4b: Owner only (server-resolved tenant_owner role) -- appoint/revoke 管理者 section. The 管理者 badge itself is shown to every caller. */
   canAppointAdmins?: boolean;
   selfStaffId?: string | null;
+  /** DEBT-139 L3: open stores of this workspace -- two or more offer the Manager scope choice. */
+  activeLocationCount?: number;
+  /** DEBT-139 L3: Owner / Admin (server-resolved core.location.manage tenant-wide) -- offers 「別の店舗へ移動」 with two or more open stores. */
+  canManageLocations?: boolean;
+  /** Every store of the workspace the caller sees (open + archived, main store first), for the move dialog. */
+  stores?: TenantStoreRow[];
   lang: Lang;
 }
 
@@ -130,6 +138,9 @@ export function ManageStaffPopup({
   canAppointManagers = false,
   canAppointAdmins = false,
   selfStaffId = null,
+  activeLocationCount = 1,
+  canManageLocations = false,
+  stores = [],
   lang,
 }: ManageStaffPopupProps) {
   const t: T = (key) => tManagerDashboard(lang, key);
@@ -149,6 +160,9 @@ export function ManageStaffPopup({
   const [isDeletePending, startDeleteTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // DEBT-139 L3: a moved person leaves this store's roster, so the outcome is shown on the list.
+  const [listNotice, setListNotice] = useState<string | null>(null);
+  const showMoveStore = canManageLocations && activeLocationCount >= 2;
 
   const filteredStaff = staff ? filterStaffEntries(staff, { status: statusFilter, query }) : [];
   const detailStaff = view.kind === 'detail' ? (staff ?? []).find((s) => s.staffId === view.staffId) ?? null : null;
@@ -160,6 +174,7 @@ export function ManageStaffPopup({
     setFormPending(false);
     setDeleteError(null);
     setConfirmDeleteOpen(false);
+    setListNotice(null);
     setView({ kind: 'detail', staffId });
   }
 
@@ -192,6 +207,7 @@ export function ManageStaffPopup({
       backToList();
       return;
     }
+    setListNotice(null);
     onClose();
   }
 
@@ -275,7 +291,30 @@ export function ManageStaffPopup({
             />
           </section>
 
-          {canAppointManagers ? <ManagerRoleSection key={detailStaff.staffId} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
+          {canAppointManagers ? (
+            <ManagerRoleSection
+              key={detailStaff.staffId}
+              staff={detailStaff}
+              selfStaffId={selfStaffId}
+              activeLocationCount={activeLocationCount}
+              onChange={onChange}
+              lang={lang}
+            />
+          ) : null}
+
+          {showMoveStore ? (
+            <MoveStoreSection
+              key={`move-${detailStaff.staffId}`}
+              staff={detailStaff}
+              stores={stores}
+              onMoved={(message) => {
+                setListNotice(message);
+                backToList();
+                onChange();
+              }}
+              lang={lang}
+            />
+          ) : null}
 
           {/* Hidden on the Owner's own row: the Owner is not an admin candidate. */}
           {canAppointAdmins && detailStaff.staffId !== selfStaffId ? <AdminRoleSection key={`admin-${detailStaff.staffId}`} staff={detailStaff} selfStaffId={selfStaffId} onChange={onChange} lang={lang} /> : null}
@@ -433,6 +472,12 @@ export function ManageStaffPopup({
               </button>
             ) : null}
           </div>
+
+          {listNotice ? (
+            <div role="status" style={{ ...alertSuccess, marginTop: 12 }}>
+              {listNotice}
+            </div>
+          ) : null}
 
           {staff === null ? (
             <p style={{ margin: '16px 0 0', ...mutedText }}>{t('staffUnavailable')}</p>

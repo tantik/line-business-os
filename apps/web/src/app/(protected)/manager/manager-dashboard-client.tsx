@@ -100,6 +100,8 @@ import { ShiftRequestsReviewPopup } from './shift-requests-review-popup';
 import { ShiftExchangeRequestsPopup } from './shift-exchange-requests-popup';
 import { StaffMessagesPopup } from './staff-messages-popup';
 import { SettingsSection } from './settings-section';
+import { StoresSection } from './stores-section';
+import type { TenantStoreRow } from '@/lib/tenant/location-manage';
 import { OwnerChecklistCard } from './owner-checklist-card';
 import { deriveOwnerChecklist, type OwnerChecklistStepId } from './owner-checklist';
 import type { AutoScheduleRun, WorkforceScheduleSettings } from '@/lib/workforce/schedule-settings';
@@ -324,6 +326,12 @@ export interface ManagerDashboardClientProps {
   canAppointAdmins: boolean;
   /** The caller's own employee row id (null when they have none) -- their own row never offers a role change. */
   selfStaffId: string | null;
+  /** DEBT-139 L3: open stores of this workspace the caller sees -- two or more offer the Manager scope choice and the move dialog. */
+  activeLocationCount: number;
+  /** DEBT-139 L3: caller holds core.location.manage tenant-wide (Owner / Admin), resolved server-side -- the 「店舗」 section and 「別の店舗へ移動」. The RPCs re-check. */
+  canManageLocations: boolean;
+  /** The workspace's stores (open + archived, main store first) -- only when `canManageLocations`, else empty. */
+  storeGroups: { active: TenantStoreRow[]; archived: TenantStoreRow[] };
   /** Per-weekday staffing requirements + max monthly hours (WP A8's Settings section). `null` when no row has been saved yet -- the section renders its own defaults in that case. */
   scheduleSettings: WorkforceScheduleSettings | null;
   /** Latest scheduled auto-create run-log rows for this location (DEBT-074) -- `null` if the read failed. */
@@ -447,10 +455,14 @@ function ManagerDashboardBody({
   canAppointManagers,
   canAppointAdmins,
   selfStaffId,
+  activeLocationCount,
+  canManageLocations,
+  storeGroups,
   scheduleSettings,
   autoScheduleRuns,
 }: Omit<ManagerDashboardClientProps, 'inventoryNameTranslations'>) {
   const router = useRouter();
+  const allStores = useMemo(() => [...storeGroups.active, ...storeGroups.archived], [storeGroups]);
   const inventoryItemName = useInventoryItemName();
   const { lang } = useLang();
   const t = (key: Parameters<typeof tManagerDashboard>[1]) => tManagerDashboard(lang, key);
@@ -1521,6 +1533,9 @@ function ManagerDashboardBody({
         canAppointManagers={canAppointManagers}
         canAppointAdmins={canAppointAdmins}
         selfStaffId={selfStaffId}
+        activeLocationCount={activeLocationCount}
+        canManageLocations={canManageLocations}
+        stores={allStores}
         lang={lang}
       />
 
@@ -1919,6 +1934,16 @@ function ManagerDashboardBody({
         todayIso={todayIso}
         lang={lang}
       />
+
+      {canManageLocations ? (
+        <StoresSection
+          activeStores={storeGroups.active}
+          archivedStores={storeGroups.archived}
+          currentLocationId={locationId}
+          onChange={() => router.refresh()}
+          lang={lang}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={publishWeekConfirmOpen}
