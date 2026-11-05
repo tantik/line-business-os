@@ -65,12 +65,12 @@ const KNOWN: Record<string, { ja: string; en: string }> = {
   'Could not process the photo.': { ja: '写真を処理できませんでした。', en: 'Could not process the photo.' },
   // DEBT-139 L2, active-location.server.ts requireActiveLocation / requireLocationChoice
   'No active location for this workspace.': {
-    ja: '利用できる店舗がありません。店長またはオーナーにご確認ください。',
-    en: 'No store is available. Ask your manager or the owner.',
+    ja: '利用できる店舗がありません。オーナーにご確認ください。',
+    en: 'No store is available. Please ask the owner.',
   },
   'Not one of your active locations.': {
     ja: 'この店舗では操作できません。画面を更新してください。',
-    en: 'You cannot work on this store. Please reload the page.',
+    en: 'This action is not available for this store. Please reload the page.',
   },
   'Invalid input.': { ja: '入力内容を確認してください。', en: 'Please check what you entered.' },
 };

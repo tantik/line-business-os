@@ -75,7 +75,11 @@ test('DEBT-139 L2: the page works on the ACTIVE store (getActiveLocation) and fa
     !SOURCE.includes('tenantLocations.find((l) => l.isActive) ?? tenantLocations[0]') && !SOURCE.includes('pageContext.locations'),
     'the old lenient fallback (first active, else literally any location) must not reappear',
   );
-  assert.ok(/locationOptions=\{toLocationSwitchOptions\(locationChoices\)\}/.test(SOURCE), 'the store switcher gets the choices');
+  assert.ok(
+    SOURCE.includes("locationOptions={toLocationSwitchOptions(locationChoices.filter((l) => l.access !== 'staff'))}"),
+    'the store switcher gets only the MANAGED choices (a staff-only store would dead-end /manager)',
+  );
+  assert.ok(SOURCE.includes('key={`${activeTenant.tenantId}:${location.locationId}`}'), 'switching stores remounts the client');
 });
 
 test('4B-4b: the 管理者 action is offered only to the Owner, from the batched access answer (no extra round trip)', () => {

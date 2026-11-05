@@ -478,7 +478,9 @@ export default async function WorkforceManagerPage({
         // id + tabIndex=-1: programmatic focus target after the Owner checklist is closed (not in the Tab order).
         <main id="manager-main" tabIndex={-1} style={{ ...pageStyle(1180), outline: 'none' }}>
           <ManagerDashboardClient
-            key={activeTenant.tenantId}
+            // Store in the key: switching stores remounts the client, so no
+            // week offset / open popup / lazy data of the previous store survives.
+            key={`${activeTenant.tenantId}:${location.locationId}`}
             tenantId={activeTenant.tenantId}
             tenantName={activeTenant.tenantName}
             locationName={location.locationName}
@@ -486,7 +488,9 @@ export default async function WorkforceManagerPage({
             displayName={myDisplayName}
             positionLabel={myProfile?.positionLabel ?? null}
             tenantOptions={toTenantSwitchOptions(result.data.memberships)}
-            locationOptions={toLocationSwitchOptions(locationChoices)}
+            // Only stores this caller MANAGES: a store where they are only staff
+            // would open /manager without access and no switcher to get back.
+            locationOptions={toLocationSwitchOptions(locationChoices.filter((l) => l.access !== 'staff'))}
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}

@@ -74,8 +74,9 @@ const authCopy = {
     accountTitle: 'アカウント設定',
     accountMenuLink: 'アカウント設定',
     // DEBT-139 L2: a client (tenant) can now have several stores, so the
-    // tenant switch says 事業者 (business) and 店舗 means one store.
-    tenantSwitchHeading: '事業者を切り替え',
+    // tenant switch names the company / brand (as the console form does:
+    // お店の名前（会社・ブランド名）) and 店舗 means one store.
+    tenantSwitchHeading: '会社・ブランドを切り替え',
     locationSwitchHeading: '店舗を切り替え',
     accountEmail: 'ログイン用メールアドレス',
     accountPasswordHeading: 'パスワードの変更',

@@ -109,7 +109,7 @@ export function AccountMenu({
       <button
         ref={triggerRef}
         type="button"
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={displayName}
         className={hoverStyles.buttonSecondary}
@@ -154,15 +154,18 @@ export function AccountMenu({
               <div aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'rgba(54, 43, 31, 0.45)', zIndex: 1199 }} />
               <div
                 ref={panelRef}
-                role="menu"
+                // DEBT-120 (a): a panel of groups, buttons, a link and a form
+                // is a dialog, not a `menu` (no menuitems / arrow-key model).
+                role="dialog"
                 aria-label={displayName}
                 style={{
                   position: 'fixed',
                   top: coords.top,
                   right: coords.right,
                   minWidth: 220,
-                  maxWidth: 'calc(100vw - 16px)',
-                  maxHeight: `calc(100dvh - ${coords.top + 8}px)`,
+                  maxWidth: `calc(100vw - ${coords.right + 8}px)`,
+                  // vh, not dvh: iOS Safari < 15.4 ignores dvh (no cap at all).
+                  maxHeight: `calc(100vh - ${coords.top + 8}px)`,
                   overflowY: 'auto',
                   overscrollBehavior: 'contain',
                   background: colors.surface,
