@@ -2,7 +2,8 @@ import 'server-only';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { loadPageContext } from './page-context';
-import { resolveActiveLocation, type MyLocation } from './active-location';
+import { findLocationChoice, resolveActiveLocation, type MyLocation } from './active-location';
+import type { TenantAccessResult } from './types';
 import {
   ACTIVE_LOCATION_COOKIE,
   buildActiveLocationCookieOptions,
@@ -45,6 +46,37 @@ export const getActiveLocation = cache(
     return { status: 'success', data: { location: resolved.location, choices: resolved.choices } };
   },
 );
+
+/**
+ * `getActiveLocation` as a `TenantAccessResult`, for server actions: no
+ * active store -> an error (fail closed), never another location.
+ */
+export async function requireActiveLocation(
+  tenantId: string,
+  defaultLocationId: string | null,
+): Promise<TenantAccessResult<{ location: MyLocation; choices: MyLocation[] }>> {
+  const result = await getActiveLocation(tenantId, defaultLocationId);
+  if (result.status === 'success') return result;
+  if (result.status === 'no_location') return { status: 'unexpected_error', message: 'No active location for this workspace.' };
+  return { status: 'unexpected_error', message: result.message };
+}
+
+/**
+ * A client-sent `locationId` of a Manager server action, accepted only when
+ * it is one of this request's active-store choices (else `unauthorized`).
+ * Narrowing only -- the action's own permission check / RLS stay the boundary.
+ */
+export async function requireLocationChoice(
+  tenantId: string,
+  defaultLocationId: string | null,
+  locationId: string,
+): Promise<TenantAccessResult<MyLocation>> {
+  const activeLocation = await requireActiveLocation(tenantId, defaultLocationId);
+  if (activeLocation.status !== 'success') return activeLocation;
+  const location = findLocationChoice(activeLocation.data.choices, locationId);
+  if (!location) return { status: 'unauthorized', message: 'Not one of your active locations.' };
+  return { status: 'success', data: location };
+}
 
 /** Write the cookie for an ALREADY-VALIDATED (strict `resolveActiveLocation`) tenant + location. Server Action only. */
 export async function setActiveLocationCookie(tenantId: string, locationId: string): Promise<void> {

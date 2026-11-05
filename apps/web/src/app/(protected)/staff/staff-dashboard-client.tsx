@@ -66,7 +66,7 @@ import { TransportForm } from './transport-form';
 import { StaffMailPopup } from './staff-mail-popup';
 import { MonthlyShiftPreferenceModal } from './monthly-shift-preference-modal';
 import { useIsCompactSchedule } from './use-compact-schedule';
-import { AccountMenu, type TenantSwitchOption } from '../_ui/account-menu';
+import { AccountMenu, type LocationSwitchOption, type TenantSwitchOption } from '../_ui/account-menu';
 import { RecipesPopup } from '../_ui/recipes-popup';
 import { InventoryPopup } from '../_ui/inventory-popup';
 import { PurchasesPopup } from '../_ui/purchases-popup';
@@ -135,6 +135,10 @@ export interface StaffDashboardClientProps {
   displayName: string | null;
   /** Every cafe the caller belongs to, for the account-menu switcher (F13); shown only with two or more. */
   tenantOptions: TenantSwitchOption[];
+  /** DEBT-139 L2: the store switcher's options -- passed only when the caller also manages a store (empty for plain Staff); shown only with two or more. */
+  locationOptions: LocationSwitchOption[];
+  /** The active store the switcher highlights (Manager surfaces); `undefined` when `locationOptions` is empty. */
+  activeLocationId?: string;
   /** Every visible coworker's (plus the caller's own) real display name, keyed by employee id -- same source as `displayName`, threaded through to the schedule grid so it can show real names instead of synthesized "Staff N" labels. */
   staffNameById: Record<string, string>;
   shiftTypes: WorkforceShiftType[] | null;
@@ -254,6 +258,8 @@ function StaffDashboardBody({
   profile,
   displayName,
   tenantOptions,
+  locationOptions,
+  activeLocationId,
   staffNameById,
   shiftTypes,
   requests,
@@ -643,6 +649,8 @@ function StaffDashboardBody({
           signOutLabel={t('signOut')}
           tenantOptions={tenantOptions}
           activeTenantId={tenantId}
+          locationOptions={locationOptions}
+          activeLocationId={activeLocationId}
         />
       </header>
 

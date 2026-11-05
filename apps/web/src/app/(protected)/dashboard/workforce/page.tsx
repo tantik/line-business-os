@@ -1,7 +1,7 @@
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import {
@@ -61,12 +61,9 @@ export default async function WorkforceLandingPage() {
       // affordance only: the Manager route re-runs this same server-side
       // check independently regardless of what this landing page renders,
       // so hiding the card is never the security boundary by itself.
-      const locationsResult = await listTenantLocations(supabase);
-      const tenantLocations =
-        locationsResult.status === 'success'
-          ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
-          : [];
-      const managerLocation = tenantLocations.find((l) => l.isActive) ?? tenantLocations[0];
+      // DEBT-139 L2: same ACTIVE store as `/manager` (page context, no extra request).
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      const managerLocation = activeLocation.status === 'success' ? activeLocation.data.location : undefined;
       const canAccessManager = managerLocation
         ? await hasManagerAccess(supabase, activeTenant.tenantId, managerLocation.locationId)
         : false;

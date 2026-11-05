@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapMyLocationRows, resolveActiveLocation, type MyLocation } from './active-location.js';
+import {
+  findLocationChoice,
+  mapMyLocationRows,
+  resolveActiveLocation,
+  toLocationSwitchOptions,
+  type MyLocation,
+} from './active-location.js';
 import {
   candidateLocationFor,
   formatActiveLocationCookieValue,
@@ -69,6 +75,21 @@ test('default: membership default location first, else strongest access, then na
     ['Aoyama', 'Bunkyo', 'Chuo'],
     'choices are by name, active only',
   );
+});
+
+test('findLocationChoice: only one of the choices, never another id', () => {
+  const r = resolveActiveLocation([loc(A, 'A store', 'manage'), loc(B, 'B store', 'manage'), loc(C, 'C closed', 'manage', false)]);
+  assert.ok(r.ok);
+  assert.equal(findLocationChoice(r.choices, B)?.locationId, B);
+  assert.equal(findLocationChoice(r.choices, C), null, 'an archived store is not a choice');
+  assert.equal(findLocationChoice(r.choices, '99999999-9999-9999-9999-999999999999'), null);
+});
+
+test('toLocationSwitchOptions keeps only id + name, in choice order', () => {
+  assert.deepEqual(toLocationSwitchOptions([loc(A, 'A store', 'all'), loc(B, 'B store', 'staff')]), [
+    { locationId: A, locationName: 'A store' },
+    { locationId: B, locationName: 'B store' },
+  ]);
 });
 
 test('resolveActiveLocation does not mutate its input', () => {

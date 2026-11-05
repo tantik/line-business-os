@@ -3,6 +3,7 @@ import { SignOutButton } from '@/components/sign-out-button';
 import { TenantSwitcher } from '@/components/tenant-switcher';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantLocations } from '@/lib/tenant/locations';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -143,7 +144,10 @@ export default async function DashboardPage() {
   switch (result.status) {
     case 'success': {
       const { activeTenant, memberships } = result.data;
-      const activeLocationScope = activeTenant.locationId ?? 'tenant-wide';
+      // DEBT-139 L2: the request's ACTIVE store (page context, no extra
+      // request); the Locations card below still lists every location.
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      const activeLocationScope = activeLocation.status === 'success' ? activeLocation.data.location.locationName : 'tenant-wide';
       const supabase = await createClient();
       const [locationsResult, modulesResult] = await Promise.all([
         listTenantLocations(supabase),

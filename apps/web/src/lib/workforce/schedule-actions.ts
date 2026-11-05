@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { listTenantLocations } from '@/lib/tenant/locations';
+import { requireLocationChoice } from '@/lib/tenant/active-location.server';
 import { queueLineNotification } from '@/lib/notifications/queue-line-notification';
 import { getMyWorkforceStaffProfile } from './staff-profile';
 import { listWorkforceStaffDirectory } from './employees';
@@ -230,11 +231,11 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === locationId);
-  if (!location) return { status: 'not_found' };
-  const timeZone = location.timezone;
+  // DEBT-139 L2: the client-sent store must be one of the caller's active
+  // stores of this request -- narrowing only; RLS stays the boundary.
+  const locationResult = await requireLocationChoice(tenantId, tenantContext.data.activeTenant.locationId, locationId);
+  if (locationResult.status !== 'success') return locationResult;
+  const timeZone = locationResult.data.timezone;
 
   // Historical immutability: a regeneration may never touch a date before
   // "today" in the location's own timezone. The server clamps here rather
@@ -546,10 +547,9 @@ export async function updateShiftAssignment(formData: FormData): Promise<Workfor
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === input.locationId);
-  if (!location) return { status: 'not_found' };
+  const locationResult = await requireLocationChoice(tenantId, tenantContext.data.activeTenant.locationId, input.locationId);
+  if (locationResult.status !== 'success') return locationResult;
+  const location = locationResult.data;
 
   return updateShiftAssignmentWrite(supabase, tenantId, input.assignmentId, {
     employeeId: input.employeeId,
@@ -574,10 +574,9 @@ export async function createShiftAssignment(formData: FormData): Promise<Workfor
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === input.locationId);
-  if (!location) return { status: 'not_found' };
+  const locationResult = await requireLocationChoice(tenantId, tenantContext.data.activeTenant.locationId, input.locationId);
+  if (locationResult.status !== 'success') return locationResult;
+  const location = locationResult.data;
 
   return createShiftAssignmentWrite(supabase, tenantId, input.locationId, {
     employeeId: input.employeeId,
@@ -601,10 +600,9 @@ export async function publishSchedule(formData: FormData): Promise<WorkforceWrit
   const supabase = await createClient();
   const tenantId = tenantContext.data.activeTenant.tenantId;
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const location = locationsResult.data.find((l) => l.tenantId === tenantId && l.locationId === input.locationId);
-  if (!location) return { status: 'not_found' };
+  const locationResult = await requireLocationChoice(tenantId, tenantContext.data.activeTenant.locationId, input.locationId);
+  if (locationResult.status !== 'success') return locationResult;
+  const location = locationResult.data;
 
   const fromIso = localDateTimeToUtcIso(input.periodStart, '00:00', location.timezone);
   const toIsoExclusive = localDateTimeToUtcIso(addIsoDays(input.periodEnd, 1), '00:00', location.timezone);
