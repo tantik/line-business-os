@@ -5,6 +5,8 @@ import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { loadPageContext } from '@/lib/tenant/page-context';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
+import { toLocationSwitchOptions } from '@/lib/tenant/active-location';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
 import { listAttendanceForManager } from '@/lib/workforce/attendance';
@@ -98,7 +100,6 @@ export default async function WorkforceManagerPage({
       // (one `api.my_page_context` RPC) -- no further round trip here.
       const pageContext = await loadPageContext();
       const navigationResult = pageContext.navigation;
-      const locationsResult = pageContext.locations;
       const packageCodes = pageContext.packageCodes(activeTenant.tenantId);
       // Enabled modules of the active tenant, in package order (0132, task
       // P4). The flags below gate only this dashboard's entry points and
@@ -117,19 +118,15 @@ export default async function WorkforceManagerPage({
       const operationsEnabled = navigation.enabled.has('operations');
       const issuesEnabled = navigation.enabled.has('issues');
 
-      const tenantLocations =
-        locationsResult.status === 'success'
-          ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
-          : [];
-      // LOC-1 (docs/ai/ORUWA_CAFE_V2_1_WHOLE_PRODUCT_INTEGRITY_GATE.md): fails
-      // closed on 0 or more than 1 active location, matching the
-      // earlier preview Manager reference surface exactly --
-      // never silently falls back to an arbitrary (possibly inactive)
-      // location the way this page previously did.
-      const activeTenantLocations = tenantLocations.filter((l) => l.isActive);
-      const location = activeTenantLocations.length === 1 ? activeTenantLocations[0] : undefined;
+      // DEBT-139 L2: the ACTIVE store of this request (switcher cookie /
+      // membership default / strongest access), from the page context -- no
+      // extra request. Only active stores the caller relates to are ever
+      // chosen; it chooses, it does not authorize (the manager gate below and
+      // RLS stay the boundary). No active store -> fail closed.
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      if (activeLocation.status === 'unexpected_error') return <ErrorState />;
 
-      if (!location) {
+      if (activeLocation.status === 'no_location') {
         return (
           <main style={pageStyle(1180)}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
@@ -142,15 +139,12 @@ export default async function WorkforceManagerPage({
               <SignOutButton />
             </header>
             <section style={card}>
-              <p style={{ margin: 0, ...mutedText }}>
-                {activeTenantLocations.length === 0
-                  ? 'No location is configured for this workspace yet.'
-                  : 'This workspace has more than one active location. Multi-location management is not supported on this page yet.'}
-              </p>
+              <p style={{ margin: 0, ...mutedText }}>No location is configured for this workspace yet.</p>
             </section>
           </main>
         );
       }
+      const { location, choices: locationChoices } = activeLocation.data;
 
       // Every permission check this page needs, in ONE `api.my_access` RPC
       // (0142, DEBT-124) instead of five round trips; same answers as the
@@ -492,6 +486,7 @@ export default async function WorkforceManagerPage({
             displayName={myDisplayName}
             positionLabel={myProfile?.positionLabel ?? null}
             tenantOptions={toTenantSwitchOptions(result.data.memberships)}
+            locationOptions={toLocationSwitchOptions(locationChoices)}
             timeZone={location.timezone}
             periodStart={periodStart}
             periodEnd={periodEnd}

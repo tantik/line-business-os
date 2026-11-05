@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
 import { listPurchaseHistory } from '@/lib/purchases/history';
 import { listPurchasesAwaitingDelivery } from '@/lib/purchases/awaiting-delivery';
@@ -56,15 +56,9 @@ export default async function PurchasesPage() {
 
       if (!purchasesEnabled) return <ModuleUnavailableState />;
 
-      const locationsResult = await listTenantLocations(supabase);
-      const tenantLocations =
-        locationsResult.status === 'success'
-          ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
-          : [];
-      const location =
-        tenantLocations.find((l) => l.locationId === activeTenant.locationId) ??
-        tenantLocations.find((l) => l.isActive) ??
-        tenantLocations[0];
+      // DEBT-139 L2: the ACTIVE store (page context, no extra request).
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      const location = activeLocation.status === 'success' ? activeLocation.data.location : undefined;
 
       if (!location) {
         return (

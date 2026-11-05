@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
 import { createInventoryMediaUrlMap, hasInventoryPermission, listInventoryItemStatus } from '@/lib/inventory/items';
 import { listPurchasesNeeded } from '@/lib/purchases/items';
@@ -41,10 +41,8 @@ export const metadata: Metadata = { title: 'Inventory', robots: { index: false, 
  * controls only render when `canManage` is true (a UX affordance -- RLS is
  * what actually blocks the write either way).
  *
- * MVP is intentionally single-location: the caller's own tenant-membership
- * location (or the tenant's first active location as a fallback) is used,
- * matching the same pattern as the Workforce staff dashboard page. A
- * location switcher is out of this slice's scope.
+ * Works on the request's ACTIVE store (`getActiveLocation`, DEBT-139 L2 --
+ * the account-menu switcher / membership default), only ever an active one.
  */
 export default async function InventoryPage() {
   const result = await requireTenantContext();
@@ -62,15 +60,9 @@ export default async function InventoryPage() {
 
       if (!inventoryEnabled) return <ModuleUnavailableState />;
 
-      const locationsResult = await listTenantLocations(supabase);
-      const tenantLocations =
-        locationsResult.status === 'success'
-          ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId)
-          : [];
-      const location =
-        tenantLocations.find((l) => l.locationId === activeTenant.locationId) ??
-        tenantLocations.find((l) => l.isActive) ??
-        tenantLocations[0];
+      // DEBT-139 L2: the ACTIVE store (page context, no extra request).
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      const location = activeLocation.status === 'success' ? activeLocation.data.location : undefined;
 
       if (!location) {
         return (

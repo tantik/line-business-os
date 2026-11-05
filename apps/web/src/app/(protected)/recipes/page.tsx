@@ -4,7 +4,7 @@ import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
 import { listTenantModules } from '@/lib/tenant/modules';
 import { loadTenantPackageConfig } from '@/lib/packages/tenant-package-config';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { getActiveLocation } from '@/lib/tenant/active-location.server';
 import { hasManagerAccess } from '@/lib/workforce/manager-access';
 import { listWorkforceRecipeCategories } from '@/lib/workforce/recipe-categories';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, hasRecipeManagerAccess, listWorkforceRecipes } from '@/lib/workforce/recipes';
@@ -54,16 +54,15 @@ export default async function WorkforceRecipesPage() {
       // A5b) instead of this standalone page -- same reasoning as the
       // Inventory redirect (WP A5a): `/recipes` is shared by both Manager
       // and Staff, so Staff-role visitors must see this exact page
-      // unchanged. If no single active location can be resolved, this
-      // check is skipped entirely (fails open to "just show the page",
-      // not "block access") -- recipes are tenant-wide, not
+      // unchanged. The check runs at the ACTIVE store (DEBT-139 L2,
+      // `getActiveLocation`, from the page context); if none can be
+      // resolved, it is skipped entirely (fails open to "just show the
+      // page", not "block access") -- recipes are tenant-wide, not
       // location-scoped, so a location-resolution hiccup here should never
       // stop a Manager from reaching their recipes at all.
-      const locationsResult = await listTenantLocations(supabase);
-      const activeTenantLocations =
-        locationsResult.status === 'success' ? locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId && l.isActive) : [];
-      if (activeTenantLocations.length === 1) {
-        const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, activeTenantLocations[0]!.locationId);
+      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+      if (activeLocation.status === 'success') {
+        const managerAccess = await hasManagerAccess(supabase, activeTenant.tenantId, activeLocation.data.location.locationId);
         if (managerAccess) redirect('/manager?popup=recipes');
       }
 

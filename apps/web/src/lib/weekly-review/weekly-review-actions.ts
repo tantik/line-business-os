@@ -2,7 +2,7 @@
 
 import { requireTenantContext } from '@/lib/tenant/context';
 import { createClient } from '@/lib/supabase/server';
-import { listTenantLocations } from '@/lib/tenant/locations';
+import { requireActiveLocation } from '@/lib/tenant/active-location.server';
 import { getWeekPeriod } from '@/lib/workforce/period';
 import { addIsoDays, localDateTimeToUtcIso } from '@/lib/workforce/timezone';
 import type { TenantAccessResult } from '@/lib/tenant/types';
@@ -23,8 +23,8 @@ import { getWeeklyReviewSummary, type WeeklyReviewSummary } from './weekly-revie
  * `manager-dashboard-client.tsx`'s own Round 3 perf note -- overkill for a
  * popup that only needs its own five-domain summary).
  *
- * Resolves the SAME "exactly one active location" (LOC-1) fail-closed
- * pattern `/manager/page.tsx` already uses -- never a silent fallback to an
+ * Resolves the SAME active store `/manager/page.tsx` uses
+ * (`getActiveLocation`, DEBT-139 L2) -- never a silent fallback to an
  * arbitrary location.
  */
 
@@ -48,16 +48,11 @@ export async function getWeeklyReviewAction(weekOffsetRaw: number): Promise<Tena
   const { activeTenant } = contextResult.data;
   const supabase = await createClient();
 
-  const locationsResult = await listTenantLocations(supabase);
-  if (locationsResult.status !== 'success') return locationsResult;
-  const activeLocations = locationsResult.data.filter((l) => l.tenantId === activeTenant.tenantId && l.isActive);
-  // LOC-1 fail-closed: never fall back to an arbitrary (possibly inactive,
-  // possibly wrong) location -- same rule `/manager/page.tsx` already
-  // enforces for the whole dashboard.
-  if (activeLocations.length !== 1) {
-    return { status: 'unexpected_error', message: 'Weekly Review requires exactly one active location for this workspace.' };
-  }
-  const location = activeLocations[0]!;
+  // DEBT-139 L2: the same ACTIVE store `/manager` shows; fails closed when
+  // there is none -- never an arbitrary location.
+  const activeLocation = await requireActiveLocation(activeTenant.tenantId, activeTenant.locationId);
+  if (activeLocation.status !== 'success') return activeLocation;
+  const { location } = activeLocation.data;
 
   const hasAccess = await hasWeeklyReviewAccess(supabase, activeTenant.tenantId, location.locationId);
   if (!hasAccess) return { status: 'unauthorized', message: 'Not permitted to view the Weekly Review.' };

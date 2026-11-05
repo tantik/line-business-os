@@ -66,6 +66,20 @@ export function compareLocationsByName(a: MyLocation, b: MyLocation): number {
   return a.locationName.localeCompare(b.locationName, 'ja') || a.locationId.localeCompare(b.locationId);
 }
 
+/**
+ * A client-sent `locationId` (server action input) checked against the
+ * request's choices: the matching choice, else `null` (caller -> unauthorized).
+ * Narrows only what a Manager action may target; RLS / RPC checks stay the boundary.
+ */
+export function findLocationChoice(choices: MyLocation[], locationId: string): MyLocation | null {
+  return choices.find((l) => l.locationId === locationId) ?? null;
+}
+
+/** Choices -> the account-menu store switcher's options (it shows only with two or more). */
+export function toLocationSwitchOptions(choices: MyLocation[]): { locationId: string; locationName: string }[] {
+  return choices.map(({ locationId, locationName }) => ({ locationId, locationName }));
+}
+
 export interface ResolveActiveLocationOptions {
   /** Strict explicit choice: not an active location of the caller -> `unauthorized`. */
   requestedLocationId?: string | null;
