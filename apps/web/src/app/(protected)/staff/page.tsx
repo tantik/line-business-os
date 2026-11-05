@@ -5,8 +5,6 @@ import { toTenantSwitchOptions } from '@/lib/tenant/switch-options';
 import { SignOutButton } from '@/components/sign-out-button';
 import { createClient } from '@/lib/supabase/server';
 import { loadPageContext } from '@/lib/tenant/page-context';
-import { getActiveLocation } from '@/lib/tenant/active-location.server';
-import { toLocationSwitchOptions } from '@/lib/tenant/active-location';
 import { popupIfModuleEnabled, tenantNavigation } from '@/lib/tenant/module-nav';
 import { resolvePackageConfig } from '@/lib/packages/config';
 import { getMyWorkforceStaffProfile } from '@/lib/workforce/staff-profile';
@@ -171,16 +169,6 @@ export default async function WorkforceStaffPage({
           </main>
         );
       }
-
-      // DEBT-139 L2: this page always works on the Staff member's own home
-      // store (above). The account-menu store switcher is offered only to a
-      // caller who also manages a store (access all/manage) -- it picks the
-      // store for the Manager surfaces; a plain Staff member gets nothing.
-      const activeLocation = await getActiveLocation(activeTenant.tenantId, activeTenant.locationId);
-      const managedChoices =
-        activeLocation.status === 'success' && activeLocation.data.choices.some((l) => l.access !== 'staff')
-          ? activeLocation.data
-          : null;
 
       const { weekOffset: rawWeekOffset, popup: rawPopup } = await searchParams;
       const weekOffset = parseWeekOffset(rawWeekOffset);
@@ -430,8 +418,6 @@ export default async function WorkforceStaffPage({
             profile={profile}
             displayName={staffNameById[profile.staffId] ?? null}
             tenantOptions={toTenantSwitchOptions(result.data.memberships)}
-            locationOptions={managedChoices ? toLocationSwitchOptions(managedChoices.choices) : []}
-            activeLocationId={managedChoices?.location.locationId}
             staffNameById={staffNameById}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
             requests={requestsResult.status === 'success' ? requestsResult.data : null}
