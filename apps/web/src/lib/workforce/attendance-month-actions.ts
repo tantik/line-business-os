@@ -44,5 +44,7 @@ export async function loadStaffMonthAttendance(
   if (!isSelectableReportMonth(rawMonthPrefix, currentMonth)) return { status: 'unexpected_error', message: 'Invalid month.' };
 
   const { fromDate, toDate } = monthDateRange(rawMonthPrefix);
-  return listAttendanceForManager(supabase, tenantId, { fromDate, toDate, employeeId });
+  // This store only (DEBT-139 L2): same scope as the current months the
+  // dashboard loads (0155), so old and recent months never disagree.
+  return listAttendanceForManager(supabase, tenantId, { fromDate, toDate, employeeId, locationId: location.locationId });
 }

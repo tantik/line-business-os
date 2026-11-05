@@ -13,18 +13,20 @@
 --
 -- WHAT: both function bodies unchanged except the added store filters
 -- (generated from 0144 / 0145 with exact single-occurrence replacements):
---   manager_dashboard: staff (home store, or none), shiftTypes,
+--   manager_dashboard: staff (home store, or none, or with a shift /
+--     attendance at this store in the loaded window), recipes (this store
+--     or shared = NULL), shiftTypes,
 --     preferenceRequests / correctionRequests (this store, or none),
 --     assignments, attendance, exchangeAssignments, staffMessages,
 --     operationsTemplates (this store or shared = NULL), operationsItems
 --     (of those templates), operationsSchedules, operationsTodayTasks,
 --     operationsOpenExceptions, issuesOpen, issuesAll  -> location_id = p_location_id
---   staff_dashboard: staffRoster -> location_id = p_location_id (its shared
+--   staff_dashboard: staffRoster -> this store or none (its shared
 --     parts come from manager_dashboard, so they narrow with it).
 -- Unchanged on purpose: lineLinks / invitations (per employee, only shown
 -- next to listed staff), protectedHistoryIds (ids only, tenant-wide is the
--- safe side for "has history"), recipes / categories / translations
--- (tenant-wide or per store by their own rules), myProfile.
+-- safe side for "has history"), recipe categories / translations
+-- (tenant-wide), myProfile.
 -- One-store tenants: identical results (every row is at their store).
 --
 -- SECURITY MODEL: unchanged -- SECURITY INVOKER (ADR 0008), same views as
@@ -72,6 +74,7 @@ declare
   v_today date;
   v_rows jsonb;
   v_ids jsonb;
+  v_extra_staff uuid[] := '{}';
   v_out jsonb := '{}'::jsonb;
 begin
   -- ---- input validation (whole call) -------------------------------------------------------
@@ -122,6 +125,24 @@ begin
 
   -- ---- staff (+ protected-history ids) -----------------------------------------------------
   if 'staff' = any (v_parts) then
+    if v_from is not null then
+      begin
+        v_extra_staff := v_extra_staff || coalesce((select array_agg(distinct sa.employee_id)
+          from api.workforce_shift_assignments sa
+         where sa.tenant_id = p_tenant_id and sa.location_id = p_location_id and sa.employee_id is not null
+           and sa.starts_at >= v_from and sa.starts_at < v_to), '{}');
+      exception when others then null;
+      end;
+    end if;
+    if v_att_from is not null then
+      begin
+        v_extra_staff := v_extra_staff || coalesce((select array_agg(distinct aa.employee_id)
+          from api.workforce_attendance aa
+         where aa.tenant_id = p_tenant_id and aa.location_id = p_location_id and aa.employee_id is not null
+           and aa.work_date >= v_att_from and aa.work_date <= v_att_to), '{}');
+      exception when others then null;
+      end;
+    end if;
     begin
       v_rows := (select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from (
         select s.staff_id, s.tenant_id, s.location_id, s.name_encrypted, s.name_hash, s.family_name_encrypted,
@@ -129,7 +150,11 @@ begin
                s.employment_type, s.is_active, s.created_at, s.updated_at, s.hourly_wage_yen,
                s.has_account_access, s.is_manager, s.is_admin
           from api.workforce_staff_manage s
-         where s.tenant_id = p_tenant_id and (s.location_id = p_location_id or s.location_id is null)
+         where s.tenant_id = p_tenant_id
+           -- this store's staff (or without a store), plus anyone with a shift /
+           -- attendance at this store in the loaded window (moved staff's history,
+           -- a shift at another store), so no row of this store loses its person
+           and (s.location_id = p_location_id or s.location_id is null or s.staff_id = any (v_extra_staff))
          limit c_max_rows) x);
       v_ids := '[]'::jsonb;
       begin
@@ -418,7 +443,7 @@ begin
                r.description_ja, r.description_en, r.content_kind, r.is_popular, r.status, r.created_at,
                r.updated_at, r.media_path, r.original_language
           from api.workforce_recipes r
-         where r.tenant_id = p_tenant_id
+         where r.tenant_id = p_tenant_id and (r.location_id = p_location_id or r.location_id is null)
          limit c_max_rows) x);
       v_out := v_out || jsonb_build_object('recipes', jsonb_build_object('rows', v_rows));
     exception when others then
@@ -780,7 +805,7 @@ begin
       v_rows := (select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from (
         select r.employee_id, r.tenant_id, r.location_id, r.name_encrypted, r.is_active
           from api.workforce_staff_roster r
-         where r.tenant_id = p_tenant_id and r.location_id = p_location_id
+         where r.tenant_id = p_tenant_id and (r.location_id = p_location_id or r.location_id is null)
          limit c_max_rows) x);
       v_out := v_out || jsonb_build_object('staffRoster', jsonb_build_object('rows', v_rows));
     exception when others then

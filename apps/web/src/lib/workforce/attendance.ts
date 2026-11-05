@@ -108,6 +108,8 @@ export interface ManagerAttendanceFilter {
   fromDate?: string;
   toDate?: string;
   employeeId?: string;
+  /** One store's rows only (DEBT-139 L2). */
+  locationId?: string;
   attendanceIds?: readonly string[];
 }
 
@@ -135,6 +137,7 @@ export async function listAttendanceForManager(
       if (filter.fromDate) query = query.gte('work_date', filter.fromDate);
       if (filter.toDate) query = query.lte('work_date', filter.toDate);
       if (filter.employeeId) query = query.eq('employee_id', filter.employeeId);
+      if (filter.locationId) query = query.eq('location_id', filter.locationId);
       if (filter.attendanceIds) query = query.in('attendance_id', [...filter.attendanceIds]);
       return query.order('work_date', { ascending: false }).order('attendance_id', { ascending: true }).range(from, to);
     });

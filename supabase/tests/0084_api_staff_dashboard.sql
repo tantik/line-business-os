@@ -266,7 +266,7 @@ insert into direct_sql values
   ('myCorrectionRequests', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by work_date, request_id), '[]') from (select request_id, tenant_id, location_id, employee_id, shift_id, shift_type_id, work_date, kind, is_unavailable, status, details, attendance_id, created_at, updated_at from api.workforce_shift_requests where tenant_id = %1$L and kind = 'correction') x $q$, true),
   ('myAttendance', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by work_date, attendance_id), '[]') from (select attendance_id, tenant_id, location_id, employee_id, shift_id, work_date, clock_in, clock_out, actual_break_minutes, status, transportation_cost, daily_message, created_at, updated_at from api.workforce_attendance where tenant_id = %1$L) x $q$, true),
   ('myStaffMessages', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by created_at, message_id), '[]') from (select message_id, tenant_id, location_id, employee_id, sender_role, sender_user_id, body, is_read, read_at, read_by, archived_at, deleted_at, created_at, updated_at from api.workforce_staff_messages where tenant_id = %1$L and employee_id = %3$L) x $q$, true),
-  ('staffRoster', $q$ select coalesce(jsonb_agg(to_jsonb(x)), '[]') from (select employee_id, tenant_id, location_id, name_encrypted, is_active from api.workforce_staff_roster where tenant_id = %1$L and location_id = %2$L) x $q$, false),
+  ('staffRoster', $q$ select coalesce(jsonb_agg(to_jsonb(x)), '[]') from (select employee_id, tenant_id, location_id, name_encrypted, is_active from api.workforce_staff_roster where tenant_id = %1$L and (location_id = %2$L or location_id is null)) x $q$, false),
   ('operationsResponses', $q$ select coalesce(jsonb_agg(to_jsonb(x) order by response_id), '[]') from (select response_id, tenant_id, location_id, instance_id, item_id, response_bool, response_numeric, response_text, recorded_at, updated_at from api.operations_item_responses where tenant_id = %1$L and instance_id in (select t.instance_id from api.operations_expected_tasks(current_date, current_date) t where t.tenant_id = %1$L and t.location_id = %2$L and t.instance_id is not null)) x $q$, true);
 
 create function pg_temp.direct(p_uid text, p_tenant text, p_location text, p_employee text, p_part text) returns jsonb language plpgsql as $$
@@ -499,7 +499,8 @@ select ok(
 create function pg_temp.owner_at(p_location text, p_part text, p_key text) returns jsonb language sql as $$
   select coalesce(jsonb_agg(r ->> p_key order by r ->> p_key), '[]')
     from jsonb_array_elements(pg_temp.call('manager_dashboard', 'a8490000-0000-0000-0000-000000000001', 'a8400000-0000-0000-0000-0000000000a1', p_location,
-           jsonb_build_object('parts', jsonb_build_array(p_part), 'fromIso', '2026-01-05T00:00:00Z', 'toIsoExclusive', '2026-01-12T00:00:00Z')) -> p_part -> 'rows') r;
+           -- staff always comes with assignments in the app (its window decides who else is listed)
+           jsonb_build_object('parts', jsonb_build_array(p_part, 'assignments'), 'fromIso', '2026-01-05T00:00:00Z', 'toIsoExclusive', '2026-01-12T00:00:00Z')) -> p_part -> 'rows') r;
 $$;
 select is(pg_temp.owner_at('a8410000-0000-0000-0000-000000000001', 'staff', 'staff_id'),
   '["a8430000-0000-0000-0000-000000000001", "a8430000-0000-0000-0000-000000000004"]'::jsonb,
@@ -516,6 +517,18 @@ select is(
             'a8410000-0000-0000-0000-000000000001', '{"parts": ["staffRoster"]}') -> 'staffRoster' -> 'rows') r),
   '["a8430000-0000-0000-0000-000000000001", "a8430000-0000-0000-0000-000000000004"]'::jsonb,
   'F: an L1 employee''s staffRoster lists only L1 colleagues');
+-- a shift of L1's e1 at L2 in the week: L2's staff list must include e1, or that shift row has no person
+insert into workforce.shifts (id, tenant_id, location_id, employee_id, starts_at, ends_at, published) values
+  ('a8450000-0000-0000-0000-000000000099', 'a8400000-0000-0000-0000-0000000000a1', 'a8410000-0000-0000-0000-000000000003', 'a8430000-0000-0000-0000-000000000001', '2026-01-08 00:00:00+00', '2026-01-08 08:00:00+00', true);
+select is(pg_temp.owner_at('a8410000-0000-0000-0000-000000000003', 'staff', 'staff_id'),
+  '["a8430000-0000-0000-0000-000000000001", "a8430000-0000-0000-0000-000000000002"]'::jsonb,
+  'F: Owner at L2 also sees L1''s e1, who has a shift at L2 this week');
+select is(pg_temp.owner_at('a8410000-0000-0000-0000-000000000003', 'recipes', 'recipe_id'),
+  '["a84d0000-0000-0000-0000-000000000001", "a84d0000-0000-0000-0000-000000000002", "a84d0000-0000-0000-0000-000000000003"]'::jsonb,
+  'F: Owner at L2 sees shared recipes + the L2 recipe');
+select is(pg_temp.owner_at('a8410000-0000-0000-0000-000000000001', 'recipes', 'recipe_id'),
+  '["a84d0000-0000-0000-0000-000000000001", "a84d0000-0000-0000-0000-000000000002"]'::jsonb,
+  'F: Owner at L1 does not see the L2-only recipe');
 
 select * from finish();
 rollback;
