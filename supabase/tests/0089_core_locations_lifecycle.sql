@@ -12,6 +12,9 @@
 --   H  scoped Manager appointment + revoke (0138 overload untouched)
 --   I  move employee (roles, membership, future-shift refusal)
 --   J  isolation: a Manager scoped to store A reads nothing of store B
+--   K  0152 boundaries + 0151 review fixes
+--   L  0156 manager_scope (api.workforce_staff_manage), same gate as is_manager
+--   M  0156 move cancels the employee's open requests at the old store
 -- ============================================================================
 begin;
 
@@ -599,7 +602,7 @@ select is((select location_id::text from workforce.employees where id = 'a892000
 delete from workforce.shifts where id = 'a8970000-0000-0000-0000-000000000001';
 select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000001',
   $$ select api.move_employee_location('a8920000-0000-0000-0000-00000000000b', 'a8910000-0000-0000-0000-000000000002')::text $$)::jsonb,
-  '{"employee_id": "a8920000-0000-0000-0000-00000000000b", "from_location_id": "a8910000-0000-0000-0000-000000000001", "to_location_id": "a8910000-0000-0000-0000-000000000002", "changed": true, "role_assignments_moved": 2}'::jsonb,
+  '{"employee_id": "a8920000-0000-0000-0000-00000000000b", "from_location_id": "a8910000-0000-0000-0000-000000000001", "to_location_id": "a8910000-0000-0000-0000-000000000002", "changed": true, "role_assignments_moved": 2, "cancelled_requests": 0}'::jsonb,
   'I: Owner moves E6 to LB (past shift does not block)');
 select is((select location_id::text from workforce.employees where id = 'a8920000-0000-0000-0000-00000000000b'),
   'a8910000-0000-0000-0000-000000000002', 'I: home location updated');
@@ -838,6 +841,120 @@ select is((select count(*)::int from operations.task_schedules where location_id
 select is((select count(*)::int || ':' || bool_and(effective_to = (now() at time zone 'Asia/Tokyo')::date)::text
              from operations.task_schedules where location_id = (select (r ->> 'location_id')::uuid from k_res)),
   '1:true', 'K: the started version ends today (store calendar); the future version is removed');
+
+-- L: 0156 manager_scope in api.workforce_staff_manage ---------------------------------------------------
+-- state here: MW (03) tenant-wide Manager; MA (04), E5 (0a), E6 (0b) store Managers of LA; SB (06) store
+-- Manager of LB (K); O (01), SA (05), E7 (0c, now at LA) no manager role
+select is(has_function_privilege('anon', 'core.employee_user_manager_scope(uuid, uuid)', 'execute'), false, 'L: anon cannot call core.employee_user_manager_scope');
+select is(has_function_privilege('authenticated', 'core.employee_user_manager_scope(uuid, uuid)', 'execute'), true, 'L: authenticated can call it (like employee_user_is_manager)');
+select ok((select prosecdef and proconfig::text like '%search_path=%' from pg_proc
+            where oid = 'core.employee_user_manager_scope(uuid, uuid)'::regprocedure),
+  'L: SECURITY DEFINER with a pinned search_path');
+select is((select column_name::text from information_schema.columns
+            where table_schema = 'api' and table_name = 'workforce_staff_manage' order by ordinal_position desc limit 1),
+  'manager_scope', 'L: manager_scope is the last column of api.workforce_staff_manage');
+create function pg_temp.scopes(p_user text) returns text language plpgsql as $$
+begin
+  return pg_temp.as_user(p_user, $q$
+    select string_agg(right(staff_id::text, 2) || '=' || coalesce(manager_scope, '-'), ',' order by staff_id)
+      from api.workforce_staff_manage where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' $q$);
+end $$;
+select is(pg_temp.scopes('a8990000-0000-0000-0000-000000000001'),
+  '01=-,03=tenant,04=location,05=-,06=location,0a=location,0b=location,0c=-',
+  'L: the Owner sees tenant / location / null for every TA employee');
+select is(pg_temp.scopes('a8990000-0000-0000-0000-000000000003'),
+  '01=-,03=tenant,04=location,05=-,06=location,0a=location,0b=location,0c=-',
+  'L: the tenant-wide Manager sees the same');
+select is(pg_temp.scopes('a8990000-0000-0000-0000-000000000004'),
+  '01=-,03=tenant,04=location,05=-,0a=location,0b=location,0c=-',
+  'L: a store Manager of LA sees the scopes of LA staff only');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000004', $q$
+  select coalesce(core.employee_user_manager_scope('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006'), 'null')
+         || '/' || core.employee_user_is_manager('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006')::text $q$),
+  'null/false', 'L: the store Manager of LA gets null for the LB Manager (matches is_manager false)');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000003', $q$
+  select core.employee_user_manager_scope('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000006') $q$),
+  'location', 'L: the tenant-wide Manager gets location for the LB Manager');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000007', $q$
+  select coalesce(core.employee_user_manager_scope('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000003'), 'null') $q$),
+  'null', 'L: another tenant''s Owner gets null');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000005', $q$
+  select coalesce(core.employee_user_manager_scope('a8900000-0000-0000-0000-0000000000a1', 'a8990000-0000-0000-0000-000000000003'), 'null') $q$),
+  'null', 'L: staff get null');
+select is(pg_temp.as_user(u, $q$
+  select bool_and((manager_scope is not null) = is_manager)::text
+    from api.workforce_staff_manage where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' $q$),
+  'true', format('L: manager_scope is non-null exactly when is_manager (caller %s)', right(u, 2)))
+  from unnest(array['a8990000-0000-0000-0000-000000000001', 'a8990000-0000-0000-0000-000000000003',
+                    'a8990000-0000-0000-0000-000000000004', 'a8990000-0000-0000-0000-000000000006']) u;
+
+-- M: 0156 move cancels the employee's open requests at the old store ----------------------------------------
+-- SA (employee ...05) moves LA -> LB. Requests: r1/r2 SA@LA pending (cancel), r3 approved / r4 rejected (keep),
+-- r5 SA@LB pending (keep), r6 E5@LA pending (keep); leave l1 SA@LA pending (cancel), l2 approved, l3 SA@LB,
+-- l4 E5@LA (keep); exchanges x1 SA requester open @LA, x2 SA replacement accepted @LA (cancel), x3 E5 open @LA,
+-- x4 SA approved @LA, x5 SA replacement accepted @LB (keep)
+insert into workforce.shift_requests (id, tenant_id, location_id, employee_id, kind, work_date, status) values
+  ('a8a00000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', 'preference', current_date + 20, 'pending'),
+  ('a8a00000-0000-0000-0000-000000000002', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', 'correction', current_date - 2, 'pending'),
+  ('a8a00000-0000-0000-0000-000000000003', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', 'preference', current_date + 21, 'approved'),
+  ('a8a00000-0000-0000-0000-000000000004', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', 'preference', current_date + 22, 'rejected'),
+  ('a8a00000-0000-0000-0000-000000000005', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000005', 'swap',       current_date + 23, 'pending'),
+  ('a8a00000-0000-0000-0000-000000000006', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-00000000000a', 'preference', current_date + 20, 'pending');
+insert into workforce.leave_requests (id, tenant_id, location_id, employee_id, starts_on, ends_on, status) values
+  ('a8a10000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', current_date + 30, current_date + 31, 'pending'),
+  ('a8a10000-0000-0000-0000-000000000002', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', current_date + 32, current_date + 32, 'approved'),
+  ('a8a10000-0000-0000-0000-000000000003', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000005', current_date + 33, current_date + 33, 'pending'),
+  ('a8a10000-0000-0000-0000-000000000004', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-00000000000a', current_date + 30, current_date + 30, 'pending');
+insert into workforce.shifts (id, tenant_id, location_id, employee_id, starts_at, ends_at, published) values
+  ('a8a20000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', now() - interval '1 day', now() - interval '1 day' + interval '4 hours', true),
+  ('a8a20000-0000-0000-0000-000000000002', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-00000000000a', now() + interval '5 days', now() + interval '5 days' + interval '4 hours', true),
+  ('a8a20000-0000-0000-0000-000000000003', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-00000000000a', now() + interval '6 days', now() + interval '6 days' + interval '4 hours', true),
+  ('a8a20000-0000-0000-0000-000000000004', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', now() - interval '2 days', now() - interval '2 days' + interval '4 hours', true),
+  ('a8a20000-0000-0000-0000-000000000005', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000006', now() + interval '5 days', now() + interval '5 days' + interval '4 hours', true);
+insert into workforce.shift_exchanges (id, tenant_id, location_id, shift_id, requester_employee_id, replacement_employee_id, reason, status) values
+  ('a8a30000-0000-0000-0000-000000000001', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8a20000-0000-0000-0000-000000000001', 'a8920000-0000-0000-0000-000000000005', null, 'r', 'open'),
+  ('a8a30000-0000-0000-0000-000000000002', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8a20000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-00000000000a', 'a8920000-0000-0000-0000-000000000005', 'r', 'accepted'),
+  ('a8a30000-0000-0000-0000-000000000003', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8a20000-0000-0000-0000-000000000003', 'a8920000-0000-0000-0000-00000000000a', null, 'r', 'open'),
+  ('a8a30000-0000-0000-0000-000000000004', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000001', 'a8a20000-0000-0000-0000-000000000004', 'a8920000-0000-0000-0000-000000000005', null, 'r', 'approved'),
+  ('a8a30000-0000-0000-0000-000000000005', 'a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8a20000-0000-0000-0000-000000000005', 'a8920000-0000-0000-0000-000000000006', 'a8920000-0000-0000-0000-000000000005', 'r', 'accepted');
+create function pg_temp.req_states() returns text language sql as $$
+  select concat_ws(' ',
+    (select string_agg(right(id::text, 1) || '=' || status, ',' order by id) from workforce.shift_requests where id::text like 'a8a00000-%'),
+    (select string_agg(right(id::text, 1) || '=' || status, ',' order by id) from workforce.leave_requests where id::text like 'a8a10000-%'),
+    (select string_agg(right(id::text, 1) || '=' || status, ',' order by id) from workforce.shift_exchanges where id::text like 'a8a30000-%'));
+$$;
+select is(pg_temp.req_states(),
+  '1=pending,2=pending,3=approved,4=rejected,5=pending,6=pending 1=pending,2=approved,3=pending,4=pending 1=open,2=accepted,3=open,4=approved,5=accepted',
+  'M: fixtures before the move');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000001',
+  $$ select api.move_employee_location('a8920000-0000-0000-0000-000000000005', 'a8910000-0000-0000-0000-000000000002')::text $$)::jsonb,
+  '{"employee_id": "a8920000-0000-0000-0000-000000000005", "from_location_id": "a8910000-0000-0000-0000-000000000001", "to_location_id": "a8910000-0000-0000-0000-000000000002", "changed": true, "role_assignments_moved": 1, "cancelled_requests": 5}'::jsonb,
+  'M: Owner moves SA to LB; 5 open requests at LA cancelled (2 shift, 1 leave, 2 exchanges)');
+select is(pg_temp.req_states(),
+  '1=cancelled,2=cancelled,3=approved,4=rejected,5=pending,6=pending 1=cancelled,2=approved,3=pending,4=pending 1=cancelled,2=cancelled,3=open,4=approved,5=accepted',
+  'M: only SA''s open requests at LA are cancelled; approved / rejected, other store and other employee untouched');
+select is((select string_agg(coalesce(decided_by::text, '-') || '/' || (decided_at is not null)::text, ',' order by id)
+             from workforce.shift_requests where id in ('a8a00000-0000-0000-0000-000000000001', 'a8a00000-0000-0000-0000-000000000006')),
+  'a8990000-0000-0000-0000-000000000001/true,-/false', 'M: the 0031 trigger stamps the mover as decider on the cancelled shift request');
+select is((select metadata -> 'cancelled_requests' from audit.audit_logs
+            where tenant_id = 'a8900000-0000-0000-0000-0000000000a1' and action = 'move_location'
+              and entity_id = 'a8920000-0000-0000-0000-000000000005'),
+  '{"shift_requests": 2, "leave_requests": 1, "shift_exchanges": 2}'::jsonb, 'M: audit metadata carries the per-table counts');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000001',
+  $$ select api.move_employee_location('a8920000-0000-0000-0000-000000000005', 'a8910000-0000-0000-0000-000000000002')::text $$)::jsonb
+    - 'employee_id' - 'from_location_id' - 'to_location_id',
+  '{"changed": false, "cancelled_requests": 0}'::jsonb, 'M: the no-op path returns cancelled_requests 0');
+select lives_ok(
+  $$ insert into workforce.shift_requests (tenant_id, location_id, employee_id, kind, work_date, status) values
+     ('a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000005', 'preference', current_date + 20, 'pending') $$,
+  'M: a cancelled preference does not block a new one for the same day at the new store');
+select throws_ok(
+  $$ insert into workforce.shift_requests (tenant_id, location_id, employee_id, kind, work_date, status) values
+     ('a8900000-0000-0000-0000-0000000000a1', 'a8910000-0000-0000-0000-000000000002', 'a8920000-0000-0000-0000-000000000005', 'preference', current_date + 21, 'pending') $$,
+  '23505', null, 'M: a live (approved) preference still blocks a duplicate for that day');
+select is(pg_temp.as_user('a8990000-0000-0000-0000-000000000002',
+  $$ select api.move_employee_location('a8920000-0000-0000-0000-000000000005', 'a8910000-0000-0000-0000-000000000001')::text $$)::jsonb ->> 'cancelled_requests',
+  '4', 'M: moving back cancels the new pending preference, r5, l3 and x5 at LB (the Admin can too)');
 
 select * from finish();
 rollback;

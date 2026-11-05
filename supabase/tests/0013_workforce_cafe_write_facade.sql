@@ -157,9 +157,11 @@ select is(
     -- 0138_manager_appointment.sql: derived boolean (manager role held), read-only.
     'is_manager',
     -- 0140_tenant_admin_appointment_and_staff_guards.sql: derived boolean (tenant_admin role held), read-only.
-    'is_admin'
+    'is_admin',
+    -- 0156_locations_l3_move_and_scope.sql: derived text 'tenant' | 'location' | null (manager scope), read-only.
+    'manager_scope'
   ]::text[],
-  'api.workforce_staff_manage exposes no user_id/created_by/updated_by (beyond the derived has_account_access / is_manager / is_admin booleans)'
+  'api.workforce_staff_manage exposes no user_id/created_by/updated_by (beyond the derived has_account_access / is_manager / is_admin / manager_scope values)'
 );
 
 select has_function('api', 'bind_workforce_employee_line_user',
