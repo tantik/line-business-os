@@ -9,6 +9,8 @@
 --   C  tenant isolation: a user of T2 sees no T1 row in the tenant keys
 --   D  0154 myLocations (api.my_locations): Owner all incl. inactive,
 --      store Manager only their store, unbound employee none
+--   E  0156 created_at in api.my_locations and myLocations[] (main store =
+--      oldest)
 -- ============================================================================
 begin;
 
@@ -125,7 +127,7 @@ begin
     when 'memberships' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'tenant_slug', tenant_slug, 'tenant_name', tenant_name, 'tenant_kind', tenant_kind, 'location_id', location_id, 'status', status)), '[]')::text from api.my_tenant_memberships $q$
     when 'navigation' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'module', module, 'nav_order', nav_order)), '[]')::text from api.my_tenant_navigation $q$
     when 'locations' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'location_id', location_id, 'location_name', location_name, 'timezone', timezone, 'is_active', is_active)), '[]')::text from api.my_tenant_locations $q$
-    when 'myLocations' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'location_id', location_id, 'location_name', location_name, 'timezone', timezone, 'is_active', is_active, 'access', access)), '[]')::text from api.my_locations $q$
+    when 'myLocations' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'location_id', location_id, 'location_name', location_name, 'timezone', timezone, 'is_active', is_active, 'access', access, 'created_at', created_at)), '[]')::text from api.my_locations $q$
     when 'packages' then $q$ select coalesce(jsonb_agg(jsonb_build_object('tenant_id', tenant_id, 'package_code', package_code, 'status', status, 'sort_order', sort_order)), '[]')::text from api.my_tenant_packages where status = 'active' $q$
     when 'employeeInvitations' then $q$ select coalesce(jsonb_agg(to_jsonb(e) order by e.created_at, e.invitation_id), '[]')::text from api.my_pending_employee_invitations() e $q$
     when 'tenantInvitations' then $q$ select coalesce(jsonb_agg(to_jsonb(t) order by t.created_at, t.invitation_id), '[]')::text from api.my_pending_tenant_invitations() t $q$
@@ -216,6 +218,37 @@ update workforce.employees set user_id = 'a8290000-0000-0000-0000-000000000002'
  where id = 'a8230000-0000-0000-0000-000000000003';
 select is(pg_temp.my_locs('a8290000-0000-0000-0000-000000000002'),
   'T1 / L2=staff', 'D: a bound employee gets their home store with access staff, and only it');
+
+-- E: 0156 created_at (main store = oldest) in api.my_locations and myLocations[] -------------
+update core.locations set created_at = '2026-01-01 00:00+00' where id = 'a8210000-0000-0000-0000-000000000003';
+update core.locations set created_at = '2026-02-01 00:00+00' where id = 'a8210000-0000-0000-0000-000000000001';
+update core.locations set created_at = '2026-03-01 00:00+00' where id = 'a8210000-0000-0000-0000-000000000004';
+select is((select column_name::text from information_schema.columns
+            where table_schema = 'api' and table_name = 'my_locations' order by ordinal_position desc limit 1),
+  'created_at', 'E: created_at is the last column of api.my_locations');
+select is((select array_agg(column_name::text order by ordinal_position) from information_schema.columns
+            where table_schema = 'api' and table_name = 'my_locations'),
+  array['tenant_id', 'location_id', 'location_name', 'timezone', 'is_active', 'access', 'created_at'],
+  'E: api.my_locations keeps the 0151 columns in order, created_at appended');
+select is(pg_temp.as_user('a8290000-0000-0000-0000-000000000001', $q$
+  select string_agg(location_name, ' > ' order by created_at, location_id) from api.my_locations $q$),
+  'T1 / L2 > T1 / L1 > T1 / L3 (inactive)', 'E: api.my_locations.created_at orders the stores by creation');
+select is(
+  (select string_agg(r ->> 'location_name', ' > ' order by (r ->> 'created_at')::timestamptz)
+     from jsonb_array_elements(pg_temp.ctx('a8290000-0000-0000-0000-000000000001') -> 'myLocations') r),
+  'T1 / L2 > T1 / L1 > T1 / L3 (inactive)', 'E: myLocations[].created_at present and orders the stores the same way');
+select is(
+  (select count(*)::int from jsonb_array_elements(pg_temp.ctx('a8290000-0000-0000-0000-000000000001') -> 'myLocations') r
+    where (r ->> 'created_at')::timestamptz = (select l.created_at from core.locations l where l.id = (r ->> 'location_id')::uuid)),
+  3, 'E: every myLocations[].created_at equals core.locations.created_at');
+select ok(pg_temp.same_set(pg_temp.ctx('a8290000-0000-0000-0000-000000000005') -> 'myLocations',
+                           pg_temp.direct('a8290000-0000-0000-0000-000000000005', 'myLocations')),
+  'E: myLocations still equals the direct read of api.my_locations (store Manager)');
+select is(
+  (select array_agg(k order by k) from jsonb_array_elements(pg_temp.ctx('a8290000-0000-0000-0000-000000000005') -> 'myLocations') r,
+          jsonb_object_keys(r) k),
+  array['access', 'created_at', 'is_active', 'location_id', 'location_name', 'tenant_id', 'timezone'],
+  'E: a myLocations element has exactly the 0154 keys plus created_at');
 
 select * from finish();
 rollback;
