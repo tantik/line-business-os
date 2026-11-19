@@ -1,6 +1,7 @@
 import { makeTranslator } from '@/lib/demo/cafe/i18n';
 import type { ProvisionOutcomeKind } from '@/lib/platform/provision-outcome';
 import type { ProvisioningField, ProvisioningFieldError } from '@/lib/platform/provisioning-form';
+import type { PlatformLocationErrorCode } from '@/lib/platform/platform-location';
 
 /**
  * JA/EN strings for the ORUWA admin console `/admin/tenants` (Stage 4B-3,
@@ -84,6 +85,55 @@ const dict = {
     outError: '予期しないエラーが発生しました。再試行してください。',
     outSessionExpired: 'ログインの有効期限が切れました。再度ログインしてください。',
     outUnauthorized: 'この操作を行う権限がありません。',
+
+    storesButton: '店舗',
+    storesButtonHint: 'このお店の店舗を追加・名前変更・アーカイブします。',
+    storesTitle: '店舗',
+    storesIntro: 'このお店の店舗を追加・名前変更・アーカイブできます。営業中の店舗のうち、最初に登録した店舗がメイン店舗です。操作はすべて監査ログに記録されます。',
+    storesOpenHeading: '営業中の店舗',
+    storesArchivedHeading: 'アーカイブ済み',
+    storesArchivedHint: 'アーカイブした店舗の記録はそのまま残ります。必要になったら元に戻せます。',
+    storesEmpty: '営業中の店舗がありません。',
+    storesMainBadge: 'メイン',
+    storesStaffCount: '所属スタッフ {n}人',
+    storesRowMenu: '「{name}」の操作',
+    storesRename: '名前を変更',
+    storesArchive: 'アーカイブする',
+    storesArchiveHasStaff: 'アーカイブ（所属スタッフがいるため不可）',
+    storesRestore: '元に戻す',
+    storesRenameTitle: '店舗名を変更',
+    storesNameLabel: '店舗名',
+    storesAddHeading: '店舗を追加',
+    storesAddNameLabel: '新しい店舗の名前',
+    storesAddNameHint: '1〜60文字。シフトの種類や点検項目などは、メイン店舗の設定がコピーされます。',
+    storesAddButton: '店舗を追加',
+    storesAdding: '追加中…',
+    storesSave: '保存',
+    storesSaving: '保存中…',
+    storesArchiveConfirmTitle: 'この店舗をアーカイブしますか？',
+    storesArchiveConfirmBody:
+      'アーカイブすると店舗の切り替えに表示されなくなり、自動シフト作成と毎日の点検タスクも止まります。シフト・勤怠・仕入れなどの記録は消えず、あとで元に戻せます。',
+    storesCreated: '店舗を追加しました。',
+    storesRenamed: '店舗名を変更しました。',
+    storesArchived: '店舗をアーカイブしました。',
+    storesRestored: '店舗を元に戻しました。自動シフト作成は、必要に応じてその店舗の設定でオンにしてください。',
+    storesUnchanged: '変更はありません。',
+    storesListError: '店舗の一覧を読み込めませんでした。ページを再読み込みしてください。',
+    storesTenantInactive: 'このお店は停止中またはアーカイブ済みのため、店舗を変更できません。',
+
+    storesErrInvalidInput: '入力内容を確認して、もう一度お試しください。',
+    storesErrInvalidName: '店舗名は1〜60文字で入力してください。',
+    storesErrInvalidTimezone: 'タイムゾーンが正しくありません。',
+    storesErrNameTaken: '同じ名前の営業中の店舗がすでにあります。別の名前にしてください。',
+    storesErrLimitReached: 'このお店の店舗数の上限に達しました。上限を変更するか、ほかの店舗をアーカイブしてください。',
+    storesErrLastActive: '営業中の店舗を少なくとも1つ残す必要があります。',
+    storesErrHasActiveStaff: 'この店舗に所属している有効なスタッフがいます。先にお店側でスタッフを別の店舗へ移動するか、無効にしてもらってください。',
+    storesErrTenantNotActive: 'このお店は停止中またはアーカイブ済みのため、店舗を変更できません。',
+    storesErrNotFound: '店舗が見つかりません。ページを再読み込みしてください。',
+    storesErrNotStaff: 'この操作を行う権限がありません。',
+    storesErrSessionExpired: 'ログインの有効期限が切れました。再度ログインしてください。',
+    storesErrUnavailable: '店舗サービスに接続できませんでした。しばらくしてから再試行してください。',
+    storesErrUnexpected: '保存できませんでした。もう一度お試しください。',
   },
   en: {
     pageTitle: 'Tenants',
@@ -160,6 +210,55 @@ const dict = {
     outError: 'Unexpected error. Retry.',
     outSessionExpired: 'Your session expired. Sign in again.',
     outUnauthorized: 'You do not have permission to do this.',
+
+    storesButton: 'Stores',
+    storesButtonHint: 'Add, rename or archive this business’s stores.',
+    storesTitle: 'Stores',
+    storesIntro: 'Add, rename or archive this business’s stores. Of its open stores, the one registered first is the main store. Every change is recorded in the audit log.',
+    storesOpenHeading: 'Open stores',
+    storesArchivedHeading: 'Archived',
+    storesArchivedHint: 'An archived store keeps all its records. You can restore it when it is needed again.',
+    storesEmpty: 'No open stores.',
+    storesMainBadge: 'Main',
+    storesStaffCount: '{n} staff',
+    storesRowMenu: 'Actions for “{name}”',
+    storesRename: 'Rename',
+    storesArchive: 'Archive',
+    storesArchiveHasStaff: 'Archive (staff still assigned)',
+    storesRestore: 'Restore',
+    storesRenameTitle: 'Rename store',
+    storesNameLabel: 'Store name',
+    storesAddHeading: 'Add a store',
+    storesAddNameLabel: 'New store name',
+    storesAddNameHint: '1–60 characters. Shift types, checklists and other settings are copied from the main store.',
+    storesAddButton: 'Add store',
+    storesAdding: 'Adding…',
+    storesSave: 'Save',
+    storesSaving: 'Saving…',
+    storesArchiveConfirmTitle: 'Archive this store?',
+    storesArchiveConfirmBody:
+      'An archived store disappears from the store switcher, and its automatic schedule and daily checklist tasks stop. Its records (shifts, attendance, purchases and more) are kept, and it can be restored later.',
+    storesCreated: 'Store added.',
+    storesRenamed: 'Store renamed.',
+    storesArchived: 'Store archived.',
+    storesRestored: 'Store restored. Its automatic schedule stays off until it is turned on in that store’s settings.',
+    storesUnchanged: 'Nothing changed.',
+    storesListError: 'Could not load the stores. Reload the page.',
+    storesTenantInactive: 'This business is suspended or archived, so its stores cannot be changed.',
+
+    storesErrInvalidInput: 'Check the input and try again.',
+    storesErrInvalidName: 'Store names must be 1–60 characters.',
+    storesErrInvalidTimezone: 'Invalid time zone.',
+    storesErrNameTaken: 'An open store with this name already exists. Choose another name.',
+    storesErrLimitReached: 'This business has reached its store limit. Raise the limit or archive another store first.',
+    storesErrLastActive: 'At least one store must stay open.',
+    storesErrHasActiveStaff: 'Active staff still belong to this store. The business must move them to another store or deactivate them first.',
+    storesErrTenantNotActive: 'This business is suspended or archived, so its stores cannot be changed.',
+    storesErrNotFound: 'This store was not found. Reload the page.',
+    storesErrNotStaff: 'You do not have permission to do this.',
+    storesErrSessionExpired: 'Your session expired. Sign in again.',
+    storesErrUnavailable: 'Could not reach the store service. Retry later.',
+    storesErrUnexpected: 'Could not save. Try again.',
   },
 };
 
@@ -209,3 +308,28 @@ export const OWNER_KEY: Record<string, TenantsKey> = {
 };
 
 export const FIELD_ORDER: readonly ProvisioningField[] = ['businessName', 'tenantSlug', 'locationName', 'timezone', 'ownerEmail'];
+
+/** Store management (DEBT-139 L3c): every platform-location error code -> its copy. */
+export const STORE_ERROR_KEY: Record<PlatformLocationErrorCode, TenantsKey> = {
+  invalid_input: 'storesErrInvalidInput',
+  invalid_name: 'storesErrInvalidName',
+  invalid_timezone: 'storesErrInvalidTimezone',
+  name_taken: 'storesErrNameTaken',
+  limit_reached: 'storesErrLimitReached',
+  last_active_location: 'storesErrLastActive',
+  has_active_staff: 'storesErrHasActiveStaff',
+  tenant_not_active: 'storesErrTenantNotActive',
+  location_not_found: 'storesErrNotFound',
+  not_staff: 'storesErrNotStaff',
+  session_expired: 'storesErrSessionExpired',
+  unavailable: 'storesErrUnavailable',
+  unexpected: 'storesErrUnexpected',
+};
+
+/** Fills `{name}` / `{n}` placeholders of a store string (the dictionary holds plain strings only). */
+export function fillTenants(text: string, values: Record<string, string | number>): string {
+  return text.replace(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match));
+}
+
+/** Both languages' key lists, for the parity test. */
+export const TENANTS_DICT_KEYS: { ja: readonly string[]; en: readonly string[] } = { ja: Object.keys(dict.ja), en: Object.keys(dict.en) };

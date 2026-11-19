@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth/require-user';
 import { createClient } from '@/lib/supabase/server';
 import { isPlatformStaff } from '@/lib/platform/platform-staff';
 import { listPlatformTenantProvisioning } from '@/lib/platform/provisioning-list';
+import { listPlatformTenantLocations } from '@/lib/platform/tenant-locations';
 import { pageStyle } from '@/lib/ui/theme';
 import { TenantsConsole } from './tenants-console';
 
@@ -20,8 +21,9 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
  * Gate: `api.is_platform_staff()` with the caller's own JWT; anyone else gets
  * a plain 404 (the console's existence is not advertised). Not the boundary:
  * the list RPC (0135) and the provision-tenant Edge Function re-check the
- * flag themselves. One RPC per page view, no timers: the list refreshes after
- * an action (`router.refresh`) -- staff-only, so no Realtime cost.
+ * flag themselves. Two RPCs per page view (the list and, DEBT-139 L3c, every
+ * tenant's stores, 0157), no timers: both refresh after an action
+ * (`router.refresh`) -- staff-only, so no Realtime cost.
  */
 export default async function AdminTenantsPage() {
   // Network-validated session (the layout only verifies the JWT locally,
@@ -30,12 +32,13 @@ export default async function AdminTenantsPage() {
   const supabase = await createClient();
   if (!(await isPlatformStaff(supabase))) notFound();
 
-  const list = await listPlatformTenantProvisioning(supabase);
-  if (list.status === 'unauthorized') notFound();
+  // Two independent staff-only reads (0135 list, 0157 stores of every tenant), in parallel.
+  const [list, locations] = await Promise.all([listPlatformTenantProvisioning(supabase), listPlatformTenantLocations(supabase)]);
+  if (list.status === 'unauthorized' || locations.status === 'unauthorized') notFound();
 
   return (
     <main style={pageStyle(1100)}>
-      <TenantsConsole rows={list.status === 'success' ? list.data : null} />
+      <TenantsConsole rows={list.status === 'success' ? list.data : null} locations={locations.status === 'success' ? locations.data : null} />
     </main>
   );
 }

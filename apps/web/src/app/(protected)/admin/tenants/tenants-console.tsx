@@ -9,8 +9,9 @@ import { useDocumentTitle } from '@/lib/ui/document-title';
 import { Dialog } from '@line-os/ui';
 import { submitTenantProvisioning, type SubmitProvisioningResult } from '@/lib/platform/provisioning-actions';
 import { isRetryableStatus, type ProvisionOutcome } from '@/lib/platform/provision-outcome';
-import { DEFAULT_TIMEZONE, validateProvisioningForm, type ProvisioningField, type ProvisioningFieldError } from '@/lib/platform/provisioning-form';
+import { CONSOLE_TIMEZONES, DEFAULT_TIMEZONE, validateProvisioningForm, type ProvisioningField, type ProvisioningFieldError } from '@/lib/platform/provisioning-form';
 import type { PlatformTenantRow } from '@/lib/platform/provisioning-list';
+import { tenantLocationGroups, type PlatformLocationRow } from '@/lib/platform/tenant-locations';
 import {
   alertDanger,
   badgeStyle,
@@ -26,9 +27,10 @@ import {
   type BadgeTone,
 } from '@/lib/ui/theme';
 import { FIELD_ERROR_KEY, FIELD_ORDER, OUTCOME_KEY, OWNER_KEY, STATUS_KEY, tTenants, type TenantsKey } from './tenants-i18n';
+import { TenantStoresDialog } from './tenant-stores';
 
 /** Time zones offered in the form (the validator accepts any IANA zone; Japan first). */
-const TIMEZONES = ['Asia/Tokyo', 'Asia/Seoul', 'Asia/Taipei', 'Asia/Bangkok', 'UTC'] as const;
+const TIMEZONES = CONSOLE_TIMEZONES;
 
 type T = (key: TenantsKey) => string;
 
@@ -73,19 +75,29 @@ function formatDateTime(iso: string | null, lang: Lang): string {
   });
 }
 
-export function TenantsConsole({ rows }: { rows: PlatformTenantRow[] | null }) {
+interface ConsoleProps {
+  rows: PlatformTenantRow[] | null;
+  /** Every tenant's stores (0157, one read per page view); null = the read failed. */
+  locations: PlatformLocationRow[] | null;
+}
+
+export function TenantsConsole({ rows, locations }: ConsoleProps) {
   return (
     <LangProvider>
-      <ConsoleBody rows={rows} />
+      <ConsoleBody rows={rows} locations={locations} />
     </LangProvider>
   );
 }
 
-function ConsoleBody({ rows }: { rows: PlatformTenantRow[] | null }) {
+function ConsoleBody({ rows, locations }: ConsoleProps) {
   const { lang } = useLang();
   const t: T = (key) => tTenants(lang, key);
+  const router = useRouter();
   const [session, setSession] = useState<FormSession | null>(null);
+  const [storesTenantId, setStoresTenantId] = useState<string | null>(null);
   useDocumentTitle(`${t('pageTitle')} | ORUWA`);
+  const storesRow = storesTenantId ? (rows ?? []).find((r) => r.tenantId === storesTenantId) ?? null : null;
+  const storesGroups = storesTenantId && locations ? tenantLocationGroups(locations, storesTenantId) : null;
 
   function openCreate() {
     setSession({ mode: 'create', requestId: newRequestId(), initial: { timezone: DEFAULT_TIMEZONE, locationName: '本店' } });
@@ -134,17 +146,48 @@ function ConsoleBody({ rows }: { rows: PlatformTenantRow[] | null }) {
         ) : (
           <>
             {rows.length >= LIST_CAP ? <p style={{ ...mutedText, fontSize: 13 }}>{t('listCapped')}</p> : null}
-            <TenantsTable rows={rows} t={t} lang={lang} onRetry={openRetry} />
+            {locations === null ? (
+              <p role="alert" style={{ ...alertDanger, marginBottom: 8 }}>
+                {t('storesListError')}
+              </p>
+            ) : null}
+            <TenantsTable rows={rows} locations={locations} t={t} lang={lang} onRetry={openRetry} onStores={(row) => setStoresTenantId(row.tenantId)} />
           </>
         )}
       </section>
 
       {session ? <ProvisioningDialog key={session.requestId} session={session} t={t} onClose={() => setSession(null)} /> : null}
+
+      {storesRow && storesRow.tenantId && storesGroups ? (
+        <TenantStoresDialog
+          key={storesRow.tenantId}
+          tenantId={storesRow.tenantId}
+          tenantLabel={storesRow.businessName ?? storesRow.slug}
+          tenantActive={storesRow.tenantStatus === 'active'}
+          activeStores={storesGroups.active}
+          archivedStores={storesGroups.archived}
+          t={t}
+          onChanged={() => router.refresh()}
+          onClose={() => setStoresTenantId(null)}
+        />
+      ) : null}
     </>
   );
 }
 
-function TenantsTable({ rows, t, lang, onRetry }: { rows: PlatformTenantRow[]; t: T; lang: Lang; onRetry: (row: PlatformTenantRow) => void }) {
+interface TenantsTableProps {
+  rows: PlatformTenantRow[];
+  locations: PlatformLocationRow[] | null;
+  t: T;
+  lang: Lang;
+  onRetry: (row: PlatformTenantRow) => void;
+  onStores: (row: PlatformTenantRow) => void;
+}
+
+function TenantsTable({ rows, locations, t, lang, onRetry, onStores }: TenantsTableProps) {
+  // open-store count per tenant for the 「店舗」 button
+  const openCount = new Map<string, number>();
+  for (const l of locations ?? []) if (l.isActive) openCount.set(l.tenantId, (openCount.get(l.tenantId) ?? 0) + 1);
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 640 }}>
@@ -194,11 +237,18 @@ function TenantsTable({ rows, t, lang, onRetry }: { rows: PlatformTenantRow[]; t
                 <td style={tableCell}>{ownerKey ? t(ownerKey) : t('ownerNone')}</td>
                 <td style={{ ...tableCell, whiteSpace: 'nowrap' }}>{formatDateTime(row.createdAt, lang)}</td>
                 <td style={tableCell}>
-                  {retryable ? (
-                    <button type="button" style={buttonSecondary} onClick={() => onRetry(row)} title={t('retryHint')}>
-                      {t('retry')}
-                    </button>
-                  ) : null}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {row.tenantId && locations !== null ? (
+                      <button type="button" style={buttonSecondary} onClick={() => onStores(row)} title={t('storesButtonHint')}>
+                        {t('storesButton')} ({openCount.get(row.tenantId) ?? 0})
+                      </button>
+                    ) : null}
+                    {retryable ? (
+                      <button type="button" style={buttonSecondary} onClick={() => onRetry(row)} title={t('retryHint')}>
+                        {t('retry')}
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             );
