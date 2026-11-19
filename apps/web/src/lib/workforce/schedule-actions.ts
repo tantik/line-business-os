@@ -336,8 +336,11 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
 
   // DEBT-139 L3 (0156): only this store's live preferences -- a cancelled row
   // (store move) is not submitted, and a row recorded at another store never
-  // feeds this store's run. Review status (pending/approved) is not read.
-  const livePreferenceRows = preferencesResult.data.filter((r) => isLiveShiftRequest(r) && r.locationId === locationId);
+  // feeds this store's run. Rows without a store (location_id NULL) count, as
+  // in the manager grid (0156 dashboard). Review status is not read.
+  const livePreferenceRows = preferencesResult.data.filter(
+    (r) => isLiveShiftRequest(r) && (r.locationId === locationId || r.locationId === null),
+  );
   const preferences: AutoDistributePreference[] = livePreferenceRows
     .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
     .map((r) => ({

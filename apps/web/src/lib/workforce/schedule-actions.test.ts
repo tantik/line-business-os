@@ -140,7 +140,7 @@ test('runAutoDistribution feeds only live (not cancelled) preferences of the run
   const body = runAutoDistributionBody();
   assert.match(
     body,
-    /const livePreferenceRows = preferencesResult\.data\.filter\(\(r\) => isLiveShiftRequest\(r\) && r\.locationId === locationId\);/,
+    /const livePreferenceRows = preferencesResult\.data\.filter\(\s*\(r\) => isLiveShiftRequest\(r\) && \(r\.locationId === locationId \|\| r\.locationId === null\),\s*\);/,
   );
   assert.match(body, /const preferences: AutoDistributePreference\[\] = livePreferenceRows\s*\n\s*\.filter\(/);
 });
