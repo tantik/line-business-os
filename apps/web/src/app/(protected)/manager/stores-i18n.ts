@@ -138,7 +138,7 @@ export const storesCopy: Record<Lang, StoresCopy> = {
     archiveConfirmTitle: 'この店舗をアーカイブしますか？',
     archiveConfirmBody:
       'アーカイブすると店舗の切り替えに表示されなくなり、自動シフト作成と毎日の点検タスクも止まります。シフト・勤怠・仕入れなどの記録は消えず、あとで元に戻せます。この店舗に所属しているスタッフがいる場合は、先に別の店舗へ移動するか、無効にしてください。',
-    archiveConfirmCurrentNote: 'いま表示中の店舗です。アーカイブ後はメイン店舗の画面に切り替わります。',
+    archiveConfirmCurrentNote: 'いま表示中の店舗です。アーカイブ後は、ほかの営業中の店舗の画面に切り替わります。',
     created: (name) => `「${name}」を追加しました。`,
     renamed: '店舗名を変更しました。',
     archived: '店舗をアーカイブしました。',
@@ -170,7 +170,7 @@ export const storesCopy: Record<Lang, StoresCopy> = {
     archiveConfirmTitle: 'Archive this store?',
     archiveConfirmBody:
       'An archived store disappears from the store switcher, and its automatic schedule and daily checklist tasks stop. Its records (shifts, attendance, purchases and more) are kept, and you can restore it later. If staff still belong to this store, move them to another store or deactivate them first.',
-    archiveConfirmCurrentNote: 'You are viewing this store now. After archiving, the screen switches to the main store.',
+    archiveConfirmCurrentNote: 'You are viewing this store now. After archiving, the screen switches to another open store.',
     created: (name) => `“${name}” added.`,
     renamed: 'Store renamed.',
     archived: 'Store archived.',
