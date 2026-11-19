@@ -82,7 +82,7 @@ export async function deleteEmployee(formData: FormData): Promise<WorkforceWrite
   return permanentlyDeleteEmployee(supabase, tenantContext.data.activeTenant.tenantId, staffId);
 }
 
-/** Owner/Admin only (4B-4a, 0138): appoint (`isManager=true`) or revoke (`false`) the Manager role. Tenant from the session, never the form; `api.set_employee_manager_role` enforces `core.role.manage` and every other rule. */
+/** Owner/Admin only (4B-4a, 0138; scope DEBT-139 L3, 0151): appoint (`isManager=true`) or revoke (`false`) the Manager role, with `scope` 'tenant' (every store) or 'location' (the person's home store). Tenant from the session, never the form; the 4-argument `api.set_employee_manager_role` enforces `core.role.manage` and every other rule. */
 export async function setEmployeeManagerRole(formData: FormData): Promise<ManagerRoleResult> {
   const input = parseSetManagerRoleInput(formData);
   if (!input) return { status: 'error', code: 'invalid_input' };

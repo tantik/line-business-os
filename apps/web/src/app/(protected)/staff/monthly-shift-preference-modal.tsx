@@ -7,6 +7,7 @@ import { addDays, toISODate, weekdayIndexMonFirst, WEEKDAY_LABELS_EN_MON_FIRST, 
 import type { Lang } from '@/lib/demo/cafe/i18n';
 import { shiftTypeDisplayLabel, type WorkforceShiftType } from '@/lib/workforce/shift-types';
 import type { WorkforceShiftRequest } from '@/lib/workforce/shift-requests';
+import { activePreferenceRequestsByDate } from '@/lib/workforce/staff-schedule-view-model';
 import { submitMonthlyShiftPreferences } from '@/lib/workforce/schedule-actions';
 import { alertDanger, buttonDisabled, buttonPrimary, buttonSecondary, colors, input as inputStyle, mutedText } from '@/lib/ui/theme';
 import { shiftChipColors, UNAVAILABLE_CHIP_TONE } from '../_ui/workforce-theme';
@@ -86,13 +87,8 @@ export function MonthlyShiftPreferenceModal({ open, onClose, shiftTypes, request
   const activeIds = useMemo(() => activeShiftTypes.map((st) => st.shiftTypeId), [activeShiftTypes]);
   const cycleOptions = useMemo<DayChoice[]>(() => [null, UNAVAILABLE, ...activeShiftTypes.map((st) => st.shiftTypeId)], [activeShiftTypes]);
 
-  const lockedByDate = useMemo(() => {
-    const map = new Map<string, WorkforceShiftRequest>();
-    for (const r of requests) {
-      if (r.kind === 'preference' && dates.includes(r.workDate)) map.set(r.workDate, r);
-    }
-    return map;
-  }, [requests, dates]);
+  // A cancelled preference (store move, 0156) is not "submitted"; the newest row of a day wins.
+  const lockedByDate = useMemo(() => activePreferenceRequestsByDate(requests, dates), [requests, dates]);
 
   function optionLabel(value: DayChoice): string {
     if (value === null) return '—';

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  activePreferenceRequestsByDate,
   buildStaffScheduleRoster,
   computeStaffAttentionCellKeys,
   latestDecidedOwnExchangeForShift,
@@ -330,4 +331,65 @@ test('computeStaffAttentionCellKeys ignores an approved/rejected correction and 
     'UTC',
   );
   assert.equal(keys.size, 0);
+});
+
+// --- 0156 (DEBT-139 L3): requests cancelled by a store move --------------------------
+
+test('toStaffViewWorkReports treats a cancelled correction as absent (never "pending"), and it never hides another row of the day', () => {
+  const att = [attendance({ workDate: '2026-08-10', clockOut: '2026-08-10T05:00:00.000Z' })];
+  const onlyCancelled = toStaffViewWorkReports(att, [shiftRequest({ workDate: '2026-08-10', status: 'cancelled' })], 'staff-1', 'Asia/Tokyo');
+  assert.equal(onlyCancelled[0]!.hasCorrectionRequest, false);
+  assert.equal(onlyCancelled[0]!.correctionRequest, undefined);
+  const withRejected = toStaffViewWorkReports(
+    att,
+    [
+      shiftRequest({ requestId: 'r1', workDate: '2026-08-10', status: 'rejected', details: { message: 'first' } }),
+      shiftRequest({ requestId: 'r2', workDate: '2026-08-10', status: 'cancelled', details: { message: 'moved' } }),
+    ],
+    'staff-1',
+    'Asia/Tokyo',
+  );
+  assert.equal(withRejected[0]!.correctionRequest?.status, 'rejected', 'the cancelled row (later in the list) must not win');
+});
+
+test('computeStaffAttentionCellKeys ignores a cancelled correction and a cancelled exchange', () => {
+  const keys = computeStaffAttentionCellKeys(
+    [shiftRequest({ workDate: '2026-08-10', kind: 'correction', status: 'cancelled' })],
+    [shiftExchange({ shiftId: 'assignment-1', status: 'cancelled' })],
+    [assignment({ assignmentId: 'assignment-1', employeeId: 'staff-1', startsAt: '2026-08-11T00:00:00.000Z' })],
+    'staff-1',
+    'UTC',
+  );
+  assert.equal(keys.size, 0);
+});
+
+test('latestDecidedOwnExchangeForShift: a newest cancelled exchange is not shown as approved / rejected', () => {
+  const older = shiftExchange({ exchangeId: 'ex-1', status: 'rejected', createdAt: '2026-10-01T00:00:00.000Z' });
+  const cancelled = shiftExchange({ exchangeId: 'ex-2', status: 'cancelled', createdAt: '2026-10-02T00:00:00.000Z' });
+  assert.equal(latestDecidedOwnExchangeForShift([older, cancelled], 'assignment-default', 'staff-1'), null);
+});
+
+test('activePreferenceRequestsByDate: a cancelled preference is not "submitted" and never hides a newer row of the day', () => {
+  const dates = ['2026-09-01', '2026-09-02', '2026-09-03'];
+  const pref = (overrides: Partial<WorkforceShiftRequest>) => shiftRequest({ kind: 'preference', ...overrides });
+  const map = activePreferenceRequestsByDate(
+    [
+      // day 1: only a cancelled row -> not submitted
+      pref({ requestId: 'c1', workDate: '2026-09-01', status: 'cancelled' }),
+      // day 2: a newer pending row, followed by an older cancelled one in the input
+      pref({ requestId: 'new', workDate: '2026-09-02', status: 'pending', createdAt: '2026-08-20T00:00:00.000Z' }),
+      pref({ requestId: 'c2', workDate: '2026-09-02', status: 'cancelled', createdAt: '2026-08-10T00:00:00.000Z' }),
+      // day 3: two live rows -> the newest wins whatever the order
+      pref({ requestId: 'b', workDate: '2026-09-03', status: 'approved', createdAt: '2026-08-21T00:00:00.000Z' }),
+      pref({ requestId: 'a', workDate: '2026-09-03', status: 'pending', createdAt: '2026-08-01T00:00:00.000Z' }),
+      // other kinds and dates are ignored
+      shiftRequest({ requestId: 'corr', kind: 'correction', workDate: '2026-09-01' }),
+      pref({ requestId: 'out', workDate: '2026-10-01' }),
+    ],
+    dates,
+  );
+  assert.equal(map.has('2026-09-01'), false);
+  assert.equal(map.get('2026-09-02')?.requestId, 'new');
+  assert.equal(map.get('2026-09-03')?.requestId, 'b');
+  assert.equal(map.size, 2);
 });

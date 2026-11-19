@@ -126,6 +126,8 @@ interface ManagerDashboardDict {
   managerNeedsAccountHint: string;
   managerInactiveHint: string;
   managerOwnRoleHint: string;
+  /** DEBT-139 L3: a store-only Manager needs a home store. */
+  managerNoLocationHint: string;
   managerRoleErrorPermission: string;
   managerRoleErrorSession: string;
   managerRoleErrorNotFound: string;
@@ -569,6 +571,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     managerNeedsAccountHint: 'Staff who have not accepted their invitation cannot be made managers.',
     managerInactiveHint: 'Inactive staff cannot be made managers. Reactivate them first.',
     managerOwnRoleHint: 'You cannot change your own role.',
+    managerNoLocationHint: 'Staff without a home store cannot be made manager of “this store only”.',
     managerRoleErrorPermission: 'Only the owner or an admin can change manager roles.',
     managerRoleErrorSession: 'Your session has expired. Please sign in again.',
     managerRoleErrorNotFound: 'This staff member was not found. Refresh the page and try again.',
@@ -960,6 +963,7 @@ const dictionary: Record<Lang, ManagerDashboardDict> = {
     managerNeedsAccountHint: '招待を承認していないスタッフは店長にできません。',
     managerInactiveHint: '無効のスタッフは店長にできません。先に有効にしてください。',
     managerOwnRoleHint: 'ご自身の役割は変更できません。',
+    managerNoLocationHint: '所属店舗が決まっていないスタッフは「この店舗のみ」の店長にできません。',
     managerRoleErrorPermission: '店長の任命・解除はオーナーまたは管理者のみ行えます。',
     managerRoleErrorSession: 'ログインの有効期限が切れました。もう一度ログインしてください。',
     managerRoleErrorNotFound: 'スタッフが見つかりません。画面を更新して、もう一度お試しください。',

@@ -195,11 +195,14 @@ const CORRECTION_STATUS_LABELS: Record<Lang, Record<string, string>> = {
     pending: 'Pending',
     approved: 'Approved',
     rejected: 'Rejected',
+    // 0156: a store move cancels the person's pending corrections at the old store.
+    cancelled: 'Cancelled',
   },
   ja: {
     pending: '保留中',
     approved: '承認済み',
     rejected: '却下',
+    cancelled: 'キャンセル済み',
   },
 };
 
@@ -241,7 +244,7 @@ export function attendanceStatusLabel(status: string, lang: Lang = 'en'): string
 }
 
 export function correctionStatusBadgeStyle(status: string): CSSProperties {
-  return badgeStyle(status === 'approved' ? 'active' : status === 'rejected' ? 'inactive' : 'neutral');
+  return badgeStyle(status === 'approved' ? 'active' : status === 'rejected' || status === 'cancelled' ? 'inactive' : 'neutral');
 }
 
 const EXCHANGE_STATUS_LABELS: Record<Lang, Record<string, string>> = {

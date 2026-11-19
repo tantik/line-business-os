@@ -69,6 +69,24 @@ test('computeShiftExchangeCandidates ignores an Unavailable preference for a dif
   assert.equal(candidates.find((c) => c.employeeId === 'available-pref')?.warning, null);
 });
 
+test('computeShiftExchangeCandidates ignores a cancelled Unavailable preference (0156 store move); a pending one still warns', () => {
+  const candidates = computeShiftExchangeCandidates(
+    [
+      { employeeId: 'cancelled', name: 'Cancelled', isActive: true },
+      { employeeId: 'pending', name: 'Pending', isActive: true },
+    ],
+    'requester',
+    OFFERED,
+    [],
+    [
+      { employeeId: 'cancelled', workDate: '2026-08-24', kind: 'preference', isUnavailable: true, status: 'cancelled' },
+      { employeeId: 'pending', workDate: '2026-08-24', kind: 'preference', isUnavailable: true, status: 'pending' },
+    ],
+  );
+  assert.equal(candidates.find((c) => c.employeeId === 'cancelled')?.warning, null);
+  assert.equal(candidates.find((c) => c.employeeId === 'pending')?.warning, 'marked_unavailable');
+});
+
 test('computeShiftExchangeCandidates prioritizes schedule_conflict over marked_unavailable when both apply', () => {
   const candidates = computeShiftExchangeCandidates(
     [{ employeeId: 'both', name: 'Both', isActive: true }],

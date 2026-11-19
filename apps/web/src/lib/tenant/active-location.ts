@@ -8,8 +8,12 @@
  *   - `candidateLocationId` is LENIENT (the `oruwa_location` cookie): ignored
  *     when it is not one of the caller's active locations.
  *   - Otherwise the default: the membership's default location when it is one
- *     of the choices, else the first by name among the locations with the
- *     strongest access (all > manage > staff).
+ *     of the choices, else the "main store" among the locations with the
+ *     strongest access (all > manage > staff): the OLDEST one (`created_at`,
+ *     0156; unknown dates last), then by name (DEBT-139 m, L3).
+ *
+ * Every store list (switcher, cabinet 「店舗」 section) uses the same order
+ * (`compareLocationsByMainStore`), so the main store is always first.
  *
  * Input rows come from `api.my_locations` (0151, via the page context 0154):
  * only locations the caller relates to, each with its access. That list only
@@ -27,6 +31,8 @@ export interface ApiMyLocationRow {
   timezone: string;
   is_active: boolean;
   access: string;
+  /** 0156; absent on older payloads (-> `createdAt: null`). */
+  created_at?: string | null;
 }
 
 export interface MyLocation {
@@ -36,6 +42,8 @@ export interface MyLocation {
   timezone: string;
   isActive: boolean;
   access: LocationAccess;
+  /** When the store was created (ISO timestamp) -- the oldest is the main store. `null` when unknown. */
+  createdAt: string | null;
 }
 
 const ACCESS_RANK: Record<LocationAccess, number> = { all: 0, manage: 1, staff: 2 };
@@ -56,14 +64,36 @@ export function mapMyLocationRows(rows: ApiMyLocationRow[]): MyLocation[] {
       timezone: row.timezone,
       isActive: row.is_active,
       access: row.access,
+      createdAt: typeof row.created_at === 'string' && row.created_at.length > 0 ? row.created_at : null,
     });
   }
   return out;
 }
 
-/** Name, then id -- the order the switcher shows. */
+/** Name, then id. */
 export function compareLocationsByName(a: MyLocation, b: MyLocation): number {
   return a.locationName.localeCompare(b.locationName, 'ja') || a.locationId.localeCompare(b.locationId);
+}
+
+function createdAtMillis(location: Pick<MyLocation, 'createdAt'>): number | null {
+  if (!location.createdAt) return null;
+  const ms = Date.parse(location.createdAt);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/**
+ * Main store first: oldest `createdAt` (unknown / unparsable dates last),
+ * then name (ja), then id -- the order of the switcher and every store list.
+ */
+export function compareLocationsByMainStore(a: MyLocation, b: MyLocation): number {
+  const ta = createdAtMillis(a);
+  const tb = createdAtMillis(b);
+  if (ta !== tb) {
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return ta - tb;
+  }
+  return compareLocationsByName(a, b);
 }
 
 /**
@@ -93,7 +123,7 @@ export type ResolveActiveLocationResult =
   | {
       ok: true;
       location: MyLocation;
-      /** Active locations of this tenant the caller may switch between, by name. */
+      /** Active locations of this tenant the caller may switch between, main store first. */
       choices: MyLocation[];
     }
   | { ok: false; reason: 'no_location' | 'unauthorized' };
@@ -107,7 +137,7 @@ export function resolveActiveLocation(
   locations: MyLocation[],
   options: ResolveActiveLocationOptions = {},
 ): ResolveActiveLocationResult {
-  const choices = locations.filter((l) => l.isActive).sort(compareLocationsByName);
+  const choices = locations.filter((l) => l.isActive).sort(compareLocationsByMainStore);
   const { requestedLocationId, candidateLocationId, defaultLocationId } = options;
 
   if (requestedLocationId) {

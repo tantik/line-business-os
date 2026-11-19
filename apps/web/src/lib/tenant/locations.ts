@@ -61,7 +61,7 @@ export async function listMyLocations(supabase: SupabaseClient): Promise<TenantA
     const { data, error } = await supabase
       .schema('api')
       .from('my_locations')
-      .select('tenant_id, location_id, location_name, timezone, is_active, access');
+      .select('tenant_id, location_id, location_name, timezone, is_active, access, created_at');
     if (error) return mapPostgrestError(error);
     return { status: 'success', data: mapMyLocationRows((data ?? []) as ApiMyLocationRow[]) };
   } catch (err) {

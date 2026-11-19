@@ -14,6 +14,8 @@
  * touching any dashboard markup.
  */
 
+import { isLiveShiftRequest } from './shift-request-status';
+
 export type ManagerAttentionCategory =
   | 'correction'
   | 'exchange'
@@ -420,6 +422,8 @@ export interface UnavailableConflictRequestInput {
   workDate: string;
   kind: string;
   isUnavailable: boolean;
+  /** A `cancelled` request (0156: store move) is ignored -- it was never acted on. */
+  status?: string;
 }
 
 /** Minimal shape `computeUnavailableConflictCellKeys` needs from a shift assignment. */
@@ -442,7 +446,7 @@ export function computeUnavailableConflictCellKeys(
 ): Set<string> {
   const unavailableKeys = new Set(
     requests
-      .filter((r) => r.kind === 'preference' && r.isUnavailable)
+      .filter((r) => r.kind === 'preference' && r.isUnavailable && isLiveShiftRequest(r))
       .map((r) => `${r.employeeId}:${r.workDate}`),
   );
   const conflicts = new Set<string>();

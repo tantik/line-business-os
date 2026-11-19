@@ -291,6 +291,22 @@ test('computeUnavailableConflictCellKeys does not cross-match different dates fo
   assert.deepEqual([...keys], []);
 });
 
+test('computeUnavailableConflictCellKeys ignores a cancelled Unavailable preference (0156 store move); pending / approved still flag', () => {
+  const keys = computeUnavailableConflictCellKeys(
+    [
+      { employeeId: 'emp-1', workDate: '2026-08-17', kind: 'preference', isUnavailable: true, status: 'cancelled' },
+      { employeeId: 'emp-2', workDate: '2026-08-17', kind: 'preference', isUnavailable: true, status: 'pending' },
+      { employeeId: 'emp-3', workDate: '2026-08-17', kind: 'preference', isUnavailable: true, status: 'approved' },
+    ],
+    [
+      { employeeId: 'emp-1', workDate: '2026-08-17' },
+      { employeeId: 'emp-2', workDate: '2026-08-17' },
+      { employeeId: 'emp-3', workDate: '2026-08-17' },
+    ],
+  );
+  assert.deepEqual([...keys].sort(), ['emp-2:2026-08-17', 'emp-3:2026-08-17']);
+});
+
 test('computePendingCorrectionCellKeys flags a pending correction on a past day', () => {
   const keys = computePendingCorrectionCellKeys(
     [{ employeeId: 'emp-1', workDate: '2026-08-17' }],

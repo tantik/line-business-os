@@ -93,6 +93,57 @@ test('4B-4b: the 管理者 action is offered only to the Owner, from the batched
   );
 });
 
+test('DEBT-139 L3: the 「店舗」 section and the move dialog are offered only with core.location.manage TENANT-WIDE, from the batched answer', () => {
+  const callIndex = SOURCE.indexOf(ACCESS_CALL);
+  const specEnd = SOURCE.indexOf('});', callIndex);
+  assert.ok(
+    /tenant: \[ROLE_MANAGE_PERMISSION, LOCATION_MANAGE_PERMISSION\]/.test(SOURCE.slice(callIndex, specEnd)),
+    'core.location.manage must be asked TENANT-wide (p_location_id null), never location-scoped',
+  );
+  assert.ok(SOURCE.includes('const canManageLocations = access.tenant(LOCATION_MANAGE_PERMISSION);'), 'the gate reads the tenant-wide answer');
+  assert.ok(!SOURCE.includes('access.location(LOCATION_MANAGE_PERMISSION)') && !SOURCE.includes('access.anyLocation(LOCATION_MANAGE_PERMISSION)'));
+  assert.ok(!SOURCE.includes('hasLocationManageAccess(supabase'), 'no separate round trip');
+  // the store list is never computed for a caller without the permission
+  assert.ok(
+    /const storeGroups =\s*canManageLocations && pageContext\.myLocations\.status === 'success'\s*\?\s*tenantStoreGroups\(pageContext\.myLocations\.data, activeTenant\.tenantId\)\s*:\s*\{ active: \[\], archived: \[\] \};/.test(SOURCE),
+    'storeGroups must be empty unless canManageLocations, and narrowed to the active tenant',
+  );
+  assert.ok(SOURCE.indexOf('const canManageLocations') > SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;"), 'after the Manager gate');
+  assert.ok(/canManageLocations=\{canManageLocations\}/.test(SOURCE) && /storeGroups=\{storeGroups\}/.test(SOURCE));
+
+  const clientSource = readFileSync(new URL('./manager-dashboard-client.tsx', import.meta.url), 'utf8');
+  assert.ok(/\{canManageLocations \? \(\s*<StoresSection/.test(clientSource), 'StoresSection renders only when canManageLocations');
+  const popupSource = readFileSync(new URL('./manage-staff-popup.tsx', import.meta.url), 'utf8');
+  assert.ok(popupSource.includes('const showMoveStore = canManageLocations && activeLocationCount >= 2;'), 'move only for Owner / Admin with 2+ open stores');
+  assert.ok(/\{showMoveStore \? \(\s*<MoveStoreSection/.test(popupSource));
+  assert.ok(/canManageLocations = false/.test(popupSource), 'fails closed by default');
+});
+
+test('DEBT-139 L3: the scope choice counts the OPEN stores the caller sees; the role section always gets it', () => {
+  assert.ok(SOURCE.includes('const activeLocationCount = locationChoices.length;'));
+  const popupSource = readFileSync(new URL('./manage-staff-popup.tsx', import.meta.url), 'utf8');
+  assert.ok(/<ManagerRoleSection[\s\S]*?activeLocationCount=\{activeLocationCount\}/.test(popupSource));
+  const roleSource = readFileSync(new URL('./manager-role-section.tsx', import.meta.url), 'utf8');
+  assert.ok(roleSource.includes("formData.set('scope', change.scope);"), 'every role change sends a scope (4-argument RPC)');
+});
+
+test('DEBT-139 L3: store server actions re-resolve the tenant from the session and use the request-scoped client only', () => {
+  const actions = readFileSync(new URL('../../../lib/tenant/location-manage-actions.ts', import.meta.url), 'utf8');
+  assert.ok(actions.startsWith("'use server';"));
+  assert.ok(actions.includes('await requireTenantContext()'));
+  assert.ok(actions.includes("import { createClient } from '@/lib/supabase/server';"));
+  assert.ok(!/service_role|createAdminClient|SUPABASE_SECRET|SERVICE_ROLE/i.test(actions), 'no privileged client');
+  assert.ok(!/formData\.get\('tenantId'\)/.test(actions), 'the tenant never comes from the form');
+  for (const fn of ['renameStore', 'setStoreActive', 'moveEmployeeToStore']) {
+    const start = actions.indexOf(`export async function ${fn}(`);
+    const end = actions.indexOf('export async function', start + 10);
+    const body = actions.slice(start, end === -1 ? undefined : end);
+    assert.ok(body.includes('storeOfTenant(tenant.tenantId'), `${fn} narrows the location to the active tenant`);
+  }
+  const moveStart = actions.indexOf('export async function moveEmployeeToStore(');
+  assert.ok(actions.slice(moveStart).includes('{ activeOnly: true }'), 'the move target must be an open store');
+});
+
 test('the shift-exchange read (Cafe v2.1 Manager decision panel) also runs strictly after the managerAccess gate/denial, same as every other Manager-only read', () => {
   const gateIndex = SOURCE.indexOf(GATE);
   const denyIndex = SOURCE.indexOf("if (!managerAccess) return <UnauthorizedState />;");

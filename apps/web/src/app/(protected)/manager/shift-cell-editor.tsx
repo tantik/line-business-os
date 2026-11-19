@@ -115,7 +115,7 @@ export function ShiftCellEditor({
 
   const isPast = workDate < todayIso;
   const currentEmployeeId = existing?.assignment.employeeId ?? rowStaffId;
-  const currentEmployeeName = staff.find((s) => s.staffId === currentEmployeeId)?.name ?? currentEmployeeId;
+  const currentEmployeeName = staff.find((s) => s.staffId === currentEmployeeId)?.name ?? t('unknownStaffLabel');
   const assignableStaff = staff.filter((s) => s.isActive || s.staffId === currentEmployeeId);
   const activeShiftTypes = shiftTypes.filter((st) => st.isActive);
 
