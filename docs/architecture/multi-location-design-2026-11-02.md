@@ -119,6 +119,14 @@ staff of every store. Home location changes only through
   `employees.location_id` by the Owner. "Help shifts" at another store
   (ヘルプ) = follow-up (shift at location B for an employee of A, wage and
   monthly hours counted on the person) once a client asks.
+- Move (0151 + 0156): the Owner moves the person only with no shifts at the
+  old store today or later. The move cancels, at the old store, the
+  person's pending requests (preferences, corrections, swaps, leave), their
+  approved preferences for today or later (past ones stay as history) and
+  open / accepted shift exchanges where they are requester or replacement.
+  An accepted exchange where the moved person is the **replacement** is
+  cancelled as a whole and the requester is **not notified** (v1); the move
+  dialog says so, the requester sees the exchange as cancelled.
 
 ### 3.5 Owner views across stores
 
