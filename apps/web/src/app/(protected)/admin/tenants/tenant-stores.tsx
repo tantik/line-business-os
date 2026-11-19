@@ -59,6 +59,16 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
 
   const mainStoreId = activeStores[0]?.locationId ?? null;
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const openHeadingRef = useRef<HTMLHeadingElement>(null);
+  const archivedHeadingRef = useRef<HTMLHeadingElement>(null);
+  // after archive / restore the row (and its menu trigger) moves to the other group: focus that group's heading
+  const [focusAfter, setFocusAfter] = useState<'open' | 'archived' | null>(null);
+
+  useEffect(() => {
+    if (isPending || !focusAfter) return;
+    (focusAfter === 'open' ? openHeadingRef : archivedHeadingRef).current?.focus();
+    setFocusAfter(null);
+  }, [isPending, focusAfter, activeStores, archivedStores]);
 
   // the action may be far below (archived group) on a phone sheet: bring the result into view
   useEffect(() => {
@@ -145,7 +155,10 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
       setArchiveTarget(null);
       if (result.status === 'success') {
         setFeedback({ tone: 'success', key: !result.changed ? 'storesUnchanged' : isActive ? 'storesRestored' : 'storesArchived' });
-        if (result.changed) onChanged();
+        if (result.changed) {
+          setFocusAfter(isActive ? 'open' : 'archived');
+          onChanged();
+        }
       } else {
         setFeedback({ tone: 'critical', key: isActive && result.code === 'name_taken' ? 'storesErrNameTakenRestore' : errorKey(result) });
       }
@@ -221,7 +234,9 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
         ) : null}
 
         <section aria-label={t('storesOpenHeading')} className="min-w-0">
-          <h3 className="m-0 text-sm font-semibold text-text-primary">{t('storesOpenHeading')}</h3>
+          <h3 ref={openHeadingRef} tabIndex={-1} className="m-0 text-sm font-semibold text-text-primary outline-none">
+            {t('storesOpenHeading')}
+          </h3>
           {activeStores.length === 0 ? (
             <p className="m-0 mt-2 text-sm text-text-muted">{t('storesEmpty')}</p>
           ) : (
@@ -269,7 +284,9 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
 
         {archivedStores.length > 0 ? (
           <section aria-label={t('storesArchivedHeading')} className="min-w-0 border-t border-border pt-4">
-            <h3 className="m-0 text-sm font-semibold text-text-muted">{t('storesArchivedHeading')}</h3>
+            <h3 ref={archivedHeadingRef} tabIndex={-1} className="m-0 text-sm font-semibold text-text-muted outline-none">
+              {t('storesArchivedHeading')}
+            </h3>
             <p className="m-0 mt-1 text-xs text-text-muted">{t('storesArchivedHint')}</p>
             <ul className="m-0 mt-2 grid list-none grid-cols-[minmax(0,1fr)] gap-1.5 p-0">{archivedStores.map((store) => storeRow(store, true))}</ul>
           </section>

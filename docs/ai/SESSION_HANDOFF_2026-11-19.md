@@ -20,6 +20,10 @@ Local pgTAP 89 files / 3450 PASS; apps/web 1322 / 1322; CI green.
 **Live QA 2026-11-19, preview.oruwa.jp, 375 px, qa-4c-cafe-1 (owner1, isolated context):** add store (long name ellipsis), plan limit 3 (4th refused), duplicate name on rename, rename, archive / restore (saving status), archive warning for the viewed store, no archive item with one open store, has_active_staff refusal, move 山田 花子 本店 → 駅前店 and back (dialog over the staff popup, every consequence listed, focus stays in the list dialog), manager scope shown live (「この店舗のみの店長です。」), **store Manager (o1staff1 temporarily) sees neither 「店舗」 nor 「別の店舗へ移動」 in the DOM**, EN copy. State restored: 本店 + 駅前店 open, 山田 花子 = staff + admin at 本店, archived 「QA検証店」 left in the archive (cannot be deleted).
 Not checked live: 1-store tenant as Owner (no Owner account for oruwa-cafe; the 1-open-store menu was checked on qa-4c-cafe-1), staff view after a move with real cancelled preferences (pgTAP covers the data).
 
+### L3c (same day)
+
+#699: **0157** `api.platform_tenant_locations` (platform-staff read) on Cloud DEV + Edge Function **`platform-location`** deployed (unauthenticated → 401); console 「店舗（N）」 dialog per tenant. Reviews: DB security PASS, UX PASS with notes (fixed). Live 375 px as platform staff on qa-4c-cafe-1: list (main badge, staff count, time zone), duplicate name, add 「QA店」 (Asia/Seoul; pending label kept through refresh; counter 2 → 3), plan limit, archive item disabled with reason for 本店 (staff), confirm + archive 「QA店」 (now archived), results visible on screen, Escape closes only the menu, EN copy; audit rows `create` / `deactivate` with `actor_kind = platform`. Follow-up PR: focus moves to the destination group heading after archive / restore (was `<body>`; not re-checked live).
+
 ## 3. Open / carried
 
 - DEBT-139 (o) self-insert policy location; (p) server monthly auto-schedule ignores status — fix with the next auto-schedule migration, before release.
@@ -28,4 +32,4 @@ Not checked live: 1-store tenant as Owner (no Owner account for oruwa-cafe; the 
 
 ## 4. Next
 
-L3c console (platform create / rename / activate location in admin/tenants) → L4 「全店舗」 totals for Owners → L5 cross-store probes → **rename to MIRAWII in code (stage B)** → 4D demo + site → cabinet + Stripe test mode → purchases → domain move → production pack.
+L4 「全店舗」 totals for Owners → L5 cross-store probes → **rename to MIRAWII in code (stage B)** → 4D demo + site → cabinet + Stripe test mode → purchases → domain move → production pack.
