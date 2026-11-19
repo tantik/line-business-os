@@ -107,6 +107,7 @@ export function MoveStoreSection({ staff, stores, onMoved, lang }: MoveStoreSect
           </select>
           <ul id={notesId} style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 13, lineHeight: 1.55, color: colors.textMuted, display: 'grid', gap: 4 }}>
             <li>{copy.requestsNote}</li>
+            <li>{copy.exchangeNote}</li>
             <li>{copy.shiftsNote}</li>
             <li>{copy.historyNote}</li>
             {staff.isManager && staff.managerScope === 'location' ? <li style={{ color: colors.textPrimary, fontWeight: 600 }}>{copy.managerNote}</li> : null}

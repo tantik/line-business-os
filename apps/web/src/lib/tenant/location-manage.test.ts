@@ -122,8 +122,8 @@ test('move success copy mentions the cancelled count only when > 0', () => {
   assert.equal(moveStoreCopy.ja.moved('駅前店', 0), '「駅前店」へ移動しました。');
   assert.match(moveStoreCopy.ja.moved('駅前店', 3), /3件/);
   assert.equal(moveStoreCopy.en.moved('Ekimae', 0), 'Moved to “Ekimae”.');
-  assert.match(moveStoreCopy.en.moved('Ekimae', 1), /1 pending request was cancelled/);
-  assert.match(moveStoreCopy.en.moved('Ekimae', 2), /2 pending requests were cancelled/);
+  assert.match(moveStoreCopy.en.moved('Ekimae', 1), /1 open request was cancelled/);
+  assert.match(moveStoreCopy.en.moved('Ekimae', 2), /2 open requests were cancelled/);
 });
 
 function loc(tenantId: string, locationId: string, locationName: string, isActive: boolean, createdAt: string | null): MyLocation {

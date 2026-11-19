@@ -141,7 +141,10 @@ export function StoresSection({ activeStores, archivedStores, currentLocationId,
         ]
       : [
           { label: copy.rename, onClick: () => openRename(store), disabled: isPending },
-          { label: copy.archive, onClick: () => { setFeedback(null); setArchiveTarget(store); }, danger: true, disabled: isPending },
+          // the last open store cannot be archived (DB: last_active_location) -- do not offer it
+          ...(activeStores.length > 1
+            ? [{ label: copy.archive, onClick: () => { setFeedback(null); setArchiveTarget(store); }, danger: true, disabled: isPending }]
+            : []),
         ];
     return (
       <li
@@ -212,6 +215,12 @@ export function StoresSection({ activeStores, archivedStores, currentLocationId,
         </p>
       </form>
 
+      {isPending && pendingKind === 'active' && archiveTarget === null ? (
+        <p role="status" style={{ margin: '10px 0 0', fontSize: 13, ...mutedText }}>
+          {copy.saving}
+        </p>
+      ) : null}
+
       {feedback ? (
         <div role={feedback.tone === 'error' ? 'alert' : 'status'} style={{ ...(feedback.tone === 'error' ? alertDanger : alertSuccess), marginTop: 10 }}>
           {feedback.text}
@@ -280,6 +289,9 @@ export function StoresSection({ activeStores, archivedStores, currentLocationId,
       >
         {archiveTarget ? <strong style={{ display: 'block', marginBottom: 6, color: colors.textPrimary }}>{archiveTarget.locationName}</strong> : null}
         {copy.archiveConfirmBody}
+        {archiveTarget && archiveTarget.locationId === currentLocationId ? (
+          <span style={{ display: 'block', marginTop: 6, color: colors.textPrimary, fontWeight: 600 }}>{copy.archiveConfirmCurrentNote}</span>
+        ) : null}
       </ConfirmDialog>
     </section>
   );

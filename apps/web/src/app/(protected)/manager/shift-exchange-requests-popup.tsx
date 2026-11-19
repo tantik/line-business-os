@@ -157,8 +157,8 @@ export function ShiftExchangeRequestsPopup({
             const assigning = pendingAction === `assign-replacement-${e.exchangeId}`;
             const shift = exchangeAssignmentById.get(e.shiftId);
             const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
-            const replacementName = e.replacementEmployeeId ? staffById.get(e.replacementEmployeeId)?.name ?? e.replacementEmployeeId : null;
+            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? t('unknownStaffLabel');
+            const replacementName = e.replacementEmployeeId ? staffById.get(e.replacementEmployeeId)?.name ?? t('unknownStaffLabel') : null;
             const requestedType = shiftTypes?.find((ty) => ty.shiftTypeId === e.requestedShiftTypeId);
             const requestLabel =
               e.requestKind === 'cancel' ? t('requestKindCancellation') : e.requestKind === 'change' ? t('requestKindChange') : t('requestKindExchange');
@@ -332,7 +332,7 @@ export function ShiftExchangeRequestsPopup({
           {decidedExchanges.map((e) => {
             const shift = exchangeAssignmentById.get(e.shiftId);
             const shiftLocal = shift ? utcIsoToLocalDateTime(shift.startsAt, timeZone) : null;
-            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? e.requesterEmployeeId;
+            const requesterName = staffById.get(e.requesterEmployeeId)?.name ?? t('unknownStaffLabel');
             return (
               <div
                 key={e.exchangeId}

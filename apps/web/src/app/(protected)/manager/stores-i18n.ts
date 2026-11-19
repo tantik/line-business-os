@@ -32,6 +32,7 @@ export interface StoresCopy {
   cancel: string;
   archiveConfirmTitle: string;
   archiveConfirmBody: string;
+  archiveConfirmCurrentNote: string;
   created: (name: string) => string;
   renamed: string;
   archived: string;
@@ -64,6 +65,7 @@ export interface MoveStoreCopy {
   title: string;
   targetLabel: string;
   requestsNote: string;
+  exchangeNote: string;
   shiftsNote: string;
   historyNote: string;
   managerNote: string;
@@ -77,7 +79,7 @@ const errorsJa: Record<LocationManageErrorCode, string> = {
   invalid_input: '入力内容を確認して、もう一度お試しください。',
   invalid_name: '店舗名は1〜60文字で入力してください。',
   name_taken: '同じ名前の店舗がすでにあります。別の名前にしてください。',
-  limit_reached: 'ご自身で追加できる店舗数の上限に達しました。さらに店舗を増やす場合は、ORUWAサポートまでお問い合わせください。',
+  limit_reached: 'ご利用いただける店舗数の上限に達しました。さらに店舗を増やす場合は、ORUWAサポートまでお問い合わせください。',
   invalid_timezone: '店舗のタイムゾーン設定に問題があります。ORUWAサポートまでお問い合わせください。',
   tenant_not_active: 'このワークスペースは現在ご利用いただけない状態です。ORUWAサポートまでお問い合わせください。',
   location_not_found: '店舗が見つかりません。画面を更新して、もう一度お試しください。',
@@ -96,7 +98,7 @@ const errorsEn: Record<LocationManageErrorCode, string> = {
   invalid_input: 'Please check your input and try again.',
   invalid_name: 'Store names must be 1–60 characters.',
   name_taken: 'A store with this name already exists. Please choose another name.',
-  limit_reached: 'You have reached the number of stores you can add yourself. To add more stores, please contact ORUWA support.',
+  limit_reached: 'You have reached the number of open stores on your plan. To add more stores, please contact ORUWA support.',
   invalid_timezone: 'There is a problem with the store’s time zone. Please contact ORUWA support.',
   tenant_not_active: 'This workspace is not available right now. Please contact ORUWA support.',
   location_not_found: 'This store was not found. Refresh the page and try again.',
@@ -114,7 +116,7 @@ const errorsEn: Record<LocationManageErrorCode, string> = {
 export const storesCopy: Record<Lang, StoresCopy> = {
   ja: {
     heading: '店舗',
-    intro: '店舗の追加・名前の変更・アーカイブができます。最初に登録した店舗がメイン店舗として先頭に表示されます。',
+    intro: '店舗の追加・名前の変更・アーカイブができます。営業中の店舗のうち、最初に登録した店舗がメイン店舗として先頭に表示されます。',
     mainBadge: 'メイン',
     currentBadge: '表示中',
     archivedHeading: 'アーカイブ済み',
@@ -136,6 +138,7 @@ export const storesCopy: Record<Lang, StoresCopy> = {
     archiveConfirmTitle: 'この店舗をアーカイブしますか？',
     archiveConfirmBody:
       'アーカイブすると店舗の切り替えに表示されなくなり、自動シフト作成と毎日の点検タスクも止まります。シフト・勤怠・仕入れなどの記録は消えず、あとで元に戻せます。この店舗に所属しているスタッフがいる場合は、先に別の店舗へ移動するか、無効にしてください。',
+    archiveConfirmCurrentNote: 'いま表示中の店舗です。アーカイブ後はメイン店舗の画面に切り替わります。',
     created: (name) => `「${name}」を追加しました。`,
     renamed: '店舗名を変更しました。',
     archived: '店舗をアーカイブしました。',
@@ -145,7 +148,7 @@ export const storesCopy: Record<Lang, StoresCopy> = {
   },
   en: {
     heading: 'Stores',
-    intro: 'Add, rename or archive stores. The store you registered first is the main store and is listed first.',
+    intro: 'Add, rename or archive stores. Of your open stores, the one registered first is the main store and is listed first.',
     mainBadge: 'Main',
     currentBadge: 'Viewing',
     archivedHeading: 'Archived',
@@ -167,6 +170,7 @@ export const storesCopy: Record<Lang, StoresCopy> = {
     archiveConfirmTitle: 'Archive this store?',
     archiveConfirmBody:
       'An archived store disappears from the store switcher, and its automatic schedule and daily checklist tasks stop. Its records (shifts, attendance, purchases and more) are kept, and you can restore it later. If staff still belong to this store, move them to another store or deactivate them first.',
+    archiveConfirmCurrentNote: 'You are viewing this store now. After archiving, the screen switches to the main store.',
     created: (name) => `“${name}” added.`,
     renamed: 'Store renamed.',
     archived: 'Store archived.',
@@ -217,7 +221,8 @@ export const moveStoreCopy: Record<Lang, MoveStoreCopy> = {
     button: '別の店舗へ移動',
     title: '別の店舗へ移動',
     targetLabel: '移動先の店舗',
-    requestsNote: '今の店舗で承認待ちのシフト希望・休み希望・シフト交代の申請は取り消されます。',
+    requestsNote: '今の店舗での承認待ちの申請（シフト希望・休み希望・シフト交代）と、今日以降の承認済みのシフト希望は取り消されます。',
+    exchangeNote: 'このスタッフが代わりに入る予定だったシフト交代も取り消されます。依頼した人には自動で通知されないため、必要に応じて直接お知らせください。',
     shiftsNote: '今の店舗に今日以降のシフトがある場合は移動できません。先にシフト表から外してください。',
     historyNote: '過去のシフトや勤怠の記録は今の店舗に残ります。',
     managerNote: '「この店舗のみ」の店長の権限も、移動先の店舗に移ります。',
@@ -225,7 +230,7 @@ export const moveStoreCopy: Record<Lang, MoveStoreCopy> = {
     moving: '移動中…',
     moved: (storeName, cancelledRequests) =>
       cancelledRequests > 0
-        ? `「${storeName}」へ移動しました。承認待ちの申請を${cancelledRequests}件取り消しました。`
+        ? `「${storeName}」へ移動しました。申請など${cancelledRequests}件を取り消しました。`
         : `「${storeName}」へ移動しました。`,
     unchanged: 'すでにこの店舗に所属しています。',
   },
@@ -236,7 +241,8 @@ export const moveStoreCopy: Record<Lang, MoveStoreCopy> = {
     button: 'Move to another store',
     title: 'Move to another store',
     targetLabel: 'Move to',
-    requestsNote: 'Their pending shift, leave and shift-swap requests at the current store will be cancelled.',
+    requestsNote: 'Their pending requests at the current store (shift preferences, leave, shift swaps) and their approved shift preferences from today on will be cancelled.',
+    exchangeNote: 'Shift swaps where they were going to cover for someone are cancelled too. The person who asked is not notified automatically, so let them know directly if needed.',
     shiftsNote: 'They cannot be moved while they have shifts at the current store from today on. Remove those shifts from the schedule first.',
     historyNote: 'Past shifts and attendance records stay with the current store.',
     managerNote: 'Their “this store only” manager rights move to the new store too.',
@@ -244,7 +250,7 @@ export const moveStoreCopy: Record<Lang, MoveStoreCopy> = {
     moving: 'Moving…',
     moved: (storeName, cancelledRequests) =>
       cancelledRequests > 0
-        ? `Moved to “${storeName}”. ${cancelledRequests} pending ${cancelledRequests === 1 ? 'request was' : 'requests were'} cancelled.`
+        ? `Moved to “${storeName}”. ${cancelledRequests} open ${cancelledRequests === 1 ? 'request was' : 'requests were'} cancelled.`
         : `Moved to “${storeName}”.`,
     unchanged: 'They already belong to this store.',
   },
