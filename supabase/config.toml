@@ -89,3 +89,12 @@ verify_jwt = false
 # SITE_URL = [auth] site_url. See supabase/functions/provision-tenant/index.ts.
 [functions.provision-tenant]
 verify_jwt = true
+
+# DEBT-139 L3c: console store management (add / rename / archive / restore a
+# tenant's locations), called server-to-server with the platform-staff
+# caller's own JWT. verify_jwt = true: the gateway rejects anonymous calls; the
+# function re-derives the actor from that JWT (auth.getUser) and checks
+# api.is_platform_staff() before any service-role call. No extra secrets
+# (no PII handled). See supabase/functions/platform-location/index.ts.
+[functions.platform-location]
+verify_jwt = true

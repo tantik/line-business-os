@@ -33,6 +33,9 @@ import {
 
 export { DEFAULT_TIMEZONE };
 
+/** Time zones offered by the console forms (the validator accepts any IANA zone; Japan first). */
+export const CONSOLE_TIMEZONES = ['Asia/Tokyo', 'Asia/Seoul', 'Asia/Taipei', 'Asia/Bangkok', 'UTC'] as const;
+
 export type ProvisioningField = 'businessName' | 'tenantSlug' | 'locationName' | 'timezone' | 'ownerEmail';
 
 export type ProvisioningFieldError = 'required' | 'too_long' | 'slug_format' | 'slug_reserved' | 'slug_length' | 'email_invalid' | 'timezone_invalid';
