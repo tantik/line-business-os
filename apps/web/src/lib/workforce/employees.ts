@@ -127,7 +127,7 @@ async function getEmployeeIdsWithProtectedHistory(
 
 const DIRECTORY_SELECT = 'staff_id, tenant_id, location_id, position_label, employment_type, is_active, created_at';
 const MANAGE_SELECT =
-  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen, has_account_access, is_manager, is_admin';
+  'staff_id, tenant_id, location_id, name_encrypted, name_hash, family_name_encrypted, given_name_encrypted, email_encrypted, email_hash, notes_encrypted, position_label, employment_type, is_active, created_at, updated_at, hourly_wage_yen, has_account_access, is_manager, is_admin, manager_scope';
 
 function mapDirectoryRow(row: ApiWorkforceStaffDirectoryRow): WorkforceStaffDirectoryEntry {
   return {
