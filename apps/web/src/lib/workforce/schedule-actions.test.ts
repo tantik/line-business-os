@@ -136,6 +136,15 @@ test('weekly labour limits: settings values (statutory defaults when no row) rea
   assert.match(body, /draftsFromEarlierSlices\.push\(\.\.\.sliceResult\.draftAssignments\)/);
 });
 
+test('runAutoDistribution feeds only live (not cancelled) preferences of the run\'s own store into the engine (DEBT-139 L3, 0156)', () => {
+  const body = runAutoDistributionBody();
+  assert.match(
+    body,
+    /const livePreferenceRows = preferencesResult\.data\.filter\(\(r\) => isLiveShiftRequest\(r\) && r\.locationId === locationId\);/,
+  );
+  assert.match(body, /const preferences: AutoDistributePreference\[\] = livePreferenceRows\s*\n\s*\.filter\(/);
+});
+
 test('runAutoDistribution reads preferences bounded to the scheduled months, never the whole history', () => {
   assert.match(runAutoDistributionBody(), /listShiftRequestsForManager\(supabase, tenantId, \{ kind: 'preference', fromDate: outerMonthStart, toDate: outerMonthEnd \}\)/);
 });

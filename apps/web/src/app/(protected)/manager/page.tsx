@@ -26,6 +26,7 @@ import { MANAGER_ACCESS_PERMISSION } from '@/lib/workforce/manager-access';
 import { ROLE_MANAGE_PERMISSION } from '@/lib/workforce/manager-role';
 import { LOCATION_MANAGE_PERMISSION, tenantStoreGroups } from '@/lib/tenant/location-manage';
 import { getWeekPeriod, getWeekOffsetWindow } from '@/lib/workforce/period';
+import { isLiveShiftRequest } from '@/lib/workforce/shift-request-status';
 import { addIsoDays, localDateTimeToUtcIso, todayIsoInTimeZone } from '@/lib/workforce/timezone';
 import { createRecipeMediaUrlMap, groupRecipesByCategory, RECIPE_MANAGE_PERMISSION } from '@/lib/workforce/recipes';
 import { buildRecipeTranslationField, type RecipeTranslationField } from '@/lib/content/recipe-translation-workspace';
@@ -513,7 +514,9 @@ export default async function WorkforceManagerPage({
             staff={staffResult.status === 'success' ? staffResult.data : null}
             lineLinks={lineLinksResult.status === 'success' ? lineLinksResult.data : null}
             shiftTypes={shiftTypesResult.status === 'success' ? shiftTypesResult.data : null}
-            requests={requestsResult.status === 'success' ? requestsResult.data : null}
+            // Cancelled preferences (store move, 0156) are not submitted: dropped
+            // once here for every Manager reader (grid, summary, popup, conflicts).
+            requests={requestsResult.status === 'success' ? requestsResult.data.filter(isLiveShiftRequest) : null}
             assignments={assignmentsResult.status === 'success' ? assignmentsResult.data : null}
             correctionRequests={correctionRequestsResult.status === 'success' ? correctionRequestsResult.data : null}
             attendance={attendance}

@@ -957,3 +957,42 @@ test('WEEKLY LIMITS: each ISO week has its own budget (two-week period, 1 staff,
     ['e1|2026-10-19:5', 'e1|2026-10-26:5'],
   );
 });
+
+// -- DEBT-139 L3 (0156): cancelled preferences -------------------------------
+// A store move cancels preferences; the one-per-day index ignores cancelled
+// rows, so a cancelled and a live row can share an employee + day.
+
+test('CANCELLED: a cancelled preference never overrides a live one of the same day, whatever the input order', () => {
+  const live = makePreference({ employeeId: 'e1', workDate: '2026-08-03', shiftTypeId: 'st-am', status: 'pending' });
+  const cancelled = makePreference({ employeeId: 'e1', workDate: '2026-08-03', shiftTypeId: null, isUnavailable: true, status: 'cancelled' });
+  for (const preferences of [[live, cancelled], [cancelled, live]]) {
+    const result = autoDistribute({
+      employees: [makeEmployee({ employeeId: 'e1' })],
+      shiftTypes: SHIFT_TYPES,
+      preferences,
+      staffingRequirements: [{ workDate: '2026-08-03', shiftTypeId: 'st-am', requiredHeadcount: 1 }],
+      existingAssignments: [],
+      options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03' }),
+    });
+    assert.equal(result.draftAssignments.length, 1);
+    assert.equal(result.draftAssignments[0]?.employeeId, 'e1');
+    assert.equal(result.draftAssignments[0]?.shiftTypeId, 'st-am');
+    assert.deepEqual(result.assignedWithoutPreference, [], 'placed from the live preference, not as a fallback');
+    assert.deepEqual(result.nonSubmitters, []);
+  }
+});
+
+test('CANCELLED: an employee whose only preferences are cancelled is a nonSubmitter (their unavailable mark no longer applies)', () => {
+  const result = autoDistribute({
+    employees: [makeEmployee({ employeeId: 'e1' })],
+    shiftTypes: SHIFT_TYPES,
+    preferences: [makePreference({ employeeId: 'e1', workDate: '2026-08-03', isUnavailable: true, status: 'cancelled' })],
+    staffingRequirements: [{ workDate: '2026-08-03', shiftTypeId: 'st-am', requiredHeadcount: 1 }],
+    existingAssignments: [],
+    options: baseOptions({ periodStart: '2026-08-03', periodEnd: '2026-08-03' }),
+  });
+  assert.deepEqual(result.nonSubmitters, [{ employeeId: 'e1' }]);
+  // Not hard-excluded by the cancelled 休み row: the fallback may place them.
+  assert.equal(result.draftAssignments.length, 1);
+  assert.deepEqual(result.assignedWithoutPreference, [{ employeeId: 'e1', workDate: '2026-08-03', shiftTypeId: 'st-am' }]);
+});

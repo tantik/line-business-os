@@ -9,6 +9,7 @@ import { getMyWorkforceStaffProfile } from './staff-profile';
 import { listWorkforceStaffDirectory } from './employees';
 import { listWorkforceShiftTypes } from './shift-types';
 import { listShiftRequestsForManager, submitShiftPreference as submitShiftPreferenceWrite } from './shift-requests';
+import { isLiveShiftRequest } from './shift-request-status';
 import {
   clearUnconfirmedDraftAssignmentsInPeriod,
   createShiftAssignment as createShiftAssignmentWrite,
@@ -333,7 +334,11 @@ export async function runAutoDistribution(input: unknown): Promise<RunAutoDistri
     .filter((s) => s.locationId === locationId)
     .map((s) => ({ employeeId: s.staffId, isActive: s.isActive }));
 
-  const preferences: AutoDistributePreference[] = preferencesResult.data
+  // DEBT-139 L3 (0156): only this store's live preferences -- a cancelled row
+  // (store move) is not submitted, and a row recorded at another store never
+  // feeds this store's run. Review status (pending/approved) is not read.
+  const livePreferenceRows = preferencesResult.data.filter((r) => isLiveShiftRequest(r) && r.locationId === locationId);
+  const preferences: AutoDistributePreference[] = livePreferenceRows
     .filter((r) => r.workDate >= periodStart && r.workDate <= periodEnd)
     .map((r) => ({
       employeeId: r.employeeId,

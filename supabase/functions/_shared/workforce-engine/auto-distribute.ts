@@ -67,6 +67,8 @@ export interface AutoDistributePreference {
   /** Overrides the shift type's own start/end when present -- available for any shift type, not just CUSTOM ones. */
   customStartsAtLocal?: LocalTime;
   customEndsAtLocal?: LocalTime;
+  /** The request row's status when the caller has it. A `cancelled` row (0156: store move) is ignored entirely -- never "submitted", never overrides a live row of the same day. */
+  status?: string;
 }
 
 export interface AutoDistributeStaffingRequirement {
@@ -359,9 +361,11 @@ export function autoDistribute(input: AutoDistributeInput): AutoDistributeResult
 
   // Preferences, restricted to active employees + in-period dates. Deduped by
   // employeeId/workDate (last row in input order wins) for determinism if the
-  // caller ever passes a duplicate.
+  // caller ever passes a duplicate. Cancelled rows are skipped before the
+  // dedupe, so a cancelled row can never override a live one of the same day.
   const preferenceByKey = new Map<string, AutoDistributePreference>();
   for (const preference of preferences) {
+    if (preference.status === 'cancelled') continue;
     if (!activeEmployeeIds.has(preference.employeeId)) continue;
     if (!periodDateSet.has(preference.workDate)) continue;
     preferenceByKey.set(assignmentKey(preference.employeeId, preference.workDate), preference);

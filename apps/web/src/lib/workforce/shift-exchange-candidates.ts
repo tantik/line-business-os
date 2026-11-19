@@ -12,6 +12,8 @@
  * enforcement boundary regardless of what this computes.
  */
 
+import { isLiveShiftRequest } from './shift-request-status';
+
 export interface ShiftExchangeCandidateEmployeeInput {
   employeeId: string;
   name: string;
@@ -32,6 +34,8 @@ export interface ShiftExchangeCandidatePreferenceInput {
   workDate: string;
   kind: string;
   isUnavailable: boolean;
+  /** A `cancelled` request (0156: store move) is ignored -- it is not a live "unavailable" mark. */
+  status?: string;
 }
 
 export type ShiftExchangeCandidateWarning = 'schedule_conflict' | 'marked_unavailable' | null;
@@ -61,7 +65,9 @@ export function computeShiftExchangeCandidates(
   const offeredEnd = Date.parse(offeredShift.endsAt);
 
   const unavailableEmployeeIds = new Set(
-    preferences.filter((p) => p.kind === 'preference' && p.isUnavailable && p.workDate === offeredShift.workDate).map((p) => p.employeeId),
+    preferences
+      .filter((p) => p.kind === 'preference' && p.isUnavailable && p.workDate === offeredShift.workDate && isLiveShiftRequest(p))
+      .map((p) => p.employeeId),
   );
 
   const conflictedEmployeeIds = new Set<string>();
