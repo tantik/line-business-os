@@ -238,7 +238,7 @@ duplicated here.
   reaches Cloud DEV via the Management API).
 - **Cafe v2.2 is NOT declared CLOSED.** Production and `main` are untouched
   and separately gated.
-- **2026-11-03..19: DEBT-139 L1–L3 DONE** (#688, #693/#694, #696/#697; 0150–0156 on Cloud DEV; L3 live-checked at 375 px on qa-4c-cafe-1). **Founder 2026-11-19: brand renamed to MIRAWII**; release order = free work first (L3c → L4 → L5 → rename in code → 4D + site → cabinet + Stripe test mode), then purchases (domain, trademark, Vercel Pro), domain move, production pack.
+- **2026-11-03..19: DEBT-139 L1–L3c DONE** (#688, #693/#694, #696/#697, #699; 0150–0157 + function `platform-location` on Cloud DEV; L3 / L3c live-checked at 375 px on qa-4c-cafe-1). **Founder 2026-11-19: brand renamed to MIRAWII**; release order = free work first (L4 → L5 → rename in code → 4D + site → cabinet + Stripe test mode), then purchases (domain, trademark, Vercel Pro), domain move, production pack.
 - Latest handoff: `docs/ai/SESSION_HANDOFF_2026-11-19.md`.
 
 Where everything else lives:
