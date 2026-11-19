@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { Button, ConfirmDialog, Dialog, Field, InlineAlert, Input, Menu, MetadataText, Select, StatusBadge, type MenuItem, type SelectOption } from '@line-os/ui';
 import { createPlatformLocation, renamePlatformLocation, setPlatformLocationActive } from '@/lib/platform/platform-location-actions';
 import type { PlatformLocationResult } from '@/lib/platform/platform-location';
@@ -49,7 +49,8 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
   const [pendingKind, setPendingKind] = useState<PendingKind>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [newName, setNewName] = useState('');
-  const [newTimezone, setNewTimezone] = useState<string>(DEFAULT_TIMEZONE);
+  // a new store usually shares the main store's time zone
+  const [newTimezone, setNewTimezone] = useState<string>(activeStores[0]?.timezone ?? DEFAULT_TIMEZONE);
   const [addError, setAddError] = useState<TenantsKey | null>(null);
   const [renameTarget, setRenameTarget] = useState<PlatformLocationRow | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -57,6 +58,17 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
   const [archiveTarget, setArchiveTarget] = useState<PlatformLocationRow | null>(null);
 
   const mainStoreId = activeStores[0]?.locationId ?? null;
+  const feedbackRef = useRef<HTMLDivElement>(null);
+
+  // the action may be far below (archived group) on a phone sheet: bring the result into view
+  useEffect(() => {
+    if (feedback) feedbackRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [feedback]);
+
+  // keep the pending label through the router refresh that follows a change
+  useEffect(() => {
+    if (!isPending) setPendingKind(null);
+  }, [isPending]);
 
   function errorKey(result: Extract<PlatformLocationResult, { status: 'error' }>): TenantsKey {
     return STORE_ERROR_KEY[result.code];
@@ -78,7 +90,6 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
     setPendingKind('add');
     startTransition(async () => {
       const result = await createPlatformLocation(formData);
-      setPendingKind(null);
       if (result.status === 'success') {
         setNewName('');
         setFeedback({ tone: 'success', key: 'storesCreated' });
@@ -113,7 +124,6 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
     setPendingKind('rename');
     startTransition(async () => {
       const result = await renamePlatformLocation(formData);
-      setPendingKind(null);
       if (result.status === 'success') {
         setRenameTarget(null);
         setFeedback({ tone: 'success', key: result.changed ? 'storesRenamed' : 'storesUnchanged' });
@@ -132,13 +142,12 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
     setPendingKind('active');
     startTransition(async () => {
       const result = await setPlatformLocationActive(formData);
-      setPendingKind(null);
       setArchiveTarget(null);
       if (result.status === 'success') {
         setFeedback({ tone: 'success', key: !result.changed ? 'storesUnchanged' : isActive ? 'storesRestored' : 'storesArchived' });
         if (result.changed) onChanged();
       } else {
-        setFeedback({ tone: 'critical', key: errorKey(result) });
+        setFeedback({ tone: 'critical', key: isActive && result.code === 'name_taken' ? 'storesErrNameTakenRestore' : errorKey(result) });
       }
     });
   }
@@ -193,7 +202,7 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
   }
 
   return (
-    <Dialog open onClose={onClose} title={`${t('storesTitle')} — ${tenantLabel}`} size="form" closeLabel={t('formClose')} dismissible={!isPending}>
+    <Dialog open onClose={onClose} title={fillTenants(t('storesTitleFor'), { name: tenantLabel })} size="form" closeLabel={t('formClose')} dismissible={!isPending}>
       <div className="flex min-w-0 flex-col gap-4">
         <p className="m-0 text-sm text-text-muted">{t('storesIntro')}</p>
 
@@ -205,7 +214,11 @@ export function TenantStoresDialog({ tenantId, tenantLabel, tenantActive, active
           </p>
         ) : null}
 
-        {feedback ? <InlineAlert tone={feedback.tone}>{t(feedback.key)}</InlineAlert> : null}
+        {feedback ? (
+          <div ref={feedbackRef}>
+            <InlineAlert tone={feedback.tone}>{t(feedback.key)}</InlineAlert>
+          </div>
+        ) : null}
 
         <section aria-label={t('storesOpenHeading')} className="min-w-0">
           <h3 className="m-0 text-sm font-semibold text-text-primary">{t('storesOpenHeading')}</h3>

@@ -26,7 +26,7 @@ import {
   tableHeaderCell,
   type BadgeTone,
 } from '@/lib/ui/theme';
-import { FIELD_ERROR_KEY, FIELD_ORDER, OUTCOME_KEY, OWNER_KEY, STATUS_KEY, tTenants, type TenantsKey } from './tenants-i18n';
+import { FIELD_ERROR_KEY, FIELD_ORDER, OUTCOME_KEY, OWNER_KEY, STATUS_KEY, fillTenants, tTenants, type TenantsKey } from './tenants-i18n';
 import { TenantStoresDialog } from './tenant-stores';
 
 /** Time zones offered in the form (the validator accepts any IANA zone; Japan first). */
@@ -240,7 +240,7 @@ function TenantsTable({ rows, locations, t, lang, onRetry, onStores }: TenantsTa
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {row.tenantId && locations !== null ? (
                       <button type="button" style={buttonSecondary} onClick={() => onStores(row)} title={t('storesButtonHint')}>
-                        {t('storesButton')} ({openCount.get(row.tenantId) ?? 0})
+                        {fillTenants(t('storesButtonCount'), { n: openCount.get(row.tenantId) ?? 0 })}
                       </button>
                     ) : null}
                     {retryable ? (
